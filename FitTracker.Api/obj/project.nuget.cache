@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "dgSpecHash": "z2/aH9QrvG3DjfBHdqiUWMCQv7DYw+FD4x1q20bTMCg47wqhNnynspRurBtf4cbQVI1vBJhQ249DWS4pQEK4pA==",
+  "success": true,
+  "projectFilePath": "F:\\VisualStudioRepo\\Fitness_Tracker\\FitTracker.Api\\FitTracker.Api.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\Lifebook E536\\.nuget\\packages\\bcrypt.net-next\\4.1.0\\bcrypt.net-next.4.1.0.nupkg.sha512"
+  ],
+  "logs": []
+}
