@@ -1,0 +1,3 @@
+﻿Full log: build-diagnostics\full_build.log
+Snippets: build-diagnostics\error_snippets.log
+Error count (regex matches): 95

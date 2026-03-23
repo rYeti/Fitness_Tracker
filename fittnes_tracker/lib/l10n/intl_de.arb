@@ -1,0 +1,643 @@
+
+{
+    "@@locale": "de",
+
+    "male": "Männlich",
+    "female": "Weiblich",
+    "other": "Andere",
+
+    "sedentary": "Sitzend",
+    "lightlyActive": "Leicht aktiv",
+    "moderatelyActive": "Mäßig aktiv",
+    "veryActive": "Sehr aktiv",
+    "extremelyActive": "Extrem aktiv",
+
+    "weightLoss": "Gewichtsverlust",
+    "muscleGain": "Muskelaufbau",
+    "maintenance": "Erhaltung",
+
+    "dashboard": "Übersicht",
+    "food": "Essen",
+    "gym": "Fitnessstudio",
+    "progress": "Fortschritt",
+
+    "settings": "Einstellungen",
+    "age": "Alter",
+    "heightCm": "Größe (cm)",
+    "dailyCalorieGoal": "Tägliches Kalorienziel",
+    "saveCalorieGoal": "Kalorienziel gespeichert",
+
+    "addFood": "{category}",
+    "@addFood": {
+      "placeholders": {
+        "category": {
+          "type": "Object"
+        }
+      }
+    },
+
+    "scanBarcode": "Barcode scannen",
+    "nutritionProgress": "Ernährungsfortschritt",
+    "foodDetails": "Lebensmitteldetails",
+
+    "searchFailed": "Suche fehlgeschlagen: {error}",
+    "@searchFailed": {
+      "placeholders": {
+        "error": {
+          "type": "Object"
+        }
+      }
+    },
+
+    "pleaseEnterValidAgeAndHeight": "Bitte gültiges Alter und Größe eingeben",
+    "pleaseEnterValidNumber": "Bitte eine gültige Zahl eingeben",
+    "calculatedAndSavedCalorieGoal": "Kalorienziel berechnet und gespeichert",
+
+    "failedToSaveProfile": "Profil konnte nicht gespeichert werden: {error}",
+    "@failedToSaveProfile": {
+      "placeholders": {
+        "error": {
+          "type": "Object"
+        }
+      }
+    },
+
+    "failedToUpdateCalorieGoal": "Kalorienziel konnte nicht aktualisiert werden: {error}",
+    "@failedToUpdateCalorieGoal": {
+      "placeholders": {
+        "error": {
+          "type": "Object"
+        }
+      }
+    },
+
+    "failedToLoadData": "Daten konnten nicht geladen werden: {error}",
+    "@failedToLoadData": {
+      "placeholders": {
+        "error": {
+          "type": "Object"
+        }
+      }
+    },
+
+    "sex": "Geschlecht",
+    "activity": "Aktivität",
+    "goal": "Ziel",
+
+    "cancel": "Abbrechen",
+    "addCustomFood": "Eigenes Lebensmittel hinzufügen",
+    "foodName": "Lebensmittelname",
+    "calories": "Kalorien",
+    "protein": "Protein (g)",
+    "carbs": "Kohlenhydrate (g)",
+    "fat": "Fett (g)",
+    "addedSuccessfully": "erfolgreich hinzugefügt!",
+    "pleaseEnterAName": "Bitte einen Namen eingeben",
+    "pleaseEnterCalories": "Bitte Kalorien eingeben",
+
+    "foodTracker": "Tracker",
+    "proteinLabel": "Protein",
+    "carbsLabel": "Kohlenhydrate",
+    "fatLabel": "Fett",
+
+    "ok": "OK",
+
+    "addFailed": "Hinzufügen fehlgeschlagen",
+    "nutritionInformation": "Nährwertinformationen",
+    "portionSize": "Portionsgröße",
+    "quantityInGrams": "Menge in Gramm",
+    "addToTodayLog": "Zum heutigen Protokoll hinzufügen",
+    "mealCategory": "Mahlzeitenkategorie",
+    "addToLog": "Zum Protokoll hinzufügen",
+
+  "mealBreakfast": "Frühstück",
+  "mealLunch": "Mittagessen",
+  "mealDinner": "Abendessen",
+  "mealSnacks": "Snacks",
+
+    "searchForFood": "Nach Lebensmitteln suchen",
+    "recentlyAdded": "Kürzlich hinzugefügt",
+    "addedToRecentFoods": "{name} wurde zu den kürzlich hinzugefügten Lebensmitteln hinzugefügt",
+    "@addedToRecentFoods": {
+      "placeholders": {
+        "name": {
+          "type": "Object"
+        }
+      }
+    },
+    "noFoodAdded": "Noch nichts hinzugefügt",
+    "calculateAndSave": "Kalorienziel berechnet und gespeichert",
+    "workoutName": "Workout Name",
+    "createWorkout": "Training erstellen",
+    "workoutSavedSuccessfully": "Training erfolgreich gespeichert",
+    "pleaseEnterWorkoutName": "Bitte geben Sie einen Trainingsnamen ein",
+    "pleaseEnterAtLeastOneWorkoutDay": "Bitte fügen Sie mindestens einen Trainingstag zum Zyklus hinzu",
+    "pleaseSelectStartDate": "Bitte wählen Sie ein Startdatum",
+    "noExercisesYet": "Noch keine Übungen",
+    "addWorkout": "Training hinzufügen",
+    "addRestDay": "Ruhetag hinzufügen",
+    "workoutNameLabel": "Trainingsname",
+    "add": "Hinzufügen",
+    "selectStartDate": "Startdatum wählen",
+    "back": "Zurück",
+    "next": "Weiter",
+    "save": "Speichern",
+    "stepXofY": "Schritt {current} von {total}",
+    "@stepXofY": {
+        "placeholders": {
+            "current": {
+                "type": "int"
+            },
+            "total": {
+                "type": "int"
+            }
+        }
+    },
+    "dayRestDay": "Tag {day}: Ruhetag",
+    "@dayRestDay": {
+        "placeholders": {
+            "day": {
+                "type": "int"
+            }
+        }
+    },
+    "dayWorkout": "Tag {day}: {workout}",
+    "@dayWorkout": {
+        "placeholders": {
+            "day": {
+                "type": "int"
+            },
+            "workout": {
+                "type": "String"
+            }
+        }
+    },
+    "noScheduledWorkouts": "Keine geplanten Trainings",
+    "unknownWorkout": "Unbekanntes Training",
+    "workouts": "Trainings",
+    "seedWorkoutTemplates": "Trainingsvorlagen laden (Debug)",
+    "seedingTemplates": "Lade Vorlagen...",
+    "seedingFailed": "Laden fehlgeschlagen: {error}",
+    "@seedingFailed": {
+        "placeholders": {
+            "error": {
+                "type": "Object"
+            }
+        }
+    },
+    "createOrEditWorkouts": "Trainings erstellen oder bearbeiten",
+    "newWorkout": "Neues Training",
+    "viewWorkouts": "Trainings ansehen",
+    "minutesShort": "{minutes} Min",
+    "@minutesShort": {
+        "placeholders": {
+            "minutes": {
+                "type": "int"
+            }
+        }
+    },
+
+    "noSetTemplates": "Keine Sätze konfiguriert",
+    "setTemplatesCount": "{count, plural, =1{1 Satz} other{{count} Sätze}}",
+    "copyToAll": "Auf alle kopieren",
+"repsHelperText": "z.B. 8-12 oder 10",
+"addSet": "Satz hinzufügen",
+"noSetsConfigured": "Keine Sätze konfiguriert",
+"sets": "Sätze",
+"reps": "Wiederholungen",
+"removeSet": "Satz entfernen",
+"setLabel": "Set",
+"previous": "Vorheriges",
+"kg": "KG",
+"weight": "Gewicht",
+"noExercisesForWorkout": "Keine Übungen für dieses Training konfiguriert",
+"errorLoadingExercises": "Fehler beim Laden der Übungen: {error}",
+"@errorLoadingExercises": {
+  "placeholders": {
+    "error": {
+      "type": "Object"
+    }
+  }
+},
+"target": "Ziel",
+"saveWorkout": "Workout Speichern",
+"SaveWorkout": "Workout wurde gespeichert",
+"restDay": "Ruhetag",
+  "editWorkout": "Training bearbeiten",
+  "workoutUpdatedSuccessfully": "Training erfolgreich aktualisiert",
+  "saveFailed": "Speichern fehlgeschlagen: {error}",
+  "@saveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
+  },
+  "addExercise": "Übung hinzufügen",
+  "cancel": "Abbrechen",
+  "editSet": "Satz {setNumber} bearbeiten",
+  "@editSet": {
+    "placeholders": {
+      "setNumber": {
+        "type": "int"
+      }
+    }
+  },
+  "save": "Speichern",
+  "noExercisesInWorkout": "Keine Übungen in diesem Training",
+  "setsLabel": "Sätze",
+  "noSetsFound": "Keine Sätze für diese Übung gefunden",
+  "exerciseName": "Übungsname",
+  "description": "Beschreibung",
+  "duration": "Dauer",
+  "difficulty": "Schwierigkeit",
+  "repsLabel": "Wiederholungen",
+  "weightLabel": "Gewicht",
+  "unit": "Einheit",
+  "delete": "Löschen",
+  "addSet": "Satz hinzufügen",
+  "exercises": "Übungen",
+  "edit": "Bearbeiten",
+  "addButton": "Hinzufügen",
+  "saveButton": "Speichern",
+  "workoutSaved": "Training wurde gespeichert.",
+  "noWorkoutsFound": "Kein Workout gefunden.",
+  "setWeightGoal": "Gewichtsziel setzen",
+  "calculateBMI": "BMI berechnen",
+  "currentWeight": "Aktuelles Gewicht",
+
+  "weightProgress": "Gewichtsfortschritt",
+  "nutrition": "Ernährung",
+  "exerciseProgress": "Übungsfortschritt",
+  "weightGoals": "Gewichtsziele",
+  "startingWeight": "Startgewicht",
+  "goalWeight": "Zielgewicht",
+  "enterStartingWeightHint": "z.B. 90",
+  "enterGoalWeightHint": "z.B. 75",
+  "pleaseEnterValidWeights": "Bitte gültige Gewichte eingeben",
+  "weightGoalsUpdated": "Gewichtsziele aktualisiert",
+  "saveWeightGoals": "Gewichtsziele speichern",
+  "weightGoalsSaved": "Gewichtsziele gespeichert",
+  "estimatedCompletion": "Voraussichtliche Fertigstellung",
+  "movingAwayFromGoal": "Entfernung vom Ziel",
+  "weightStarting": "Start",
+  "weightCurrent": "Aktuell",
+  "weightToGo": "Noch",
+  "weightComplete": "Erreicht",
+  "weightGained": "Zugenommen",
+  "weightGoalLabel": "Ziel",
+  "completionLessThanWeek": "Weniger als eine Woche!",
+  "completionWeeks": "Noch ca. {n} Woche(n)",
+  "@completionWeeks": {
+    "placeholders": { "n": {"type": "int"} }
+  },
+  "completionMonths": "Noch ca. {n} Monat(e)",
+  "@completionMonths": {
+    "placeholders": { "n": {"type": "int"} }
+  },
+  "completionYears": "Noch ca. {n} Jahr(e)",
+  "@completionYears": {
+    "placeholders": { "n": {"type": "int"} }
+  },
+  "errorLoadingProgress": "Fehler beim Laden des Fortschritts: {error}",
+  "@errorLoadingProgress": {
+    "placeholders": { "error": {"type": "Object"} }
+  },
+
+  "addBreakfast": "Frühstück hinzufügen",
+  "addLunch": "Mittagessen hinzufügen",
+  "addDinner": "Abendessen hinzufügen",
+  "addSnack": "Snack hinzufügen",
+  "addWeight": "Gewicht hinzufügen",
+  "allTime": "Gesamt",
+  "dailyCalories": "Tageskalorien",
+  "todaysWorkout": "Heutiges Training",
+  "errorLoadingWorkout": "Fehler beim Laden des Trainings: {error}",
+  "@errorLoadingWorkout": {
+    "placeholders": { "error": {"type": "Object"} }
+  },
+  "calorieTrend": "Kalorientrend",
+  "avgCalories": "Ø Kalorien",
+  "calPerDay": "kcal/Tag",
+  "noNutritionDataYet": "Noch keine Ernährungsdaten",
+  "sevenDays": "7 Tage",
+  "thirtyDays": "30 Tage",
+  "ninetyDays": "90 Tage",
+  "timeRange": "Zeitraum",
+  "weeklyAverages": "Wochendurchschnitt",
+  "daysOnTarget": "Tage im Ziel",
+  "currentStreak": "Aktuelle Serie",
+  "longestStreak": "Längste Serie",
+  "logMealsProgress": "Mahlzeiten protokollieren",
+  "completeWorkoutsProgress": "Trainings abschließen",
+  "summaryStatistics": "Zusammenfassung",
+
+  "myFoods": "Meine Lebensmittel",
+  "onlineResults": "Online-Ergebnisse",
+  "editPortion": "Portion bearbeiten",
+  "portionGrams": "Portion (g)",
+  "portionLabel": "Portion",
+  "updatePortion": "Aktualisieren",
+  "updateButton": "Aktualisieren",
+  "today": "Heute",
+  "couldNotReachFoodDatabase": "Lebensmitteldatenbank nicht erreichbar",
+  "noResultsFor": "Keine Ergebnisse für \"{query}\"",
+  "@noResultsFor": {
+    "placeholders": { "query": {"type": "String"} }
+  },
+  "barcodeNotSupportedOnWeb": "Barcode-Scan im Web nicht verfügbar",
+  "scan": "Scannen",
+  "retry": "Erneut versuchen",
+  "addToMealTemplate": "Zur Mahlzeitvorlage hinzufügen",
+  "mealTemplates": "Mahlzeitvorlagen",
+  "createTemplate": "Vorlage erstellen",
+  "createMealTemplate": "Mahlzeitvorlage erstellen",
+  "deleteTemplate": "Vorlage löschen",
+  "deleteTemplateQuestion": "Diese Vorlage löschen?",
+  "noTemplatesFound": "Keine Vorlagen gefunden",
+  "saveTemplate": "Vorlage speichern",
+  "templateName": "Vorlagenname",
+  "pleaseAddAtLeastOneFood": "Bitte mindestens ein Lebensmittel hinzufügen",
+  "templateCreatedSuccessfully": "Vorlage erfolgreich erstellt",
+  "addedToTemplate": "{name} zur Vorlage hinzugefügt",
+  "@addedToTemplate": {
+    "placeholders": { "name": {"type": "String"} }
+  },
+  "templateApplied": "\"{name}\" auf {category} angewendet",
+  "@templateApplied": {
+    "placeholders": {
+      "name": {"type": "String"},
+      "category": {"type": "String"}
+    }
+  },
+  "errorApplyingTemplate": "Fehler beim Anwenden der Vorlage: {error}",
+  "@errorApplyingTemplate": {
+    "placeholders": { "error": {"type": "Object"} }
+  },
+  "errorCreatingTemplate": "Fehler beim Erstellen der Vorlage: {error}",
+  "@errorCreatingTemplate": {
+    "placeholders": { "error": {"type": "Object"} }
+  },
+  "errorScanningBarcode": "Fehler beim Scannen: {error}",
+  "@errorScanningBarcode": {
+    "placeholders": { "error": {"type": "Object"} }
+  },
+  "apply": "Anwenden",
+  "applyTemplate": "Vorlage anwenden",
+  "applyTemplateQuestion": "Diese Vorlage anwenden?",
+  "addToTemplate": "Zur Vorlage hinzufügen",
+
+  "addWeightRecord": "Gewichtseintrag hinzufügen",
+  "addWeightRecordTitle": "Gewicht hinzufügen",
+  "editWeightRecord": "Gewichtseintrag bearbeiten",
+  "deleteWeightRecord": "Gewichtseintrag löschen",
+  "deleteWeightRecordConfirm": "Diesen Gewichtseintrag löschen?",
+  "noWeightRecordsYet": "Noch keine Gewichtseinträge",
+  "invalidWeight": "Ungültiges Gewicht",
+  "weightCalorieCorrelation": "Gewicht & Kalorien Korrelation",
+  "maxWeight": "Maximalgewicht",
+
+  "workoutProgress": "Trainingsfortschritt",
+  "workoutComplete": "Training abgeschlossen!",
+  "workoutNotes": "Trainingsnotizen",
+  "workoutDayHint": "z.B. Montag",
+  "workoutSummaryLabel": "Trainingsübersicht",
+  "workoutHasNoExercises": "Dieses Training hat keine Übungen",
+  "workoutFrequency": "Trainingshäufigkeit",
+  "workoutDeleted": "Training gelöscht",
+  "workoutDetailsUpdated": "Trainingsdetails aktualisiert",
+  "workoutPlanSetActive": "Plan als aktiv gesetzt",
+  "workoutPlanNameHint": "z.B. Mein 5-Tage-Split",
+  "workoutAddedToPlan": "Training zum Plan hinzugefügt",
+  "workoutRemovedFromPlan": "\"{name}\" aus dem Plan entfernt",
+  "@workoutRemovedFromPlan": {
+    "placeholders": { "name": {"type": "String"} }
+  },
+  "workoutRenamedTo": "Training umbenannt in \"{name}\"",
+  "@workoutRenamedTo": {
+    "placeholders": { "name": {"type": "String"} }
+  },
+  "workoutPostponedTo": "Training verschoben auf {date}",
+  "@workoutPostponedTo": {
+    "placeholders": { "date": {"type": "String"} }
+  },
+  "deleteWorkoutConfirmation": "\"{name}\" löschen?",
+  "@deleteWorkoutConfirmation": {
+    "placeholders": { "name": {"type": "String"} }
+  },
+  "deleteWorkout": "Training löschen",
+  "editWorkoutName": "Trainingsname bearbeiten",
+  "editWorkoutsTitle": "Trainings bearbeiten",
+  "editWorkoutDetailsTooltip": "Trainingsdetails bearbeiten",
+  "manageWorkouts": "Trainings verwalten",
+  "createFirstWorkout": "Erstes Training erstellen",
+  "noWorkoutsAddedYet": "Noch keine Trainings hinzugefügt",
+  "noWorkoutsAvailableToAdd": "Keine Trainings verfügbar",
+  "noWorkoutsInPlanYet": "Noch keine Trainings im Plan",
+  "noWorkoutPlansFound": "Keine Trainingspläne gefunden",
+  "noWorkoutDataYet": "Noch keine Trainingsdaten",
+  "addWorkoutToPlanTitle": "Training zum Plan hinzufügen",
+  "addWorkoutsToBuildCycle": "Trainings hinzufügen um den Zyklus aufzubauen",
+  "removeWorkoutFromPlan": "Aus Plan entfernen",
+  "removeWorkoutFromPlanTooltip": "Training aus Plan entfernen",
+  "removeWorkoutFromPlanConfirm": "\"{name}\" aus dem Plan entfernen?",
+  "@removeWorkoutFromPlanConfirm": {
+    "placeholders": { "name": {"type": "String"} }
+  },
+  "failedToRemoveWorkoutFromPlan": "Fehler beim Entfernen aus Plan: {error}",
+  "@failedToRemoveWorkoutFromPlan": {
+    "placeholders": { "error": {"type": "Object"} }
+  },
+  "openPlanEditor": "Plan-Editor öffnen",
+  "deletePlanTooltip": "Plan löschen",
+  "setActive": "Aktivieren",
+  "activatePlan": "Plan aktivieren",
+  "active": "Aktiv",
+  "activePlanBadge": "Aktiv",
+  "noWorkoutDataYetLabel": "Noch keine Daten",
+
+  "nameYourWorkoutPlan": "Trainingsplan benennen",
+  "chooseMemorableName": "Wähle einen einprägsamen Namen",
+  "workoutPlanNameHintAlt": "z.B. Sommer-Definition",
+  "buildYourCycle": "Deinen Zyklus aufbauen",
+  "stepStart": "Start",
+  "stepCycle": "Zyklus",
+  "whenToBeginProgram": "Programmbeginn",
+  "chooseStartDate": "Startdatum wählen",
+  "startDateLabel": "Startdatum",
+  "scheduledWorkoutLabel": "Geplantes Training",
+  "scheduledForNextDays": "Geplant für die nächsten Tage",
+  "upcoming": "Kommend",
+  "skipped": "Übersprungen",
+  "jumpTo": "Springen zu",
+  "postponeWorkout": "Training verschieben",
+  "skipWorkout": "Training überspringen",
+  "viewLabel": "Ansicht",
+  "dayCycleLength": "{n}-Tage-Zyklus",
+  "@dayCycleLength": {
+    "placeholders": { "n": {"type": "int"} }
+  },
+
+  "exerciseFeelingHint": "Wie war es?",
+  "exerciseNotes": "Übungsnotizen",
+  "exerciseRemovedFromWorkout": "Übung entfernt",
+  "exercisesSummary": "Übungen",
+  "noExercisesCount": "Keine Übungen",
+  "noPreviousDataForSet": "Keine Vorjahresdaten für diesen Satz",
+  "prevExercise": "Vorherige Übung",
+  "nextExercise": "Nächste Übung",
+  "nextSet": "Nächster Satz",
+  "currentSetLabel": "Aktueller Satz",
+  "restTimer": "Pausentimer",
+  "lastTime": "Letztes Mal",
+  "actual": "Tatsächlich",
+  "tapButtonToAddExercises": "+ drücken um Übungen hinzuzufügen",
+  "addExercisesToTemplate": "Übungen zur Vorlage hinzufügen",
+  "templateWorkoutLabel": "Vorlagentraining",
+  "removeExerciseTitle": "Übung entfernen",
+  "removeExerciseTooltip": "Übung entfernen",
+  "setRemovedFromExercise": "Satz entfernt",
+  "setAddedToExercise": "Satz hinzugefügt",
+  "moreOptions": "Weitere Optionen",
+  "editDetails": "Details bearbeiten",
+  "editName": "Name bearbeiten",
+  "remove": "Entfernen",
+  "goBack": "Zurück",
+  "close": "Schließen",
+  "done": "Fertig",
+  "loading": "Lädt...",
+  "custom": "Benutzerdefiniert",
+  "category": "Kategorie",
+  "days": "Tage",
+  "noteOptional": "Notiz (optional)",
+  "descriptionOptional": "Beschreibung (optional)",
+  "descriptionAndDuration": "Beschreibung & Dauer",
+  "overallWorkoutHint": "Gesamteindruck des Trainings?",
+  "completedWorkout": "Training abgeschlossen!",
+  "startWorkout": "Training starten",
+  "bmiComingSoon": "BMI demnächst verfügbar",
+  "importButton": "Importieren",
+  "importOptions": "Importoptionen",
+  "importFitNotes": "FitNotes importieren",
+  "importFitNotesHint": "Aus FitNotes CSV-Export importieren",
+  "importingWorkoutHistory": "Trainingshistorie wird importiert...",
+  "importComplete": "Import abgeschlossen",
+  "readyToImport": "Bereit zum Importieren",
+  "noValidDataInFile": "Keine gültigen Daten in der Datei gefunden",
+  "selectCsvFile": "CSV-Datei auswählen",
+  "csvSelectFileButton": "Datei auswählen",
+  "csvImportExercisesButton": "Übungen importieren",
+  "csvFormatTitle": "CSV-Format",
+  "csvFormatDescription": "Übungen aus CSV-Datei importieren",
+  "csvCreateWorkoutHint": "Training aus CSV erstellen",
+  "csvPleaseSelectFile": "Bitte Datei auswählen",
+  "csvImporting": "Importiert...",
+  "totalWorkouts": "Gesamte Trainings",
+  "avgSets": "Ø Sätze",
+  "avgPerWeek": "Ø / Woche",
+  "uniqueExercisesLabel": "Einzigartige Übungen",
+  "unknownExercise": "Unbekannte Übung",
+
+  "exerciseXofY": "Übung {x} von {y}",
+  "@exerciseXofY": {
+    "placeholders": {
+      "x": {"type": "int"},
+      "y": {"type": "int"}
+    }
+  },
+  "exerciseCount": "{n} Übung(en)",
+  "@exerciseCount": {
+    "placeholders": { "n": {"type": "int"} }
+  },
+  "exercisesAndSets": "{exercises} Übung(en), {sets} Satz/Sätze",
+  "@exercisesAndSets": {
+    "placeholders": {
+      "exercises": {"type": "int"},
+      "sets": {"type": "int"}
+    }
+  },
+  "exerciseAddedToWorkout": "{name} zum Training hinzugefügt",
+  "@exerciseAddedToWorkout": {
+    "placeholders": { "name": {"type": "String"} }
+  },
+  "failedToAddExercise": "Fehler beim Hinzufügen der Übung: {error}",
+  "@failedToAddExercise": {
+    "placeholders": { "error": {"type": "Object"} }
+  },
+  "failedToAddSet": "Fehler beim Hinzufügen des Satzes: {error}",
+  "@failedToAddSet": {
+    "placeholders": { "error": {"type": "Object"} }
+  },
+  "failedToRemoveExercise": "Fehler beim Entfernen der Übung: {error}",
+  "@failedToRemoveExercise": {
+    "placeholders": { "error": {"type": "Object"} }
+  },
+  "errorCompletingWorkout": "Fehler beim Abschließen des Trainings: {error}",
+  "@errorCompletingWorkout": {
+    "placeholders": { "error": {"type": "Object"} }
+  },
+  "errorUpdatingDetails": "Fehler beim Aktualisieren der Details: {error}",
+  "@errorUpdatingDetails": {
+    "placeholders": { "error": {"type": "Object"} }
+  },
+  "errorUpdatingName": "Fehler beim Aktualisieren des Namens: {error}",
+  "@errorUpdatingName": {
+    "placeholders": { "error": {"type": "Object"} }
+  },
+  "createdExercises": "{n} Übung(en) erstellt",
+  "@createdExercises": {
+    "placeholders": { "n": {"type": "int"} }
+  },
+  "importedSessions": "{n} Einheit(en) importiert",
+  "@importedSessions": {
+    "placeholders": { "n": {"type": "int"} }
+  },
+  "importedSets": "{n} Satz/Sätze importiert",
+  "@importedSets": {
+    "placeholders": { "n": {"type": "int"} }
+  },
+  "importedWorkoutsCreated": "{n} Training(s) erstellt",
+  "@importedWorkoutsCreated": {
+    "placeholders": { "n": {"type": "int"} }
+  },
+  "newExercisesWillBeCreated": "{n} neue Übung(en) werden erstellt",
+  "@newExercisesWillBeCreated": {
+    "placeholders": { "n": {"type": "int"} }
+  },
+  "sessionsCount": "{n} Einheit(en)",
+  "@sessionsCount": {
+    "placeholders": { "n": {"type": "int"} }
+  },
+  "setsCount": "{n} Satz/Sätze",
+  "@setsCount": {
+    "placeholders": { "n": {"type": "int"} }
+  },
+  "importFailed": "Import fehlgeschlagen: {error}",
+  "@importFailed": {
+    "placeholders": { "error": {"type": "Object"} }
+  },
+  "csvExercisesAdded": "{n} Übung(en) hinzugefügt",
+  "@csvExercisesAdded": {
+    "placeholders": { "n": {"type": "int"} }
+  },
+  "csvExercisesSkipped": "{n} Übung(en) übersprungen",
+  "@csvExercisesSkipped": {
+    "placeholders": { "n": {"type": "int"} }
+  },
+
+  "nameLabel": "Name",
+  "goodMorning": "Guten Morgen!",
+  "goodAfternoon": "Guten Tag!",
+  "goodEvening": "Guten Abend!",
+
+  "onboardingWelcomeSubtitle": "Dein persönlicher Fitness-Begleiter",
+  "onboardingWelcomeBody": "Verfolge Ernährung, Training und Gewicht — alles an einem Ort.",
+  "onboardingFeatureWeight": "Gewichtsverfolgung",
+  "onboardingProfileTitle": "Über dich",
+  "onboardingProfileSubtitle": "Damit personalisieren wir deine Erfahrung",
+  "onboardingGoalsTitle": "Deine Ziele",
+  "onboardingGoalsSubtitle": "Sag uns, worauf du hinarbeitest",
+  "onboardingSummaryTitle": "Alles bereit!",
+  "onboardingSummaryCaloriesLabel": "Geschätztes tägliches Kalorienziel",
+  "onboardingGetStarted": "Loslegen"
+}
