@@ -136,9 +136,8 @@ class HomeScreen extends StatefulWidget {
   _HomeScreenState createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
+class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
-  static const _tabKey = 'selected_tab_index';
 
   final List<Widget> _screens = [
     const DashboardScreen(),
@@ -150,36 +149,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    _restoreTabIndex();
+    // If the OS killed the app while the user was mid-workout, jump straight
+    // to the gym tab so ScheduledWorkoutsView can auto-resume the session.
+    _switchToGymTabIfWorkoutInProgress();
   }
 
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused) {
-      // App went to background — save so we can restore if OS kills process
-      SharedPreferences.getInstance().then(
-        (prefs) => prefs.setInt(_tabKey, _selectedIndex),
-      );
-    } else if (state == AppLifecycleState.detached) {
-      // App was fully closed by the user — clear so next launch starts fresh
-      SharedPreferences.getInstance().then(
-        (prefs) => prefs.remove(_tabKey),
-      );
-    }
-  }
-
-  Future<void> _restoreTabIndex() async {
+  Future<void> _switchToGymTabIfWorkoutInProgress() async {
     final prefs = await SharedPreferences.getInstance();
-    final savedIndex = prefs.getInt(_tabKey) ?? 0;
-    if (mounted && savedIndex != _selectedIndex) {
-      setState(() => _selectedIndex = savedIndex);
+    final hasActiveWorkout =
+        prefs.getInt('active_workout_scheduled_id') != null;
+    if (hasActiveWorkout && mounted) {
+      setState(() => _selectedIndex = 2);
     }
   }
 

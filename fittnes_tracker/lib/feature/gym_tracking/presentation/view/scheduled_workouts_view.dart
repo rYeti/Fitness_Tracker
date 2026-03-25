@@ -6,6 +6,7 @@ import 'package:ForgeForm/feature/workout_planning/data/models/workout.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/scheduled_workout_provider.dart'; // Import the new ActiveWorkoutScreen
 import '../view/workouts/active_workout_view.dart';
 
@@ -21,10 +22,97 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
       final provider = context.read<ScheduleWorkoutProvider>();
       provider.loadForDate(selectedDate);
+      await _checkForInProgressWorkout();
     });
+  }
+
+  /// If the OS killed the app while the user was mid-workout, offer to resume.
+  Future<void> _checkForInProgressWorkout() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedId = prefs.getInt('active_workout_scheduled_id');
+    final savedDateStr = prefs.getString('active_workout_scheduled_date');
+
+    if (savedId == null || savedDateStr == null || !mounted) return;
+
+    final db = context.read<AppDatabase>();
+
+    final scheduledData =
+        await (db.select(db.scheduledWorkoutTable)
+              ..where((t) => t.id.equals(savedId)))
+            .getSingleOrNull();
+
+    // Clear stale marker if the workout no longer exists or was already done.
+    if (scheduledData == null || scheduledData.isCompleted) {
+      await prefs.remove('active_workout_scheduled_id');
+      await prefs.remove('active_workout_scheduled_date');
+      return;
+    }
+
+    final workoutData =
+        await (db.select(db.workoutTable)
+              ..where((t) => t.id.equals(scheduledData.workoutId)))
+            .getSingleOrNull();
+
+    if (!mounted) return;
+
+    final workoutName = workoutData?.name ?? 'Workout';
+    final date = DateTime.parse(savedDateStr);
+
+    final shouldResume = await showDialog<bool>(
+      context: context,
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text('Resume workout?'),
+            content: Text(
+              '"$workoutName" was interrupted. Resume where you left off?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Discard'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Resume'),
+              ),
+            ],
+          ),
+    );
+
+    if (shouldResume != true) {
+      await prefs.remove('active_workout_scheduled_id');
+      await prefs.remove('active_workout_scheduled_date');
+      return;
+    }
+
+    if (!mounted) return;
+
+    final item = ScheduledWorkoutWithDetails(
+      scheduled: scheduledData,
+      workout: workoutData,
+    );
+
+    setState(() => selectedDate = date);
+
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder:
+            (_) => ActiveWorkoutScreen(
+              scheduledWorkout: item,
+              scheduledDate: date,
+              isReadOnly: false,
+            ),
+      ),
+    );
+
+    if (result == true && mounted) {
+      context.read<ScheduleWorkoutProvider>().refresh();
+    }
   }
 
   @override

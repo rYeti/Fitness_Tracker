@@ -4,7 +4,13 @@ import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../widgets/reset_timer_widget.dart';
+
+// Keys used to persist an in-progress workout so the session can be resumed
+// if the OS kills the app while it is minimised.
+const _kActiveWorkoutIdKey = 'active_workout_scheduled_id';
+const _kActiveWorkoutDateKey = 'active_workout_scheduled_date';
 
 /// Final fixed version with proper controller isolation and workout overview
 class ActiveWorkoutScreen extends StatefulWidget {
@@ -36,6 +42,27 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _loadWorkoutData();
+    if (!widget.isReadOnly) {
+      _saveInProgressWorkout();
+    }
+  }
+
+  Future<void> _saveInProgressWorkout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(
+      _kActiveWorkoutIdKey,
+      widget.scheduledWorkout.scheduled.id,
+    );
+    await prefs.setString(
+      _kActiveWorkoutDateKey,
+      widget.scheduledDate.toIso8601String(),
+    );
+  }
+
+  Future<void> _clearInProgressWorkout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_kActiveWorkoutIdKey);
+    await prefs.remove(_kActiveWorkoutDateKey);
   }
 
   @override
@@ -366,6 +393,10 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
           isCompleted: const Value(true),
         ),
       );
+
+      // Workout is done — remove the in-progress marker so the app no longer
+      // offers to resume this session on next launch.
+      await _clearInProgressWorkout();
 
       if (mounted) {
         // Show workout summary
