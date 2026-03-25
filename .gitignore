@@ -1,0 +1,21 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+*.log
+
+# Sensitive config - never commit these
+appsettings.Development.json
+appsettings.Production.json
+
+# EF Core migrations (optional - remove if you want to commit migrations)
+# */Migrations/
+
+# Rider / JetBrains
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
