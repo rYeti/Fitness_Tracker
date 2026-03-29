@@ -149,7 +149,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final colorScheme = Theme.of(context).colorScheme;
     final calorieGoalProvider = Provider.of<UserGoalsProvider>(context);
     if (!calorieGoalProvider.isLoaded) {
-      return Scaffold(
+      return SafeArea(child: Scaffold(
         backgroundColor: colorScheme.surface,
         appBar: AppBar(
           title: Text(
@@ -181,14 +181,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
         body: Center(
           child: CircularProgressIndicator(color: colorScheme.primary),
         ),
-      );
+      ));
     }
     if (!_initialized) {
       _calorieGoalController.text = calorieGoalProvider.calorieGoal.toString();
       _initialized = true;
     }
 
-    return Scaffold(
+    return SafeArea(child: Scaffold(
       backgroundColor: colorScheme.surface,
       appBar: AppBar(
         title: Text(
@@ -459,7 +459,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
       ),
-    );
+    ));
   }
 
   Widget _saveButton({

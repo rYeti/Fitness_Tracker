@@ -13,7 +13,7 @@ class WeightTrackingScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final colorScheme = Theme.of(context).colorScheme;
-    return Scaffold(
+    return SafeArea(child: Scaffold(
       backgroundColor: colorScheme.surface,
       appBar: AppBar(
         title: RichText(
@@ -252,7 +252,7 @@ class WeightTrackingScreen extends StatelessWidget {
         elevation: 2,
         child: const Icon(Icons.add),
       ),
-    );
+    ));
   }
 
   Widget _buildEmptyState(BuildContext context, WeightProvider provider) {

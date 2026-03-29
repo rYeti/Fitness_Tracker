@@ -818,7 +818,7 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Scaffold(
+    return SafeArea(child: Scaffold(
       backgroundColor: colorScheme.surface,
       appBar: AppBar(
         title: Text(
@@ -1122,7 +1122,7 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
         elevation: 2,
         child: const Icon(Icons.add),
       ),
-    );
+    ));
   }
 
   Widget _foodListTile({

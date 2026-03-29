@@ -406,13 +406,13 @@ class _EditSingleWorkoutViewState extends State<EditSingleWorkoutView> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     if (_loading) {
-      return Scaffold(
+      return SafeArea(child: Scaffold(
         appBar: AppBar(title: Text(l10n.editWorkout)),
         body: const Center(child: CircularProgressIndicator()),
-      );
+      ));
     }
 
-    return Scaffold(
+    return SafeArea(child: Scaffold(
       appBar: AppBar(
         title: Text(l10n.editWorkout),
         actions: [
@@ -618,6 +618,6 @@ class _EditSingleWorkoutViewState extends State<EditSingleWorkoutView> {
           ],
         ),
       ),
-    );
+    ));
   }
 }

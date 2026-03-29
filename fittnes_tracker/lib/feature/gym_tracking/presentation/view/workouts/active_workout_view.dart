@@ -480,14 +480,14 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     if (_isLoading) {
-      return Scaffold(
+      return SafeArea(child: Scaffold(
         appBar: AppBar(title: Text(l10n.loading)),
         body: const Center(child: CircularProgressIndicator()),
-      );
+      ));
     }
 
     if (_exercises.isEmpty) {
-      return Scaffold(
+      return SafeArea(child: Scaffold(
         appBar: AppBar(
           title: Text(widget.scheduledWorkout.workout?.name ?? 'Workout'),
         ),
@@ -523,7 +523,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
             ],
           ),
         ),
-      );
+      ));
     }
 
     // FIX #2: Show overview for read-only (completed) workouts
@@ -545,7 +545,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
         _currentSetIndex;
     final progress = totalSets > 0 ? (completedSets + 1) / totalSets : 0.0;
 
-    return Scaffold(
+    return SafeArea(child: Scaffold(
       appBar: AppBar(
         title: Text(widget.scheduledWorkout.workout?.name ?? 'Workout'),
         actions: [
@@ -610,13 +610,13 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
           _buildNavigationButtons(theme, l10n),
         ],
       ),
-    );
+    ));
   }
 
   /// FIX #2: Build workout overview for completed workouts
   Widget _buildWorkoutOverview(ThemeData theme) {
     final l10n = AppLocalizations.of(context)!;
-    return Scaffold(
+    return SafeArea(child: Scaffold(
       appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -883,7 +883,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
           ],
         ),
       ),
-    );
+    ));
   }
 
   Widget _buildSetFocusedView(_ExerciseWithSets exerciseData, ThemeData theme) {
