@@ -776,7 +776,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                                       exercise
                                               .existingSets[template.setNumber]
                                               ?.weight
-                                              ?.toStringAsFixed(1) ??
+                                              ?.toString() ??
                                           '',
                                     );
                                 final repsController =
@@ -975,7 +975,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      '${previousSet.weight?.toStringAsFixed(1) ?? '--'} kg × ${previousSet.reps ?? '--'} reps',
+                      '${previousSet.weight?.toString() ?? '--'} kg × ${previousSet.reps ?? '--'} reps',
                       style: theme.textTheme.headlineSmall?.copyWith(
                         color: theme.colorScheme.primary,
                         fontWeight: FontWeight.bold,
@@ -1064,7 +1064,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                       exerciseData
                               .existingSets[currentTemplate.setNumber]
                               ?.weight
-                              ?.toStringAsFixed(1) ??
+                              ?.toString() ??
                           '',
                     ),
                     keyboardType: const TextInputType.numberWithOptions(
@@ -1139,7 +1139,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                       template.setNumber,
                       'weight',
                       exerciseData.existingSets[template.setNumber]?.weight
-                              ?.toStringAsFixed(1) ??
+                              ?.toString() ??
                           '',
                     );
                     final repsController = _getOrCreateSetController(

@@ -30,6 +30,7 @@ class _EditSingleWorkoutViewState extends State<EditSingleWorkoutView> {
   Workout? _workout;
   bool _loading = true;
   bool _saving = false;
+  bool _isReordering = false;
 
   @override
   void initState() {
@@ -71,9 +72,11 @@ class _EditSingleWorkoutViewState extends State<EditSingleWorkoutView> {
       final dao = sl<AppDatabase>().workoutDao;
       final duration = int.tryParse(_durationController.text) ?? 30;
 
-      // First, ensure all exercises exist in the database
+      // First, ensure all exercises exist in the database.
+      // Also assign orderPosition based on current list order (drag-reorder
+      // kept original objects intact, so orderPosition may be stale here).
       final updatedExercises = <WorkoutExercise>[];
-      for (final exercise in _workout!.exercises) {
+      for (final (index, exercise) in _workout!.exercises.indexed) {
         if (exercise.exerciseId == -1 && exercise.exercise != null) {
           // This is a new exercise that needs to be created
           final exerciseCompanion = ExerciseTableCompanion(
@@ -97,14 +100,24 @@ class _EditSingleWorkoutViewState extends State<EditSingleWorkoutView> {
               id: exercise.id,
               workoutId: exercise.workoutId,
               exerciseId: exerciseId,
-              orderPosition: exercise.orderPosition,
+              orderPosition: index + 1,
               exercise: exercise.exercise,
               sets: exercise.sets,
               notes: exercise.notes,
             ),
           );
         } else {
-          updatedExercises.add(exercise);
+          updatedExercises.add(
+            WorkoutExercise(
+              id: exercise.id,
+              workoutId: exercise.workoutId,
+              exerciseId: exercise.exerciseId,
+              orderPosition: index + 1,
+              exercise: exercise.exercise,
+              sets: exercise.sets,
+              notes: exercise.notes,
+            ),
+          );
         }
       }
 
@@ -152,6 +165,28 @@ class _EditSingleWorkoutViewState extends State<EditSingleWorkoutView> {
     } finally {
       setState(() => _saving = false);
     }
+  }
+
+  void _onReorderExercises(int oldIndex, int newIndex) {
+    if (newIndex > oldIndex) newIndex--;
+    final exercises = List<WorkoutExercise>.from(_workout!.exercises);
+    final moved = exercises.removeAt(oldIndex);
+    exercises.insert(newIndex, moved);
+    // Keep the same WorkoutExercise objects so their keys stay stable and
+    // ExpansionTile state is preserved. orderPosition is corrected at save time.
+    setState(() {
+      _workout = Workout(
+        id: _workout!.id,
+        name: _workout!.name,
+        description: _workout!.description,
+        difficulty: _workout!.difficulty,
+        estimatedDurationMinutes: _workout!.estimatedDurationMinutes,
+        isTemplate: _workout!.isTemplate,
+        scheduledDate: _workout!.scheduledDate,
+        completedDate: _workout!.completedDate,
+        exercises: exercises,
+      );
+    });
   }
 
   void _addExercise() async {
@@ -257,14 +292,16 @@ class _EditSingleWorkoutViewState extends State<EditSingleWorkoutView> {
     setState(() {
       final updatedExercises =
           _workout!.exercises.map((exercise) {
-            if (exercise.sets.any((s) => s.id == set.id)) {
+            // Use object identity so that unsaved sets (id == null) are not
+            // confused with one another across different exercises.
+            if (exercise.sets.any((s) => identical(s, set))) {
               return WorkoutExercise(
                 id: exercise.id,
                 workoutId: exercise.workoutId,
                 exerciseId: exercise.exerciseId,
                 orderPosition: exercise.orderPosition,
                 exercise: exercise.exercise,
-                sets: exercise.sets.where((s) => s.id != set.id).toList(),
+                sets: exercise.sets.where((s) => !identical(s, set)).toList(),
                 notes: exercise.notes,
               );
             }
@@ -324,10 +361,10 @@ class _EditSingleWorkoutViewState extends State<EditSingleWorkoutView> {
     setState(() {
       final updatedExercises =
           _workout!.exercises.map((exercise) {
-            if (exercise.sets.any((s) => s.setNumber == oldSet.setNumber)) {
+            if (exercise.sets.any((s) => identical(s, oldSet))) {
               final updatedSets =
                   exercise.sets.map((s) {
-                    if (s.setNumber == oldSet.setNumber) {
+                    if (identical(s, oldSet)) {
                       return WorkoutSet(
                         id: s.id,
                         exerciseInstanceId: s.exerciseInstanceId,
@@ -458,78 +495,119 @@ class _EditSingleWorkoutViewState extends State<EditSingleWorkoutView> {
             if (_workout?.exercises.isEmpty ?? true)
               Text(l10n.noExercisesInWorkout)
             else
-              ..._workout!.exercises.map(
-                (exercise) => Card(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  child: ExpansionTile(
-                    initiallyExpanded: true,
-                    title: Text(exercise.exercise?.name ?? 'Unknown Exercise'),
-                    subtitle: Text('${exercise.sets.length} ${l10n.setsLabel}'),
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              ReorderableListView(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                onReorder: _onReorderExercises,
+                buildDefaultDragHandles: false,
+                onReorderStart: (_) => setState(() => _isReordering = true),
+                onReorderEnd: (_) {
+                  Future.delayed(const Duration(milliseconds: 300), () {
+                    if (mounted) setState(() => _isReordering = false);
+                  });
+                },
+                children:
+                    _workout!.exercises.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final exercise = entry.value;
+                      return ReorderableDelayedDragStartListener(
+                        key: ValueKey(exercise.id ?? exercise.hashCode),
+                        index: index,
+                        child: Card(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          child: AbsorbPointer(
+                            absorbing: _isReordering,
+                            child: ExpansionTile(
+                              initiallyExpanded: true,
+                              leading: const Icon(
+                                Icons.drag_indicator,
+                                color: Colors.grey,
+                              ),
+                              title: Text(
+                                exercise.exercise?.name ?? 'Unknown Exercise',
+                              ),
+                              subtitle: Text(
+                                '${exercise.sets.length} ${l10n.setsLabel}',
+                              ),
                               children: [
-                                Text(
-                                  '${l10n.setsLabel}:',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                                Row(
-                                  children: [
-                                    IconButton(
-                                      icon: const Icon(Icons.add),
-                                      onPressed:
-                                          () => _addSetToExercise(exercise),
-                                      tooltip: l10n.addSet,
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.delete),
-                                      onPressed:
-                                          () => _removeExercise(exercise),
-                                      tooltip: l10n.delete,
-                                    ),
-                                  ],
+                                Padding(
+                                  padding: const EdgeInsets.all(16.0),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            '${l10n.setsLabel}:',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          Row(
+                                            children: [
+                                              IconButton(
+                                                icon: const Icon(Icons.add),
+                                                onPressed:
+                                                    () => _addSetToExercise(
+                                                      exercise,
+                                                    ),
+                                                tooltip: l10n.addSet,
+                                              ),
+                                              IconButton(
+                                                icon: const Icon(Icons.delete),
+                                                onPressed:
+                                                    () => _removeExercise(
+                                                      exercise,
+                                                    ),
+                                                tooltip: l10n.delete,
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        '${l10n.setsLabel} (${exercise.sets.length}):',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      ...exercise.sets.map(
+                                        (set) => Row(
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                'Set ${set.setNumber}: ${set.targetReps ?? "-"}',
+                                              ),
+                                            ),
+                                            IconButton(
+                                              icon: const Icon(Icons.edit),
+                                              onPressed: () => _editSet(set),
+                                              tooltip: l10n.edit,
+                                            ),
+                                            IconButton(
+                                              icon: const Icon(Icons.delete),
+                                              onPressed: () => _removeSet(set),
+                                              tooltip: l10n.delete,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      if (exercise.sets.isEmpty)
+                                        Text(l10n.noSetsFound),
+                                    ],
+                                  ),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 8),
-                            Text(
-                              '${l10n.setsLabel} (${exercise.sets.length}):',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            const SizedBox(height: 4),
-                            ...exercise.sets.map(
-                              (set) => Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      'Set ${set.setNumber}: ${set.targetReps ?? "-"}',
-                                    ),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.edit),
-                                    onPressed: () => _editSet(set),
-                                    tooltip: l10n.edit,
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.delete),
-                                    onPressed: () => _removeSet(set),
-                                    tooltip: l10n.delete,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            if (exercise.sets.isEmpty) Text(l10n.noSetsFound),
-                          ],
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
+                      );
+                    }).toList(),
               ),
             const SizedBox(height: 16),
             ElevatedButton.icon(
