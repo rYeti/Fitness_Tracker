@@ -91,15 +91,13 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
-  String get pleaseEnterValidAgeAndHeight =>
-      'Bitte gültiges Alter und Größe eingeben';
+  String get pleaseEnterValidAgeAndHeight => 'Bitte gültiges Alter und Größe eingeben';
 
   @override
   String get pleaseEnterValidNumber => 'Bitte eine gültige Zahl eingeben';
 
   @override
-  String get calculatedAndSavedCalorieGoal =>
-      'Kalorienziel berechnet und gespeichert';
+  String get calculatedAndSavedCalorieGoal => 'Kalorienziel berechnet und gespeichert';
 
   @override
   String failedToSaveProfile(Object error) {
@@ -230,12 +228,10 @@ class AppLocalizationsDe extends AppLocalizations {
   String get workoutSavedSuccessfully => 'Training erfolgreich gespeichert';
 
   @override
-  String get pleaseEnterWorkoutName =>
-      'Bitte geben Sie einen Trainingsnamen ein';
+  String get pleaseEnterWorkoutName => 'Bitte geben Sie einen Trainingsnamen ein';
 
   @override
-  String get pleaseEnterAtLeastOneWorkoutDay =>
-      'Bitte fügen Sie mindestens einen Trainingstag zum Zyklus hinzu';
+  String get pleaseEnterAtLeastOneWorkoutDay => 'Bitte fügen Sie mindestens einen Trainingstag zum Zyklus hinzu';
 
   @override
   String get pleaseSelectStartDate => 'Bitte wählen Sie ein Startdatum';
@@ -361,8 +357,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get weight => 'Gewicht';
 
   @override
-  String get noExercisesForWorkout =>
-      'Keine Übungen für dieses Training konfiguriert';
+  String get noExercisesForWorkout => 'Keine Übungen für dieses Training konfiguriert';
 
   @override
   String errorLoadingExercises(Object error) {
@@ -639,8 +634,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get today => 'Heute';
 
   @override
-  String get couldNotReachFoodDatabase =>
-      'Lebensmitteldatenbank nicht erreichbar';
+  String get couldNotReachFoodDatabase => 'Lebensmitteldatenbank nicht erreichbar';
 
   @override
   String noResultsFor(String query) {
@@ -684,8 +678,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get templateName => 'Vorlagenname';
 
   @override
-  String get pleaseAddAtLeastOneFood =>
-      'Bitte mindestens ein Lebensmittel hinzufügen';
+  String get pleaseAddAtLeastOneFood => 'Bitte mindestens ein Lebensmittel hinzufügen';
 
   @override
   String get templateCreatedSuccessfully => 'Vorlage erfolgreich erstellt';
@@ -847,8 +840,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get addWorkoutToPlanTitle => 'Training zum Plan hinzufügen';
 
   @override
-  String get addWorkoutsToBuildCycle =>
-      'Trainings hinzufügen um den Zyklus aufzubauen';
+  String get addWorkoutsToBuildCycle => 'Trainings hinzufügen um den Zyklus aufzubauen';
 
   @override
   String get removeWorkoutFromPlan => 'Aus Plan entfernen';
@@ -959,7 +951,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get noExercisesCount => 'Keine Übungen';
 
   @override
-  String get noPreviousDataForSet => 'Keine vorherigen Daten für diesen Satz';
+  String get noPreviousDataForSet => 'Keine Vorjahresdaten für diesen Satz';
 
   @override
   String get prevExercise => 'Vorherige Übung';
@@ -1236,8 +1228,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get onboardingWelcomeSubtitle => 'Dein persönlicher Fitness-Begleiter';
 
   @override
-  String get onboardingWelcomeBody =>
-      'Verfolge Ernährung, Training und Gewicht — alles an einem Ort.';
+  String get onboardingWelcomeBody => 'Verfolge Ernährung, Training und Gewicht — alles an einem Ort.';
 
   @override
   String get onboardingFeatureWeight => 'Gewichtsverfolgung';
@@ -1246,8 +1237,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get onboardingProfileTitle => 'Über dich';
 
   @override
-  String get onboardingProfileSubtitle =>
-      'Damit personalisieren wir deine Erfahrung';
+  String get onboardingProfileSubtitle => 'Damit personalisieren wir deine Erfahrung';
 
   @override
   String get onboardingGoalsTitle => 'Deine Ziele';
@@ -1259,8 +1249,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get onboardingSummaryTitle => 'Alles bereit!';
 
   @override
-  String get onboardingSummaryCaloriesLabel =>
-      'Geschätztes tägliches Kalorienziel';
+  String get onboardingSummaryCaloriesLabel => 'Geschätztes tägliches Kalorienziel';
 
   @override
   String get onboardingGetStarted => 'Loslegen';
