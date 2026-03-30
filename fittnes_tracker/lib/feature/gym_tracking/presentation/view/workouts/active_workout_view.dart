@@ -6,6 +6,7 @@ import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../widgets/exercise_selection_modal.dart';
 import '../../widgets/reset_timer_widget.dart';
 
 // Keys used to persist an in-progress workout so the session can be resumed
@@ -166,6 +167,12 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                     ),
                   ))
                 .getSingleOrNull();
+        // If a per-day override exercise was saved, load that instead
+        final overrideId = scheduledExercise?.overrideExerciseId;
+        final resolvedExercise = overrideId != null
+            ? (await db.exerciseDao.getExerciseById(overrideId)) ?? exercise
+            : exercise;
+
         final exerciseNoteKey = _getExerciseNoteKey(workoutExercise.id);
         final noteController = TextEditingController(
           text: scheduledExercise?.notes ?? '',
@@ -186,17 +193,14 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
           for (var set in existingSets) set.setNumber: set,
         };
 
-        // REMOVED: Controller creation loop
-        // Controllers will be created lazily when needed in the UI
-
         exercises.add(
           _ExerciseWithSets(
-            exercise: exercise,
+            exercise: resolvedExercise,
             workoutExercise: workoutExercise,
             templates: templates,
             previousSets: previousSetsMap,
             scheduledExerciseId: scheduledExercise?.id,
-            existingSets: existingSetsMap, // Pass existing sets data
+            existingSets: existingSetsMap,
           ),
         );
       }
@@ -461,6 +465,101 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     }
   }
 
+  void _addSet() {
+    if (widget.isReadOnly) return;
+    final exercise = _exercises[_currentExerciseIndex];
+    final nextSetNumber =
+        exercise.templates.isEmpty ? 1 : exercise.templates.last.setNumber + 1;
+    final newTemplate = WorkoutSetTemplateData(
+      id: -nextSetNumber, // ephemeral id, not persisted to template table
+      workoutExerciseId: exercise.workoutExercise.id,
+      setNumber: nextSetNumber,
+      targetReps: '',
+      orderPosition: nextSetNumber,
+    );
+    setState(() {
+      exercise.templates = List.from(exercise.templates)..add(newTemplate);
+    });
+    _scheduleSave();
+  }
+
+  void _removeSet() {
+    if (widget.isReadOnly) return;
+    final exercise = _exercises[_currentExerciseIndex];
+    if (exercise.templates.length <= 1) return;
+    setState(() {
+      exercise.templates = List.from(exercise.templates)..removeLast();
+      if (_currentSetIndex >= exercise.templates.length) {
+        _currentSetIndex = exercise.templates.length - 1;
+      }
+    });
+    _scheduleSave();
+  }
+
+  Future<void> _replaceCurrentExercise() async {
+    final selected = await ExerciseSelectionModal.show(context);
+    if (selected == null || selected.id == null) return;
+    if (!mounted) return;
+
+    final db = context.read<AppDatabase>();
+    final exerciseData = await db.exerciseDao.getExerciseById(selected.id!);
+    if (exerciseData == null) return;
+
+    final current = _exercises[_currentExerciseIndex];
+
+    // Ensure a scheduledWorkoutExercise row exists so we can write the override
+    int scheduledExerciseId;
+    if (current.scheduledExerciseId != null) {
+      scheduledExerciseId = current.scheduledExerciseId!;
+      await (db.update(db.scheduledWorkoutExerciseTable)
+        ..where((t) => t.id.equals(scheduledExerciseId))).write(
+        ScheduledWorkoutExerciseTableCompanion(
+          overrideExerciseId: Value(selected.id),
+        ),
+      );
+    } else {
+      scheduledExerciseId = await db
+          .into(db.scheduledWorkoutExerciseTable)
+          .insert(
+            ScheduledWorkoutExerciseTableCompanion.insert(
+              scheduledWorkoutId: widget.scheduledWorkout.scheduled.id,
+              workoutExerciseId: current.workoutExercise.id,
+              overrideExerciseId: Value(selected.id),
+            ),
+          );
+    }
+
+    final setCount = current.templates.length;
+    final newTemplates = List.generate(
+      setCount,
+      (i) => WorkoutSetTemplateData(
+        id: -(i + 1),
+        workoutExerciseId: current.workoutExercise.id,
+        setNumber: i + 1,
+        targetReps: '',
+        orderPosition: i + 1,
+      ),
+    );
+
+    // Remove stale controllers for the old exercise
+    for (final t in current.templates) {
+      _setControllers.remove(_getSetControllerKey(current.workoutExercise.id, t.setNumber, 'weight'));
+      _setControllers.remove(_getSetControllerKey(current.workoutExercise.id, t.setNumber, 'reps'));
+    }
+
+    setState(() {
+      _exercises[_currentExerciseIndex] = _ExerciseWithSets(
+        exercise: exerciseData,
+        workoutExercise: current.workoutExercise,
+        templates: newTemplates,
+        previousSets: const {},
+        existingSets: const {},
+        scheduledExerciseId: scheduledExerciseId,
+      );
+      _currentSetIndex = 0;
+    });
+  }
+
   void _nextExercise() {
     if (widget.isReadOnly) return;
     if (_currentExerciseIndex < _exercises.length - 1) {
@@ -564,6 +663,11 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
       appBar: AppBar(
         title: Text(widget.scheduledWorkout.workout?.name ?? 'Workout'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.swap_horiz),
+            tooltip: l10n.replaceExercise,
+            onPressed: _replaceCurrentExercise,
+          ),
           IconButton(
             icon: const Icon(Icons.timer),
             tooltip: l10n.restTimer,
@@ -1283,6 +1387,26 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
             const SizedBox(height: 8),
             Row(
               children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: currentExercise.templates.length > 1 ? _removeSet : null,
+                    icon: const Icon(Icons.remove, size: 16),
+                    label: Text(l10n.removeSet, style: const TextStyle(fontSize: 12)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _addSet,
+                    icon: const Icon(Icons.add, size: 16),
+                    label: Text(l10n.addSet, style: const TextStyle(fontSize: 12)),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
                 if (!isFirstExercise)
                   Expanded(
                     child: OutlinedButton.icon(
@@ -1327,42 +1451,133 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
   void _showExerciseList(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      builder:
-          (context) => ListView.builder(
-            itemCount: _exercises.length,
-            itemBuilder: (context, index) {
-              final exercise = _exercises[index];
-              final isCurrent = index == _currentExerciseIndex;
-              return ListTile(
-                leading: CircleAvatar(
-                  backgroundColor:
-                      isCurrent
-                          ? Theme.of(context).colorScheme.primary
-                          : Theme.of(context).colorScheme.surfaceVariant,
-                  child: Text('${index + 1}'),
-                ),
-                title: Text(
-                  exercise.exercise.name,
-                  style: TextStyle(
-                    fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheetState) => Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    AppLocalizations.of(sheetContext)!.exercises,
+                    style: Theme.of(sheetContext).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
+                  IconButton(
+                    icon: const Icon(Icons.add),
+                    tooltip: AppLocalizations.of(sheetContext)!.addExercise,
+                    onPressed: () async {
+                      final selected = await ExerciseSelectionModal.show(sheetContext);
+                      if (selected == null || selected.id == null) return;
+                      if (!mounted) return;
+                      final db = context.read<AppDatabase>();
+                      final exerciseData = await db.exerciseDao.getExerciseById(selected.id!);
+                      if (exerciseData == null) return;
+                      // Use a placeholder workoutExerciseId — sets are saved via scheduledExercise
+                      // We reuse the first exercise's workoutExercise as a reference for the
+                      // controller key namespace, using a unique negative id.
+                      final tempId = -(_exercises.length + 100);
+                      final newExercise = _ExerciseWithSets(
+                        exercise: exerciseData,
+                        workoutExercise: WorkoutExerciseTableData(
+                          id: tempId,
+                          workoutId: _exercises.first.workoutExercise.workoutId,
+                          exerciseId: exerciseData.id,
+                          orderPosition: _exercises.length + 1,
+                          notes: null,
+                        ),
+                        templates: [
+                          WorkoutSetTemplateData(
+                            id: tempId,
+                            workoutExerciseId: tempId,
+                            setNumber: 1,
+                            targetReps: '',
+                            orderPosition: 1,
+                          ),
+                        ],
+                        previousSets: const {},
+                        existingSets: const {},
+                      );
+                      setState(() => _exercises.add(newExercise));
+                      setSheetState(() {});
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: ListView.builder(
+              itemCount: _exercises.length,
+              itemBuilder: (context, index) {
+            final exercise = _exercises[index];
+            final isCurrent = index == _currentExerciseIndex;
+            final l10n = AppLocalizations.of(context)!;
+            return ListTile(
+              leading: CircleAvatar(
+                backgroundColor:
+                    isCurrent
+                        ? Theme.of(context).colorScheme.primary
+                        : Theme.of(context).colorScheme.surfaceVariant,
+                child: Text('${index + 1}'),
+              ),
+              title: Text(
+                exercise.exercise.name,
+                style: TextStyle(
+                  fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
                 ),
-                subtitle: Text(
-                  AppLocalizations.of(
-                    context,
-                  )!.setTemplatesCount(exercise.templates.length),
-                ),
-                onTap: () {
-                  _saveCurrentExercise();
-                  setState(() {
-                    _currentExerciseIndex = index;
-                    _currentSetIndex = 0;
-                  });
-                  Navigator.pop(context);
-                },
-              );
-            },
-          ),
+              ),
+              subtitle: Text(l10n.setTemplatesCount(exercise.templates.length)),
+              onTap: () {
+                _saveCurrentExercise();
+                setState(() {
+                  _currentExerciseIndex = index;
+                  _currentSetIndex = 0;
+                });
+                Navigator.pop(sheetContext);
+              },
+              onLongPress: _exercises.length <= 1
+                  ? null
+                  : () async {
+                      final confirm = await showDialog<bool>(
+                        context: sheetContext,
+                        builder: (ctx) => AlertDialog(
+                          title: Text(l10n.removeExerciseTitle),
+                          content: Text(exercise.exercise.name),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, false),
+                              child: Text(l10n.cancel),
+                            ),
+                            FilledButton(
+                              onPressed: () => Navigator.pop(ctx, true),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: Colors.red,
+                              ),
+                              child: Text(l10n.delete),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (confirm != true) return;
+                      setState(() {
+                        _exercises.removeAt(index);
+                        if (_currentExerciseIndex >= _exercises.length) {
+                          _currentExerciseIndex = _exercises.length - 1;
+                        }
+                        _currentSetIndex = 0;
+                      });
+                      setSheetState(() {});
+                    },
+            );
+          },
+        ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -1697,7 +1912,7 @@ class WorkoutSummaryDialog extends StatelessWidget {
 class _ExerciseWithSets {
   final ExerciseTableData exercise;
   final WorkoutExerciseTableData workoutExercise;
-  final List<WorkoutSetTemplateData> templates;
+  List<WorkoutSetTemplateData> templates;
   final Map<int, WorkoutSetTableData> previousSets;
   final Map<int, WorkoutSetTableData> existingSets;
   int? scheduledExerciseId;

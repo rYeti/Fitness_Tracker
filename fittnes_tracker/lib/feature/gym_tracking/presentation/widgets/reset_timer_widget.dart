@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 
 /// A countdown timer widget for rest periods between sets
@@ -14,34 +15,69 @@ class RestTimerWidget extends StatefulWidget {
   State<RestTimerWidget> createState() => _RestTimerWidgetState();
 }
 
-class _RestTimerWidgetState extends State<RestTimerWidget> {
+class _RestTimerWidgetState extends State<RestTimerWidget>
+    with WidgetsBindingObserver {
   Timer? _timer;
   int _remainingSeconds = 0;
   bool _isRunning = false;
+  DateTime? _endTime;
+  final AudioPlayer _audioPlayer = AudioPlayer();
+
   @override
   void initState() {
     super.initState();
     _remainingSeconds = widget.defaultSeconds;
+    WidgetsBinding.instance.addObserver(this);
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _audioPlayer.dispose();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  Future<void> _playCompleteSound() async {
+    await _audioPlayer.play(AssetSource('sounds/timer_complete.wav'));
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _isRunning && _endTime != null) {
+      final remaining = _endTime!.difference(DateTime.now()).inSeconds;
+      if (remaining <= 0) {
+        _timer?.cancel();
+        setState(() {
+          _remainingSeconds = 0;
+          _isRunning = false;
+          _endTime = null;
+        });
+        _playCompleteSound();
+        widget.onTimerComplete?.call();
+      } else {
+        setState(() => _remainingSeconds = remaining);
+      }
+    }
   }
 
   void _startTimer() {
     if (_isRunning) return;
-    setState(() {
-      _isRunning = true;
-    });
+    _endTime = DateTime.now().add(Duration(seconds: _remainingSeconds));
+    setState(() => _isRunning = true);
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_remainingSeconds > 0) {
-        setState(() {
-          _remainingSeconds--;
-        });
+      if (_endTime == null) return;
+      final remaining = _endTime!.difference(DateTime.now()).inSeconds;
+      if (remaining > 0) {
+        setState(() => _remainingSeconds = remaining);
       } else {
-        _stopTimer();
+        _timer?.cancel();
+        setState(() {
+          _remainingSeconds = 0;
+          _isRunning = false;
+          _endTime = null;
+        });
+        _playCompleteSound();
         widget.onTimerComplete?.call();
       }
     });
@@ -51,6 +87,7 @@ class _RestTimerWidgetState extends State<RestTimerWidget> {
     _timer?.cancel();
     setState(() {
       _isRunning = false;
+      _endTime = null;
     });
   }
 
@@ -59,12 +96,16 @@ class _RestTimerWidgetState extends State<RestTimerWidget> {
     setState(() {
       _remainingSeconds = widget.defaultSeconds;
       _isRunning = false;
+      _endTime = null;
     });
   }
 
   void _addTime(int seconds) {
     setState(() {
-      _remainingSeconds += seconds;
+      _remainingSeconds = (_remainingSeconds + seconds).clamp(0, 3600);
+      if (_isRunning && _endTime != null) {
+        _endTime = _endTime!.add(Duration(seconds: seconds));
+      }
     });
   }
 

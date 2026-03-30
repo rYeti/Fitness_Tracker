@@ -60,7 +60,7 @@ class AppDatabase extends _$AppDatabase {
   // Workout planning DAOs will be added here after code generation
 
   @override
-  int get schemaVersion => 20;
+  int get schemaVersion => 21;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -96,6 +96,13 @@ class AppDatabase extends _$AppDatabase {
         try {
           await customStatement(
             "ALTER TABLE user_settings ADD COLUMN name TEXT NOT NULL DEFAULT ''",
+          );
+        } catch (_) {}
+      }
+      if (from < 21) {
+        try {
+          await customStatement(
+            'ALTER TABLE scheduled_workout_exercise_table ADD COLUMN override_exercise_id INTEGER',
           );
         } catch (_) {}
       }
@@ -1013,17 +1020,20 @@ class ScheduledWorkoutExerciseTable extends Table {
       integer().references(
         ScheduledWorkoutTable,
         #id,
-        onDelete: KeyAction.cascade, // ← ADD THIS
+        onDelete: KeyAction.cascade,
       )();
   IntColumn get workoutExerciseId =>
       integer().references(
         WorkoutExerciseTable,
         #id,
-        onDelete: KeyAction.cascade, // ← ADD THIS
+        onDelete: KeyAction.cascade,
       )();
   BoolColumn get isCompleted => boolean().withDefault(const Constant(false))();
 
   TextColumn get notes => text().nullable()();
+
+  /// Exercise override for this specific day only. Null = use the template exercise.
+  IntColumn get overrideExerciseId => integer().nullable()();
 }
 
 /// Table for storing individual sets within a workout exercise

@@ -1258,6 +1258,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get undoSkip => 'Undo Skip';
 
   @override
+  String get replaceExercise => 'Replace Exercise';
+
+  @override
   String get resumeWorkoutTitle => 'Resume workout?';
 
   @override

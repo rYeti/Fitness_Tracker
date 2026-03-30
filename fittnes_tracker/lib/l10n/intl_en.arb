@@ -646,6 +646,7 @@
   "onboardingGetStarted": "Get Started",
 
   "undoSkip": "Undo Skip",
+  "replaceExercise": "Replace Exercise",
   "resumeWorkoutTitle": "Resume workout?",
   "resumeWorkoutBody": "\"{name}\" was interrupted. Resume where you left off?",
   "@resumeWorkoutBody": {

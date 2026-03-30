@@ -4837,6 +4837,16 @@ class $ScheduledWorkoutExerciseTableTable extends ScheduledWorkoutExerciseTable
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _overrideExerciseIdMeta =
+      const VerificationMeta('overrideExerciseId');
+  @override
+  late final GeneratedColumn<int> overrideExerciseId = GeneratedColumn<int>(
+    'override_exercise_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -4844,6 +4854,7 @@ class $ScheduledWorkoutExerciseTableTable extends ScheduledWorkoutExerciseTable
     workoutExerciseId,
     isCompleted,
     notes,
+    overrideExerciseId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -4897,6 +4908,15 @@ class $ScheduledWorkoutExerciseTableTable extends ScheduledWorkoutExerciseTable
         notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
       );
     }
+    if (data.containsKey('override_exercise_id')) {
+      context.handle(
+        _overrideExerciseIdMeta,
+        overrideExerciseId.isAcceptableOrUnknown(
+          data['override_exercise_id']!,
+          _overrideExerciseIdMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -4933,6 +4953,10 @@ class $ScheduledWorkoutExerciseTableTable extends ScheduledWorkoutExerciseTable
         DriftSqlType.string,
         data['${effectivePrefix}notes'],
       ),
+      overrideExerciseId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}override_exercise_id'],
+      ),
     );
   }
 
@@ -4951,12 +4975,16 @@ class ScheduledWorkoutExerciseTableData extends DataClass
   final int workoutExerciseId;
   final bool isCompleted;
   final String? notes;
+
+  /// Exercise override for this specific day only. Null = use the template exercise.
+  final int? overrideExerciseId;
   const ScheduledWorkoutExerciseTableData({
     required this.id,
     required this.scheduledWorkoutId,
     required this.workoutExerciseId,
     required this.isCompleted,
     this.notes,
+    this.overrideExerciseId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -4967,6 +4995,9 @@ class ScheduledWorkoutExerciseTableData extends DataClass
     map['is_completed'] = Variable<bool>(isCompleted);
     if (!nullToAbsent || notes != null) {
       map['notes'] = Variable<String>(notes);
+    }
+    if (!nullToAbsent || overrideExerciseId != null) {
+      map['override_exercise_id'] = Variable<int>(overrideExerciseId);
     }
     return map;
   }
@@ -4979,6 +5010,10 @@ class ScheduledWorkoutExerciseTableData extends DataClass
       isCompleted: Value(isCompleted),
       notes:
           notes == null && nullToAbsent ? const Value.absent() : Value(notes),
+      overrideExerciseId:
+          overrideExerciseId == null && nullToAbsent
+              ? const Value.absent()
+              : Value(overrideExerciseId),
     );
   }
 
@@ -4993,6 +5028,7 @@ class ScheduledWorkoutExerciseTableData extends DataClass
       workoutExerciseId: serializer.fromJson<int>(json['workoutExerciseId']),
       isCompleted: serializer.fromJson<bool>(json['isCompleted']),
       notes: serializer.fromJson<String?>(json['notes']),
+      overrideExerciseId: serializer.fromJson<int?>(json['overrideExerciseId']),
     );
   }
   @override
@@ -5004,6 +5040,7 @@ class ScheduledWorkoutExerciseTableData extends DataClass
       'workoutExerciseId': serializer.toJson<int>(workoutExerciseId),
       'isCompleted': serializer.toJson<bool>(isCompleted),
       'notes': serializer.toJson<String?>(notes),
+      'overrideExerciseId': serializer.toJson<int?>(overrideExerciseId),
     };
   }
 
@@ -5013,12 +5050,17 @@ class ScheduledWorkoutExerciseTableData extends DataClass
     int? workoutExerciseId,
     bool? isCompleted,
     Value<String?> notes = const Value.absent(),
+    Value<int?> overrideExerciseId = const Value.absent(),
   }) => ScheduledWorkoutExerciseTableData(
     id: id ?? this.id,
     scheduledWorkoutId: scheduledWorkoutId ?? this.scheduledWorkoutId,
     workoutExerciseId: workoutExerciseId ?? this.workoutExerciseId,
     isCompleted: isCompleted ?? this.isCompleted,
     notes: notes.present ? notes.value : this.notes,
+    overrideExerciseId:
+        overrideExerciseId.present
+            ? overrideExerciseId.value
+            : this.overrideExerciseId,
   );
   ScheduledWorkoutExerciseTableData copyWithCompanion(
     ScheduledWorkoutExerciseTableCompanion data,
@@ -5036,6 +5078,10 @@ class ScheduledWorkoutExerciseTableData extends DataClass
       isCompleted:
           data.isCompleted.present ? data.isCompleted.value : this.isCompleted,
       notes: data.notes.present ? data.notes.value : this.notes,
+      overrideExerciseId:
+          data.overrideExerciseId.present
+              ? data.overrideExerciseId.value
+              : this.overrideExerciseId,
     );
   }
 
@@ -5046,7 +5092,8 @@ class ScheduledWorkoutExerciseTableData extends DataClass
           ..write('scheduledWorkoutId: $scheduledWorkoutId, ')
           ..write('workoutExerciseId: $workoutExerciseId, ')
           ..write('isCompleted: $isCompleted, ')
-          ..write('notes: $notes')
+          ..write('notes: $notes, ')
+          ..write('overrideExerciseId: $overrideExerciseId')
           ..write(')'))
         .toString();
   }
@@ -5058,6 +5105,7 @@ class ScheduledWorkoutExerciseTableData extends DataClass
     workoutExerciseId,
     isCompleted,
     notes,
+    overrideExerciseId,
   );
   @override
   bool operator ==(Object other) =>
@@ -5067,7 +5115,8 @@ class ScheduledWorkoutExerciseTableData extends DataClass
           other.scheduledWorkoutId == this.scheduledWorkoutId &&
           other.workoutExerciseId == this.workoutExerciseId &&
           other.isCompleted == this.isCompleted &&
-          other.notes == this.notes);
+          other.notes == this.notes &&
+          other.overrideExerciseId == this.overrideExerciseId);
 }
 
 class ScheduledWorkoutExerciseTableCompanion
@@ -5077,12 +5126,14 @@ class ScheduledWorkoutExerciseTableCompanion
   final Value<int> workoutExerciseId;
   final Value<bool> isCompleted;
   final Value<String?> notes;
+  final Value<int?> overrideExerciseId;
   const ScheduledWorkoutExerciseTableCompanion({
     this.id = const Value.absent(),
     this.scheduledWorkoutId = const Value.absent(),
     this.workoutExerciseId = const Value.absent(),
     this.isCompleted = const Value.absent(),
     this.notes = const Value.absent(),
+    this.overrideExerciseId = const Value.absent(),
   });
   ScheduledWorkoutExerciseTableCompanion.insert({
     this.id = const Value.absent(),
@@ -5090,6 +5141,7 @@ class ScheduledWorkoutExerciseTableCompanion
     required int workoutExerciseId,
     this.isCompleted = const Value.absent(),
     this.notes = const Value.absent(),
+    this.overrideExerciseId = const Value.absent(),
   }) : scheduledWorkoutId = Value(scheduledWorkoutId),
        workoutExerciseId = Value(workoutExerciseId);
   static Insertable<ScheduledWorkoutExerciseTableData> custom({
@@ -5098,6 +5150,7 @@ class ScheduledWorkoutExerciseTableCompanion
     Expression<int>? workoutExerciseId,
     Expression<bool>? isCompleted,
     Expression<String>? notes,
+    Expression<int>? overrideExerciseId,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -5106,6 +5159,8 @@ class ScheduledWorkoutExerciseTableCompanion
       if (workoutExerciseId != null) 'workout_exercise_id': workoutExerciseId,
       if (isCompleted != null) 'is_completed': isCompleted,
       if (notes != null) 'notes': notes,
+      if (overrideExerciseId != null)
+        'override_exercise_id': overrideExerciseId,
     });
   }
 
@@ -5115,6 +5170,7 @@ class ScheduledWorkoutExerciseTableCompanion
     Value<int>? workoutExerciseId,
     Value<bool>? isCompleted,
     Value<String?>? notes,
+    Value<int?>? overrideExerciseId,
   }) {
     return ScheduledWorkoutExerciseTableCompanion(
       id: id ?? this.id,
@@ -5122,6 +5178,7 @@ class ScheduledWorkoutExerciseTableCompanion
       workoutExerciseId: workoutExerciseId ?? this.workoutExerciseId,
       isCompleted: isCompleted ?? this.isCompleted,
       notes: notes ?? this.notes,
+      overrideExerciseId: overrideExerciseId ?? this.overrideExerciseId,
     );
   }
 
@@ -5143,6 +5200,9 @@ class ScheduledWorkoutExerciseTableCompanion
     if (notes.present) {
       map['notes'] = Variable<String>(notes.value);
     }
+    if (overrideExerciseId.present) {
+      map['override_exercise_id'] = Variable<int>(overrideExerciseId.value);
+    }
     return map;
   }
 
@@ -5153,7 +5213,8 @@ class ScheduledWorkoutExerciseTableCompanion
           ..write('scheduledWorkoutId: $scheduledWorkoutId, ')
           ..write('workoutExerciseId: $workoutExerciseId, ')
           ..write('isCompleted: $isCompleted, ')
-          ..write('notes: $notes')
+          ..write('notes: $notes, ')
+          ..write('overrideExerciseId: $overrideExerciseId')
           ..write(')'))
         .toString();
   }
@@ -10998,6 +11059,7 @@ typedef $$ScheduledWorkoutExerciseTableTableCreateCompanionBuilder =
       required int workoutExerciseId,
       Value<bool> isCompleted,
       Value<String?> notes,
+      Value<int?> overrideExerciseId,
     });
 typedef $$ScheduledWorkoutExerciseTableTableUpdateCompanionBuilder =
     ScheduledWorkoutExerciseTableCompanion Function({
@@ -11006,6 +11068,7 @@ typedef $$ScheduledWorkoutExerciseTableTableUpdateCompanionBuilder =
       Value<int> workoutExerciseId,
       Value<bool> isCompleted,
       Value<String?> notes,
+      Value<int?> overrideExerciseId,
     });
 
 final class $$ScheduledWorkoutExerciseTableTableReferences
@@ -11117,6 +11180,11 @@ class $$ScheduledWorkoutExerciseTableTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<int> get overrideExerciseId => $composableBuilder(
+    column: $table.overrideExerciseId,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$ScheduledWorkoutTableTableFilterComposer get scheduledWorkoutId {
     final $$ScheduledWorkoutTableTableFilterComposer composer =
         $composerBuilder(
@@ -11214,6 +11282,11 @@ class $$ScheduledWorkoutExerciseTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get overrideExerciseId => $composableBuilder(
+    column: $table.overrideExerciseId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$ScheduledWorkoutTableTableOrderingComposer get scheduledWorkoutId {
     final $$ScheduledWorkoutTableTableOrderingComposer composer =
         $composerBuilder(
@@ -11282,6 +11355,11 @@ class $$ScheduledWorkoutExerciseTableTableAnnotationComposer
 
   GeneratedColumn<String> get notes =>
       $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<int> get overrideExerciseId => $composableBuilder(
+    column: $table.overrideExerciseId,
+    builder: (column) => column,
+  );
 
   $$ScheduledWorkoutTableTableAnnotationComposer get scheduledWorkoutId {
     final $$ScheduledWorkoutTableTableAnnotationComposer composer =
@@ -11408,12 +11486,14 @@ class $$ScheduledWorkoutExerciseTableTableTableManager
                 Value<int> workoutExerciseId = const Value.absent(),
                 Value<bool> isCompleted = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
+                Value<int?> overrideExerciseId = const Value.absent(),
               }) => ScheduledWorkoutExerciseTableCompanion(
                 id: id,
                 scheduledWorkoutId: scheduledWorkoutId,
                 workoutExerciseId: workoutExerciseId,
                 isCompleted: isCompleted,
                 notes: notes,
+                overrideExerciseId: overrideExerciseId,
               ),
           createCompanionCallback:
               ({
@@ -11422,12 +11502,14 @@ class $$ScheduledWorkoutExerciseTableTableTableManager
                 required int workoutExerciseId,
                 Value<bool> isCompleted = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
+                Value<int?> overrideExerciseId = const Value.absent(),
               }) => ScheduledWorkoutExerciseTableCompanion.insert(
                 id: id,
                 scheduledWorkoutId: scheduledWorkoutId,
                 workoutExerciseId: workoutExerciseId,
                 isCompleted: isCompleted,
                 notes: notes,
+                overrideExerciseId: overrideExerciseId,
               ),
           withReferenceMapper:
               (p0) =>

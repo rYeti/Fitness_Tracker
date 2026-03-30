@@ -642,6 +642,7 @@
   "onboardingGetStarted": "Loslegen",
 
   "undoSkip": "Überspringen rückgängig",
+  "replaceExercise": "Übung ersetzen",
   "resumeWorkoutTitle": "Training fortsetzen?",
   "resumeWorkoutBody": "\"{name}\" wurde unterbrochen. Dort weitermachen, wo du aufgehört hast?",
   "@resumeWorkoutBody": {

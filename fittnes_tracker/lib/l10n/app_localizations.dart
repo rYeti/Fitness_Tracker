@@ -2369,6 +2369,12 @@ abstract class AppLocalizations {
   /// **'Undo Skip'**
   String get undoSkip;
 
+  /// No description provided for @replaceExercise.
+  ///
+  /// In en, this message translates to:
+  /// **'Replace Exercise'**
+  String get replaceExercise;
+
   /// No description provided for @resumeWorkoutTitle.
   ///
   /// In en, this message translates to:
