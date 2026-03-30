@@ -1,11 +1,11 @@
 using FitTracker.Api.DTOs;
 using FitTracker.Api.Repositories.Interfaces;
-using FitTracker.Api.Services.Interfaces;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using Microsoft.IdentityModel.Tokens;
 using FitTracker.Api.Models;
+using FitTracker.Api.Services.Interfaces;
 
 namespace FitTracker.Api.Services;
 

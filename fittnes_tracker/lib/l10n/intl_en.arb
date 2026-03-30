@@ -643,5 +643,14 @@
   "onboardingGoalsSubtitle": "Tell us what you're working towards",
   "onboardingSummaryTitle": "You're all set!",
   "onboardingSummaryCaloriesLabel": "Estimated daily calorie target",
-  "onboardingGetStarted": "Get Started"
+  "onboardingGetStarted": "Get Started",
+
+  "undoSkip": "Undo Skip",
+  "resumeWorkoutTitle": "Resume workout?",
+  "resumeWorkoutBody": "\"{name}\" was interrupted. Resume where you left off?",
+  "@resumeWorkoutBody": {
+    "placeholders": { "name": {"type": "String"} }
+  },
+  "resumeWorkout": "Resume",
+  "discardWorkout": "Discard"
 }

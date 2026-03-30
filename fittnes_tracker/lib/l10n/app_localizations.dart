@@ -2362,6 +2362,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Get Started'**
   String get onboardingGetStarted;
+
+  /// No description provided for @undoSkip.
+  ///
+  /// In en, this message translates to:
+  /// **'Undo Skip'**
+  String get undoSkip;
+
+  /// No description provided for @resumeWorkoutTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Resume workout?'**
+  String get resumeWorkoutTitle;
+
+  /// No description provided for @resumeWorkoutBody.
+  ///
+  /// In en, this message translates to:
+  /// **'\"{name}\" was interrupted. Resume where you left off?'**
+  String resumeWorkoutBody(String name);
+
+  /// No description provided for @resumeWorkout.
+  ///
+  /// In en, this message translates to:
+  /// **'Resume'**
+  String get resumeWorkout;
+
+  /// No description provided for @discardWorkout.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard'**
+  String get discardWorkout;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

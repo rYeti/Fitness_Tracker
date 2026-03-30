@@ -639,5 +639,14 @@
   "onboardingGoalsSubtitle": "Sag uns, worauf du hinarbeitest",
   "onboardingSummaryTitle": "Alles bereit!",
   "onboardingSummaryCaloriesLabel": "Geschätztes tägliches Kalorienziel",
-  "onboardingGetStarted": "Loslegen"
+  "onboardingGetStarted": "Loslegen",
+
+  "undoSkip": "Überspringen rückgängig",
+  "resumeWorkoutTitle": "Training fortsetzen?",
+  "resumeWorkoutBody": "\"{name}\" wurde unterbrochen. Dort weitermachen, wo du aufgehört hast?",
+  "@resumeWorkoutBody": {
+    "placeholders": { "name": {"type": "String"} }
+  },
+  "resumeWorkout": "Fortsetzen",
+  "discardWorkout": "Verwerfen"
 }

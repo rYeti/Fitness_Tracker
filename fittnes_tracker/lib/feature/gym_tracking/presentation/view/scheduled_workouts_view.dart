@@ -62,22 +62,21 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
     final workoutName = workoutData?.name ?? 'Workout';
     final date = DateTime.parse(savedDateStr);
 
+    final l10n = AppLocalizations.of(context)!;
     final shouldResume = await showDialog<bool>(
       context: context,
       builder:
           (ctx) => AlertDialog(
-            title: const Text('Resume workout?'),
-            content: Text(
-              '"$workoutName" was interrupted. Resume where you left off?',
-            ),
+            title: Text(l10n.resumeWorkoutTitle),
+            content: Text(l10n.resumeWorkoutBody(workoutName)),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Discard'),
+                child: Text(l10n.discardWorkout),
               ),
               FilledButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Resume'),
+                child: Text(l10n.resumeWorkout),
               ),
             ],
           ),
@@ -417,9 +416,7 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
                           ],
                         ),
                       ),
-                      if (isSkipped)
-                        const Icon(Icons.block, color: Colors.grey, size: 28)
-                      else if (isCompleted)
+                      if (isCompleted)
                         const Icon(Icons.check_circle, color: Colors.green, size: 32)
                       else if (!isRestDay)
                         PopupMenuButton<String>(
@@ -429,29 +426,44 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
                               _skipWorkout(item);
                             } else if (value == 'postpone') {
                               _postponeWorkout(item);
+                            } else if (value == 'unskip') {
+                              _unskipWorkout(item);
                             }
                           },
                           itemBuilder: (context) => [
-                            PopupMenuItem(
-                              value: 'skip',
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.block, size: 18),
-                                  const SizedBox(width: 8),
-                                  Text(l10n.skipWorkout),
-                                ],
+                            if (isSkipped)
+                              PopupMenuItem(
+                                value: 'unskip',
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.undo, size: 18),
+                                    const SizedBox(width: 8),
+                                    Text(l10n.undoSkip),
+                                  ],
+                                ),
+                              )
+                            else ...[
+                              PopupMenuItem(
+                                value: 'skip',
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.block, size: 18),
+                                    const SizedBox(width: 8),
+                                    Text(l10n.skipWorkout),
+                                  ],
+                                ),
                               ),
-                            ),
-                            PopupMenuItem(
-                              value: 'postpone',
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.calendar_today, size: 18),
-                                  const SizedBox(width: 8),
-                                  Text(l10n.postponeWorkout),
-                                ],
+                              PopupMenuItem(
+                                value: 'postpone',
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.calendar_today, size: 18),
+                                    const SizedBox(width: 8),
+                                    Text(l10n.postponeWorkout),
+                                  ],
+                                ),
                               ),
-                            ),
+                            ],
                           ],
                         ),
                     ],
@@ -527,6 +539,11 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
   Future<void> _skipWorkout(ScheduledWorkoutWithDetails item) async {
     final provider = context.read<ScheduleWorkoutProvider>();
     await provider.skipWorkout(item.scheduled.id);
+  }
+
+  Future<void> _unskipWorkout(ScheduledWorkoutWithDetails item) async {
+    final provider = context.read<ScheduleWorkoutProvider>();
+    await provider.unskipWorkout(item.scheduled.id);
   }
 
   Future<void> _postponeWorkout(ScheduledWorkoutWithDetails item) async {

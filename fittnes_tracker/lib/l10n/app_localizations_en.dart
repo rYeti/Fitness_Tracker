@@ -1253,4 +1253,21 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get onboardingGetStarted => 'Get Started';
+
+  @override
+  String get undoSkip => 'Undo Skip';
+
+  @override
+  String get resumeWorkoutTitle => 'Resume workout?';
+
+  @override
+  String resumeWorkoutBody(String name) {
+    return '\"$name\" was interrupted. Resume where you left off?';
+  }
+
+  @override
+  String get resumeWorkout => 'Resume';
+
+  @override
+  String get discardWorkout => 'Discard';
 }

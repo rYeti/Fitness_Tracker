@@ -74,6 +74,8 @@ class ScheduleWorkoutProvider extends ChangeNotifier {
 
   Future<void> skipWorkout(int id) => _dao.skipWorkout(id);
 
+  Future<void> unskipWorkout(int id) => _dao.unskipWorkout(id);
+
   Future<void> postponeWorkout(int id, DateTime newDate) =>
       _dao.postponeWorkout(id, newDate);
 

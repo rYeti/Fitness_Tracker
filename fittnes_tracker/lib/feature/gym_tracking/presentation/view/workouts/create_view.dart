@@ -916,7 +916,11 @@ class _WorkoutDetailsScreenState extends State<_WorkoutDetailsScreen> {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
 
-    return Scaffold(
+    return PopScope(
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) widget.onExercisesChanged(_exercises);
+      },
+      child: Scaffold(
       appBar: AppBar(
         title: Text(widget.workoutName),
         actions: [
@@ -968,7 +972,7 @@ class _WorkoutDetailsScreenState extends State<_WorkoutDetailsScreen> {
         icon: const Icon(Icons.add),
         label: Text(l10n.addExercise),
       ),
-    );
+    ));
   }
 
   Widget _buildEmptyState(ThemeData theme, AppLocalizations l10n) {

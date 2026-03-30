@@ -448,6 +448,12 @@ class ScheduledWorkoutDao extends DatabaseAccessor<AppDatabase>
     )).write(const ScheduledWorkoutTableCompanion(isSkipped: Value(true)));
   }
 
+  Future<void> unskipWorkout(int id) {
+    return (update(scheduledWorkoutTable)..where(
+      (t) => t.id.equals(id),
+    )).write(const ScheduledWorkoutTableCompanion(isSkipped: Value(false)));
+  }
+
   Future<void> postponeWorkout(int id, DateTime newDate) {
     return (update(scheduledWorkoutTable)..where(
       (t) => t.id.equals(id),

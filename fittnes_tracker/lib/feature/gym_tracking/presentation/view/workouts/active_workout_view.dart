@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/utils/app_logger.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
@@ -37,6 +38,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
   final Map<String, TextEditingController> _exerciseNoteControllers = {};
   final Map<String, TextEditingController> _setControllers = {};
   List<_ExerciseWithSets> _exercises = [];
+  Timer? _saveDebounce;
   @override
   void initState() {
     super.initState();
@@ -65,8 +67,14 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     await prefs.remove(_kActiveWorkoutDateKey);
   }
 
+  void _scheduleSave() {
+    _saveDebounce?.cancel();
+    _saveDebounce = Timer(const Duration(milliseconds: 800), _saveCurrentExercise);
+  }
+
   @override
   void dispose() {
+    _saveDebounce?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _workoutNoteController.dispose();
     _exerciseNoteControllers.values.forEach((c) => c.dispose());
@@ -349,15 +357,15 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
         if (weightController != null && repsController != null) {
           final weight = double.tryParse(weightController.text);
           final reps = int.tryParse(repsController.text);
-          if (weight != null && reps != null) {
+          if (weight != null || reps != null) {
             await db
                 .into(db.workoutSetTable)
                 .insert(
                   WorkoutSetTableCompanion.insert(
                     scheduledWorkoutExerciseId: scheduledExerciseId,
                     setNumber: template.setNumber,
-                    weight: Value(weight),
-                    reps: Value(reps),
+                    weight: Value(weight ?? 0.0),
+                    reps: Value(reps ?? 0),
                     isCompleted: const Value(true),
                   ),
                 );
@@ -545,7 +553,14 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
         _currentSetIndex;
     final progress = totalSets > 0 ? (completedSets + 1) / totalSets : 0.0;
 
-    return SafeArea(child: Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        await _saveCurrentExercise();
+        if (context.mounted) Navigator.of(context).pop();
+      },
+      child: SafeArea(child: Scaffold(
       appBar: AppBar(
         title: Text(widget.scheduledWorkout.workout?.name ?? 'Workout'),
         actions: [
@@ -610,7 +625,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
           _buildNavigationButtons(theme, l10n),
         ],
       ),
-    ));
+    )));
   }
 
   /// FIX #2: Build workout overview for completed workouts
@@ -1076,6 +1091,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                       hintText: '0.0',
                       border: OutlineInputBorder(),
                     ),
+                    onChanged: (_) => _scheduleSave(),
                   ),
                 ],
               ),
@@ -1107,6 +1123,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                       hintText: '0',
                       border: OutlineInputBorder(),
                     ),
+                    onChanged: (_) => _scheduleSave(),
                   ),
                 ],
               ),
