@@ -1273,4 +1273,13 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get discardWorkout => 'Verwerfen';
+
+  @override
+  String get removeSupersetLink => 'Superset-Verbindung entfernen';
+
+  @override
+  String get superset => 'Superset';
+
+  @override
+  String get supersetPickHint => 'Wählen Sie Übungen für das Superset aus';
 }

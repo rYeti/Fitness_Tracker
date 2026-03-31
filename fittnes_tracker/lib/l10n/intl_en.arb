@@ -653,5 +653,8 @@
     "placeholders": { "name": {"type": "String"} }
   },
   "resumeWorkout": "Resume",
-  "discardWorkout": "Discard"
+  "discardWorkout": "Discard",
+   "removeSupersetLink": "Remove from superset",
+  "superset": "Superset",
+  "supersetPickHint": "Select exercises for the superset"
 }

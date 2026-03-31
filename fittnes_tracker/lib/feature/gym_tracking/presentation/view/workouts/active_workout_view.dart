@@ -40,6 +40,17 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
   final Map<String, TextEditingController> _setControllers = {};
   List<_ExerciseWithSets> _exercises = [];
   Timer? _saveDebounce;
+  int _nextSupersetGroupId = 1;
+
+  /// Returns the index of the superset partner of [index], or null if none.
+  int? _supersetPartnerIndex(int index) {
+    final groupId = _exercises[index].supersetGroupId;
+    if (groupId == null) return null;
+    for (var i = 0; i < _exercises.length; i++) {
+      if (i != index && _exercises[i].supersetGroupId == groupId) return i;
+    }
+    return null;
+  }
   @override
   void initState() {
     super.initState();
@@ -201,11 +212,16 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
             previousSets: previousSetsMap,
             scheduledExerciseId: scheduledExercise?.id,
             existingSets: existingSetsMap,
+            supersetGroupId: workoutExercise.supersetGroupId,
           ),
         );
       }
+      final maxGroupId = exercises
+          .map((e) => e.supersetGroupId ?? 0)
+          .fold(0, (a, b) => a > b ? a : b);
       setState(() {
         _exercises = exercises;
+        _nextSupersetGroupId = maxGroupId + 1;
         _isLoading = false;
       });
     } catch (e, stackTrace) {
@@ -455,6 +471,58 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
   void _nextSet() {
     if (widget.isReadOnly) return;
     final currentExercise = _exercises[_currentExerciseIndex];
+    final partnerIndex = _supersetPartnerIndex(_currentExerciseIndex);
+
+    if (partnerIndex != null) {
+      // Superset: alternate to partner for the same set number, then advance
+      final isOnFirst = _currentExerciseIndex < partnerIndex;
+      final partnerSets = _exercises[partnerIndex].templates.length;
+      final currentSets = currentExercise.templates.length;
+      final maxSets = currentSets > partnerSets ? currentSets : partnerSets;
+
+      if (isOnFirst) {
+        // Jump to partner at same set index (clamped to its length)
+        _saveCurrentExercise();
+        final partnerSetIndex = _currentSetIndex < partnerSets
+            ? _currentSetIndex
+            : partnerSets - 1;
+        setState(() {
+          _currentExerciseIndex = partnerIndex;
+          _currentSetIndex = partnerSetIndex;
+        });
+        showRestTimer(context);
+      } else {
+        // Back on second exercise — advance set or leave superset
+        if (_currentSetIndex < maxSets - 1) {
+          final nextSet = _currentSetIndex + 1;
+          _saveCurrentExercise();
+          final firstIndex = partnerIndex; // partner is now the "first"
+          final firstSets = _exercises[firstIndex].templates.length;
+          final firstSetIndex = nextSet < firstSets ? nextSet : firstSets - 1;
+          setState(() {
+            _currentExerciseIndex = firstIndex;
+            _currentSetIndex = firstSetIndex;
+          });
+          showRestTimer(context);
+        } else {
+          _saveCurrentExercise();
+          // Both exercises done — skip past the superset pair
+          final afterSuperset = (partnerIndex > _currentExerciseIndex
+                  ? partnerIndex
+                  : _currentExerciseIndex) +
+              1;
+          if (afterSuperset < _exercises.length) {
+            setState(() {
+              _currentExerciseIndex = afterSuperset;
+              _currentSetIndex = 0;
+            });
+          }
+        }
+      }
+      return;
+    }
+
+    // Normal (non-superset) flow
     if (_currentSetIndex < currentExercise.templates.length - 1) {
       setState(() {
         _currentSetIndex++;
@@ -1451,8 +1519,10 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
   void _showExerciseList(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      builder: (sheetContext) => StatefulBuilder(
-        builder: (sheetContext, setSheetState) => Column(
+      builder: (sheetContext) {
+        int? supersetPickIndex;
+        return StatefulBuilder(
+        builder: (sheetContext, setSheetState) => SafeArea(child: Column(
           children: [
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -1515,53 +1585,159 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
             final exercise = _exercises[index];
             final isCurrent = index == _currentExerciseIndex;
             final l10n = AppLocalizations.of(context)!;
-            return ListTile(
-              leading: CircleAvatar(
-                backgroundColor:
-                    isCurrent
-                        ? Theme.of(context).colorScheme.primary
-                        : Theme.of(context).colorScheme.surfaceVariant,
-                child: Text('${index + 1}'),
-              ),
-              title: Text(
-                exercise.exercise.name,
-                style: TextStyle(
-                  fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
-                ),
-              ),
-              subtitle: Text(l10n.setTemplatesCount(exercise.templates.length)),
-              onTap: () {
-                _saveCurrentExercise();
-                setState(() {
-                  _currentExerciseIndex = index;
-                  _currentSetIndex = 0;
-                });
-                Navigator.pop(sheetContext);
-              },
-              onLongPress: _exercises.length <= 1
-                  ? null
-                  : () async {
-                      final confirm = await showDialog<bool>(
-                        context: sheetContext,
-                        builder: (ctx) => AlertDialog(
-                          title: Text(l10n.removeExerciseTitle),
-                          content: Text(exercise.exercise.name),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(ctx, false),
-                              child: Text(l10n.cancel),
-                            ),
-                            FilledButton(
-                              onPressed: () => Navigator.pop(ctx, true),
-                              style: FilledButton.styleFrom(
-                                backgroundColor: Colors.red,
-                              ),
-                              child: Text(l10n.delete),
-                            ),
-                          ],
+            final theme = Theme.of(context);
+            final partnerIdx = _supersetPartnerIndex(index);
+            final isInSuperset = partnerIdx != null;
+            final isSelected = supersetPickIndex == index;
+            final isPendingPartner = supersetPickIndex != null && !isSelected;
+
+            // Chain connector drawn below an item when the next item is its superset partner
+            final showChainBelow = index + 1 < _exercises.length &&
+                _exercises[index + 1].supersetGroupId != null &&
+                _exercises[index + 1].supersetGroupId == exercise.supersetGroupId;
+
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  tileColor: isSelected
+                      ? theme.colorScheme.primaryContainer
+                      : isInSuperset
+                      ? theme.colorScheme.secondaryContainer.withValues(alpha: 0.4)
+                      : null,
+                  leading: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      CircleAvatar(
+                        backgroundColor: isCurrent
+                            ? theme.colorScheme.primary
+                            : isInSuperset
+                            ? theme.colorScheme.secondary
+                            : theme.colorScheme.surfaceContainerHighest,
+                        child: Text(
+                          '${index + 1}',
+                          style: TextStyle(
+                            color: isCurrent || isInSuperset ? Colors.white : null,
+                          ),
                         ),
-                      );
-                      if (confirm != true) return;
+                      ),
+                      if (isInSuperset)
+                        Positioned(
+                          right: -4,
+                          top: -4,
+                          child: Icon(Icons.link, size: 14, color: theme.colorScheme.secondary),
+                        ),
+                    ],
+                  ),
+                  title: Text(
+                    exercise.exercise.name,
+                    style: TextStyle(
+                      fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                  subtitle: Row(
+                    children: [
+                      Flexible(child: Text(l10n.setTemplatesCount(exercise.templates.length), overflow: TextOverflow.ellipsis)),
+                      if (isInSuperset) ...[
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            l10n.superset,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: theme.colorScheme.secondary,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  trailing: isSelected
+                      ? Icon(Icons.link, color: theme.colorScheme.primary)
+                      : null,
+                  onTap: () {
+                    if (supersetPickIndex != null) {
+                      // Second selection — link as superset
+                      if (supersetPickIndex != index) {
+                        setState(() {
+                          // If either already has a group, break it first
+                          final existingGroupA = _exercises[supersetPickIndex!].supersetGroupId;
+                          final existingGroupB = exercise.supersetGroupId;
+                          if (existingGroupA != null) {
+                            for (final e in _exercises) {
+                              if (e.supersetGroupId == existingGroupA) e.supersetGroupId = null;
+                            }
+                          }
+                          if (existingGroupB != null) {
+                            for (final e in _exercises) {
+                              if (e.supersetGroupId == existingGroupB) e.supersetGroupId = null;
+                            }
+                          }
+                          final groupId = _nextSupersetGroupId++;
+                          _exercises[supersetPickIndex!].supersetGroupId = groupId;
+                          exercise.supersetGroupId = groupId;
+                        });
+                      }
+                      setSheetState(() => supersetPickIndex = null);
+                    } else {
+                      _saveCurrentExercise();
+                      setState(() {
+                        _currentExerciseIndex = index;
+                        _currentSetIndex = 0;
+                      });
+                      Navigator.pop(sheetContext);
+                    }
+                  },
+                  onLongPress: () async {
+                    setSheetState(() => supersetPickIndex = null);
+                    final action = await showDialog<String>(
+                      context: sheetContext,
+                      builder: (ctx) => SimpleDialog(
+                        title: Text(exercise.exercise.name),
+                        children: [
+                          if (isInSuperset)
+                            SimpleDialogOption(
+                              onPressed: () => Navigator.pop(ctx, 'unlink'),
+                              child: Row(children: [
+                                const Icon(Icons.link_off),
+                                const SizedBox(width: 8),
+                                Flexible(child: Text(l10n.removeSupersetLink)),
+                              ]),
+                            )
+                          else
+                            SimpleDialogOption(
+                              onPressed: () => Navigator.pop(ctx, 'superset'),
+                              child: Row(children: [
+                                const Icon(Icons.link),
+                                const SizedBox(width: 8),
+                                Flexible(child: Text(l10n.superset)),
+                              ]),
+                            ),
+                          if (_exercises.length > 1)
+                            SimpleDialogOption(
+                              onPressed: () => Navigator.pop(ctx, 'delete'),
+                              child: Row(children: [
+                                const Icon(Icons.delete, color: Colors.red),
+                                const SizedBox(width: 8),
+                                Flexible(child: Text(l10n.delete, style: const TextStyle(color: Colors.red))),
+                              ]),
+                            ),
+                        ],
+                      ),
+                    );
+                    if (action == 'unlink') {
+                      final groupId = exercise.supersetGroupId;
+                      setState(() {
+                        for (final e in _exercises) {
+                          if (e.supersetGroupId == groupId) e.supersetGroupId = null;
+                        }
+                      });
+                      setSheetState(() {});
+                    } else if (action == 'superset') {
+                      setSheetState(() => supersetPickIndex = index);
+                    } else if (action == 'delete') {
                       setState(() {
                         _exercises.removeAt(index);
                         if (_currentExerciseIndex >= _exercises.length) {
@@ -1570,14 +1746,49 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                         _currentSetIndex = 0;
                       });
                       setSheetState(() {});
-                    },
+                    }
+                  },
+                ),
+                if (showChainBelow)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 28),
+                    child: Row(
+                      children: [
+                        Icon(Icons.more_vert, size: 16, color: theme.colorScheme.secondary),
+                        const SizedBox(width: 4),
+                        Text(
+                          l10n.superset,
+                          style: TextStyle(fontSize: 10, color: theme.colorScheme.secondary),
+                        ),
+                        Expanded(child: Divider(color: theme.colorScheme.secondary, thickness: 1)),
+                      ],
+                    ),
+                  ),
+              ],
             );
           },
         ),
             ),
+            if (supersetPickIndex != null)
+              Container(
+                color: Theme.of(sheetContext).colorScheme.primaryContainer,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                child: Row(
+                  children: [
+                    Icon(Icons.link, color: Theme.of(sheetContext).colorScheme.primary),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(AppLocalizations.of(sheetContext)!.supersetPickHint)),
+                    TextButton(
+                      onPressed: () => setSheetState(() => supersetPickIndex = null),
+                      child: Text(AppLocalizations.of(sheetContext)!.cancel),
+                    ),
+                  ],
+                ),
+              ),
           ],
-        ),
-      ),
+        )),
+        );
+      },
     );
   }
 }
@@ -1916,6 +2127,7 @@ class _ExerciseWithSets {
   final Map<int, WorkoutSetTableData> previousSets;
   final Map<int, WorkoutSetTableData> existingSets;
   int? scheduledExerciseId;
+  int? supersetGroupId;
   _ExerciseWithSets({
     required this.exercise,
     required this.workoutExercise,
@@ -1923,5 +2135,6 @@ class _ExerciseWithSets {
     required this.previousSets,
     this.scheduledExerciseId,
     required this.existingSets,
+    this.supersetGroupId,
   });
 }

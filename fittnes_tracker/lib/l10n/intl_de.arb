@@ -649,5 +649,8 @@
     "placeholders": { "name": {"type": "String"} }
   },
   "resumeWorkout": "Fortsetzen",
-  "discardWorkout": "Verwerfen"
+  "discardWorkout": "Verwerfen",
+  "removeSupersetLink": "Superset-Verbindung entfernen",
+  "superset": "Superset",
+  "supersetPickHint": "Wählen Sie Übungen für das Superset aus"
 }

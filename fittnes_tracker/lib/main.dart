@@ -2,6 +2,7 @@ import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/seed_exercises.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'core/di/service_locator.dart';
 import 'core/providers/theme_provider.dart';
@@ -25,6 +26,13 @@ import 'feature/onboarding/onboarding_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      systemNavigationBarColor: Colors.transparent,
+    ),
+  );
   await initializeDateFormatting();
   setupLocator();
   final db = AppDatabase();

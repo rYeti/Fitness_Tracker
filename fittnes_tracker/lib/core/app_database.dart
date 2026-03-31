@@ -60,7 +60,7 @@ class AppDatabase extends _$AppDatabase {
   // Workout planning DAOs will be added here after code generation
 
   @override
-  int get schemaVersion => 21;
+  int get schemaVersion => 23;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -103,6 +103,20 @@ class AppDatabase extends _$AppDatabase {
         try {
           await customStatement(
             'ALTER TABLE scheduled_workout_exercise_table ADD COLUMN override_exercise_id INTEGER',
+          );
+        } catch (_) {}
+      }
+      if (from < 22) {
+        try {
+          await customStatement(
+            'ALTER TABLE workout_exercise_table ADD COLUMN superset_group_id INTEGER',
+          );
+        } catch (_) {}
+      }
+      if (from < 23) {
+        try {
+          await customStatement(
+            'ALTER TABLE workout_table ADD COLUMN color INTEGER',
           );
         } catch (_) {}
       }
@@ -467,6 +481,54 @@ class ScheduledWorkoutDao extends DatabaseAccessor<AppDatabase>
     )).write(ScheduledWorkoutTableCompanion(scheduledDate: Value(newDate)));
   }
 
+  /// Returns a map of date → (color, isCompleted, isSkipped) for all scheduled
+  /// workouts in the given month. Used to render the calendar color dots.
+  Future<Map<DateTime, ({int? color, bool isCompleted, bool isSkipped})>>
+  getWorkoutColorSummariesForMonth(DateTime month) async {
+    final start = DateTime(month.year, month.month, 1);
+    final end = DateTime(month.year, month.month + 1, 1);
+
+    final results = await customSelect(
+      '''
+      SELECT
+        sw.scheduled_date,
+        sw.is_completed,
+        sw.is_skipped,
+        sw.workout_plan_id,
+        COALESCE(w.color, tw.color) as color
+      FROM scheduled_workout_table sw
+      LEFT JOIN workout_table w ON w.id = sw.workout_id
+      LEFT JOIN workout_table tw ON tw.id = sw.template_workout_id
+      WHERE sw.scheduled_date >= ? AND sw.scheduled_date < ?
+      ''',
+      variables: [
+        Variable.withDateTime(start),
+        Variable.withDateTime(end),
+      ],
+    ).get();
+
+    // Fetch active plan to filter
+    final db2 = attachedDatabase;
+    final activePlans = await db2.workoutPlanDao.getActivePlans();
+    final activePlanId = activePlans.isNotEmpty ? activePlans.first.id : null;
+
+    final map = <DateTime, ({int? color, bool isCompleted, bool isSkipped})>{};
+    for (final row in results) {
+      final planId = row.readNullable<int>('workout_plan_id');
+      if (activePlanId != null && planId != activePlanId) continue;
+      final rawDate = row.read<DateTime>('scheduled_date');
+      final date = DateTime(rawDate.year, rawDate.month, rawDate.day);
+      final color = row.readNullable<int>('color');
+      final isCompleted = row.read<bool>('is_completed');
+      final isSkipped = row.read<bool>('is_skipped');
+      // Prefer completed entry if multiple exist for a day
+      if (!map.containsKey(date) || isCompleted) {
+        map[date] = (color: color, isCompleted: isCompleted, isSkipped: isSkipped);
+      }
+    }
+    return map;
+  }
+
   Future<List<ScheduledWorkoutTableData>> getAll() =>
       select(scheduledWorkoutTable).get();
 
@@ -528,6 +590,7 @@ class ScheduledWorkoutDao extends DatabaseAccessor<AppDatabase>
           w.difficulty as w_difficulty,
           w.estimated_duration_minutes as w_estimated_duration_minutes,
           w.is_template as w_is_template,
+          w.color as w_color,
 
           -- fallback template workout (use when primary is NULL)
           tw.id as tw_id,
@@ -536,6 +599,7 @@ class ScheduledWorkoutDao extends DatabaseAccessor<AppDatabase>
           tw.difficulty as tw_difficulty,
           tw.estimated_duration_minutes as tw_estimated_duration_minutes,
           tw.is_template as tw_is_template,
+          tw.color as tw_color,
 
           wp.is_active
         FROM scheduled_workout_table sw
@@ -580,6 +644,7 @@ class ScheduledWorkoutDao extends DatabaseAccessor<AppDatabase>
             ),
             scheduledDate: null,
             completedDate: null,
+            color: row.readNullable<int>('w_color'),
           );
         } else if (row.readNullable<int>('tw_id') != null) {
           workout = WorkoutTableData(
@@ -593,6 +658,7 @@ class ScheduledWorkoutDao extends DatabaseAccessor<AppDatabase>
             ),
             scheduledDate: null,
             completedDate: null,
+            color: row.readNullable<int>('tw_color'),
           );
         } else {
           workout = null;
@@ -991,6 +1057,7 @@ class WorkoutTable extends Table {
   BoolColumn get isTemplate => boolean().withDefault(const Constant(true))();
   DateTimeColumn get scheduledDate => dateTime().nullable()();
   DateTimeColumn get completedDate => dateTime().nullable()();
+  IntColumn get color => integer().nullable()();
 }
 
 /// Table for linking exercises to workouts (workout_exercise)
@@ -1010,6 +1077,7 @@ class WorkoutExerciseTable extends Table {
       )();
   IntColumn get orderPosition => integer()();
   TextColumn get notes => text().nullable()();
+  IntColumn get supersetGroupId => integer().nullable()();
 }
 
 class ScheduledWorkoutExerciseTable extends Table {

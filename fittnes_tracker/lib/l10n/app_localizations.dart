@@ -2398,6 +2398,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Discard'**
   String get discardWorkout;
+
+  /// No description provided for @removeSupersetLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove from superset'**
+  String get removeSupersetLink;
+
+  /// No description provided for @superset.
+  ///
+  /// In en, this message translates to:
+  /// **'Superset'**
+  String get superset;
+
+  /// No description provided for @supersetPickHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Select exercises for the superset'**
+  String get supersetPickHint;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

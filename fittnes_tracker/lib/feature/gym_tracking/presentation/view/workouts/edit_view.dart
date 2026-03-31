@@ -20,10 +20,21 @@ class EditWorkoutView extends StatefulWidget {
   State<EditWorkoutView> createState() => _EditWorkoutViewState();
 }
 
+// Preset colours shared with the create view.
+const _kPresetColors = [
+  0xFFE53935, 0xFFE91E63, 0xFF9C27B0, 0xFF3F51B5,
+  0xFF2196F3, 0xFF00BCD4, 0xFF009688, 0xFF4CAF50,
+  0xFF8BC34A, 0xFFCDDC39, 0xFFFFEB3B, 0xFFFF9800,
+  0xFFFF5722, 0xFF795548, 0xFF9E9E9E, 0xFF607D8B,
+];
+
 class _EditWorkoutViewState extends State<EditWorkoutView> {
   List<WorkoutPlan>? _plans;
   bool _loading = true;
   int? _activePlanId;
+
+  // workoutId → ARGB color int (null = no color set)
+  final Map<int, int?> _workoutColors = {};
 
   @override
   void didChangeDependencies() {
@@ -31,6 +42,76 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
     if (_plans == null) {
       _loadPlans();
     }
+  }
+
+  Future<void> _loadColors(List<WorkoutPlan> plans) async {
+    final db = sl<AppDatabase>();
+    final ids = plans
+        .expand((p) => p.workouts)
+        .map((w) => w.id)
+        .whereType<int>()
+        .toSet();
+    for (final id in ids) {
+      final row = await (db.select(db.workoutTable)
+            ..where((t) => t.id.equals(id)))
+          .getSingleOrNull();
+      if (row != null) _workoutColors[id] = row.color;
+    }
+  }
+
+  Future<void> _pickColor(int workoutId, String workoutName) async {
+    final current = _workoutColors[workoutId];
+    final picked = await showDialog<int>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(workoutName),
+        content: SizedBox(
+          width: 280,
+          child: Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: _kPresetColors.map((c) {
+              final isSel = current == c;
+              return GestureDetector(
+                onTap: () => Navigator.pop(ctx, c),
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Color(c),
+                    border: isSel
+                        ? Border.all(
+                            color: Theme.of(context).colorScheme.onSurface,
+                            width: 3)
+                        : null,
+                    boxShadow: isSel
+                        ? [BoxShadow(
+                            color: Color(c).withValues(alpha: 0.6),
+                            blurRadius: 6)]
+                        : null,
+                  ),
+                  child: isSel
+                      ? const Icon(Icons.check, color: Colors.white, size: 20)
+                      : null,
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(AppLocalizations.of(context)!.cancel),
+          ),
+        ],
+      ),
+    );
+    if (picked == null) return;
+    setState(() => _workoutColors[workoutId] = picked);
+    await (sl<AppDatabase>().update(sl<AppDatabase>().workoutTable)
+          ..where((t) => t.id.equals(workoutId)))
+        .write(WorkoutTableCompanion(color: drift.Value(picked)));
   }
 
   Future<void> _loadPlans() async {
@@ -65,6 +146,7 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
           _loading = false;
           _activePlanId = plan.isActive ? plan.id : null;
         });
+        await _loadColors(_plans!);
       } else {
         AppLogger.i(
           '❌ Plan not found for ID: ${widget.planId} - falling back to loading all plans',
@@ -83,6 +165,7 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
           _plans = plans.whereType<WorkoutPlan>().toList();
           _loading = false;
         });
+        await _loadColors(_plans!);
 
         if (_plans!.isEmpty && mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -114,6 +197,7 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
         final activePlan = _plans!.where((p) => p.isActive).firstOrNull;
         _activePlanId = activePlan?.id;
       });
+      await _loadColors(_plans!);
     }
   }
 
@@ -242,12 +326,37 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
   }
 
   Widget _buildExpandableWorkoutCard(Workout workout, int workoutIndex) {
+    final color = workout.id != null ? _workoutColors[workout.id] : null;
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
         child: Row(
           children: [
+            // Colour dot — tap to pick
+            if (workout.id != null)
+              GestureDetector(
+                onTap: () => _pickColor(workout.id!, workout.name),
+                child: Container(
+                  width: 28,
+                  height: 28,
+                  margin: const EdgeInsets.only(right: 12),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: color != null
+                        ? Color(color)
+                        : Theme.of(context).colorScheme.surfaceContainerHighest,
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.outline,
+                      width: 1.5,
+                    ),
+                  ),
+                  child: color == null
+                      ? Icon(Icons.palette_outlined, size: 14,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant)
+                      : null,
+                ),
+              ),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

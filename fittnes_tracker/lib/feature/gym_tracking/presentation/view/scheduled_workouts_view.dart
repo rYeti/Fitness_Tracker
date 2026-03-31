@@ -19,15 +19,40 @@ class ScheduledWorkoutsView extends StatefulWidget {
 class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
   DateTime selectedDate = DateTime.now();
   int _rebuildKey = 0;
+
+  // Calendar state
+  late DateTime _calendarMonth;
+  Map<DateTime, ({int? color, bool isCompleted, bool isSkipped})> _calendarData = {};
+  bool _isCalendarExpanded = false;
+
   @override
   void initState() {
     super.initState();
+    _calendarMonth = DateTime(selectedDate.year, selectedDate.month);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       final provider = context.read<ScheduleWorkoutProvider>();
       provider.loadForDate(selectedDate);
+      await _loadCalendarData();
       await _checkForInProgressWorkout();
     });
+  }
+
+  Future<void> _loadCalendarData() async {
+    final db = context.read<AppDatabase>();
+    final data = await db.scheduledWorkoutDao
+        .getWorkoutColorSummariesForMonth(_calendarMonth);
+    if (mounted) setState(() => _calendarData = data);
+  }
+
+  Future<void> _selectDate(DateTime date, ScheduleWorkoutProvider provider) async {
+    final newMonth = DateTime(date.year, date.month);
+    setState(() => selectedDate = date);
+    await provider.loadForDate(date);
+    if (newMonth != _calendarMonth) {
+      _calendarMonth = newMonth;
+      await _loadCalendarData();
+    }
   }
 
   /// If the OS killed the app while the user was mid-workout, offer to resume.
@@ -172,70 +197,101 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
           ),
           body: Column(
             children: [
-              // Date selector
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Row(
-                  children: [
-                    TextButton.icon(
-                      icon: const Icon(Icons.calendar_today),
-                      label: Text(
-                        '${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}',
+              // ── Collapsible calendar ──────────────────────────────────
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Header row — always visible, tap to expand/collapse
+                  InkWell(
+                    onTap: () => setState(
+                      () => _isCalendarExpanded = !_isCalendarExpanded,
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
                       ),
-                      onPressed: () async {
-                        final d = await showDatePicker(
-                          context: context,
-                          initialDate: selectedDate,
-                          firstDate: DateTime(2000),
-                          lastDate: DateTime(2100),
-                        );
-                        if (d != null && d != selectedDate) {
-                          setState(() => selectedDate = d);
-                          await provider.loadForDate(d);
-                        }
-                      },
+                      child: Row(
+                        children: [
+                          const Icon(Icons.calendar_today, size: 18),
+                          const SizedBox(width: 10),
+                          Text(
+                            '${selectedDate.year}-'
+                            '${selectedDate.month.toString().padLeft(2, '0')}-'
+                            '${selectedDate.day.toString().padLeft(2, '0')}',
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(fontWeight: FontWeight.bold),
+                          ),
+                          const Spacer(),
+                          IconButton(
+                            icon: const Icon(Icons.arrow_back, size: 18),
+                            visualDensity: VisualDensity.compact,
+                            onPressed: () => _selectDate(
+                              selectedDate.subtract(const Duration(days: 1)),
+                              provider,
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () =>
+                                _selectDate(DateTime.now(), provider),
+                            style: TextButton.styleFrom(
+                              visualDensity: VisualDensity.compact,
+                              padding: const EdgeInsets.symmetric(horizontal: 6),
+                            ),
+                            child: Text(l10n.today),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.arrow_forward, size: 18),
+                            visualDensity: VisualDensity.compact,
+                            onPressed: () => _selectDate(
+                              selectedDate.add(const Duration(days: 1)),
+                              provider,
+                            ),
+                          ),
+                          Icon(
+                            _isCalendarExpanded
+                                ? Icons.expand_less
+                                : Icons.expand_more,
+                            size: 20,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
+                          ),
+                        ],
+                      ),
                     ),
-                    const Spacer(),
-                    // Quick navigation buttons
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back),
-                      onPressed: () async {
-                        setState(() {
-                          selectedDate = selectedDate.subtract(
-                            const Duration(days: 1),
-                          );
-                        });
-                        await provider.loadForDate(selectedDate);
-                      },
-                    ),
-                    TextButton(
-                      onPressed: () async {
-                        setState(() {
-                          selectedDate = DateTime.now();
-                        });
-                        await provider.loadForDate(selectedDate);
-                      },
-                      child: Text(l10n.today),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.arrow_forward),
-                      onPressed: () async {
-                        setState(() {
-                          selectedDate = selectedDate.add(
-                            const Duration(days: 1),
-                          );
-                        });
-                        provider.refresh();
-                        await provider.loadForDate(selectedDate);
-                      },
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.refresh),
-                      onPressed: () => provider.refresh(),
-                    ),
-                  ],
-                ),
-              ), // Workout list
+                  ),
+                  // Expandable calendar grid
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 250),
+                    curve: Curves.easeInOut,
+                    child: _isCalendarExpanded
+                        ? _WorkoutCalendar(
+                            month: _calendarMonth,
+                            selectedDate: selectedDate,
+                            calendarData: _calendarData,
+                            onDayTapped: (date) {
+                              _selectDate(date, provider);
+                              setState(() => _isCalendarExpanded = false);
+                            },
+                            onMonthChanged: (month) async {
+                              setState(() => _calendarMonth = month);
+                              await _loadCalendarData();
+                            },
+                            onRefreshTapped: () async {
+                              provider.refresh();
+                              await _loadCalendarData();
+                            },
+                          )
+                        : const SizedBox.shrink(),
+                  ),
+                  Divider(
+                    height: 1,
+                    color: Theme.of(context).dividerColor,
+                  ),
+                ],
+              ),
+              // Workout list
               Expanded(
                 child:
                     provider.isRefreshing
@@ -625,5 +681,214 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
             ),
       ),
     );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Monthly calendar widget with workout colour dots
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _WorkoutCalendar extends StatelessWidget {
+  final DateTime month;
+  final DateTime selectedDate;
+  final Map<DateTime, ({int? color, bool isCompleted, bool isSkipped})> calendarData;
+  final ValueChanged<DateTime> onDayTapped;
+  final ValueChanged<DateTime> onMonthChanged;
+  final VoidCallback onRefreshTapped;
+
+  const _WorkoutCalendar({
+    required this.month,
+    required this.selectedDate,
+    required this.calendarData,
+    required this.onDayTapped,
+    required this.onMonthChanged,
+    required this.onRefreshTapped,
+  });
+
+  static const _weekdays = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final today = DateTime.now();
+    final todayNorm = DateTime(today.year, today.month, today.day);
+
+    // First Monday on or before the 1st of the month
+    final firstOfMonth = DateTime(month.year, month.month, 1);
+    final startOffset = (firstOfMonth.weekday - 1) % 7; // Mon=0 … Sun=6
+    final gridStart = firstOfMonth.subtract(Duration(days: startOffset));
+
+    // Build 6-week grid (42 cells)
+    final cells = List.generate(42, (i) => gridStart.add(Duration(days: i)));
+    final lastDay = DateTime(month.year, month.month + 1, 0);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // ── Month header ──────────────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.chevron_left),
+                visualDensity: VisualDensity.compact,
+                onPressed: () => onMonthChanged(
+                  DateTime(month.year, month.month - 1),
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  _monthLabel(month),
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.titleSmall
+                      ?.copyWith(fontWeight: FontWeight.bold),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.chevron_right),
+                visualDensity: VisualDensity.compact,
+                onPressed: () => onMonthChanged(
+                  DateTime(month.year, month.month + 1),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.refresh),
+                visualDensity: VisualDensity.compact,
+                onPressed: onRefreshTapped,
+              ),
+            ],
+          ),
+        ),
+
+        // ── Weekday labels ────────────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Row(
+            children: _weekdays.map((d) => Expanded(
+              child: Center(
+                child: Text(d,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            )).toList(),
+          ),
+        ),
+
+        const SizedBox(height: 4),
+
+        // ── Day grid ──────────────────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 7,
+              mainAxisSpacing: 4,
+              crossAxisSpacing: 4,
+              childAspectRatio: 1,
+            ),
+            itemCount: cells.length,
+            itemBuilder: (ctx, i) {
+              final day = cells[i];
+              final dayNorm = DateTime(day.year, day.month, day.day);
+              final inMonth = day.month == month.month;
+              final isSelected = dayNorm == DateTime(
+                selectedDate.year, selectedDate.month, selectedDate.day);
+              final isToday = dayNorm == todayNorm;
+              final info = calendarData[dayNorm];
+              // Only show a dot for completed workouts.
+              final dotColor = (info != null && info.isCompleted && info.color != null)
+                  ? Color(info.color!)
+                  : null;
+
+              return GestureDetector(
+                onTap: inMonth ? () => onDayTapped(dayNorm) : null,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: isSelected
+                        ? theme.colorScheme.primary
+                        : isToday
+                            ? theme.colorScheme.primary.withValues(alpha: 0.15)
+                            : Colors.transparent,
+                    border: isToday && !isSelected
+                        ? Border.all(
+                            color: theme.colorScheme.primary,
+                            width: 1.5,
+                          )
+                        : null,
+                  ),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Text(
+                        '${day.day}',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontWeight: isSelected || isToday
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                          color: isSelected
+                              ? theme.colorScheme.onPrimary
+                              : inMonth
+                                  ? theme.colorScheme.onSurface
+                                  : theme.colorScheme.onSurface
+                                      .withValues(alpha: 0.3),
+                        ),
+                      ),
+                      if (dotColor != null && !isSelected)
+                        Positioned(
+                          bottom: 3,
+                          child: Container(
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: dotColor,
+                            ),
+                          ),
+                        ),
+                      if (dotColor != null && isSelected)
+                        Positioned(
+                          bottom: 3,
+                          child: Container(
+                            width: 6,
+                            height: 6,
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+
+        // Hide last row if all cells are in next month
+        if (cells[35].month == lastDay.month)
+          const SizedBox.shrink()
+        else
+          const SizedBox(height: 4),
+
+        Divider(height: 1, color: theme.dividerColor),
+      ],
+    );
+  }
+
+  String _monthLabel(DateTime m) {
+    const months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December',
+    ];
+    return '${months[m.month - 1]} ${m.year}';
   }
 }

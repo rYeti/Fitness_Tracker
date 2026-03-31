@@ -1273,4 +1273,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get discardWorkout => 'Discard';
+
+  @override
+  String get removeSupersetLink => 'Remove from superset';
+
+  @override
+  String get superset => 'Superset';
+
+  @override
+  String get supersetPickHint => 'Select exercises for the superset';
 }

@@ -26,8 +26,12 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
   List<String?> _cyclePattern = [];
   DateTime? _startDate = DateTime.now();
 
-  // Map to store exercises for each workout name
-  Map<String, List<(Exercise, List<SetTemplates>)>> _workoutExercises = {};
+  // Map to store exercises for each workout name (exercise, sets, supersetGroupId)
+  Map<String, List<(Exercise, List<SetTemplates>, int?)>> _workoutExercises = {};
+
+  // Map to store the chosen color (ARGB int) per workout name.
+  // 'Rest Day' gets a default grey.
+  final Map<String, int> _workoutColors = {'Rest Day': 0xFF9E9E9E};
 
   @override
   Widget build(BuildContext context) {
@@ -202,6 +206,7 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
     final existingRestDay = await db.workoutDao.getWorkoutByNameOrNull(
       "Rest Day",
     );
+    late int restDayId;
     if (existingRestDay == null) {
       final restWorkout = Workout(
         name: "Rest Day",
@@ -210,10 +215,18 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
         difficulty: WorkoutDifficulty.beginner,
         estimatedDurationMinutes: 0,
       );
-      final restId = await db.workoutDao.saveCompleteWorkout(restWorkout);
-      workoutMap["Rest Day"] = restId;
+      restDayId = await db.workoutDao.saveCompleteWorkout(restWorkout);
+      workoutMap["Rest Day"] = restDayId;
     } else {
-      workoutMap["Rest Day"] = existingRestDay.id;
+      restDayId = existingRestDay.id;
+      workoutMap["Rest Day"] = restDayId;
+    }
+    // Always update the Rest Day color (user may have changed it).
+    final restColor = _workoutColors['Rest Day'];
+    if (restColor != null) {
+      await (db.update(db.workoutTable)..where(
+        (t) => t.id.equals(restDayId),
+      )).write(WorkoutTableCompanion(color: drift.Value(restColor)));
     }
 
     // Step 2️⃣: Deactivate current active plans
@@ -248,6 +261,14 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
       );
       workoutMap[workoutName] = templateId;
 
+      // Persist the chosen color onto the template workout row.
+      final chosenColor = _workoutColors[workoutName];
+      if (chosenColor != null) {
+        await (db.update(db.workoutTable)..where(
+          (t) => t.id.equals(templateId),
+        )).write(WorkoutTableCompanion(color: drift.Value(chosenColor)));
+      }
+
       await db
           .into(db.workoutPlanWorkoutTable)
           .insert(
@@ -259,7 +280,7 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
 
       // Step 4a️⃣: Save exercises for this template
       for (int i = 0; i < exercises.length; i++) {
-        final (exercise, sets) = exercises[i];
+        final (exercise, sets, supersetGroupId) = exercises[i];
 
         final exerciseId =
             exercise.id ??
@@ -274,6 +295,7 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
                 workoutId: templateId,
                 exerciseId: exerciseId,
                 orderPosition: i,
+                supersetGroupId: drift.Value(supersetGroupId),
               ),
             );
 
@@ -502,6 +524,7 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
                             isRestDay: isRestDay,
                             exerciseCount:
                                 _workoutExercises[entry]?.length ?? 0,
+                            workoutColor: _workoutColors[entry],
                             onTap: () {
                               if (!isRestDay) {
                                 _showWorkoutDetails(entry);
@@ -514,6 +537,9 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
                                   _workoutExercises.remove(entry);
                                 }
                               });
+                            },
+                            onColorChanged: (color) {
+                              setState(() => _workoutColors[entry] = color);
                             },
                           );
                         },
@@ -565,8 +591,6 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
   }
 
   void _showWorkoutDetails(String workoutName) {
-    final l10n = AppLocalizations.of(context)!;
-
     Navigator.of(context).push(
       MaterialPageRoute(
         builder:
@@ -765,8 +789,10 @@ class _WorkoutDayCard extends StatelessWidget {
   final String workoutName;
   final bool isRestDay;
   final int exerciseCount;
+  final int? workoutColor;
   final VoidCallback onTap;
   final VoidCallback onDelete;
+  final ValueChanged<int> onColorChanged;
 
   const _WorkoutDayCard({
     super.key,
@@ -774,9 +800,80 @@ class _WorkoutDayCard extends StatelessWidget {
     required this.workoutName,
     required this.isRestDay,
     required this.exerciseCount,
+    this.workoutColor,
     required this.onTap,
     required this.onDelete,
+    required this.onColorChanged,
   });
+
+  static const List<int> _presetColors = [
+    0xFFE53935, // red
+    0xFFE91E63, // pink
+    0xFF9C27B0, // purple
+    0xFF3F51B5, // indigo
+    0xFF2196F3, // blue
+    0xFF00BCD4, // cyan
+    0xFF009688, // teal
+    0xFF4CAF50, // green
+    0xFF8BC34A, // light green
+    0xFFCDDC39, // lime
+    0xFFFFEB3B, // yellow
+    0xFFFF9800, // orange
+    0xFFFF5722, // deep orange
+    0xFF795548, // brown
+    0xFF9E9E9E, // grey
+    0xFF607D8B, // blue grey
+  ];
+
+  void _showColorPicker(BuildContext context) {
+    showDialog<int>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(workoutName),
+        content: SizedBox(
+          width: 280,
+          child: Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: _presetColors.map((colorValue) {
+              final isSelected = workoutColor == colorValue;
+              return GestureDetector(
+                onTap: () => Navigator.pop(ctx, colorValue),
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Color(colorValue),
+                    border: isSelected
+                        ? Border.all(
+                            color: Theme.of(context).colorScheme.onSurface,
+                            width: 3,
+                          )
+                        : null,
+                    boxShadow: isSelected
+                        ? [BoxShadow(color: Color(colorValue).withValues(alpha: 0.6), blurRadius: 6)]
+                        : null,
+                  ),
+                  child: isSelected
+                      ? const Icon(Icons.check, color: Colors.white, size: 20)
+                      : null,
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(MaterialLocalizations.of(context).cancelButtonLabel),
+          ),
+        ],
+      ),
+    ).then((picked) {
+      if (picked != null) onColorChanged(picked);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -831,6 +928,30 @@ class _WorkoutDayCard extends StatelessWidget {
                       isRestDay
                           ? theme.colorScheme.onSurfaceVariant
                           : theme.colorScheme.primary,
+                ),
+                const SizedBox(width: 12),
+
+                // Color dot — tap to pick a color
+                GestureDetector(
+                  onTap: () => _showColorPicker(context),
+                  child: Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: workoutColor != null
+                          ? Color(workoutColor!)
+                          : theme.colorScheme.surfaceContainerHighest,
+                      border: Border.all(
+                        color: theme.colorScheme.outline,
+                        width: 1.5,
+                      ),
+                    ),
+                    child: workoutColor == null
+                        ? Icon(Icons.palette_outlined, size: 14,
+                            color: theme.colorScheme.onSurfaceVariant)
+                        : null,
+                  ),
                 ),
                 const SizedBox(width: 12),
 
@@ -889,8 +1010,8 @@ class _WorkoutDayCard extends StatelessWidget {
 // Workout Details Screen (for editing exercises)
 class _WorkoutDetailsScreen extends StatefulWidget {
   final String workoutName;
-  final List<(Exercise, List<SetTemplates>)> exercises;
-  final Function(List<(Exercise, List<SetTemplates>)>) onExercisesChanged;
+  final List<(Exercise, List<SetTemplates>, int?)> exercises;
+  final Function(List<(Exercise, List<SetTemplates>, int?)>) onExercisesChanged;
 
   const _WorkoutDetailsScreen({
     required this.workoutName,
@@ -903,12 +1024,93 @@ class _WorkoutDetailsScreen extends StatefulWidget {
 }
 
 class _WorkoutDetailsScreenState extends State<_WorkoutDetailsScreen> {
-  late List<(Exercise, List<SetTemplates>)> _exercises;
+  late List<(Exercise, List<SetTemplates>, int?)> _exercises;
+  int? _supersetPickIndex;
+  int _nextSupersetGroupId = 1;
 
   @override
   void initState() {
     super.initState();
     _exercises = List.from(widget.exercises);
+    final maxGroupId = _exercises
+        .map((e) => e.$3 ?? 0)
+        .fold(0, (a, b) => a > b ? a : b);
+    _nextSupersetGroupId = maxGroupId + 1;
+  }
+
+  void _handleLongPress(int index) {
+    final l10n = AppLocalizations.of(context)!;
+    final hasSuperset = _exercises[index].$3 != null;
+
+    if (_supersetPickIndex != null && _supersetPickIndex != index) {
+      // Second pick: link both exercises
+      setState(() {
+        final groupId = _nextSupersetGroupId++;
+        final a = _exercises[_supersetPickIndex!];
+        final b = _exercises[index];
+        // Clear any existing groups first
+        if (a.$3 != null) _clearSupersetGroup(a.$3!);
+        if (b.$3 != null) _clearSupersetGroup(b.$3!);
+        _exercises[_supersetPickIndex!] = (a.$1, a.$2, groupId);
+        _exercises[index] = (b.$1, b.$2, groupId);
+        _supersetPickIndex = null;
+      });
+      return;
+    }
+
+    showDialog<String>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: Text(_exercises[index].$1.name),
+        children: [
+          if (!hasSuperset)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, 'pick'),
+              child: Row(children: [
+                const Icon(Icons.link),
+                const SizedBox(width: 8),
+                Flexible(child: Text(l10n.superset)),
+              ]),
+            ),
+          if (hasSuperset)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, 'unlink'),
+              child: Row(children: [
+                const Icon(Icons.link_off),
+                const SizedBox(width: 8),
+                Flexible(child: Text(l10n.removeSupersetLink)),
+              ]),
+            ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(ctx, 'delete'),
+            child: Row(children: [
+              Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error),
+              const SizedBox(width: 8),
+              Flexible(child: Text(l10n.delete)),
+            ]),
+          ),
+        ],
+      ),
+    ).then((action) {
+      if (action == 'pick') {
+        setState(() => _supersetPickIndex = index);
+      } else if (action == 'unlink') {
+        setState(() => _clearSupersetGroup(_exercises[index].$3!));
+      } else if (action == 'delete') {
+        setState(() {
+          if (_exercises[index].$3 != null) _clearSupersetGroup(_exercises[index].$3!);
+          _exercises.removeAt(index);
+        });
+      }
+    });
+  }
+
+  void _clearSupersetGroup(int groupId) {
+    for (int i = 0; i < _exercises.length; i++) {
+      if (_exercises[i].$3 == groupId) {
+        _exercises[i] = (_exercises[i].$1, _exercises[i].$2, null);
+      }
+    }
   }
 
   @override
@@ -921,58 +1123,110 @@ class _WorkoutDetailsScreenState extends State<_WorkoutDetailsScreen> {
         if (didPop) widget.onExercisesChanged(_exercises);
       },
       child: Scaffold(
-      appBar: AppBar(
-        title: Text(widget.workoutName),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.check),
-            onPressed: () {
-              widget.onExercisesChanged(_exercises);
-              Navigator.pop(context);
-            },
-          ),
-        ],
-      ),
-      body:
-          _exercises.isEmpty
-              ? _buildEmptyState(theme, l10n)
-              : ReorderableListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: _exercises.length,
-                onReorder: (oldIndex, newIndex) {
-                  setState(() {
-                    if (newIndex > oldIndex) {
-                      newIndex -= 1;
-                    }
-                    final item = _exercises.removeAt(oldIndex);
-                    _exercises.insert(newIndex, item);
-                  });
-                },
-                itemBuilder: (context, index) {
-                  return _ExerciseCard(
-                    key: ValueKey(_exercises[index].$1.name + index.toString()),
-                    exercise: _exercises[index].$1,
-                    sets: _exercises[index].$2,
-                    exerciseNumber: index + 1,
-                    onSetsChanged: (newSets) {
-                      setState(() {
-                        _exercises[index] = (_exercises[index].$1, newSets);
-                      });
-                    },
-                    onDelete: () {
-                      setState(() {
-                        _exercises.removeAt(index);
-                      });
-                    },
-                  );
-                },
+        appBar: AppBar(
+          title: Text(widget.workoutName),
+          actions: [
+            if (_supersetPickIndex != null)
+              TextButton(
+                onPressed: () => setState(() => _supersetPickIndex = null),
+                child: Text(l10n.cancel, style: TextStyle(color: theme.colorScheme.error)),
               ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _addExercise,
-        icon: const Icon(Icons.add),
-        label: Text(l10n.addExercise),
+            IconButton(
+              icon: const Icon(Icons.check),
+              onPressed: () {
+                widget.onExercisesChanged(_exercises);
+                Navigator.pop(context);
+              },
+            ),
+          ],
+        ),
+        body: _exercises.isEmpty
+            ? _buildEmptyState(theme, l10n)
+            : Column(
+                children: [
+                  if (_supersetPickIndex != null)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      color: theme.colorScheme.primaryContainer,
+                      child: Text(
+                        l10n.supersetPickHint,
+                        style: TextStyle(color: theme.colorScheme.onPrimaryContainer),
+                      ),
+                    ),
+                  Expanded(
+                    child: ReorderableListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _exercises.length,
+                      onReorder: (oldIndex, newIndex) {
+                        setState(() {
+                          if (newIndex > oldIndex) newIndex -= 1;
+                          final item = _exercises.removeAt(oldIndex);
+                          _exercises.insert(newIndex, item);
+                        });
+                      },
+                      itemBuilder: (context, index) {
+                        final exercise = _exercises[index];
+                        final supersetGroupId = exercise.$3;
+                        final showChainBelow = index + 1 < _exercises.length &&
+                            supersetGroupId != null &&
+                            _exercises[index + 1].$3 == supersetGroupId;
+                        final isPickCandidate = _supersetPickIndex == index;
+
+                        return Column(
+                          key: ValueKey(exercise.$1.name + index.toString()),
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _ExerciseCard(
+                              key: ValueKey('card_${exercise.$1.name}_$index'),
+                              exercise: exercise.$1,
+                              sets: exercise.$2,
+                              supersetGroupId: supersetGroupId,
+                              isPickCandidate: isPickCandidate,
+                              exerciseNumber: index + 1,
+                              onSetsChanged: (newSets) {
+                                setState(() {
+                                  _exercises[index] = (exercise.$1, newSets, exercise.$3);
+                                });
+                              },
+                              onDelete: () {
+                                setState(() {
+                                  if (exercise.$3 != null) _clearSupersetGroup(exercise.$3!);
+                                  _exercises.removeAt(index);
+                                });
+                              },
+                              onLongPress: () => _handleLongPress(index),
+                            ),
+                            if (showChainBelow)
+                              Padding(
+                                padding: const EdgeInsets.only(left: 28, bottom: 4),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.link, size: 16, color: theme.colorScheme.primary),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      l10n.superset,
+                                      style: theme.textTheme.labelSmall?.copyWith(
+                                        color: theme.colorScheme.primary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: _addExercise,
+          icon: const Icon(Icons.add),
+          label: Text(l10n.addExercise),
+        ),
       ),
-    ));
+    );
   }
 
   Widget _buildEmptyState(ThemeData theme, AppLocalizations l10n) {
@@ -1009,7 +1263,7 @@ class _WorkoutDetailsScreenState extends State<_WorkoutDetailsScreen> {
 
     if (exercise != null) {
       setState(() {
-        _exercises.add((exercise, []));
+        _exercises.add((exercise, [], null));
       });
     }
   }
@@ -1020,16 +1274,22 @@ class _ExerciseCard extends StatefulWidget {
   final Exercise exercise;
   final List<SetTemplates> sets;
   final int exerciseNumber;
+  final int? supersetGroupId;
+  final bool isPickCandidate;
   final Function(List<SetTemplates>) onSetsChanged;
   final VoidCallback onDelete;
+  final VoidCallback onLongPress;
 
   const _ExerciseCard({
     super.key,
     required this.exercise,
     required this.sets,
     required this.exerciseNumber,
+    this.supersetGroupId,
+    this.isPickCandidate = false,
     required this.onSetsChanged,
     required this.onDelete,
+    required this.onLongPress,
   });
 
   @override
@@ -1076,13 +1336,22 @@ class _ExerciseCardState extends State<_ExerciseCard> {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
 
+    final borderColor = widget.isPickCandidate
+        ? theme.colorScheme.primary
+        : widget.supersetGroupId != null
+            ? theme.colorScheme.primary.withValues(alpha: 0.5)
+            : theme.dividerColor;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Card(
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: theme.dividerColor),
+          side: BorderSide(
+            color: borderColor,
+            width: widget.isPickCandidate || widget.supersetGroupId != null ? 2 : 1,
+          ),
         ),
         child: Column(
           children: [
@@ -1093,6 +1362,7 @@ class _ExerciseCardState extends State<_ExerciseCard> {
                   _isExpanded = !_isExpanded;
                 });
               },
+              onLongPress: widget.onLongPress,
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(12),
               ),
