@@ -15,7 +15,7 @@ public class AppDbContext : DbContext
         {
             entity.HasKey(u => u.Id);
             entity.HasIndex(u => u.Email).IsUnique();
-            entity.HasIndex(u => u.Username).IsUnique();
+            entity.HasIndex(u => u.UserName).IsUnique();
         });
     }
 }

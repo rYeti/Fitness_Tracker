@@ -11,7 +11,7 @@ public interface IAuthService
     /// <param name="email"></param>
     /// <param name="password"></param>
     /// <returns></returns>
-    Task<AuthResponseDto?> RegisterAsync(string username, string email, string password, string firstName, string lastName);
+    Task<AuthResponseDto?> RegisterAsync(string username, string email, string password, string firstName, string lastName, DateTime dateOfBirth);
 
     /// <summary>
     /// Authenticates a user with the provided username and password. 

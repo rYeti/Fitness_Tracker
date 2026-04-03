@@ -36,4 +36,9 @@ public class User
     /// </summary>
     public DateTime Created { get; set; } = DateTime.UtcNow;
 
+    /// <summary>
+    /// The date of birth of the user, which can be used for age verification
+    /// </summary>
+    public DateTime DateOfBirth { get; set; }
+
 }

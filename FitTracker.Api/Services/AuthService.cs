@@ -57,7 +57,7 @@ public class AuthService : IAuthService
     /// <summary>
     /// <see cref="RegisterAsync"/> 
     /// </summary>
-    public async Task<AuthResponseDto?> RegisterAsync(string username, string email, string password, string firstName, string lastName)
+    public async Task<AuthResponseDto?> RegisterAsync(string username, string email, string password, string firstName, string lastName, DateTime dateOfBirth)
     {
         if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(email) || string.IsNullOrEmpty(password))
         {
@@ -78,14 +78,15 @@ public class AuthService : IAuthService
 
         var hashedPassword = BCrypt.Net.BCrypt.HashPassword(password);
 
-        var newUser = new Models.User
+        var newUser = new User
         {
             Id = Guid.NewGuid(),
             UserName = username,
             Email = email,
             PasswordHash = hashedPassword,
             FirstName = firstName,
-            LastName = lastName
+            LastName = lastName,
+            DateOfBirth = dateOfBirth
         };
 
         await _userRepository.CreateUserAsync(newUser);
@@ -99,7 +100,8 @@ public class AuthService : IAuthService
             Username = newUser.UserName,
             Email = newUser.Email,
             FirstName = newUser.FirstName,
-            LastName = newUser.LastName
+            LastName = newUser.LastName,
+            DateOfBirth = newUser.DateOfBirth
         };
     }
 

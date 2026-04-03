@@ -1,6 +1,10 @@
 @FitTracker.Api_HostAddress = http://localhost:5033
 
-GET {{FitTracker.Api_HostAddress}}/weatherforecast/
+GET {{FitTracker.Api_HostAddress}}/swagger/
 Accept: application/json
 
 ###
+GET http://localhost:5033/api/auth/me/
+
+###
+POST http://localhost:5033/api/auth/login

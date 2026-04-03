@@ -22,8 +22,19 @@ public class AuthResponseDto
     /// </summary>
     public string Email { get; set; } = string.Empty;
 
+    /// <summary>
+    /// The first name of the authenticated user.
+    /// </summary>
     public string FirstName { get; set; } = string.Empty;
 
+    /// <summary>
+    /// The last name of the authenticated user.
+    /// </summary>
     public string LastName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The date of birth of the authenticated user.
+    /// </summary>
+    public DateTime DateOfBirth { get; set; }
 
 }
