@@ -25,8 +25,7 @@ dependencies:
 
   # API and Networking
   dio: ^5.8.0
-  retrofit: ^4.1.0
-  json_annotation: ^4.8.1
+  get_it: ^8.0.0
   logger: ^2.0.2
 
   fl_chart: ^1.0.0
@@ -56,8 +55,6 @@ dev_dependencies:
   drift_dev: ^2.28.1
   flutter_lints: ^5.0.0
   build_runner: ^2.4.0
-  retrofit_generator: ^9.7.0
-  json_serializable: ^6.7.1
   sqflite_common_ffi: ^2.2.0
   drift_sqflite: ^2.0.0
   flutter_launcher_icons: ^0.14.0
