@@ -1,10 +1,14 @@
 import 'package:ForgeForm/core/app_database.dart';
+import 'package:ForgeForm/core/di/service_locator.dart';
 import 'package:ForgeForm/feature/gym_tracking/presentation/providers/workout_provider.dart';
 import 'package:ForgeForm/feature/gym_tracking/presentation/view/workouts/create_view.dart';
 import 'package:ForgeForm/feature/gym_tracking/presentation/view/workouts/workouts_list_view.dart';
 import 'package:ForgeForm/feature/workout_planning/data/models/workout.dart';
+import 'package:ForgeForm/feature/workout_planning/data/models/workout_plan.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
+import 'package:drift/drift.dart' as drift;
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/scheduled_workout_provider.dart'; // Import the new ActiveWorkoutScreen
@@ -370,6 +374,23 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
                               }
                             },
                           ),
+                          FutureBuilder<WorkoutPlan?>(
+                            future: _getActiveFreeChoicePlan(),
+                            builder: (ctx, snap) {
+                              final plan = snap.data;
+                              if (plan == null) return const SizedBox.shrink();
+                              return ListTile(
+                                leading: const Icon(Icons.add_task),
+                                title: Text(
+                                  l10n.addWorkoutForDate(DateFormat.MMMd().format(selectedDate)),
+                                ),
+                                onTap: () async {
+                                  Navigator.of(bottomSheetContext).pop();
+                                  await _pickAndScheduleWorkout(plan, provider);
+                                },
+                              );
+                            },
+                          ),
                         ],
                       ),
                     ),
@@ -630,6 +651,62 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
   Future<Workout?> _fetchTemplateWorkout(int templateId) async {
     final db = context.read<AppDatabase>();
     return await db.workoutDao.getWorkoutById(templateId);
+  }
+
+  /// Returns the active plan if it is a free-choice plan, otherwise null.
+  Future<WorkoutPlan?> _getActiveFreeChoicePlan() async {
+    final db = sl<AppDatabase>();
+    final activePlans = await db.workoutPlanDao.getActivePlans();
+    if (activePlans.isEmpty) return null;
+    final planData = activePlans.first;
+    if (!planData.isFreeChoice) return null;
+    return db.workoutPlanDao.getCompletePlanById(planData.id);
+  }
+
+  /// Show a picker with the plan's workout templates and schedule the selected
+  /// one for [selectedDate].
+  Future<void> _pickAndScheduleWorkout(
+    WorkoutPlan plan,
+    ScheduleWorkoutProvider provider,
+  ) async {
+    final templates = plan.workouts.where((w) => w.name != 'Rest Day').toList();
+    if (templates.isEmpty || !mounted) return;
+
+    final l10n = AppLocalizations.of(context)!;
+    final selected = await showDialog<Workout>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: Text(
+          l10n.pickWorkoutForDate(DateFormat.MMMd().format(selectedDate)),
+        ),
+        children: templates
+            .map(
+              (w) => SimpleDialogOption(
+                onPressed: () => Navigator.pop(ctx, w),
+                child: Text(w.name),
+              ),
+            )
+            .toList(),
+      ),
+    );
+    if (selected == null || !mounted) return;
+
+    final db = sl<AppDatabase>();
+    await db.scheduledWorkoutDao.scheduleWorkout(
+      ScheduledWorkoutTableCompanion.insert(
+        workoutId: selected.id!,
+        templateWorkoutId: drift.Value(selected.id),
+        scheduledDate: DateTime(
+          selectedDate.year,
+          selectedDate.month,
+          selectedDate.day,
+        ),
+        workoutPlanId: drift.Value(plan.id),
+      ),
+    );
+
+    provider.refresh();
+    await _loadCalendarData();
   }
 
   /// Navigate to the ActiveWorkoutScreen for starting a workout

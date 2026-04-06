@@ -3444,6 +3444,21 @@ class $WorkoutPlanTableTable extends WorkoutPlanTable
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _isFreeChoiceMeta = const VerificationMeta(
+    'isFreeChoice',
+  );
+  @override
+  late final GeneratedColumn<bool> isFreeChoice = GeneratedColumn<bool>(
+    'is_free_choice',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_free_choice" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -3453,6 +3468,7 @@ class $WorkoutPlanTableTable extends WorkoutPlanTable
     createdAt,
     isActive,
     cyclePatternJson,
+    isFreeChoice,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3517,6 +3533,15 @@ class $WorkoutPlanTableTable extends WorkoutPlanTable
     } else if (isInserting) {
       context.missing(_cyclePatternJsonMeta);
     }
+    if (data.containsKey('is_free_choice')) {
+      context.handle(
+        _isFreeChoiceMeta,
+        isFreeChoice.isAcceptableOrUnknown(
+          data['is_free_choice']!,
+          _isFreeChoiceMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -3560,6 +3585,11 @@ class $WorkoutPlanTableTable extends WorkoutPlanTable
             DriftSqlType.string,
             data['${effectivePrefix}cycle_pattern_json'],
           )!,
+      isFreeChoice:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.bool,
+            data['${effectivePrefix}is_free_choice'],
+          )!,
     );
   }
 
@@ -3578,6 +3608,7 @@ class WorkoutPlanTableData extends DataClass
   final DateTime createdAt;
   final bool isActive;
   final String cyclePatternJson;
+  final bool isFreeChoice;
   const WorkoutPlanTableData({
     required this.id,
     required this.name,
@@ -3586,6 +3617,7 @@ class WorkoutPlanTableData extends DataClass
     required this.createdAt,
     required this.isActive,
     required this.cyclePatternJson,
+    required this.isFreeChoice,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3599,6 +3631,7 @@ class WorkoutPlanTableData extends DataClass
     map['created_at'] = Variable<DateTime>(createdAt);
     map['is_active'] = Variable<bool>(isActive);
     map['cycle_pattern_json'] = Variable<String>(cyclePatternJson);
+    map['is_free_choice'] = Variable<bool>(isFreeChoice);
     return map;
   }
 
@@ -3614,6 +3647,7 @@ class WorkoutPlanTableData extends DataClass
       createdAt: Value(createdAt),
       isActive: Value(isActive),
       cyclePatternJson: Value(cyclePatternJson),
+      isFreeChoice: Value(isFreeChoice),
     );
   }
 
@@ -3630,6 +3664,7 @@ class WorkoutPlanTableData extends DataClass
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       isActive: serializer.fromJson<bool>(json['isActive']),
       cyclePatternJson: serializer.fromJson<String>(json['cyclePatternJson']),
+      isFreeChoice: serializer.fromJson<bool>(json['isFreeChoice']),
     );
   }
   @override
@@ -3643,6 +3678,7 @@ class WorkoutPlanTableData extends DataClass
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'isActive': serializer.toJson<bool>(isActive),
       'cyclePatternJson': serializer.toJson<String>(cyclePatternJson),
+      'isFreeChoice': serializer.toJson<bool>(isFreeChoice),
     };
   }
 
@@ -3654,6 +3690,7 @@ class WorkoutPlanTableData extends DataClass
     DateTime? createdAt,
     bool? isActive,
     String? cyclePatternJson,
+    bool? isFreeChoice,
   }) => WorkoutPlanTableData(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -3662,6 +3699,7 @@ class WorkoutPlanTableData extends DataClass
     createdAt: createdAt ?? this.createdAt,
     isActive: isActive ?? this.isActive,
     cyclePatternJson: cyclePatternJson ?? this.cyclePatternJson,
+    isFreeChoice: isFreeChoice ?? this.isFreeChoice,
   );
   WorkoutPlanTableData copyWithCompanion(WorkoutPlanTableCompanion data) {
     return WorkoutPlanTableData(
@@ -3676,6 +3714,10 @@ class WorkoutPlanTableData extends DataClass
           data.cyclePatternJson.present
               ? data.cyclePatternJson.value
               : this.cyclePatternJson,
+      isFreeChoice:
+          data.isFreeChoice.present
+              ? data.isFreeChoice.value
+              : this.isFreeChoice,
     );
   }
 
@@ -3688,7 +3730,8 @@ class WorkoutPlanTableData extends DataClass
           ..write('startDate: $startDate, ')
           ..write('createdAt: $createdAt, ')
           ..write('isActive: $isActive, ')
-          ..write('cyclePatternJson: $cyclePatternJson')
+          ..write('cyclePatternJson: $cyclePatternJson, ')
+          ..write('isFreeChoice: $isFreeChoice')
           ..write(')'))
         .toString();
   }
@@ -3702,6 +3745,7 @@ class WorkoutPlanTableData extends DataClass
     createdAt,
     isActive,
     cyclePatternJson,
+    isFreeChoice,
   );
   @override
   bool operator ==(Object other) =>
@@ -3713,7 +3757,8 @@ class WorkoutPlanTableData extends DataClass
           other.startDate == this.startDate &&
           other.createdAt == this.createdAt &&
           other.isActive == this.isActive &&
-          other.cyclePatternJson == this.cyclePatternJson);
+          other.cyclePatternJson == this.cyclePatternJson &&
+          other.isFreeChoice == this.isFreeChoice);
 }
 
 class WorkoutPlanTableCompanion extends UpdateCompanion<WorkoutPlanTableData> {
@@ -3724,6 +3769,7 @@ class WorkoutPlanTableCompanion extends UpdateCompanion<WorkoutPlanTableData> {
   final Value<DateTime> createdAt;
   final Value<bool> isActive;
   final Value<String> cyclePatternJson;
+  final Value<bool> isFreeChoice;
   const WorkoutPlanTableCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
@@ -3732,6 +3778,7 @@ class WorkoutPlanTableCompanion extends UpdateCompanion<WorkoutPlanTableData> {
     this.createdAt = const Value.absent(),
     this.isActive = const Value.absent(),
     this.cyclePatternJson = const Value.absent(),
+    this.isFreeChoice = const Value.absent(),
   });
   WorkoutPlanTableCompanion.insert({
     this.id = const Value.absent(),
@@ -3741,6 +3788,7 @@ class WorkoutPlanTableCompanion extends UpdateCompanion<WorkoutPlanTableData> {
     this.createdAt = const Value.absent(),
     this.isActive = const Value.absent(),
     required String cyclePatternJson,
+    this.isFreeChoice = const Value.absent(),
   }) : name = Value(name),
        startDate = Value(startDate),
        cyclePatternJson = Value(cyclePatternJson);
@@ -3752,6 +3800,7 @@ class WorkoutPlanTableCompanion extends UpdateCompanion<WorkoutPlanTableData> {
     Expression<DateTime>? createdAt,
     Expression<bool>? isActive,
     Expression<String>? cyclePatternJson,
+    Expression<bool>? isFreeChoice,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -3761,6 +3810,7 @@ class WorkoutPlanTableCompanion extends UpdateCompanion<WorkoutPlanTableData> {
       if (createdAt != null) 'created_at': createdAt,
       if (isActive != null) 'is_active': isActive,
       if (cyclePatternJson != null) 'cycle_pattern_json': cyclePatternJson,
+      if (isFreeChoice != null) 'is_free_choice': isFreeChoice,
     });
   }
 
@@ -3772,6 +3822,7 @@ class WorkoutPlanTableCompanion extends UpdateCompanion<WorkoutPlanTableData> {
     Value<DateTime>? createdAt,
     Value<bool>? isActive,
     Value<String>? cyclePatternJson,
+    Value<bool>? isFreeChoice,
   }) {
     return WorkoutPlanTableCompanion(
       id: id ?? this.id,
@@ -3781,6 +3832,7 @@ class WorkoutPlanTableCompanion extends UpdateCompanion<WorkoutPlanTableData> {
       createdAt: createdAt ?? this.createdAt,
       isActive: isActive ?? this.isActive,
       cyclePatternJson: cyclePatternJson ?? this.cyclePatternJson,
+      isFreeChoice: isFreeChoice ?? this.isFreeChoice,
     );
   }
 
@@ -3808,6 +3860,9 @@ class WorkoutPlanTableCompanion extends UpdateCompanion<WorkoutPlanTableData> {
     if (cyclePatternJson.present) {
       map['cycle_pattern_json'] = Variable<String>(cyclePatternJson.value);
     }
+    if (isFreeChoice.present) {
+      map['is_free_choice'] = Variable<bool>(isFreeChoice.value);
+    }
     return map;
   }
 
@@ -3820,7 +3875,8 @@ class WorkoutPlanTableCompanion extends UpdateCompanion<WorkoutPlanTableData> {
           ..write('startDate: $startDate, ')
           ..write('createdAt: $createdAt, ')
           ..write('isActive: $isActive, ')
-          ..write('cyclePatternJson: $cyclePatternJson')
+          ..write('cyclePatternJson: $cyclePatternJson, ')
+          ..write('isFreeChoice: $isFreeChoice')
           ..write(')'))
         .toString();
   }
@@ -9303,6 +9359,7 @@ typedef $$WorkoutPlanTableTableCreateCompanionBuilder =
       Value<DateTime> createdAt,
       Value<bool> isActive,
       required String cyclePatternJson,
+      Value<bool> isFreeChoice,
     });
 typedef $$WorkoutPlanTableTableUpdateCompanionBuilder =
     WorkoutPlanTableCompanion Function({
@@ -9313,6 +9370,7 @@ typedef $$WorkoutPlanTableTableUpdateCompanionBuilder =
       Value<DateTime> createdAt,
       Value<bool> isActive,
       Value<String> cyclePatternJson,
+      Value<bool> isFreeChoice,
     });
 
 final class $$WorkoutPlanTableTableReferences
@@ -9429,6 +9487,11 @@ class $$WorkoutPlanTableTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<bool> get isFreeChoice => $composableBuilder(
+    column: $table.isFreeChoice,
+    builder: (column) => ColumnFilters(column),
+  );
+
   Expression<bool> scheduledWorkoutTableRefs(
     Expression<bool> Function($$ScheduledWorkoutTableTableFilterComposer f) f,
   ) {
@@ -9525,6 +9588,11 @@ class $$WorkoutPlanTableTableOrderingComposer
     column: $table.cyclePatternJson,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get isFreeChoice => $composableBuilder(
+    column: $table.isFreeChoice,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$WorkoutPlanTableTableAnnotationComposer
@@ -9558,6 +9626,11 @@ class $$WorkoutPlanTableTableAnnotationComposer
 
   GeneratedColumn<String> get cyclePatternJson => $composableBuilder(
     column: $table.cyclePatternJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isFreeChoice => $composableBuilder(
+    column: $table.isFreeChoice,
     builder: (column) => column,
   );
 
@@ -9662,6 +9735,7 @@ class $$WorkoutPlanTableTableTableManager
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<bool> isActive = const Value.absent(),
                 Value<String> cyclePatternJson = const Value.absent(),
+                Value<bool> isFreeChoice = const Value.absent(),
               }) => WorkoutPlanTableCompanion(
                 id: id,
                 name: name,
@@ -9670,6 +9744,7 @@ class $$WorkoutPlanTableTableTableManager
                 createdAt: createdAt,
                 isActive: isActive,
                 cyclePatternJson: cyclePatternJson,
+                isFreeChoice: isFreeChoice,
               ),
           createCompanionCallback:
               ({
@@ -9680,6 +9755,7 @@ class $$WorkoutPlanTableTableTableManager
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<bool> isActive = const Value.absent(),
                 required String cyclePatternJson,
+                Value<bool> isFreeChoice = const Value.absent(),
               }) => WorkoutPlanTableCompanion.insert(
                 id: id,
                 name: name,
@@ -9688,6 +9764,7 @@ class $$WorkoutPlanTableTableTableManager
                 createdAt: createdAt,
                 isActive: isActive,
                 cyclePatternJson: cyclePatternJson,
+                isFreeChoice: isFreeChoice,
               ),
           withReferenceMapper:
               (p0) =>

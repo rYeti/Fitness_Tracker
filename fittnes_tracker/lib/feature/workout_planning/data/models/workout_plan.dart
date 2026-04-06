@@ -9,6 +9,7 @@ class WorkoutPlan {
   final DateTime? endDate; // null for ongoing plans
   final List<Workout> workouts; // Scheduled workouts in this plan
   final bool isActive; // Whether this plan is currently active
+  final bool isFreeChoice; // Whether the user picks workouts manually each day
 
   WorkoutPlan({
     this.id,
@@ -18,6 +19,7 @@ class WorkoutPlan {
     this.endDate,
     this.workouts = const [],
     this.isActive = true,
+    this.isFreeChoice = false,
   });
 
   // Helper to check if a date is within the plan period
@@ -99,6 +101,7 @@ class WorkoutPlan {
     DateTime? endDate,
     List<Workout>? workouts,
     bool? isActive,
+    bool? isFreeChoice,
   }) {
     return WorkoutPlan(
       id: id ?? this.id,
@@ -108,6 +111,7 @@ class WorkoutPlan {
       endDate: endDate ?? this.endDate,
       workouts: workouts ?? this.workouts,
       isActive: isActive ?? this.isActive,
+      isFreeChoice: isFreeChoice ?? this.isFreeChoice,
     );
   }
 }

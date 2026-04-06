@@ -1123,6 +1123,11 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
+  String setCount(int n) {
+    return '$n Satz/Sätze';
+  }
+
+  @override
   String exercisesAndSets(int exercises, int sets) {
     return '$exercises Übung(en), $sets Satz/Sätze';
   }
@@ -1282,4 +1287,114 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get supersetPickHint => 'Wählen Sie Übungen für das Superset aus';
+
+  @override
+  String get freeChoiceMode => 'Freie Auswahl';
+
+  @override
+  String get freeChoiceModeSubtitle => 'Trainingseinheiten täglich manuell auswählen';
+
+  @override
+  String get cycleModeSubtitle => 'Trainingseinheiten folgen einem festen Zyklus';
+
+  @override
+  String get switchToFreeChoiceTitle => 'Zur freien Auswahl wechseln?';
+
+  @override
+  String get switchToFreeChoiceBody => 'Alle zukünftigen geplanten Trainingseinheiten für diesen Plan werden entfernt. Du kannst täglich selbst wählen.';
+
+  @override
+  String get switchToCyclePlanTitle => 'Zum Zyklus-Plan wechseln?';
+
+  @override
+  String get switchToCyclePlanBody => 'Der Plan wechselt zurück in den Zyklus-Modus. Keine Trainingseinheiten werden automatisch eingeplant.';
+
+  @override
+  String get confirm => 'Bestätigen';
+
+  @override
+  String addWorkoutForDate(String date) {
+    return 'Training für $date hinzufügen';
+  }
+
+  @override
+  String pickWorkoutForDate(String date) {
+    return 'Training für $date auswählen';
+  }
+
+  @override
+  String get freeChoiceAddHint => 'Trainingsvorlagen hinzufügen, aus denen täglich gewählt werden kann';
+
+  @override
+  String get cyclePattern => 'Zyklus-Muster';
+
+  @override
+  String get freeChoiceLabel => 'Freie Auswahl';
+
+  @override
+  String get targetReps => 'Ziel-Wiederholungen';
+  @override
+  String get targetRepsHint => 'z.B. 8-12';
+  @override
+  String get targetRepsHintLong => 'z.B. 8 - 12';
+  @override
+  String get createWorkoutPlan => 'Trainingsplan erstellen';
+  @override
+  String get planName => 'Planname';
+  @override
+  String get planNameHint => 'z.B. Anfänger-Kraftprogramm';
+  @override
+  String get create => 'Erstellen';
+  @override
+  String get foods => 'Lebensmittel';
+  @override
+  String get addFromScheduledWorkouts => 'Aus geplanten Trainings hinzufügen';
+  @override
+  String get importCsvWorkouts => 'CSV-Trainings importieren';
+  @override
+  String get startTimer => 'Starten';
+  @override
+  String get pauseTimer => 'Pausieren';
+  @override
+  String get resetTimer => 'Zurücksetzen';
+  @override
+  String get stopTimer => 'Stoppen';
+  @override
+  String get restTimeComplete => 'Pausenzeit beendet! 💪';
+  @override
+  String get selectFood => 'Lebensmittel auswählen';
+  @override
+  String doneCount(int count) => 'Fertig ($count)';
+  @override
+  String get searchFoods => 'Lebensmittel suchen';
+  @override
+  String get noLocalFoodsFound => 'Keine lokalen Lebensmittel gefunden';
+  @override
+  String get enterSearchTermsOnline => 'Suchbegriffe eingeben, um Lebensmittel online zu finden';
+  @override
+  String get noResultsFoundSearch => 'Keine Ergebnisse für diese Suche gefunden';
+  @override
+  String get tryUsingMoreGeneralTerms => 'Allgemeinere Begriffe verwenden oder Schreibweise prüfen';
+  @override
+  String get tryAgain => 'Erneut versuchen';
+  @override
+  String get noFoodsAdded => 'Noch keine Lebensmittel hinzugefügt';
+  @override
+  String get saveChanges => 'Änderungen speichern';
+  @override
+  String get pleaseEnterName => 'Bitte einen Namen eingeben';
+  @override
+  String get barcodeNotSupportedMobile => 'Barcode-Scannen wird nur auf Mobilgeräten unterstützt.';
+  @override
+  String get barcodeNotSupportedWeb => 'Barcode-Scannen wird im Web nicht unterstützt';
+  @override
+  String get selectWorkoutDates => 'Trainingsdaten auswählen';
+  @override
+  String get useSelectedDates => 'Ausgewählte Daten verwenden';
+  @override
+  String get searchExercisesHint => 'Übungen suchen...';
+  @override
+  String get invalidAgeHeight => 'Bitte gültiges Alter und gültige Körpergröße eingeben';
+  @override
+  String get searchOnlineTab => 'Online suchen';
 }

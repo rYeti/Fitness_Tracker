@@ -2171,6 +2171,12 @@ abstract class AppLocalizations {
   /// **'{n} exercise(s)'**
   String exerciseCount(int n);
 
+  /// No description provided for @setCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{n} set(s)'**
+  String setCount(int n);
+
   /// No description provided for @exercisesAndSets.
   ///
   /// In en, this message translates to:
@@ -2416,6 +2422,118 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Select exercises for the superset'**
   String get supersetPickHint;
+
+  String get targetReps;
+  String get targetRepsHint;
+  String get targetRepsHintLong;
+  String get createWorkoutPlan;
+  String get planName;
+  String get planNameHint;
+  String get create;
+  String get foods;
+  String get addFromScheduledWorkouts;
+  String get importCsvWorkouts;
+  String get startTimer;
+  String get pauseTimer;
+  String get resetTimer;
+  String get stopTimer;
+  String get restTimeComplete;
+  String get selectFood;
+  String doneCount(int count);
+  String get searchFoods;
+  String get noLocalFoodsFound;
+  String get enterSearchTermsOnline;
+  String get noResultsFoundSearch;
+  String get tryUsingMoreGeneralTerms;
+  String get tryAgain;
+  String get noFoodsAdded;
+  String get saveChanges;
+  String get pleaseEnterName;
+  String get barcodeNotSupportedMobile;
+  String get barcodeNotSupportedWeb;
+  String get selectWorkoutDates;
+  String get useSelectedDates;
+  String get searchExercisesHint;
+  String get invalidAgeHeight;
+  String get searchOnlineTab;
+
+  /// No description provided for @freeChoiceMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Free Choice Mode'**
+  String get freeChoiceMode;
+
+  /// No description provided for @freeChoiceModeSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick workouts manually for each day'**
+  String get freeChoiceModeSubtitle;
+
+  /// No description provided for @cycleModeSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Workouts follow a repeating cycle'**
+  String get cycleModeSubtitle;
+
+  /// No description provided for @switchToFreeChoiceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch to Free Choice?'**
+  String get switchToFreeChoiceTitle;
+
+  /// No description provided for @switchToFreeChoiceBody.
+  ///
+  /// In en, this message translates to:
+  /// **'All future scheduled workouts for this plan will be removed. You can pick workouts day by day.'**
+  String get switchToFreeChoiceBody;
+
+  /// No description provided for @switchToCyclePlanTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch to Cycle Plan?'**
+  String get switchToCyclePlanTitle;
+
+  /// No description provided for @switchToCyclePlanBody.
+  ///
+  /// In en, this message translates to:
+  /// **'The plan will switch back to cycle mode. No scheduled workouts will be created automatically.'**
+  String get switchToCyclePlanBody;
+
+  /// No description provided for @confirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm'**
+  String get confirm;
+
+  /// No description provided for @addWorkoutForDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Add workout for {date}'**
+  String addWorkoutForDate(String date);
+
+  /// No description provided for @pickWorkoutForDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick workout for {date}'**
+  String pickWorkoutForDate(String date);
+
+  /// No description provided for @freeChoiceAddHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Add workout templates to choose from each day'**
+  String get freeChoiceAddHint;
+
+  /// No description provided for @cyclePattern.
+  ///
+  /// In en, this message translates to:
+  /// **'Cycle Pattern'**
+  String get cyclePattern;
+
+  /// No description provided for @freeChoiceLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Free Choice'**
+  String get freeChoiceLabel;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

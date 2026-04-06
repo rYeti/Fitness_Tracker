@@ -25,6 +25,7 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
 
   List<String?> _cyclePattern = [];
   DateTime? _startDate = DateTime.now();
+  bool _isFreeChoice = false;
 
   // Map to store exercises for each workout name (exercise, sets, supersetGroupId)
   Map<String, List<(Exercise, List<SetTemplates>, int?)>> _workoutExercises = {};
@@ -63,9 +64,13 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
         border: Border(bottom: BorderSide(color: theme.dividerColor, width: 1)),
       ),
       child: Row(
-        children: List.generate(3, (index) {
+        children: List.generate(_isFreeChoice ? 2 : 3, (index) {
           final isCompleted = index < _currentStep;
           final isCurrent = index == _currentStep;
+          final stepLabels = _isFreeChoice
+              ? [l10n.workoutName, l10n.stepCycle]
+              : [l10n.workoutName, l10n.stepCycle, l10n.stepStart];
+          final totalSteps = stepLabels.length;
 
           return Expanded(
             child: Row(
@@ -115,7 +120,7 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        [l10n.workoutName, l10n.stepCycle, l10n.stepStart][index],
+                        stepLabels[index],
                         style: theme.textTheme.bodySmall?.copyWith(
                           color:
                               isCurrent
@@ -127,7 +132,7 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
                     ],
                   ),
                 ),
-                if (index < 2)
+                if (index < totalSteps - 1)
                   Container(
                     height: 2,
                     width: 24,
@@ -177,13 +182,13 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
               child: ElevatedButton.icon(
                 onPressed: _nextOrSave,
                 icon: Icon(
-                  _currentStep == 2 ? Icons.check : Icons.arrow_forward,
+                  _isLastStep ? Icons.check : Icons.arrow_forward,
                 ),
-                label: Text(_currentStep == 2 ? l10n.save : l10n.next),
+                label: Text(_isLastStep ? l10n.save : l10n.next),
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   backgroundColor:
-                      _currentStep == 2
+                      _isLastStep
                           ? Colors.green
                           : theme.colorScheme.primary,
                 ),
@@ -202,31 +207,33 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
     // Map to hold template IDs for workouts
     final Map<String, int> workoutMap = {};
 
-    // Step 1️⃣: Save / ensure Rest Day template exists
-    final existingRestDay = await db.workoutDao.getWorkoutByNameOrNull(
-      "Rest Day",
-    );
-    late int restDayId;
-    if (existingRestDay == null) {
-      final restWorkout = Workout(
-        name: "Rest Day",
-        isTemplate: true,
-        exercises: [],
-        difficulty: WorkoutDifficulty.beginner,
-        estimatedDurationMinutes: 0,
+    // Step 1️⃣: Save / ensure Rest Day template exists (cycle mode only)
+    if (!_isFreeChoice) {
+      final existingRestDay = await db.workoutDao.getWorkoutByNameOrNull(
+        "Rest Day",
       );
-      restDayId = await db.workoutDao.saveCompleteWorkout(restWorkout);
-      workoutMap["Rest Day"] = restDayId;
-    } else {
-      restDayId = existingRestDay.id;
-      workoutMap["Rest Day"] = restDayId;
-    }
-    // Always update the Rest Day color (user may have changed it).
-    final restColor = _workoutColors['Rest Day'];
-    if (restColor != null) {
-      await (db.update(db.workoutTable)..where(
-        (t) => t.id.equals(restDayId),
-      )).write(WorkoutTableCompanion(color: drift.Value(restColor)));
+      late int restDayId;
+      if (existingRestDay == null) {
+        final restWorkout = Workout(
+          name: "Rest Day",
+          isTemplate: true,
+          exercises: [],
+          difficulty: WorkoutDifficulty.beginner,
+          estimatedDurationMinutes: 0,
+        );
+        restDayId = await db.workoutDao.saveCompleteWorkout(restWorkout);
+        workoutMap["Rest Day"] = restDayId;
+      } else {
+        restDayId = existingRestDay.id;
+        workoutMap["Rest Day"] = restDayId;
+      }
+      // Always update the Rest Day color (user may have changed it).
+      final restColor = _workoutColors['Rest Day'];
+      if (restColor != null) {
+        await (db.update(db.workoutTable)..where(
+          (t) => t.id.equals(restDayId),
+        )).write(WorkoutTableCompanion(color: drift.Value(restColor)));
+      }
     }
 
     // Step 2️⃣: Deactivate current active plans
@@ -237,15 +244,19 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
     // Step 3️⃣: Create new workout plan
     final planCompanion = WorkoutPlanTableCompanion.insert(
       name: _workoutNameController.text.trim(),
-      cyclePatternJson: jsonEncode(_cyclePattern),
+      cyclePatternJson: _isFreeChoice ? '[]' : jsonEncode(_cyclePattern),
       startDate: _startDate!,
       isActive: const drift.Value(true),
+      isFreeChoice: drift.Value(_isFreeChoice),
     );
     final planId = await db.into(db.workoutPlanTable).insert(planCompanion);
 
-    // Step 4️⃣: Save templates for workouts (skip Rest Day)
-    for (var workoutName
-        in _cyclePattern.where((w) => w != "Rest Day").toSet()) {
+    // Step 4️⃣: Save templates for workouts
+    final workoutNames = _isFreeChoice
+        ? _workoutExercises.keys.toList()
+        : _cyclePattern.where((w) => w != "Rest Day").toSet().toList();
+
+    for (var workoutName in workoutNames) {
       final exercises = _workoutExercises[workoutName] ?? [];
 
       final workoutTemplate = Workout(
@@ -318,21 +329,23 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
       }
     }
 
-    // Step 5️⃣: Schedule workouts for 360 days
-    for (int day = 0; day < 360; day++) {
-      final date = _startDate!.add(Duration(days: day));
-      final cycleIndex = day % _cyclePattern.length;
-      final workoutName = _cyclePattern[cycleIndex];
-      final templateId = workoutMap[workoutName]!;
+    // Step 5️⃣: Schedule workouts for 360 days (cycle mode only)
+    if (!_isFreeChoice) {
+      for (int day = 0; day < 360; day++) {
+        final date = _startDate!.add(Duration(days: day));
+        final cycleIndex = day % _cyclePattern.length;
+        final workoutName = _cyclePattern[cycleIndex];
+        final templateId = workoutMap[workoutName]!;
 
-      final scheduledWorkout = ScheduledWorkoutTableCompanion.insert(
-        workoutId: templateId,
-        templateWorkoutId: drift.Value(templateId),
-        scheduledDate: date,
-        workoutPlanId: drift.Value(planId),
-      );
+        final scheduledWorkout = ScheduledWorkoutTableCompanion.insert(
+          workoutId: templateId,
+          templateWorkoutId: drift.Value(templateId),
+          scheduledDate: date,
+          workoutPlanId: drift.Value(planId),
+        );
 
-      await db.scheduledWorkoutDao.scheduleWorkout(scheduledWorkout);
+        await db.scheduledWorkoutDao.scheduleWorkout(scheduledWorkout);
+      }
     }
 
     ScaffoldMessenger.of(
@@ -347,6 +360,9 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
     _workoutNameController.dispose();
     super.dispose();
   }
+
+  bool get _isLastStep =>
+      (_isFreeChoice && _currentStep == 1) || _currentStep == 2;
 
   void _goBack() {
     setState(() {
@@ -366,12 +382,21 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
         return;
       }
     } else if (_currentStep == 1) {
-      if (_cyclePattern.isEmpty ||
-          _cyclePattern.every((element) => element == "Rest Day")) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.pleaseEnterAtLeastOneWorkoutDay)),
-        );
-        return;
+      if (_isFreeChoice) {
+        if (_workoutExercises.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(l10n.pleaseEnterAtLeastOneWorkoutDay)),
+          );
+          return;
+        }
+      } else {
+        if (_cyclePattern.isEmpty ||
+            _cyclePattern.every((element) => element == "Rest Day")) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(l10n.pleaseEnterAtLeastOneWorkoutDay)),
+          );
+          return;
+        }
       }
     } else if (_currentStep == 2) {
       if (_startDate == null) {
@@ -382,10 +407,10 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
       }
     }
     setState(() {
-      if (_currentStep < 2) {
-        _currentStep++;
-      } else {
+      if (_isLastStep) {
         _saveWorkout();
+      } else {
+        _currentStep++;
       }
     });
   }
@@ -460,104 +485,262 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
       children: [
         Column(
           children: [
-            // Header
-            Container(
-              padding: const EdgeInsets.all(16),
-              color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+            // Mode selector
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
               child: Row(
                 children: [
-                  Icon(Icons.calendar_month, color: theme.colorScheme.primary),
+                  _buildModeCard(
+                    theme: theme,
+                    icon: Icons.repeat,
+                    label: l10n.cyclePattern,
+                    description: l10n.cycleModeSubtitle,
+                    selected: !_isFreeChoice,
+                    onTap: () => setState(() => _isFreeChoice = false),
+                  ),
                   const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          l10n.buildYourCycle,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          l10n.dayCycleLength(_cyclePattern.length),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
+                  _buildModeCard(
+                    theme: theme,
+                    icon: Icons.shuffle,
+                    label: l10n.freeChoiceLabel,
+                    description: l10n.freeChoiceModeSubtitle,
+                    selected: _isFreeChoice,
+                    onTap: () => setState(() => _isFreeChoice = true),
                   ),
                 ],
               ),
             ),
+            Divider(height: 1, color: theme.dividerColor),
 
-            // Workout list with drag and drop
+            // Header (cycle mode only)
+            if (!_isFreeChoice)
+              Container(
+                padding: const EdgeInsets.all(16),
+                color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+                child: Row(
+                  children: [
+                    Icon(Icons.calendar_month, color: theme.colorScheme.primary),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            l10n.buildYourCycle,
+                            style: theme.textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            l10n.dayCycleLength(_cyclePattern.length),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            // Workout list
             Expanded(
-              child:
-                  _cyclePattern.isEmpty
+              child: _isFreeChoice
+                  ? _buildFreeChoiceList(theme, l10n)
+                  : (_cyclePattern.isEmpty
                       ? _buildEmptyState(theme, l10n)
                       : ReorderableListView.builder(
-                        padding: const EdgeInsets.only(
-                          left: 16,
-                          right: 16,
-                          top: 16,
-                          bottom: 88, // Space for FAB
-                        ),
-                        itemCount: _cyclePattern.length,
-                        onReorder: (oldIndex, newIndex) {
-                          setState(() {
-                            if (newIndex > oldIndex) {
-                              newIndex -= 1;
-                            }
-                            final item = _cyclePattern.removeAt(oldIndex);
-                            _cyclePattern.insert(newIndex, item);
-                          });
-                        },
-                        itemBuilder: (context, index) {
-                          final entry = _cyclePattern[index];
-                          final isRestDay = entry == "Rest Day";
-
-                          return _WorkoutDayCard(
-                            key: ValueKey('$entry-$index'),
-                            dayNumber: index + 1,
-                            workoutName: entry!,
-                            isRestDay: isRestDay,
-                            exerciseCount:
-                                _workoutExercises[entry]?.length ?? 0,
-                            workoutColor: _workoutColors[entry],
-                            onTap: () {
-                              if (!isRestDay) {
-                                _showWorkoutDetails(entry);
-                              }
-                            },
-                            onDelete: () {
-                              setState(() {
-                                _cyclePattern.removeAt(index);
-                                if (!isRestDay) {
-                                  _workoutExercises.remove(entry);
-                                }
-                              });
-                            },
-                            onColorChanged: (color) {
-                              setState(() => _workoutColors[entry] = color);
-                            },
-                          );
-                        },
-                      ),
+                          padding: const EdgeInsets.only(
+                            left: 16,
+                            right: 16,
+                            top: 16,
+                            bottom: 88,
+                          ),
+                          itemCount: _cyclePattern.length,
+                          onReorder: (oldIndex, newIndex) {
+                            setState(() {
+                              if (newIndex > oldIndex) newIndex -= 1;
+                              final item = _cyclePattern.removeAt(oldIndex);
+                              _cyclePattern.insert(newIndex, item);
+                            });
+                          },
+                          itemBuilder: (context, index) {
+                            final entry = _cyclePattern[index];
+                            final isRestDay = entry == "Rest Day";
+                            return _WorkoutDayCard(
+                              key: ValueKey('$entry-$index'),
+                              dayNumber: index + 1,
+                              workoutName: entry!,
+                              isRestDay: isRestDay,
+                              exerciseCount:
+                                  _workoutExercises[entry]?.length ?? 0,
+                              workoutColor: _workoutColors[entry],
+                              onTap: () {
+                                if (!isRestDay) _showWorkoutDetails(entry);
+                              },
+                              onDelete: () {
+                                setState(() {
+                                  _cyclePattern.removeAt(index);
+                                  if (!isRestDay) {
+                                    _workoutExercises.remove(entry);
+                                  }
+                                });
+                              },
+                              onColorChanged: (color) {
+                                setState(() => _workoutColors[entry] = color);
+                              },
+                            );
+                          },
+                        )),
             ),
           ],
         ),
 
-        // Floating Action Button with Speed Dial
+        // FAB — free choice shows simple add; cycle shows speed dial
         Positioned(
           right: 16,
           bottom: 16,
-          child: _AddDaySpeedDial(
-            onAddWorkout: _addWorkout,
-            onAddRestDay: _addRestDay,
-          ),
+          child: _isFreeChoice
+              ? FloatingActionButton.extended(
+                  onPressed: _addWorkout,
+                  icon: const Icon(Icons.add),
+                  label: Text(l10n.addWorkout),
+                )
+              : _AddDaySpeedDial(
+                  onAddWorkout: _addWorkout,
+                  onAddRestDay: _addRestDay,
+                ),
         ),
       ],
+    );
+  }
+
+  Widget _buildModeCard({
+    required ThemeData theme,
+    required IconData icon,
+    required String label,
+    required String description,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    final contentColor = selected
+        ? theme.colorScheme.onPrimaryContainer
+        : theme.colorScheme.onSurfaceVariant;
+    final borderColor = selected
+        ? theme.colorScheme.primary
+        : theme.colorScheme.outline;
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+          decoration: BoxDecoration(
+            color: selected
+                ? theme.colorScheme.primaryContainer
+                : theme.colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: borderColor, width: selected ? 2 : 1),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: contentColor, size: 28),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: contentColor,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                description,
+                style: theme.textTheme.bodySmall?.copyWith(color: contentColor),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFreeChoiceList(ThemeData theme, AppLocalizations l10n) {
+    if (_workoutExercises.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.fitness_center,
+                size: 64,
+                color: theme.colorScheme.onSurfaceVariant.withOpacity(0.5)),
+            const SizedBox(height: 16),
+            Text(
+              l10n.noWorkoutsAddedYet,
+              style: theme.textTheme.titleMedium
+                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              l10n.freeChoiceAddHint,
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
+    final names = _workoutExercises.keys.toList();
+    return ListView.builder(
+      padding: const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 88),
+      itemCount: names.length,
+      itemBuilder: (context, index) {
+        final name = names[index];
+        final exCount = _workoutExercises[name]?.length ?? 0;
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: theme.dividerColor),
+          ),
+          child: ListTile(
+            leading:
+                const Icon(Icons.fitness_center),
+            title: Text(name,
+                style: theme.textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.bold)),
+            subtitle: Text(
+              exCount == 0
+                  ? l10n.noExercisesCount
+                  : l10n.exerciseCount(exCount),
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            ),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined),
+                  onPressed: () => _showWorkoutDetails(name),
+                ),
+                IconButton(
+                  icon: Icon(Icons.delete_outline,
+                      color: theme.colorScheme.error),
+                  onPressed: () =>
+                      setState(() => _workoutExercises.remove(name)),
+                ),
+              ],
+            ),
+            onTap: () => _showWorkoutDetails(name),
+          ),
+        );
+      },
     );
   }
 
@@ -646,8 +829,8 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
 
     if (result != null && result.isNotEmpty) {
       setState(() {
-        _cyclePattern.add(result);
-        _workoutExercises[result] = [];
+        if (!_isFreeChoice) _cyclePattern.add(result);
+        _workoutExercises[result] ??= [];
       });
     }
   }
@@ -1390,7 +1573,7 @@ class _ExerciseCardState extends State<_ExerciseCard> {
                           '${widget.exerciseNumber}',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: theme.colorScheme.primary,
+                            color: theme.colorScheme.onPrimaryContainer,
                           ),
                         ),
                       ),
@@ -1411,8 +1594,8 @@ class _ExerciseCardState extends State<_ExerciseCard> {
                           const SizedBox(height: 2),
                           Text(
                             _sets.isEmpty
-                                ? 'No sets configured'
-                                : '${_sets.length} set${_sets.length == 1 ? '' : 's'}',
+                                ? l10n.noSetsConfigured
+                                : l10n.setCount(_sets.length),
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
                             ),

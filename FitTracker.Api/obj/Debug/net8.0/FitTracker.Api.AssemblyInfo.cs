@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("FitTracker.Api")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ac90987d682e1a3eea0a3a6381ad1a2f85d02b2e")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+6230e0f0eed5b9eece145e016215ba1ee9db4543")]
 [assembly: System.Reflection.AssemblyProductAttribute("FitTracker.Api")]
 [assembly: System.Reflection.AssemblyTitleAttribute("FitTracker.Api")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

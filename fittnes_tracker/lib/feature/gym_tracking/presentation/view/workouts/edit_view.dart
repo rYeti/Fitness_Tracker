@@ -313,16 +313,92 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
 
   Widget _buildSinglePlanView() {
     final plan = _plans!.first;
-    return plan.workouts.isEmpty
-        ? _buildEmptyPlanView(plan)
-        : ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: plan.workouts.length,
-          itemBuilder: (context, index) {
-            final workout = plan.workouts[index];
-            return _buildExpandableWorkoutCard(workout, index);
-          },
+    final l10n = AppLocalizations.of(context)!;
+    final modeHeader = Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: Card(
+        child: SwitchListTile(
+          title: Text(l10n.freeChoiceMode),
+          subtitle: Text(
+            plan.isFreeChoice
+                ? l10n.freeChoiceModeSubtitle
+                : l10n.cycleModeSubtitle,
+          ),
+          value: plan.isFreeChoice,
+          onChanged: _toggleFreeChoice,
+        ),
+      ),
+    );
+
+    if (plan.workouts.isEmpty) {
+      return Column(
+        children: [
+          modeHeader,
+          Expanded(child: _buildEmptyPlanView(plan)),
+        ],
+      );
+    }
+
+    return Column(
+      children: [
+        modeHeader,
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: plan.workouts.length,
+            itemBuilder: (context, index) {
+              final workout = plan.workouts[index];
+              return _buildExpandableWorkoutCard(workout, index);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _toggleFreeChoice(bool value) async {
+    final plan = _plans!.first;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        final ctxL10n = AppLocalizations.of(ctx)!;
+        return AlertDialog(
+          title: Text(value ? ctxL10n.switchToFreeChoiceTitle : ctxL10n.switchToCyclePlanTitle),
+          content: Text(value ? ctxL10n.switchToFreeChoiceBody : ctxL10n.switchToCyclePlanBody),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(ctxL10n.cancel),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(ctxL10n.confirm),
+            ),
+          ],
         );
+      },
+    );
+    if (confirmed != true || !mounted) return;
+
+    final db = sl<AppDatabase>();
+
+    // When switching to free choice, remove all future scheduled workouts for this plan
+    if (value && plan.id != null) {
+      final today = DateTime.now();
+      final normalizedToday = DateTime(today.year, today.month, today.day);
+      await (db.delete(db.scheduledWorkoutTable)
+            ..where(
+              (t) =>
+                  t.workoutPlanId.equals(plan.id!) &
+                  t.scheduledDate.isBiggerOrEqualValue(normalizedToday),
+            ))
+          .go();
+    }
+
+    await (db.update(db.workoutPlanTable)..where((t) => t.id.equals(plan.id!)))
+        .write(WorkoutPlanTableCompanion(isFreeChoice: drift.Value(value)));
+
+    await _loadPlans();
   }
 
   Widget _buildExpandableWorkoutCard(Workout workout, int workoutIndex) {

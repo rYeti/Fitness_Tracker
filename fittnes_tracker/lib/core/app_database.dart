@@ -60,7 +60,7 @@ class AppDatabase extends _$AppDatabase {
   // Workout planning DAOs will be added here after code generation
 
   @override
-  int get schemaVersion => 23;
+  int get schemaVersion => 24;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -117,6 +117,13 @@ class AppDatabase extends _$AppDatabase {
         try {
           await customStatement(
             'ALTER TABLE workout_table ADD COLUMN color INTEGER',
+          );
+        } catch (_) {}
+      }
+      if (from < 24) {
+        try {
+          await customStatement(
+            'ALTER TABLE workout_plan_table ADD COLUMN is_free_choice INTEGER NOT NULL DEFAULT 0',
           );
         } catch (_) {}
       }
@@ -1132,6 +1139,7 @@ class WorkoutPlanTable extends Table {
       dateTime().clientDefault(() => DateTime.now())();
   BoolColumn get isActive => boolean().withDefault(const Constant(false))();
   TextColumn get cyclePatternJson => text()();
+  BoolColumn get isFreeChoice => boolean().withDefault(const Constant(false))();
 }
 
 /// Table for linking workouts to plans (many-to-many)
@@ -2435,6 +2443,7 @@ class WorkoutPlanDao extends DatabaseAccessor<AppDatabase>
       startDate: planData.startDate,
       workouts: workouts,
       isActive: planData.isActive,
+      isFreeChoice: planData.isFreeChoice,
     );
   }
 

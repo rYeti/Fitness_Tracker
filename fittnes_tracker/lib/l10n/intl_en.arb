@@ -553,6 +553,10 @@
   "@exerciseCount": {
     "placeholders": { "n": {"type": "int"} }
   },
+  "setCount": "{n} set(s)",
+  "@setCount": {
+    "placeholders": { "n": {"type": "int"} }
+  },
   "exercisesAndSets": "{exercises} exercise(s), {sets} set(s)",
   "@exercisesAndSets": {
     "placeholders": {
@@ -656,5 +660,63 @@
   "discardWorkout": "Discard",
    "removeSupersetLink": "Remove from superset",
   "superset": "Superset",
-  "supersetPickHint": "Select exercises for the superset"
+  "supersetPickHint": "Select exercises for the superset",
+
+  "targetReps": "Target Reps",
+  "targetRepsHint": "e.g., 8-12",
+  "targetRepsHintLong": "e.g. 8 - 12",
+  "createWorkoutPlan": "Create Workout Plan",
+  "planName": "Plan Name",
+  "planNameHint": "e.g., Beginner Strength Program",
+  "create": "Create",
+  "add": "Add",
+  "foods": "Foods",
+  "addFromScheduledWorkouts": "Add from Scheduled Workouts",
+  "importCsvWorkouts": "Import CSV Workouts",
+  "startTimer": "Start",
+  "pauseTimer": "Pause",
+  "resetTimer": "Reset",
+  "stopTimer": "Stop",
+  "restTimeComplete": "Rest time complete! 💪",
+  "selectFood": "Select Food",
+  "doneCount": "Done ({count})",
+  "@doneCount": {
+    "placeholders": { "count": {"type": "int"} }
+  },
+  "searchFoods": "Search Foods",
+  "noLocalFoodsFound": "No local foods found",
+  "enterSearchTermsOnline": "Enter search terms to find foods online",
+  "noResultsFoundSearch": "No results found for this search",
+  "tryUsingMoreGeneralTerms": "Try using more general terms or check spelling",
+  "tryAgain": "Try Again",
+  "noFoodsAdded": "No foods added yet",
+  "saveChanges": "Save Changes",
+  "pleaseEnterName": "Please enter a name",
+  "barcodeNotSupportedMobile": "Barcode scanning is only supported on mobile devices.",
+  "barcodeNotSupportedWeb": "Barcode scanning is not supported on web",
+  "selectWorkoutDates": "Select Workout Dates",
+  "useSelectedDates": "Use selected dates",
+  "searchExercisesHint": "Search exercises...",
+  "invalidAgeHeight": "Please enter valid age and height",
+  "searchOnlineTab": "Search Online",
+
+  "freeChoiceMode": "Free Choice Mode",
+  "freeChoiceModeSubtitle": "Pick workouts manually for each day",
+  "cycleModeSubtitle": "Workouts follow a repeating cycle",
+  "switchToFreeChoiceTitle": "Switch to Free Choice?",
+  "switchToFreeChoiceBody": "All future scheduled workouts for this plan will be removed. You can pick workouts day by day.",
+  "switchToCyclePlanTitle": "Switch to Cycle Plan?",
+  "switchToCyclePlanBody": "The plan will switch back to cycle mode. No scheduled workouts will be created automatically.",
+  "confirm": "Confirm",
+  "addWorkoutForDate": "Add workout for {date}",
+  "@addWorkoutForDate": {
+    "placeholders": { "date": {"type": "String"} }
+  },
+  "pickWorkoutForDate": "Pick workout for {date}",
+  "@pickWorkoutForDate": {
+    "placeholders": { "date": {"type": "String"} }
+  },
+  "freeChoiceAddHint": "Add workout templates to choose from each day",
+  "cyclePattern": "Cycle Pattern",
+  "freeChoiceLabel": "Free Choice"
 }

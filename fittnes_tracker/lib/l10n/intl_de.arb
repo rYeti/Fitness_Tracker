@@ -549,6 +549,10 @@
   "@exerciseCount": {
     "placeholders": { "n": {"type": "int"} }
   },
+  "setCount": "{n} Satz/Sätze",
+  "@setCount": {
+    "placeholders": { "n": {"type": "int"} }
+  },
   "exercisesAndSets": "{exercises} Übung(en), {sets} Satz/Sätze",
   "@exercisesAndSets": {
     "placeholders": {
@@ -652,5 +656,63 @@
   "discardWorkout": "Verwerfen",
   "removeSupersetLink": "Superset-Verbindung entfernen",
   "superset": "Superset",
-  "supersetPickHint": "Wählen Sie Übungen für das Superset aus"
+  "supersetPickHint": "Wählen Sie Übungen für das Superset aus",
+
+  "targetReps": "Ziel-Wiederholungen",
+  "targetRepsHint": "z.B. 8-12",
+  "targetRepsHintLong": "z.B. 8 - 12",
+  "createWorkoutPlan": "Trainingsplan erstellen",
+  "planName": "Planname",
+  "planNameHint": "z.B. Anfänger-Kraftprogramm",
+  "create": "Erstellen",
+  "add": "Hinzufügen",
+  "foods": "Lebensmittel",
+  "addFromScheduledWorkouts": "Aus geplanten Trainings hinzufügen",
+  "importCsvWorkouts": "CSV-Trainings importieren",
+  "startTimer": "Starten",
+  "pauseTimer": "Pausieren",
+  "resetTimer": "Zurücksetzen",
+  "stopTimer": "Stoppen",
+  "restTimeComplete": "Pausenzeit beendet! 💪",
+  "selectFood": "Lebensmittel auswählen",
+  "doneCount": "Fertig ({count})",
+  "@doneCount": {
+    "placeholders": { "count": {"type": "int"} }
+  },
+  "searchFoods": "Lebensmittel suchen",
+  "noLocalFoodsFound": "Keine lokalen Lebensmittel gefunden",
+  "enterSearchTermsOnline": "Suchbegriffe eingeben, um Lebensmittel online zu finden",
+  "noResultsFoundSearch": "Keine Ergebnisse für diese Suche gefunden",
+  "tryUsingMoreGeneralTerms": "Allgemeinere Begriffe verwenden oder Schreibweise prüfen",
+  "tryAgain": "Erneut versuchen",
+  "noFoodsAdded": "Noch keine Lebensmittel hinzugefügt",
+  "saveChanges": "Änderungen speichern",
+  "pleaseEnterName": "Bitte einen Namen eingeben",
+  "barcodeNotSupportedMobile": "Barcode-Scannen wird nur auf Mobilgeräten unterstützt.",
+  "barcodeNotSupportedWeb": "Barcode-Scannen wird im Web nicht unterstützt",
+  "selectWorkoutDates": "Trainingsdaten auswählen",
+  "useSelectedDates": "Ausgewählte Daten verwenden",
+  "searchExercisesHint": "Übungen suchen...",
+  "invalidAgeHeight": "Bitte gültiges Alter und gültige Körpergröße eingeben",
+  "searchOnlineTab": "Online suchen",
+
+  "freeChoiceMode": "Freie Auswahl",
+  "freeChoiceModeSubtitle": "Trainingseinheiten täglich manuell auswählen",
+  "cycleModeSubtitle": "Trainingseinheiten folgen einem festen Zyklus",
+  "switchToFreeChoiceTitle": "Zur freien Auswahl wechseln?",
+  "switchToFreeChoiceBody": "Alle zukünftigen geplanten Trainingseinheiten für diesen Plan werden entfernt. Du kannst täglich selbst wählen.",
+  "switchToCyclePlanTitle": "Zum Zyklus-Plan wechseln?",
+  "switchToCyclePlanBody": "Der Plan wechselt zurück in den Zyklus-Modus. Keine Trainingseinheiten werden automatisch eingeplant.",
+  "confirm": "Bestätigen",
+  "addWorkoutForDate": "Training für {date} hinzufügen",
+  "@addWorkoutForDate": {
+    "placeholders": { "date": {"type": "String"} }
+  },
+  "pickWorkoutForDate": "Training für {date} auswählen",
+  "@pickWorkoutForDate": {
+    "placeholders": { "date": {"type": "String"} }
+  },
+  "freeChoiceAddHint": "Trainingsvorlagen hinzufügen, aus denen täglich gewählt werden kann",
+  "cyclePattern": "Zyklus-Muster",
+  "freeChoiceLabel": "Freie Auswahl"
 }

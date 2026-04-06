@@ -1123,6 +1123,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String setCount(int n) {
+    return '$n set(s)';
+  }
+
+  @override
   String exercisesAndSets(int exercises, int sets) {
     return '$exercises exercise(s), $sets set(s)';
   }
@@ -1282,4 +1287,114 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get supersetPickHint => 'Select exercises for the superset';
+
+  @override
+  String get freeChoiceMode => 'Free Choice Mode';
+
+  @override
+  String get freeChoiceModeSubtitle => 'Pick workouts manually for each day';
+
+  @override
+  String get cycleModeSubtitle => 'Workouts follow a repeating cycle';
+
+  @override
+  String get switchToFreeChoiceTitle => 'Switch to Free Choice?';
+
+  @override
+  String get switchToFreeChoiceBody => 'All future scheduled workouts for this plan will be removed. You can pick workouts day by day.';
+
+  @override
+  String get switchToCyclePlanTitle => 'Switch to Cycle Plan?';
+
+  @override
+  String get switchToCyclePlanBody => 'The plan will switch back to cycle mode. No scheduled workouts will be created automatically.';
+
+  @override
+  String get confirm => 'Confirm';
+
+  @override
+  String addWorkoutForDate(String date) {
+    return 'Add workout for $date';
+  }
+
+  @override
+  String pickWorkoutForDate(String date) {
+    return 'Pick workout for $date';
+  }
+
+  @override
+  String get freeChoiceAddHint => 'Add workout templates to choose from each day';
+
+  @override
+  String get cyclePattern => 'Cycle Pattern';
+
+  @override
+  String get freeChoiceLabel => 'Free Choice';
+
+  @override
+  String get targetReps => 'Target Reps';
+  @override
+  String get targetRepsHint => 'e.g., 8-12';
+  @override
+  String get targetRepsHintLong => 'e.g. 8 - 12';
+  @override
+  String get createWorkoutPlan => 'Create Workout Plan';
+  @override
+  String get planName => 'Plan Name';
+  @override
+  String get planNameHint => 'e.g., Beginner Strength Program';
+  @override
+  String get create => 'Create';
+  @override
+  String get foods => 'Foods';
+  @override
+  String get addFromScheduledWorkouts => 'Add from Scheduled Workouts';
+  @override
+  String get importCsvWorkouts => 'Import CSV Workouts';
+  @override
+  String get startTimer => 'Start';
+  @override
+  String get pauseTimer => 'Pause';
+  @override
+  String get resetTimer => 'Reset';
+  @override
+  String get stopTimer => 'Stop';
+  @override
+  String get restTimeComplete => 'Rest time complete! 💪';
+  @override
+  String get selectFood => 'Select Food';
+  @override
+  String doneCount(int count) => 'Done ($count)';
+  @override
+  String get searchFoods => 'Search Foods';
+  @override
+  String get noLocalFoodsFound => 'No local foods found';
+  @override
+  String get enterSearchTermsOnline => 'Enter search terms to find foods online';
+  @override
+  String get noResultsFoundSearch => 'No results found for this search';
+  @override
+  String get tryUsingMoreGeneralTerms => 'Try using more general terms or check spelling';
+  @override
+  String get tryAgain => 'Try Again';
+  @override
+  String get noFoodsAdded => 'No foods added yet';
+  @override
+  String get saveChanges => 'Save Changes';
+  @override
+  String get pleaseEnterName => 'Please enter a name';
+  @override
+  String get barcodeNotSupportedMobile => 'Barcode scanning is only supported on mobile devices.';
+  @override
+  String get barcodeNotSupportedWeb => 'Barcode scanning is not supported on web';
+  @override
+  String get selectWorkoutDates => 'Select Workout Dates';
+  @override
+  String get useSelectedDates => 'Use selected dates';
+  @override
+  String get searchExercisesHint => 'Search exercises...';
+  @override
+  String get invalidAgeHeight => 'Please enter valid age and height';
+  @override
+  String get searchOnlineTab => 'Search Online';
 }
