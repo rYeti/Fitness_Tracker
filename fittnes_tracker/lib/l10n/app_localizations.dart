@@ -2423,38 +2423,202 @@ abstract class AppLocalizations {
   /// **'Select exercises for the superset'**
   String get supersetPickHint;
 
+  /// No description provided for @targetReps.
+  ///
+  /// In en, this message translates to:
+  /// **'Target Reps'**
   String get targetReps;
+
+  /// No description provided for @targetRepsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g., 8-12'**
   String get targetRepsHint;
+
+  /// No description provided for @targetRepsHintLong.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. 8 - 12'**
   String get targetRepsHintLong;
+
+  /// No description provided for @createWorkoutPlan.
+  ///
+  /// In en, this message translates to:
+  /// **'Create Workout Plan'**
   String get createWorkoutPlan;
+
+  /// No description provided for @planName.
+  ///
+  /// In en, this message translates to:
+  /// **'Plan Name'**
   String get planName;
+
+  /// No description provided for @planNameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g., Beginner Strength Program'**
   String get planNameHint;
+
+  /// No description provided for @create.
+  ///
+  /// In en, this message translates to:
+  /// **'Create'**
   String get create;
+
+  /// No description provided for @foods.
+  ///
+  /// In en, this message translates to:
+  /// **'Foods'**
   String get foods;
+
+  /// No description provided for @addFromScheduledWorkouts.
+  ///
+  /// In en, this message translates to:
+  /// **'Add from Scheduled Workouts'**
   String get addFromScheduledWorkouts;
+
+  /// No description provided for @importCsvWorkouts.
+  ///
+  /// In en, this message translates to:
+  /// **'Import CSV Workouts'**
   String get importCsvWorkouts;
+
+  /// No description provided for @startTimer.
+  ///
+  /// In en, this message translates to:
+  /// **'Start'**
   String get startTimer;
+
+  /// No description provided for @pauseTimer.
+  ///
+  /// In en, this message translates to:
+  /// **'Pause'**
   String get pauseTimer;
+
+  /// No description provided for @resetTimer.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset'**
   String get resetTimer;
+
+  /// No description provided for @stopTimer.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop'**
   String get stopTimer;
+
+  /// No description provided for @restTimeComplete.
+  ///
+  /// In en, this message translates to:
+  /// **'Rest time complete! 💪'**
   String get restTimeComplete;
+
+  /// No description provided for @selectFood.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Food'**
   String get selectFood;
+
+  /// No description provided for @doneCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Done ({count})'**
   String doneCount(int count);
+
+  /// No description provided for @searchFoods.
+  ///
+  /// In en, this message translates to:
+  /// **'Search Foods'**
   String get searchFoods;
+
+  /// No description provided for @noLocalFoodsFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No local foods found'**
   String get noLocalFoodsFound;
+
+  /// No description provided for @enterSearchTermsOnline.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter search terms to find foods online'**
   String get enterSearchTermsOnline;
+
+  /// No description provided for @noResultsFoundSearch.
+  ///
+  /// In en, this message translates to:
+  /// **'No results found for this search'**
   String get noResultsFoundSearch;
+
+  /// No description provided for @tryUsingMoreGeneralTerms.
+  ///
+  /// In en, this message translates to:
+  /// **'Try using more general terms or check spelling'**
   String get tryUsingMoreGeneralTerms;
+
+  /// No description provided for @tryAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Try Again'**
   String get tryAgain;
+
+  /// No description provided for @noFoodsAdded.
+  ///
+  /// In en, this message translates to:
+  /// **'No foods added yet'**
   String get noFoodsAdded;
+
+  /// No description provided for @saveChanges.
+  ///
+  /// In en, this message translates to:
+  /// **'Save Changes'**
   String get saveChanges;
+
+  /// No description provided for @pleaseEnterName.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter a name'**
   String get pleaseEnterName;
+
+  /// No description provided for @barcodeNotSupportedMobile.
+  ///
+  /// In en, this message translates to:
+  /// **'Barcode scanning is only supported on mobile devices.'**
   String get barcodeNotSupportedMobile;
+
+  /// No description provided for @barcodeNotSupportedWeb.
+  ///
+  /// In en, this message translates to:
+  /// **'Barcode scanning is not supported on web'**
   String get barcodeNotSupportedWeb;
+
+  /// No description provided for @selectWorkoutDates.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Workout Dates'**
   String get selectWorkoutDates;
+
+  /// No description provided for @useSelectedDates.
+  ///
+  /// In en, this message translates to:
+  /// **'Use selected dates'**
   String get useSelectedDates;
+
+  /// No description provided for @searchExercisesHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search exercises...'**
   String get searchExercisesHint;
+
+  /// No description provided for @invalidAgeHeight.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter valid age and height'**
   String get invalidAgeHeight;
+
+  /// No description provided for @searchOnlineTab.
+  ///
+  /// In en, this message translates to:
+  /// **'Search Online'**
   String get searchOnlineTab;
 
   /// No description provided for @freeChoiceMode.
