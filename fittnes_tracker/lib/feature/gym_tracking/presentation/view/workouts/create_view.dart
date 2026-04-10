@@ -1713,8 +1713,8 @@ class _ExerciseCardState extends State<_ExerciseCard> {
                                 child: TextField(
                                   controller: controller,
                                   decoration: InputDecoration(
-                                    labelText: 'Target Reps',
-                                    hintText: 'e.g., 8-12',
+                                    labelText: l10n.targetReps,
+                                    hintText: l10n.targetRepsHint,
                                     border: const OutlineInputBorder(),
                                     isDense: true,
                                     contentPadding: const EdgeInsets.symmetric(

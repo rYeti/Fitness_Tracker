@@ -1390,6 +1390,54 @@ class AppLocalizationsDe extends AppLocalizations {
   String get searchOnlineTab => 'Online suchen';
 
   @override
+  String get login => 'Anmelden';
+
+  @override
+  String get register => 'Registrieren';
+
+  @override
+  String get username => 'Benutzername';
+
+  @override
+  String get password => 'Passwort';
+
+  @override
+  String get confirmPassword => 'Passwort bestätigen';
+
+  @override
+  String get email => 'E-Mail';
+
+  @override
+  String get firstName => 'Vorname';
+
+  @override
+  String get lastName => 'Nachname';
+
+  @override
+  String get dateOfBirth => 'Geburtsdatum';
+
+  @override
+  String get selectDateOfBirth => 'Geburtsdatum auswählen';
+
+  @override
+  String get loginToYourAccount => 'Willkommen zurück';
+
+  @override
+  String get createYourAccount => 'Konto erstellen';
+
+  @override
+  String get noAccountQuestion => 'Noch kein Konto?';
+
+  @override
+  String get alreadyHaveAccount => 'Bereits ein Konto?';
+
+  @override
+  String get passwordsDoNotMatch => 'Passwörter stimmen nicht überein';
+
+  @override
+  String get pleaseSelectDateOfBirth => 'Bitte Geburtsdatum auswählen';
+
+  @override
   String get freeChoiceMode => 'Freie Auswahl';
 
   @override
@@ -1431,4 +1479,28 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get freeChoiceLabel => 'Freie Auswahl';
+
+  @override
+  String get accountSettings => 'Kontoeinstellungen';
+
+  @override
+  String get profile => 'Profil';
+
+  @override
+  String get security => 'Sicherheit';
+
+  @override
+  String get changePassword => 'Passwort ändern';
+
+  @override
+  String get currentPassword => 'Aktuelles Passwort';
+
+  @override
+  String get newPassword => 'Neues Passwort';
+
+  @override
+  String get signOut => 'Abmelden';
+
+  @override
+  String get signOutConfirm => 'Bist du sicher, dass du dich abmelden möchtest?';
 }

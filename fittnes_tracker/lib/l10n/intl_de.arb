@@ -696,6 +696,23 @@
   "invalidAgeHeight": "Bitte gültiges Alter und gültige Körpergröße eingeben",
   "searchOnlineTab": "Online suchen",
 
+  "login": "Anmelden",
+  "register": "Registrieren",
+  "username": "Benutzername",
+  "password": "Passwort",
+  "confirmPassword": "Passwort bestätigen",
+  "email": "E-Mail",
+  "firstName": "Vorname",
+  "lastName": "Nachname",
+  "dateOfBirth": "Geburtsdatum",
+  "selectDateOfBirth": "Geburtsdatum auswählen",
+  "loginToYourAccount": "Willkommen zurück",
+  "createYourAccount": "Konto erstellen",
+  "noAccountQuestion": "Noch kein Konto?",
+  "alreadyHaveAccount": "Bereits ein Konto?",
+  "passwordsDoNotMatch": "Passwörter stimmen nicht überein",
+  "pleaseSelectDateOfBirth": "Bitte Geburtsdatum auswählen",
+
   "freeChoiceMode": "Freie Auswahl",
   "freeChoiceModeSubtitle": "Trainingseinheiten täglich manuell auswählen",
   "cycleModeSubtitle": "Trainingseinheiten folgen einem festen Zyklus",
@@ -714,5 +731,14 @@
   },
   "freeChoiceAddHint": "Trainingsvorlagen hinzufügen, aus denen täglich gewählt werden kann",
   "cyclePattern": "Zyklus-Muster",
-  "freeChoiceLabel": "Freie Auswahl"
+  "freeChoiceLabel": "Freie Auswahl",
+
+  "accountSettings": "Kontoeinstellungen",
+  "profile": "Profil",
+  "security": "Sicherheit",
+  "changePassword": "Passwort ändern",
+  "currentPassword": "Aktuelles Passwort",
+  "newPassword": "Neues Passwort",
+  "signOut": "Abmelden",
+  "signOutConfirm": "Bist du sicher, dass du dich abmelden möchtest?"
 }

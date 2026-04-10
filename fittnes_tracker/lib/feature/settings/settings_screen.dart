@@ -1,6 +1,7 @@
 import 'package:ForgeForm/core/providers/enums.dart';
 import 'package:ForgeForm/core/providers/theme_provider.dart';
 import 'package:ForgeForm/core/providers/user_goals_provider.dart';
+import 'package:ForgeForm/feature/auth/presentation/view/user_settings_screen.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -163,6 +164,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           actions: [
             IconButton(
+              icon: const Icon(Icons.account_circle_outlined, color: Colors.white),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const UserSettingsScreen()),
+              ),
+            ),
+            IconButton(
               icon: Icon(
                 Provider.of<ThemeProvider>(context).themeMode == ThemeMode.light
                     ? Icons.dark_mode
@@ -201,6 +209,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.account_circle_outlined, color: Colors.white),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const UserSettingsScreen()),
+            ),
+          ),
           IconButton(
             icon: Icon(
               Provider.of<ThemeProvider>(context).themeMode == ThemeMode.light

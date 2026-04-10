@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using FitTracker.Api.DTOs;
 using FitTracker.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -39,5 +40,33 @@ public class AuthController : ControllerBase
         }
 
         return Ok(result);
+    }
+
+    [Authorize]
+    [HttpPut("profile")]
+    public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequestDto request)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub");
+        if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
+            return Unauthorized();
+
+        var result = await _authService.UpdateProfileAsync(userId, request.FirstName, request.LastName, request.Email, request.DateOfBirth);
+        if (result == null) return NotFound("User not found.");
+
+        return Ok(result);
+    }
+
+    [Authorize]
+    [HttpPut("change-password")]
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequestDto request)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub");
+        if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
+            return Unauthorized();
+
+        var success = await _authService.ChangePasswordAsync(userId, request.CurrentPassword, request.NewPassword);
+        if (!success) return BadRequest("Current password is incorrect.");
+
+        return NoContent();
     }
 }

@@ -1390,6 +1390,54 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchOnlineTab => 'Search Online';
 
   @override
+  String get login => 'Login';
+
+  @override
+  String get register => 'Register';
+
+  @override
+  String get username => 'Username';
+
+  @override
+  String get password => 'Password';
+
+  @override
+  String get confirmPassword => 'Confirm Password';
+
+  @override
+  String get email => 'Email';
+
+  @override
+  String get firstName => 'First Name';
+
+  @override
+  String get lastName => 'Last Name';
+
+  @override
+  String get dateOfBirth => 'Date of Birth';
+
+  @override
+  String get selectDateOfBirth => 'Select Date of Birth';
+
+  @override
+  String get loginToYourAccount => 'Welcome back';
+
+  @override
+  String get createYourAccount => 'Create your account';
+
+  @override
+  String get noAccountQuestion => 'Don\'t have an account?';
+
+  @override
+  String get alreadyHaveAccount => 'Already have an account?';
+
+  @override
+  String get passwordsDoNotMatch => 'Passwords do not match';
+
+  @override
+  String get pleaseSelectDateOfBirth => 'Please select a date of birth';
+
+  @override
   String get freeChoiceMode => 'Free Choice Mode';
 
   @override
@@ -1431,4 +1479,28 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get freeChoiceLabel => 'Free Choice';
+
+  @override
+  String get accountSettings => 'Account Settings';
+
+  @override
+  String get profile => 'Profile';
+
+  @override
+  String get security => 'Security';
+
+  @override
+  String get changePassword => 'Change Password';
+
+  @override
+  String get currentPassword => 'Current Password';
+
+  @override
+  String get newPassword => 'New Password';
+
+  @override
+  String get signOut => 'Sign Out';
+
+  @override
+  String get signOutConfirm => 'Are you sure you want to sign out?';
 }

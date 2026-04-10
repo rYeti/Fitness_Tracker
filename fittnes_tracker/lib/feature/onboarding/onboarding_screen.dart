@@ -1,6 +1,7 @@
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/providers/enums.dart';
 import 'package:ForgeForm/core/providers/user_goals_provider.dart';
+import 'package:ForgeForm/feature/auth/presentation/view/login_screen.dart';
 import 'package:ForgeForm/feature/settings/settings_screen.dart'
     show ActivityLevelLocalizations, GoalTypeLocalizations, SexLocalizations;
 import 'package:ForgeForm/l10n/app_localizations.dart';
@@ -8,17 +9,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:ForgeForm/main.dart' show HomeScreen;
 
 // ── Shared input decoration helper ────────────────────────────────────────────
 
-InputDecoration onboardingFieldDecoration(
-    BuildContext context, String label) {
+InputDecoration onboardingFieldDecoration(BuildContext context, String label) {
   final cs = Theme.of(context).colorScheme;
   final border = OutlineInputBorder(
     borderRadius: BorderRadius.circular(8),
-    borderSide:
-        BorderSide(color: cs.onSurface.withValues(alpha: 0.10), width: 0.5),
+    borderSide: BorderSide(
+      color: cs.onSurface.withValues(alpha: 0.10),
+      width: 0.5,
+    ),
   );
   return InputDecoration(
     labelText: label,
@@ -86,18 +87,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   void _recalculate() {
     final age = int.tryParse(_ageController.text.trim()) ?? 0;
     final height = double.tryParse(_heightController.text.trim()) ?? 0;
-    final weight =
-        double.tryParse(_currentWeightController.text.trim()) ?? 70;
+    final weight = double.tryParse(_currentWeightController.text.trim()) ?? 70;
     if (age > 0 && height > 0) {
-      final kcal =
-          context.read<UserGoalsProvider>().calculateCalorieTarget(
-                sex: _sex,
-                age: age,
-                heightCm: height,
-                weightKg: weight,
-                activity: _activity,
-                goal: _goalType,
-              );
+      final kcal = context.read<UserGoalsProvider>().calculateCalorieTarget(
+        sex: _sex,
+        age: age,
+        heightCm: height,
+        weightKg: weight,
+        activity: _activity,
+        goal: _goalType,
+      );
       setState(() => _calculatedCalories = kcal);
       _calorieController.text = kcal.toString();
     }
@@ -156,19 +155,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('onboarding_complete', true);
 
-      // Refresh provider so HomeScreen shows up-to-date name and weight
+      // Refresh provider so login screen shows up-to-date name and weight
       await provider.reload();
 
       if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
         (_) => false,
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -183,8 +182,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            _OnboardingProgressBar(
-                current: _currentPage, total: _totalPages),
+            _OnboardingProgressBar(current: _currentPage, total: _totalPages),
             Expanded(
               child: PageView(
                 controller: _pageController,
@@ -201,11 +199,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   ),
                   _GoalsPage(
                     activity: _activity,
-                    onActivityChanged: (v) => setState(
-                        () => _activity = v ?? ActivityLevel.moderatelyActive),
+                    onActivityChanged:
+                        (v) => setState(
+                          () => _activity = v ?? ActivityLevel.moderatelyActive,
+                        ),
                     goalType: _goalType,
-                    onGoalTypeChanged: (v) =>
-                        setState(() => _goalType = v ?? GoalType.maintenance),
+                    onGoalTypeChanged:
+                        (v) => setState(
+                          () => _goalType = v ?? GoalType.maintenance,
+                        ),
                     currentWeightController: _currentWeightController,
                     goalWeightController: _goalWeightController,
                   ),
@@ -253,9 +255,10 @@ class _OnboardingProgressBar extends StatelessWidget {
               height: 4,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(99),
-                color: i <= current
-                    ? cs.primary
-                    : cs.onSurface.withValues(alpha: 0.12),
+                color:
+                    i <= current
+                        ? cs.primary
+                        : cs.onSurface.withValues(alpha: 0.12),
               ),
             ),
           );
@@ -299,14 +302,19 @@ class _OnboardingNavButtons extends StatelessWidget {
               onPressed: onBack,
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 24, vertical: 14),
+                  horizontal: 24,
+                  vertical: 14,
+                ),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               child: Text(
                 l10n.back,
                 style: const TextStyle(
-                    fontFamily: 'Exo 2', fontWeight: FontWeight.w700),
+                  fontFamily: 'Exo 2',
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             )
           else
@@ -315,26 +323,29 @@ class _OnboardingNavButtons extends StatelessWidget {
           ElevatedButton(
             onPressed: isSaving ? null : (isLast ? onFinish : onNext),
             style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 32, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
-            child: isSaving
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white),
-                  )
-                : Text(
-                    isLast ? l10n.onboardingGetStarted : l10n.next,
-                    style: const TextStyle(
-                      fontFamily: 'Exo 2',
-                      fontWeight: FontWeight.w700,
-                      fontSize: 15,
+            child:
+                isSaving
+                    ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                    : Text(
+                      isLast ? l10n.onboardingGetStarted : l10n.next,
+                      style: const TextStyle(
+                        fontFamily: 'Exo 2',
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                      ),
                     ),
-                  ),
           ),
         ],
       ),
@@ -505,12 +516,15 @@ class _ProfilePage extends StatelessWidget {
             value: sex,
             isExpanded: true,
             decoration: onboardingFieldDecoration(context, l10n.sex),
-            items: Sex.values
-                .map((s) => DropdownMenuItem(
-                      value: s,
-                      child: Text(s.localized(context)),
-                    ))
-                .toList(),
+            items:
+                Sex.values
+                    .map(
+                      (s) => DropdownMenuItem(
+                        value: s,
+                        child: Text(s.localized(context)),
+                      ),
+                    )
+                    .toList(),
             onChanged: onSexChanged,
           ),
         ],
@@ -556,12 +570,15 @@ class _GoalsPage extends StatelessWidget {
             value: activity,
             isExpanded: true,
             decoration: onboardingFieldDecoration(context, l10n.activity),
-            items: ActivityLevel.values
-                .map((a) => DropdownMenuItem(
-                      value: a,
-                      child: Text(a.localized(context)),
-                    ))
-                .toList(),
+            items:
+                ActivityLevel.values
+                    .map(
+                      (a) => DropdownMenuItem(
+                        value: a,
+                        child: Text(a.localized(context)),
+                      ),
+                    )
+                    .toList(),
             onChanged: onActivityChanged,
           ),
           const SizedBox(height: 14),
@@ -569,29 +586,34 @@ class _GoalsPage extends StatelessWidget {
             value: goalType,
             isExpanded: true,
             decoration: onboardingFieldDecoration(context, l10n.goal),
-            items: GoalType.values
-                .map((g) => DropdownMenuItem(
-                      value: g,
-                      child: Text(g.localized(context)),
-                    ))
-                .toList(),
+            items:
+                GoalType.values
+                    .map(
+                      (g) => DropdownMenuItem(
+                        value: g,
+                        child: Text(g.localized(context)),
+                      ),
+                    )
+                    .toList(),
             onChanged: onGoalTypeChanged,
           ),
           const SizedBox(height: 14),
           TextField(
             controller: currentWeightController,
-            keyboardType:
-                const TextInputType.numberWithOptions(decimal: true),
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: onboardingFieldDecoration(
-                context, '${l10n.currentWeight} (${l10n.kg})'),
+              context,
+              '${l10n.currentWeight} (${l10n.kg})',
+            ),
           ),
           const SizedBox(height: 14),
           TextField(
             controller: goalWeightController,
-            keyboardType:
-                const TextInputType.numberWithOptions(decimal: true),
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: onboardingFieldDecoration(
-                context, '${l10n.goalWeight} (${l10n.kg})'),
+              context,
+              '${l10n.goalWeight} (${l10n.kg})',
+            ),
           ),
         ],
       ),
@@ -629,17 +651,18 @@ class _SummaryPage extends StatelessWidget {
             decoration: BoxDecoration(
               color: cs.primary.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: cs.primary.withValues(alpha: 0.20),
-              ),
+              border: Border.all(color: cs.primary.withValues(alpha: 0.20)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    Icon(Icons.local_fire_department,
-                        color: cs.primary, size: 20),
+                    Icon(
+                      Icons.local_fire_department,
+                      color: cs.primary,
+                      size: 20,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       l10n.onboardingSummaryCaloriesLabel,
@@ -671,8 +694,10 @@ class _SummaryPage extends StatelessWidget {
             controller: calorieController,
             keyboardType: TextInputType.number,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            decoration:
-                onboardingFieldDecoration(context, l10n.dailyCalorieGoal),
+            decoration: onboardingFieldDecoration(
+              context,
+              l10n.dailyCalorieGoal,
+            ),
           ),
           const SizedBox(height: 10),
           Text(

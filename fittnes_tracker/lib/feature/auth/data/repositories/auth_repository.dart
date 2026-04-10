@@ -1,5 +1,6 @@
 import 'package:ForgeForm/core/network/api_client.dart';
 import 'package:ForgeForm/feature/auth/data/Models/auth_response_model.dart';
+import 'package:dio/dio.dart';
 
 class AuthRepository {
   late final ApiClient _apiClient;
@@ -15,6 +16,41 @@ class AuthRepository {
     );
 
     return AuthResponseModel.fromJson(response.data);
+  }
+
+  Future<AuthResponseModel> updateProfile({
+    required String token,
+    required String firstName,
+    required String lastName,
+    required String email,
+    required DateTime dateOfBirth,
+  }) async {
+    final response = await _apiClient.put(
+      'api/auth/profile',
+      data: {
+        'firstName': firstName,
+        'lastName': lastName,
+        'email': email,
+        'dateOfBirth': dateOfBirth.toIso8601String(),
+      },
+      options: Options(headers: {'Authorization': 'Bearer $token'}),
+    );
+    return AuthResponseModel.fromJson(response.data);
+  }
+
+  Future<void> changePassword({
+    required String token,
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    await _apiClient.put(
+      'api/auth/change-password',
+      data: {
+        'currentPassword': currentPassword,
+        'newPassword': newPassword,
+      },
+      options: Options(headers: {'Authorization': 'Bearer $token'}),
+    );
   }
 
   Future<AuthResponseModel> register(

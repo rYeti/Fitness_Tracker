@@ -1,9 +1,12 @@
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/seed_exercises.dart';
+import 'package:ForgeForm/feature/auth/presentation/providers/auth_provider.dart';
+import 'package:ForgeForm/feature/auth/presentation/view/login_screen.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:provider/provider.dart' as provider;
 import 'core/di/service_locator.dart';
 import 'core/providers/theme_provider.dart';
 import 'core/providers/user_goals_provider.dart';
@@ -44,48 +47,65 @@ void main() async {
   await seedExercisesIfEmpty(db);
 
   final prefs = await SharedPreferences.getInstance();
+  final hasToken = prefs.getString('token') != null;
   final showOnboarding = !(prefs.getBool('onboarding_complete') ?? false);
 
+  // Restore auth session before building the widget tree
+  final container = ProviderContainer();
+  await container.read(authProvider.notifier).restoreSession();
+
   runApp(
-    MultiProvider(
-      providers: [
-        // Provide the AppDatabase instance directly
-        Provider<AppDatabase>.value(value: db),
-        ChangeNotifierProvider(create: (_) => ThemeProvider(db)),
-        ChangeNotifierProvider(create: (_) => UserGoalsProvider(db)),
-        ChangeNotifierProxyProvider<UserGoalsProvider, WeightProvider>(
-          create:
-              (context) => WeightProvider(
-                db,
-                userGoalsProvider: Provider.of<UserGoalsProvider>(
-                  context,
-                  listen: false,
+    UncontrolledProviderScope(
+      container: container,
+      child: provider.MultiProvider(
+        providers: [
+          // Provide the AppDatabase instance directly
+          provider.Provider<AppDatabase>.value(value: db),
+          provider.ChangeNotifierProvider(create: (_) => ThemeProvider(db)),
+          provider.ChangeNotifierProvider(create: (_) => UserGoalsProvider(db)),
+          provider.ChangeNotifierProxyProvider<
+            UserGoalsProvider,
+            WeightProvider
+          >(
+            create:
+                (context) => WeightProvider(
+                  db,
+                  userGoalsProvider: provider.Provider.of<UserGoalsProvider>(
+                    context,
+                    listen: false,
+                  ),
                 ),
-              ),
-          update:
-              (context, userGoalsProvider, weightProvider) =>
-                  weightProvider ??
-                  WeightProvider(db, userGoalsProvider: userGoalsProvider),
-        ),
-        Provider<MealTemplateRepository>(
-          create: (_) => MealTemplateRepository(db),
-        ),
-        ChangeNotifierProvider(
-          create: (_) => WorkoutProvider()..loadTemplates(),
-        ),
-      ],
-      child: MyApp(showOnboarding: showOnboarding),
+            update:
+                (context, userGoalsProvider, weightProvider) =>
+                    weightProvider ??
+                    WeightProvider(db, userGoalsProvider: userGoalsProvider),
+          ),
+          provider.Provider<MealTemplateRepository>(
+            create: (_) => MealTemplateRepository(db),
+          ),
+          provider.ChangeNotifierProvider(
+            create: (_) => WorkoutProvider()..loadTemplates(),
+          ),
+        ],
+        child: MyApp(showOnboarding: showOnboarding, hasToken: hasToken),
+      ),
     ),
   );
 }
 
 class MyApp extends StatelessWidget {
   final bool showOnboarding;
-  const MyApp({super.key, required this.showOnboarding});
+  final bool hasToken;
+
+  const MyApp({
+    super.key,
+    required this.showOnboarding,
+    required this.hasToken,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
+    final themeProvider = provider.Provider.of<ThemeProvider>(context);
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
@@ -100,7 +120,13 @@ class MyApp extends StatelessWidget {
       darkTheme: themeProvider.darkTheme,
       themeMode: themeProvider.themeMode,
       title: 'ForgeForm',
-      home: showOnboarding ? const OnboardingScreen() : const HomeScreen(),
+      home:
+          showOnboarding
+              ? const OnboardingScreen()
+              : hasToken
+              ? const HomeScreen()
+              : const LoginScreen(),
+
       onGenerateRoute: (settings) {
         if (settings.name == '/add-food') {
           final args = settings.arguments as Map<String, dynamic>;

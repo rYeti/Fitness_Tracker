@@ -700,6 +700,23 @@
   "invalidAgeHeight": "Please enter valid age and height",
   "searchOnlineTab": "Search Online",
 
+  "login": "Login",
+  "register": "Register",
+  "username": "Username",
+  "password": "Password",
+  "confirmPassword": "Confirm Password",
+  "email": "Email",
+  "firstName": "First Name",
+  "lastName": "Last Name",
+  "dateOfBirth": "Date of Birth",
+  "selectDateOfBirth": "Select Date of Birth",
+  "loginToYourAccount": "Welcome back",
+  "createYourAccount": "Create your account",
+  "noAccountQuestion": "Don't have an account?",
+  "alreadyHaveAccount": "Already have an account?",
+  "passwordsDoNotMatch": "Passwords do not match",
+  "pleaseSelectDateOfBirth": "Please select a date of birth",
+
   "freeChoiceMode": "Free Choice Mode",
   "freeChoiceModeSubtitle": "Pick workouts manually for each day",
   "cycleModeSubtitle": "Workouts follow a repeating cycle",
@@ -718,5 +735,14 @@
   },
   "freeChoiceAddHint": "Add workout templates to choose from each day",
   "cyclePattern": "Cycle Pattern",
-  "freeChoiceLabel": "Free Choice"
+  "freeChoiceLabel": "Free Choice",
+
+  "accountSettings": "Account Settings",
+  "profile": "Profile",
+  "security": "Security",
+  "changePassword": "Change Password",
+  "currentPassword": "Current Password",
+  "newPassword": "New Password",
+  "signOut": "Sign Out",
+  "signOutConfirm": "Are you sure you want to sign out?"
 }

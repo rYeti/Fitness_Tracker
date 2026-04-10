@@ -22,10 +22,22 @@ class EditWorkoutView extends StatefulWidget {
 
 // Preset colours shared with the create view.
 const _kPresetColors = [
-  0xFFE53935, 0xFFE91E63, 0xFF9C27B0, 0xFF3F51B5,
-  0xFF2196F3, 0xFF00BCD4, 0xFF009688, 0xFF4CAF50,
-  0xFF8BC34A, 0xFFCDDC39, 0xFFFFEB3B, 0xFFFF9800,
-  0xFFFF5722, 0xFF795548, 0xFF9E9E9E, 0xFF607D8B,
+  0xFFE53935,
+  0xFFE91E63,
+  0xFF9C27B0,
+  0xFF3F51B5,
+  0xFF2196F3,
+  0xFF00BCD4,
+  0xFF009688,
+  0xFF4CAF50,
+  0xFF8BC34A,
+  0xFFCDDC39,
+  0xFFFFEB3B,
+  0xFFFF9800,
+  0xFFFF5722,
+  0xFF795548,
+  0xFF9E9E9E,
+  0xFF607D8B,
 ];
 
 class _EditWorkoutViewState extends State<EditWorkoutView> {
@@ -46,15 +58,16 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
 
   Future<void> _loadColors(List<WorkoutPlan> plans) async {
     final db = sl<AppDatabase>();
-    final ids = plans
-        .expand((p) => p.workouts)
-        .map((w) => w.id)
-        .whereType<int>()
-        .toSet();
+    final ids =
+        plans
+            .expand((p) => p.workouts)
+            .map((w) => w.id)
+            .whereType<int>()
+            .toSet();
     for (final id in ids) {
-      final row = await (db.select(db.workoutTable)
-            ..where((t) => t.id.equals(id)))
-          .getSingleOrNull();
+      final row =
+          await (db.select(db.workoutTable)
+            ..where((t) => t.id.equals(id))).getSingleOrNull();
       if (row != null) _workoutColors[id] = row.color;
     }
   }
@@ -63,55 +76,71 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
     final current = _workoutColors[workoutId];
     final picked = await showDialog<int>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(workoutName),
-        content: SizedBox(
-          width: 280,
-          child: Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: _kPresetColors.map((c) {
-              final isSel = current == c;
-              return GestureDetector(
-                onTap: () => Navigator.pop(ctx, c),
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Color(c),
-                    border: isSel
-                        ? Border.all(
-                            color: Theme.of(context).colorScheme.onSurface,
-                            width: 3)
-                        : null,
-                    boxShadow: isSel
-                        ? [BoxShadow(
-                            color: Color(c).withValues(alpha: 0.6),
-                            blurRadius: 6)]
-                        : null,
-                  ),
-                  child: isSel
-                      ? const Icon(Icons.check, color: Colors.white, size: 20)
-                      : null,
-                ),
-              );
-            }).toList(),
+      builder:
+          (ctx) => AlertDialog(
+            title: Text(workoutName),
+            content: SizedBox(
+              width: 280,
+              child: Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children:
+                    _kPresetColors.map((c) {
+                      final isSel = current == c;
+                      return GestureDetector(
+                        onTap: () => Navigator.pop(ctx, c),
+                        child: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Color(c),
+                            border:
+                                isSel
+                                    ? Border.all(
+                                      color:
+                                          Theme.of(
+                                            context,
+                                          ).colorScheme.onSurface,
+                                      width: 3,
+                                    )
+                                    : null,
+                            boxShadow:
+                                isSel
+                                    ? [
+                                      BoxShadow(
+                                        color: Color(c).withValues(alpha: 0.6),
+                                        blurRadius: 6,
+                                      ),
+                                    ]
+                                    : null,
+                          ),
+                          child:
+                              isSel
+                                  ? const Icon(
+                                    Icons.check,
+                                    color: Colors.white,
+                                    size: 20,
+                                  )
+                                  : null,
+                        ),
+                      );
+                    }).toList(),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text(AppLocalizations.of(context)!.cancel),
+              ),
+            ],
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(AppLocalizations.of(context)!.cancel),
-          ),
-        ],
-      ),
     );
     if (picked == null) return;
     setState(() => _workoutColors[workoutId] = picked);
-    await (sl<AppDatabase>().update(sl<AppDatabase>().workoutTable)
-          ..where((t) => t.id.equals(workoutId)))
-        .write(WorkoutTableCompanion(color: drift.Value(picked)));
+    await (sl<AppDatabase>().update(sl<AppDatabase>().workoutTable)..where(
+      (t) => t.id.equals(workoutId),
+    )).write(WorkoutTableCompanion(color: drift.Value(picked)));
   }
 
   Future<void> _loadPlans() async {
@@ -232,25 +261,24 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
     final l10n = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder:
-          (context) {
-            final l10n = AppLocalizations.of(context)!;
-            return AlertDialog(
-              title: Text(l10n.removeWorkoutFromPlan),
-              content: Text(l10n.removeWorkoutFromPlanConfirm(workout.name)),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(false),
-                  child: Text(l10n.cancel),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(true),
-                  style: TextButton.styleFrom(foregroundColor: Colors.red),
-                  child: Text(l10n.remove),
-                ),
-              ],
-            );
-          },
+      builder: (context) {
+        final l10n = AppLocalizations.of(context)!;
+        return AlertDialog(
+          title: Text(l10n.removeWorkoutFromPlan),
+          content: Text(l10n.removeWorkoutFromPlanConfirm(workout.name)),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text(l10n.cancel),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: Text(l10n.remove),
+            ),
+          ],
+        );
+      },
     );
 
     if (confirmed == true && workout.id != null) {
@@ -262,9 +290,7 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
         );
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(l10n.workoutRemovedFromPlan(workout.name)),
-          ),
+          SnackBar(content: Text(l10n.workoutRemovedFromPlan(workout.name))),
         );
         // Reload the plan to reflect the changes
         _loadPlans();
@@ -284,7 +310,9 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(isEditingSinglePlan ? l10n.editWorkoutsTitle : l10n.workouts),
+        title: Text(
+          isEditingSinglePlan ? l10n.editWorkoutsTitle : l10n.workouts,
+        ),
         actions:
             isEditingSinglePlan
                 ? [
@@ -332,10 +360,7 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
 
     if (plan.workouts.isEmpty) {
       return Column(
-        children: [
-          modeHeader,
-          Expanded(child: _buildEmptyPlanView(plan)),
-        ],
+        children: [modeHeader, Expanded(child: _buildEmptyPlanView(plan))],
       );
     }
 
@@ -363,8 +388,16 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
       builder: (ctx) {
         final ctxL10n = AppLocalizations.of(ctx)!;
         return AlertDialog(
-          title: Text(value ? ctxL10n.switchToFreeChoiceTitle : ctxL10n.switchToCyclePlanTitle),
-          content: Text(value ? ctxL10n.switchToFreeChoiceBody : ctxL10n.switchToCyclePlanBody),
+          title: Text(
+            value
+                ? ctxL10n.switchToFreeChoiceTitle
+                : ctxL10n.switchToCyclePlanTitle,
+          ),
+          content: Text(
+            value
+                ? ctxL10n.switchToFreeChoiceBody
+                : ctxL10n.switchToCyclePlanBody,
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
@@ -385,18 +418,19 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
     // When switching to free choice, remove all future scheduled workouts for this plan
     if (value && plan.id != null) {
       final today = DateTime.now();
-      final normalizedToday = DateTime(today.year, today.month, today.day);
-      await (db.delete(db.scheduledWorkoutTable)
-            ..where(
-              (t) =>
-                  t.workoutPlanId.equals(plan.id!) &
-                  t.scheduledDate.isBiggerOrEqualValue(normalizedToday),
-            ))
-          .go();
+      final normalizedToday = DateTime(today.year, today.month, today.day).add(
+        const Duration(days: 1),
+      ); // Start from tomorrow to avoid deleting today's workout if it exists
+      await (db.delete(db.scheduledWorkoutTable)..where(
+        (t) =>
+            t.workoutPlanId.equals(plan.id!) &
+            t.scheduledDate.isBiggerOrEqualValue(normalizedToday),
+      )).go();
     }
 
-    await (db.update(db.workoutPlanTable)..where((t) => t.id.equals(plan.id!)))
-        .write(WorkoutPlanTableCompanion(isFreeChoice: drift.Value(value)));
+    await (db.update(db.workoutPlanTable)..where(
+      (t) => t.id.equals(plan.id!),
+    )).write(WorkoutPlanTableCompanion(isFreeChoice: drift.Value(value)));
 
     await _loadPlans();
   }
@@ -419,18 +453,26 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
                   margin: const EdgeInsets.only(right: 12),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: color != null
-                        ? Color(color)
-                        : Theme.of(context).colorScheme.surfaceContainerHighest,
+                    color:
+                        color != null
+                            ? Color(color)
+                            : Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHighest,
                     border: Border.all(
                       color: Theme.of(context).colorScheme.outline,
                       width: 1.5,
                     ),
                   ),
-                  child: color == null
-                      ? Icon(Icons.palette_outlined, size: 14,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant)
-                      : null,
+                  child:
+                      color == null
+                          ? Icon(
+                            Icons.palette_outlined,
+                            size: 14,
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                          )
+                          : null,
                 ),
               ),
             Expanded(
@@ -445,7 +487,10 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
                   Text(
                     AppLocalizations.of(context)!.exercisesAndSets(
                       workout.exercises.length,
-                      workout.exercises.fold<int>(0, (sum, ex) => sum + ex.sets.length),
+                      workout.exercises.fold<int>(
+                        0,
+                        (sum, ex) => sum + ex.sets.length,
+                      ),
                     ),
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
@@ -457,7 +502,8 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
               children: [
                 IconButton(
                   icon: const Icon(Icons.edit),
-                  tooltip: AppLocalizations.of(context)!.editWorkoutDetailsTooltip,
+                  tooltip:
+                      AppLocalizations.of(context)!.editWorkoutDetailsTooltip,
                   onPressed: () {
                     if (workout.id != null) {
                       Navigator.push(
@@ -475,7 +521,10 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
                 ),
                 IconButton(
                   icon: const Icon(Icons.delete, color: Colors.red),
-                  tooltip: AppLocalizations.of(context)!.removeWorkoutFromPlanTooltip,
+                  tooltip:
+                      AppLocalizations.of(
+                        context,
+                      )!.removeWorkoutFromPlanTooltip,
                   onPressed: () => _showDeleteWorkoutDialog(workout),
                 ),
               ],
@@ -503,7 +552,8 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
             children: [
               Expanded(
                 child: Text(
-                  exercise.exercise?.name ?? AppLocalizations.of(context)!.unknownExercise,
+                  exercise.exercise?.name ??
+                      AppLocalizations.of(context)!.unknownExercise,
                   style: Theme.of(
                     context,
                   ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
@@ -697,61 +747,58 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
     final l10n = AppLocalizations.of(context)!;
 
     if (availableWorkouts.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.noWorkoutsAvailableToAdd)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.noWorkoutsAvailableToAdd)));
       return;
     }
 
     // Show dialog to select workout
     final selectedWorkout = await showDialog<WorkoutTableData>(
       context: context,
-      builder:
-          (context) {
-            final l10n = AppLocalizations.of(context)!;
-            return AlertDialog(
-              title: Text(l10n.addWorkoutToPlanTitle),
-              content: SizedBox(
-                width: double.maxFinite,
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: availableWorkouts.length,
-                  itemBuilder: (context, index) {
-                    final workout = availableWorkouts[index];
-                    return ListTile(
-                      title: Text(workout.name),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (workout.description != null)
-                            Text(workout.description!),
-                          Text(
-                            workout.isTemplate
-                                ? l10n.templateWorkoutLabel
-                                : l10n.scheduledWorkoutLabel,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color:
-                                  workout.isTemplate
-                                      ? Colors.green
-                                      : Colors.orange,
-                            ),
-                          ),
-                        ],
+      builder: (context) {
+        final l10n = AppLocalizations.of(context)!;
+        return AlertDialog(
+          title: Text(l10n.addWorkoutToPlanTitle),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: availableWorkouts.length,
+              itemBuilder: (context, index) {
+                final workout = availableWorkouts[index];
+                return ListTile(
+                  title: Text(workout.name),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (workout.description != null)
+                        Text(workout.description!),
+                      Text(
+                        workout.isTemplate
+                            ? l10n.templateWorkoutLabel
+                            : l10n.scheduledWorkoutLabel,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color:
+                              workout.isTemplate ? Colors.green : Colors.orange,
+                        ),
                       ),
-                      onTap: () => Navigator.of(context).pop(workout),
-                    );
-                  },
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: Text(l10n.cancel),
-                ),
-              ],
-            );
-          },
+                    ],
+                  ),
+                  onTap: () => Navigator.of(context).pop(workout),
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(l10n.cancel),
+            ),
+          ],
+        );
+      },
     );
 
     if (selectedWorkout != null) {
@@ -787,7 +834,9 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
             workoutId: drift.Value(templateWorkoutId),
           ),
         );
-        AppLogger.i('Added template workout $templateWorkoutId to plan $planId');
+        AppLogger.i(
+          'Added template workout $templateWorkoutId to plan $planId',
+        );
       } catch (e) {
         AppLogger.i('Failed to add template workout $templateWorkoutId: $e');
       }
@@ -824,9 +873,11 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
     await _loadPlans();
 
     if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.workoutAddedToPlan)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.workoutAddedToPlan),
+        ),
+      );
     }
   }
 
@@ -903,20 +954,28 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
                             backgroundColor: isActive ? Colors.green : null,
                             foregroundColor: isActive ? Colors.white : null,
                           ),
-                          child: Text(isActive ? AppLocalizations.of(context)!.active : AppLocalizations.of(context)!.setActive),
+                          child: Text(
+                            isActive
+                                ? AppLocalizations.of(context)!.active
+                                : AppLocalizations.of(context)!.setActive,
+                          ),
                         ),
                         const SizedBox(height: 8),
                         Row(
                           children: [
                             IconButton(
                               icon: const Icon(Icons.add),
-                              tooltip: AppLocalizations.of(context)!.addWorkoutToPlanTitle,
+                              tooltip:
+                                  AppLocalizations.of(
+                                    context,
+                                  )!.addWorkoutToPlanTitle,
                               onPressed:
                                   () => _addWorkoutToPlanForSpecificPlan(plan),
                             ),
                             IconButton(
                               icon: const Icon(Icons.edit),
-                              tooltip: AppLocalizations.of(context)!.openPlanEditor,
+                              tooltip:
+                                  AppLocalizations.of(context)!.openPlanEditor,
                               onPressed: () {
                                 // Open the same EditWorkoutView focused on this plan
                                 Navigator.push(
@@ -930,7 +989,10 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
                             ),
                             IconButton(
                               icon: const Icon(Icons.delete, color: Colors.red),
-                              tooltip: AppLocalizations.of(context)!.deletePlanTooltip,
+                              tooltip:
+                                  AppLocalizations.of(
+                                    context,
+                                  )!.deletePlanTooltip,
                               onPressed: () => _deletePlan(plan),
                             ),
                           ],
@@ -1033,15 +1095,21 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(AppLocalizations.of(context)!.exerciseAddedToWorkout(selectedExercise.name)),
+          content: Text(
+            AppLocalizations.of(
+              context,
+            )!.exerciseAddedToWorkout(selectedExercise.name),
+          ),
         ),
       );
       _loadPlans();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.failedToAddExercise(e))));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.failedToAddExercise(e)),
+        ),
+      );
     }
   }
 
@@ -1052,27 +1120,26 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
     final l10n = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder:
-          (context) {
-            final l10n = AppLocalizations.of(context)!;
-            return AlertDialog(
-              title: Text(l10n.removeExerciseTitle),
-              content: Text(
-                'Are you sure you want to remove "${exercise.exercise?.name ?? 'this exercise'}" from this workout?',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: Text(l10n.cancel),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  style: TextButton.styleFrom(foregroundColor: Colors.red),
-                  child: Text(l10n.remove),
-                ),
-              ],
-            );
-          },
+      builder: (context) {
+        final l10n = AppLocalizations.of(context)!;
+        return AlertDialog(
+          title: Text(l10n.removeExerciseTitle),
+          content: Text(
+            'Are you sure you want to remove "${exercise.exercise?.name ?? 'this exercise'}" from this workout?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(l10n.cancel),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: Text(l10n.remove),
+            ),
+          ],
+        );
+      },
     );
 
     if (confirmed == true && workout.id != null) {
@@ -1090,9 +1157,9 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
         _loadPlans();
       } catch (e) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.failedToRemoveExercise(e))),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(l10n.failedToRemoveExercise(e))));
       }
     }
   }
@@ -1134,15 +1201,19 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
       );
 
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.setAddedToExercise)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.setAddedToExercise),
+        ),
+      );
       _loadPlans();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.failedToAddSet(e))));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.failedToAddSet(e)),
+        ),
+      );
     }
   }
 
@@ -1154,27 +1225,26 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
     final l10n = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder:
-          (context) {
-            final l10n = AppLocalizations.of(context)!;
-            return AlertDialog(
-              title: Text(l10n.removeSet),
-              content: Text(
-                'Are you sure you want to remove set ${set.setNumber} from "${exercise.exercise?.name ?? 'this exercise'}"?',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: Text(l10n.cancel),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  style: TextButton.styleFrom(foregroundColor: Colors.red),
-                  child: Text(l10n.remove),
-                ),
-              ],
-            );
-          },
+      builder: (context) {
+        final l10n = AppLocalizations.of(context)!;
+        return AlertDialog(
+          title: Text(l10n.removeSet),
+          content: Text(
+            'Are you sure you want to remove set ${set.setNumber} from "${exercise.exercise?.name ?? 'this exercise'}"?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(l10n.cancel),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: Text(l10n.remove),
+            ),
+          ],
+        );
+      },
     );
 
     if (confirmed == true && workout.id != null) {
@@ -1200,9 +1270,9 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
         );
 
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.setRemovedFromExercise)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(l10n.setRemovedFromExercise)));
         _loadPlans();
       } catch (e) {
         if (!mounted) return;
@@ -1392,43 +1462,42 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
     final l10n = AppLocalizations.of(context)!;
 
     if (availableWorkouts.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.noWorkoutsAvailableToAdd)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.noWorkoutsAvailableToAdd)));
       return;
     }
 
     // Show dialog to select workout
     final selectedWorkout = await showDialog<WorkoutTableData>(
       context: context,
-      builder:
-          (context) {
-            final l10n = AppLocalizations.of(context)!;
-            return AlertDialog(
-              title: Text(l10n.addWorkoutToPlanTitle),
-              content: SizedBox(
-                width: double.maxFinite,
-                height: 300,
-                child: ListView.builder(
-                  itemCount: availableWorkouts.length,
-                  itemBuilder: (context, index) {
-                    final workout = availableWorkouts[index];
-                    return ListTile(
-                      title: Text(workout.name),
-                      subtitle: Text(l10n.templateWorkoutLabel),
-                      onTap: () => Navigator.pop(context, workout),
-                    );
-                  },
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: Text(l10n.cancel),
-                ),
-              ],
-            );
-          },
+      builder: (context) {
+        final l10n = AppLocalizations.of(context)!;
+        return AlertDialog(
+          title: Text(l10n.addWorkoutToPlanTitle),
+          content: SizedBox(
+            width: double.maxFinite,
+            height: 300,
+            child: ListView.builder(
+              itemCount: availableWorkouts.length,
+              itemBuilder: (context, index) {
+                final workout = availableWorkouts[index];
+                return ListTile(
+                  title: Text(workout.name),
+                  subtitle: Text(l10n.templateWorkoutLabel),
+                  onTap: () => Navigator.pop(context, workout),
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(l10n.cancel),
+            ),
+          ],
+        );
+      },
     );
 
     if (selectedWorkout != null) {
@@ -1438,7 +1507,9 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
 
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context)!.workoutAddedToPlan)),
+          SnackBar(
+            content: Text(AppLocalizations.of(context)!.workoutAddedToPlan),
+          ),
         );
 
         _loadPlans(); // Refresh the view
@@ -1454,27 +1525,26 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
   Future<void> _deletePlan(WorkoutPlan plan) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder:
-          (context) {
-            final l10n = AppLocalizations.of(context)!;
-            return AlertDialog(
-              title: Text(l10n.deletePlanTooltip),
-              content: Text(
-                'Are you sure you want to delete "${plan.name}"? This will remove the plan but keep the workouts.',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: Text(l10n.cancel),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  style: TextButton.styleFrom(foregroundColor: Colors.red),
-                  child: Text(l10n.delete),
-                ),
-              ],
-            );
-          },
+      builder: (context) {
+        final l10n = AppLocalizations.of(context)!;
+        return AlertDialog(
+          title: Text(l10n.deletePlanTooltip),
+          content: Text(
+            'Are you sure you want to delete "${plan.name}"? This will remove the plan but keep the workouts.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(l10n.cancel),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: Text(l10n.delete),
+            ),
+          ],
+        );
+      },
     );
 
     if (confirmed == true) {
@@ -1513,7 +1583,10 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
                   Text(
                     AppLocalizations.of(context)!.exercisesAndSets(
                       workout.exercises.length,
-                      workout.exercises.fold<int>(0, (sum, ex) => sum + ex.sets.length),
+                      workout.exercises.fold<int>(
+                        0,
+                        (sum, ex) => sum + ex.sets.length,
+                      ),
                     ),
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
@@ -1525,7 +1598,8 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
               children: [
                 IconButton(
                   icon: const Icon(Icons.edit),
-                  tooltip: AppLocalizations.of(context)!.editWorkoutDetailsTooltip,
+                  tooltip:
+                      AppLocalizations.of(context)!.editWorkoutDetailsTooltip,
                   onPressed: () {
                     if (workout.id != null) {
                       Navigator.push(
@@ -1543,7 +1617,10 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
                 ),
                 IconButton(
                   icon: const Icon(Icons.delete, color: Colors.red),
-                  tooltip: AppLocalizations.of(context)!.removeWorkoutFromPlanTooltip,
+                  tooltip:
+                      AppLocalizations.of(
+                        context,
+                      )!.removeWorkoutFromPlanTooltip,
                   onPressed:
                       () => _showDeleteWorkoutDialogForPlan(plan, workout),
                 ),
@@ -1562,27 +1639,24 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
     final l10n = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder:
-          (context) {
-            final l10n = AppLocalizations.of(context)!;
-            return AlertDialog(
-              title: Text(l10n.removeWorkoutFromPlan),
-              content: Text(
-                l10n.removeWorkoutFromPlanConfirm(workout.name),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: Text(l10n.cancel),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  style: TextButton.styleFrom(foregroundColor: Colors.red),
-                  child: Text(l10n.remove),
-                ),
-              ],
-            );
-          },
+      builder: (context) {
+        final l10n = AppLocalizations.of(context)!;
+        return AlertDialog(
+          title: Text(l10n.removeWorkoutFromPlan),
+          content: Text(l10n.removeWorkoutFromPlanConfirm(workout.name)),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(l10n.cancel),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: Text(l10n.remove),
+            ),
+          ],
+        );
+      },
     );
 
     if (confirmed == true) {
@@ -1598,9 +1672,9 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
         _loadPlans(); // Refresh the view
       } catch (e) {
         if (!mounted) return;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(l10n.failedToRemoveWorkoutFromPlan(e))));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.failedToRemoveWorkoutFromPlan(e))),
+        );
       }
     }
   }

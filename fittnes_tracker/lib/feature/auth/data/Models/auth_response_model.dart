@@ -34,4 +34,14 @@ class AuthResponseModel {
       dateOfBirth: DateTime.parse(json['dateOfBirth']),
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'token': token,
+        'expiration': expiration.toIso8601String(),
+        'username': username,
+        'email': email,
+        'firstName': firstName,
+        'lastName': lastName,
+        'dateOfBirth': dateOfBirth.toIso8601String(),
+      };
 }

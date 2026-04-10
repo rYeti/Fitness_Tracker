@@ -26,9 +26,14 @@ public interface IUserRepository
     Task<User?> GetUserByUsernameAsync(string username);
 
     /// <summary>
-    /// Creates a new user in the database. 
+    /// Creates a new user in the database.
     /// </summary>
     /// <param name="user"></param>
     /// <returns></returns>
     Task CreateUserAsync(User user);
+
+    /// <summary>
+    /// Updates an existing user's profile fields.
+    /// </summary>
+    Task UpdateUserAsync(User user);
 }

@@ -50,7 +50,8 @@ public class AuthService : IAuthService
             Username = user.UserName,
             Email = user.Email,
             FirstName = user.FirstName,
-            LastName = user.LastName
+            LastName = user.LastName,
+            DateOfBirth = user.DateOfBirth
         };
     }
 
@@ -86,7 +87,7 @@ public class AuthService : IAuthService
             PasswordHash = hashedPassword,
             FirstName = firstName,
             LastName = lastName,
-            DateOfBirth = dateOfBirth
+            DateOfBirth = DateTime.SpecifyKind(dateOfBirth, DateTimeKind.Utc)
         };
 
         await _userRepository.CreateUserAsync(newUser);
@@ -103,6 +104,43 @@ public class AuthService : IAuthService
             LastName = newUser.LastName,
             DateOfBirth = newUser.DateOfBirth
         };
+    }
+
+    public async Task<AuthResponseDto?> UpdateProfileAsync(Guid userId, string firstName, string lastName, string email, DateTime dateOfBirth)
+    {
+        var user = await _userRepository.GetUserByIdAsync(userId);
+        if (user == null) return null;
+
+        user.FirstName = firstName;
+        user.LastName = lastName;
+        user.Email = email;
+        user.DateOfBirth = DateTime.SpecifyKind(dateOfBirth, DateTimeKind.Utc);
+
+        await _userRepository.UpdateUserAsync(user);
+
+        var tokenString = GenerateJwtToken(user);
+        return new AuthResponseDto
+        {
+            Token = tokenString,
+            Expiration = DateTime.UtcNow.AddDays(7),
+            Username = user.UserName,
+            Email = user.Email,
+            FirstName = user.FirstName,
+            LastName = user.LastName,
+            DateOfBirth = user.DateOfBirth
+        };
+    }
+
+    public async Task<bool> ChangePasswordAsync(Guid userId, string currentPassword, string newPassword)
+    {
+        var user = await _userRepository.GetUserByIdAsync(userId);
+        if (user == null) return false;
+
+        if (!BCrypt.Net.BCrypt.Verify(currentPassword, user.PasswordHash)) return false;
+
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+        await _userRepository.UpdateUserAsync(user);
+        return true;
     }
 
     private string GenerateJwtToken(User user, int expireDays = 7)
