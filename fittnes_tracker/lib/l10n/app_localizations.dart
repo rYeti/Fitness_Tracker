@@ -62,7 +62,8 @@ import 'app_localizations_en.dart';
 /// be consistent with the languages listed in the AppLocalizations.supportedLocales
 /// property.
 abstract class AppLocalizations {
-  AppLocalizations(String locale) : localeName = intl.Intl.canonicalizedLocale(locale.toString());
+  AppLocalizations(String locale)
+    : localeName = intl.Intl.canonicalizedLocale(locale.toString());
 
   final String localeName;
 
@@ -70,7 +71,8 @@ abstract class AppLocalizations {
     return Localizations.of<AppLocalizations>(context, AppLocalizations);
   }
 
-  static const LocalizationsDelegate<AppLocalizations> delegate = _AppLocalizationsDelegate();
+  static const LocalizationsDelegate<AppLocalizations> delegate =
+      _AppLocalizationsDelegate();
 
   /// A list of this localizations delegate along with the default localizations
   /// delegates.
@@ -82,17 +84,18 @@ abstract class AppLocalizations {
   /// Additional delegates can be added by appending to this list in
   /// MaterialApp. This list does not have to be used at all if a custom list
   /// of delegates is preferred or required.
-  static const List<LocalizationsDelegate<dynamic>> localizationsDelegates = <LocalizationsDelegate<dynamic>>[
-    delegate,
-    GlobalMaterialLocalizations.delegate,
-    GlobalCupertinoLocalizations.delegate,
-    GlobalWidgetsLocalizations.delegate,
-  ];
+  static const List<LocalizationsDelegate<dynamic>> localizationsDelegates =
+      <LocalizationsDelegate<dynamic>>[
+        delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+      ];
 
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[
     Locale('de'),
-    Locale('en')
+    Locale('en'),
   ];
 
   /// No description provided for @male.
@@ -2842,9 +2845,130 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Are you sure you want to sign out?'**
   String get signOutConfirm;
+
+  /// No description provided for @createExercise.
+  ///
+  /// In en, this message translates to:
+  /// **'Create Exercise'**
+  String get createExercise;
+
+  /// No description provided for @editExercise.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Exercise'**
+  String get editExercise;
+
+  /// No description provided for @createCustomExercise.
+  ///
+  /// In en, this message translates to:
+  /// **'Create custom exercise'**
+  String get createCustomExercise;
+
+  /// No description provided for @exerciseType.
+  ///
+  /// In en, this message translates to:
+  /// **'Exercise Type'**
+  String get exerciseType;
+
+  /// No description provided for @muscleGroupsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Muscle Groups'**
+  String get muscleGroupsLabel;
+
+  /// No description provided for @exerciseSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Exercise saved'**
+  String get exerciseSaved;
+
+  /// No description provided for @exerciseUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Exercise updated'**
+  String get exerciseUpdated;
+
+  /// No description provided for @exerciseCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Exercise created'**
+  String get exerciseCreated;
+
+  /// No description provided for @exerciseDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Exercise deleted'**
+  String get exerciseDeleted;
+
+  /// No description provided for @deleteExercise.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Exercise'**
+  String get deleteExercise;
+
+  /// No description provided for @deleteExerciseConfirmation.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete \"{name}\"?'**
+  String deleteExerciseConfirmation(String name);
+
+  /// No description provided for @selectAtLeastOneMuscleGroup.
+  ///
+  /// In en, this message translates to:
+  /// **'Please select at least one muscle group'**
+  String get selectAtLeastOneMuscleGroup;
+
+  /// No description provided for @exerciseTypeStrength.
+  ///
+  /// In en, this message translates to:
+  /// **'Strength'**
+  String get exerciseTypeStrength;
+
+  /// No description provided for @exerciseTypeCardio.
+  ///
+  /// In en, this message translates to:
+  /// **'Cardio'**
+  String get exerciseTypeCardio;
+
+  /// No description provided for @exerciseTypeFlexibility.
+  ///
+  /// In en, this message translates to:
+  /// **'Flexibility'**
+  String get exerciseTypeFlexibility;
+
+  /// No description provided for @exerciseTypeCalisthenics.
+  ///
+  /// In en, this message translates to:
+  /// **'Calisthenics'**
+  String get exerciseTypeCalisthenics;
+
+  /// No description provided for @customBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom'**
+  String get customBadge;
+
+  /// No description provided for @saveChangesButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Save Changes'**
+  String get saveChangesButton;
+
+  /// No description provided for @errorSavingExercise.
+  ///
+  /// In en, this message translates to:
+  /// **'Error saving exercise: {error}'**
+  String errorSavingExercise(Object error);
+
+  /// No description provided for @errorDeletingExercise.
+  ///
+  /// In en, this message translates to:
+  /// **'Error deleting exercise: {error}'**
+  String errorDeletingExercise(Object error);
 }
 
-class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
+class _AppLocalizationsDelegate
+    extends LocalizationsDelegate<AppLocalizations> {
   const _AppLocalizationsDelegate();
 
   @override
@@ -2853,25 +2977,26 @@ class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> 
   }
 
   @override
-  bool isSupported(Locale locale) => <String>['de', 'en'].contains(locale.languageCode);
+  bool isSupported(Locale locale) =>
+      <String>['de', 'en'].contains(locale.languageCode);
 
   @override
   bool shouldReload(_AppLocalizationsDelegate old) => false;
 }
 
 AppLocalizations lookupAppLocalizations(Locale locale) {
-
-
   // Lookup logic when only language code is specified.
   switch (locale.languageCode) {
-    case 'de': return AppLocalizationsDe();
-    case 'en': return AppLocalizationsEn();
+    case 'de':
+      return AppLocalizationsDe();
+    case 'en':
+      return AppLocalizationsEn();
   }
 
   throw FlutterError(
     'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
     'an issue with the localizations generation tool. Please file an issue '
     'on GitHub with a reproducible sample app and the gen-l10n configuration '
-    'that was used.'
+    'that was used.',
   );
 }

@@ -149,8 +149,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 }
 
+/// SharedPreferences key and fallback for the API server URL.
+const serverUrlPrefsKey = 'server_url';
+const serverUrlDefault = 'http://192.168.2.214:5033/';
+
+/// Holds the active API server URL. Seeded at startup from SharedPreferences
+/// (see main.dart). Update this provider to instantly switch the URL at runtime.
+final serverUrlProvider = StateProvider<String>((ref) => serverUrlDefault);
+
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
-  return AuthRepository(ApiClient(baseUrl: 'http://192.168.0.109:5033/'));
+  final url = ref.watch(serverUrlProvider);
+  return AuthRepository(ApiClient(baseUrl: url));
 });
 
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {

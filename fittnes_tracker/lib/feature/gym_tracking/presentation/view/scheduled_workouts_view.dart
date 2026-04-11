@@ -3,6 +3,7 @@ import 'package:ForgeForm/core/di/service_locator.dart';
 import 'package:ForgeForm/feature/gym_tracking/presentation/providers/workout_provider.dart';
 import 'package:ForgeForm/feature/gym_tracking/presentation/view/workouts/create_view.dart';
 import 'package:ForgeForm/feature/gym_tracking/presentation/view/workouts/workouts_list_view.dart';
+import 'package:ForgeForm/feature/gym_tracking/presentation/view/exercises/exercise_management_screen.dart';
 import 'package:ForgeForm/feature/workout_planning/data/models/workout.dart';
 import 'package:ForgeForm/feature/workout_planning/data/models/workout_plan.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
@@ -184,6 +185,16 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
                     SnackBar(content: Text(l10n.seedingTemplates)),
                   );
                 },
+              ),
+              IconButton(
+                tooltip: 'Manage Exercises',
+                icon: const Icon(Icons.sports_gymnastics),
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const ExerciseManagementScreen(),
+                  ),
+                ),
               ),
               IconButton(
                 tooltip: l10n.manageWorkouts,

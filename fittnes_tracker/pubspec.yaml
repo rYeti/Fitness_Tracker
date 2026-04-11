@@ -16,7 +16,7 @@ dependencies:
     sdk: flutter
 
   # Internationalization package (single entry)
-  intl: ^0.19.0
+  intl: ^0.20.2
   table_calendar: ^3.1.2
 
   # State Management
@@ -61,7 +61,7 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-  generate: false
+  generate: true
   # Custom fonts for ForgeForm branding
   fonts:
     - family: Montserrat

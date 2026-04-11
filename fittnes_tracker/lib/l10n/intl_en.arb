@@ -744,5 +744,35 @@
   "currentPassword": "Current Password",
   "newPassword": "New Password",
   "signOut": "Sign Out",
-  "signOutConfirm": "Are you sure you want to sign out?"
+  "signOutConfirm": "Are you sure you want to sign out?",
+
+  "createExercise": "Create Exercise",
+  "editExercise": "Edit Exercise",
+  "createCustomExercise": "Create custom exercise",
+  "exerciseType": "Exercise Type",
+  "muscleGroupsLabel": "Muscle Groups",
+  "exerciseSaved": "Exercise saved",
+  "exerciseUpdated": "Exercise updated",
+  "exerciseCreated": "Exercise created",
+  "exerciseDeleted": "Exercise deleted",
+  "deleteExercise": "Delete Exercise",
+  "deleteExerciseConfirmation": "Delete \"{name}\"?",
+  "@deleteExerciseConfirmation": {
+    "placeholders": { "name": {"type": "String"} }
+  },
+  "selectAtLeastOneMuscleGroup": "Please select at least one muscle group",
+  "exerciseTypeStrength": "Strength",
+  "exerciseTypeCardio": "Cardio",
+  "exerciseTypeFlexibility": "Flexibility",
+  "exerciseTypeCalisthenics": "Calisthenics",
+  "customBadge": "Custom",
+  "saveChangesButton": "Save Changes",
+  "errorSavingExercise": "Error saving exercise: {error}",
+  "@errorSavingExercise": {
+    "placeholders": { "error": {"type": "Object"} }
+  },
+  "errorDeletingExercise": "Error deleting exercise: {error}",
+  "@errorDeletingExercise": {
+    "placeholders": { "error": {"type": "Object"} }
+  }
 }

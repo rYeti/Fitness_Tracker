@@ -91,13 +91,15 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get pleaseEnterValidAgeAndHeight => 'Please enter valid age and height';
+  String get pleaseEnterValidAgeAndHeight =>
+      'Please enter valid age and height';
 
   @override
   String get pleaseEnterValidNumber => 'Please enter a valid number';
 
   @override
-  String get calculatedAndSavedCalorieGoal => 'Calculated and saved calorie goal';
+  String get calculatedAndSavedCalorieGoal =>
+      'Calculated and saved calorie goal';
 
   @override
   String failedToSaveProfile(Object error) {
@@ -231,7 +233,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pleaseEnterWorkoutName => 'Please enter a workout name';
 
   @override
-  String get pleaseEnterAtLeastOneWorkoutDay => 'Please enter at least one workout day in the cycle';
+  String get pleaseEnterAtLeastOneWorkoutDay =>
+      'Please enter at least one workout day in the cycle';
 
   @override
   String get pleaseSelectStartDate => 'Please select a start date';
@@ -357,7 +360,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get weight => 'Weight';
 
   @override
-  String get noExercisesForWorkout => 'No exercises configured for this workout';
+  String get noExercisesForWorkout =>
+      'No exercises configured for this workout';
 
   @override
   String errorLoadingExercises(Object error) {
@@ -642,7 +646,8 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get barcodeNotSupportedOnWeb => 'Barcode scanning not supported on web';
+  String get barcodeNotSupportedOnWeb =>
+      'Barcode scanning not supported on web';
 
   @override
   String get scan => 'Scan';
@@ -1233,7 +1238,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get onboardingWelcomeSubtitle => 'Your personal fitness companion';
 
   @override
-  String get onboardingWelcomeBody => 'Track your nutrition, workouts and weight all in one place.';
+  String get onboardingWelcomeBody =>
+      'Track your nutrition, workouts and weight all in one place.';
 
   @override
   String get onboardingFeatureWeight => 'Weight Tracking';
@@ -1242,7 +1248,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get onboardingProfileTitle => 'About You';
 
   @override
-  String get onboardingProfileSubtitle => 'We\'ll use this to personalise your experience';
+  String get onboardingProfileSubtitle =>
+      'We\'ll use this to personalise your experience';
 
   @override
   String get onboardingGoalsTitle => 'Your Goals';
@@ -1348,13 +1355,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noLocalFoodsFound => 'No local foods found';
 
   @override
-  String get enterSearchTermsOnline => 'Enter search terms to find foods online';
+  String get enterSearchTermsOnline =>
+      'Enter search terms to find foods online';
 
   @override
   String get noResultsFoundSearch => 'No results found for this search';
 
   @override
-  String get tryUsingMoreGeneralTerms => 'Try using more general terms or check spelling';
+  String get tryUsingMoreGeneralTerms =>
+      'Try using more general terms or check spelling';
 
   @override
   String get tryAgain => 'Try Again';
@@ -1369,10 +1378,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pleaseEnterName => 'Please enter a name';
 
   @override
-  String get barcodeNotSupportedMobile => 'Barcode scanning is only supported on mobile devices.';
+  String get barcodeNotSupportedMobile =>
+      'Barcode scanning is only supported on mobile devices.';
 
   @override
-  String get barcodeNotSupportedWeb => 'Barcode scanning is not supported on web';
+  String get barcodeNotSupportedWeb =>
+      'Barcode scanning is not supported on web';
 
   @override
   String get selectWorkoutDates => 'Select Workout Dates';
@@ -1450,13 +1461,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get switchToFreeChoiceTitle => 'Switch to Free Choice?';
 
   @override
-  String get switchToFreeChoiceBody => 'All future scheduled workouts for this plan will be removed. You can pick workouts day by day.';
+  String get switchToFreeChoiceBody =>
+      'All future scheduled workouts for this plan will be removed. You can pick workouts day by day.';
 
   @override
   String get switchToCyclePlanTitle => 'Switch to Cycle Plan?';
 
   @override
-  String get switchToCyclePlanBody => 'The plan will switch back to cycle mode. No scheduled workouts will be created automatically.';
+  String get switchToCyclePlanBody =>
+      'The plan will switch back to cycle mode. No scheduled workouts will be created automatically.';
 
   @override
   String get confirm => 'Confirm';
@@ -1472,7 +1485,8 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get freeChoiceAddHint => 'Add workout templates to choose from each day';
+  String get freeChoiceAddHint =>
+      'Add workout templates to choose from each day';
 
   @override
   String get cyclePattern => 'Cycle Pattern';
@@ -1503,4 +1517,71 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get signOutConfirm => 'Are you sure you want to sign out?';
+
+  @override
+  String get createExercise => 'Create Exercise';
+
+  @override
+  String get editExercise => 'Edit Exercise';
+
+  @override
+  String get createCustomExercise => 'Create custom exercise';
+
+  @override
+  String get exerciseType => 'Exercise Type';
+
+  @override
+  String get muscleGroupsLabel => 'Muscle Groups';
+
+  @override
+  String get exerciseSaved => 'Exercise saved';
+
+  @override
+  String get exerciseUpdated => 'Exercise updated';
+
+  @override
+  String get exerciseCreated => 'Exercise created';
+
+  @override
+  String get exerciseDeleted => 'Exercise deleted';
+
+  @override
+  String get deleteExercise => 'Delete Exercise';
+
+  @override
+  String deleteExerciseConfirmation(String name) {
+    return 'Delete \"$name\"?';
+  }
+
+  @override
+  String get selectAtLeastOneMuscleGroup =>
+      'Please select at least one muscle group';
+
+  @override
+  String get exerciseTypeStrength => 'Strength';
+
+  @override
+  String get exerciseTypeCardio => 'Cardio';
+
+  @override
+  String get exerciseTypeFlexibility => 'Flexibility';
+
+  @override
+  String get exerciseTypeCalisthenics => 'Calisthenics';
+
+  @override
+  String get customBadge => 'Custom';
+
+  @override
+  String get saveChangesButton => 'Save Changes';
+
+  @override
+  String errorSavingExercise(Object error) {
+    return 'Error saving exercise: $error';
+  }
+
+  @override
+  String errorDeletingExercise(Object error) {
+    return 'Error deleting exercise: $error';
+  }
 }

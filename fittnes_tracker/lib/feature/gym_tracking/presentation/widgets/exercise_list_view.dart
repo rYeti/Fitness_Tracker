@@ -2,17 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/feature/workout_planning/data/models/exercise.dart';
+import 'package:ForgeForm/feature/gym_tracking/presentation/widgets/exercise_form_sheet.dart';
 
-/// Widget that displays a searchable list of exercises for a specific muscle group
+/// Widget that displays a searchable list of exercises.
+///
+/// **Selection mode** (for workout creation):
+///   Provide [onExerciseSelected]. Tapping an exercise card passes it to the
+///   callback. An "add" icon is shown on the trailing side of each card.
+///
+/// **Management mode** (standalone exercise manager):
+///   Omit [onExerciseSelected] (leave it null). Tapping an exercise card opens
+///   the edit form directly. Only the edit icon is shown in the trailing area.
+///
+/// When [muscleGroup] is null all exercises are shown regardless of group.
 class ExerciseListView extends StatefulWidget {
-  final MuscleGroup muscleGroup;
-  final Function(Exercise) onExerciseSelected;
+  final MuscleGroup? muscleGroup;
+  final Function(Exercise)? onExerciseSelected;
 
-  const ExerciseListView({
-    Key? key,
-    required this.muscleGroup,
-    required this.onExerciseSelected,
-  }) : super(key: key);
+  const ExerciseListView({Key? key, this.muscleGroup, this.onExerciseSelected})
+    : super(key: key);
 
   @override
   State<ExerciseListView> createState() => _ExerciseListViewState();
@@ -21,6 +29,10 @@ class ExerciseListView extends StatefulWidget {
 class _ExerciseListViewState extends State<ExerciseListView> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  // Incrementing forces the FutureBuilder to re-run after create/edit/delete.
+  int _refreshKey = 0;
+
+  bool get _selectionMode => widget.onExerciseSelected != null;
 
   @override
   void dispose() {
@@ -28,13 +40,35 @@ class _ExerciseListViewState extends State<ExerciseListView> {
     super.dispose();
   }
 
+  Future<void> _openCreateForm() async {
+    final saved = await ExerciseFormSheet.show(
+      context,
+      initialMuscleGroup: widget.muscleGroup,
+    );
+    if (saved == true) setState(() => _refreshKey++);
+  }
+
+  Future<void> _openEditForm(Exercise exercise) async {
+    final saved = await ExerciseFormSheet.show(context, exercise: exercise);
+    if (saved == true) setState(() => _refreshKey++);
+  }
+
+  // Fetches exercises according to current filters.
+  Future<List<ExerciseTableData>> _fetchExercises(AppDatabase db) {
+    final mg = widget.muscleGroup;
+    return mg != null
+        ? db.exerciseDao.searchExercisesByMuscleGroup(mg, _searchQuery)
+        : db.exerciseDao.searchExercises(_searchQuery);
+  }
+
   @override
   Widget build(BuildContext context) {
     final db = context.read<AppDatabase>();
+    final theme = Theme.of(context);
 
     return Column(
       children: [
-        // Search bar
+        // ── Search bar ────────────────────────────────────────────────────
         Padding(
           padding: const EdgeInsets.all(16.0),
           child: TextField(
@@ -48,9 +82,7 @@ class _ExerciseListViewState extends State<ExerciseListView> {
                         icon: const Icon(Icons.clear),
                         onPressed: () {
                           _searchController.clear();
-                          setState(() {
-                            _searchQuery = '';
-                          });
+                          setState(() => _searchQuery = '');
                         },
                       )
                       : null,
@@ -58,20 +90,43 @@ class _ExerciseListViewState extends State<ExerciseListView> {
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
-            onChanged: (value) {
-              setState(() {
-                _searchQuery = value;
-              });
-            },
+            onChanged: (value) => setState(() => _searchQuery = value),
           ),
         ),
-        // Exercise list
+
+        // ── Create custom exercise button ─────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          child: Card(
+            elevation: 0,
+            color: theme.colorScheme.primaryContainer.withOpacity(0.45),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(
+                color: theme.colorScheme.primary.withOpacity(0.25),
+              ),
+            ),
+            child: ListTile(
+              dense: true,
+              leading: CircleAvatar(
+                backgroundColor: theme.colorScheme.primary,
+                child: Icon(
+                  Icons.add,
+                  color: theme.colorScheme.onPrimary,
+                  size: 20,
+                ),
+              ),
+              title: const Text('Create custom exercise'),
+              onTap: _openCreateForm,
+            ),
+          ),
+        ),
+
+        // ── Exercise list ─────────────────────────────────────────────────
         Expanded(
           child: FutureBuilder<List<ExerciseTableData>>(
-            future: db.exerciseDao.searchExercisesByMuscleGroup(
-              widget.muscleGroup,
-              _searchQuery,
-            ),
+            key: ValueKey('$_refreshKey:${widget.muscleGroup}:$_searchQuery'),
+            future: _fetchExercises(db),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
@@ -96,7 +151,7 @@ class _ExerciseListViewState extends State<ExerciseListView> {
                       const SizedBox(height: 16),
                       Text(
                         _searchQuery.isEmpty
-                            ? 'No exercises available for this muscle group'
+                            ? 'No exercises available'
                             : 'No exercises found matching "$_searchQuery"',
                         style: TextStyle(color: Colors.grey[600]),
                         textAlign: TextAlign.center,
@@ -110,12 +165,18 @@ class _ExerciseListViewState extends State<ExerciseListView> {
                 itemCount: exercises.length,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 itemBuilder: (context, index) {
-                  final exerciseData = exercises[index];
-                  final exercise = db.exerciseDao.entityToModel(exerciseData);
+                  final exercise = db.exerciseDao.entityToModel(
+                    exercises[index],
+                  );
 
                   return _ExerciseListItem(
                     exercise: exercise,
-                    onTap: () => widget.onExerciseSelected(exercise),
+                    selectionMode: _selectionMode,
+                    onTap:
+                        _selectionMode
+                            ? () => widget.onExerciseSelected!(exercise)
+                            : () => _openEditForm(exercise),
+                    onEdit: () => _openEditForm(exercise),
                   );
                 },
               );
@@ -129,12 +190,16 @@ class _ExerciseListViewState extends State<ExerciseListView> {
 
 class _ExerciseListItem extends StatelessWidget {
   final Exercise exercise;
+  final bool selectionMode;
   final VoidCallback onTap;
+  final VoidCallback onEdit;
 
   const _ExerciseListItem({
     Key? key,
     required this.exercise,
+    required this.selectionMode,
     required this.onTap,
+    required this.onEdit,
   }) : super(key: key);
 
   @override
@@ -147,11 +212,31 @@ class _ExerciseListItem extends StatelessWidget {
         leading: CircleAvatar(
           backgroundColor: theme.colorScheme.primaryContainer,
           child: Icon(
-            _getExerciseTypeIcon(exercise.type),
+            _exerciseTypeIcon(exercise.type),
             color: theme.colorScheme.onPrimaryContainer,
           ),
         ),
-        title: Text(exercise.name),
+        title: Row(
+          children: [
+            Expanded(child: Text(exercise.name)),
+            if (exercise.isCustom) ...[
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.secondaryContainer,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Custom',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSecondaryContainer,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
         subtitle:
             exercise.description != null && exercise.description!.isNotEmpty
                 ? Text(
@@ -160,13 +245,29 @@ class _ExerciseListItem extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 )
                 : null,
-        trailing: const Icon(Icons.add_circle_outline),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: Icon(
+                Icons.edit_outlined,
+                size: 20,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              tooltip: 'Edit exercise',
+              visualDensity: VisualDensity.compact,
+              onPressed: onEdit,
+            ),
+            if (selectionMode)
+              Icon(Icons.add_circle_outline, color: theme.colorScheme.primary),
+          ],
+        ),
         onTap: onTap,
       ),
     );
   }
 
-  IconData _getExerciseTypeIcon(ExerciseType type) {
+  IconData _exerciseTypeIcon(ExerciseType type) {
     switch (type) {
       case ExerciseType.strength:
         return Icons.fitness_center;

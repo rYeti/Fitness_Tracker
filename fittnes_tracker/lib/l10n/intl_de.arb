@@ -740,5 +740,35 @@
   "currentPassword": "Aktuelles Passwort",
   "newPassword": "Neues Passwort",
   "signOut": "Abmelden",
-  "signOutConfirm": "Bist du sicher, dass du dich abmelden möchtest?"
+  "signOutConfirm": "Bist du sicher, dass du dich abmelden möchtest?",
+
+  "createExercise": "Übung erstellen",
+  "editExercise": "Übung bearbeiten",
+  "createCustomExercise": "Eigene Übung erstellen",
+  "exerciseType": "Übungstyp",
+  "muscleGroupsLabel": "Muskelgruppen",
+  "exerciseSaved": "Übung gespeichert",
+  "exerciseUpdated": "Übung aktualisiert",
+  "exerciseCreated": "Übung erstellt",
+  "exerciseDeleted": "Übung gelöscht",
+  "deleteExercise": "Übung löschen",
+  "deleteExerciseConfirmation": "\"{name}\" löschen?",
+  "@deleteExerciseConfirmation": {
+    "placeholders": { "name": {"type": "String"} }
+  },
+  "selectAtLeastOneMuscleGroup": "Bitte mindestens eine Muskelgruppe auswählen",
+  "exerciseTypeStrength": "Kraft",
+  "exerciseTypeCardio": "Cardio",
+  "exerciseTypeFlexibility": "Flexibilität",
+  "exerciseTypeCalisthenics": "Calisthenics",
+  "customBadge": "Eigene",
+  "saveChangesButton": "Änderungen speichern",
+  "errorSavingExercise": "Fehler beim Speichern der Übung: {error}",
+  "@errorSavingExercise": {
+    "placeholders": { "error": {"type": "Object"} }
+  },
+  "errorDeletingExercise": "Fehler beim Löschen der Übung: {error}",
+  "@errorDeletingExercise": {
+    "placeholders": { "error": {"type": "Object"} }
+  }
 }

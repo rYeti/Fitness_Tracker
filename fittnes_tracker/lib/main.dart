@@ -50,8 +50,12 @@ void main() async {
   final hasToken = prefs.getString('token') != null;
   final showOnboarding = !(prefs.getBool('onboarding_complete') ?? false);
 
-  // Restore auth session before building the widget tree
-  final container = ProviderContainer();
+  // Seed the server URL from SharedPreferences so authRepositoryProvider
+  // uses the last URL the user saved, rather than the compile-time default.
+  final savedUrl = prefs.getString(serverUrlPrefsKey) ?? serverUrlDefault;
+  final container = ProviderContainer(
+    overrides: [serverUrlProvider.overrideWith((ref) => savedUrl)],
+  );
   await container.read(authProvider.notifier).restoreSession();
 
   runApp(

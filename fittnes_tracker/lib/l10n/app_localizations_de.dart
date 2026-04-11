@@ -91,13 +91,15 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
-  String get pleaseEnterValidAgeAndHeight => 'Bitte gültiges Alter und Größe eingeben';
+  String get pleaseEnterValidAgeAndHeight =>
+      'Bitte gültiges Alter und Größe eingeben';
 
   @override
   String get pleaseEnterValidNumber => 'Bitte eine gültige Zahl eingeben';
 
   @override
-  String get calculatedAndSavedCalorieGoal => 'Kalorienziel berechnet und gespeichert';
+  String get calculatedAndSavedCalorieGoal =>
+      'Kalorienziel berechnet und gespeichert';
 
   @override
   String failedToSaveProfile(Object error) {
@@ -228,10 +230,12 @@ class AppLocalizationsDe extends AppLocalizations {
   String get workoutSavedSuccessfully => 'Training erfolgreich gespeichert';
 
   @override
-  String get pleaseEnterWorkoutName => 'Bitte geben Sie einen Trainingsnamen ein';
+  String get pleaseEnterWorkoutName =>
+      'Bitte geben Sie einen Trainingsnamen ein';
 
   @override
-  String get pleaseEnterAtLeastOneWorkoutDay => 'Bitte fügen Sie mindestens einen Trainingstag zum Zyklus hinzu';
+  String get pleaseEnterAtLeastOneWorkoutDay =>
+      'Bitte fügen Sie mindestens einen Trainingstag zum Zyklus hinzu';
 
   @override
   String get pleaseSelectStartDate => 'Bitte wählen Sie ein Startdatum';
@@ -357,7 +361,8 @@ class AppLocalizationsDe extends AppLocalizations {
   String get weight => 'Gewicht';
 
   @override
-  String get noExercisesForWorkout => 'Keine Übungen für dieses Training konfiguriert';
+  String get noExercisesForWorkout =>
+      'Keine Übungen für dieses Training konfiguriert';
 
   @override
   String errorLoadingExercises(Object error) {
@@ -634,7 +639,8 @@ class AppLocalizationsDe extends AppLocalizations {
   String get today => 'Heute';
 
   @override
-  String get couldNotReachFoodDatabase => 'Lebensmitteldatenbank nicht erreichbar';
+  String get couldNotReachFoodDatabase =>
+      'Lebensmitteldatenbank nicht erreichbar';
 
   @override
   String noResultsFor(String query) {
@@ -678,7 +684,8 @@ class AppLocalizationsDe extends AppLocalizations {
   String get templateName => 'Vorlagenname';
 
   @override
-  String get pleaseAddAtLeastOneFood => 'Bitte mindestens ein Lebensmittel hinzufügen';
+  String get pleaseAddAtLeastOneFood =>
+      'Bitte mindestens ein Lebensmittel hinzufügen';
 
   @override
   String get templateCreatedSuccessfully => 'Vorlage erfolgreich erstellt';
@@ -840,7 +847,8 @@ class AppLocalizationsDe extends AppLocalizations {
   String get addWorkoutToPlanTitle => 'Training zum Plan hinzufügen';
 
   @override
-  String get addWorkoutsToBuildCycle => 'Trainings hinzufügen um den Zyklus aufzubauen';
+  String get addWorkoutsToBuildCycle =>
+      'Trainings hinzufügen um den Zyklus aufzubauen';
 
   @override
   String get removeWorkoutFromPlan => 'Aus Plan entfernen';
@@ -1233,7 +1241,8 @@ class AppLocalizationsDe extends AppLocalizations {
   String get onboardingWelcomeSubtitle => 'Dein persönlicher Fitness-Begleiter';
 
   @override
-  String get onboardingWelcomeBody => 'Verfolge Ernährung, Training und Gewicht — alles an einem Ort.';
+  String get onboardingWelcomeBody =>
+      'Verfolge Ernährung, Training und Gewicht — alles an einem Ort.';
 
   @override
   String get onboardingFeatureWeight => 'Gewichtsverfolgung';
@@ -1242,7 +1251,8 @@ class AppLocalizationsDe extends AppLocalizations {
   String get onboardingProfileTitle => 'Über dich';
 
   @override
-  String get onboardingProfileSubtitle => 'Damit personalisieren wir deine Erfahrung';
+  String get onboardingProfileSubtitle =>
+      'Damit personalisieren wir deine Erfahrung';
 
   @override
   String get onboardingGoalsTitle => 'Deine Ziele';
@@ -1254,7 +1264,8 @@ class AppLocalizationsDe extends AppLocalizations {
   String get onboardingSummaryTitle => 'Alles bereit!';
 
   @override
-  String get onboardingSummaryCaloriesLabel => 'Geschätztes tägliches Kalorienziel';
+  String get onboardingSummaryCaloriesLabel =>
+      'Geschätztes tägliches Kalorienziel';
 
   @override
   String get onboardingGetStarted => 'Loslegen';
@@ -1348,13 +1359,16 @@ class AppLocalizationsDe extends AppLocalizations {
   String get noLocalFoodsFound => 'Keine lokalen Lebensmittel gefunden';
 
   @override
-  String get enterSearchTermsOnline => 'Suchbegriffe eingeben, um Lebensmittel online zu finden';
+  String get enterSearchTermsOnline =>
+      'Suchbegriffe eingeben, um Lebensmittel online zu finden';
 
   @override
-  String get noResultsFoundSearch => 'Keine Ergebnisse für diese Suche gefunden';
+  String get noResultsFoundSearch =>
+      'Keine Ergebnisse für diese Suche gefunden';
 
   @override
-  String get tryUsingMoreGeneralTerms => 'Allgemeinere Begriffe verwenden oder Schreibweise prüfen';
+  String get tryUsingMoreGeneralTerms =>
+      'Allgemeinere Begriffe verwenden oder Schreibweise prüfen';
 
   @override
   String get tryAgain => 'Erneut versuchen';
@@ -1369,10 +1383,12 @@ class AppLocalizationsDe extends AppLocalizations {
   String get pleaseEnterName => 'Bitte einen Namen eingeben';
 
   @override
-  String get barcodeNotSupportedMobile => 'Barcode-Scannen wird nur auf Mobilgeräten unterstützt.';
+  String get barcodeNotSupportedMobile =>
+      'Barcode-Scannen wird nur auf Mobilgeräten unterstützt.';
 
   @override
-  String get barcodeNotSupportedWeb => 'Barcode-Scannen wird im Web nicht unterstützt';
+  String get barcodeNotSupportedWeb =>
+      'Barcode-Scannen wird im Web nicht unterstützt';
 
   @override
   String get selectWorkoutDates => 'Trainingsdaten auswählen';
@@ -1384,7 +1400,8 @@ class AppLocalizationsDe extends AppLocalizations {
   String get searchExercisesHint => 'Übungen suchen...';
 
   @override
-  String get invalidAgeHeight => 'Bitte gültiges Alter und gültige Körpergröße eingeben';
+  String get invalidAgeHeight =>
+      'Bitte gültiges Alter und gültige Körpergröße eingeben';
 
   @override
   String get searchOnlineTab => 'Online suchen';
@@ -1441,22 +1458,26 @@ class AppLocalizationsDe extends AppLocalizations {
   String get freeChoiceMode => 'Freie Auswahl';
 
   @override
-  String get freeChoiceModeSubtitle => 'Trainingseinheiten täglich manuell auswählen';
+  String get freeChoiceModeSubtitle =>
+      'Trainingseinheiten täglich manuell auswählen';
 
   @override
-  String get cycleModeSubtitle => 'Trainingseinheiten folgen einem festen Zyklus';
+  String get cycleModeSubtitle =>
+      'Trainingseinheiten folgen einem festen Zyklus';
 
   @override
   String get switchToFreeChoiceTitle => 'Zur freien Auswahl wechseln?';
 
   @override
-  String get switchToFreeChoiceBody => 'Alle zukünftigen geplanten Trainingseinheiten für diesen Plan werden entfernt. Du kannst täglich selbst wählen.';
+  String get switchToFreeChoiceBody =>
+      'Alle zukünftigen geplanten Trainingseinheiten für diesen Plan werden entfernt. Du kannst täglich selbst wählen.';
 
   @override
   String get switchToCyclePlanTitle => 'Zum Zyklus-Plan wechseln?';
 
   @override
-  String get switchToCyclePlanBody => 'Der Plan wechselt zurück in den Zyklus-Modus. Keine Trainingseinheiten werden automatisch eingeplant.';
+  String get switchToCyclePlanBody =>
+      'Der Plan wechselt zurück in den Zyklus-Modus. Keine Trainingseinheiten werden automatisch eingeplant.';
 
   @override
   String get confirm => 'Bestätigen';
@@ -1472,7 +1493,8 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
-  String get freeChoiceAddHint => 'Trainingsvorlagen hinzufügen, aus denen täglich gewählt werden kann';
+  String get freeChoiceAddHint =>
+      'Trainingsvorlagen hinzufügen, aus denen täglich gewählt werden kann';
 
   @override
   String get cyclePattern => 'Zyklus-Muster';
@@ -1502,5 +1524,73 @@ class AppLocalizationsDe extends AppLocalizations {
   String get signOut => 'Abmelden';
 
   @override
-  String get signOutConfirm => 'Bist du sicher, dass du dich abmelden möchtest?';
+  String get signOutConfirm =>
+      'Bist du sicher, dass du dich abmelden möchtest?';
+
+  @override
+  String get createExercise => 'Übung erstellen';
+
+  @override
+  String get editExercise => 'Übung bearbeiten';
+
+  @override
+  String get createCustomExercise => 'Eigene Übung erstellen';
+
+  @override
+  String get exerciseType => 'Übungstyp';
+
+  @override
+  String get muscleGroupsLabel => 'Muskelgruppen';
+
+  @override
+  String get exerciseSaved => 'Übung gespeichert';
+
+  @override
+  String get exerciseUpdated => 'Übung aktualisiert';
+
+  @override
+  String get exerciseCreated => 'Übung erstellt';
+
+  @override
+  String get exerciseDeleted => 'Übung gelöscht';
+
+  @override
+  String get deleteExercise => 'Übung löschen';
+
+  @override
+  String deleteExerciseConfirmation(String name) {
+    return '\"$name\" löschen?';
+  }
+
+  @override
+  String get selectAtLeastOneMuscleGroup =>
+      'Bitte mindestens eine Muskelgruppe auswählen';
+
+  @override
+  String get exerciseTypeStrength => 'Kraft';
+
+  @override
+  String get exerciseTypeCardio => 'Cardio';
+
+  @override
+  String get exerciseTypeFlexibility => 'Flexibilität';
+
+  @override
+  String get exerciseTypeCalisthenics => 'Calisthenics';
+
+  @override
+  String get customBadge => 'Eigene';
+
+  @override
+  String get saveChangesButton => 'Änderungen speichern';
+
+  @override
+  String errorSavingExercise(Object error) {
+    return 'Fehler beim Speichern der Übung: $error';
+  }
+
+  @override
+  String errorDeletingExercise(Object error) {
+    return 'Fehler beim Löschen der Übung: $error';
+  }
 }

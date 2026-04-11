@@ -1,3 +1,5 @@
+import java.io.File
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -10,7 +12,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.fittnes_tracker"
-        minSdk = 23
+        minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = 1
         versionName = "1.0"
@@ -29,7 +31,7 @@ android {
         create("release") {
             keyAlias = "my-key-alias"
             keyPassword = "ForgeForm"
-            storeFile = file("C:/Users/Lifebook E536/my-release-key.jks")
+            storeFile = File("C:/Users/Lifebook E536/my-release-key.jks").takeIf { it.exists() }
             storePassword = "ForgeForm"
         }
     }
