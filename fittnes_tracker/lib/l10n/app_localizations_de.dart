@@ -1342,7 +1342,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get stopTimer => 'Stoppen';
 
   @override
-  String get restTimeComplete => 'Pausenzeit beendet! 💪';
+  String get restTimeComplete => 'Pause beendet! 💪';
 
   @override
   String get selectFood => 'Lebensmittel auswählen';
@@ -1654,32 +1654,45 @@ class AppLocalizationsDe extends AppLocalizations {
   String get selectTrainingDays => 'Trainingstage auswählen';
 
   @override
-  String daysSelected(int n) => '$n Tage ausgewählt';
+  String daysSelected(int n) {
+    return '$n Tage ausgewählt';
+  }
 
   @override
   String get manageExercises => 'Übungen verwalten';
 
   @override
-  String get noResultsFoundForSearch => 'Keine Ergebnisse für diese Suche gefunden';
+  String get noResultsFoundForSearch =>
+      'Keine Ergebnisse für diese Suche gefunden';
 
   @override
   String get tryMoreGeneralTerms =>
       'Versuche allgemeinere Begriffe oder überprüfe die Schreibweise';
 
   @override
-  String doneWithCount(int count) => 'Fertig ($count)';
+  String doneWithCount(int count) {
+    return 'Fertig ($count)';
+  }
 
   @override
-  String addingFoodToYours(String name) => '$name wird hinzugefügt...';
+  String addingFoodToYours(String name) {
+    return '$name wird hinzugefügt...';
+  }
 
   @override
-  String foodAddedToYours(String name) => '$name wurde hinzugefügt';
+  String foodAddedToYours(String name) {
+    return '$name wurde hinzugefügt';
+  }
 
   @override
-  String errorAddingFood(Object error) => 'Fehler beim Hinzufügen: $error';
+  String errorAddingFood(Object error) {
+    return 'Fehler beim Hinzufügen: $error';
+  }
 
   @override
-  String brandLabel(String brand) => 'Marke: $brand';
+  String brandLabel(String brand) {
+    return 'Marke: $brand';
+  }
 
   @override
   String get editMealTemplate => 'Mahlzeitvorlage bearbeiten';
@@ -1699,46 +1712,58 @@ class AppLocalizationsDe extends AppLocalizations {
   String get setUpdated => 'Satz aktualisiert';
 
   @override
-  String failedToRemoveSet(Object error) =>
-      'Satz konnte nicht entfernt werden: $error';
+  String failedToRemoveSet(Object error) {
+    return 'Satz konnte nicht entfernt werden: $error';
+  }
 
   @override
-  String failedToUpdateSet(Object error) =>
-      'Satz konnte nicht aktualisiert werden: $error';
+  String failedToUpdateSet(Object error) {
+    return 'Satz konnte nicht aktualisiert werden: $error';
+  }
 
   @override
-  String workoutPlanCreated(String name) => 'Trainingsplan "$name" erstellt';
+  String workoutPlanCreated(String name) {
+    return 'Trainingsplan \"$name\" erstellt';
+  }
 
   @override
-  String failedToCreatePlan(Object error) =>
-      'Trainingsplan konnte nicht erstellt werden: $error';
+  String failedToCreatePlan(Object error) {
+    return 'Trainingsplan konnte nicht erstellt werden: $error';
+  }
 
   @override
-  String failedToAddWorkout(Object error) =>
-      'Training konnte nicht hinzugefügt werden: $error';
+  String failedToAddWorkout(Object error) {
+    return 'Training konnte nicht hinzugefügt werden: $error';
+  }
 
   @override
-  String deletedWorkoutPlan(String name) => 'Trainingsplan "$name" gelöscht';
+  String deletedWorkoutPlan(String name) {
+    return 'Trainingsplan \"$name\" gelöscht';
+  }
 
   @override
-  String failedToDeletePlan(Object error) =>
-      'Plan konnte nicht gelöscht werden: $error';
+  String failedToDeletePlan(Object error) {
+    return 'Plan konnte nicht gelöscht werden: $error';
+  }
 
   @override
   String get cannotAddExerciseToUnsavedWorkout =>
       'Übung kann nicht zu ungespeichertem Training hinzugefügt werden';
 
   @override
-  String removeExerciseConfirmBody(String name) =>
-      'Möchtest du "$name" wirklich aus diesem Training entfernen?';
+  String removeExerciseConfirmBody(String name) {
+    return 'Möchtest du \"$name\" wirklich aus diesem Training entfernen?';
+  }
 
   @override
-  String removeSetConfirmBody(int setNumber, String exerciseName) =>
-      'Möchtest du Satz $setNumber von "$exerciseName" wirklich entfernen?';
+  String removeSetConfirmBody(int setNumber, String exerciseName) {
+    return 'Möchtest du Satz $setNumber von \"$exerciseName\" wirklich entfernen?';
+  }
 
   @override
-  String deletePlanConfirmBody(String name) =>
-      'Möchtest du "$name" wirklich löschen? Der Plan wird entfernt, aber die Trainings bleiben erhalten.';
+  String deletePlanConfirmBody(String name) {
+    return 'Möchtest du \"$name\" wirklich löschen? Der Plan wird entfernt, aber die Trainings bleiben erhalten.';
+  }
 
   @override
   String get pleaseEnterDuration => 'Bitte Dauer eingeben';

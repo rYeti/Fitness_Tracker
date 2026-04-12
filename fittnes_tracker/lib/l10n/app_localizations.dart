@@ -3038,49 +3038,214 @@ abstract class AppLocalizations {
   /// **'Browse, create & edit exercises'**
   String get exercisesSubtitle;
 
+  /// No description provided for @darkMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Dark Mode'**
   String get darkMode;
 
+  /// No description provided for @lightMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Light Mode'**
   String get lightMode;
 
+  /// No description provided for @start.
+  ///
+  /// In en, this message translates to:
+  /// **'Start'**
   String get start;
+
+  /// No description provided for @stop.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop'**
   String get stop;
+
+  /// No description provided for @pause.
+  ///
+  /// In en, this message translates to:
+  /// **'Pause'**
   String get pause;
+
+  /// No description provided for @reset.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset'**
   String get reset;
 
+  /// No description provided for @selectTrainingDays.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Training Days'**
   String get selectTrainingDays;
+
+  /// No description provided for @daysSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'{n} days selected'**
   String daysSelected(int n);
 
+  /// No description provided for @manageExercises.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage Exercises'**
   String get manageExercises;
 
+  /// No description provided for @noResultsFoundForSearch.
+  ///
+  /// In en, this message translates to:
+  /// **'No results found for this search'**
   String get noResultsFoundForSearch;
+
+  /// No description provided for @tryMoreGeneralTerms.
+  ///
+  /// In en, this message translates to:
+  /// **'Try using more general terms or check spelling'**
   String get tryMoreGeneralTerms;
+
+  /// No description provided for @doneWithCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Done ({count})'**
   String doneWithCount(int count);
+
+  /// No description provided for @addingFoodToYours.
+  ///
+  /// In en, this message translates to:
+  /// **'Adding {name} to your foods...'**
   String addingFoodToYours(String name);
+
+  /// No description provided for @foodAddedToYours.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} added to your foods'**
   String foodAddedToYours(String name);
+
+  /// No description provided for @errorAddingFood.
+  ///
+  /// In en, this message translates to:
+  /// **'Error adding food: {error}'**
   String errorAddingFood(Object error);
+
+  /// No description provided for @brandLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Brand: {brand}'**
   String brandLabel(String brand);
 
+  /// No description provided for @editMealTemplate.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Meal Template'**
   String get editMealTemplate;
+
+  /// No description provided for @templateUpdatedSuccessfully.
+  ///
+  /// In en, this message translates to:
+  /// **'Template updated successfully'**
   String get templateUpdatedSuccessfully;
+
+  /// No description provided for @barcodeScanningMobileOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Barcode scanning is only supported on mobile devices.'**
   String get barcodeScanningMobileOnly;
+
+  /// No description provided for @barcodeScanningWebNotSupported.
+  ///
+  /// In en, this message translates to:
+  /// **'Barcode scanning is not supported on web'**
   String get barcodeScanningWebNotSupported;
 
+  /// No description provided for @setUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Set updated'**
   String get setUpdated;
+
+  /// No description provided for @failedToRemoveSet.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to remove set: {error}'**
   String failedToRemoveSet(Object error);
+
+  /// No description provided for @failedToUpdateSet.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to update set: {error}'**
   String failedToUpdateSet(Object error);
 
+  /// No description provided for @workoutPlanCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Workout plan \"{name}\" created'**
   String workoutPlanCreated(String name);
+
+  /// No description provided for @failedToCreatePlan.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to create workout plan: {error}'**
   String failedToCreatePlan(Object error);
+
+  /// No description provided for @failedToAddWorkout.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to add workout: {error}'**
   String failedToAddWorkout(Object error);
+
+  /// No description provided for @deletedWorkoutPlan.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleted workout plan \"{name}\"'**
   String deletedWorkoutPlan(String name);
+
+  /// No description provided for @failedToDeletePlan.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to delete plan: {error}'**
   String failedToDeletePlan(Object error);
+
+  /// No description provided for @cannotAddExerciseToUnsavedWorkout.
+  ///
+  /// In en, this message translates to:
+  /// **'Cannot add exercise to unsaved workout'**
   String get cannotAddExerciseToUnsavedWorkout;
 
+  /// No description provided for @removeExerciseConfirmBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to remove \"{name}\" from this workout?'**
   String removeExerciseConfirmBody(String name);
+
+  /// No description provided for @removeSetConfirmBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to remove set {setNumber} from \"{exerciseName}\"?'**
   String removeSetConfirmBody(int setNumber, String exerciseName);
+
+  /// No description provided for @deletePlanConfirmBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to delete \"{name}\"? This will remove the plan but keep the workouts.'**
   String deletePlanConfirmBody(String name);
+
+  /// No description provided for @pleaseEnterDuration.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter duration'**
   String get pleaseEnterDuration;
+
+  /// No description provided for @pleaseEnterValidDuration.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter a valid duration'**
   String get pleaseEnterValidDuration;
+
+  /// No description provided for @minutesSuffix.
+  ///
+  /// In en, this message translates to:
+  /// **'minutes'**
   String get minutesSuffix;
 }
 

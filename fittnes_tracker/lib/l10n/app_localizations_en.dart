@@ -1645,7 +1645,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get selectTrainingDays => 'Select Training Days';
 
   @override
-  String daysSelected(int n) => '$n days selected';
+  String daysSelected(int n) {
+    return '$n days selected';
+  }
 
   @override
   String get manageExercises => 'Manage Exercises';
@@ -1654,22 +1656,33 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noResultsFoundForSearch => 'No results found for this search';
 
   @override
-  String get tryMoreGeneralTerms => 'Try using more general terms or check spelling';
+  String get tryMoreGeneralTerms =>
+      'Try using more general terms or check spelling';
 
   @override
-  String doneWithCount(int count) => 'Done ($count)';
+  String doneWithCount(int count) {
+    return 'Done ($count)';
+  }
 
   @override
-  String addingFoodToYours(String name) => 'Adding $name to your foods...';
+  String addingFoodToYours(String name) {
+    return 'Adding $name to your foods...';
+  }
 
   @override
-  String foodAddedToYours(String name) => '$name added to your foods';
+  String foodAddedToYours(String name) {
+    return '$name added to your foods';
+  }
 
   @override
-  String errorAddingFood(Object error) => 'Error adding food: $error';
+  String errorAddingFood(Object error) {
+    return 'Error adding food: $error';
+  }
 
   @override
-  String brandLabel(String brand) => 'Brand: $brand';
+  String brandLabel(String brand) {
+    return 'Brand: $brand';
+  }
 
   @override
   String get editMealTemplate => 'Edit Meal Template';
@@ -1689,42 +1702,58 @@ class AppLocalizationsEn extends AppLocalizations {
   String get setUpdated => 'Set updated';
 
   @override
-  String failedToRemoveSet(Object error) => 'Failed to remove set: $error';
+  String failedToRemoveSet(Object error) {
+    return 'Failed to remove set: $error';
+  }
 
   @override
-  String failedToUpdateSet(Object error) => 'Failed to update set: $error';
+  String failedToUpdateSet(Object error) {
+    return 'Failed to update set: $error';
+  }
 
   @override
-  String workoutPlanCreated(String name) => 'Workout plan "$name" created';
+  String workoutPlanCreated(String name) {
+    return 'Workout plan \"$name\" created';
+  }
 
   @override
-  String failedToCreatePlan(Object error) =>
-      'Failed to create workout plan: $error';
+  String failedToCreatePlan(Object error) {
+    return 'Failed to create workout plan: $error';
+  }
 
   @override
-  String failedToAddWorkout(Object error) => 'Failed to add workout: $error';
+  String failedToAddWorkout(Object error) {
+    return 'Failed to add workout: $error';
+  }
 
   @override
-  String deletedWorkoutPlan(String name) => 'Deleted workout plan "$name"';
+  String deletedWorkoutPlan(String name) {
+    return 'Deleted workout plan \"$name\"';
+  }
 
   @override
-  String failedToDeletePlan(Object error) => 'Failed to delete plan: $error';
+  String failedToDeletePlan(Object error) {
+    return 'Failed to delete plan: $error';
+  }
 
   @override
   String get cannotAddExerciseToUnsavedWorkout =>
       'Cannot add exercise to unsaved workout';
 
   @override
-  String removeExerciseConfirmBody(String name) =>
-      'Are you sure you want to remove "$name" from this workout?';
+  String removeExerciseConfirmBody(String name) {
+    return 'Are you sure you want to remove \"$name\" from this workout?';
+  }
 
   @override
-  String removeSetConfirmBody(int setNumber, String exerciseName) =>
-      'Are you sure you want to remove set $setNumber from "$exerciseName"?';
+  String removeSetConfirmBody(int setNumber, String exerciseName) {
+    return 'Are you sure you want to remove set $setNumber from \"$exerciseName\"?';
+  }
 
   @override
-  String deletePlanConfirmBody(String name) =>
-      'Are you sure you want to delete "$name"? This will remove the plan but keep the workouts.';
+  String deletePlanConfirmBody(String name) {
+    return 'Are you sure you want to delete \"$name\"? This will remove the plan but keep the workouts.';
+  }
 
   @override
   String get pleaseEnterDuration => 'Please enter duration';
