@@ -1775,8 +1775,8 @@ class AppLocalizationsDe extends AppLocalizations {
   String get minutesSuffix => 'Minuten';
 
   @override
-  String get selectMuscleGroup => 'Select Muscle Group';
+  String get selectMuscleGroup => 'Muskelgruppe auswählen';
 
   @override
-  String get selectExercise => 'Select Exercise';
+  String get selectExercise => 'Übung auswählen';
 }
