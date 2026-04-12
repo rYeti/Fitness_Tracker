@@ -60,7 +60,7 @@ class AppDatabase extends _$AppDatabase {
   // Workout planning DAOs will be added here after code generation
 
   @override
-  int get schemaVersion => 24;
+  int get schemaVersion => 25;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -124,6 +124,13 @@ class AppDatabase extends _$AppDatabase {
         try {
           await customStatement(
             'ALTER TABLE workout_plan_table ADD COLUMN is_free_choice INTEGER NOT NULL DEFAULT 0',
+          );
+        } catch (_) {}
+      }
+      if (from < 25) {
+        try {
+          await customStatement(
+            'ALTER TABLE exercise_table ADD COLUMN is_custom INTEGER NOT NULL DEFAULT 0',
           );
         } catch (_) {}
       }

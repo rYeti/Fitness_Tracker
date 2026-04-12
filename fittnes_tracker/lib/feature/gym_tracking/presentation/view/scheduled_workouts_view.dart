@@ -187,7 +187,7 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
                 },
               ),
               IconButton(
-                tooltip: 'Manage Exercises',
+                tooltip: l10n.manageExercises,
                 icon: const Icon(Icons.sports_gymnastics),
                 onPressed: () => Navigator.push(
                   context,

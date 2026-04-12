@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/feature/workout_planning/data/models/exercise.dart';
 import 'package:ForgeForm/feature/gym_tracking/presentation/widgets/exercise_form_sheet.dart';
+import 'package:ForgeForm/l10n/app_localizations.dart';
 
 /// Widget that displays a searchable list of exercises.
 ///
@@ -65,6 +66,7 @@ class _ExerciseListViewState extends State<ExerciseListView> {
   Widget build(BuildContext context) {
     final db = context.read<AppDatabase>();
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
 
     return Column(
       children: [
@@ -74,7 +76,7 @@ class _ExerciseListViewState extends State<ExerciseListView> {
           child: TextField(
             controller: _searchController,
             decoration: InputDecoration(
-              hintText: 'Search exercises...',
+              hintText: l10n.searchExercisesHint,
               prefixIcon: const Icon(Icons.search),
               suffixIcon:
                   _searchQuery.isNotEmpty
@@ -116,7 +118,7 @@ class _ExerciseListViewState extends State<ExerciseListView> {
                   size: 20,
                 ),
               ),
-              title: const Text('Create custom exercise'),
+              title: Text(l10n.createCustomExercise),
               onTap: _openCreateForm,
             ),
           ),
@@ -133,7 +135,9 @@ class _ExerciseListViewState extends State<ExerciseListView> {
               }
 
               if (snapshot.hasError) {
-                return Center(child: Text('Error: ${snapshot.error}'));
+                return Center(
+                  child: Text(l10n.errorLoadingExercises(snapshot.error!)),
+                );
               }
 
               final exercises = snapshot.data ?? [];
@@ -141,7 +145,7 @@ class _ExerciseListViewState extends State<ExerciseListView> {
               if (exercises.isEmpty) {
                 return Center(
                   child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
                         Icons.fitness_center,
@@ -151,8 +155,8 @@ class _ExerciseListViewState extends State<ExerciseListView> {
                       const SizedBox(height: 16),
                       Text(
                         _searchQuery.isEmpty
-                            ? 'No exercises available'
-                            : 'No exercises found matching "$_searchQuery"',
+                            ? l10n.noExercisesYet
+                            : l10n.noExercisesFoundForQuery(_searchQuery),
                         style: TextStyle(color: Colors.grey[600]),
                         textAlign: TextAlign.center,
                       ),
@@ -205,14 +209,18 @@ class _ExerciseListItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 4),
       child: ListTile(
+        dense: selectionMode,
         leading: CircleAvatar(
+          radius: selectionMode ? 18 : 20,
           backgroundColor: theme.colorScheme.primaryContainer,
           child: Icon(
             _exerciseTypeIcon(exercise.type),
+            size: selectionMode ? 18 : 20,
             color: theme.colorScheme.onPrimaryContainer,
           ),
         ),
@@ -228,7 +236,7 @@ class _ExerciseListItem extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  'Custom',
+                  l10n.customBadge,
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: theme.colorScheme.onSecondaryContainer,
                   ),
@@ -237,31 +245,25 @@ class _ExerciseListItem extends StatelessWidget {
             ],
           ],
         ),
-        subtitle:
-            exercise.description != null && exercise.description!.isNotEmpty
-                ? Text(
-                  exercise.description!,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                )
-                : null,
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: Icon(
-                Icons.edit_outlined,
-                size: 20,
-                color: theme.colorScheme.onSurfaceVariant,
+        subtitle: exercise.description != null && exercise.description!.isNotEmpty
+            ? Text(
+                exercise.description!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              )
+            : null,
+        trailing: selectionMode
+            ? Icon(Icons.add_circle_outline, color: theme.colorScheme.primary)
+            : IconButton(
+                icon: Icon(
+                  Icons.edit_outlined,
+                  size: 20,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+                tooltip: l10n.editExercise,
+                visualDensity: VisualDensity.compact,
+                onPressed: onEdit,
               ),
-              tooltip: 'Edit exercise',
-              visualDensity: VisualDensity.compact,
-              onPressed: onEdit,
-            ),
-            if (selectionMode)
-              Icon(Icons.add_circle_outline, color: theme.colorScheme.primary),
-          ],
-        ),
         onTap: onTap,
       ),
     );

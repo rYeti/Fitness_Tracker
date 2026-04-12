@@ -1,3 +1,4 @@
+import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 
@@ -21,6 +22,7 @@ class _DateSelectionSheetState extends State<DateSelectionSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Container(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -28,7 +30,7 @@ class _DateSelectionSheetState extends State<DateSelectionSheet> {
         children: [
           // Title
           Text(
-            'Select Training Days',
+            l10n.selectTrainingDays,
             style: Theme.of(context).textTheme.headlineSmall,
           ),
           const SizedBox(height: 16),
@@ -90,7 +92,7 @@ class _DateSelectionSheetState extends State<DateSelectionSheet> {
 
           // Show how many dates selected
           Text(
-            '${_selectedDates.length} days selected',
+            l10n.daysSelected(_selectedDates.length),
             style: Theme.of(context).textTheme.bodyMedium,
           ),
 
@@ -102,7 +104,7 @@ class _DateSelectionSheetState extends State<DateSelectionSheet> {
             children: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Cancel'),
+                child: Text(l10n.cancel),
               ),
               const SizedBox(width: 8),
               ElevatedButton(
@@ -116,7 +118,7 @@ class _DateSelectionSheetState extends State<DateSelectionSheet> {
                                 ..sort((a, b) => a.compareTo(b));
                           Navigator.of(context).pop(sorted);
                         },
-                child: const Text('Use selected dates'),
+                child: Text(l10n.useSelectedDates),
               ),
             ],
           ),

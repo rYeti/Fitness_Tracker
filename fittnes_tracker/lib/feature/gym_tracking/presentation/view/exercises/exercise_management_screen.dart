@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:ForgeForm/feature/workout_planning/data/models/exercise.dart';
 import 'package:ForgeForm/feature/gym_tracking/presentation/widgets/exercise_form_sheet.dart';
 import 'package:ForgeForm/feature/gym_tracking/presentation/widgets/exercise_list_view.dart';
+import 'package:ForgeForm/l10n/app_localizations.dart';
 
 /// Standalone screen for browsing, creating, editing and deleting exercises.
 ///
@@ -35,43 +36,44 @@ class _ExerciseManagementScreenState extends State<ExerciseManagementScreen>
     super.dispose();
   }
 
-  String _tabLabel(MuscleGroup? mg) {
-    if (mg == null) return 'All';
+  String _tabLabel(AppLocalizations l10n, MuscleGroup? mg) {
+    if (mg == null) return l10n.all;
     switch (mg) {
       case MuscleGroup.chest:
-        return 'Chest';
+        return l10n.muscleGroupChest;
       case MuscleGroup.back:
-        return 'Back';
+        return l10n.muscleGroupBack;
       case MuscleGroup.shoulders:
-        return 'Shoulders';
+        return l10n.muscleGroupShoulders;
       case MuscleGroup.biceps:
-        return 'Biceps';
+        return l10n.muscleGroupBiceps;
       case MuscleGroup.triceps:
-        return 'Triceps';
+        return l10n.muscleGroupTriceps;
       case MuscleGroup.legs:
-        return 'Legs';
+        return l10n.muscleGroupLegs;
       case MuscleGroup.abs:
-        return 'Abs';
+        return l10n.muscleGroupAbs;
       case MuscleGroup.fullBody:
-        return 'Full Body';
+        return l10n.muscleGroupFullBody;
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+
     return SafeArea(
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Exercises'),
+          title: Text(l10n.exercises),
           bottom: TabBar(
             controller: _tabController,
             isScrollable: true,
             tabAlignment: TabAlignment.start,
-            tabs: _tabs.map((mg) => Tab(text: _tabLabel(mg))).toList(),
+            tabs:
+                _tabs.map((mg) => Tab(text: _tabLabel(l10n, mg))).toList(),
           ),
         ),
-        // Each tab gets its own ExerciseListView in management mode
-        // (onExerciseSelected is omitted → tap = edit, no add-to-workout icon).
         body: TabBarView(
           controller: _tabController,
           children:
@@ -79,19 +81,15 @@ class _ExerciseManagementScreenState extends State<ExerciseManagementScreen>
         ),
         floatingActionButton: FloatingActionButton.extended(
           onPressed: () async {
-            // Pre-select the currently visible muscle group (if any).
             final currentMg = _tabs[_tabController.index];
             await ExerciseFormSheet.show(
               context,
               initialMuscleGroup: currentMg,
             );
-            // The ExerciseListView inside the active tab handles its own refresh
-            // via its internal _refreshKey, triggered by ExerciseFormSheet.
-            // We call setState here to propagate any needed parent rebuild.
             if (mounted) setState(() {});
           },
           icon: const Icon(Icons.add),
-          label: const Text('New Exercise'),
+          label: Text(l10n.newExercise),
         ),
       ),
     );

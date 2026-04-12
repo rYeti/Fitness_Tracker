@@ -1593,4 +1593,159 @@ class AppLocalizationsDe extends AppLocalizations {
   String errorDeletingExercise(Object error) {
     return 'Fehler beim Löschen der Übung: $error';
   }
+
+  @override
+  String get newExercise => 'Neue Übung';
+
+  @override
+  String noExercisesFoundForQuery(String query) {
+    return 'Keine Übungen gefunden für \"$query\"';
+  }
+
+  @override
+  String get all => 'Alle';
+
+  @override
+  String get muscleGroupChest => 'Brust';
+
+  @override
+  String get muscleGroupBack => 'Rücken';
+
+  @override
+  String get muscleGroupShoulders => 'Schultern';
+
+  @override
+  String get muscleGroupBiceps => 'Bizeps';
+
+  @override
+  String get muscleGroupTriceps => 'Trizeps';
+
+  @override
+  String get muscleGroupLegs => 'Beine';
+
+  @override
+  String get muscleGroupAbs => 'Bauch';
+
+  @override
+  String get muscleGroupFullBody => 'Ganzkörper';
+
+  @override
+  String get exercisesSubtitle => 'Übungen durchsuchen, erstellen & bearbeiten';
+
+  @override
+  String get darkMode => 'Dunkelmodus';
+
+  @override
+  String get lightMode => 'Hellmodus';
+
+  @override
+  String get start => 'Start';
+
+  @override
+  String get stop => 'Stop';
+
+  @override
+  String get pause => 'Pause';
+
+  @override
+  String get reset => 'Zurücksetzen';
+
+  @override
+  String get selectTrainingDays => 'Trainingstage auswählen';
+
+  @override
+  String daysSelected(int n) => '$n Tage ausgewählt';
+
+  @override
+  String get manageExercises => 'Übungen verwalten';
+
+  @override
+  String get noResultsFoundForSearch => 'Keine Ergebnisse für diese Suche gefunden';
+
+  @override
+  String get tryMoreGeneralTerms =>
+      'Versuche allgemeinere Begriffe oder überprüfe die Schreibweise';
+
+  @override
+  String doneWithCount(int count) => 'Fertig ($count)';
+
+  @override
+  String addingFoodToYours(String name) => '$name wird hinzugefügt...';
+
+  @override
+  String foodAddedToYours(String name) => '$name wurde hinzugefügt';
+
+  @override
+  String errorAddingFood(Object error) => 'Fehler beim Hinzufügen: $error';
+
+  @override
+  String brandLabel(String brand) => 'Marke: $brand';
+
+  @override
+  String get editMealTemplate => 'Mahlzeitvorlage bearbeiten';
+
+  @override
+  String get templateUpdatedSuccessfully => 'Vorlage erfolgreich aktualisiert';
+
+  @override
+  String get barcodeScanningMobileOnly =>
+      'Barcode-Scanning wird nur auf Mobilgeräten unterstützt.';
+
+  @override
+  String get barcodeScanningWebNotSupported =>
+      'Barcode-Scanning wird im Web nicht unterstützt';
+
+  @override
+  String get setUpdated => 'Satz aktualisiert';
+
+  @override
+  String failedToRemoveSet(Object error) =>
+      'Satz konnte nicht entfernt werden: $error';
+
+  @override
+  String failedToUpdateSet(Object error) =>
+      'Satz konnte nicht aktualisiert werden: $error';
+
+  @override
+  String workoutPlanCreated(String name) => 'Trainingsplan "$name" erstellt';
+
+  @override
+  String failedToCreatePlan(Object error) =>
+      'Trainingsplan konnte nicht erstellt werden: $error';
+
+  @override
+  String failedToAddWorkout(Object error) =>
+      'Training konnte nicht hinzugefügt werden: $error';
+
+  @override
+  String deletedWorkoutPlan(String name) => 'Trainingsplan "$name" gelöscht';
+
+  @override
+  String failedToDeletePlan(Object error) =>
+      'Plan konnte nicht gelöscht werden: $error';
+
+  @override
+  String get cannotAddExerciseToUnsavedWorkout =>
+      'Übung kann nicht zu ungespeichertem Training hinzugefügt werden';
+
+  @override
+  String removeExerciseConfirmBody(String name) =>
+      'Möchtest du "$name" wirklich aus diesem Training entfernen?';
+
+  @override
+  String removeSetConfirmBody(int setNumber, String exerciseName) =>
+      'Möchtest du Satz $setNumber von "$exerciseName" wirklich entfernen?';
+
+  @override
+  String deletePlanConfirmBody(String name) =>
+      'Möchtest du "$name" wirklich löschen? Der Plan wird entfernt, aber die Trainings bleiben erhalten.';
+
+  @override
+  String get pleaseEnterDuration => 'Bitte Dauer eingeben';
+
+  @override
+  String get pleaseEnterValidDuration => 'Bitte eine gültige Dauer eingeben';
+
+  @override
+  String get minutesSuffix => 'Minuten';
 }

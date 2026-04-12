@@ -1584,4 +1584,154 @@ class AppLocalizationsEn extends AppLocalizations {
   String errorDeletingExercise(Object error) {
     return 'Error deleting exercise: $error';
   }
+
+  @override
+  String get newExercise => 'New Exercise';
+
+  @override
+  String noExercisesFoundForQuery(String query) {
+    return 'No exercises found matching \"$query\"';
+  }
+
+  @override
+  String get all => 'All';
+
+  @override
+  String get muscleGroupChest => 'Chest';
+
+  @override
+  String get muscleGroupBack => 'Back';
+
+  @override
+  String get muscleGroupShoulders => 'Shoulders';
+
+  @override
+  String get muscleGroupBiceps => 'Biceps';
+
+  @override
+  String get muscleGroupTriceps => 'Triceps';
+
+  @override
+  String get muscleGroupLegs => 'Legs';
+
+  @override
+  String get muscleGroupAbs => 'Abs';
+
+  @override
+  String get muscleGroupFullBody => 'Full Body';
+
+  @override
+  String get exercisesSubtitle => 'Browse, create & edit exercises';
+
+  @override
+  String get darkMode => 'Dark Mode';
+
+  @override
+  String get lightMode => 'Light Mode';
+
+  @override
+  String get start => 'Start';
+
+  @override
+  String get stop => 'Stop';
+
+  @override
+  String get pause => 'Pause';
+
+  @override
+  String get reset => 'Reset';
+
+  @override
+  String get selectTrainingDays => 'Select Training Days';
+
+  @override
+  String daysSelected(int n) => '$n days selected';
+
+  @override
+  String get manageExercises => 'Manage Exercises';
+
+  @override
+  String get noResultsFoundForSearch => 'No results found for this search';
+
+  @override
+  String get tryMoreGeneralTerms => 'Try using more general terms or check spelling';
+
+  @override
+  String doneWithCount(int count) => 'Done ($count)';
+
+  @override
+  String addingFoodToYours(String name) => 'Adding $name to your foods...';
+
+  @override
+  String foodAddedToYours(String name) => '$name added to your foods';
+
+  @override
+  String errorAddingFood(Object error) => 'Error adding food: $error';
+
+  @override
+  String brandLabel(String brand) => 'Brand: $brand';
+
+  @override
+  String get editMealTemplate => 'Edit Meal Template';
+
+  @override
+  String get templateUpdatedSuccessfully => 'Template updated successfully';
+
+  @override
+  String get barcodeScanningMobileOnly =>
+      'Barcode scanning is only supported on mobile devices.';
+
+  @override
+  String get barcodeScanningWebNotSupported =>
+      'Barcode scanning is not supported on web';
+
+  @override
+  String get setUpdated => 'Set updated';
+
+  @override
+  String failedToRemoveSet(Object error) => 'Failed to remove set: $error';
+
+  @override
+  String failedToUpdateSet(Object error) => 'Failed to update set: $error';
+
+  @override
+  String workoutPlanCreated(String name) => 'Workout plan "$name" created';
+
+  @override
+  String failedToCreatePlan(Object error) =>
+      'Failed to create workout plan: $error';
+
+  @override
+  String failedToAddWorkout(Object error) => 'Failed to add workout: $error';
+
+  @override
+  String deletedWorkoutPlan(String name) => 'Deleted workout plan "$name"';
+
+  @override
+  String failedToDeletePlan(Object error) => 'Failed to delete plan: $error';
+
+  @override
+  String get cannotAddExerciseToUnsavedWorkout =>
+      'Cannot add exercise to unsaved workout';
+
+  @override
+  String removeExerciseConfirmBody(String name) =>
+      'Are you sure you want to remove "$name" from this workout?';
+
+  @override
+  String removeSetConfirmBody(int setNumber, String exerciseName) =>
+      'Are you sure you want to remove set $setNumber from "$exerciseName"?';
+
+  @override
+  String deletePlanConfirmBody(String name) =>
+      'Are you sure you want to delete "$name"? This will remove the plan but keep the workouts.';
+
+  @override
+  String get pleaseEnterDuration => 'Please enter duration';
+
+  @override
+  String get pleaseEnterValidDuration => 'Please enter a valid duration';
+
+  @override
+  String get minutesSuffix => 'minutes';
 }

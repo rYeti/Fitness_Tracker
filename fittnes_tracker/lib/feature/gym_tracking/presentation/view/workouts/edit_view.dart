@@ -630,12 +630,12 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
             children: [
               IconButton(
                 icon: const Icon(Icons.edit, size: 16),
-                tooltip: 'Edit set',
+                tooltip: AppLocalizations.of(context)!.edit,
                 onPressed: () => _editSet(workout, exercise, set),
               ),
               IconButton(
                 icon: const Icon(Icons.delete, size: 16, color: Colors.red),
-                tooltip: 'Remove set',
+                tooltip: AppLocalizations.of(context)!.removeSet,
                 onPressed: () => _removeSetFromExercise(workout, exercise, set),
               ),
             ],
@@ -1125,7 +1125,7 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
         return AlertDialog(
           title: Text(l10n.removeExerciseTitle),
           content: Text(
-            'Are you sure you want to remove "${exercise.exercise?.name ?? 'this exercise'}" from this workout?',
+            l10n.removeExerciseConfirmBody(exercise.exercise?.name ?? 'exercise'),
           ),
           actions: [
             TextButton(
@@ -1230,7 +1230,7 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
         return AlertDialog(
           title: Text(l10n.removeSet),
           content: Text(
-            'Are you sure you want to remove set ${set.setNumber} from "${exercise.exercise?.name ?? 'this exercise'}"?',
+            l10n.removeSetConfirmBody(set.setNumber, exercise.exercise?.name ?? 'exercise'),
           ),
           actions: [
             TextButton(
@@ -1278,7 +1278,7 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
         if (!mounted) return;
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Failed to remove set: $e')));
+        ).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.failedToRemoveSet(e))));
       }
     }
   }
@@ -1298,46 +1298,48 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
 
     final result = await showDialog<bool>(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: Text('Edit Set ${set.setNumber}'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: repsController,
-                  decoration: const InputDecoration(labelText: 'Reps'),
-                  keyboardType: TextInputType.number,
-                ),
-                TextField(
-                  controller: weightController,
-                  decoration: const InputDecoration(labelText: 'Weight'),
-                  keyboardType: TextInputType.number,
-                ),
-                DropdownButtonFormField<String>(
-                  value: weightUnit,
-                  decoration: const InputDecoration(labelText: 'Unit'),
-                  items:
-                      ['kg', 'lbs'].map((unit) {
-                        return DropdownMenuItem(value: unit, child: Text(unit));
-                      }).toList(),
-                  onChanged: (value) {
-                    if (value != null) weightUnit = value;
-                  },
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
+      builder: (context) {
+        final l10n = AppLocalizations.of(context)!;
+        return AlertDialog(
+          title: Text(l10n.editSet(set.setNumber)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: repsController,
+                decoration: InputDecoration(labelText: l10n.repsLabel),
+                keyboardType: TextInputType.number,
               ),
-              TextButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('Save'),
+              TextField(
+                controller: weightController,
+                decoration: InputDecoration(labelText: l10n.weightLabel),
+                keyboardType: TextInputType.number,
+              ),
+              DropdownButtonFormField<String>(
+                value: weightUnit,
+                decoration: InputDecoration(labelText: l10n.unit),
+                items:
+                    ['kg', 'lbs'].map((unit) {
+                      return DropdownMenuItem(value: unit, child: Text(unit));
+                    }).toList(),
+                onChanged: (value) {
+                  if (value != null) weightUnit = value;
+                },
               ),
             ],
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(l10n.cancel),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(l10n.saveButton),
+            ),
+          ],
+        );
+      },
     );
 
     if (result == true && workout.id != null) {
@@ -1375,14 +1377,18 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
           workout.copyWith(exercises: updatedExercises),
         );
 
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Set updated')));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(AppLocalizations.of(context)!.setUpdated)),
+          );
+        }
         _loadPlans();
       } catch (e) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to update set: $e')));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(AppLocalizations.of(context)!.failedToUpdateSet(e))),
+          );
+        }
       }
     }
   }
@@ -1390,7 +1396,7 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
   Widget _buildCreatePlanButton() {
     return FloatingActionButton(
       onPressed: _createNewWorkoutPlan,
-      tooltip: 'Create new workout plan',
+      tooltip: AppLocalizations.of(context)!.createWorkoutPlan,
       child: const Icon(Icons.add),
     );
   }
@@ -1398,30 +1404,32 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
   Future<void> _createNewWorkoutPlan() async {
     final planNameController = TextEditingController();
 
+    final l10n = AppLocalizations.of(context)!;
     final result = await showDialog<String>(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Create Workout Plan'),
-            content: TextField(
-              controller: planNameController,
-              decoration: const InputDecoration(
-                labelText: 'Plan Name',
-                hintText: 'e.g., Beginner Strength Program',
-              ),
+      builder: (context) {
+        final l10n = AppLocalizations.of(context)!;
+        return AlertDialog(
+          title: Text(l10n.createWorkoutPlan),
+          content: TextField(
+            controller: planNameController,
+            decoration: InputDecoration(
+              labelText: l10n.planName,
+              hintText: l10n.planNameHint,
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed:
-                    () => Navigator.pop(context, planNameController.text),
-                child: const Text('Create'),
-              ),
-            ],
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(l10n.cancel),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, planNameController.text),
+              child: Text(l10n.create),
+            ),
+          ],
+        );
+      },
     );
 
     if (result != null && result.trim().isNotEmpty) {
@@ -1435,15 +1443,19 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
 
         await sl<AppDatabase>().workoutPlanDao.saveWorkoutPlan(newPlan);
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Workout plan "${result.trim()}" created')),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(l10n.workoutPlanCreated(result.trim()))),
+          );
+        }
 
         _loadPlans(); // Refresh the list
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to create workout plan: $e')),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(l10n.failedToCreatePlan(e))),
+          );
+        }
       }
     }
   }
@@ -1517,7 +1529,7 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
         if (!mounted) return;
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Failed to add workout: $e')));
+        ).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.failedToAddWorkout(e))));
       }
     }
   }
@@ -1529,9 +1541,7 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
         final l10n = AppLocalizations.of(context)!;
         return AlertDialog(
           title: Text(l10n.deletePlanTooltip),
-          content: Text(
-            'Are you sure you want to delete "${plan.name}"? This will remove the plan but keep the workouts.',
-          ),
+          content: Text(l10n.deletePlanConfirmBody(plan.name)),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -1552,14 +1562,14 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
         await sl<AppDatabase>().workoutPlanDao.deleteWorkoutPlan(plan.id!);
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Deleted workout plan "${plan.name}"')),
+          SnackBar(content: Text(AppLocalizations.of(context)!.deletedWorkoutPlan(plan.name))),
         );
         _loadPlans(); // Refresh the view
       } catch (e) {
         if (!mounted) return;
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Failed to delete plan: $e')));
+        ).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.failedToDeletePlan(e))));
       }
     }
   }

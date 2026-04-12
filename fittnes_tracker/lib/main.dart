@@ -182,6 +182,7 @@ class _HomeScreenState extends State<HomeScreen> {
     FoodTrackingScreen(key: globalFoodTrackingKey),
     const GymTrackingScreen(),
     const ProgressScreen(),
+    const SettingsScreen(),
   ];
 
   @override
@@ -233,6 +234,10 @@ class _HomeScreenState extends State<HomeScreen> {
             BottomNavigationBarItem(
               icon: Icon(Icons.bar_chart),
               label: AppLocalizations.of(context)!.progress,
+            ),
+            BottomNavigationBarItem(
+              icon: const Icon(Icons.person_outline),
+              label: AppLocalizations.of(context)!.profile,
             ),
           ],
         ),

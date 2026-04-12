@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
+import 'package:ForgeForm/l10n/app_localizations.dart';
 
 /// A countdown timer widget for rest periods between sets
 class RestTimerWidget extends StatefulWidget {
@@ -120,6 +121,7 @@ class _RestTimerWidgetState extends State<RestTimerWidget>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
     final progress = _remainingSeconds / widget.defaultSeconds;
     return Container(
       padding: const EdgeInsets.all(16),
@@ -182,7 +184,7 @@ class _RestTimerWidgetState extends State<RestTimerWidget>
                 ElevatedButton.icon(
                   onPressed: _startTimer,
                   icon: const Icon(Icons.play_arrow),
-                  label: const Text('Start'),
+                  label: Text(l10n.start),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
                   ),
@@ -191,13 +193,13 @@ class _RestTimerWidgetState extends State<RestTimerWidget>
                 OutlinedButton.icon(
                   onPressed: _resetTimer,
                   icon: const Icon(Icons.refresh),
-                  label: const Text('Reset'),
+                  label: Text(l10n.reset),
                 ),
               ] else ...[
                 ElevatedButton.icon(
                   onPressed: _stopTimer,
                   icon: const Icon(Icons.pause),
-                  label: const Text('Pause'),
+                  label: Text(l10n.pause),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.orange,
                   ),
@@ -208,7 +210,7 @@ class _RestTimerWidgetState extends State<RestTimerWidget>
                     _stopTimer();
                     _resetTimer();
                   },
-                  child: const Text('Stop'),
+                  child: Text(l10n.stop),
                 ),
               ],
             ],
@@ -254,11 +256,11 @@ void showRestTimer(BuildContext context, {int defaultSeconds = 90}) {
           child: RestTimerWidget(
             defaultSeconds: defaultSeconds,
             onTimerComplete: () {
-              // Optional: Play a sound or vibration
+              final l10n = AppLocalizations.of(context)!;
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Rest time complete! 💪'),
-                  duration: Duration(seconds: 2),
+                SnackBar(
+                  content: Text(l10n.restTimeComplete),
+                  duration: const Duration(seconds: 2),
                 ),
               );
             },

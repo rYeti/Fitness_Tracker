@@ -243,12 +243,6 @@ class _FoodTrackingScreenState extends State<FoodTrackingScreen> {
             icon: const Icon(Icons.refresh, color: Colors.white),
             onPressed: loadNutritionData,
           ),
-          IconButton(
-            icon: const Icon(Icons.settings, color: Colors.white),
-            onPressed: () {
-              Navigator.pushNamed(context, '/settings');
-            },
-          ),
         ],
       ),
       body: RefreshIndicator(

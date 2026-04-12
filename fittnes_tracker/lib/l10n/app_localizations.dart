@@ -2965,6 +2965,123 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Error deleting exercise: {error}'**
   String errorDeletingExercise(Object error);
+
+  /// No description provided for @newExercise.
+  ///
+  /// In en, this message translates to:
+  /// **'New Exercise'**
+  String get newExercise;
+
+  /// No description provided for @noExercisesFoundForQuery.
+  ///
+  /// In en, this message translates to:
+  /// **'No exercises found matching \"{query}\"'**
+  String noExercisesFoundForQuery(String query);
+
+  /// No description provided for @all.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get all;
+
+  /// No description provided for @muscleGroupChest.
+  ///
+  /// In en, this message translates to:
+  /// **'Chest'**
+  String get muscleGroupChest;
+
+  /// No description provided for @muscleGroupBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Back'**
+  String get muscleGroupBack;
+
+  /// No description provided for @muscleGroupShoulders.
+  ///
+  /// In en, this message translates to:
+  /// **'Shoulders'**
+  String get muscleGroupShoulders;
+
+  /// No description provided for @muscleGroupBiceps.
+  ///
+  /// In en, this message translates to:
+  /// **'Biceps'**
+  String get muscleGroupBiceps;
+
+  /// No description provided for @muscleGroupTriceps.
+  ///
+  /// In en, this message translates to:
+  /// **'Triceps'**
+  String get muscleGroupTriceps;
+
+  /// No description provided for @muscleGroupLegs.
+  ///
+  /// In en, this message translates to:
+  /// **'Legs'**
+  String get muscleGroupLegs;
+
+  /// No description provided for @muscleGroupAbs.
+  ///
+  /// In en, this message translates to:
+  /// **'Abs'**
+  String get muscleGroupAbs;
+
+  /// No description provided for @muscleGroupFullBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Full Body'**
+  String get muscleGroupFullBody;
+
+  /// No description provided for @exercisesSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Browse, create & edit exercises'**
+  String get exercisesSubtitle;
+
+  String get darkMode;
+
+  String get lightMode;
+
+  String get start;
+  String get stop;
+  String get pause;
+  String get reset;
+
+  String get selectTrainingDays;
+  String daysSelected(int n);
+
+  String get manageExercises;
+
+  String get noResultsFoundForSearch;
+  String get tryMoreGeneralTerms;
+  String doneWithCount(int count);
+  String addingFoodToYours(String name);
+  String foodAddedToYours(String name);
+  String errorAddingFood(Object error);
+  String brandLabel(String brand);
+
+  String get editMealTemplate;
+  String get templateUpdatedSuccessfully;
+  String get barcodeScanningMobileOnly;
+  String get barcodeScanningWebNotSupported;
+
+  String get setUpdated;
+  String failedToRemoveSet(Object error);
+  String failedToUpdateSet(Object error);
+
+  String workoutPlanCreated(String name);
+  String failedToCreatePlan(Object error);
+  String failedToAddWorkout(Object error);
+  String deletedWorkoutPlan(String name);
+  String failedToDeletePlan(Object error);
+  String get cannotAddExerciseToUnsavedWorkout;
+
+  String removeExerciseConfirmBody(String name);
+  String removeSetConfirmBody(int setNumber, String exerciseName);
+  String deletePlanConfirmBody(String name);
+  String get pleaseEnterDuration;
+  String get pleaseEnterValidDuration;
+  String get minutesSuffix;
 }
 
 class _AppLocalizationsDelegate

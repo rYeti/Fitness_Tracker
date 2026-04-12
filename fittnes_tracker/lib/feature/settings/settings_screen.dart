@@ -1,15 +1,12 @@
 import 'package:ForgeForm/core/providers/enums.dart';
 import 'package:ForgeForm/core/providers/theme_provider.dart';
 import 'package:ForgeForm/core/providers/user_goals_provider.dart';
-import 'package:ForgeForm/feature/auth/presentation/providers/auth_provider.dart';
 import 'package:ForgeForm/feature/auth/presentation/view/user_settings_screen.dart';
 import 'package:ForgeForm/feature/gym_tracking/presentation/view/exercises/exercise_management_screen.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 extension SexLocalizations on Sex {
   String localized(BuildContext ctx) {
@@ -76,40 +73,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
   ActivityLevel _activity = ActivityLevel.sedentary;
   GoalType _goalType = GoalType.maintenance;
 
-  // Server URL
-  final TextEditingController _serverUrlController = TextEditingController();
-
   @override
   void dispose() {
     _nameController.dispose();
     _calorieGoalController.dispose();
     _ageController.dispose();
     _heightController.dispose();
-    _serverUrlController.dispose();
     super.dispose();
   }
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadProfileFromDb();
-      // Seed server URL from the live Riverpod provider.
-      final container = ProviderScope.containerOf(context);
-      _serverUrlController.text = container.read(serverUrlProvider);
-    });
-  }
-
-  Future<void> _saveServerUrl() async {
-    final url = _serverUrlController.text.trim();
-    if (url.isEmpty) return;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(serverUrlPrefsKey, url);
-    if (!mounted) return;
-    ProviderScope.containerOf(context).read(serverUrlProvider.notifier).state = url;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Server URL saved')),
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadProfileFromDb());
   }
 
   Future<void> _loadProfileFromDb() async {
@@ -122,15 +98,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _ageController.text = settings.age.toString();
           _heightController.text = settings.heightCm.toString();
           final dbSex = settings.sex.toLowerCase();
-          if (dbSex == 'male')
+          if (dbSex == 'male') {
             _sex = Sex.male;
-          else if (dbSex == 'female')
+          } else if (dbSex == 'female')
             _sex = Sex.female;
           else
             _sex = Sex.other;
           final activityIndex = settings.activityLevel;
-          if (activityIndex >= 0 &&
-              activityIndex < ActivityLevel.values.length)
+          if (activityIndex >= 0 && activityIndex < ActivityLevel.values.length)
             _activity = ActivityLevel.values[activityIndex];
           final goalIndex = settings.goalType;
           if (goalIndex >= 0 && goalIndex < GoalType.values.length)
@@ -246,12 +221,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     title: Text(l10n.accountSettings),
                     subtitle: Text('${l10n.profile} · ${l10n.security}'),
                     trailing: const Icon(Icons.chevron_right),
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const UserSettingsScreen(),
-                      ),
-                    ),
+                    onTap:
+                        () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const UserSettingsScreen(),
+                          ),
+                        ),
                   ),
                 ),
 
@@ -273,42 +249,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     ),
                     title: Text(l10n.exercises),
-                    subtitle: const Text('Browse, create & edit exercises'),
+                    subtitle: Text(l10n.exercisesSubtitle),
                     trailing: const Icon(Icons.chevron_right),
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const ExerciseManagementScreen(),
-                      ),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // ── Connection ────────────────────────────────────────────
-                const _SectionLabel('Connection'),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _serverUrlController,
-                  decoration: _fieldDecoration('Server URL').copyWith(
-                    hintText: 'http://192.168.x.x:5033/',
-                    suffixIcon: IconButton(
-                      icon: const Icon(Icons.check),
-                      tooltip: 'Save URL',
-                      onPressed: _saveServerUrl,
-                    ),
-                  ),
-                  keyboardType: TextInputType.url,
-                  autocorrect: false,
-                  onSubmitted: (_) => _saveServerUrl(),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Set this to your PC\'s local IP and port. '
-                  'Changes take effect immediately.',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    onTap:
+                        () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const ExerciseManagementScreen(),
+                          ),
+                        ),
                   ),
                 ),
 
@@ -354,45 +303,51 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 DropdownButtonFormField<Sex>(
                   value: _sex,
                   decoration: _fieldDecoration(l10n.sex),
-                  items: Sex.values
-                      .map(
-                        (s) => DropdownMenuItem(
-                          value: s,
-                          child: Text(s.localized(context)),
-                        ),
-                      )
-                      .toList(),
+                  items:
+                      Sex.values
+                          .map(
+                            (s) => DropdownMenuItem(
+                              value: s,
+                              child: Text(s.localized(context)),
+                            ),
+                          )
+                          .toList(),
                   onChanged: (v) => setState(() => _sex = v ?? Sex.male),
                 ),
                 const SizedBox(height: 10),
                 DropdownButtonFormField<ActivityLevel>(
                   value: _activity,
                   decoration: _fieldDecoration(l10n.activity),
-                  items: ActivityLevel.values
-                      .map(
-                        (a) => DropdownMenuItem(
-                          value: a,
-                          child: Text(a.localized(context)),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (v) =>
-                      setState(() => _activity = v ?? ActivityLevel.sedentary),
+                  items:
+                      ActivityLevel.values
+                          .map(
+                            (a) => DropdownMenuItem(
+                              value: a,
+                              child: Text(a.localized(context)),
+                            ),
+                          )
+                          .toList(),
+                  onChanged:
+                      (v) => setState(
+                        () => _activity = v ?? ActivityLevel.sedentary,
+                      ),
                 ),
                 const SizedBox(height: 10),
                 DropdownButtonFormField<GoalType>(
                   value: _goalType,
                   decoration: _fieldDecoration(l10n.goal),
-                  items: GoalType.values
-                      .map(
-                        (g) => DropdownMenuItem(
-                          value: g,
-                          child: Text(g.localized(context)),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (v) =>
-                      setState(() => _goalType = v ?? GoalType.maintenance),
+                  items:
+                      GoalType.values
+                          .map(
+                            (g) => DropdownMenuItem(
+                              value: g,
+                              child: Text(g.localized(context)),
+                            ),
+                          )
+                          .toList(),
+                  onChanged:
+                      (v) =>
+                          setState(() => _goalType = v ?? GoalType.maintenance),
                 ),
                 const SizedBox(height: 10),
                 TextFormField(
@@ -449,9 +404,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     } catch (e) {
                       if (mounted)
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(l10n.failedToSaveProfile(e)),
-                          ),
+                          SnackBar(content: Text(l10n.failedToSaveProfile(e))),
                         );
                     } finally {
                       if (mounted) setState(() => _isSaving = false);
@@ -472,9 +425,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     final newGoal = int.tryParse(text);
                     if (newGoal == null) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(l10n.pleaseEnterValidNumber),
-                        ),
+                        SnackBar(content: Text(l10n.pleaseEnterValidNumber)),
                       );
                       return;
                     }
@@ -482,19 +433,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     var success = false;
                     try {
                       final age = int.tryParse(_ageController.text.trim());
-                      final height =
-                          int.tryParse(_heightController.text.trim());
+                      final height = int.tryParse(
+                        _heightController.text.trim(),
+                      );
                       if (age != null && height != null) {
                         await calorieGoalProvider.db.userSettingsDao
                             .updateProfile(
-                          name: _nameController.text.trim(),
-                          age: age,
-                          heightCm: height,
-                          sex: _sex.name,
-                          activityLevel:
-                              ActivityLevel.values.indexOf(_activity),
-                          goalType: GoalType.values.indexOf(_goalType),
-                        );
+                              name: _nameController.text.trim(),
+                              age: age,
+                              heightCm: height,
+                              sex: _sex.name,
+                              activityLevel: ActivityLevel.values.indexOf(
+                                _activity,
+                              ),
+                              goalType: GoalType.values.indexOf(_goalType),
+                            );
                       }
                       await calorieGoalProvider.saveCalorieGoal(newGoal);
                       success = true;
@@ -532,7 +485,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       isDark ? Icons.dark_mode : Icons.light_mode,
                       color: colorScheme.onSurfaceVariant,
                     ),
-                    title: Text(isDark ? 'Dark Mode' : 'Light Mode'),
+                    title: Text(isDark ? l10n.darkMode : l10n.lightMode),
                     value: isDark,
                     onChanged: (_) => themeProvider.toggleTheme(),
                   ),
@@ -557,32 +510,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
       onPressed: _isSaving ? null : onPressed,
       style: ElevatedButton.styleFrom(
         padding: const EdgeInsets.symmetric(vertical: 14),
-        backgroundColor: secondary
-            ? colorScheme.onSurface.withValues(alpha: 0.07)
-            : null,
+        backgroundColor:
+            secondary ? colorScheme.onSurface.withValues(alpha: 0.07) : null,
         foregroundColor: secondary ? colorScheme.onSurface : null,
         elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8.0),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
       ),
-      child: _isSaving
-          ? const SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: Colors.white,
+      child:
+          _isSaving
+              ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
+              : Text(
+                label,
+                style: const TextStyle(
+                  fontFamily: 'Exo 2',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                ),
               ),
-            )
-          : Text(
-              label,
-              style: const TextStyle(
-                fontFamily: 'Exo 2',
-                fontWeight: FontWeight.w700,
-                fontSize: 14,
-              ),
-            ),
     );
   }
 }

@@ -1,4 +1,5 @@
 import 'package:ForgeForm/core/app_database.dart';
+import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../data/repositories/nutrition_repository.dart';
@@ -120,9 +121,10 @@ class _FoodSearchScreenState extends State<FoodSearchScreen>
       });
     } catch (e) {
       if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Search failed: $e')));
+        ).showSnackBar(SnackBar(content: Text(l10n.searchFailed(e))));
         setState(() => _isSearching = false);
       }
     }
@@ -142,6 +144,7 @@ class _FoodSearchScreenState extends State<FoodSearchScreen>
       final String name = _itemName(foodData);
 
       // Show loading indicator
+      final l10n = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
@@ -152,7 +155,7 @@ class _FoodSearchScreenState extends State<FoodSearchScreen>
                 child: CircularProgressIndicator(strokeWidth: 2),
               ),
               const SizedBox(width: 16),
-              Text('Adding $name to your foods...'),
+              Text(l10n.addingFoodToYours(name)),
             ],
           ),
           duration: const Duration(seconds: 1),
@@ -200,7 +203,7 @@ class _FoodSearchScreenState extends State<FoodSearchScreen>
       // Show success message
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('$name added to your foods'),
+          content: Text(l10n.foodAddedToYours(name)),
           backgroundColor: Colors.green,
           duration: const Duration(seconds: 2),
         ),
@@ -209,9 +212,10 @@ class _FoodSearchScreenState extends State<FoodSearchScreen>
       // Switch to My Foods tab
       _tabController.animateTo(0);
     } catch (e) {
+      final l10n = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error adding food: $e'),
+          content: Text(l10n.errorAddingFood(e)),
           backgroundColor: Colors.red,
         ),
       );
@@ -252,21 +256,22 @@ class _FoodSearchScreenState extends State<FoodSearchScreen>
   Widget build(BuildContext context) {
     final filteredItems = _getFilteredItems();
 
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Select Food'),
+        title: Text(l10n.selectFood),
         actions:
             widget.allowMultipleSelection && _selectedItems.isNotEmpty
                 ? [
                   TextButton(
                     onPressed: () => Navigator.pop(context, _selectedItems),
-                    child: Text('Done (${_selectedItems.length})'),
+                    child: Text(l10n.doneWithCount(_selectedItems.length)),
                   ),
                 ]
                 : null,
         bottom: TabBar(
           controller: _tabController,
-          tabs: const [Tab(text: 'My Foods'), Tab(text: 'Search Online')],
+          tabs: [Tab(text: l10n.myFoods), Tab(text: l10n.searchOnlineTab)],
         ),
       ),
       body: Column(
@@ -276,7 +281,7 @@ class _FoodSearchScreenState extends State<FoodSearchScreen>
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                labelText: 'Search Foods',
+                labelText: l10n.searchFoods,
                 prefixIcon: const Icon(Icons.search),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8.0),
@@ -325,7 +330,7 @@ class _FoodSearchScreenState extends State<FoodSearchScreen>
                 _isLoading
                     ? const Center(child: CircularProgressIndicator())
                     : filteredItems.isEmpty
-                    ? const Center(child: Text('No local foods found'))
+                    ? Center(child: Text(l10n.noLocalFoodsFound))
                     : ListView.builder(
                       itemCount: filteredItems.length,
                       itemBuilder: (context, index) {
@@ -360,27 +365,26 @@ class _FoodSearchScreenState extends State<FoodSearchScreen>
   }
 
   Widget _buildOnlineSearchTab() {
+    final l10n = AppLocalizations.of(context)!;
     if (_isSearching) {
       return const Center(child: CircularProgressIndicator());
     }
 
     if (_searchController.text.isEmpty) {
-      return const Center(
-        child: Text('Enter search terms to find foods online'),
-      );
+      return Center(child: Text(l10n.enterSearchTermsOnline));
     }
 
     if (_searchResults.isEmpty && _searchController.text.isNotEmpty) {
       return Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Text('No results found for this search'),
+          Text(l10n.noResultsFoundForSearch),
           const SizedBox(height: 8),
-          const Text('Try using more general terms or check spelling'),
+          Text(l10n.tryMoreGeneralTerms),
           const SizedBox(height: 16),
           ElevatedButton(
             onPressed: _performSearch,
-            child: const Text('Try Again'),
+            child: Text(l10n.tryAgain),
           ),
         ],
       );
@@ -427,7 +431,7 @@ class _FoodSearchScreenState extends State<FoodSearchScreen>
                 subtitle: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (brand.isNotEmpty) Text('Brand: $brand'),
+                    if (brand.isNotEmpty) Text(l10n.brandLabel(brand)),
                     Text(
                       '$calories cal • ${protein}g protein • ${carbs}g carbs • ${fat}g fat',
                     ),

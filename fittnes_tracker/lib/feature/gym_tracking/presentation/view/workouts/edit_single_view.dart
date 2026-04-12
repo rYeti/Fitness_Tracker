@@ -334,8 +334,9 @@ class _EditSingleWorkoutViewState extends State<EditSingleWorkoutView> {
             title: Text(l10n.editSet(set.setNumber)),
             content: TextField(
               controller: targetController,
-              decoration: const InputDecoration(
-                labelText: 'Target Reps (e.g. 8 - 12)',
+              decoration: InputDecoration(
+                labelText: l10n.targetReps,
+                hintText: l10n.targetRepsHintLong,
               ),
             ),
             actions: [
@@ -472,16 +473,16 @@ class _EditSingleWorkoutViewState extends State<EditSingleWorkoutView> {
               controller: _durationController,
               decoration: InputDecoration(
                 labelText: l10n.duration,
-                suffixText: 'minutes',
+                suffixText: l10n.minutesSuffix,
               ),
               keyboardType: TextInputType.number,
               validator: (value) {
                 if (value?.isEmpty ?? true) {
-                  return 'Please enter duration';
+                  return l10n.pleaseEnterDuration;
                 }
                 final duration = int.tryParse(value!);
                 if (duration == null || duration <= 0) {
-                  return 'Please enter a valid duration';
+                  return l10n.pleaseEnterValidDuration;
                 }
                 return null;
               },
@@ -524,7 +525,7 @@ class _EditSingleWorkoutViewState extends State<EditSingleWorkoutView> {
                                 color: Colors.grey,
                               ),
                               title: Text(
-                                exercise.exercise?.name ?? 'Unknown Exercise',
+                                exercise.exercise?.name ?? l10n.unknownExercise,
                               ),
                               subtitle: Text(
                                 '${exercise.sets.length} ${l10n.setsLabel}',
