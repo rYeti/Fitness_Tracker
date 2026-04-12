@@ -3247,6 +3247,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'minutes'**
   String get minutesSuffix;
+
+  /// No description provided for @selectMuscleGroup.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Muscle Group'**
+  String get selectMuscleGroup;
+
+  /// No description provided for @selectExercise.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Exercise'**
+  String get selectExercise;
 }
 
 class _AppLocalizationsDelegate

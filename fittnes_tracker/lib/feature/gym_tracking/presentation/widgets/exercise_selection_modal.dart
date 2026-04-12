@@ -1,3 +1,4 @@
+import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:ForgeForm/feature/workout_planning/data/models/exercise.dart';
 import 'package:ForgeForm/feature/gym_tracking/presentation/widgets/muscle_group_selector.dart';
@@ -48,6 +49,7 @@ class _ExerciseSelectionModalState extends State<ExerciseSelectionModal> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Column(
       children: [
         // Handle bar
@@ -77,8 +79,8 @@ class _ExerciseSelectionModalState extends State<ExerciseSelectionModal> {
               Expanded(
                 child: Text(
                   _selectedMuscleGroup == null
-                      ? 'Select Muscle Group'
-                      : 'Select Exercise',
+                      ? l10n.selectMuscleGroup
+                      : l10n.selectExercise,
                   style: Theme.of(
                     context,
                   ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),

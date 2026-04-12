@@ -1,1 +1,6 @@
-{}
+{
+  "de": [
+    "selectMuscleGroup",
+    "selectExercise"
+  ]
+}

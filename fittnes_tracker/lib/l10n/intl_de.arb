@@ -852,5 +852,7 @@
   "@deletePlanConfirmBody": { "placeholders": { "name": { "type": "String" } } },
   "pleaseEnterDuration": "Bitte Dauer eingeben",
   "pleaseEnterValidDuration": "Bitte eine gültige Dauer eingeben",
-  "minutesSuffix": "Minuten"
+  "minutesSuffix": "Minuten",
+  "selectMuscleGroup": "Muskelgruppe auswählen",
+  "selectExercise": "Übung auswählen"
 }
