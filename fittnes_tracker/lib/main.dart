@@ -50,11 +50,10 @@ void main() async {
   final hasToken = prefs.getString('token') != null;
   final showOnboarding = !(prefs.getBool('onboarding_complete') ?? false);
 
-  // Seed the server URL from SharedPreferences so authRepositoryProvider
-  // uses the last URL the user saved, rather than the compile-time default.
-  final savedUrl = prefs.getString(serverUrlPrefsKey) ?? serverUrlDefault;
+  // Always apply the compile-time default so a changed IP takes effect immediately.
+  await prefs.setString(serverUrlPrefsKey, serverUrlDefault);
   final container = ProviderContainer(
-    overrides: [serverUrlProvider.overrideWith((ref) => savedUrl)],
+    overrides: [serverUrlProvider.overrideWith((ref) => serverUrlDefault)],
   );
   await container.read(authProvider.notifier).restoreSession();
 

@@ -229,10 +229,15 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
       ),
       if (hasPortions)
         ...widget.portionOptions.map(
-          (p) => DropdownMenuItem<PortionOption?>(
-            value: p,
-            child: Text('${p.label} (${p.grams}g)', overflow: TextOverflow.ellipsis),
-          ),
+          (p) {
+            // Avoid "30g (30g)" — only append gram info when not already in label
+            final alreadyHasGrams = RegExp(r'\d+\s*g', caseSensitive: false).hasMatch(p.label);
+            final displayLabel = alreadyHasGrams ? p.label : '${p.label} (${p.grams}g)';
+            return DropdownMenuItem<PortionOption?>(
+              value: p,
+              child: Text(displayLabel, overflow: TextOverflow.ellipsis),
+            );
+          },
         ),
     ];
 
@@ -288,7 +293,19 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
                     ),
                     items: unitItems,
                     onChanged: (unit) {
-                      setState(() => _selectedUnit = unit);
+                      final currentGrams = _actualGrams;
+                      setState(() {
+                        _selectedUnit = unit;
+                        if (unit == null) {
+                          // Switching to gram mode — pre-fill with current actual grams
+                          _portionInput = currentGrams.roundToDouble();
+                          _quantityController.text = currentGrams.round().toString();
+                        } else {
+                          // Switching to portion mode — reset to 1 serving
+                          _portionInput = 1.0;
+                          _quantityController.text = '1';
+                        }
+                      });
                       _calculateNutrition();
                     },
                   ),

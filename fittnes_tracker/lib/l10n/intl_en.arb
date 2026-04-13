@@ -493,6 +493,8 @@
   "nextSet": "Next Set",
   "currentSetLabel": "Current Set",
   "restTimer": "Rest Timer",
+  "restTimerSetting": "Rest Timer",
+  "restTimerSettingSubtitle": "Auto-start after completing a set",
   "lastTime": "Last Time",
   "actual": "Actual",
   "tapButtonToAddExercises": "Tap + to add exercises",

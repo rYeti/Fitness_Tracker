@@ -552,23 +552,29 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
     final servingUnit = productData['serving_quantity_unit']?.toString().toLowerCase();
     final servingSize = productData['serving_size']?.toString().trim();
 
-    // If unit is not grams, skip the numeric quantity and rely on string parsing
+    // If unit is grams, use the numeric quantity directly.
+    // Ignore values <= 1 with no unit — these usually mean "1 piece" with the
+    // gram weight only present in the serving_size string.
     int? servingGrams;
-    if (servingUnit == null || servingUnit == 'g') {
-      servingGrams = (servingQtyNum != null && servingQtyNum > 0)
-          ? servingQtyNum.round()
-          : null;
+    if (servingUnit == 'g' && servingQtyNum != null && servingQtyNum > 0) {
+      servingGrams = servingQtyNum.round();
+    } else if (servingUnit == null && servingQtyNum != null && servingQtyNum > 1) {
+      // No explicit unit but a plausible gram weight (>1g)
+      servingGrams = servingQtyNum.round();
     }
 
-    // Parse grams from serving_size string (e.g. "30g", "1 portion (30 g)", "30G")
+    // Parse grams from serving_size string as fallback
+    // Handles: "30g", "1 portion (30 g)", "1 Keks (9,2 g)", "30G"
+    // Also handles European decimal comma: "9,2 g" → 9g
     if (servingGrams == null && servingSize != null && servingSize.isNotEmpty) {
       for (final pattern in [
-        RegExp(r'\((\d+(?:\.\d+)?)\s*g\)', caseSensitive: false),
-        RegExp(r'(\d+(?:\.\d+)?)\s*g\b', caseSensitive: false),
+        RegExp(r'\((\d+(?:[.,]\d+)?)\s*g\)', caseSensitive: false),
+        RegExp(r'(\d+(?:[.,]\d+)?)\s*g\b', caseSensitive: false),
       ]) {
         final match = pattern.firstMatch(servingSize);
         if (match != null) {
-          final parsed = double.tryParse(match.group(1)!)?.round();
+          final normalized = match.group(1)!.replaceAll(',', '.');
+          final parsed = double.tryParse(normalized)?.round();
           if (parsed != null && parsed > 0) {
             servingGrams = parsed;
             break;
@@ -577,14 +583,24 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
       }
     }
 
-    // Only show dropdown when there's a serving size distinct from 100g
-    if (servingGrams == null || servingGrams <= 0 || servingGrams == 100) {
+    if (servingGrams == null || servingGrams <= 0) {
       return const [];
     }
 
-    final label = (servingSize != null && servingSize.isNotEmpty)
-        ? servingSize
-        : '1 serving';
+    // Build a clean label.
+    // If the serving_size string is ONLY a gram amount (e.g. "100g", "30 g"),
+    // use "1 serving" so the dropdown reads naturally.
+    // Descriptive strings ("1 slice", "1 Keks (9,2 g)") are kept as-is.
+    String label;
+    if (servingSize != null && servingSize.isNotEmpty) {
+      final isOnlyGrams = RegExp(
+        r'^\d+(?:[.,]\d+)?\s*g$',
+        caseSensitive: false,
+      ).hasMatch(servingSize.trim());
+      label = isOnlyGrams ? '1 serving' : servingSize;
+    } else {
+      label = '1 serving';
+    }
 
     // "Per 100g" is no longer needed — the detail screen always shows a "g" option.
     return [PortionOption(label, servingGrams)];

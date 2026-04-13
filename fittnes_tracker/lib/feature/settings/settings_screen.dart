@@ -7,6 +7,7 @@ import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 extension SexLocalizations on Sex {
   String localized(BuildContext ctx) {
@@ -67,6 +68,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final TextEditingController _calorieGoalController = TextEditingController();
   bool _initialized = false;
   bool _isSaving = false;
+  bool _restTimerEnabled = true;
   final TextEditingController _ageController = TextEditingController();
   final TextEditingController _heightController = TextEditingController();
   Sex _sex = Sex.male;
@@ -86,6 +88,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadProfileFromDb());
+    _loadRestTimerPreference();
+  }
+
+  Future<void> _loadRestTimerPreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _restTimerEnabled = prefs.getBool('rest_timer_enabled') ?? true;
+      });
+    }
+  }
+
+  Future<void> _saveRestTimerPreference(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('rest_timer_enabled', value);
   }
 
   Future<void> _loadProfileFromDb() async {
@@ -480,14 +497,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     borderRadius: BorderRadius.circular(12),
                     side: BorderSide(color: colorScheme.outlineVariant),
                   ),
-                  child: SwitchListTile(
-                    secondary: Icon(
-                      isDark ? Icons.dark_mode : Icons.light_mode,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                    title: Text(isDark ? l10n.darkMode : l10n.lightMode),
-                    value: isDark,
-                    onChanged: (_) => themeProvider.toggleTheme(),
+                  child: Column(
+                    children: [
+                      SwitchListTile(
+                        secondary: Icon(
+                          isDark ? Icons.dark_mode : Icons.light_mode,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                        title: Text(isDark ? l10n.darkMode : l10n.lightMode),
+                        value: isDark,
+                        onChanged: (_) => themeProvider.toggleTheme(),
+                      ),
+                      Divider(height: 1, indent: 16, endIndent: 16),
+                      SwitchListTile(
+                        secondary: Icon(
+                          Icons.timer_outlined,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                        title: Text(l10n.restTimerSetting),
+                        subtitle: Text(l10n.restTimerSettingSubtitle),
+                        value: _restTimerEnabled,
+                        onChanged: (value) {
+                          setState(() => _restTimerEnabled = value);
+                          _saveRestTimerPreference(value);
+                        },
+                      ),
+                    ],
                   ),
                 ),
 
