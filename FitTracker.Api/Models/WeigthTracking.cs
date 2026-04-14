@@ -19,6 +19,8 @@ public class WeightTracking
     /// </summary>
     public decimal Weight { get; set; }
 
+    public string? Note { get; set; } = null;
+
     // Navigation property to the User
     public User User { get; set; } = null!;
 }

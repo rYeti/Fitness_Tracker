@@ -23,4 +23,5 @@ public interface IWeightTrackingRepository
     /// <param name="weightTracking"></param>
     Task<WeightTracking?> CreateWeightTrackingAsync(WeightTracking weightTracking);
 
+
 }

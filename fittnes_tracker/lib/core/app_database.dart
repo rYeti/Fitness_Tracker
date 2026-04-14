@@ -60,7 +60,7 @@ class AppDatabase extends _$AppDatabase {
   // Workout planning DAOs will be added here after code generation
 
   @override
-  int get schemaVersion => 25;
+  int get schemaVersion => 26;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -131,6 +131,18 @@ class AppDatabase extends _$AppDatabase {
         try {
           await customStatement(
             'ALTER TABLE exercise_table ADD COLUMN is_custom INTEGER NOT NULL DEFAULT 0',
+          );
+        } catch (_) {}
+      }
+      if (from < 26) {
+        try {
+          await customStatement(
+            'ALTER TABLE exercise_table ADD COLUMN name_de TEXT',
+          );
+        } catch (_) {}
+        try {
+          await customStatement(
+            'ALTER TABLE exercise_table ADD COLUMN description_de TEXT',
           );
         } catch (_) {}
       }
@@ -1053,6 +1065,8 @@ class ExerciseTable extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get name => text()();
   TextColumn get description => text().nullable()();
+  TextColumn get nameDe => text().nullable()();
+  TextColumn get descriptionDe => text().nullable()();
   IntColumn get type => integer()(); // Maps to ExerciseType enum index
   TextColumn get targetMuscleGroups => text()();
   TextColumn get imageUrl => text().nullable()();
@@ -1338,6 +1352,8 @@ class ExerciseDao extends DatabaseAccessor<AppDatabase>
       id: data.id,
       name: data.name,
       description: data.description,
+      nameDe: data.nameDe,
+      descriptionDe: data.descriptionDe,
       type: ExerciseType.values[data.type],
       targetMuscleGroups: muscleGroups,
       imageUrl: data.imageUrl,
@@ -1355,12 +1371,24 @@ class ExerciseDao extends DatabaseAccessor<AppDatabase>
       id: model.id == null ? const Value.absent() : Value(model.id!),
       name: Value(model.name),
       description: Value(model.description),
+      nameDe: Value(model.nameDe),
+      descriptionDe: Value(model.descriptionDe),
       type: Value(model.type.index),
       targetMuscleGroups: Value(muscleGroupString),
       imageUrl: Value(model.imageUrl),
       isCustom: Value(model.isCustom),
     );
   }
+}
+
+/// Returns the exercise name/description in the given locale language,
+/// falling back to English when no translation is available.
+extension ExerciseTableDataLocalization on ExerciseTableData {
+  String localizedName(String languageCode) =>
+      languageCode == 'de' && nameDe != null ? nameDe! : name;
+
+  String? localizedDescription(String languageCode) =>
+      languageCode == 'de' && descriptionDe != null ? descriptionDe : description;
 }
 
 class FitNotesImportResult {

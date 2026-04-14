@@ -915,15 +915,15 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          exercise.exercise.name,
+                          exercise.exercise.localizedName(Localizations.localeOf(context).languageCode),
                           style: theme.textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        if (exercise.exercise.description != null) ...[
+                        if (exercise.exercise.localizedDescription(Localizations.localeOf(context).languageCode) != null) ...[
                           const SizedBox(height: 4),
                           Text(
-                            exercise.exercise.description!,
+                            exercise.exercise.localizedDescription(Localizations.localeOf(context).languageCode)!,
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: Colors.grey,
                             ),
@@ -1708,7 +1708,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                                   ],
                                 ),
                                 title: Text(
-                                  exercise.exercise.name,
+                                  exercise.exercise.localizedName(Localizations.localeOf(context).languageCode),
                                   style: TextStyle(
                                     fontWeight:
                                         isCurrent
@@ -1798,7 +1798,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                                     context: sheetContext,
                                     builder:
                                         (ctx) => SimpleDialog(
-                                          title: Text(exercise.exercise.name),
+                                          title: Text(exercise.exercise.localizedName(Localizations.localeOf(ctx).languageCode)),
                                           children: [
                                             if (isInSuperset)
                                               SimpleDialogOption(
@@ -2110,7 +2110,7 @@ class WorkoutSummaryDialog extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                exercise.exercise.name,
+                                exercise.exercise.localizedName(Localizations.localeOf(context).languageCode),
                                 style: theme.textTheme.titleMedium?.copyWith(
                                   fontWeight: FontWeight.bold,
                                 ),

@@ -2327,6 +2327,26 @@ class $ExerciseTableTable extends ExerciseTable
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _nameDeMeta = const VerificationMeta('nameDe');
+  @override
+  late final GeneratedColumn<String> nameDe = GeneratedColumn<String>(
+    'name_de',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _descriptionDeMeta = const VerificationMeta(
+    'descriptionDe',
+  );
+  @override
+  late final GeneratedColumn<String> descriptionDe = GeneratedColumn<String>(
+    'description_de',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _typeMeta = const VerificationMeta('type');
   @override
   late final GeneratedColumn<int> type = GeneratedColumn<int>(
@@ -2378,6 +2398,8 @@ class $ExerciseTableTable extends ExerciseTable
     id,
     name,
     description,
+    nameDe,
+    descriptionDe,
     type,
     targetMuscleGroups,
     imageUrl,
@@ -2412,6 +2434,21 @@ class $ExerciseTableTable extends ExerciseTable
         description.isAcceptableOrUnknown(
           data['description']!,
           _descriptionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('name_de')) {
+      context.handle(
+        _nameDeMeta,
+        nameDe.isAcceptableOrUnknown(data['name_de']!, _nameDeMeta),
+      );
+    }
+    if (data.containsKey('description_de')) {
+      context.handle(
+        _descriptionDeMeta,
+        descriptionDe.isAcceptableOrUnknown(
+          data['description_de']!,
+          _descriptionDeMeta,
         ),
       );
     }
@@ -2469,6 +2506,14 @@ class $ExerciseTableTable extends ExerciseTable
         DriftSqlType.string,
         data['${effectivePrefix}description'],
       ),
+      nameDe: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name_de'],
+      ),
+      descriptionDe: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}description_de'],
+      ),
       type:
           attachedDatabase.typeMapping.read(
             DriftSqlType.int,
@@ -2502,6 +2547,8 @@ class ExerciseTableData extends DataClass
   final int id;
   final String name;
   final String? description;
+  final String? nameDe;
+  final String? descriptionDe;
   final int type;
   final String targetMuscleGroups;
   final String? imageUrl;
@@ -2510,6 +2557,8 @@ class ExerciseTableData extends DataClass
     required this.id,
     required this.name,
     this.description,
+    this.nameDe,
+    this.descriptionDe,
     required this.type,
     required this.targetMuscleGroups,
     this.imageUrl,
@@ -2522,6 +2571,12 @@ class ExerciseTableData extends DataClass
     map['name'] = Variable<String>(name);
     if (!nullToAbsent || description != null) {
       map['description'] = Variable<String>(description);
+    }
+    if (!nullToAbsent || nameDe != null) {
+      map['name_de'] = Variable<String>(nameDe);
+    }
+    if (!nullToAbsent || descriptionDe != null) {
+      map['description_de'] = Variable<String>(descriptionDe);
     }
     map['type'] = Variable<int>(type);
     map['target_muscle_groups'] = Variable<String>(targetMuscleGroups);
@@ -2540,6 +2595,12 @@ class ExerciseTableData extends DataClass
           description == null && nullToAbsent
               ? const Value.absent()
               : Value(description),
+      nameDe:
+          nameDe == null && nullToAbsent ? const Value.absent() : Value(nameDe),
+      descriptionDe:
+          descriptionDe == null && nullToAbsent
+              ? const Value.absent()
+              : Value(descriptionDe),
       type: Value(type),
       targetMuscleGroups: Value(targetMuscleGroups),
       imageUrl:
@@ -2559,6 +2620,8 @@ class ExerciseTableData extends DataClass
       id: serializer.fromJson<int>(json['id']),
       name: serializer.fromJson<String>(json['name']),
       description: serializer.fromJson<String?>(json['description']),
+      nameDe: serializer.fromJson<String?>(json['nameDe']),
+      descriptionDe: serializer.fromJson<String?>(json['descriptionDe']),
       type: serializer.fromJson<int>(json['type']),
       targetMuscleGroups: serializer.fromJson<String>(
         json['targetMuscleGroups'],
@@ -2574,6 +2637,8 @@ class ExerciseTableData extends DataClass
       'id': serializer.toJson<int>(id),
       'name': serializer.toJson<String>(name),
       'description': serializer.toJson<String?>(description),
+      'nameDe': serializer.toJson<String?>(nameDe),
+      'descriptionDe': serializer.toJson<String?>(descriptionDe),
       'type': serializer.toJson<int>(type),
       'targetMuscleGroups': serializer.toJson<String>(targetMuscleGroups),
       'imageUrl': serializer.toJson<String?>(imageUrl),
@@ -2585,6 +2650,8 @@ class ExerciseTableData extends DataClass
     int? id,
     String? name,
     Value<String?> description = const Value.absent(),
+    Value<String?> nameDe = const Value.absent(),
+    Value<String?> descriptionDe = const Value.absent(),
     int? type,
     String? targetMuscleGroups,
     Value<String?> imageUrl = const Value.absent(),
@@ -2593,6 +2660,9 @@ class ExerciseTableData extends DataClass
     id: id ?? this.id,
     name: name ?? this.name,
     description: description.present ? description.value : this.description,
+    nameDe: nameDe.present ? nameDe.value : this.nameDe,
+    descriptionDe:
+        descriptionDe.present ? descriptionDe.value : this.descriptionDe,
     type: type ?? this.type,
     targetMuscleGroups: targetMuscleGroups ?? this.targetMuscleGroups,
     imageUrl: imageUrl.present ? imageUrl.value : this.imageUrl,
@@ -2604,6 +2674,11 @@ class ExerciseTableData extends DataClass
       name: data.name.present ? data.name.value : this.name,
       description:
           data.description.present ? data.description.value : this.description,
+      nameDe: data.nameDe.present ? data.nameDe.value : this.nameDe,
+      descriptionDe:
+          data.descriptionDe.present
+              ? data.descriptionDe.value
+              : this.descriptionDe,
       type: data.type.present ? data.type.value : this.type,
       targetMuscleGroups:
           data.targetMuscleGroups.present
@@ -2620,6 +2695,8 @@ class ExerciseTableData extends DataClass
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('description: $description, ')
+          ..write('nameDe: $nameDe, ')
+          ..write('descriptionDe: $descriptionDe, ')
           ..write('type: $type, ')
           ..write('targetMuscleGroups: $targetMuscleGroups, ')
           ..write('imageUrl: $imageUrl, ')
@@ -2633,6 +2710,8 @@ class ExerciseTableData extends DataClass
     id,
     name,
     description,
+    nameDe,
+    descriptionDe,
     type,
     targetMuscleGroups,
     imageUrl,
@@ -2645,6 +2724,8 @@ class ExerciseTableData extends DataClass
           other.id == this.id &&
           other.name == this.name &&
           other.description == this.description &&
+          other.nameDe == this.nameDe &&
+          other.descriptionDe == this.descriptionDe &&
           other.type == this.type &&
           other.targetMuscleGroups == this.targetMuscleGroups &&
           other.imageUrl == this.imageUrl &&
@@ -2655,6 +2736,8 @@ class ExerciseTableCompanion extends UpdateCompanion<ExerciseTableData> {
   final Value<int> id;
   final Value<String> name;
   final Value<String?> description;
+  final Value<String?> nameDe;
+  final Value<String?> descriptionDe;
   final Value<int> type;
   final Value<String> targetMuscleGroups;
   final Value<String?> imageUrl;
@@ -2663,6 +2746,8 @@ class ExerciseTableCompanion extends UpdateCompanion<ExerciseTableData> {
     this.id = const Value.absent(),
     this.name = const Value.absent(),
     this.description = const Value.absent(),
+    this.nameDe = const Value.absent(),
+    this.descriptionDe = const Value.absent(),
     this.type = const Value.absent(),
     this.targetMuscleGroups = const Value.absent(),
     this.imageUrl = const Value.absent(),
@@ -2672,6 +2757,8 @@ class ExerciseTableCompanion extends UpdateCompanion<ExerciseTableData> {
     this.id = const Value.absent(),
     required String name,
     this.description = const Value.absent(),
+    this.nameDe = const Value.absent(),
+    this.descriptionDe = const Value.absent(),
     required int type,
     required String targetMuscleGroups,
     this.imageUrl = const Value.absent(),
@@ -2683,6 +2770,8 @@ class ExerciseTableCompanion extends UpdateCompanion<ExerciseTableData> {
     Expression<int>? id,
     Expression<String>? name,
     Expression<String>? description,
+    Expression<String>? nameDe,
+    Expression<String>? descriptionDe,
     Expression<int>? type,
     Expression<String>? targetMuscleGroups,
     Expression<String>? imageUrl,
@@ -2692,6 +2781,8 @@ class ExerciseTableCompanion extends UpdateCompanion<ExerciseTableData> {
       if (id != null) 'id': id,
       if (name != null) 'name': name,
       if (description != null) 'description': description,
+      if (nameDe != null) 'name_de': nameDe,
+      if (descriptionDe != null) 'description_de': descriptionDe,
       if (type != null) 'type': type,
       if (targetMuscleGroups != null)
         'target_muscle_groups': targetMuscleGroups,
@@ -2704,6 +2795,8 @@ class ExerciseTableCompanion extends UpdateCompanion<ExerciseTableData> {
     Value<int>? id,
     Value<String>? name,
     Value<String?>? description,
+    Value<String?>? nameDe,
+    Value<String?>? descriptionDe,
     Value<int>? type,
     Value<String>? targetMuscleGroups,
     Value<String?>? imageUrl,
@@ -2713,6 +2806,8 @@ class ExerciseTableCompanion extends UpdateCompanion<ExerciseTableData> {
       id: id ?? this.id,
       name: name ?? this.name,
       description: description ?? this.description,
+      nameDe: nameDe ?? this.nameDe,
+      descriptionDe: descriptionDe ?? this.descriptionDe,
       type: type ?? this.type,
       targetMuscleGroups: targetMuscleGroups ?? this.targetMuscleGroups,
       imageUrl: imageUrl ?? this.imageUrl,
@@ -2731,6 +2826,12 @@ class ExerciseTableCompanion extends UpdateCompanion<ExerciseTableData> {
     }
     if (description.present) {
       map['description'] = Variable<String>(description.value);
+    }
+    if (nameDe.present) {
+      map['name_de'] = Variable<String>(nameDe.value);
+    }
+    if (descriptionDe.present) {
+      map['description_de'] = Variable<String>(descriptionDe.value);
     }
     if (type.present) {
       map['type'] = Variable<int>(type.value);
@@ -2753,6 +2854,8 @@ class ExerciseTableCompanion extends UpdateCompanion<ExerciseTableData> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('description: $description, ')
+          ..write('nameDe: $nameDe, ')
+          ..write('descriptionDe: $descriptionDe, ')
           ..write('type: $type, ')
           ..write('targetMuscleGroups: $targetMuscleGroups, ')
           ..write('imageUrl: $imageUrl, ')
@@ -8475,6 +8578,8 @@ typedef $$ExerciseTableTableCreateCompanionBuilder =
       Value<int> id,
       required String name,
       Value<String?> description,
+      Value<String?> nameDe,
+      Value<String?> descriptionDe,
       required int type,
       required String targetMuscleGroups,
       Value<String?> imageUrl,
@@ -8485,6 +8590,8 @@ typedef $$ExerciseTableTableUpdateCompanionBuilder =
       Value<int> id,
       Value<String> name,
       Value<String?> description,
+      Value<String?> nameDe,
+      Value<String?> descriptionDe,
       Value<int> type,
       Value<String> targetMuscleGroups,
       Value<String?> imageUrl,
@@ -8550,6 +8657,16 @@ class $$ExerciseTableTableFilterComposer
 
   ColumnFilters<String> get description => $composableBuilder(
     column: $table.description,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get nameDe => $composableBuilder(
+    column: $table.nameDe,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get descriptionDe => $composableBuilder(
+    column: $table.descriptionDe,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -8623,6 +8740,16 @@ class $$ExerciseTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get nameDe => $composableBuilder(
+    column: $table.nameDe,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get descriptionDe => $composableBuilder(
+    column: $table.descriptionDe,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get type => $composableBuilder(
     column: $table.type,
     builder: (column) => ColumnOrderings(column),
@@ -8661,6 +8788,14 @@ class $$ExerciseTableTableAnnotationComposer
 
   GeneratedColumn<String> get description => $composableBuilder(
     column: $table.description,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get nameDe =>
+      $composableBuilder(column: $table.nameDe, builder: (column) => column);
+
+  GeneratedColumn<String> get descriptionDe => $composableBuilder(
+    column: $table.descriptionDe,
     builder: (column) => column,
   );
 
@@ -8740,6 +8875,8 @@ class $$ExerciseTableTableTableManager
                 Value<int> id = const Value.absent(),
                 Value<String> name = const Value.absent(),
                 Value<String?> description = const Value.absent(),
+                Value<String?> nameDe = const Value.absent(),
+                Value<String?> descriptionDe = const Value.absent(),
                 Value<int> type = const Value.absent(),
                 Value<String> targetMuscleGroups = const Value.absent(),
                 Value<String?> imageUrl = const Value.absent(),
@@ -8748,6 +8885,8 @@ class $$ExerciseTableTableTableManager
                 id: id,
                 name: name,
                 description: description,
+                nameDe: nameDe,
+                descriptionDe: descriptionDe,
                 type: type,
                 targetMuscleGroups: targetMuscleGroups,
                 imageUrl: imageUrl,
@@ -8758,6 +8897,8 @@ class $$ExerciseTableTableTableManager
                 Value<int> id = const Value.absent(),
                 required String name,
                 Value<String?> description = const Value.absent(),
+                Value<String?> nameDe = const Value.absent(),
+                Value<String?> descriptionDe = const Value.absent(),
                 required int type,
                 required String targetMuscleGroups,
                 Value<String?> imageUrl = const Value.absent(),
@@ -8766,6 +8907,8 @@ class $$ExerciseTableTableTableManager
                 id: id,
                 name: name,
                 description: description,
+                nameDe: nameDe,
+                descriptionDe: descriptionDe,
                 type: type,
                 targetMuscleGroups: targetMuscleGroups,
                 imageUrl: imageUrl,

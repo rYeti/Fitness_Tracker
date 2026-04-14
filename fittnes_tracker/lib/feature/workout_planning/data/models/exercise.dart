@@ -23,21 +23,32 @@ class Exercise {
   final int? id;
   final String name;
   final String? description;
+  final String? nameDe;
+  final String? descriptionDe;
   final ExerciseType type;
   final List<MuscleGroup> targetMuscleGroups;
   final String? imageUrl;
-  final bool
-  isCustom; // Whether this is a custom user exercise or a predefined one
+  final bool isCustom; // Whether this is a custom user exercise or a predefined one
 
   Exercise({
     this.id,
     required this.name,
     this.description,
+    this.nameDe,
+    this.descriptionDe,
     required this.type,
     required this.targetMuscleGroups,
     this.imageUrl,
     this.isCustom = false,
   });
+
+  /// Returns the exercise name in the given language, falling back to English.
+  String localizedName(String languageCode) =>
+      languageCode == 'de' && nameDe != null ? nameDe! : name;
+
+  /// Returns the exercise description in the given language, falling back to English.
+  String? localizedDescription(String languageCode) =>
+      languageCode == 'de' && descriptionDe != null ? descriptionDe : description;
 
   // Convert to Map for database operations
   Map<String, dynamic> toMap() {
@@ -80,6 +91,8 @@ class Exercise {
     int? id,
     String? name,
     String? description,
+    String? nameDe,
+    String? descriptionDe,
     ExerciseType? type,
     List<MuscleGroup>? targetMuscleGroups,
     String? imageUrl,
@@ -89,6 +102,8 @@ class Exercise {
       id: id ?? this.id,
       name: name ?? this.name,
       description: description ?? this.description,
+      nameDe: nameDe ?? this.nameDe,
+      descriptionDe: descriptionDe ?? this.descriptionDe,
       type: type ?? this.type,
       targetMuscleGroups: targetMuscleGroups ?? this.targetMuscleGroups,
       imageUrl: imageUrl ?? this.imageUrl,

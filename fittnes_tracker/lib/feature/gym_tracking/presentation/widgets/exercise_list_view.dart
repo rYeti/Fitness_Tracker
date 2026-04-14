@@ -210,6 +210,7 @@ class _ExerciseListItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
+    final languageCode = Localizations.localeOf(context).languageCode;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 4),
@@ -226,7 +227,7 @@ class _ExerciseListItem extends StatelessWidget {
         ),
         title: Row(
           children: [
-            Expanded(child: Text(exercise.name)),
+            Expanded(child: Text(exercise.localizedName(languageCode))),
             if (exercise.isCustom) ...[
               const SizedBox(width: 6),
               Container(
@@ -245,9 +246,10 @@ class _ExerciseListItem extends StatelessWidget {
             ],
           ],
         ),
-        subtitle: exercise.description != null && exercise.description!.isNotEmpty
+        subtitle: exercise.localizedDescription(languageCode) != null &&
+                exercise.localizedDescription(languageCode)!.isNotEmpty
             ? Text(
-                exercise.description!,
+                exercise.localizedDescription(languageCode)!,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               )
