@@ -2037,8 +2037,38 @@ class $WeightRecordTable extends WeightRecord
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _syncStatusMeta = const VerificationMeta(
+    'syncStatus',
+  );
   @override
-  List<GeneratedColumn> get $columns => [id, date, weight, note];
+  late final GeneratedColumn<int> syncStatus = GeneratedColumn<int>(
+    'sync_status',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _serverIdMeta = const VerificationMeta(
+    'serverId',
+  );
+  @override
+  late final GeneratedColumn<String> serverId = GeneratedColumn<String>(
+    'server_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    date,
+    weight,
+    note,
+    syncStatus,
+    serverId,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -2076,6 +2106,18 @@ class $WeightRecordTable extends WeightRecord
         note.isAcceptableOrUnknown(data['note']!, _noteMeta),
       );
     }
+    if (data.containsKey('sync_status')) {
+      context.handle(
+        _syncStatusMeta,
+        syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
+      );
+    }
+    if (data.containsKey('server_id')) {
+      context.handle(
+        _serverIdMeta,
+        serverId.isAcceptableOrUnknown(data['server_id']!, _serverIdMeta),
+      );
+    }
     return context;
   }
 
@@ -2104,6 +2146,15 @@ class $WeightRecordTable extends WeightRecord
         DriftSqlType.string,
         data['${effectivePrefix}note'],
       ),
+      syncStatus:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.int,
+            data['${effectivePrefix}sync_status'],
+          )!,
+      serverId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}server_id'],
+      ),
     );
   }
 
@@ -2119,11 +2170,20 @@ class WeightRecordData extends DataClass
   final DateTime date;
   final double weight;
   final String? note;
+
+  /// Maps to [WeightSyncStatus] by index. Defaults to [WeightSyncStatus.pending].
+  final int syncStatus;
+
+  /// The UUID assigned by the remote API after the first successful sync.
+  /// Null until the record has been synced at least once.
+  final String? serverId;
   const WeightRecordData({
     required this.id,
     required this.date,
     required this.weight,
     this.note,
+    required this.syncStatus,
+    this.serverId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2134,6 +2194,10 @@ class WeightRecordData extends DataClass
     if (!nullToAbsent || note != null) {
       map['note'] = Variable<String>(note);
     }
+    map['sync_status'] = Variable<int>(syncStatus);
+    if (!nullToAbsent || serverId != null) {
+      map['server_id'] = Variable<String>(serverId);
+    }
     return map;
   }
 
@@ -2143,6 +2207,11 @@ class WeightRecordData extends DataClass
       date: Value(date),
       weight: Value(weight),
       note: note == null && nullToAbsent ? const Value.absent() : Value(note),
+      syncStatus: Value(syncStatus),
+      serverId:
+          serverId == null && nullToAbsent
+              ? const Value.absent()
+              : Value(serverId),
     );
   }
 
@@ -2156,6 +2225,8 @@ class WeightRecordData extends DataClass
       date: serializer.fromJson<DateTime>(json['date']),
       weight: serializer.fromJson<double>(json['weight']),
       note: serializer.fromJson<String?>(json['note']),
+      syncStatus: serializer.fromJson<int>(json['syncStatus']),
+      serverId: serializer.fromJson<String?>(json['serverId']),
     );
   }
   @override
@@ -2166,6 +2237,8 @@ class WeightRecordData extends DataClass
       'date': serializer.toJson<DateTime>(date),
       'weight': serializer.toJson<double>(weight),
       'note': serializer.toJson<String?>(note),
+      'syncStatus': serializer.toJson<int>(syncStatus),
+      'serverId': serializer.toJson<String?>(serverId),
     };
   }
 
@@ -2174,11 +2247,15 @@ class WeightRecordData extends DataClass
     DateTime? date,
     double? weight,
     Value<String?> note = const Value.absent(),
+    int? syncStatus,
+    Value<String?> serverId = const Value.absent(),
   }) => WeightRecordData(
     id: id ?? this.id,
     date: date ?? this.date,
     weight: weight ?? this.weight,
     note: note.present ? note.value : this.note,
+    syncStatus: syncStatus ?? this.syncStatus,
+    serverId: serverId.present ? serverId.value : this.serverId,
   );
   WeightRecordData copyWithCompanion(WeightRecordCompanion data) {
     return WeightRecordData(
@@ -2186,6 +2263,9 @@ class WeightRecordData extends DataClass
       date: data.date.present ? data.date.value : this.date,
       weight: data.weight.present ? data.weight.value : this.weight,
       note: data.note.present ? data.note.value : this.note,
+      syncStatus:
+          data.syncStatus.present ? data.syncStatus.value : this.syncStatus,
+      serverId: data.serverId.present ? data.serverId.value : this.serverId,
     );
   }
 
@@ -2195,13 +2275,15 @@ class WeightRecordData extends DataClass
           ..write('id: $id, ')
           ..write('date: $date, ')
           ..write('weight: $weight, ')
-          ..write('note: $note')
+          ..write('note: $note, ')
+          ..write('syncStatus: $syncStatus, ')
+          ..write('serverId: $serverId')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, date, weight, note);
+  int get hashCode => Object.hash(id, date, weight, note, syncStatus, serverId);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2209,7 +2291,9 @@ class WeightRecordData extends DataClass
           other.id == this.id &&
           other.date == this.date &&
           other.weight == this.weight &&
-          other.note == this.note);
+          other.note == this.note &&
+          other.syncStatus == this.syncStatus &&
+          other.serverId == this.serverId);
 }
 
 class WeightRecordCompanion extends UpdateCompanion<WeightRecordData> {
@@ -2217,17 +2301,23 @@ class WeightRecordCompanion extends UpdateCompanion<WeightRecordData> {
   final Value<DateTime> date;
   final Value<double> weight;
   final Value<String?> note;
+  final Value<int> syncStatus;
+  final Value<String?> serverId;
   const WeightRecordCompanion({
     this.id = const Value.absent(),
     this.date = const Value.absent(),
     this.weight = const Value.absent(),
     this.note = const Value.absent(),
+    this.syncStatus = const Value.absent(),
+    this.serverId = const Value.absent(),
   });
   WeightRecordCompanion.insert({
     this.id = const Value.absent(),
     required DateTime date,
     required double weight,
     this.note = const Value.absent(),
+    this.syncStatus = const Value.absent(),
+    this.serverId = const Value.absent(),
   }) : date = Value(date),
        weight = Value(weight);
   static Insertable<WeightRecordData> custom({
@@ -2235,12 +2325,16 @@ class WeightRecordCompanion extends UpdateCompanion<WeightRecordData> {
     Expression<DateTime>? date,
     Expression<double>? weight,
     Expression<String>? note,
+    Expression<int>? syncStatus,
+    Expression<String>? serverId,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (date != null) 'date': date,
       if (weight != null) 'weight': weight,
       if (note != null) 'note': note,
+      if (syncStatus != null) 'sync_status': syncStatus,
+      if (serverId != null) 'server_id': serverId,
     });
   }
 
@@ -2249,12 +2343,16 @@ class WeightRecordCompanion extends UpdateCompanion<WeightRecordData> {
     Value<DateTime>? date,
     Value<double>? weight,
     Value<String?>? note,
+    Value<int>? syncStatus,
+    Value<String?>? serverId,
   }) {
     return WeightRecordCompanion(
       id: id ?? this.id,
       date: date ?? this.date,
       weight: weight ?? this.weight,
       note: note ?? this.note,
+      syncStatus: syncStatus ?? this.syncStatus,
+      serverId: serverId ?? this.serverId,
     );
   }
 
@@ -2273,6 +2371,12 @@ class WeightRecordCompanion extends UpdateCompanion<WeightRecordData> {
     if (note.present) {
       map['note'] = Variable<String>(note.value);
     }
+    if (syncStatus.present) {
+      map['sync_status'] = Variable<int>(syncStatus.value);
+    }
+    if (serverId.present) {
+      map['server_id'] = Variable<String>(serverId.value);
+    }
     return map;
   }
 
@@ -2282,7 +2386,9 @@ class WeightRecordCompanion extends UpdateCompanion<WeightRecordData> {
           ..write('id: $id, ')
           ..write('date: $date, ')
           ..write('weight: $weight, ')
-          ..write('note: $note')
+          ..write('note: $note, ')
+          ..write('syncStatus: $syncStatus, ')
+          ..write('serverId: $serverId')
           ..write(')'))
         .toString();
   }
@@ -8396,6 +8502,8 @@ typedef $$WeightRecordTableCreateCompanionBuilder =
       required DateTime date,
       required double weight,
       Value<String?> note,
+      Value<int> syncStatus,
+      Value<String?> serverId,
     });
 typedef $$WeightRecordTableUpdateCompanionBuilder =
     WeightRecordCompanion Function({
@@ -8403,6 +8511,8 @@ typedef $$WeightRecordTableUpdateCompanionBuilder =
       Value<DateTime> date,
       Value<double> weight,
       Value<String?> note,
+      Value<int> syncStatus,
+      Value<String?> serverId,
     });
 
 class $$WeightRecordTableFilterComposer
@@ -8431,6 +8541,16 @@ class $$WeightRecordTableFilterComposer
 
   ColumnFilters<String> get note => $composableBuilder(
     column: $table.note,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get serverId => $composableBuilder(
+    column: $table.serverId,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -8463,6 +8583,16 @@ class $$WeightRecordTableOrderingComposer
     column: $table.note,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get serverId => $composableBuilder(
+    column: $table.serverId,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$WeightRecordTableAnnotationComposer
@@ -8485,6 +8615,14 @@ class $$WeightRecordTableAnnotationComposer
 
   GeneratedColumn<String> get note =>
       $composableBuilder(column: $table.note, builder: (column) => column);
+
+  GeneratedColumn<int> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get serverId =>
+      $composableBuilder(column: $table.serverId, builder: (column) => column);
 }
 
 class $$WeightRecordTableTableManager
@@ -8523,11 +8661,15 @@ class $$WeightRecordTableTableManager
                 Value<DateTime> date = const Value.absent(),
                 Value<double> weight = const Value.absent(),
                 Value<String?> note = const Value.absent(),
+                Value<int> syncStatus = const Value.absent(),
+                Value<String?> serverId = const Value.absent(),
               }) => WeightRecordCompanion(
                 id: id,
                 date: date,
                 weight: weight,
                 note: note,
+                syncStatus: syncStatus,
+                serverId: serverId,
               ),
           createCompanionCallback:
               ({
@@ -8535,11 +8677,15 @@ class $$WeightRecordTableTableManager
                 required DateTime date,
                 required double weight,
                 Value<String?> note = const Value.absent(),
+                Value<int> syncStatus = const Value.absent(),
+                Value<String?> serverId = const Value.absent(),
               }) => WeightRecordCompanion.insert(
                 id: id,
                 date: date,
                 weight: weight,
                 note: note,
+                syncStatus: syncStatus,
+                serverId: serverId,
               ),
           withReferenceMapper:
               (p0) =>

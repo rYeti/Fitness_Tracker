@@ -19,7 +19,7 @@ public class WeightTrackingService : IWeightTrackingService
         {
             Id = Guid.NewGuid(),
             Weight = weightTrackingRequestDto.Weight,
-            Date = weightTrackingRequestDto.Date,
+            Date = DateTime.SpecifyKind(weightTrackingRequestDto.Date, DateTimeKind.Utc),
             Note = weightTrackingRequestDto.Note,
             UserId = userId,
         };

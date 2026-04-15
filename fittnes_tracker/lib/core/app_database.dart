@@ -60,7 +60,7 @@ class AppDatabase extends _$AppDatabase {
   // Workout planning DAOs will be added here after code generation
 
   @override
-  int get schemaVersion => 26;
+  int get schemaVersion => 27;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -143,6 +143,19 @@ class AppDatabase extends _$AppDatabase {
         try {
           await customStatement(
             'ALTER TABLE exercise_table ADD COLUMN description_de TEXT',
+          );
+        } catch (_) {}
+      }
+
+      if (from < 27) {
+        try {
+          await customStatement(
+            'ALTER TABLE weight_record ADD COLUMN sync_status INTEGER NOT NULL DEFAULT 0',
+          );
+        } catch (_) {}
+        try {
+          await customStatement(
+            'ALTER TABLE weight_record ADD COLUMN server_id TEXT',
           );
         } catch (_) {}
       }
@@ -1051,11 +1064,26 @@ class SearchCacheDao extends DatabaseAccessor<AppDatabase>
 }
 
 // Weight tracking table definition
+/// Sync state for a locally-stored weight record.
+///
+/// - [pending]       New record, never pushed to the API.
+/// - [synced]        Successfully pushed; [serverId] is set.
+/// - [pendingUpdate] Edited locally after a successful sync.
+/// - [pendingDelete] Deleted locally; must be removed on the API before the
+///                   local row is dropped.
+enum WeightSyncStatus { pending, synced, pendingUpdate, pendingDelete }
+
 class WeightRecord extends Table {
   IntColumn get id => integer().autoIncrement()();
   DateTimeColumn get date => dateTime()();
   RealColumn get weight => real()();
   TextColumn get note => text().nullable()();
+  /// Maps to [WeightSyncStatus] by index. Defaults to [WeightSyncStatus.pending].
+  IntColumn get syncStatus =>
+      integer().withDefault(const Constant(0))();
+  /// The UUID assigned by the remote API after the first successful sync.
+  /// Null until the record has been synced at least once.
+  TextColumn get serverId => text().nullable()();
 }
 
 // Workout planning tables
@@ -1248,6 +1276,9 @@ class WeightRecordDao extends DatabaseAccessor<AppDatabase>
             ..limit(1))
           .getSingleOrNull();
 
+  Future<WeightRecordData?> getWeightRecordById(int id) =>
+      (select(weightRecord)..where((t) => t.id.equals(id))).getSingleOrNull();
+
   // Add a new weight record
   Future<int> addWeightRecord(Insertable<WeightRecordData> record) =>
       into(weightRecord).insert(record);
@@ -1270,6 +1301,48 @@ class WeightRecordDao extends DatabaseAccessor<AppDatabase>
             ..where((t) => t.date.isSmallerOrEqualValue(end))
             ..orderBy([(t) => OrderingTerm.asc(t.date)]))
           .get();
+
+  // --- Sync helpers ---
+
+  /// Returns every record that needs to be pushed to the API
+  /// (pending, pendingUpdate, or pendingDelete).
+  Future<List<WeightRecordData>> getUnsyncedRecords() =>
+      (select(weightRecord)
+            ..where(
+              (t) => t.syncStatus.isNotIn([
+                WeightSyncStatus.synced.index,
+              ]),
+            ))
+          .get();
+
+  /// Marks a record as [WeightSyncStatus.synced] and stores the [serverId]
+  /// returned by the API.
+  Future<void> markSynced({required int localId, required String serverId}) =>
+      (update(weightRecord)..where((t) => t.id.equals(localId))).write(
+        WeightRecordCompanion(
+          syncStatus: Value(WeightSyncStatus.synced.index),
+          serverId: Value(serverId),
+        ),
+      );
+
+  /// Marks an already-synced record as [WeightSyncStatus.pendingUpdate] so
+  /// the next sync pass will push the change via PUT.
+  Future<void> markPendingUpdate(int localId) =>
+      (update(weightRecord)..where((t) => t.id.equals(localId))).write(
+        WeightRecordCompanion(
+          syncStatus: Value(WeightSyncStatus.pendingUpdate.index),
+        ),
+      );
+
+  /// Marks a record as [WeightSyncStatus.pendingDelete].
+  /// Call this instead of [deleteWeightRecord] when the record has a [serverId]
+  /// so the sync pass can delete it on the API first.
+  Future<void> markPendingDelete(int localId) =>
+      (update(weightRecord)..where((t) => t.id.equals(localId))).write(
+        WeightRecordCompanion(
+          syncStatus: Value(WeightSyncStatus.pendingDelete.index),
+        ),
+      );
 }
 
 // Workout planning DAOs

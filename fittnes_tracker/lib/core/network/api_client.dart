@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:logger/logger.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiClient {
   final Dio _dio;
@@ -14,7 +15,21 @@ class ApiClient {
           receiveTimeout: const Duration(seconds: 15),
         ),
       ),
-      _logger = Logger();
+
+      _logger = Logger() {
+    _dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) async {
+          final prefs = await SharedPreferences.getInstance();
+          final token = prefs.getString('token');
+          if (token != null) {
+            options.headers['Authorization'] = 'Bearer $token';
+          }
+          handler.next(options);
+        },
+      ),
+    );
+  }
 
   Future<Response> get(
     String path, {
