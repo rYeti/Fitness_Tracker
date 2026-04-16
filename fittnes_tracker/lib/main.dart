@@ -1,6 +1,6 @@
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/network/api_client.dart';
-import 'package:ForgeForm/core/network/services/weight_sync_service.dart';
+import 'package:ForgeForm/core/network/services/sync_service.dart';
 import 'package:ForgeForm/core/seed_exercises.dart';
 import 'package:ForgeForm/feature/auth/presentation/providers/auth_provider.dart';
 import 'package:ForgeForm/feature/auth/presentation/view/login_screen.dart';
@@ -246,16 +246,16 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-  
+
   Future<void> _runInitialSync() async {
     final prefs = await SharedPreferences.getInstance();
     final serverUrl = prefs.getString(serverUrlPrefsKey) ?? serverUrlDefault;
 
-    final syncService = WeightSyncService(
+    final syncService = SyncService(
       db: sl<AppDatabase>(),
       apiClient: ApiClient(baseUrl: serverUrl),
     );
 
-    await syncService.syncWeightLogs();
+    await syncService.syncAll();
   }
 }

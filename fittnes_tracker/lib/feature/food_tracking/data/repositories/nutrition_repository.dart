@@ -22,6 +22,10 @@ class NutritionRepository {
       // connectTimeout is not reliable on Flutter Web (maps to XHR total timeout).
       // receiveTimeout covers the full round-trip on web, and receive-only on native.
       receiveTimeout: const Duration(seconds: 20),
+      headers: {
+        // OpenFoodFacts rejects requests without an identifying User-Agent (403).
+        'User-Agent': 'ForgeForm - Android - 1.0 - yetitime69@gmail.com',
+      },
     ),
   );
   // In–memory search cache (query -> results)

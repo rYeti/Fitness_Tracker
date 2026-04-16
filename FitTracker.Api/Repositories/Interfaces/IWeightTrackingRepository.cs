@@ -1,3 +1,4 @@
+using FitTracker.Api.DTOs;
 using FitTracker.Api.Models;
 
 namespace FitTracker.Api.Repositories.Interfaces;
@@ -23,5 +24,20 @@ public interface IWeightTrackingRepository
     /// <param name="weightTracking"></param>
     Task<WeightTracking?> CreateWeightTrackingAsync(WeightTracking weightTracking);
 
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="id"></param>
+    /// <param name="userId"></param>
+    /// <param name="dto"></param>
+    /// <returns></returns>
+    Task<WeightTracking?> UpdateWeightAsync(Guid id, Guid userId, WeightTrackingRequestDto dto);
 
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="id"></param>
+    /// <param name="userId"></param>
+    /// <returns></returns>
+    Task<bool> DeleteWeightAsync(Guid id, Guid userId);
 }

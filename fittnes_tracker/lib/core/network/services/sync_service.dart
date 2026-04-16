@@ -2,20 +2,20 @@ import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/network/api_client.dart';
 import 'package:logger/logger.dart';
 
-class WeightSyncService {
+class SyncService {
   final AppDatabase _db;
   final ApiClient _apiClient;
   final Logger _logger = Logger();
 
-  WeightSyncService({required AppDatabase db, required ApiClient apiClient})
-      : _db = db,
-        _apiClient = apiClient;
+  SyncService({required AppDatabase db, required ApiClient apiClient})
+    : _db = db,
+      _apiClient = apiClient;
 
   /// Fetches all unsynced local weight records and pushes them to the API.
   ///
   /// - [WeightSyncStatus.pending]       → POST /api/WeightTracking/TrackWeight
-  /// - [WeightSyncStatus.pendingUpdate] → PUT  (not yet on API — skipped)
-  /// - [WeightSyncStatus.pendingDelete] → DELETE (not yet on API — skipped)
+  /// - [WeightSyncStatus.pendingUpdate] → PUT
+  /// - [WeightSyncStatus.pendingDelete] → DELETE
   ///
   /// Failures for individual records are logged and skipped so one bad
   /// record doesn't block the rest of the batch.
@@ -42,6 +42,10 @@ class WeightSyncService {
     }
   }
 
+  Future<void> syncAll() async {
+    syncWeightLogs();
+  }
+
   /// Marks a local record as [WeightSyncStatus.synced] and stores the
   /// UUID returned by the API.
   Future<void> markAsSynced(int localId, String serverId) =>
@@ -51,7 +55,7 @@ class WeightSyncService {
 
   Future<void> _syncNew(WeightRecordData record) async {
     final response = await _apiClient.post(
-      '/api/WeightTracking/TrackWeight',
+      'api/WeightTracking/TrackWeight',
       data: {
         'date': record.date.toIso8601String(),
         'weight': record.weight,
@@ -65,14 +69,21 @@ class WeightSyncService {
 
   Future<void> _syncUpdate(WeightRecordData record) async {
     if (record.serverId == null) {
-      // Edited before the first sync ever completed — treat as new.
+      // Edited before first sync — treat as a new record.
       await _syncNew(record);
       return;
     }
-    // TODO: wire up once PUT /api/WeightTracking/TrackWeight/{id} exists.
-    _logger.w(
-      'PUT not yet available on API — skipping pendingUpdate for local record ${record.id}',
+    await _apiClient.put(
+      'api/WeightTracking/TrackWeight/${record.serverId}',
+      data: {
+        'date': record.date.toIso8601String(),
+        'weight': record.weight,
+        'note': record.note,
+      },
     );
+    // serverId doesn't change on an update — re-use the existing one.
+    await markAsSynced(record.id, record.serverId!);
+    _logger.i('Updated record ${record.id} on server ${record.serverId}');
   }
 
   Future<void> _syncDelete(WeightRecordData record) async {
@@ -81,9 +92,11 @@ class WeightSyncService {
       await _db.weightRecordDao.deleteWeightRecord(record.id);
       return;
     }
-    // TODO: wire up once DELETE /api/WeightTracking/TrackWeight/{id} exists.
-    _logger.w(
-      'DELETE not yet available on API — skipping pendingDelete for local record ${record.id}',
+    await _apiClient.delete(
+      'api/WeightTracking/TrackWeight/${record.serverId}',
     );
+    // Server record is gone — now remove the local row too.
+    await _db.weightRecordDao.deleteWeightRecord(record.id);
+    _logger.i('Deleted record ${record.id} from server ${record.serverId}');
   }
 }

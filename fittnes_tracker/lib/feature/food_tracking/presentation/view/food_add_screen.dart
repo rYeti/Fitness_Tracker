@@ -8,7 +8,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
+import '../../data/models/extended_nutrients.dart';
 import '../../data/models/food_item_model.dart';
+import '../../data/models/portion_option.dart';
 import '../../data/repositories/nutrition_repository.dart';
 import 'barcode_scanner_view.dart';
 import 'food_detail_view.dart';
@@ -307,6 +309,7 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
                   '_protein_raw': item.protein,
                   '_carbs_raw': item.carbs,
                   '_fat_raw': item.fat,
+                  '_extended_nutrients_json': item.extendedNutrientsJson,
                 };
               })
               .toList();
@@ -535,79 +538,22 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
     );
   }
 
-  /// Build portion options from API product data.
-  /// Returns an empty list for local items (no dropdown shown).
-  List<PortionOption> _buildPortionOptions(Map<String, dynamic> productData) {
-    if (productData['_source'] == 'local') return const [];
-
-    // serving_quantity can be a num or a string from the API
-    final rawQty = productData['serving_quantity'];
-    num? servingQtyNum;
-    if (rawQty is num) {
-      servingQtyNum = rawQty;
-    } else if (rawQty is String) {
-      servingQtyNum = num.tryParse(rawQty.trim());
-    }
-
-    final servingUnit = productData['serving_quantity_unit']?.toString().toLowerCase();
-    final servingSize = productData['serving_size']?.toString().trim();
-
-    // If unit is grams, use the numeric quantity directly.
-    // Ignore values <= 1 with no unit — these usually mean "1 piece" with the
-    // gram weight only present in the serving_size string.
-    int? servingGrams;
-    if (servingUnit == 'g' && servingQtyNum != null && servingQtyNum > 0) {
-      servingGrams = servingQtyNum.round();
-    } else if (servingUnit == null && servingQtyNum != null && servingQtyNum > 1) {
-      // No explicit unit but a plausible gram weight (>1g)
-      servingGrams = servingQtyNum.round();
-    }
-
-    // Parse grams from serving_size string as fallback
-    // Handles: "30g", "1 portion (30 g)", "1 Keks (9,2 g)", "30G"
-    // Also handles European decimal comma: "9,2 g" → 9g
-    if (servingGrams == null && servingSize != null && servingSize.isNotEmpty) {
-      for (final pattern in [
-        RegExp(r'\((\d+(?:[.,]\d+)?)\s*g\)', caseSensitive: false),
-        RegExp(r'(\d+(?:[.,]\d+)?)\s*g\b', caseSensitive: false),
-      ]) {
-        final match = pattern.firstMatch(servingSize);
-        if (match != null) {
-          final normalized = match.group(1)!.replaceAll(',', '.');
-          final parsed = double.tryParse(normalized)?.round();
-          if (parsed != null && parsed > 0) {
-            servingGrams = parsed;
-            break;
-          }
-        }
-      }
-    }
-
-    if (servingGrams == null || servingGrams <= 0) {
-      return const [];
-    }
-
-    // Build a clean label.
-    // If the serving_size string is ONLY a gram amount (e.g. "100g", "30 g"),
-    // use "1 serving" so the dropdown reads naturally.
-    // Descriptive strings ("1 slice", "1 Keks (9,2 g)") are kept as-is.
-    String label;
-    if (servingSize != null && servingSize.isNotEmpty) {
-      final isOnlyGrams = RegExp(
-        r'^\d+(?:[.,]\d+)?\s*g$',
-        caseSensitive: false,
-      ).hasMatch(servingSize.trim());
-      label = isOnlyGrams ? '1 serving' : servingSize;
-    } else {
-      label = '1 serving';
-    }
-
-    // "Per 100g" is no longer needed — the detail screen always shows a "g" option.
-    return [PortionOption(label, servingGrams)];
-  }
+  List<PortionOption> _buildPortionOptions(Map<String, dynamic> productData) =>
+      PortionOption.fromProductData(productData);
 
   void _selectFoodItem(Map<String, dynamic> productData) async {
     final isLocal = productData['_source'] == 'local';
+
+    ExtendedNutrients? extended;
+    if (isLocal) {
+      final json = productData['_extended_nutrients_json'] as String?;
+      if (json != null) extended = ExtendedNutrients.fromJsonString(json);
+    } else {
+      final nutriments = productData['nutriments'] as Map<String, dynamic>? ?? {};
+      final ext = ExtendedNutrients.fromNutriments(nutriments);
+      if (ext.hasAnyData) extended = ext;
+    }
+
     // For local items use the raw stored values (per-portion) so that
     // _calculateNutrition divides by gramm correctly in the detail screen.
     // For API items use the nutriments map (values are per-100g, gramm=100).
@@ -631,6 +577,7 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
               (productData['nutriments']?['fat_100g'] as num?)?.round() ?? 0)
           : (productData['nutriments']?['fat_100g'] as num?)?.round() ?? 0,
       gramm: (productData['_gramm'] as int?) ?? 100,
+      extendedNutrients: extended,
     );
     await Navigator.push<bool>(
       context,
@@ -693,12 +640,12 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
                   _dialogField(
                     caloriesController,
                     AppLocalizations.of(dialogContext)!.calories,
-                    type: TextInputType.number,
+                    type: const TextInputType.numberWithOptions(decimal: true),
                     validator: (v) {
                       if (v == null || v.isEmpty) {
                         return AppLocalizations.of(dialogContext)!.pleaseEnterCalories;
                       }
-                      if (int.tryParse(v) == null) {
+                      if (double.tryParse(v) == null) {
                         return AppLocalizations.of(dialogContext)!.pleaseEnterValidNumber;
                       }
                       return null;
@@ -707,30 +654,30 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
                   _dialogField(
                     proteinController,
                     AppLocalizations.of(dialogContext)!.protein,
-                    type: TextInputType.number,
+                    type: const TextInputType.numberWithOptions(decimal: true),
                     validator:
                         (v) =>
-                            (v == null || v.isEmpty || int.tryParse(v) == null)
+                            (v == null || v.isEmpty || double.tryParse(v) == null)
                                 ? AppLocalizations.of(dialogContext)!.pleaseEnterValidNumber
                                 : null,
                   ),
                   _dialogField(
                     carbsController,
                     AppLocalizations.of(dialogContext)!.carbs,
-                    type: TextInputType.number,
+                    type: const TextInputType.numberWithOptions(decimal: true),
                     validator:
                         (v) =>
-                            (v == null || v.isEmpty || int.tryParse(v) == null)
+                            (v == null || v.isEmpty || double.tryParse(v) == null)
                                 ? AppLocalizations.of(dialogContext)!.pleaseEnterValidNumber
                                 : null,
                   ),
                   _dialogField(
                     fatController,
                     AppLocalizations.of(dialogContext)!.fat,
-                    type: TextInputType.number,
+                    type: const TextInputType.numberWithOptions(decimal: true),
                     validator:
                         (v) =>
-                            (v == null || v.isEmpty || int.tryParse(v) == null)
+                            (v == null || v.isEmpty || double.tryParse(v) == null)
                                 ? AppLocalizations.of(dialogContext)!.pleaseEnterValidNumber
                                 : null,
                   ),
@@ -752,10 +699,10 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
                   final id = await db.foodItemDao.insertFoodItem(
                     FoodItemCompanion.insert(
                       name: nameController.text.trim(),
-                      calories: int.parse(caloriesController.text),
-                      protein: int.parse(proteinController.text),
-                      carbs: int.parse(carbsController.text),
-                      fat: int.parse(fatController.text),
+                      calories: double.parse(caloriesController.text).round(),
+                      protein: double.parse(proteinController.text).round(),
+                      carbs: double.parse(carbsController.text).round(),
+                      fat: double.parse(fatController.text).round(),
                     ),
                   );
                   insertedId = id;

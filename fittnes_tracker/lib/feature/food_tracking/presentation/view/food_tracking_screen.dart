@@ -534,15 +534,7 @@ class _FoodTrackingScreenState extends State<FoodTrackingScreen> {
                                   context,
                                   MaterialPageRoute(
                                     builder: (_) => FoodDetailsScreen(
-                                      foodItem: FoodItemModel(
-                                        id: food.id,
-                                        name: food.name,
-                                        calories: food.calories,
-                                        protein: food.protein,
-                                        carbs: food.carbs,
-                                        fat: food.fat,
-                                        gramm: food.gramm,
-                                      ),
+                                      foodItem: FoodItemModel.fromData(food),
                                       category: category,
                                       date: _selectedDate,
                                     ),

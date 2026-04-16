@@ -3,21 +3,11 @@ import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../data/models/extended_nutrients.dart';
 import '../../data/models/food_item_model.dart';
+import '../../data/models/portion_option.dart';
 import '../../data/repositories/nutrition_repository.dart';
-
-class PortionOption {
-  final String label;
-  final int grams;
-  const PortionOption(this.label, this.grams);
-
-  @override
-  bool operator ==(Object other) =>
-      other is PortionOption && other.grams == grams && other.label == label;
-
-  @override
-  int get hashCode => Object.hash(label, grams);
-}
 
 class FoodDetailsScreen extends StatefulWidget {
   final FoodItemModel foodItem;
@@ -62,6 +52,8 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
   double _calculatedCarbs = 0;
   double _calculatedFat = 0;
 
+  bool _isPremium = false;
+
   @override
   void initState() {
     super.initState();
@@ -82,6 +74,15 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
       _portionInput == _portionInput.roundToDouble() ? 0 : 1,
     ));
     _calculateNutrition();
+    _loadPremiumStatus();
+  }
+
+  Future<void> _loadPremiumStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _isPremium = prefs.getBool('is_premium') ?? true; // TODO: remove debug override
+    });
   }
 
   void _calculateNutrition() {
@@ -123,6 +124,12 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
                 // Portion Size and Calculated Values Card
                 _buildPortionMarcroCalc(),
                 const SizedBox(height: 16),
+
+                // Extended nutrients (premium)
+                if (widget.foodItem.extendedNutrients != null)
+                  _buildExtendedNutrientsCard(),
+                if (widget.foodItem.extendedNutrients != null)
+                  const SizedBox(height: 16),
 
                 // Add to Meal Section
                 _buildAddToMealSection(),
@@ -213,6 +220,131 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
             },
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildExtendedNutrientsCard() {
+    final loc = AppLocalizations.of(context)!;
+    final nutrients = widget.foodItem.extendedNutrients!;
+
+    if (!_isPremium) {
+      return Card(
+        elevation: 4,
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(loc.extendedNutrientsTitle,
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.amber,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(loc.premiumBadge,
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(loc.premiumFeatureBody),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.amber),
+                  onPressed: () {},
+                  child: Text(loc.upgradeToPremium,
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    Widget nutrientTile(String label, double? value, String unit) {
+      if (value == null) return const SizedBox.shrink();
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            Text(label, style: const TextStyle(fontSize: 14)),
+            const Spacer(),
+            Text(
+              '${value >= 10 ? value.toStringAsFixed(1) : value.toStringAsFixed(2)} $unit',
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+      );
+    }
+
+    Widget sectionHeader(String title) => Padding(
+          padding: const EdgeInsets.only(top: 12, bottom: 4),
+          child: Text(title,
+              style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.primary)),
+        );
+
+    return Card(
+      elevation: 4,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(loc.extendedNutrientsTitle,
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.amber,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(loc.premiumBadge,
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+            sectionHeader(loc.extendedNutrientsMacrosSection),
+            nutrientTile(loc.nutrientFiber, nutrients.fiber, 'g'),
+            nutrientTile(loc.nutrientSugar, nutrients.sugar, 'g'),
+            nutrientTile(loc.nutrientSaturatedFat, nutrients.saturatedFat, 'g'),
+            nutrientTile(loc.nutrientSalt, nutrients.salt, 'g'),
+            nutrientTile(loc.nutrientSodium, nutrients.sodium, 'g'),
+            sectionHeader(loc.extendedNutrientsVitaminsSection),
+            nutrientTile(loc.nutrientVitaminA, nutrients.vitaminA, loc.unitUg),
+            nutrientTile(loc.nutrientVitaminC, nutrients.vitaminC, loc.unitMg),
+            nutrientTile(loc.nutrientVitaminD, nutrients.vitaminD, loc.unitUg),
+            nutrientTile(loc.nutrientVitaminE, nutrients.vitaminE, loc.unitMg),
+            nutrientTile(loc.nutrientVitaminK, nutrients.vitaminK, loc.unitUg),
+            nutrientTile(loc.nutrientVitaminB1, nutrients.vitaminB1, loc.unitMg),
+            nutrientTile(loc.nutrientVitaminB2, nutrients.vitaminB2, loc.unitMg),
+            nutrientTile(loc.nutrientVitaminB3, nutrients.vitaminB3, loc.unitMg),
+            nutrientTile(loc.nutrientVitaminB6, nutrients.vitaminB6, loc.unitMg),
+            nutrientTile(loc.nutrientVitaminB9, nutrients.vitaminB9, loc.unitUg),
+            nutrientTile(loc.nutrientVitaminB12, nutrients.vitaminB12, loc.unitUg),
+            sectionHeader(loc.extendedNutrientsMineralsSection),
+            nutrientTile(loc.nutrientCalcium, nutrients.calcium, loc.unitMg),
+            nutrientTile(loc.nutrientIron, nutrients.iron, loc.unitMg),
+            nutrientTile(loc.nutrientMagnesium, nutrients.magnesium, loc.unitMg),
+            nutrientTile(loc.nutrientPotassium, nutrients.potassium, loc.unitMg),
+            nutrientTile(loc.nutrientZinc, nutrients.zinc, loc.unitMg),
+          ],
+        ),
       ),
     );
   }
@@ -368,6 +500,9 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
                         carbs: (widget.foodItem.carbs * grams / base).round(),
                         fat: (widget.foodItem.fat * grams / base).round(),
                         gramm: Value(grams.round()),
+                        extendedNutrientsJson: Value(
+                          widget.foodItem.extendedNutrients?.scaleTo(grams).toJsonString(),
+                        ),
                       ),
                     );
                     final newFood = await db.foodItemDao.getFoodItemById(newFoodId);

@@ -9,9 +9,14 @@ final sl = GetIt.instance;
 
 void setupLocator() {
   sl.registerLazySingleton(
-    () => ApiClient(baseUrl: 'https://world.openfoodfacts.org/api/v2/'),
+    () => ApiClient(
+      baseUrl: 'https://world.openfoodfacts.org/api/v2/',
+      headers: const {
+        'User-Agent': 'ForgeForm - Android - 1.0 - yetitime69@gmail.com',
+      },
+    ),
   );
-  sl.registerLazySingleton(() => FoodApi(sl<ApiClient>()));
+  sl.registerLazySingleton(() => FoodApi());
   // Database will be registered after creation in main.dart
 }
 

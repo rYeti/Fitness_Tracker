@@ -60,7 +60,7 @@ class AppDatabase extends _$AppDatabase {
   // Workout planning DAOs will be added here after code generation
 
   @override
-  int get schemaVersion => 27;
+  int get schemaVersion => 28;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -156,6 +156,14 @@ class AppDatabase extends _$AppDatabase {
         try {
           await customStatement(
             'ALTER TABLE weight_record ADD COLUMN server_id TEXT',
+          );
+        } catch (_) {}
+      }
+
+      if (from < 28) {
+        try {
+          await customStatement(
+            'ALTER TABLE food_item ADD COLUMN extended_nutrients_json TEXT',
           );
         } catch (_) {}
       }
@@ -778,6 +786,9 @@ class FoodItem extends Table {
   IntColumn get gramm => integer().withDefault(const Constant(100))();
   BoolColumn get hiddenFromRecent =>
       boolean().withDefault(const Constant(false))();
+  /// JSON-encoded [ExtendedNutrients]. Null for custom foods and any entry
+  /// added before this column was introduced.
+  TextColumn get extendedNutrientsJson => text().nullable()();
 }
 
 class UserSettings extends Table {

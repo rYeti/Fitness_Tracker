@@ -1756,4 +1756,97 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get selectExercise => 'Übung auswählen';
+
+  @override
+  String get extendedNutrientsTitle => 'Detaillierte Nährwerte';
+
+  @override
+  String get extendedNutrientsMacrosSection => 'Makro-Details';
+
+  @override
+  String get extendedNutrientsVitaminsSection => 'Vitamine';
+
+  @override
+  String get extendedNutrientsMineralsSection => 'Mineralstoffe';
+
+  @override
+  String get nutrientFiber => 'Ballaststoffe';
+
+  @override
+  String get nutrientSugar => 'Zucker';
+
+  @override
+  String get nutrientSaturatedFat => 'Gesättigte Fettsäuren';
+
+  @override
+  String get nutrientSalt => 'Salz';
+
+  @override
+  String get nutrientSodium => 'Natrium';
+
+  @override
+  String get nutrientVitaminA => 'Vitamin A';
+
+  @override
+  String get nutrientVitaminC => 'Vitamin C';
+
+  @override
+  String get nutrientVitaminD => 'Vitamin D';
+
+  @override
+  String get nutrientVitaminE => 'Vitamin E';
+
+  @override
+  String get nutrientVitaminK => 'Vitamin K';
+
+  @override
+  String get nutrientVitaminB1 => 'Vitamin B1 (Thiamin)';
+
+  @override
+  String get nutrientVitaminB2 => 'Vitamin B2 (Riboflavin)';
+
+  @override
+  String get nutrientVitaminB3 => 'Vitamin B3 (Niacin)';
+
+  @override
+  String get nutrientVitaminB6 => 'Vitamin B6';
+
+  @override
+  String get nutrientVitaminB9 => 'Vitamin B9 (Folsäure)';
+
+  @override
+  String get nutrientVitaminB12 => 'Vitamin B12';
+
+  @override
+  String get nutrientCalcium => 'Calcium';
+
+  @override
+  String get nutrientIron => 'Eisen';
+
+  @override
+  String get nutrientMagnesium => 'Magnesium';
+
+  @override
+  String get nutrientPotassium => 'Kalium';
+
+  @override
+  String get nutrientZinc => 'Zink';
+
+  @override
+  String get unitMg => 'mg';
+
+  @override
+  String get unitUg => 'µg';
+
+  @override
+  String get premiumFeatureTitle => 'Premium-Funktion';
+
+  @override
+  String get premiumFeatureBody => 'Upgrade auf Premium, um detaillierte Nährwertdaten einschließlich Vitamine und Mineralstoffe zu sehen.';
+
+  @override
+  String get premiumBadge => 'Premium';
+
+  @override
+  String get upgradeToPremium => 'Auf Premium upgraden';
 }

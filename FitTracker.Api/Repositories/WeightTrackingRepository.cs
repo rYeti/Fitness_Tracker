@@ -2,6 +2,8 @@ using FitTracker.Api.Data;
 using FitTracker.Api.Models;
 using Microsoft.EntityFrameworkCore;
 using FitTracker.Api.Repositories.Interfaces;
+using FitTracker.Api.DTOs;
+
 namespace FitTracker.Api.Repositories;
 
 public class WeightTrackingRepository(AppDbContext context) : IWeightTrackingRepository
@@ -23,5 +25,37 @@ public class WeightTrackingRepository(AppDbContext context) : IWeightTrackingRep
         _context.WeightTrackings.Add(weightTracking);
         await _context.SaveChangesAsync();
         return weightTracking;
+    }
+
+    public async Task<WeightTracking?> UpdateWeightAsync(Guid id, Guid userId, WeightTrackingRequestDto dto)
+    {
+        var weightTracking = await _context.WeightTrackings.SingleOrDefaultAsync(w => w.Id == id && w.UserId == userId);
+
+        if (weightTracking == null)
+        {
+            return null;
+        }
+
+        weightTracking.Date = DateTime.SpecifyKind(dto.Date, DateTimeKind.Utc);
+        weightTracking.Weight = dto.Weight;
+        weightTracking.Note = dto.Note;
+        await _context.SaveChangesAsync();
+
+        return weightTracking;
+    }
+
+    public async Task<bool> DeleteWeightAsync(Guid id, Guid userId)
+    {
+        var weightTracking = await _context.WeightTrackings.SingleOrDefaultAsync(w => w.Id == id && w.UserId == userId);
+
+        if (weightTracking == null)
+        {
+            return false;
+        }
+
+        _context.WeightTrackings.Remove(weightTracking);
+        await _context.SaveChangesAsync();
+
+        return true;
     }
 }

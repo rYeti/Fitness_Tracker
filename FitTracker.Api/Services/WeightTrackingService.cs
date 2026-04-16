@@ -53,14 +53,19 @@ public class WeightTrackingService : IWeightTrackingService
         }).ToList();
     }
 
-    public async Task<WeightTrackingResponseDto> GetWeightLog(Guid userId)
+    public async Task<WeightTrackingResponseDto> UpdateWeightAsync(Guid id, Guid userId, WeightTrackingRequestDto weightTrackingRequestDto)
     {
+        if (Guid.Empty == id)
+        {
+            return null;
+        }
+
         if (Guid.Empty == userId)
         {
             return null;
         }
 
-        var weightLog = await _weightRepository.GetWeightTrackingByIdAsync(userId);
+        var weightLog = await _weightRepository.UpdateWeightAsync(id, userId, weightTrackingRequestDto);
 
         return new WeightTrackingResponseDto
         {
@@ -69,5 +74,10 @@ public class WeightTrackingService : IWeightTrackingService
             Date = weightLog.Date,
             Note = weightLog.Note
         };
+    }
+
+    public async Task<bool> DeleteWeightAsync(Guid id, Guid userId)
+    {
+        return await _weightRepository.DeleteWeightAsync(id, userId);
     }
 }

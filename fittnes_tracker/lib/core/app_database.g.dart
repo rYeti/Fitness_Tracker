@@ -96,6 +96,17 @@ class $FoodItemTable extends FoodItem
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _extendedNutrientsJsonMeta =
+      const VerificationMeta('extendedNutrientsJson');
+  @override
+  late final GeneratedColumn<String> extendedNutrientsJson =
+      GeneratedColumn<String>(
+        'extended_nutrients_json',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -106,6 +117,7 @@ class $FoodItemTable extends FoodItem
     fat,
     gramm,
     hiddenFromRecent,
+    extendedNutrientsJson,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -177,6 +189,15 @@ class $FoodItemTable extends FoodItem
         ),
       );
     }
+    if (data.containsKey('extended_nutrients_json')) {
+      context.handle(
+        _extendedNutrientsJsonMeta,
+        extendedNutrientsJson.isAcceptableOrUnknown(
+          data['extended_nutrients_json']!,
+          _extendedNutrientsJsonMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -226,6 +247,10 @@ class $FoodItemTable extends FoodItem
             DriftSqlType.bool,
             data['${effectivePrefix}hidden_from_recent'],
           )!,
+      extendedNutrientsJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}extended_nutrients_json'],
+      ),
     );
   }
 
@@ -244,6 +269,10 @@ class FoodItemData extends DataClass implements Insertable<FoodItemData> {
   final int fat;
   final int gramm;
   final bool hiddenFromRecent;
+
+  /// JSON-encoded [ExtendedNutrients]. Null for custom foods and any entry
+  /// added before this column was introduced.
+  final String? extendedNutrientsJson;
   const FoodItemData({
     required this.id,
     required this.name,
@@ -253,6 +282,7 @@ class FoodItemData extends DataClass implements Insertable<FoodItemData> {
     required this.fat,
     required this.gramm,
     required this.hiddenFromRecent,
+    this.extendedNutrientsJson,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -265,6 +295,9 @@ class FoodItemData extends DataClass implements Insertable<FoodItemData> {
     map['fat'] = Variable<int>(fat);
     map['gramm'] = Variable<int>(gramm);
     map['hidden_from_recent'] = Variable<bool>(hiddenFromRecent);
+    if (!nullToAbsent || extendedNutrientsJson != null) {
+      map['extended_nutrients_json'] = Variable<String>(extendedNutrientsJson);
+    }
     return map;
   }
 
@@ -278,6 +311,10 @@ class FoodItemData extends DataClass implements Insertable<FoodItemData> {
       fat: Value(fat),
       gramm: Value(gramm),
       hiddenFromRecent: Value(hiddenFromRecent),
+      extendedNutrientsJson:
+          extendedNutrientsJson == null && nullToAbsent
+              ? const Value.absent()
+              : Value(extendedNutrientsJson),
     );
   }
 
@@ -295,6 +332,9 @@ class FoodItemData extends DataClass implements Insertable<FoodItemData> {
       fat: serializer.fromJson<int>(json['fat']),
       gramm: serializer.fromJson<int>(json['gramm']),
       hiddenFromRecent: serializer.fromJson<bool>(json['hiddenFromRecent']),
+      extendedNutrientsJson: serializer.fromJson<String?>(
+        json['extendedNutrientsJson'],
+      ),
     );
   }
   @override
@@ -309,6 +349,9 @@ class FoodItemData extends DataClass implements Insertable<FoodItemData> {
       'fat': serializer.toJson<int>(fat),
       'gramm': serializer.toJson<int>(gramm),
       'hiddenFromRecent': serializer.toJson<bool>(hiddenFromRecent),
+      'extendedNutrientsJson': serializer.toJson<String?>(
+        extendedNutrientsJson,
+      ),
     };
   }
 
@@ -321,6 +364,7 @@ class FoodItemData extends DataClass implements Insertable<FoodItemData> {
     int? fat,
     int? gramm,
     bool? hiddenFromRecent,
+    Value<String?> extendedNutrientsJson = const Value.absent(),
   }) => FoodItemData(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -330,6 +374,10 @@ class FoodItemData extends DataClass implements Insertable<FoodItemData> {
     fat: fat ?? this.fat,
     gramm: gramm ?? this.gramm,
     hiddenFromRecent: hiddenFromRecent ?? this.hiddenFromRecent,
+    extendedNutrientsJson:
+        extendedNutrientsJson.present
+            ? extendedNutrientsJson.value
+            : this.extendedNutrientsJson,
   );
   FoodItemData copyWithCompanion(FoodItemCompanion data) {
     return FoodItemData(
@@ -344,6 +392,10 @@ class FoodItemData extends DataClass implements Insertable<FoodItemData> {
           data.hiddenFromRecent.present
               ? data.hiddenFromRecent.value
               : this.hiddenFromRecent,
+      extendedNutrientsJson:
+          data.extendedNutrientsJson.present
+              ? data.extendedNutrientsJson.value
+              : this.extendedNutrientsJson,
     );
   }
 
@@ -357,7 +409,8 @@ class FoodItemData extends DataClass implements Insertable<FoodItemData> {
           ..write('carbs: $carbs, ')
           ..write('fat: $fat, ')
           ..write('gramm: $gramm, ')
-          ..write('hiddenFromRecent: $hiddenFromRecent')
+          ..write('hiddenFromRecent: $hiddenFromRecent, ')
+          ..write('extendedNutrientsJson: $extendedNutrientsJson')
           ..write(')'))
         .toString();
   }
@@ -372,6 +425,7 @@ class FoodItemData extends DataClass implements Insertable<FoodItemData> {
     fat,
     gramm,
     hiddenFromRecent,
+    extendedNutrientsJson,
   );
   @override
   bool operator ==(Object other) =>
@@ -384,7 +438,8 @@ class FoodItemData extends DataClass implements Insertable<FoodItemData> {
           other.carbs == this.carbs &&
           other.fat == this.fat &&
           other.gramm == this.gramm &&
-          other.hiddenFromRecent == this.hiddenFromRecent);
+          other.hiddenFromRecent == this.hiddenFromRecent &&
+          other.extendedNutrientsJson == this.extendedNutrientsJson);
 }
 
 class FoodItemCompanion extends UpdateCompanion<FoodItemData> {
@@ -396,6 +451,7 @@ class FoodItemCompanion extends UpdateCompanion<FoodItemData> {
   final Value<int> fat;
   final Value<int> gramm;
   final Value<bool> hiddenFromRecent;
+  final Value<String?> extendedNutrientsJson;
   const FoodItemCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
@@ -405,6 +461,7 @@ class FoodItemCompanion extends UpdateCompanion<FoodItemData> {
     this.fat = const Value.absent(),
     this.gramm = const Value.absent(),
     this.hiddenFromRecent = const Value.absent(),
+    this.extendedNutrientsJson = const Value.absent(),
   });
   FoodItemCompanion.insert({
     this.id = const Value.absent(),
@@ -415,6 +472,7 @@ class FoodItemCompanion extends UpdateCompanion<FoodItemData> {
     required int fat,
     this.gramm = const Value.absent(),
     this.hiddenFromRecent = const Value.absent(),
+    this.extendedNutrientsJson = const Value.absent(),
   }) : name = Value(name),
        calories = Value(calories),
        protein = Value(protein),
@@ -429,6 +487,7 @@ class FoodItemCompanion extends UpdateCompanion<FoodItemData> {
     Expression<int>? fat,
     Expression<int>? gramm,
     Expression<bool>? hiddenFromRecent,
+    Expression<String>? extendedNutrientsJson,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -439,6 +498,8 @@ class FoodItemCompanion extends UpdateCompanion<FoodItemData> {
       if (fat != null) 'fat': fat,
       if (gramm != null) 'gramm': gramm,
       if (hiddenFromRecent != null) 'hidden_from_recent': hiddenFromRecent,
+      if (extendedNutrientsJson != null)
+        'extended_nutrients_json': extendedNutrientsJson,
     });
   }
 
@@ -451,6 +512,7 @@ class FoodItemCompanion extends UpdateCompanion<FoodItemData> {
     Value<int>? fat,
     Value<int>? gramm,
     Value<bool>? hiddenFromRecent,
+    Value<String?>? extendedNutrientsJson,
   }) {
     return FoodItemCompanion(
       id: id ?? this.id,
@@ -461,6 +523,8 @@ class FoodItemCompanion extends UpdateCompanion<FoodItemData> {
       fat: fat ?? this.fat,
       gramm: gramm ?? this.gramm,
       hiddenFromRecent: hiddenFromRecent ?? this.hiddenFromRecent,
+      extendedNutrientsJson:
+          extendedNutrientsJson ?? this.extendedNutrientsJson,
     );
   }
 
@@ -491,6 +555,11 @@ class FoodItemCompanion extends UpdateCompanion<FoodItemData> {
     if (hiddenFromRecent.present) {
       map['hidden_from_recent'] = Variable<bool>(hiddenFromRecent.value);
     }
+    if (extendedNutrientsJson.present) {
+      map['extended_nutrients_json'] = Variable<String>(
+        extendedNutrientsJson.value,
+      );
+    }
     return map;
   }
 
@@ -504,7 +573,8 @@ class FoodItemCompanion extends UpdateCompanion<FoodItemData> {
           ..write('carbs: $carbs, ')
           ..write('fat: $fat, ')
           ..write('gramm: $gramm, ')
-          ..write('hiddenFromRecent: $hiddenFromRecent')
+          ..write('hiddenFromRecent: $hiddenFromRecent, ')
+          ..write('extendedNutrientsJson: $extendedNutrientsJson')
           ..write(')'))
         .toString();
   }
@@ -6973,6 +7043,7 @@ typedef $$FoodItemTableCreateCompanionBuilder =
       required int fat,
       Value<int> gramm,
       Value<bool> hiddenFromRecent,
+      Value<String?> extendedNutrientsJson,
     });
 typedef $$FoodItemTableUpdateCompanionBuilder =
     FoodItemCompanion Function({
@@ -6984,6 +7055,7 @@ typedef $$FoodItemTableUpdateCompanionBuilder =
       Value<int> fat,
       Value<int> gramm,
       Value<bool> hiddenFromRecent,
+      Value<String?> extendedNutrientsJson,
     });
 
 final class $$FoodItemTableReferences
@@ -7061,6 +7133,11 @@ class $$FoodItemTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get extendedNutrientsJson => $composableBuilder(
+    column: $table.extendedNutrientsJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
   Expression<bool> mealFoodTableRefs(
     Expression<bool> Function($$MealFoodTableTableFilterComposer f) f,
   ) {
@@ -7135,6 +7212,11 @@ class $$FoodItemTableOrderingComposer
     column: $table.hiddenFromRecent,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get extendedNutrientsJson => $composableBuilder(
+    column: $table.extendedNutrientsJson,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$FoodItemTableAnnotationComposer
@@ -7169,6 +7251,11 @@ class $$FoodItemTableAnnotationComposer
 
   GeneratedColumn<bool> get hiddenFromRecent => $composableBuilder(
     column: $table.hiddenFromRecent,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get extendedNutrientsJson => $composableBuilder(
+    column: $table.extendedNutrientsJson,
     builder: (column) => column,
   );
 
@@ -7234,6 +7321,7 @@ class $$FoodItemTableTableManager
                 Value<int> fat = const Value.absent(),
                 Value<int> gramm = const Value.absent(),
                 Value<bool> hiddenFromRecent = const Value.absent(),
+                Value<String?> extendedNutrientsJson = const Value.absent(),
               }) => FoodItemCompanion(
                 id: id,
                 name: name,
@@ -7243,6 +7331,7 @@ class $$FoodItemTableTableManager
                 fat: fat,
                 gramm: gramm,
                 hiddenFromRecent: hiddenFromRecent,
+                extendedNutrientsJson: extendedNutrientsJson,
               ),
           createCompanionCallback:
               ({
@@ -7254,6 +7343,7 @@ class $$FoodItemTableTableManager
                 required int fat,
                 Value<int> gramm = const Value.absent(),
                 Value<bool> hiddenFromRecent = const Value.absent(),
+                Value<String?> extendedNutrientsJson = const Value.absent(),
               }) => FoodItemCompanion.insert(
                 id: id,
                 name: name,
@@ -7263,6 +7353,7 @@ class $$FoodItemTableTableManager
                 fat: fat,
                 gramm: gramm,
                 hiddenFromRecent: hiddenFromRecent,
+                extendedNutrientsJson: extendedNutrientsJson,
               ),
           withReferenceMapper:
               (p0) =>

@@ -24,8 +24,17 @@ public interface IWeightTrackingService
     /// <summary>
     /// 
     /// </summary>
-    /// <param name="weightTrackingResponseDto"></param>
+    /// <param name="id"></param>
+    /// <param name="userId"></param>
+    /// <param name="weightTrackingRequestDto"></param>
+    /// <returns></returns>
+    Task<WeightTrackingResponseDto> UpdateWeightAsync(Guid id, Guid userId, WeightTrackingRequestDto weightTrackingRequestDto);
+
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="id"></param>
     /// <param name="userId"></param>
     /// <returns></returns>
-    Task<WeightTrackingResponseDto> GetWeightLog(Guid userId);
+    Task<bool> DeleteWeightAsync(Guid id, Guid userId);
 }

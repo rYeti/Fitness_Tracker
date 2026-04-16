@@ -1,5 +1,6 @@
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:drift/drift.dart';
+import 'extended_nutrients.dart';
 
 class FoodItemModel {
   final int? id;
@@ -8,7 +9,8 @@ class FoodItemModel {
   final int protein;
   final int carbs;
   final int fat;
-  final int gramm; // If you use gramm in your table
+  final int gramm;
+  final ExtendedNutrients? extendedNutrients;
 
   FoodItemModel({
     this.id,
@@ -18,9 +20,9 @@ class FoodItemModel {
     required this.carbs,
     required this.fat,
     required this.gramm,
+    this.extendedNutrients,
   });
 
-  // Convert from Drift's FoodItemData
   factory FoodItemModel.fromData(FoodItemData data) {
     return FoodItemModel(
       id: data.id,
@@ -30,10 +32,12 @@ class FoodItemModel {
       carbs: data.carbs,
       fat: data.fat,
       gramm: data.gramm,
+      extendedNutrients: data.extendedNutrientsJson != null
+          ? ExtendedNutrients.fromJsonString(data.extendedNutrientsJson!)
+          : null,
     );
   }
 
-  // Convert to Drift's FoodItemCompanion for inserts/updates
   FoodItemCompanion toCompanion() {
     return FoodItemCompanion(
       name: Value(name),
@@ -42,6 +46,7 @@ class FoodItemModel {
       carbs: Value(carbs),
       fat: Value(fat),
       gramm: Value(gramm),
+      extendedNutrientsJson: Value(extendedNutrients?.toJsonString()),
     );
   }
 }

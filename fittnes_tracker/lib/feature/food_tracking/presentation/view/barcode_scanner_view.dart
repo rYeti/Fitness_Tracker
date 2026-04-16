@@ -4,8 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../data/data_sources/food_api.dart';
-import '../../data/models/food_item_model.dart';
-import '../../../../core/network/api_client.dart';
 import 'food_detail_view.dart';
 
 // Define isMobileDevice if not provided by platform_detector.dart
@@ -36,9 +34,7 @@ class _BarcodeScannerViewState extends State<BarcodeScannerView> {
   bool _isHandlingBarcode = false;
 
   final MobileScannerController scannerController = MobileScannerController();
-  final FoodApi foodApi = FoodApi(
-    ApiClient(baseUrl: 'https://world.openfoodfacts.org/api/v2/'),
-  );
+  final FoodApi foodApi = FoodApi();
 
   void _onBarcodeDetected(BarcodeCapture capture) async {
     if (_isHandlingBarcode) return; // Prevent multiple triggers
@@ -52,15 +48,16 @@ class _BarcodeScannerViewState extends State<BarcodeScannerView> {
     final barcode = raw;
 
     try {
-      FoodItemModel foodItem = await foodApi.fetchFoodByBarcode(barcode);
+      final barcodeResult = await foodApi.fetchFoodByBarcode(barcode);
       if (!mounted) return;
       final result = await Navigator.of(context).push(
         MaterialPageRoute(
           builder:
               (context) => FoodDetailsScreen(
-                foodItem: foodItem,
+                foodItem: barcodeResult.food,
                 category: widget.category,
-                isTemplate: widget.isTemplate, // Pass the isTemplate flag
+                isTemplate: widget.isTemplate,
+                portionOptions: barcodeResult.portionOptions,
               ),
         ),
       );
@@ -71,7 +68,21 @@ class _BarcodeScannerViewState extends State<BarcodeScannerView> {
         Navigator.pop(context, result);
       }
     } catch (error) {
-      AppLogger.i('❌ Error fetching food data: $error');
+      AppLogger.e('Error fetching food data: $error');
+      if (mounted) {
+        final isRateLimit =
+            error.toString().contains('429') ||
+            error.toString().contains('rate');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isRateLimit
+                  ? 'Too many requests — please wait a moment and try again.'
+                  : 'Could not fetch product data. Please try again.',
+            ),
+          ),
+        );
+      }
     } finally {
       // Allow scanning again once user returns or on error
       _isHandlingBarcode = false;
