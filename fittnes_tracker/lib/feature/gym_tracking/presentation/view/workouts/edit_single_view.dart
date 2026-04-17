@@ -32,6 +32,9 @@ class _EditSingleWorkoutViewState extends State<EditSingleWorkoutView> {
   bool _saving = false;
   bool _isReordering = false;
 
+  int? _supersetPickIndex;
+  int _nextSupersetGroupId = 1;
+
   @override
   void initState() {
     super.initState();
@@ -51,16 +54,122 @@ class _EditSingleWorkoutViewState extends State<EditSingleWorkoutView> {
     final workout = await dao.getCompleteWorkoutById(widget.workoutId);
 
     if (workout != null) {
-      // Pre-populate form fields with existing workout metadata
       _nameController.text = workout.name;
       _descriptionController.text = workout.description ?? '';
       _durationController.text =
           workout.estimatedDurationMinutes?.toString() ?? '';
       _difficulty = workout.difficulty ?? WorkoutDifficulty.beginner;
       _workout = workout;
+      _initSupersetGroupId();
     }
 
     setState(() => _loading = false);
+  }
+
+  void _initSupersetGroupId() {
+    if (_workout == null) return;
+    final maxGroupId = _workout!.exercises
+        .map((e) => e.supersetGroupId ?? 0)
+        .fold(0, (a, b) => a > b ? a : b);
+    _nextSupersetGroupId = maxGroupId + 1;
+  }
+
+  void _handleSupersetTap(int index) {
+    final l10n = AppLocalizations.of(context)!;
+    final exercises = _workout!.exercises;
+    final hasSuperset = exercises[index].supersetGroupId != null;
+
+    if (_supersetPickIndex != null && _supersetPickIndex != index) {
+      // Second pick: link both exercises into a new superset group
+      setState(() {
+        final groupId = _nextSupersetGroupId++;
+        final a = exercises[_supersetPickIndex!];
+        final b = exercises[index];
+        if (a.supersetGroupId != null) _clearSupersetGroup(a.supersetGroupId!);
+        if (b.supersetGroupId != null) _clearSupersetGroup(b.supersetGroupId!);
+        final updated = List<WorkoutExercise>.from(_workout!.exercises);
+        updated[_supersetPickIndex!] = updated[_supersetPickIndex!].copyWith(supersetGroupId: groupId);
+        updated[index] = updated[index].copyWith(supersetGroupId: groupId);
+        _supersetPickIndex = null;
+        _rebuildWorkout(updated);
+      });
+      return;
+    }
+
+    showDialog<String>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: Text(exercises[index].exercise?.name ?? ''),
+        children: [
+          if (!hasSuperset)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, 'pick'),
+              child: Row(children: [
+                const Icon(Icons.link),
+                const SizedBox(width: 8),
+                Flexible(child: Text(l10n.superset)),
+              ]),
+            ),
+          if (hasSuperset)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, 'unlink'),
+              child: Row(children: [
+                const Icon(Icons.link_off),
+                const SizedBox(width: 8),
+                Flexible(child: Text(l10n.removeSupersetLink)),
+              ]),
+            ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(ctx, 'delete'),
+            child: Row(children: [
+              Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error),
+              const SizedBox(width: 8),
+              Flexible(child: Text(l10n.delete)),
+            ]),
+          ),
+        ],
+      ),
+    ).then((action) {
+      if (action == 'pick') {
+        setState(() => _supersetPickIndex = index);
+      } else if (action == 'unlink') {
+        setState(() {
+          _clearSupersetGroup(exercises[index].supersetGroupId!);
+        });
+      } else if (action == 'delete') {
+        setState(() {
+          final groupId = exercises[index].supersetGroupId;
+          if (groupId != null) _clearSupersetGroup(groupId);
+          final updated = List<WorkoutExercise>.from(_workout!.exercises)
+            ..removeAt(index);
+          _rebuildWorkout(updated);
+        });
+      }
+    });
+  }
+
+  void _clearSupersetGroup(int groupId) {
+    final updated = _workout!.exercises.map((e) {
+      if (e.supersetGroupId == groupId) {
+        return e.copyWith(supersetGroupId: null);
+      }
+      return e;
+    }).toList();
+    _rebuildWorkout(updated);
+  }
+
+  void _rebuildWorkout(List<WorkoutExercise> exercises) {
+    _workout = Workout(
+      id: _workout!.id,
+      name: _workout!.name,
+      description: _workout!.description,
+      difficulty: _workout!.difficulty,
+      estimatedDurationMinutes: _workout!.estimatedDurationMinutes,
+      isTemplate: _workout!.isTemplate,
+      scheduledDate: _workout!.scheduledDate,
+      completedDate: _workout!.completedDate,
+      exercises: exercises,
+    );
   }
 
   Future<void> _saveWorkout() async {
@@ -72,13 +181,9 @@ class _EditSingleWorkoutViewState extends State<EditSingleWorkoutView> {
       final dao = sl<AppDatabase>().workoutDao;
       final duration = int.tryParse(_durationController.text) ?? 30;
 
-      // First, ensure all exercises exist in the database.
-      // Also assign orderPosition based on current list order (drag-reorder
-      // kept original objects intact, so orderPosition may be stale here).
       final updatedExercises = <WorkoutExercise>[];
       for (final (index, exercise) in _workout!.exercises.indexed) {
         if (exercise.exerciseId == -1 && exercise.exercise != null) {
-          // This is a new exercise that needs to be created
           final exerciseCompanion = ExerciseTableCompanion(
             name: Value(exercise.exercise!.name),
             description: Value('Added to workout'),
@@ -104,6 +209,7 @@ class _EditSingleWorkoutViewState extends State<EditSingleWorkoutView> {
               exercise: exercise.exercise,
               sets: exercise.sets,
               notes: exercise.notes,
+              supersetGroupId: exercise.supersetGroupId,
             ),
           );
         } else {
@@ -116,6 +222,7 @@ class _EditSingleWorkoutViewState extends State<EditSingleWorkoutView> {
               exercise: exercise.exercise,
               sets: exercise.sets,
               notes: exercise.notes,
+              supersetGroupId: exercise.supersetGroupId,
             ),
           );
         }
@@ -133,7 +240,6 @@ class _EditSingleWorkoutViewState extends State<EditSingleWorkoutView> {
 
       await dao.saveCompleteWorkout(updatedWorkout);
 
-      // Refresh scheduled workouts provider so the scheduled view reflects edits immediately
       try {
         if (mounted) {
           context.read<ScheduleWorkoutProvider>().refresh();
@@ -172,25 +278,10 @@ class _EditSingleWorkoutViewState extends State<EditSingleWorkoutView> {
     final exercises = List<WorkoutExercise>.from(_workout!.exercises);
     final moved = exercises.removeAt(oldIndex);
     exercises.insert(newIndex, moved);
-    // Keep the same WorkoutExercise objects so their keys stay stable and
-    // ExpansionTile state is preserved. orderPosition is corrected at save time.
-    setState(() {
-      _workout = Workout(
-        id: _workout!.id,
-        name: _workout!.name,
-        description: _workout!.description,
-        difficulty: _workout!.difficulty,
-        estimatedDurationMinutes: _workout!.estimatedDurationMinutes,
-        isTemplate: _workout!.isTemplate,
-        scheduledDate: _workout!.scheduledDate,
-        completedDate: _workout!.completedDate,
-        exercises: exercises,
-      );
-    });
+    setState(() => _rebuildWorkout(exercises));
   }
 
   void _addExercise() async {
-    // Use the same exercise selection modal as the create view
     final selectedExercise = await ExerciseSelectionModal.show(context);
 
     if (selectedExercise == null || _workout == null) return;
@@ -210,20 +301,11 @@ class _EditSingleWorkoutViewState extends State<EditSingleWorkoutView> {
           isCompleted: false,
         ),
       ],
+      supersetGroupId: null,
     );
 
     setState(() {
-      _workout = Workout(
-        id: _workout!.id,
-        name: _workout!.name,
-        description: _workout!.description,
-        difficulty: _workout!.difficulty,
-        estimatedDurationMinutes: _workout!.estimatedDurationMinutes,
-        isTemplate: _workout!.isTemplate,
-        scheduledDate: _workout!.scheduledDate,
-        completedDate: _workout!.completedDate,
-        exercises: [..._workout!.exercises, newExercise],
-      );
+      _rebuildWorkout([..._workout!.exercises, newExercise]);
     });
   }
 
@@ -231,18 +313,11 @@ class _EditSingleWorkoutViewState extends State<EditSingleWorkoutView> {
     if (_workout == null) return;
 
     setState(() {
-      _workout = Workout(
-        id: _workout!.id,
-        name: _workout!.name,
-        description: _workout!.description,
-        difficulty: _workout!.difficulty,
-        estimatedDurationMinutes: _workout!.estimatedDurationMinutes,
-        isTemplate: _workout!.isTemplate,
-        scheduledDate: _workout!.scheduledDate,
-        completedDate: _workout!.completedDate,
-        exercises:
-            _workout!.exercises.where((e) => e.id != exercise.id).toList(),
-      );
+      if (exercise.supersetGroupId != null) {
+        _clearSupersetGroup(exercise.supersetGroupId!);
+      }
+      final updated = _workout!.exercises.where((e) => e.id != exercise.id).toList();
+      _rebuildWorkout(updated);
     });
   }
 
@@ -256,33 +331,13 @@ class _EditSingleWorkoutViewState extends State<EditSingleWorkoutView> {
     );
 
     setState(() {
-      final updatedExercises =
-          _workout!.exercises.map((e) {
-            if (e.id == exercise.id) {
-              return WorkoutExercise(
-                id: e.id,
-                workoutId: e.workoutId,
-                exerciseId: e.exerciseId,
-                orderPosition: e.orderPosition,
-                exercise: e.exercise,
-                sets: [...e.sets, newSet],
-                notes: e.notes,
-              );
-            }
-            return e;
-          }).toList();
-
-      _workout = Workout(
-        id: _workout!.id,
-        name: _workout!.name,
-        description: _workout!.description,
-        difficulty: _workout!.difficulty,
-        estimatedDurationMinutes: _workout!.estimatedDurationMinutes,
-        isTemplate: _workout!.isTemplate,
-        scheduledDate: _workout!.scheduledDate,
-        completedDate: _workout!.completedDate,
-        exercises: updatedExercises,
-      );
+      final updated = _workout!.exercises.map((e) {
+        if (e.id == exercise.id) {
+          return e.copyWith(sets: [...e.sets, newSet]);
+        }
+        return e;
+      }).toList();
+      _rebuildWorkout(updated);
     });
   }
 
@@ -290,35 +345,15 @@ class _EditSingleWorkoutViewState extends State<EditSingleWorkoutView> {
     if (_workout == null) return;
 
     setState(() {
-      final updatedExercises =
-          _workout!.exercises.map((exercise) {
-            // Use object identity so that unsaved sets (id == null) are not
-            // confused with one another across different exercises.
-            if (exercise.sets.any((s) => identical(s, set))) {
-              return WorkoutExercise(
-                id: exercise.id,
-                workoutId: exercise.workoutId,
-                exerciseId: exercise.exerciseId,
-                orderPosition: exercise.orderPosition,
-                exercise: exercise.exercise,
-                sets: exercise.sets.where((s) => !identical(s, set)).toList(),
-                notes: exercise.notes,
-              );
-            }
-            return exercise;
-          }).toList();
-
-      _workout = Workout(
-        id: _workout!.id,
-        name: _workout!.name,
-        description: _workout!.description,
-        difficulty: _workout!.difficulty,
-        estimatedDurationMinutes: _workout!.estimatedDurationMinutes,
-        isTemplate: _workout!.isTemplate,
-        scheduledDate: _workout!.scheduledDate,
-        completedDate: _workout!.completedDate,
-        exercises: updatedExercises,
-      );
+      final updated = _workout!.exercises.map((exercise) {
+        if (exercise.sets.any((s) => identical(s, set))) {
+          return exercise.copyWith(
+            sets: exercise.sets.where((s) => !identical(s, set)).toList(),
+          );
+        }
+        return exercise;
+      }).toList();
+      _rebuildWorkout(updated);
     });
   }
 
@@ -360,52 +395,32 @@ class _EditSingleWorkoutViewState extends State<EditSingleWorkoutView> {
     if (_workout == null) return;
 
     setState(() {
-      final updatedExercises =
-          _workout!.exercises.map((exercise) {
-            if (exercise.sets.any((s) => identical(s, oldSet))) {
-              final updatedSets =
-                  exercise.sets.map((s) {
-                    if (identical(s, oldSet)) {
-                      return WorkoutSet(
-                        id: s.id,
-                        exerciseInstanceId: s.exerciseInstanceId,
-                        setNumber: s.setNumber,
-                        targetReps: targetReps,
-                      );
-                    }
-                    return s;
-                  }).toList();
-
-              return WorkoutExercise(
-                id: exercise.id,
-                workoutId: exercise.workoutId,
-                exerciseId: exercise.exerciseId,
-                orderPosition: exercise.orderPosition,
-                exercise: exercise.exercise,
-                sets: updatedSets,
-                notes: exercise.notes,
+      final updated = _workout!.exercises.map((exercise) {
+        if (exercise.sets.any((s) => identical(s, oldSet))) {
+          final updatedSets = exercise.sets.map((s) {
+            if (identical(s, oldSet)) {
+              return WorkoutSet(
+                id: s.id,
+                exerciseInstanceId: s.exerciseInstanceId,
+                setNumber: s.setNumber,
+                targetReps: targetReps,
               );
             }
-            return exercise;
+            return s;
           }).toList();
-
-      _workout = Workout(
-        id: _workout!.id,
-        name: _workout!.name,
-        description: _workout!.description,
-        difficulty: _workout!.difficulty,
-        estimatedDurationMinutes: _workout!.estimatedDurationMinutes,
-        isTemplate: _workout!.isTemplate,
-        scheduledDate: _workout!.scheduledDate,
-        completedDate: _workout!.completedDate,
-        exercises: updatedExercises,
-      );
+          return exercise.copyWith(sets: updatedSets);
+        }
+        return exercise;
+      }).toList();
+      _rebuildWorkout(updated);
     });
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+
     if (_loading) {
       return SafeArea(child: Scaffold(
         appBar: AppBar(title: Text(l10n.editWorkout)),
@@ -417,6 +432,11 @@ class _EditSingleWorkoutViewState extends State<EditSingleWorkoutView> {
       appBar: AppBar(
         title: Text(l10n.editWorkout),
         actions: [
+          if (_supersetPickIndex != null)
+            TextButton(
+              onPressed: () => setState(() => _supersetPickIndex = null),
+              child: Text(l10n.cancel, style: TextStyle(color: theme.colorScheme.error)),
+            ),
           if (_saving)
             const Padding(
               padding: EdgeInsets.all(16.0),
@@ -493,6 +513,20 @@ class _EditSingleWorkoutViewState extends State<EditSingleWorkoutView> {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
+            if (_supersetPickIndex != null)
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  l10n.supersetPickHint,
+                  style: TextStyle(color: theme.colorScheme.onPrimaryContainer),
+                ),
+              ),
             if (_workout?.exercises.isEmpty ?? true)
               Text(l10n.noExercisesInWorkout)
             else
@@ -507,108 +541,7 @@ class _EditSingleWorkoutViewState extends State<EditSingleWorkoutView> {
                     if (mounted) setState(() => _isReordering = false);
                   });
                 },
-                children:
-                    _workout!.exercises.asMap().entries.map((entry) {
-                      final index = entry.key;
-                      final exercise = entry.value;
-                      return ReorderableDelayedDragStartListener(
-                        key: ValueKey(exercise.id ?? exercise.hashCode),
-                        index: index,
-                        child: Card(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          child: AbsorbPointer(
-                            absorbing: _isReordering,
-                            child: ExpansionTile(
-                              initiallyExpanded: true,
-                              leading: const Icon(
-                                Icons.drag_indicator,
-                                color: Colors.grey,
-                              ),
-                              title: Text(
-                                exercise.exercise?.name ?? l10n.unknownExercise,
-                              ),
-                              subtitle: Text(
-                                '${exercise.sets.length} ${l10n.setsLabel}',
-                              ),
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.all(16.0),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Text(
-                                            '${l10n.setsLabel}:',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                          Row(
-                                            children: [
-                                              IconButton(
-                                                icon: const Icon(Icons.add),
-                                                onPressed:
-                                                    () => _addSetToExercise(
-                                                      exercise,
-                                                    ),
-                                                tooltip: l10n.addSet,
-                                              ),
-                                              IconButton(
-                                                icon: const Icon(Icons.delete),
-                                                onPressed:
-                                                    () => _removeExercise(
-                                                      exercise,
-                                                    ),
-                                                tooltip: l10n.delete,
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        '${l10n.setsLabel} (${exercise.sets.length}):',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      ...exercise.sets.map(
-                                        (set) => Row(
-                                          children: [
-                                            Expanded(
-                                              child: Text(
-                                                'Set ${set.setNumber}: ${set.targetReps ?? "-"}',
-                                              ),
-                                            ),
-                                            IconButton(
-                                              icon: const Icon(Icons.edit),
-                                              onPressed: () => _editSet(set),
-                                              tooltip: l10n.edit,
-                                            ),
-                                            IconButton(
-                                              icon: const Icon(Icons.delete),
-                                              onPressed: () => _removeSet(set),
-                                              tooltip: l10n.delete,
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      if (exercise.sets.isEmpty)
-                                        Text(l10n.noSetsFound),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
+                children: _buildExerciseItems(theme, l10n),
               ),
             const SizedBox(height: 16),
             ElevatedButton.icon(
@@ -620,5 +553,168 @@ class _EditSingleWorkoutViewState extends State<EditSingleWorkoutView> {
         ),
       ),
     ));
+  }
+
+  List<Widget> _buildExerciseItems(ThemeData theme, AppLocalizations l10n) {
+    final items = <Widget>[];
+    final exercises = _workout!.exercises;
+
+    for (int index = 0; index < exercises.length; index++) {
+      final exercise = exercises[index];
+      final supersetGroupId = exercise.supersetGroupId;
+      final showChainBelow = index + 1 < exercises.length &&
+          supersetGroupId != null &&
+          exercises[index + 1].supersetGroupId == supersetGroupId;
+      final isPickCandidate = _supersetPickIndex == index;
+
+      items.add(
+        Column(
+          key: ValueKey(exercise.id ?? exercise.hashCode),
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Card(
+              margin: EdgeInsets.only(bottom: showChainBelow ? 0 : 8),
+              elevation: 0,
+              clipBehavior: Clip.antiAlias,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(
+                  color: isPickCandidate
+                      ? theme.colorScheme.tertiary
+                      : supersetGroupId != null
+                          ? theme.colorScheme.primary
+                          : theme.dividerColor,
+                  width: isPickCandidate || supersetGroupId != null ? 2 : 1,
+                ),
+              ),
+              child: AbsorbPointer(
+                absorbing: _isReordering,
+                child: GestureDetector(
+                  onLongPress: () => _handleSupersetTap(index),
+                  child: ExpansionTile(
+                    initiallyExpanded: true,
+                    leading: ReorderableDelayedDragStartListener(
+                      index: index,
+                      child: const Icon(
+                        Icons.drag_indicator,
+                        color: Colors.grey,
+                      ),
+                    ),
+                      title: Text(
+                        exercise.exercise?.name ?? l10n.unknownExercise,
+                      ),
+                      subtitle: Text(
+                        '${exercise.sets.length} ${l10n.setsLabel}',
+                      ),
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    '${l10n.setsLabel}:',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  Row(
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(Icons.add),
+                                        onPressed:
+                                            () => _addSetToExercise(exercise),
+                                        tooltip: l10n.addSet,
+                                      ),
+                                      if (supersetGroupId != null)
+                                        IconButton(
+                                          icon: const Icon(Icons.link_off),
+                                          onPressed: () => setState(
+                                            () => _clearSupersetGroup(supersetGroupId),
+                                          ),
+                                          tooltip: l10n.removeSupersetLink,
+                                        )
+                                      else
+                                        IconButton(
+                                          icon: const Icon(Icons.link),
+                                          onPressed: () => setState(
+                                            () => _supersetPickIndex = index,
+                                          ),
+                                          tooltip: l10n.superset,
+                                        ),
+                                      IconButton(
+                                        icon: const Icon(Icons.delete),
+                                        onPressed: () => _removeExercise(exercise),
+                                        tooltip: l10n.delete,
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                '${l10n.setsLabel} (${exercise.sets.length}):',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              ...exercise.sets.map(
+                                (set) => Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        'Set ${set.setNumber}: ${set.targetReps ?? "-"}',
+                                      ),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.edit),
+                                      onPressed: () => _editSet(set),
+                                      tooltip: l10n.edit,
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.delete),
+                                      onPressed: () => _removeSet(set),
+                                      tooltip: l10n.delete,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (exercise.sets.isEmpty)
+                                Text(l10n.noSetsFound),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            if (showChainBelow)
+              Padding(
+                padding: const EdgeInsets.only(left: 28, bottom: 8),
+                child: Row(
+                  children: [
+                    Icon(Icons.link, size: 16, color: theme.colorScheme.primary),
+                    const SizedBox(width: 4),
+                    Text(
+                      l10n.superset,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      );
+    }
+
+    return items;
   }
 }
