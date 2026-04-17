@@ -79,6 +79,12 @@ builder.Services.AddScoped<IWeightTrackingRepository, WeightTrackingRepository>(
 builder.Services.AddScoped<IWeightTrackingService, WeightTrackingService>();
 builder.Services.AddScoped<IExerciseRepository, ExerciseRepository>();
 builder.Services.AddScoped<IExerciseService, ExerciseService>();
+builder.Services.AddScoped<IWorkoutRepository, WorkoutRepository>();
+builder.Services.AddScoped<IWorkoutPlanRepository, WorkoutPlanRepository>();
+builder.Services.AddScoped<IScheduledWorkoutRepository, ScheduledWorkoutRepository>();
+builder.Services.AddScoped<IWorkoutService, WorkoutService>();
+builder.Services.AddScoped<IWorkoutPlanService, WorkoutPlanService>();
+builder.Services.AddScoped<IScheduledWorkoutService, ScheduledWorkoutService>();
 
 // ── Build ────────────────────────────────────────────────────
 var app = builder.Build();

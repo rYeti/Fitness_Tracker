@@ -30,7 +30,7 @@ public class ExerciseService : IExerciseService
             DescriptionDe = exercise.DescriptionDe,
             ImageUrl = exercise.ImageUrl,
             IsCustom = exercise.IsCustom,
-            TargetMuscle = exercise.TargetMuscle,
+            TargetMuscleGroups = exercise.TargetMuscleGroups,
             Type = exercise.Type,
         };
 
@@ -74,7 +74,7 @@ public class ExerciseService : IExerciseService
         DescriptionDe = e.DescriptionDe,
         ImageUrl = e.ImageUrl,
         IsCustom = e.IsCustom,
-        TargetMuscle = e.TargetMuscle,
+        TargetMuscleGroups = e.TargetMuscleGroups,
         Type = e.Type,
     };
 }

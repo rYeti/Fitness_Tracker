@@ -11,7 +11,7 @@ public class WeightTrackingResponseDto
     public DateTime Date { get; set; }
 
     /// <summary>The recorded weight value.</summary>
-    public decimal Weight { get; set; }
+    public double Weight { get; set; }
 
     /// <summary>An optional note attached to the weight entry.</summary>
     public string? Note { get; set; }

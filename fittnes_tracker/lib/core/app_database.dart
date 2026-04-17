@@ -60,7 +60,7 @@ class AppDatabase extends _$AppDatabase {
   // Workout planning DAOs will be added here after code generation
 
   @override
-  int get schemaVersion => 28;
+  int get schemaVersion => 30;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -166,6 +166,41 @@ class AppDatabase extends _$AppDatabase {
             'ALTER TABLE food_item ADD COLUMN extended_nutrients_json TEXT',
           );
         } catch (_) {}
+      }
+
+      if (from < 29) {
+        // Add server_id to all tables that sync with the remote API.
+        // Null until the record has been pushed and the server assigns a Guid.
+        for (final table in [
+          'exercise_table',
+          'workout_table',
+          'workout_exercise_table',
+          'workout_set_template_table',
+          'workout_plan_table',
+          'workout_plan_workout_table',
+          'scheduled_workout_table',
+          'scheduled_workout_exercise_table',
+          'workout_set_table',
+        ]) {
+          try {
+            await customStatement(
+              'ALTER TABLE $table ADD COLUMN server_id TEXT',
+            );
+          } catch (_) {}
+        }
+      }
+
+      if (from < 30) {
+        // Add user profile fields to match the remote API's User model.
+        for (final stmt in [
+          "ALTER TABLE user_table ADD COLUMN first_name TEXT NOT NULL DEFAULT ''",
+          "ALTER TABLE user_table ADD COLUMN last_name TEXT NOT NULL DEFAULT ''",
+          'ALTER TABLE user_table ADD COLUMN date_of_birth INTEGER',
+        ]) {
+          try {
+            await customStatement(stmt);
+          } catch (_) {}
+        }
       }
 
       // Migration from version 1 to 2
@@ -837,7 +872,10 @@ class UserTable extends Table {
   TextColumn get passwordHash => text()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   TextColumn get profileImageUrl => text().nullable()();
-  // Add other user fields as needed
+  TextColumn get firstName => text().withDefault(const Constant(''))();
+  TextColumn get lastName => text().withDefault(const Constant(''))();
+  /// Stored as milliseconds since epoch (nullable — not required at registration time).
+  DateTimeColumn get dateOfBirth => dateTime().nullable()();
 }
 
 @DriftAccessor(tables: [FoodItem])
@@ -1110,6 +1148,8 @@ class ExerciseTable extends Table {
   TextColumn get targetMuscleGroups => text()();
   TextColumn get imageUrl => text().nullable()();
   BoolColumn get isCustom => boolean().withDefault(const Constant(false))();
+  /// The UUID assigned by the remote API after the first successful sync. Null until synced.
+  TextColumn get serverId => text().nullable()();
 }
 
 /// Table for storing complete workouts
@@ -1125,6 +1165,8 @@ class WorkoutTable extends Table {
   DateTimeColumn get scheduledDate => dateTime().nullable()();
   DateTimeColumn get completedDate => dateTime().nullable()();
   IntColumn get color => integer().nullable()();
+  /// The UUID assigned by the remote API after the first successful sync. Null until synced.
+  TextColumn get serverId => text().nullable()();
 }
 
 /// Table for linking exercises to workouts (workout_exercise)
@@ -1134,17 +1176,19 @@ class WorkoutExerciseTable extends Table {
       integer().references(
         WorkoutTable,
         #id,
-        onDelete: KeyAction.cascade, // ← ADD THIS
+        onDelete: KeyAction.cascade,
       )();
   IntColumn get exerciseId =>
       integer().references(
         ExerciseTable,
         #id,
-        onDelete: KeyAction.cascade, // ← ADD THIS
+        onDelete: KeyAction.cascade,
       )();
   IntColumn get orderPosition => integer()();
   TextColumn get notes => text().nullable()();
   IntColumn get supersetGroupId => integer().nullable()();
+  /// The UUID assigned by the remote API after the first successful sync. Null until synced.
+  TextColumn get serverId => text().nullable()();
 }
 
 class ScheduledWorkoutExerciseTable extends Table {
@@ -1169,6 +1213,9 @@ class ScheduledWorkoutExerciseTable extends Table {
 
   /// Exercise override for this specific day only. Null = use the template exercise.
   IntColumn get overrideExerciseId => integer().nullable()();
+
+  /// The UUID assigned by the remote API after the first successful sync. Null until synced.
+  TextColumn get serverId => text().nullable()();
 }
 
 /// Table for storing individual sets within a workout exercise
@@ -1178,7 +1225,7 @@ class WorkoutSetTable extends Table {
       integer().references(
         ScheduledWorkoutExerciseTable,
         #id,
-        onDelete: KeyAction.cascade, // ← ADD THIS
+        onDelete: KeyAction.cascade,
       )();
   IntColumn get setNumber => integer()();
   IntColumn get reps => integer().nullable()();
@@ -1187,6 +1234,8 @@ class WorkoutSetTable extends Table {
   IntColumn get durationSeconds => integer().nullable()();
   BoolColumn get isCompleted => boolean().withDefault(const Constant(false))();
   TextColumn get notes => text().nullable()();
+  /// The UUID assigned by the remote API after the first successful sync. Null until synced.
+  TextColumn get serverId => text().nullable()();
 }
 
 /// Table for workout plans/schedules
@@ -1200,6 +1249,8 @@ class WorkoutPlanTable extends Table {
   BoolColumn get isActive => boolean().withDefault(const Constant(false))();
   TextColumn get cyclePatternJson => text()();
   BoolColumn get isFreeChoice => boolean().withDefault(const Constant(false))();
+  /// The UUID assigned by the remote API after the first successful sync. Null until synced.
+  TextColumn get serverId => text().nullable()();
 }
 
 /// Table for linking workouts to plans (many-to-many)
@@ -1207,6 +1258,8 @@ class WorkoutPlanWorkoutTable extends Table {
   IntColumn get id => integer().autoIncrement()();
   IntColumn get planId => integer().references(WorkoutPlanTable, #id)();
   IntColumn get workoutId => integer().references(WorkoutTable, #id)();
+  /// The UUID assigned by the remote API after the first successful sync. Null until synced.
+  TextColumn get serverId => text().nullable()();
 }
 
 /// Table for storing scheduled workouts (instances of a workout scheduled on a date)
@@ -1217,11 +1270,12 @@ class ScheduledWorkoutTable extends Table {
   IntColumn get workoutId => integer().references(WorkoutTable, #id)();
   IntColumn get workoutPlanId =>
       integer().nullable().references(WorkoutPlanTable, #id)();
+  @ReferenceName('scheduledWorkoutTemplateRefs')
   IntColumn get templateWorkoutId =>
       integer().nullable().references(
         WorkoutTable,
         #id,
-        onDelete: KeyAction.cascade, // ← ADD THIS
+        onDelete: KeyAction.cascade,
       )();
 
   /// The date/time this workout is scheduled for
@@ -1236,6 +1290,9 @@ class ScheduledWorkoutTable extends Table {
 
   BoolColumn get isCompleted => boolean().withDefault(const Constant(false))();
   BoolColumn get isSkipped => boolean().withDefault(const Constant(false))();
+
+  /// The UUID assigned by the remote API after the first successful sync. Null until synced.
+  TextColumn get serverId => text().nullable()();
 }
 
 @DataClassName('WorkoutSetTemplateData')
@@ -1247,7 +1304,7 @@ class WorkoutSetTemplateTable extends Table {
       integer().references(
         WorkoutExerciseTable,
         #id,
-        onDelete: KeyAction.cascade, // ← ADD THIS
+        onDelete: KeyAction.cascade,
       )();
 
   // Which set number (1, 2, 3, etc.)
@@ -1258,6 +1315,9 @@ class WorkoutSetTemplateTable extends Table {
 
   // Order position for sorting
   IntColumn get orderPosition => integer()();
+
+  /// The UUID assigned by the remote API after the first successful sync. Null until synced.
+  TextColumn get serverId => text().nullable()();
 }
 
 // Weight tracking DAO
@@ -1664,6 +1724,7 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
           exercise: exerciseModel,
           sets: workoutSets,
           notes: exerciseInstance.notes,
+          supersetGroupId: exerciseInstance.supersetGroupId,
         ),
       );
     }
@@ -1775,6 +1836,7 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
           exerciseId: Value(exercise.exerciseId),
           orderPosition: Value(exercise.orderPosition),
           notes: Value(exercise.notes),
+          supersetGroupId: Value(exercise.supersetGroupId),
         );
 
         final exerciseInstanceId = await into(

@@ -2569,6 +2569,17 @@ class $ExerciseTableTable extends ExerciseTable
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _serverIdMeta = const VerificationMeta(
+    'serverId',
+  );
+  @override
+  late final GeneratedColumn<String> serverId = GeneratedColumn<String>(
+    'server_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -2580,6 +2591,7 @@ class $ExerciseTableTable extends ExerciseTable
     targetMuscleGroups,
     imageUrl,
     isCustom,
+    serverId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2659,6 +2671,12 @@ class $ExerciseTableTable extends ExerciseTable
         isCustom.isAcceptableOrUnknown(data['is_custom']!, _isCustomMeta),
       );
     }
+    if (data.containsKey('server_id')) {
+      context.handle(
+        _serverIdMeta,
+        serverId.isAcceptableOrUnknown(data['server_id']!, _serverIdMeta),
+      );
+    }
     return context;
   }
 
@@ -2709,6 +2727,10 @@ class $ExerciseTableTable extends ExerciseTable
             DriftSqlType.bool,
             data['${effectivePrefix}is_custom'],
           )!,
+      serverId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}server_id'],
+      ),
     );
   }
 
@@ -2729,6 +2751,9 @@ class ExerciseTableData extends DataClass
   final String targetMuscleGroups;
   final String? imageUrl;
   final bool isCustom;
+
+  /// The UUID assigned by the remote API after the first successful sync. Null until synced.
+  final String? serverId;
   const ExerciseTableData({
     required this.id,
     required this.name,
@@ -2739,6 +2764,7 @@ class ExerciseTableData extends DataClass
     required this.targetMuscleGroups,
     this.imageUrl,
     required this.isCustom,
+    this.serverId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2760,6 +2786,9 @@ class ExerciseTableData extends DataClass
       map['image_url'] = Variable<String>(imageUrl);
     }
     map['is_custom'] = Variable<bool>(isCustom);
+    if (!nullToAbsent || serverId != null) {
+      map['server_id'] = Variable<String>(serverId);
+    }
     return map;
   }
 
@@ -2784,6 +2813,10 @@ class ExerciseTableData extends DataClass
               ? const Value.absent()
               : Value(imageUrl),
       isCustom: Value(isCustom),
+      serverId:
+          serverId == null && nullToAbsent
+              ? const Value.absent()
+              : Value(serverId),
     );
   }
 
@@ -2804,6 +2837,7 @@ class ExerciseTableData extends DataClass
       ),
       imageUrl: serializer.fromJson<String?>(json['imageUrl']),
       isCustom: serializer.fromJson<bool>(json['isCustom']),
+      serverId: serializer.fromJson<String?>(json['serverId']),
     );
   }
   @override
@@ -2819,6 +2853,7 @@ class ExerciseTableData extends DataClass
       'targetMuscleGroups': serializer.toJson<String>(targetMuscleGroups),
       'imageUrl': serializer.toJson<String?>(imageUrl),
       'isCustom': serializer.toJson<bool>(isCustom),
+      'serverId': serializer.toJson<String?>(serverId),
     };
   }
 
@@ -2832,6 +2867,7 @@ class ExerciseTableData extends DataClass
     String? targetMuscleGroups,
     Value<String?> imageUrl = const Value.absent(),
     bool? isCustom,
+    Value<String?> serverId = const Value.absent(),
   }) => ExerciseTableData(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -2843,6 +2879,7 @@ class ExerciseTableData extends DataClass
     targetMuscleGroups: targetMuscleGroups ?? this.targetMuscleGroups,
     imageUrl: imageUrl.present ? imageUrl.value : this.imageUrl,
     isCustom: isCustom ?? this.isCustom,
+    serverId: serverId.present ? serverId.value : this.serverId,
   );
   ExerciseTableData copyWithCompanion(ExerciseTableCompanion data) {
     return ExerciseTableData(
@@ -2862,6 +2899,7 @@ class ExerciseTableData extends DataClass
               : this.targetMuscleGroups,
       imageUrl: data.imageUrl.present ? data.imageUrl.value : this.imageUrl,
       isCustom: data.isCustom.present ? data.isCustom.value : this.isCustom,
+      serverId: data.serverId.present ? data.serverId.value : this.serverId,
     );
   }
 
@@ -2876,7 +2914,8 @@ class ExerciseTableData extends DataClass
           ..write('type: $type, ')
           ..write('targetMuscleGroups: $targetMuscleGroups, ')
           ..write('imageUrl: $imageUrl, ')
-          ..write('isCustom: $isCustom')
+          ..write('isCustom: $isCustom, ')
+          ..write('serverId: $serverId')
           ..write(')'))
         .toString();
   }
@@ -2892,6 +2931,7 @@ class ExerciseTableData extends DataClass
     targetMuscleGroups,
     imageUrl,
     isCustom,
+    serverId,
   );
   @override
   bool operator ==(Object other) =>
@@ -2905,7 +2945,8 @@ class ExerciseTableData extends DataClass
           other.type == this.type &&
           other.targetMuscleGroups == this.targetMuscleGroups &&
           other.imageUrl == this.imageUrl &&
-          other.isCustom == this.isCustom);
+          other.isCustom == this.isCustom &&
+          other.serverId == this.serverId);
 }
 
 class ExerciseTableCompanion extends UpdateCompanion<ExerciseTableData> {
@@ -2918,6 +2959,7 @@ class ExerciseTableCompanion extends UpdateCompanion<ExerciseTableData> {
   final Value<String> targetMuscleGroups;
   final Value<String?> imageUrl;
   final Value<bool> isCustom;
+  final Value<String?> serverId;
   const ExerciseTableCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
@@ -2928,6 +2970,7 @@ class ExerciseTableCompanion extends UpdateCompanion<ExerciseTableData> {
     this.targetMuscleGroups = const Value.absent(),
     this.imageUrl = const Value.absent(),
     this.isCustom = const Value.absent(),
+    this.serverId = const Value.absent(),
   });
   ExerciseTableCompanion.insert({
     this.id = const Value.absent(),
@@ -2939,6 +2982,7 @@ class ExerciseTableCompanion extends UpdateCompanion<ExerciseTableData> {
     required String targetMuscleGroups,
     this.imageUrl = const Value.absent(),
     this.isCustom = const Value.absent(),
+    this.serverId = const Value.absent(),
   }) : name = Value(name),
        type = Value(type),
        targetMuscleGroups = Value(targetMuscleGroups);
@@ -2952,6 +2996,7 @@ class ExerciseTableCompanion extends UpdateCompanion<ExerciseTableData> {
     Expression<String>? targetMuscleGroups,
     Expression<String>? imageUrl,
     Expression<bool>? isCustom,
+    Expression<String>? serverId,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -2964,6 +3009,7 @@ class ExerciseTableCompanion extends UpdateCompanion<ExerciseTableData> {
         'target_muscle_groups': targetMuscleGroups,
       if (imageUrl != null) 'image_url': imageUrl,
       if (isCustom != null) 'is_custom': isCustom,
+      if (serverId != null) 'server_id': serverId,
     });
   }
 
@@ -2977,6 +3023,7 @@ class ExerciseTableCompanion extends UpdateCompanion<ExerciseTableData> {
     Value<String>? targetMuscleGroups,
     Value<String?>? imageUrl,
     Value<bool>? isCustom,
+    Value<String?>? serverId,
   }) {
     return ExerciseTableCompanion(
       id: id ?? this.id,
@@ -2988,6 +3035,7 @@ class ExerciseTableCompanion extends UpdateCompanion<ExerciseTableData> {
       targetMuscleGroups: targetMuscleGroups ?? this.targetMuscleGroups,
       imageUrl: imageUrl ?? this.imageUrl,
       isCustom: isCustom ?? this.isCustom,
+      serverId: serverId ?? this.serverId,
     );
   }
 
@@ -3021,6 +3069,9 @@ class ExerciseTableCompanion extends UpdateCompanion<ExerciseTableData> {
     if (isCustom.present) {
       map['is_custom'] = Variable<bool>(isCustom.value);
     }
+    if (serverId.present) {
+      map['server_id'] = Variable<String>(serverId.value);
+    }
     return map;
   }
 
@@ -3035,7 +3086,8 @@ class ExerciseTableCompanion extends UpdateCompanion<ExerciseTableData> {
           ..write('type: $type, ')
           ..write('targetMuscleGroups: $targetMuscleGroups, ')
           ..write('imageUrl: $imageUrl, ')
-          ..write('isCustom: $isCustom')
+          ..write('isCustom: $isCustom, ')
+          ..write('serverId: $serverId')
           ..write(')'))
         .toString();
   }
@@ -3151,6 +3203,17 @@ class $WorkoutTableTable extends WorkoutTable
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _serverIdMeta = const VerificationMeta(
+    'serverId',
+  );
+  @override
+  late final GeneratedColumn<String> serverId = GeneratedColumn<String>(
+    'server_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -3162,6 +3225,7 @@ class $WorkoutTableTable extends WorkoutTable
     scheduledDate,
     completedDate,
     color,
+    serverId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3242,6 +3306,12 @@ class $WorkoutTableTable extends WorkoutTable
         color.isAcceptableOrUnknown(data['color']!, _colorMeta),
       );
     }
+    if (data.containsKey('server_id')) {
+      context.handle(
+        _serverIdMeta,
+        serverId.isAcceptableOrUnknown(data['server_id']!, _serverIdMeta),
+      );
+    }
     return context;
   }
 
@@ -3292,6 +3362,10 @@ class $WorkoutTableTable extends WorkoutTable
         DriftSqlType.int,
         data['${effectivePrefix}color'],
       ),
+      serverId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}server_id'],
+      ),
     );
   }
 
@@ -3312,6 +3386,9 @@ class WorkoutTableData extends DataClass
   final DateTime? scheduledDate;
   final DateTime? completedDate;
   final int? color;
+
+  /// The UUID assigned by the remote API after the first successful sync. Null until synced.
+  final String? serverId;
   const WorkoutTableData({
     required this.id,
     required this.name,
@@ -3322,6 +3399,7 @@ class WorkoutTableData extends DataClass
     this.scheduledDate,
     this.completedDate,
     this.color,
+    this.serverId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3342,6 +3420,9 @@ class WorkoutTableData extends DataClass
     }
     if (!nullToAbsent || color != null) {
       map['color'] = Variable<int>(color);
+    }
+    if (!nullToAbsent || serverId != null) {
+      map['server_id'] = Variable<String>(serverId);
     }
     return map;
   }
@@ -3367,6 +3448,10 @@ class WorkoutTableData extends DataClass
               : Value(completedDate),
       color:
           color == null && nullToAbsent ? const Value.absent() : Value(color),
+      serverId:
+          serverId == null && nullToAbsent
+              ? const Value.absent()
+              : Value(serverId),
     );
   }
 
@@ -3387,6 +3472,7 @@ class WorkoutTableData extends DataClass
       scheduledDate: serializer.fromJson<DateTime?>(json['scheduledDate']),
       completedDate: serializer.fromJson<DateTime?>(json['completedDate']),
       color: serializer.fromJson<int?>(json['color']),
+      serverId: serializer.fromJson<String?>(json['serverId']),
     );
   }
   @override
@@ -3404,6 +3490,7 @@ class WorkoutTableData extends DataClass
       'scheduledDate': serializer.toJson<DateTime?>(scheduledDate),
       'completedDate': serializer.toJson<DateTime?>(completedDate),
       'color': serializer.toJson<int?>(color),
+      'serverId': serializer.toJson<String?>(serverId),
     };
   }
 
@@ -3417,6 +3504,7 @@ class WorkoutTableData extends DataClass
     Value<DateTime?> scheduledDate = const Value.absent(),
     Value<DateTime?> completedDate = const Value.absent(),
     Value<int?> color = const Value.absent(),
+    Value<String?> serverId = const Value.absent(),
   }) => WorkoutTableData(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -3430,6 +3518,7 @@ class WorkoutTableData extends DataClass
     completedDate:
         completedDate.present ? completedDate.value : this.completedDate,
     color: color.present ? color.value : this.color,
+    serverId: serverId.present ? serverId.value : this.serverId,
   );
   WorkoutTableData copyWithCompanion(WorkoutTableCompanion data) {
     return WorkoutTableData(
@@ -3454,6 +3543,7 @@ class WorkoutTableData extends DataClass
               ? data.completedDate.value
               : this.completedDate,
       color: data.color.present ? data.color.value : this.color,
+      serverId: data.serverId.present ? data.serverId.value : this.serverId,
     );
   }
 
@@ -3468,7 +3558,8 @@ class WorkoutTableData extends DataClass
           ..write('isTemplate: $isTemplate, ')
           ..write('scheduledDate: $scheduledDate, ')
           ..write('completedDate: $completedDate, ')
-          ..write('color: $color')
+          ..write('color: $color, ')
+          ..write('serverId: $serverId')
           ..write(')'))
         .toString();
   }
@@ -3484,6 +3575,7 @@ class WorkoutTableData extends DataClass
     scheduledDate,
     completedDate,
     color,
+    serverId,
   );
   @override
   bool operator ==(Object other) =>
@@ -3497,7 +3589,8 @@ class WorkoutTableData extends DataClass
           other.isTemplate == this.isTemplate &&
           other.scheduledDate == this.scheduledDate &&
           other.completedDate == this.completedDate &&
-          other.color == this.color);
+          other.color == this.color &&
+          other.serverId == this.serverId);
 }
 
 class WorkoutTableCompanion extends UpdateCompanion<WorkoutTableData> {
@@ -3510,6 +3603,7 @@ class WorkoutTableCompanion extends UpdateCompanion<WorkoutTableData> {
   final Value<DateTime?> scheduledDate;
   final Value<DateTime?> completedDate;
   final Value<int?> color;
+  final Value<String?> serverId;
   const WorkoutTableCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
@@ -3520,6 +3614,7 @@ class WorkoutTableCompanion extends UpdateCompanion<WorkoutTableData> {
     this.scheduledDate = const Value.absent(),
     this.completedDate = const Value.absent(),
     this.color = const Value.absent(),
+    this.serverId = const Value.absent(),
   });
   WorkoutTableCompanion.insert({
     this.id = const Value.absent(),
@@ -3531,6 +3626,7 @@ class WorkoutTableCompanion extends UpdateCompanion<WorkoutTableData> {
     this.scheduledDate = const Value.absent(),
     this.completedDate = const Value.absent(),
     this.color = const Value.absent(),
+    this.serverId = const Value.absent(),
   }) : name = Value(name),
        difficulty = Value(difficulty);
   static Insertable<WorkoutTableData> custom({
@@ -3543,6 +3639,7 @@ class WorkoutTableCompanion extends UpdateCompanion<WorkoutTableData> {
     Expression<DateTime>? scheduledDate,
     Expression<DateTime>? completedDate,
     Expression<int>? color,
+    Expression<String>? serverId,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -3555,6 +3652,7 @@ class WorkoutTableCompanion extends UpdateCompanion<WorkoutTableData> {
       if (scheduledDate != null) 'scheduled_date': scheduledDate,
       if (completedDate != null) 'completed_date': completedDate,
       if (color != null) 'color': color,
+      if (serverId != null) 'server_id': serverId,
     });
   }
 
@@ -3568,6 +3666,7 @@ class WorkoutTableCompanion extends UpdateCompanion<WorkoutTableData> {
     Value<DateTime?>? scheduledDate,
     Value<DateTime?>? completedDate,
     Value<int?>? color,
+    Value<String?>? serverId,
   }) {
     return WorkoutTableCompanion(
       id: id ?? this.id,
@@ -3580,6 +3679,7 @@ class WorkoutTableCompanion extends UpdateCompanion<WorkoutTableData> {
       scheduledDate: scheduledDate ?? this.scheduledDate,
       completedDate: completedDate ?? this.completedDate,
       color: color ?? this.color,
+      serverId: serverId ?? this.serverId,
     );
   }
 
@@ -3615,6 +3715,9 @@ class WorkoutTableCompanion extends UpdateCompanion<WorkoutTableData> {
     if (color.present) {
       map['color'] = Variable<int>(color.value);
     }
+    if (serverId.present) {
+      map['server_id'] = Variable<String>(serverId.value);
+    }
     return map;
   }
 
@@ -3629,7 +3732,8 @@ class WorkoutTableCompanion extends UpdateCompanion<WorkoutTableData> {
           ..write('isTemplate: $isTemplate, ')
           ..write('scheduledDate: $scheduledDate, ')
           ..write('completedDate: $completedDate, ')
-          ..write('color: $color')
+          ..write('color: $color, ')
+          ..write('serverId: $serverId')
           ..write(')'))
         .toString();
   }
@@ -3738,6 +3842,17 @@ class $WorkoutPlanTableTable extends WorkoutPlanTable
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _serverIdMeta = const VerificationMeta(
+    'serverId',
+  );
+  @override
+  late final GeneratedColumn<String> serverId = GeneratedColumn<String>(
+    'server_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -3748,6 +3863,7 @@ class $WorkoutPlanTableTable extends WorkoutPlanTable
     isActive,
     cyclePatternJson,
     isFreeChoice,
+    serverId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3821,6 +3937,12 @@ class $WorkoutPlanTableTable extends WorkoutPlanTable
         ),
       );
     }
+    if (data.containsKey('server_id')) {
+      context.handle(
+        _serverIdMeta,
+        serverId.isAcceptableOrUnknown(data['server_id']!, _serverIdMeta),
+      );
+    }
     return context;
   }
 
@@ -3869,6 +3991,10 @@ class $WorkoutPlanTableTable extends WorkoutPlanTable
             DriftSqlType.bool,
             data['${effectivePrefix}is_free_choice'],
           )!,
+      serverId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}server_id'],
+      ),
     );
   }
 
@@ -3888,6 +4014,9 @@ class WorkoutPlanTableData extends DataClass
   final bool isActive;
   final String cyclePatternJson;
   final bool isFreeChoice;
+
+  /// The UUID assigned by the remote API after the first successful sync. Null until synced.
+  final String? serverId;
   const WorkoutPlanTableData({
     required this.id,
     required this.name,
@@ -3897,6 +4026,7 @@ class WorkoutPlanTableData extends DataClass
     required this.isActive,
     required this.cyclePatternJson,
     required this.isFreeChoice,
+    this.serverId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3911,6 +4041,9 @@ class WorkoutPlanTableData extends DataClass
     map['is_active'] = Variable<bool>(isActive);
     map['cycle_pattern_json'] = Variable<String>(cyclePatternJson);
     map['is_free_choice'] = Variable<bool>(isFreeChoice);
+    if (!nullToAbsent || serverId != null) {
+      map['server_id'] = Variable<String>(serverId);
+    }
     return map;
   }
 
@@ -3927,6 +4060,10 @@ class WorkoutPlanTableData extends DataClass
       isActive: Value(isActive),
       cyclePatternJson: Value(cyclePatternJson),
       isFreeChoice: Value(isFreeChoice),
+      serverId:
+          serverId == null && nullToAbsent
+              ? const Value.absent()
+              : Value(serverId),
     );
   }
 
@@ -3944,6 +4081,7 @@ class WorkoutPlanTableData extends DataClass
       isActive: serializer.fromJson<bool>(json['isActive']),
       cyclePatternJson: serializer.fromJson<String>(json['cyclePatternJson']),
       isFreeChoice: serializer.fromJson<bool>(json['isFreeChoice']),
+      serverId: serializer.fromJson<String?>(json['serverId']),
     );
   }
   @override
@@ -3958,6 +4096,7 @@ class WorkoutPlanTableData extends DataClass
       'isActive': serializer.toJson<bool>(isActive),
       'cyclePatternJson': serializer.toJson<String>(cyclePatternJson),
       'isFreeChoice': serializer.toJson<bool>(isFreeChoice),
+      'serverId': serializer.toJson<String?>(serverId),
     };
   }
 
@@ -3970,6 +4109,7 @@ class WorkoutPlanTableData extends DataClass
     bool? isActive,
     String? cyclePatternJson,
     bool? isFreeChoice,
+    Value<String?> serverId = const Value.absent(),
   }) => WorkoutPlanTableData(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -3979,6 +4119,7 @@ class WorkoutPlanTableData extends DataClass
     isActive: isActive ?? this.isActive,
     cyclePatternJson: cyclePatternJson ?? this.cyclePatternJson,
     isFreeChoice: isFreeChoice ?? this.isFreeChoice,
+    serverId: serverId.present ? serverId.value : this.serverId,
   );
   WorkoutPlanTableData copyWithCompanion(WorkoutPlanTableCompanion data) {
     return WorkoutPlanTableData(
@@ -3997,6 +4138,7 @@ class WorkoutPlanTableData extends DataClass
           data.isFreeChoice.present
               ? data.isFreeChoice.value
               : this.isFreeChoice,
+      serverId: data.serverId.present ? data.serverId.value : this.serverId,
     );
   }
 
@@ -4010,7 +4152,8 @@ class WorkoutPlanTableData extends DataClass
           ..write('createdAt: $createdAt, ')
           ..write('isActive: $isActive, ')
           ..write('cyclePatternJson: $cyclePatternJson, ')
-          ..write('isFreeChoice: $isFreeChoice')
+          ..write('isFreeChoice: $isFreeChoice, ')
+          ..write('serverId: $serverId')
           ..write(')'))
         .toString();
   }
@@ -4025,6 +4168,7 @@ class WorkoutPlanTableData extends DataClass
     isActive,
     cyclePatternJson,
     isFreeChoice,
+    serverId,
   );
   @override
   bool operator ==(Object other) =>
@@ -4037,7 +4181,8 @@ class WorkoutPlanTableData extends DataClass
           other.createdAt == this.createdAt &&
           other.isActive == this.isActive &&
           other.cyclePatternJson == this.cyclePatternJson &&
-          other.isFreeChoice == this.isFreeChoice);
+          other.isFreeChoice == this.isFreeChoice &&
+          other.serverId == this.serverId);
 }
 
 class WorkoutPlanTableCompanion extends UpdateCompanion<WorkoutPlanTableData> {
@@ -4049,6 +4194,7 @@ class WorkoutPlanTableCompanion extends UpdateCompanion<WorkoutPlanTableData> {
   final Value<bool> isActive;
   final Value<String> cyclePatternJson;
   final Value<bool> isFreeChoice;
+  final Value<String?> serverId;
   const WorkoutPlanTableCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
@@ -4058,6 +4204,7 @@ class WorkoutPlanTableCompanion extends UpdateCompanion<WorkoutPlanTableData> {
     this.isActive = const Value.absent(),
     this.cyclePatternJson = const Value.absent(),
     this.isFreeChoice = const Value.absent(),
+    this.serverId = const Value.absent(),
   });
   WorkoutPlanTableCompanion.insert({
     this.id = const Value.absent(),
@@ -4068,6 +4215,7 @@ class WorkoutPlanTableCompanion extends UpdateCompanion<WorkoutPlanTableData> {
     this.isActive = const Value.absent(),
     required String cyclePatternJson,
     this.isFreeChoice = const Value.absent(),
+    this.serverId = const Value.absent(),
   }) : name = Value(name),
        startDate = Value(startDate),
        cyclePatternJson = Value(cyclePatternJson);
@@ -4080,6 +4228,7 @@ class WorkoutPlanTableCompanion extends UpdateCompanion<WorkoutPlanTableData> {
     Expression<bool>? isActive,
     Expression<String>? cyclePatternJson,
     Expression<bool>? isFreeChoice,
+    Expression<String>? serverId,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -4090,6 +4239,7 @@ class WorkoutPlanTableCompanion extends UpdateCompanion<WorkoutPlanTableData> {
       if (isActive != null) 'is_active': isActive,
       if (cyclePatternJson != null) 'cycle_pattern_json': cyclePatternJson,
       if (isFreeChoice != null) 'is_free_choice': isFreeChoice,
+      if (serverId != null) 'server_id': serverId,
     });
   }
 
@@ -4102,6 +4252,7 @@ class WorkoutPlanTableCompanion extends UpdateCompanion<WorkoutPlanTableData> {
     Value<bool>? isActive,
     Value<String>? cyclePatternJson,
     Value<bool>? isFreeChoice,
+    Value<String?>? serverId,
   }) {
     return WorkoutPlanTableCompanion(
       id: id ?? this.id,
@@ -4112,6 +4263,7 @@ class WorkoutPlanTableCompanion extends UpdateCompanion<WorkoutPlanTableData> {
       isActive: isActive ?? this.isActive,
       cyclePatternJson: cyclePatternJson ?? this.cyclePatternJson,
       isFreeChoice: isFreeChoice ?? this.isFreeChoice,
+      serverId: serverId ?? this.serverId,
     );
   }
 
@@ -4142,6 +4294,9 @@ class WorkoutPlanTableCompanion extends UpdateCompanion<WorkoutPlanTableData> {
     if (isFreeChoice.present) {
       map['is_free_choice'] = Variable<bool>(isFreeChoice.value);
     }
+    if (serverId.present) {
+      map['server_id'] = Variable<String>(serverId.value);
+    }
     return map;
   }
 
@@ -4155,7 +4310,8 @@ class WorkoutPlanTableCompanion extends UpdateCompanion<WorkoutPlanTableData> {
           ..write('createdAt: $createdAt, ')
           ..write('isActive: $isActive, ')
           ..write('cyclePatternJson: $cyclePatternJson, ')
-          ..write('isFreeChoice: $isFreeChoice')
+          ..write('isFreeChoice: $isFreeChoice, ')
+          ..write('serverId: $serverId')
           ..write(')'))
         .toString();
   }
@@ -4239,6 +4395,17 @@ class $WorkoutExerciseTableTable extends WorkoutExerciseTable
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _serverIdMeta = const VerificationMeta(
+    'serverId',
+  );
+  @override
+  late final GeneratedColumn<String> serverId = GeneratedColumn<String>(
+    'server_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -4247,6 +4414,7 @@ class $WorkoutExerciseTableTable extends WorkoutExerciseTable
     orderPosition,
     notes,
     supersetGroupId,
+    serverId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -4305,6 +4473,12 @@ class $WorkoutExerciseTableTable extends WorkoutExerciseTable
         ),
       );
     }
+    if (data.containsKey('server_id')) {
+      context.handle(
+        _serverIdMeta,
+        serverId.isAcceptableOrUnknown(data['server_id']!, _serverIdMeta),
+      );
+    }
     return context;
   }
 
@@ -4345,6 +4519,10 @@ class $WorkoutExerciseTableTable extends WorkoutExerciseTable
         DriftSqlType.int,
         data['${effectivePrefix}superset_group_id'],
       ),
+      serverId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}server_id'],
+      ),
     );
   }
 
@@ -4362,6 +4540,9 @@ class WorkoutExerciseTableData extends DataClass
   final int orderPosition;
   final String? notes;
   final int? supersetGroupId;
+
+  /// The UUID assigned by the remote API after the first successful sync. Null until synced.
+  final String? serverId;
   const WorkoutExerciseTableData({
     required this.id,
     required this.workoutId,
@@ -4369,6 +4550,7 @@ class WorkoutExerciseTableData extends DataClass
     required this.orderPosition,
     this.notes,
     this.supersetGroupId,
+    this.serverId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -4382,6 +4564,9 @@ class WorkoutExerciseTableData extends DataClass
     }
     if (!nullToAbsent || supersetGroupId != null) {
       map['superset_group_id'] = Variable<int>(supersetGroupId);
+    }
+    if (!nullToAbsent || serverId != null) {
+      map['server_id'] = Variable<String>(serverId);
     }
     return map;
   }
@@ -4398,6 +4583,10 @@ class WorkoutExerciseTableData extends DataClass
           supersetGroupId == null && nullToAbsent
               ? const Value.absent()
               : Value(supersetGroupId),
+      serverId:
+          serverId == null && nullToAbsent
+              ? const Value.absent()
+              : Value(serverId),
     );
   }
 
@@ -4413,6 +4602,7 @@ class WorkoutExerciseTableData extends DataClass
       orderPosition: serializer.fromJson<int>(json['orderPosition']),
       notes: serializer.fromJson<String?>(json['notes']),
       supersetGroupId: serializer.fromJson<int?>(json['supersetGroupId']),
+      serverId: serializer.fromJson<String?>(json['serverId']),
     );
   }
   @override
@@ -4425,6 +4615,7 @@ class WorkoutExerciseTableData extends DataClass
       'orderPosition': serializer.toJson<int>(orderPosition),
       'notes': serializer.toJson<String?>(notes),
       'supersetGroupId': serializer.toJson<int?>(supersetGroupId),
+      'serverId': serializer.toJson<String?>(serverId),
     };
   }
 
@@ -4435,6 +4626,7 @@ class WorkoutExerciseTableData extends DataClass
     int? orderPosition,
     Value<String?> notes = const Value.absent(),
     Value<int?> supersetGroupId = const Value.absent(),
+    Value<String?> serverId = const Value.absent(),
   }) => WorkoutExerciseTableData(
     id: id ?? this.id,
     workoutId: workoutId ?? this.workoutId,
@@ -4443,6 +4635,7 @@ class WorkoutExerciseTableData extends DataClass
     notes: notes.present ? notes.value : this.notes,
     supersetGroupId:
         supersetGroupId.present ? supersetGroupId.value : this.supersetGroupId,
+    serverId: serverId.present ? serverId.value : this.serverId,
   );
   WorkoutExerciseTableData copyWithCompanion(
     WorkoutExerciseTableCompanion data,
@@ -4461,6 +4654,7 @@ class WorkoutExerciseTableData extends DataClass
           data.supersetGroupId.present
               ? data.supersetGroupId.value
               : this.supersetGroupId,
+      serverId: data.serverId.present ? data.serverId.value : this.serverId,
     );
   }
 
@@ -4472,7 +4666,8 @@ class WorkoutExerciseTableData extends DataClass
           ..write('exerciseId: $exerciseId, ')
           ..write('orderPosition: $orderPosition, ')
           ..write('notes: $notes, ')
-          ..write('supersetGroupId: $supersetGroupId')
+          ..write('supersetGroupId: $supersetGroupId, ')
+          ..write('serverId: $serverId')
           ..write(')'))
         .toString();
   }
@@ -4485,6 +4680,7 @@ class WorkoutExerciseTableData extends DataClass
     orderPosition,
     notes,
     supersetGroupId,
+    serverId,
   );
   @override
   bool operator ==(Object other) =>
@@ -4495,7 +4691,8 @@ class WorkoutExerciseTableData extends DataClass
           other.exerciseId == this.exerciseId &&
           other.orderPosition == this.orderPosition &&
           other.notes == this.notes &&
-          other.supersetGroupId == this.supersetGroupId);
+          other.supersetGroupId == this.supersetGroupId &&
+          other.serverId == this.serverId);
 }
 
 class WorkoutExerciseTableCompanion
@@ -4506,6 +4703,7 @@ class WorkoutExerciseTableCompanion
   final Value<int> orderPosition;
   final Value<String?> notes;
   final Value<int?> supersetGroupId;
+  final Value<String?> serverId;
   const WorkoutExerciseTableCompanion({
     this.id = const Value.absent(),
     this.workoutId = const Value.absent(),
@@ -4513,6 +4711,7 @@ class WorkoutExerciseTableCompanion
     this.orderPosition = const Value.absent(),
     this.notes = const Value.absent(),
     this.supersetGroupId = const Value.absent(),
+    this.serverId = const Value.absent(),
   });
   WorkoutExerciseTableCompanion.insert({
     this.id = const Value.absent(),
@@ -4521,6 +4720,7 @@ class WorkoutExerciseTableCompanion
     required int orderPosition,
     this.notes = const Value.absent(),
     this.supersetGroupId = const Value.absent(),
+    this.serverId = const Value.absent(),
   }) : workoutId = Value(workoutId),
        exerciseId = Value(exerciseId),
        orderPosition = Value(orderPosition);
@@ -4531,6 +4731,7 @@ class WorkoutExerciseTableCompanion
     Expression<int>? orderPosition,
     Expression<String>? notes,
     Expression<int>? supersetGroupId,
+    Expression<String>? serverId,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -4539,6 +4740,7 @@ class WorkoutExerciseTableCompanion
       if (orderPosition != null) 'order_position': orderPosition,
       if (notes != null) 'notes': notes,
       if (supersetGroupId != null) 'superset_group_id': supersetGroupId,
+      if (serverId != null) 'server_id': serverId,
     });
   }
 
@@ -4549,6 +4751,7 @@ class WorkoutExerciseTableCompanion
     Value<int>? orderPosition,
     Value<String?>? notes,
     Value<int?>? supersetGroupId,
+    Value<String?>? serverId,
   }) {
     return WorkoutExerciseTableCompanion(
       id: id ?? this.id,
@@ -4557,6 +4760,7 @@ class WorkoutExerciseTableCompanion
       orderPosition: orderPosition ?? this.orderPosition,
       notes: notes ?? this.notes,
       supersetGroupId: supersetGroupId ?? this.supersetGroupId,
+      serverId: serverId ?? this.serverId,
     );
   }
 
@@ -4581,6 +4785,9 @@ class WorkoutExerciseTableCompanion
     if (supersetGroupId.present) {
       map['superset_group_id'] = Variable<int>(supersetGroupId.value);
     }
+    if (serverId.present) {
+      map['server_id'] = Variable<String>(serverId.value);
+    }
     return map;
   }
 
@@ -4592,7 +4799,8 @@ class WorkoutExerciseTableCompanion
           ..write('exerciseId: $exerciseId, ')
           ..write('orderPosition: $orderPosition, ')
           ..write('notes: $notes, ')
-          ..write('supersetGroupId: $supersetGroupId')
+          ..write('supersetGroupId: $supersetGroupId, ')
+          ..write('serverId: $serverId')
           ..write(')'))
         .toString();
   }
@@ -4722,6 +4930,17 @@ class $ScheduledWorkoutTableTable extends ScheduledWorkoutTable
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _serverIdMeta = const VerificationMeta(
+    'serverId',
+  );
+  @override
+  late final GeneratedColumn<String> serverId = GeneratedColumn<String>(
+    'server_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -4733,6 +4952,7 @@ class $ScheduledWorkoutTableTable extends ScheduledWorkoutTable
     notes,
     isCompleted,
     isSkipped,
+    serverId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -4813,6 +5033,12 @@ class $ScheduledWorkoutTableTable extends ScheduledWorkoutTable
         isSkipped.isAcceptableOrUnknown(data['is_skipped']!, _isSkippedMeta),
       );
     }
+    if (data.containsKey('server_id')) {
+      context.handle(
+        _serverIdMeta,
+        serverId.isAcceptableOrUnknown(data['server_id']!, _serverIdMeta),
+      );
+    }
     return context;
   }
 
@@ -4867,6 +5093,10 @@ class $ScheduledWorkoutTableTable extends ScheduledWorkoutTable
             DriftSqlType.bool,
             data['${effectivePrefix}is_skipped'],
           )!,
+      serverId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}server_id'],
+      ),
     );
   }
 
@@ -4894,6 +5124,9 @@ class ScheduledWorkoutTableData extends DataClass
   final String? notes;
   final bool isCompleted;
   final bool isSkipped;
+
+  /// The UUID assigned by the remote API after the first successful sync. Null until synced.
+  final String? serverId;
   const ScheduledWorkoutTableData({
     required this.id,
     required this.workoutId,
@@ -4904,6 +5137,7 @@ class ScheduledWorkoutTableData extends DataClass
     this.notes,
     required this.isCompleted,
     required this.isSkipped,
+    this.serverId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -4923,6 +5157,9 @@ class ScheduledWorkoutTableData extends DataClass
     }
     map['is_completed'] = Variable<bool>(isCompleted);
     map['is_skipped'] = Variable<bool>(isSkipped);
+    if (!nullToAbsent || serverId != null) {
+      map['server_id'] = Variable<String>(serverId);
+    }
     return map;
   }
 
@@ -4944,6 +5181,10 @@ class ScheduledWorkoutTableData extends DataClass
           notes == null && nullToAbsent ? const Value.absent() : Value(notes),
       isCompleted: Value(isCompleted),
       isSkipped: Value(isSkipped),
+      serverId:
+          serverId == null && nullToAbsent
+              ? const Value.absent()
+              : Value(serverId),
     );
   }
 
@@ -4962,6 +5203,7 @@ class ScheduledWorkoutTableData extends DataClass
       notes: serializer.fromJson<String?>(json['notes']),
       isCompleted: serializer.fromJson<bool>(json['isCompleted']),
       isSkipped: serializer.fromJson<bool>(json['isSkipped']),
+      serverId: serializer.fromJson<String?>(json['serverId']),
     );
   }
   @override
@@ -4977,6 +5219,7 @@ class ScheduledWorkoutTableData extends DataClass
       'notes': serializer.toJson<String?>(notes),
       'isCompleted': serializer.toJson<bool>(isCompleted),
       'isSkipped': serializer.toJson<bool>(isSkipped),
+      'serverId': serializer.toJson<String?>(serverId),
     };
   }
 
@@ -4990,6 +5233,7 @@ class ScheduledWorkoutTableData extends DataClass
     Value<String?> notes = const Value.absent(),
     bool? isCompleted,
     bool? isSkipped,
+    Value<String?> serverId = const Value.absent(),
   }) => ScheduledWorkoutTableData(
     id: id ?? this.id,
     workoutId: workoutId ?? this.workoutId,
@@ -5004,6 +5248,7 @@ class ScheduledWorkoutTableData extends DataClass
     notes: notes.present ? notes.value : this.notes,
     isCompleted: isCompleted ?? this.isCompleted,
     isSkipped: isSkipped ?? this.isSkipped,
+    serverId: serverId.present ? serverId.value : this.serverId,
   );
   ScheduledWorkoutTableData copyWithCompanion(
     ScheduledWorkoutTableCompanion data,
@@ -5028,6 +5273,7 @@ class ScheduledWorkoutTableData extends DataClass
       isCompleted:
           data.isCompleted.present ? data.isCompleted.value : this.isCompleted,
       isSkipped: data.isSkipped.present ? data.isSkipped.value : this.isSkipped,
+      serverId: data.serverId.present ? data.serverId.value : this.serverId,
     );
   }
 
@@ -5042,7 +5288,8 @@ class ScheduledWorkoutTableData extends DataClass
           ..write('createdAt: $createdAt, ')
           ..write('notes: $notes, ')
           ..write('isCompleted: $isCompleted, ')
-          ..write('isSkipped: $isSkipped')
+          ..write('isSkipped: $isSkipped, ')
+          ..write('serverId: $serverId')
           ..write(')'))
         .toString();
   }
@@ -5058,6 +5305,7 @@ class ScheduledWorkoutTableData extends DataClass
     notes,
     isCompleted,
     isSkipped,
+    serverId,
   );
   @override
   bool operator ==(Object other) =>
@@ -5071,7 +5319,8 @@ class ScheduledWorkoutTableData extends DataClass
           other.createdAt == this.createdAt &&
           other.notes == this.notes &&
           other.isCompleted == this.isCompleted &&
-          other.isSkipped == this.isSkipped);
+          other.isSkipped == this.isSkipped &&
+          other.serverId == this.serverId);
 }
 
 class ScheduledWorkoutTableCompanion
@@ -5085,6 +5334,7 @@ class ScheduledWorkoutTableCompanion
   final Value<String?> notes;
   final Value<bool> isCompleted;
   final Value<bool> isSkipped;
+  final Value<String?> serverId;
   const ScheduledWorkoutTableCompanion({
     this.id = const Value.absent(),
     this.workoutId = const Value.absent(),
@@ -5095,6 +5345,7 @@ class ScheduledWorkoutTableCompanion
     this.notes = const Value.absent(),
     this.isCompleted = const Value.absent(),
     this.isSkipped = const Value.absent(),
+    this.serverId = const Value.absent(),
   });
   ScheduledWorkoutTableCompanion.insert({
     this.id = const Value.absent(),
@@ -5106,6 +5357,7 @@ class ScheduledWorkoutTableCompanion
     this.notes = const Value.absent(),
     this.isCompleted = const Value.absent(),
     this.isSkipped = const Value.absent(),
+    this.serverId = const Value.absent(),
   }) : workoutId = Value(workoutId),
        scheduledDate = Value(scheduledDate);
   static Insertable<ScheduledWorkoutTableData> custom({
@@ -5118,6 +5370,7 @@ class ScheduledWorkoutTableCompanion
     Expression<String>? notes,
     Expression<bool>? isCompleted,
     Expression<bool>? isSkipped,
+    Expression<String>? serverId,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -5129,6 +5382,7 @@ class ScheduledWorkoutTableCompanion
       if (notes != null) 'notes': notes,
       if (isCompleted != null) 'is_completed': isCompleted,
       if (isSkipped != null) 'is_skipped': isSkipped,
+      if (serverId != null) 'server_id': serverId,
     });
   }
 
@@ -5142,6 +5396,7 @@ class ScheduledWorkoutTableCompanion
     Value<String?>? notes,
     Value<bool>? isCompleted,
     Value<bool>? isSkipped,
+    Value<String?>? serverId,
   }) {
     return ScheduledWorkoutTableCompanion(
       id: id ?? this.id,
@@ -5153,6 +5408,7 @@ class ScheduledWorkoutTableCompanion
       notes: notes ?? this.notes,
       isCompleted: isCompleted ?? this.isCompleted,
       isSkipped: isSkipped ?? this.isSkipped,
+      serverId: serverId ?? this.serverId,
     );
   }
 
@@ -5186,6 +5442,9 @@ class ScheduledWorkoutTableCompanion
     if (isSkipped.present) {
       map['is_skipped'] = Variable<bool>(isSkipped.value);
     }
+    if (serverId.present) {
+      map['server_id'] = Variable<String>(serverId.value);
+    }
     return map;
   }
 
@@ -5200,7 +5459,8 @@ class ScheduledWorkoutTableCompanion
           ..write('createdAt: $createdAt, ')
           ..write('notes: $notes, ')
           ..write('isCompleted: $isCompleted, ')
-          ..write('isSkipped: $isSkipped')
+          ..write('isSkipped: $isSkipped, ')
+          ..write('serverId: $serverId')
           ..write(')'))
         .toString();
   }
@@ -5290,6 +5550,17 @@ class $ScheduledWorkoutExerciseTableTable extends ScheduledWorkoutExerciseTable
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _serverIdMeta = const VerificationMeta(
+    'serverId',
+  );
+  @override
+  late final GeneratedColumn<String> serverId = GeneratedColumn<String>(
+    'server_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -5298,6 +5569,7 @@ class $ScheduledWorkoutExerciseTableTable extends ScheduledWorkoutExerciseTable
     isCompleted,
     notes,
     overrideExerciseId,
+    serverId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -5360,6 +5632,12 @@ class $ScheduledWorkoutExerciseTableTable extends ScheduledWorkoutExerciseTable
         ),
       );
     }
+    if (data.containsKey('server_id')) {
+      context.handle(
+        _serverIdMeta,
+        serverId.isAcceptableOrUnknown(data['server_id']!, _serverIdMeta),
+      );
+    }
     return context;
   }
 
@@ -5400,6 +5678,10 @@ class $ScheduledWorkoutExerciseTableTable extends ScheduledWorkoutExerciseTable
         DriftSqlType.int,
         data['${effectivePrefix}override_exercise_id'],
       ),
+      serverId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}server_id'],
+      ),
     );
   }
 
@@ -5421,6 +5703,9 @@ class ScheduledWorkoutExerciseTableData extends DataClass
 
   /// Exercise override for this specific day only. Null = use the template exercise.
   final int? overrideExerciseId;
+
+  /// The UUID assigned by the remote API after the first successful sync. Null until synced.
+  final String? serverId;
   const ScheduledWorkoutExerciseTableData({
     required this.id,
     required this.scheduledWorkoutId,
@@ -5428,6 +5713,7 @@ class ScheduledWorkoutExerciseTableData extends DataClass
     required this.isCompleted,
     this.notes,
     this.overrideExerciseId,
+    this.serverId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -5441,6 +5727,9 @@ class ScheduledWorkoutExerciseTableData extends DataClass
     }
     if (!nullToAbsent || overrideExerciseId != null) {
       map['override_exercise_id'] = Variable<int>(overrideExerciseId);
+    }
+    if (!nullToAbsent || serverId != null) {
+      map['server_id'] = Variable<String>(serverId);
     }
     return map;
   }
@@ -5457,6 +5746,10 @@ class ScheduledWorkoutExerciseTableData extends DataClass
           overrideExerciseId == null && nullToAbsent
               ? const Value.absent()
               : Value(overrideExerciseId),
+      serverId:
+          serverId == null && nullToAbsent
+              ? const Value.absent()
+              : Value(serverId),
     );
   }
 
@@ -5472,6 +5765,7 @@ class ScheduledWorkoutExerciseTableData extends DataClass
       isCompleted: serializer.fromJson<bool>(json['isCompleted']),
       notes: serializer.fromJson<String?>(json['notes']),
       overrideExerciseId: serializer.fromJson<int?>(json['overrideExerciseId']),
+      serverId: serializer.fromJson<String?>(json['serverId']),
     );
   }
   @override
@@ -5484,6 +5778,7 @@ class ScheduledWorkoutExerciseTableData extends DataClass
       'isCompleted': serializer.toJson<bool>(isCompleted),
       'notes': serializer.toJson<String?>(notes),
       'overrideExerciseId': serializer.toJson<int?>(overrideExerciseId),
+      'serverId': serializer.toJson<String?>(serverId),
     };
   }
 
@@ -5494,6 +5789,7 @@ class ScheduledWorkoutExerciseTableData extends DataClass
     bool? isCompleted,
     Value<String?> notes = const Value.absent(),
     Value<int?> overrideExerciseId = const Value.absent(),
+    Value<String?> serverId = const Value.absent(),
   }) => ScheduledWorkoutExerciseTableData(
     id: id ?? this.id,
     scheduledWorkoutId: scheduledWorkoutId ?? this.scheduledWorkoutId,
@@ -5504,6 +5800,7 @@ class ScheduledWorkoutExerciseTableData extends DataClass
         overrideExerciseId.present
             ? overrideExerciseId.value
             : this.overrideExerciseId,
+    serverId: serverId.present ? serverId.value : this.serverId,
   );
   ScheduledWorkoutExerciseTableData copyWithCompanion(
     ScheduledWorkoutExerciseTableCompanion data,
@@ -5525,6 +5822,7 @@ class ScheduledWorkoutExerciseTableData extends DataClass
           data.overrideExerciseId.present
               ? data.overrideExerciseId.value
               : this.overrideExerciseId,
+      serverId: data.serverId.present ? data.serverId.value : this.serverId,
     );
   }
 
@@ -5536,7 +5834,8 @@ class ScheduledWorkoutExerciseTableData extends DataClass
           ..write('workoutExerciseId: $workoutExerciseId, ')
           ..write('isCompleted: $isCompleted, ')
           ..write('notes: $notes, ')
-          ..write('overrideExerciseId: $overrideExerciseId')
+          ..write('overrideExerciseId: $overrideExerciseId, ')
+          ..write('serverId: $serverId')
           ..write(')'))
         .toString();
   }
@@ -5549,6 +5848,7 @@ class ScheduledWorkoutExerciseTableData extends DataClass
     isCompleted,
     notes,
     overrideExerciseId,
+    serverId,
   );
   @override
   bool operator ==(Object other) =>
@@ -5559,7 +5859,8 @@ class ScheduledWorkoutExerciseTableData extends DataClass
           other.workoutExerciseId == this.workoutExerciseId &&
           other.isCompleted == this.isCompleted &&
           other.notes == this.notes &&
-          other.overrideExerciseId == this.overrideExerciseId);
+          other.overrideExerciseId == this.overrideExerciseId &&
+          other.serverId == this.serverId);
 }
 
 class ScheduledWorkoutExerciseTableCompanion
@@ -5570,6 +5871,7 @@ class ScheduledWorkoutExerciseTableCompanion
   final Value<bool> isCompleted;
   final Value<String?> notes;
   final Value<int?> overrideExerciseId;
+  final Value<String?> serverId;
   const ScheduledWorkoutExerciseTableCompanion({
     this.id = const Value.absent(),
     this.scheduledWorkoutId = const Value.absent(),
@@ -5577,6 +5879,7 @@ class ScheduledWorkoutExerciseTableCompanion
     this.isCompleted = const Value.absent(),
     this.notes = const Value.absent(),
     this.overrideExerciseId = const Value.absent(),
+    this.serverId = const Value.absent(),
   });
   ScheduledWorkoutExerciseTableCompanion.insert({
     this.id = const Value.absent(),
@@ -5585,6 +5888,7 @@ class ScheduledWorkoutExerciseTableCompanion
     this.isCompleted = const Value.absent(),
     this.notes = const Value.absent(),
     this.overrideExerciseId = const Value.absent(),
+    this.serverId = const Value.absent(),
   }) : scheduledWorkoutId = Value(scheduledWorkoutId),
        workoutExerciseId = Value(workoutExerciseId);
   static Insertable<ScheduledWorkoutExerciseTableData> custom({
@@ -5594,6 +5898,7 @@ class ScheduledWorkoutExerciseTableCompanion
     Expression<bool>? isCompleted,
     Expression<String>? notes,
     Expression<int>? overrideExerciseId,
+    Expression<String>? serverId,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -5604,6 +5909,7 @@ class ScheduledWorkoutExerciseTableCompanion
       if (notes != null) 'notes': notes,
       if (overrideExerciseId != null)
         'override_exercise_id': overrideExerciseId,
+      if (serverId != null) 'server_id': serverId,
     });
   }
 
@@ -5614,6 +5920,7 @@ class ScheduledWorkoutExerciseTableCompanion
     Value<bool>? isCompleted,
     Value<String?>? notes,
     Value<int?>? overrideExerciseId,
+    Value<String?>? serverId,
   }) {
     return ScheduledWorkoutExerciseTableCompanion(
       id: id ?? this.id,
@@ -5622,6 +5929,7 @@ class ScheduledWorkoutExerciseTableCompanion
       isCompleted: isCompleted ?? this.isCompleted,
       notes: notes ?? this.notes,
       overrideExerciseId: overrideExerciseId ?? this.overrideExerciseId,
+      serverId: serverId ?? this.serverId,
     );
   }
 
@@ -5646,6 +5954,9 @@ class ScheduledWorkoutExerciseTableCompanion
     if (overrideExerciseId.present) {
       map['override_exercise_id'] = Variable<int>(overrideExerciseId.value);
     }
+    if (serverId.present) {
+      map['server_id'] = Variable<String>(serverId.value);
+    }
     return map;
   }
 
@@ -5657,7 +5968,8 @@ class ScheduledWorkoutExerciseTableCompanion
           ..write('workoutExerciseId: $workoutExerciseId, ')
           ..write('isCompleted: $isCompleted, ')
           ..write('notes: $notes, ')
-          ..write('overrideExerciseId: $overrideExerciseId')
+          ..write('overrideExerciseId: $overrideExerciseId, ')
+          ..write('serverId: $serverId')
           ..write(')'))
         .toString();
   }
@@ -5771,6 +6083,17 @@ class $WorkoutSetTableTable extends WorkoutSetTable
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _serverIdMeta = const VerificationMeta(
+    'serverId',
+  );
+  @override
+  late final GeneratedColumn<String> serverId = GeneratedColumn<String>(
+    'server_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -5782,6 +6105,7 @@ class $WorkoutSetTableTable extends WorkoutSetTable
     durationSeconds,
     isCompleted,
     notes,
+    serverId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -5859,6 +6183,12 @@ class $WorkoutSetTableTable extends WorkoutSetTable
         notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
       );
     }
+    if (data.containsKey('server_id')) {
+      context.handle(
+        _serverIdMeta,
+        serverId.isAcceptableOrUnknown(data['server_id']!, _serverIdMeta),
+      );
+    }
     return context;
   }
 
@@ -5908,6 +6238,10 @@ class $WorkoutSetTableTable extends WorkoutSetTable
         DriftSqlType.string,
         data['${effectivePrefix}notes'],
       ),
+      serverId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}server_id'],
+      ),
     );
   }
 
@@ -5928,6 +6262,9 @@ class WorkoutSetTableData extends DataClass
   final int? durationSeconds;
   final bool isCompleted;
   final String? notes;
+
+  /// The UUID assigned by the remote API after the first successful sync. Null until synced.
+  final String? serverId;
   const WorkoutSetTableData({
     required this.id,
     required this.scheduledWorkoutExerciseId,
@@ -5938,6 +6275,7 @@ class WorkoutSetTableData extends DataClass
     this.durationSeconds,
     required this.isCompleted,
     this.notes,
+    this.serverId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -5963,6 +6301,9 @@ class WorkoutSetTableData extends DataClass
     if (!nullToAbsent || notes != null) {
       map['notes'] = Variable<String>(notes);
     }
+    if (!nullToAbsent || serverId != null) {
+      map['server_id'] = Variable<String>(serverId);
+    }
     return map;
   }
 
@@ -5985,6 +6326,10 @@ class WorkoutSetTableData extends DataClass
       isCompleted: Value(isCompleted),
       notes:
           notes == null && nullToAbsent ? const Value.absent() : Value(notes),
+      serverId:
+          serverId == null && nullToAbsent
+              ? const Value.absent()
+              : Value(serverId),
     );
   }
 
@@ -6005,6 +6350,7 @@ class WorkoutSetTableData extends DataClass
       durationSeconds: serializer.fromJson<int?>(json['durationSeconds']),
       isCompleted: serializer.fromJson<bool>(json['isCompleted']),
       notes: serializer.fromJson<String?>(json['notes']),
+      serverId: serializer.fromJson<String?>(json['serverId']),
     );
   }
   @override
@@ -6022,6 +6368,7 @@ class WorkoutSetTableData extends DataClass
       'durationSeconds': serializer.toJson<int?>(durationSeconds),
       'isCompleted': serializer.toJson<bool>(isCompleted),
       'notes': serializer.toJson<String?>(notes),
+      'serverId': serializer.toJson<String?>(serverId),
     };
   }
 
@@ -6035,6 +6382,7 @@ class WorkoutSetTableData extends DataClass
     Value<int?> durationSeconds = const Value.absent(),
     bool? isCompleted,
     Value<String?> notes = const Value.absent(),
+    Value<String?> serverId = const Value.absent(),
   }) => WorkoutSetTableData(
     id: id ?? this.id,
     scheduledWorkoutExerciseId:
@@ -6047,6 +6395,7 @@ class WorkoutSetTableData extends DataClass
         durationSeconds.present ? durationSeconds.value : this.durationSeconds,
     isCompleted: isCompleted ?? this.isCompleted,
     notes: notes.present ? notes.value : this.notes,
+    serverId: serverId.present ? serverId.value : this.serverId,
   );
   WorkoutSetTableData copyWithCompanion(WorkoutSetTableCompanion data) {
     return WorkoutSetTableData(
@@ -6067,6 +6416,7 @@ class WorkoutSetTableData extends DataClass
       isCompleted:
           data.isCompleted.present ? data.isCompleted.value : this.isCompleted,
       notes: data.notes.present ? data.notes.value : this.notes,
+      serverId: data.serverId.present ? data.serverId.value : this.serverId,
     );
   }
 
@@ -6081,7 +6431,8 @@ class WorkoutSetTableData extends DataClass
           ..write('weightUnit: $weightUnit, ')
           ..write('durationSeconds: $durationSeconds, ')
           ..write('isCompleted: $isCompleted, ')
-          ..write('notes: $notes')
+          ..write('notes: $notes, ')
+          ..write('serverId: $serverId')
           ..write(')'))
         .toString();
   }
@@ -6097,6 +6448,7 @@ class WorkoutSetTableData extends DataClass
     durationSeconds,
     isCompleted,
     notes,
+    serverId,
   );
   @override
   bool operator ==(Object other) =>
@@ -6110,7 +6462,8 @@ class WorkoutSetTableData extends DataClass
           other.weightUnit == this.weightUnit &&
           other.durationSeconds == this.durationSeconds &&
           other.isCompleted == this.isCompleted &&
-          other.notes == this.notes);
+          other.notes == this.notes &&
+          other.serverId == this.serverId);
 }
 
 class WorkoutSetTableCompanion extends UpdateCompanion<WorkoutSetTableData> {
@@ -6123,6 +6476,7 @@ class WorkoutSetTableCompanion extends UpdateCompanion<WorkoutSetTableData> {
   final Value<int?> durationSeconds;
   final Value<bool> isCompleted;
   final Value<String?> notes;
+  final Value<String?> serverId;
   const WorkoutSetTableCompanion({
     this.id = const Value.absent(),
     this.scheduledWorkoutExerciseId = const Value.absent(),
@@ -6133,6 +6487,7 @@ class WorkoutSetTableCompanion extends UpdateCompanion<WorkoutSetTableData> {
     this.durationSeconds = const Value.absent(),
     this.isCompleted = const Value.absent(),
     this.notes = const Value.absent(),
+    this.serverId = const Value.absent(),
   });
   WorkoutSetTableCompanion.insert({
     this.id = const Value.absent(),
@@ -6144,6 +6499,7 @@ class WorkoutSetTableCompanion extends UpdateCompanion<WorkoutSetTableData> {
     this.durationSeconds = const Value.absent(),
     this.isCompleted = const Value.absent(),
     this.notes = const Value.absent(),
+    this.serverId = const Value.absent(),
   }) : scheduledWorkoutExerciseId = Value(scheduledWorkoutExerciseId),
        setNumber = Value(setNumber);
   static Insertable<WorkoutSetTableData> custom({
@@ -6156,6 +6512,7 @@ class WorkoutSetTableCompanion extends UpdateCompanion<WorkoutSetTableData> {
     Expression<int>? durationSeconds,
     Expression<bool>? isCompleted,
     Expression<String>? notes,
+    Expression<String>? serverId,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -6168,6 +6525,7 @@ class WorkoutSetTableCompanion extends UpdateCompanion<WorkoutSetTableData> {
       if (durationSeconds != null) 'duration_seconds': durationSeconds,
       if (isCompleted != null) 'is_completed': isCompleted,
       if (notes != null) 'notes': notes,
+      if (serverId != null) 'server_id': serverId,
     });
   }
 
@@ -6181,6 +6539,7 @@ class WorkoutSetTableCompanion extends UpdateCompanion<WorkoutSetTableData> {
     Value<int?>? durationSeconds,
     Value<bool>? isCompleted,
     Value<String?>? notes,
+    Value<String?>? serverId,
   }) {
     return WorkoutSetTableCompanion(
       id: id ?? this.id,
@@ -6193,6 +6552,7 @@ class WorkoutSetTableCompanion extends UpdateCompanion<WorkoutSetTableData> {
       durationSeconds: durationSeconds ?? this.durationSeconds,
       isCompleted: isCompleted ?? this.isCompleted,
       notes: notes ?? this.notes,
+      serverId: serverId ?? this.serverId,
     );
   }
 
@@ -6228,6 +6588,9 @@ class WorkoutSetTableCompanion extends UpdateCompanion<WorkoutSetTableData> {
     if (notes.present) {
       map['notes'] = Variable<String>(notes.value);
     }
+    if (serverId.present) {
+      map['server_id'] = Variable<String>(serverId.value);
+    }
     return map;
   }
 
@@ -6242,7 +6605,8 @@ class WorkoutSetTableCompanion extends UpdateCompanion<WorkoutSetTableData> {
           ..write('weightUnit: $weightUnit, ')
           ..write('durationSeconds: $durationSeconds, ')
           ..write('isCompleted: $isCompleted, ')
-          ..write('notes: $notes')
+          ..write('notes: $notes, ')
+          ..write('serverId: $serverId')
           ..write(')'))
         .toString();
   }
@@ -6293,8 +6657,19 @@ class $WorkoutPlanWorkoutTableTable extends WorkoutPlanWorkoutTable
       'REFERENCES workout_table (id)',
     ),
   );
+  static const VerificationMeta _serverIdMeta = const VerificationMeta(
+    'serverId',
+  );
   @override
-  List<GeneratedColumn> get $columns => [id, planId, workoutId];
+  late final GeneratedColumn<String> serverId = GeneratedColumn<String>(
+    'server_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, planId, workoutId, serverId];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -6326,6 +6701,12 @@ class $WorkoutPlanWorkoutTableTable extends WorkoutPlanWorkoutTable
     } else if (isInserting) {
       context.missing(_workoutIdMeta);
     }
+    if (data.containsKey('server_id')) {
+      context.handle(
+        _serverIdMeta,
+        serverId.isAcceptableOrUnknown(data['server_id']!, _serverIdMeta),
+      );
+    }
     return context;
   }
 
@@ -6353,6 +6734,10 @@ class $WorkoutPlanWorkoutTableTable extends WorkoutPlanWorkoutTable
             DriftSqlType.int,
             data['${effectivePrefix}workout_id'],
           )!,
+      serverId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}server_id'],
+      ),
     );
   }
 
@@ -6367,10 +6752,14 @@ class WorkoutPlanWorkoutTableData extends DataClass
   final int id;
   final int planId;
   final int workoutId;
+
+  /// The UUID assigned by the remote API after the first successful sync. Null until synced.
+  final String? serverId;
   const WorkoutPlanWorkoutTableData({
     required this.id,
     required this.planId,
     required this.workoutId,
+    this.serverId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -6378,6 +6767,9 @@ class WorkoutPlanWorkoutTableData extends DataClass
     map['id'] = Variable<int>(id);
     map['plan_id'] = Variable<int>(planId);
     map['workout_id'] = Variable<int>(workoutId);
+    if (!nullToAbsent || serverId != null) {
+      map['server_id'] = Variable<String>(serverId);
+    }
     return map;
   }
 
@@ -6386,6 +6778,10 @@ class WorkoutPlanWorkoutTableData extends DataClass
       id: Value(id),
       planId: Value(planId),
       workoutId: Value(workoutId),
+      serverId:
+          serverId == null && nullToAbsent
+              ? const Value.absent()
+              : Value(serverId),
     );
   }
 
@@ -6398,6 +6794,7 @@ class WorkoutPlanWorkoutTableData extends DataClass
       id: serializer.fromJson<int>(json['id']),
       planId: serializer.fromJson<int>(json['planId']),
       workoutId: serializer.fromJson<int>(json['workoutId']),
+      serverId: serializer.fromJson<String?>(json['serverId']),
     );
   }
   @override
@@ -6407,6 +6804,7 @@ class WorkoutPlanWorkoutTableData extends DataClass
       'id': serializer.toJson<int>(id),
       'planId': serializer.toJson<int>(planId),
       'workoutId': serializer.toJson<int>(workoutId),
+      'serverId': serializer.toJson<String?>(serverId),
     };
   }
 
@@ -6414,10 +6812,12 @@ class WorkoutPlanWorkoutTableData extends DataClass
     int? id,
     int? planId,
     int? workoutId,
+    Value<String?> serverId = const Value.absent(),
   }) => WorkoutPlanWorkoutTableData(
     id: id ?? this.id,
     planId: planId ?? this.planId,
     workoutId: workoutId ?? this.workoutId,
+    serverId: serverId.present ? serverId.value : this.serverId,
   );
   WorkoutPlanWorkoutTableData copyWithCompanion(
     WorkoutPlanWorkoutTableCompanion data,
@@ -6426,6 +6826,7 @@ class WorkoutPlanWorkoutTableData extends DataClass
       id: data.id.present ? data.id.value : this.id,
       planId: data.planId.present ? data.planId.value : this.planId,
       workoutId: data.workoutId.present ? data.workoutId.value : this.workoutId,
+      serverId: data.serverId.present ? data.serverId.value : this.serverId,
     );
   }
 
@@ -6434,20 +6835,22 @@ class WorkoutPlanWorkoutTableData extends DataClass
     return (StringBuffer('WorkoutPlanWorkoutTableData(')
           ..write('id: $id, ')
           ..write('planId: $planId, ')
-          ..write('workoutId: $workoutId')
+          ..write('workoutId: $workoutId, ')
+          ..write('serverId: $serverId')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, planId, workoutId);
+  int get hashCode => Object.hash(id, planId, workoutId, serverId);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is WorkoutPlanWorkoutTableData &&
           other.id == this.id &&
           other.planId == this.planId &&
-          other.workoutId == this.workoutId);
+          other.workoutId == this.workoutId &&
+          other.serverId == this.serverId);
 }
 
 class WorkoutPlanWorkoutTableCompanion
@@ -6455,26 +6858,31 @@ class WorkoutPlanWorkoutTableCompanion
   final Value<int> id;
   final Value<int> planId;
   final Value<int> workoutId;
+  final Value<String?> serverId;
   const WorkoutPlanWorkoutTableCompanion({
     this.id = const Value.absent(),
     this.planId = const Value.absent(),
     this.workoutId = const Value.absent(),
+    this.serverId = const Value.absent(),
   });
   WorkoutPlanWorkoutTableCompanion.insert({
     this.id = const Value.absent(),
     required int planId,
     required int workoutId,
+    this.serverId = const Value.absent(),
   }) : planId = Value(planId),
        workoutId = Value(workoutId);
   static Insertable<WorkoutPlanWorkoutTableData> custom({
     Expression<int>? id,
     Expression<int>? planId,
     Expression<int>? workoutId,
+    Expression<String>? serverId,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (planId != null) 'plan_id': planId,
       if (workoutId != null) 'workout_id': workoutId,
+      if (serverId != null) 'server_id': serverId,
     });
   }
 
@@ -6482,11 +6890,13 @@ class WorkoutPlanWorkoutTableCompanion
     Value<int>? id,
     Value<int>? planId,
     Value<int>? workoutId,
+    Value<String?>? serverId,
   }) {
     return WorkoutPlanWorkoutTableCompanion(
       id: id ?? this.id,
       planId: planId ?? this.planId,
       workoutId: workoutId ?? this.workoutId,
+      serverId: serverId ?? this.serverId,
     );
   }
 
@@ -6502,6 +6912,9 @@ class WorkoutPlanWorkoutTableCompanion
     if (workoutId.present) {
       map['workout_id'] = Variable<int>(workoutId.value);
     }
+    if (serverId.present) {
+      map['server_id'] = Variable<String>(serverId.value);
+    }
     return map;
   }
 
@@ -6510,7 +6923,8 @@ class WorkoutPlanWorkoutTableCompanion
     return (StringBuffer('WorkoutPlanWorkoutTableCompanion(')
           ..write('id: $id, ')
           ..write('planId: $planId, ')
-          ..write('workoutId: $workoutId')
+          ..write('workoutId: $workoutId, ')
+          ..write('serverId: $serverId')
           ..write(')'))
         .toString();
   }
@@ -6582,6 +6996,17 @@ class $WorkoutSetTemplateTableTable extends WorkoutSetTemplateTable
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _serverIdMeta = const VerificationMeta(
+    'serverId',
+  );
+  @override
+  late final GeneratedColumn<String> serverId = GeneratedColumn<String>(
+    'server_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -6589,6 +7014,7 @@ class $WorkoutSetTemplateTableTable extends WorkoutSetTemplateTable
     setNumber,
     targetReps,
     orderPosition,
+    serverId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -6643,6 +7069,12 @@ class $WorkoutSetTemplateTableTable extends WorkoutSetTemplateTable
     } else if (isInserting) {
       context.missing(_orderPositionMeta);
     }
+    if (data.containsKey('server_id')) {
+      context.handle(
+        _serverIdMeta,
+        serverId.isAcceptableOrUnknown(data['server_id']!, _serverIdMeta),
+      );
+    }
     return context;
   }
 
@@ -6677,6 +7109,10 @@ class $WorkoutSetTemplateTableTable extends WorkoutSetTemplateTable
             DriftSqlType.int,
             data['${effectivePrefix}order_position'],
           )!,
+      serverId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}server_id'],
+      ),
     );
   }
 
@@ -6693,12 +7129,16 @@ class WorkoutSetTemplateData extends DataClass
   final int setNumber;
   final String targetReps;
   final int orderPosition;
+
+  /// The UUID assigned by the remote API after the first successful sync. Null until synced.
+  final String? serverId;
   const WorkoutSetTemplateData({
     required this.id,
     required this.workoutExerciseId,
     required this.setNumber,
     required this.targetReps,
     required this.orderPosition,
+    this.serverId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -6708,6 +7148,9 @@ class WorkoutSetTemplateData extends DataClass
     map['set_number'] = Variable<int>(setNumber);
     map['target_reps'] = Variable<String>(targetReps);
     map['order_position'] = Variable<int>(orderPosition);
+    if (!nullToAbsent || serverId != null) {
+      map['server_id'] = Variable<String>(serverId);
+    }
     return map;
   }
 
@@ -6718,6 +7161,10 @@ class WorkoutSetTemplateData extends DataClass
       setNumber: Value(setNumber),
       targetReps: Value(targetReps),
       orderPosition: Value(orderPosition),
+      serverId:
+          serverId == null && nullToAbsent
+              ? const Value.absent()
+              : Value(serverId),
     );
   }
 
@@ -6732,6 +7179,7 @@ class WorkoutSetTemplateData extends DataClass
       setNumber: serializer.fromJson<int>(json['setNumber']),
       targetReps: serializer.fromJson<String>(json['targetReps']),
       orderPosition: serializer.fromJson<int>(json['orderPosition']),
+      serverId: serializer.fromJson<String?>(json['serverId']),
     );
   }
   @override
@@ -6743,6 +7191,7 @@ class WorkoutSetTemplateData extends DataClass
       'setNumber': serializer.toJson<int>(setNumber),
       'targetReps': serializer.toJson<String>(targetReps),
       'orderPosition': serializer.toJson<int>(orderPosition),
+      'serverId': serializer.toJson<String?>(serverId),
     };
   }
 
@@ -6752,12 +7201,14 @@ class WorkoutSetTemplateData extends DataClass
     int? setNumber,
     String? targetReps,
     int? orderPosition,
+    Value<String?> serverId = const Value.absent(),
   }) => WorkoutSetTemplateData(
     id: id ?? this.id,
     workoutExerciseId: workoutExerciseId ?? this.workoutExerciseId,
     setNumber: setNumber ?? this.setNumber,
     targetReps: targetReps ?? this.targetReps,
     orderPosition: orderPosition ?? this.orderPosition,
+    serverId: serverId.present ? serverId.value : this.serverId,
   );
   WorkoutSetTemplateData copyWithCompanion(
     WorkoutSetTemplateTableCompanion data,
@@ -6775,6 +7226,7 @@ class WorkoutSetTemplateData extends DataClass
           data.orderPosition.present
               ? data.orderPosition.value
               : this.orderPosition,
+      serverId: data.serverId.present ? data.serverId.value : this.serverId,
     );
   }
 
@@ -6785,14 +7237,21 @@ class WorkoutSetTemplateData extends DataClass
           ..write('workoutExerciseId: $workoutExerciseId, ')
           ..write('setNumber: $setNumber, ')
           ..write('targetReps: $targetReps, ')
-          ..write('orderPosition: $orderPosition')
+          ..write('orderPosition: $orderPosition, ')
+          ..write('serverId: $serverId')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, workoutExerciseId, setNumber, targetReps, orderPosition);
+  int get hashCode => Object.hash(
+    id,
+    workoutExerciseId,
+    setNumber,
+    targetReps,
+    orderPosition,
+    serverId,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -6801,7 +7260,8 @@ class WorkoutSetTemplateData extends DataClass
           other.workoutExerciseId == this.workoutExerciseId &&
           other.setNumber == this.setNumber &&
           other.targetReps == this.targetReps &&
-          other.orderPosition == this.orderPosition);
+          other.orderPosition == this.orderPosition &&
+          other.serverId == this.serverId);
 }
 
 class WorkoutSetTemplateTableCompanion
@@ -6811,12 +7271,14 @@ class WorkoutSetTemplateTableCompanion
   final Value<int> setNumber;
   final Value<String> targetReps;
   final Value<int> orderPosition;
+  final Value<String?> serverId;
   const WorkoutSetTemplateTableCompanion({
     this.id = const Value.absent(),
     this.workoutExerciseId = const Value.absent(),
     this.setNumber = const Value.absent(),
     this.targetReps = const Value.absent(),
     this.orderPosition = const Value.absent(),
+    this.serverId = const Value.absent(),
   });
   WorkoutSetTemplateTableCompanion.insert({
     this.id = const Value.absent(),
@@ -6824,6 +7286,7 @@ class WorkoutSetTemplateTableCompanion
     required int setNumber,
     required String targetReps,
     required int orderPosition,
+    this.serverId = const Value.absent(),
   }) : workoutExerciseId = Value(workoutExerciseId),
        setNumber = Value(setNumber),
        targetReps = Value(targetReps),
@@ -6834,6 +7297,7 @@ class WorkoutSetTemplateTableCompanion
     Expression<int>? setNumber,
     Expression<String>? targetReps,
     Expression<int>? orderPosition,
+    Expression<String>? serverId,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -6841,6 +7305,7 @@ class WorkoutSetTemplateTableCompanion
       if (setNumber != null) 'set_number': setNumber,
       if (targetReps != null) 'target_reps': targetReps,
       if (orderPosition != null) 'order_position': orderPosition,
+      if (serverId != null) 'server_id': serverId,
     });
   }
 
@@ -6850,6 +7315,7 @@ class WorkoutSetTemplateTableCompanion
     Value<int>? setNumber,
     Value<String>? targetReps,
     Value<int>? orderPosition,
+    Value<String?>? serverId,
   }) {
     return WorkoutSetTemplateTableCompanion(
       id: id ?? this.id,
@@ -6857,6 +7323,7 @@ class WorkoutSetTemplateTableCompanion
       setNumber: setNumber ?? this.setNumber,
       targetReps: targetReps ?? this.targetReps,
       orderPosition: orderPosition ?? this.orderPosition,
+      serverId: serverId ?? this.serverId,
     );
   }
 
@@ -6878,6 +7345,9 @@ class WorkoutSetTemplateTableCompanion
     if (orderPosition.present) {
       map['order_position'] = Variable<int>(orderPosition.value);
     }
+    if (serverId.present) {
+      map['server_id'] = Variable<String>(serverId.value);
+    }
     return map;
   }
 
@@ -6888,7 +7358,8 @@ class WorkoutSetTemplateTableCompanion
           ..write('workoutExerciseId: $workoutExerciseId, ')
           ..write('setNumber: $setNumber, ')
           ..write('targetReps: $targetReps, ')
-          ..write('orderPosition: $orderPosition')
+          ..write('orderPosition: $orderPosition, ')
+          ..write('serverId: $serverId')
           ..write(')'))
         .toString();
   }
@@ -8821,6 +9292,7 @@ typedef $$ExerciseTableTableCreateCompanionBuilder =
       required String targetMuscleGroups,
       Value<String?> imageUrl,
       Value<bool> isCustom,
+      Value<String?> serverId,
     });
 typedef $$ExerciseTableTableUpdateCompanionBuilder =
     ExerciseTableCompanion Function({
@@ -8833,6 +9305,7 @@ typedef $$ExerciseTableTableUpdateCompanionBuilder =
       Value<String> targetMuscleGroups,
       Value<String?> imageUrl,
       Value<bool> isCustom,
+      Value<String?> serverId,
     });
 
 final class $$ExerciseTableTableReferences
@@ -8927,6 +9400,11 @@ class $$ExerciseTableTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get serverId => $composableBuilder(
+    column: $table.serverId,
+    builder: (column) => ColumnFilters(column),
+  );
+
   Expression<bool> workoutExerciseTableRefs(
     Expression<bool> Function($$WorkoutExerciseTableTableFilterComposer f) f,
   ) {
@@ -9006,6 +9484,11 @@ class $$ExerciseTableTableOrderingComposer
     column: $table.isCustom,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get serverId => $composableBuilder(
+    column: $table.serverId,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$ExerciseTableTableAnnotationComposer
@@ -9049,6 +9532,9 @@ class $$ExerciseTableTableAnnotationComposer
 
   GeneratedColumn<bool> get isCustom =>
       $composableBuilder(column: $table.isCustom, builder: (column) => column);
+
+  GeneratedColumn<String> get serverId =>
+      $composableBuilder(column: $table.serverId, builder: (column) => column);
 
   Expression<T> workoutExerciseTableRefs<T extends Object>(
     Expression<T> Function($$WorkoutExerciseTableTableAnnotationComposer a) f,
@@ -9118,6 +9604,7 @@ class $$ExerciseTableTableTableManager
                 Value<String> targetMuscleGroups = const Value.absent(),
                 Value<String?> imageUrl = const Value.absent(),
                 Value<bool> isCustom = const Value.absent(),
+                Value<String?> serverId = const Value.absent(),
               }) => ExerciseTableCompanion(
                 id: id,
                 name: name,
@@ -9128,6 +9615,7 @@ class $$ExerciseTableTableTableManager
                 targetMuscleGroups: targetMuscleGroups,
                 imageUrl: imageUrl,
                 isCustom: isCustom,
+                serverId: serverId,
               ),
           createCompanionCallback:
               ({
@@ -9140,6 +9628,7 @@ class $$ExerciseTableTableTableManager
                 required String targetMuscleGroups,
                 Value<String?> imageUrl = const Value.absent(),
                 Value<bool> isCustom = const Value.absent(),
+                Value<String?> serverId = const Value.absent(),
               }) => ExerciseTableCompanion.insert(
                 id: id,
                 name: name,
@@ -9150,6 +9639,7 @@ class $$ExerciseTableTableTableManager
                 targetMuscleGroups: targetMuscleGroups,
                 imageUrl: imageUrl,
                 isCustom: isCustom,
+                serverId: serverId,
               ),
           withReferenceMapper:
               (p0) =>
@@ -9225,6 +9715,7 @@ typedef $$WorkoutTableTableCreateCompanionBuilder =
       Value<DateTime?> scheduledDate,
       Value<DateTime?> completedDate,
       Value<int?> color,
+      Value<String?> serverId,
     });
 typedef $$WorkoutTableTableUpdateCompanionBuilder =
     WorkoutTableCompanion Function({
@@ -9237,6 +9728,7 @@ typedef $$WorkoutTableTableUpdateCompanionBuilder =
       Value<DateTime?> scheduledDate,
       Value<DateTime?> completedDate,
       Value<int?> color,
+      Value<String?> serverId,
     });
 
 final class $$WorkoutTableTableReferences
@@ -9266,6 +9758,62 @@ final class $$WorkoutTableTableReferences
 
     final cache = $_typedResult.readTableOrNull(
       _workoutExerciseTableRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<
+    $ScheduledWorkoutTableTable,
+    List<ScheduledWorkoutTableData>
+  >
+  _scheduledWorkoutTableRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.scheduledWorkoutTable,
+        aliasName: $_aliasNameGenerator(
+          db.workoutTable.id,
+          db.scheduledWorkoutTable.workoutId,
+        ),
+      );
+
+  $$ScheduledWorkoutTableTableProcessedTableManager
+  get scheduledWorkoutTableRefs {
+    final manager = $$ScheduledWorkoutTableTableTableManager(
+      $_db,
+      $_db.scheduledWorkoutTable,
+    ).filter((f) => f.workoutId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _scheduledWorkoutTableRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<
+    $ScheduledWorkoutTableTable,
+    List<ScheduledWorkoutTableData>
+  >
+  _scheduledWorkoutTemplateRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.scheduledWorkoutTable,
+        aliasName: $_aliasNameGenerator(
+          db.workoutTable.id,
+          db.scheduledWorkoutTable.templateWorkoutId,
+        ),
+      );
+
+  $$ScheduledWorkoutTableTableProcessedTableManager
+  get scheduledWorkoutTemplateRefs {
+    final manager = $$ScheduledWorkoutTableTableTableManager(
+      $_db,
+      $_db.scheduledWorkoutTable,
+    ).filter((f) => f.templateWorkoutId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _scheduledWorkoutTemplateRefsTable($_db),
     );
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
@@ -9355,6 +9903,11 @@ class $$WorkoutTableTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get serverId => $composableBuilder(
+    column: $table.serverId,
+    builder: (column) => ColumnFilters(column),
+  );
+
   Expression<bool> workoutExerciseTableRefs(
     Expression<bool> Function($$WorkoutExerciseTableTableFilterComposer f) f,
   ) {
@@ -9377,6 +9930,58 @@ class $$WorkoutTableTableFilterComposer
                 $removeJoinBuilderFromRootComposer,
           ),
     );
+    return f(composer);
+  }
+
+  Expression<bool> scheduledWorkoutTableRefs(
+    Expression<bool> Function($$ScheduledWorkoutTableTableFilterComposer f) f,
+  ) {
+    final $$ScheduledWorkoutTableTableFilterComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.scheduledWorkoutTable,
+          getReferencedColumn: (t) => t.workoutId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$ScheduledWorkoutTableTableFilterComposer(
+                $db: $db,
+                $table: $db.scheduledWorkoutTable,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
+
+  Expression<bool> scheduledWorkoutTemplateRefs(
+    Expression<bool> Function($$ScheduledWorkoutTableTableFilterComposer f) f,
+  ) {
+    final $$ScheduledWorkoutTableTableFilterComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.scheduledWorkoutTable,
+          getReferencedColumn: (t) => t.templateWorkoutId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$ScheduledWorkoutTableTableFilterComposer(
+                $db: $db,
+                $table: $db.scheduledWorkoutTable,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
     return f(composer);
   }
 
@@ -9460,6 +10065,11 @@ class $$WorkoutTableTableOrderingComposer
     column: $table.color,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get serverId => $composableBuilder(
+    column: $table.serverId,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$WorkoutTableTableAnnotationComposer
@@ -9510,6 +10120,9 @@ class $$WorkoutTableTableAnnotationComposer
   GeneratedColumn<int> get color =>
       $composableBuilder(column: $table.color, builder: (column) => column);
 
+  GeneratedColumn<String> get serverId =>
+      $composableBuilder(column: $table.serverId, builder: (column) => column);
+
   Expression<T> workoutExerciseTableRefs<T extends Object>(
     Expression<T> Function($$WorkoutExerciseTableTableAnnotationComposer a) f,
   ) {
@@ -9527,6 +10140,58 @@ class $$WorkoutTableTableAnnotationComposer
               }) => $$WorkoutExerciseTableTableAnnotationComposer(
                 $db: $db,
                 $table: $db.workoutExerciseTable,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
+
+  Expression<T> scheduledWorkoutTableRefs<T extends Object>(
+    Expression<T> Function($$ScheduledWorkoutTableTableAnnotationComposer a) f,
+  ) {
+    final $$ScheduledWorkoutTableTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.scheduledWorkoutTable,
+          getReferencedColumn: (t) => t.workoutId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$ScheduledWorkoutTableTableAnnotationComposer(
+                $db: $db,
+                $table: $db.scheduledWorkoutTable,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
+
+  Expression<T> scheduledWorkoutTemplateRefs<T extends Object>(
+    Expression<T> Function($$ScheduledWorkoutTableTableAnnotationComposer a) f,
+  ) {
+    final $$ScheduledWorkoutTableTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.scheduledWorkoutTable,
+          getReferencedColumn: (t) => t.templateWorkoutId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$ScheduledWorkoutTableTableAnnotationComposer(
+                $db: $db,
+                $table: $db.scheduledWorkoutTable,
                 $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
                 joinBuilder: joinBuilder,
                 $removeJoinBuilderFromRootComposer:
@@ -9579,6 +10244,8 @@ class $$WorkoutTableTableTableManager
           WorkoutTableData,
           PrefetchHooks Function({
             bool workoutExerciseTableRefs,
+            bool scheduledWorkoutTableRefs,
+            bool scheduledWorkoutTemplateRefs,
             bool workoutPlanWorkoutTableRefs,
           })
         > {
@@ -9605,6 +10272,7 @@ class $$WorkoutTableTableTableManager
                 Value<DateTime?> scheduledDate = const Value.absent(),
                 Value<DateTime?> completedDate = const Value.absent(),
                 Value<int?> color = const Value.absent(),
+                Value<String?> serverId = const Value.absent(),
               }) => WorkoutTableCompanion(
                 id: id,
                 name: name,
@@ -9615,6 +10283,7 @@ class $$WorkoutTableTableTableManager
                 scheduledDate: scheduledDate,
                 completedDate: completedDate,
                 color: color,
+                serverId: serverId,
               ),
           createCompanionCallback:
               ({
@@ -9627,6 +10296,7 @@ class $$WorkoutTableTableTableManager
                 Value<DateTime?> scheduledDate = const Value.absent(),
                 Value<DateTime?> completedDate = const Value.absent(),
                 Value<int?> color = const Value.absent(),
+                Value<String?> serverId = const Value.absent(),
               }) => WorkoutTableCompanion.insert(
                 id: id,
                 name: name,
@@ -9637,6 +10307,7 @@ class $$WorkoutTableTableTableManager
                 scheduledDate: scheduledDate,
                 completedDate: completedDate,
                 color: color,
+                serverId: serverId,
               ),
           withReferenceMapper:
               (p0) =>
@@ -9650,12 +10321,16 @@ class $$WorkoutTableTableTableManager
                       .toList(),
           prefetchHooksCallback: ({
             workoutExerciseTableRefs = false,
+            scheduledWorkoutTableRefs = false,
+            scheduledWorkoutTemplateRefs = false,
             workoutPlanWorkoutTableRefs = false,
           }) {
             return PrefetchHooks(
               db: db,
               explicitlyWatchedTables: [
                 if (workoutExerciseTableRefs) db.workoutExerciseTable,
+                if (scheduledWorkoutTableRefs) db.scheduledWorkoutTable,
+                if (scheduledWorkoutTemplateRefs) db.scheduledWorkoutTable,
                 if (workoutPlanWorkoutTableRefs) db.workoutPlanWorkoutTable,
               ],
               addJoins: null,
@@ -9680,6 +10355,50 @@ class $$WorkoutTableTableTableManager
                       referencedItemsForCurrentItem:
                           (item, referencedItems) => referencedItems.where(
                             (e) => e.workoutId == item.id,
+                          ),
+                      typedResults: items,
+                    ),
+                  if (scheduledWorkoutTableRefs)
+                    await $_getPrefetchedData<
+                      WorkoutTableData,
+                      $WorkoutTableTable,
+                      ScheduledWorkoutTableData
+                    >(
+                      currentTable: table,
+                      referencedTable: $$WorkoutTableTableReferences
+                          ._scheduledWorkoutTableRefsTable(db),
+                      managerFromTypedResult:
+                          (p0) =>
+                              $$WorkoutTableTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).scheduledWorkoutTableRefs,
+                      referencedItemsForCurrentItem:
+                          (item, referencedItems) => referencedItems.where(
+                            (e) => e.workoutId == item.id,
+                          ),
+                      typedResults: items,
+                    ),
+                  if (scheduledWorkoutTemplateRefs)
+                    await $_getPrefetchedData<
+                      WorkoutTableData,
+                      $WorkoutTableTable,
+                      ScheduledWorkoutTableData
+                    >(
+                      currentTable: table,
+                      referencedTable: $$WorkoutTableTableReferences
+                          ._scheduledWorkoutTemplateRefsTable(db),
+                      managerFromTypedResult:
+                          (p0) =>
+                              $$WorkoutTableTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).scheduledWorkoutTemplateRefs,
+                      referencedItemsForCurrentItem:
+                          (item, referencedItems) => referencedItems.where(
+                            (e) => e.templateWorkoutId == item.id,
                           ),
                       typedResults: items,
                     ),
@@ -9727,6 +10446,8 @@ typedef $$WorkoutTableTableProcessedTableManager =
       WorkoutTableData,
       PrefetchHooks Function({
         bool workoutExerciseTableRefs,
+        bool scheduledWorkoutTableRefs,
+        bool scheduledWorkoutTemplateRefs,
         bool workoutPlanWorkoutTableRefs,
       })
     >;
@@ -9740,6 +10461,7 @@ typedef $$WorkoutPlanTableTableCreateCompanionBuilder =
       Value<bool> isActive,
       required String cyclePatternJson,
       Value<bool> isFreeChoice,
+      Value<String?> serverId,
     });
 typedef $$WorkoutPlanTableTableUpdateCompanionBuilder =
     WorkoutPlanTableCompanion Function({
@@ -9751,6 +10473,7 @@ typedef $$WorkoutPlanTableTableUpdateCompanionBuilder =
       Value<bool> isActive,
       Value<String> cyclePatternJson,
       Value<bool> isFreeChoice,
+      Value<String?> serverId,
     });
 
 final class $$WorkoutPlanTableTableReferences
@@ -9872,6 +10595,11 @@ class $$WorkoutPlanTableTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get serverId => $composableBuilder(
+    column: $table.serverId,
+    builder: (column) => ColumnFilters(column),
+  );
+
   Expression<bool> scheduledWorkoutTableRefs(
     Expression<bool> Function($$ScheduledWorkoutTableTableFilterComposer f) f,
   ) {
@@ -9973,6 +10701,11 @@ class $$WorkoutPlanTableTableOrderingComposer
     column: $table.isFreeChoice,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get serverId => $composableBuilder(
+    column: $table.serverId,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$WorkoutPlanTableTableAnnotationComposer
@@ -10013,6 +10746,9 @@ class $$WorkoutPlanTableTableAnnotationComposer
     column: $table.isFreeChoice,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get serverId =>
+      $composableBuilder(column: $table.serverId, builder: (column) => column);
 
   Expression<T> scheduledWorkoutTableRefs<T extends Object>(
     Expression<T> Function($$ScheduledWorkoutTableTableAnnotationComposer a) f,
@@ -10116,6 +10852,7 @@ class $$WorkoutPlanTableTableTableManager
                 Value<bool> isActive = const Value.absent(),
                 Value<String> cyclePatternJson = const Value.absent(),
                 Value<bool> isFreeChoice = const Value.absent(),
+                Value<String?> serverId = const Value.absent(),
               }) => WorkoutPlanTableCompanion(
                 id: id,
                 name: name,
@@ -10125,6 +10862,7 @@ class $$WorkoutPlanTableTableTableManager
                 isActive: isActive,
                 cyclePatternJson: cyclePatternJson,
                 isFreeChoice: isFreeChoice,
+                serverId: serverId,
               ),
           createCompanionCallback:
               ({
@@ -10136,6 +10874,7 @@ class $$WorkoutPlanTableTableTableManager
                 Value<bool> isActive = const Value.absent(),
                 required String cyclePatternJson,
                 Value<bool> isFreeChoice = const Value.absent(),
+                Value<String?> serverId = const Value.absent(),
               }) => WorkoutPlanTableCompanion.insert(
                 id: id,
                 name: name,
@@ -10145,6 +10884,7 @@ class $$WorkoutPlanTableTableTableManager
                 isActive: isActive,
                 cyclePatternJson: cyclePatternJson,
                 isFreeChoice: isFreeChoice,
+                serverId: serverId,
               ),
           withReferenceMapper:
               (p0) =>
@@ -10245,6 +10985,7 @@ typedef $$WorkoutExerciseTableTableCreateCompanionBuilder =
       required int orderPosition,
       Value<String?> notes,
       Value<int?> supersetGroupId,
+      Value<String?> serverId,
     });
 typedef $$WorkoutExerciseTableTableUpdateCompanionBuilder =
     WorkoutExerciseTableCompanion Function({
@@ -10254,6 +10995,7 @@ typedef $$WorkoutExerciseTableTableUpdateCompanionBuilder =
       Value<int> orderPosition,
       Value<String?> notes,
       Value<int?> supersetGroupId,
+      Value<String?> serverId,
     });
 
 final class $$WorkoutExerciseTableTableReferences
@@ -10399,6 +11141,11 @@ class $$WorkoutExerciseTableTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get serverId => $composableBuilder(
+    column: $table.serverId,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$WorkoutTableTableFilterComposer get workoutId {
     final $$WorkoutTableTableFilterComposer composer = $composerBuilder(
       composer: this,
@@ -10530,6 +11277,11 @@ class $$WorkoutExerciseTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get serverId => $composableBuilder(
+    column: $table.serverId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$WorkoutTableTableOrderingComposer get workoutId {
     final $$WorkoutTableTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -10601,6 +11353,9 @@ class $$WorkoutExerciseTableTableAnnotationComposer
     column: $table.supersetGroupId,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get serverId =>
+      $composableBuilder(column: $table.serverId, builder: (column) => column);
 
   $$WorkoutTableTableAnnotationComposer get workoutId {
     final $$WorkoutTableTableAnnotationComposer composer = $composerBuilder(
@@ -10755,6 +11510,7 @@ class $$WorkoutExerciseTableTableTableManager
                 Value<int> orderPosition = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<int?> supersetGroupId = const Value.absent(),
+                Value<String?> serverId = const Value.absent(),
               }) => WorkoutExerciseTableCompanion(
                 id: id,
                 workoutId: workoutId,
@@ -10762,6 +11518,7 @@ class $$WorkoutExerciseTableTableTableManager
                 orderPosition: orderPosition,
                 notes: notes,
                 supersetGroupId: supersetGroupId,
+                serverId: serverId,
               ),
           createCompanionCallback:
               ({
@@ -10771,6 +11528,7 @@ class $$WorkoutExerciseTableTableTableManager
                 required int orderPosition,
                 Value<String?> notes = const Value.absent(),
                 Value<int?> supersetGroupId = const Value.absent(),
+                Value<String?> serverId = const Value.absent(),
               }) => WorkoutExerciseTableCompanion.insert(
                 id: id,
                 workoutId: workoutId,
@@ -10778,6 +11536,7 @@ class $$WorkoutExerciseTableTableTableManager
                 orderPosition: orderPosition,
                 notes: notes,
                 supersetGroupId: supersetGroupId,
+                serverId: serverId,
               ),
           withReferenceMapper:
               (p0) =>
@@ -10934,6 +11693,7 @@ typedef $$ScheduledWorkoutTableTableCreateCompanionBuilder =
       Value<String?> notes,
       Value<bool> isCompleted,
       Value<bool> isSkipped,
+      Value<String?> serverId,
     });
 typedef $$ScheduledWorkoutTableTableUpdateCompanionBuilder =
     ScheduledWorkoutTableCompanion Function({
@@ -10946,6 +11706,7 @@ typedef $$ScheduledWorkoutTableTableUpdateCompanionBuilder =
       Value<String?> notes,
       Value<bool> isCompleted,
       Value<bool> isSkipped,
+      Value<String?> serverId,
     });
 
 final class $$ScheduledWorkoutTableTableReferences
@@ -11097,6 +11858,11 @@ class $$ScheduledWorkoutTableTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get serverId => $composableBuilder(
+    column: $table.serverId,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$WorkoutTableTableFilterComposer get workoutId {
     final $$WorkoutTableTableFilterComposer composer = $composerBuilder(
       composer: this,
@@ -11235,6 +12001,11 @@ class $$ScheduledWorkoutTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get serverId => $composableBuilder(
+    column: $table.serverId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$WorkoutTableTableOrderingComposer get workoutId {
     final $$WorkoutTableTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -11335,6 +12106,9 @@ class $$ScheduledWorkoutTableTableAnnotationComposer
 
   GeneratedColumn<bool> get isSkipped =>
       $composableBuilder(column: $table.isSkipped, builder: (column) => column);
+
+  GeneratedColumn<String> get serverId =>
+      $composableBuilder(column: $table.serverId, builder: (column) => column);
 
   $$WorkoutTableTableAnnotationComposer get workoutId {
     final $$WorkoutTableTableAnnotationComposer composer = $composerBuilder(
@@ -11488,6 +12262,7 @@ class $$ScheduledWorkoutTableTableTableManager
                 Value<String?> notes = const Value.absent(),
                 Value<bool> isCompleted = const Value.absent(),
                 Value<bool> isSkipped = const Value.absent(),
+                Value<String?> serverId = const Value.absent(),
               }) => ScheduledWorkoutTableCompanion(
                 id: id,
                 workoutId: workoutId,
@@ -11498,6 +12273,7 @@ class $$ScheduledWorkoutTableTableTableManager
                 notes: notes,
                 isCompleted: isCompleted,
                 isSkipped: isSkipped,
+                serverId: serverId,
               ),
           createCompanionCallback:
               ({
@@ -11510,6 +12286,7 @@ class $$ScheduledWorkoutTableTableTableManager
                 Value<String?> notes = const Value.absent(),
                 Value<bool> isCompleted = const Value.absent(),
                 Value<bool> isSkipped = const Value.absent(),
+                Value<String?> serverId = const Value.absent(),
               }) => ScheduledWorkoutTableCompanion.insert(
                 id: id,
                 workoutId: workoutId,
@@ -11520,6 +12297,7 @@ class $$ScheduledWorkoutTableTableTableManager
                 notes: notes,
                 isCompleted: isCompleted,
                 isSkipped: isSkipped,
+                serverId: serverId,
               ),
           withReferenceMapper:
               (p0) =>
@@ -11665,6 +12443,7 @@ typedef $$ScheduledWorkoutExerciseTableTableCreateCompanionBuilder =
       Value<bool> isCompleted,
       Value<String?> notes,
       Value<int?> overrideExerciseId,
+      Value<String?> serverId,
     });
 typedef $$ScheduledWorkoutExerciseTableTableUpdateCompanionBuilder =
     ScheduledWorkoutExerciseTableCompanion Function({
@@ -11674,6 +12453,7 @@ typedef $$ScheduledWorkoutExerciseTableTableUpdateCompanionBuilder =
       Value<bool> isCompleted,
       Value<String?> notes,
       Value<int?> overrideExerciseId,
+      Value<String?> serverId,
     });
 
 final class $$ScheduledWorkoutExerciseTableTableReferences
@@ -11790,6 +12570,11 @@ class $$ScheduledWorkoutExerciseTableTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get serverId => $composableBuilder(
+    column: $table.serverId,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$ScheduledWorkoutTableTableFilterComposer get scheduledWorkoutId {
     final $$ScheduledWorkoutTableTableFilterComposer composer =
         $composerBuilder(
@@ -11892,6 +12677,11 @@ class $$ScheduledWorkoutExerciseTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get serverId => $composableBuilder(
+    column: $table.serverId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$ScheduledWorkoutTableTableOrderingComposer get scheduledWorkoutId {
     final $$ScheduledWorkoutTableTableOrderingComposer composer =
         $composerBuilder(
@@ -11965,6 +12755,9 @@ class $$ScheduledWorkoutExerciseTableTableAnnotationComposer
     column: $table.overrideExerciseId,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get serverId =>
+      $composableBuilder(column: $table.serverId, builder: (column) => column);
 
   $$ScheduledWorkoutTableTableAnnotationComposer get scheduledWorkoutId {
     final $$ScheduledWorkoutTableTableAnnotationComposer composer =
@@ -12092,6 +12885,7 @@ class $$ScheduledWorkoutExerciseTableTableTableManager
                 Value<bool> isCompleted = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<int?> overrideExerciseId = const Value.absent(),
+                Value<String?> serverId = const Value.absent(),
               }) => ScheduledWorkoutExerciseTableCompanion(
                 id: id,
                 scheduledWorkoutId: scheduledWorkoutId,
@@ -12099,6 +12893,7 @@ class $$ScheduledWorkoutExerciseTableTableTableManager
                 isCompleted: isCompleted,
                 notes: notes,
                 overrideExerciseId: overrideExerciseId,
+                serverId: serverId,
               ),
           createCompanionCallback:
               ({
@@ -12108,6 +12903,7 @@ class $$ScheduledWorkoutExerciseTableTableTableManager
                 Value<bool> isCompleted = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<int?> overrideExerciseId = const Value.absent(),
+                Value<String?> serverId = const Value.absent(),
               }) => ScheduledWorkoutExerciseTableCompanion.insert(
                 id: id,
                 scheduledWorkoutId: scheduledWorkoutId,
@@ -12115,6 +12911,7 @@ class $$ScheduledWorkoutExerciseTableTableTableManager
                 isCompleted: isCompleted,
                 notes: notes,
                 overrideExerciseId: overrideExerciseId,
+                serverId: serverId,
               ),
           withReferenceMapper:
               (p0) =>
@@ -12253,6 +13050,7 @@ typedef $$WorkoutSetTableTableCreateCompanionBuilder =
       Value<int?> durationSeconds,
       Value<bool> isCompleted,
       Value<String?> notes,
+      Value<String?> serverId,
     });
 typedef $$WorkoutSetTableTableUpdateCompanionBuilder =
     WorkoutSetTableCompanion Function({
@@ -12265,6 +13063,7 @@ typedef $$WorkoutSetTableTableUpdateCompanionBuilder =
       Value<int?> durationSeconds,
       Value<bool> isCompleted,
       Value<String?> notes,
+      Value<String?> serverId,
     });
 
 final class $$WorkoutSetTableTableReferences
@@ -12356,6 +13155,11 @@ class $$WorkoutSetTableTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get serverId => $composableBuilder(
+    column: $table.serverId,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$ScheduledWorkoutExerciseTableTableFilterComposer
   get scheduledWorkoutExerciseId {
     final $$ScheduledWorkoutExerciseTableTableFilterComposer composer =
@@ -12431,6 +13235,11 @@ class $$WorkoutSetTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get serverId => $composableBuilder(
+    column: $table.serverId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$ScheduledWorkoutExerciseTableTableOrderingComposer
   get scheduledWorkoutExerciseId {
     final $$ScheduledWorkoutExerciseTableTableOrderingComposer composer =
@@ -12495,6 +13304,9 @@ class $$WorkoutSetTableTableAnnotationComposer
 
   GeneratedColumn<String> get notes =>
       $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<String> get serverId =>
+      $composableBuilder(column: $table.serverId, builder: (column) => column);
 
   $$ScheduledWorkoutExerciseTableTableAnnotationComposer
   get scheduledWorkoutExerciseId {
@@ -12568,6 +13380,7 @@ class $$WorkoutSetTableTableTableManager
                 Value<int?> durationSeconds = const Value.absent(),
                 Value<bool> isCompleted = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
+                Value<String?> serverId = const Value.absent(),
               }) => WorkoutSetTableCompanion(
                 id: id,
                 scheduledWorkoutExerciseId: scheduledWorkoutExerciseId,
@@ -12578,6 +13391,7 @@ class $$WorkoutSetTableTableTableManager
                 durationSeconds: durationSeconds,
                 isCompleted: isCompleted,
                 notes: notes,
+                serverId: serverId,
               ),
           createCompanionCallback:
               ({
@@ -12590,6 +13404,7 @@ class $$WorkoutSetTableTableTableManager
                 Value<int?> durationSeconds = const Value.absent(),
                 Value<bool> isCompleted = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
+                Value<String?> serverId = const Value.absent(),
               }) => WorkoutSetTableCompanion.insert(
                 id: id,
                 scheduledWorkoutExerciseId: scheduledWorkoutExerciseId,
@@ -12600,6 +13415,7 @@ class $$WorkoutSetTableTableTableManager
                 durationSeconds: durationSeconds,
                 isCompleted: isCompleted,
                 notes: notes,
+                serverId: serverId,
               ),
           withReferenceMapper:
               (p0) =>
@@ -12675,12 +13491,14 @@ typedef $$WorkoutPlanWorkoutTableTableCreateCompanionBuilder =
       Value<int> id,
       required int planId,
       required int workoutId,
+      Value<String?> serverId,
     });
 typedef $$WorkoutPlanWorkoutTableTableUpdateCompanionBuilder =
     WorkoutPlanWorkoutTableCompanion Function({
       Value<int> id,
       Value<int> planId,
       Value<int> workoutId,
+      Value<String?> serverId,
     });
 
 final class $$WorkoutPlanWorkoutTableTableReferences
@@ -12755,6 +13573,11 @@ class $$WorkoutPlanWorkoutTableTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get serverId => $composableBuilder(
+    column: $table.serverId,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$WorkoutPlanTableTableFilterComposer get planId {
     final $$WorkoutPlanTableTableFilterComposer composer = $composerBuilder(
       composer: this,
@@ -12816,6 +13639,11 @@ class $$WorkoutPlanWorkoutTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get serverId => $composableBuilder(
+    column: $table.serverId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$WorkoutPlanTableTableOrderingComposer get planId {
     final $$WorkoutPlanTableTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -12874,6 +13702,9 @@ class $$WorkoutPlanWorkoutTableTableAnnotationComposer
   });
   GeneratedColumn<int> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get serverId =>
+      $composableBuilder(column: $table.serverId, builder: (column) => column);
 
   $$WorkoutPlanTableTableAnnotationComposer get planId {
     final $$WorkoutPlanTableTableAnnotationComposer composer = $composerBuilder(
@@ -12967,20 +13798,24 @@ class $$WorkoutPlanWorkoutTableTableTableManager
                 Value<int> id = const Value.absent(),
                 Value<int> planId = const Value.absent(),
                 Value<int> workoutId = const Value.absent(),
+                Value<String?> serverId = const Value.absent(),
               }) => WorkoutPlanWorkoutTableCompanion(
                 id: id,
                 planId: planId,
                 workoutId: workoutId,
+                serverId: serverId,
               ),
           createCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
                 required int planId,
                 required int workoutId,
+                Value<String?> serverId = const Value.absent(),
               }) => WorkoutPlanWorkoutTableCompanion.insert(
                 id: id,
                 planId: planId,
                 workoutId: workoutId,
+                serverId: serverId,
               ),
           withReferenceMapper:
               (p0) =>
@@ -13078,6 +13913,7 @@ typedef $$WorkoutSetTemplateTableTableCreateCompanionBuilder =
       required int setNumber,
       required String targetReps,
       required int orderPosition,
+      Value<String?> serverId,
     });
 typedef $$WorkoutSetTemplateTableTableUpdateCompanionBuilder =
     WorkoutSetTemplateTableCompanion Function({
@@ -13086,6 +13922,7 @@ typedef $$WorkoutSetTemplateTableTableUpdateCompanionBuilder =
       Value<int> setNumber,
       Value<String> targetReps,
       Value<int> orderPosition,
+      Value<String?> serverId,
     });
 
 final class $$WorkoutSetTemplateTableTableReferences
@@ -13153,6 +13990,11 @@ class $$WorkoutSetTemplateTableTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get serverId => $composableBuilder(
+    column: $table.serverId,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$WorkoutExerciseTableTableFilterComposer get workoutExerciseId {
     final $$WorkoutExerciseTableTableFilterComposer composer = $composerBuilder(
       composer: this,
@@ -13206,6 +14048,11 @@ class $$WorkoutSetTemplateTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get serverId => $composableBuilder(
+    column: $table.serverId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$WorkoutExerciseTableTableOrderingComposer get workoutExerciseId {
     final $$WorkoutExerciseTableTableOrderingComposer composer =
         $composerBuilder(
@@ -13255,6 +14102,9 @@ class $$WorkoutSetTemplateTableTableAnnotationComposer
     column: $table.orderPosition,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get serverId =>
+      $composableBuilder(column: $table.serverId, builder: (column) => column);
 
   $$WorkoutExerciseTableTableAnnotationComposer get workoutExerciseId {
     final $$WorkoutExerciseTableTableAnnotationComposer composer =
@@ -13325,12 +14175,14 @@ class $$WorkoutSetTemplateTableTableTableManager
                 Value<int> setNumber = const Value.absent(),
                 Value<String> targetReps = const Value.absent(),
                 Value<int> orderPosition = const Value.absent(),
+                Value<String?> serverId = const Value.absent(),
               }) => WorkoutSetTemplateTableCompanion(
                 id: id,
                 workoutExerciseId: workoutExerciseId,
                 setNumber: setNumber,
                 targetReps: targetReps,
                 orderPosition: orderPosition,
+                serverId: serverId,
               ),
           createCompanionCallback:
               ({
@@ -13339,12 +14191,14 @@ class $$WorkoutSetTemplateTableTableTableManager
                 required int setNumber,
                 required String targetReps,
                 required int orderPosition,
+                Value<String?> serverId = const Value.absent(),
               }) => WorkoutSetTemplateTableCompanion.insert(
                 id: id,
                 workoutExerciseId: workoutExerciseId,
                 setNumber: setNumber,
                 targetReps: targetReps,
                 orderPosition: orderPosition,
+                serverId: serverId,
               ),
           withReferenceMapper:
               (p0) =>

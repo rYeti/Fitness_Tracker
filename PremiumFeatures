@@ -1,2 +1,36 @@
 - Free choice of workouts for the days, instead of the _cyclePattern
 - The progress of the calories and workouts are only visible for up to 7 days and not for 30 days and the custom range
+Based on the app's current feature set, here are natural premium candidates organised by category:
+
+Core Workout Features
+Superset creation — linking exercises is a power-user feature
+Multiple active workout plans — free tier gets 1 plan, premium gets unlimited
+Custom rest timer sounds — free gets default beep, premium gets more options
+Workout color themes — free gets 4–5 basic colors, premium gets full palette
+Add/remove sets during active workout — keep basic tracking free, editing is advanced
+Planning & Scheduling
+Cycle length limit — free capped at e.g. 7-day cycles, premium unlimited
+Workout history beyond 30/90 days — archive access is a classic paywall
+Export workout data (CSV/JSON) — data portability as premium perk
+Progress & Analytics
+Full progress dashboard — charts, trends, streaks beyond basic stats
+Weight & calorie correlation chart — already exists, easy to gate
+Exercise progress graphs — per-exercise volume/PR tracking over time
+Calendar with color dots — the view you just built
+Nutrition
+Meal templates — free gets e.g. 3 templates, premium unlimited
+Barcode scanner — high-value feature, common paywall
+Online food database search — API cost justifies gating it
+Custom foods — free gets e.g. 10, premium unlimited
+Import / Integration
+FitNotes CSV import — data migration is a premium hook
+Future: Apple Health / Google Fit sync
+Recommended free/premium split
+Free	Premium
+1 active plan, 7-day cycle	Unlimited plans & cycles
+3 meal templates	Unlimited templates
+30-day history	Full history + export
+Basic progress (weight chart)	Full analytics dashboard
+Manual food search	Barcode scanner + online DB
+Standard colors	Full color palette
+The strongest paywalls tend to be barcode scanning, unlimited plans, and full analytics — these are features users feel the value of immediately and justify a subscription.

@@ -1,9 +1,16 @@
 import java.io.File
+import java.util.Properties
 
 plugins {
     id("com.android.application")
     id("kotlin-android")
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+// Load signing credentials from key.properties (never commit that file)
+val keyPropertiesFile = rootProject.file("key.properties")
+val keyProperties = Properties().apply {
+    if (keyPropertiesFile.exists()) load(keyPropertiesFile.inputStream())
 }
 
 android {
@@ -29,10 +36,10 @@ android {
 
     signingConfigs {
         create("release") {
-            keyAlias = "my-key-alias"
-            keyPassword = "ForgeForm"
-            storeFile = File("C:/Users/Lifebook E536/my-release-key.jks").takeIf { it.exists() }
-            storePassword = "ForgeForm"
+            keyAlias = keyProperties["keyAlias"] as String
+            keyPassword = keyProperties["keyPassword"] as String
+            storeFile = keyProperties["storeFile"]?.let { File(it as String) }
+            storePassword = keyProperties["storePassword"] as String
         }
     }
 

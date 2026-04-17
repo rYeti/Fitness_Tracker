@@ -15,8 +15,8 @@ public class ExerciseResponseDto
     /// <summary>The exercise type (e.g. strength, cardio) represented as an integer enum value.</summary>
     public int Type { get; set; }
 
-    /// <summary>The primary muscle group targeted by the exercise.</summary>
-    public string TargetMuscle { get; set; } = "";
+    /// <summary>Comma-separated list of targeted muscle group enum indices (matches Flutter's targetMuscleGroups CSV format).</summary>
+    public string TargetMuscleGroups { get; set; } = "";
 
     /// <summary>URL of the exercise's preview image.</summary>
     public string ImageUrl { get; set; } = "";

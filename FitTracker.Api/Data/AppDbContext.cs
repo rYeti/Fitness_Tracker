@@ -19,6 +19,30 @@ public class AppDbContext : DbContext
     /// <summary>The exercises table.</summary>
     public DbSet<Exercise> Exercise { get; set; }
 
+    /// <summary>The workout templates table.</summary>
+    public DbSet<Workout> Workouts { get; set; }
+
+    /// <summary>The workout exercise entries table.</summary>
+    public DbSet<WorkoutExercise> WorkoutExercises { get; set; }
+
+    /// <summary>The workout set templates table.</summary>
+    public DbSet<WorkoutSetTemplate> WorkoutSetTemplates { get; set; }
+
+    /// <summary>The workout plans table.</summary>
+    public DbSet<WorkoutPlan> WorkoutPlans { get; set; }
+
+    /// <summary>The workout plan membership join table.</summary>
+    public DbSet<WorkoutPlanWorkout> WorkoutPlanWorkouts { get; set; }
+
+    /// <summary>The scheduled workout occurrences table.</summary>
+    public DbSet<ScheduledWorkout> ScheduledWorkouts { get; set; }
+
+    /// <summary>The scheduled workout exercise entries table.</summary>
+    public DbSet<ScheduledWorkoutExercise> ScheduledWorkoutExercises { get; set; }
+
+    /// <summary>The performed workout sets table.</summary>
+    public DbSet<WorkoutSet> WorkoutSets { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<User>(entity =>
@@ -41,6 +65,92 @@ public class AppDbContext : DbContext
         {
             entity.HasKey(e => e.Id);
             entity.HasOne(e => e.User).WithMany().HasForeignKey(e => e.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Workout>(entity =>
+        {
+            entity.HasKey(w => w.Id);
+            entity.HasOne(w => w.User)
+                  .WithMany()
+                  .HasForeignKey(w => w.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<WorkoutExercise>(entity =>
+        {
+            entity.HasKey(we => we.Id);
+            entity.HasOne(we => we.Workout)
+                  .WithMany(w => w.Exercises)
+                  .HasForeignKey(we => we.WorkoutId)
+                  .OnDelete(DeleteBehavior.Cascade);
+            // ExerciseId is an opaque client-side identifier — no FK to the Exercise table
+            // because exercises are seeded locally on the client and may not exist in the API.
+        });
+
+        modelBuilder.Entity<WorkoutSetTemplate>(entity =>
+        {
+            entity.HasKey(t => t.Id);
+            entity.HasOne(t => t.WorkoutExercise)
+                  .WithMany(we => we.SetTemplates)
+                  .HasForeignKey(t => t.WorkoutExerciseId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<WorkoutPlan>(entity =>
+        {
+            entity.HasKey(p => p.Id);
+            entity.HasOne(p => p.User)
+                  .WithMany()
+                  .HasForeignKey(p => p.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<WorkoutPlanWorkout>(entity =>
+        {
+            entity.HasKey(pw => pw.Id);
+            entity.HasOne(pw => pw.WorkoutPlan)
+                  .WithMany(p => p.PlanWorkouts)
+                  .HasForeignKey(pw => pw.PlanId)
+                  .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(pw => pw.Workout)
+                  .WithMany(w => w.PlanWorkouts)
+                  .HasForeignKey(pw => pw.WorkoutId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ScheduledWorkout>(entity =>
+        {
+            entity.HasKey(sw => sw.Id);
+            entity.HasOne(sw => sw.Workout)
+                  .WithMany()
+                  .HasForeignKey(sw => sw.WorkoutId)
+                  .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(sw => sw.WorkoutPlan)
+                  .WithMany(p => p.ScheduledWorkouts)
+                  .HasForeignKey(sw => sw.WorkoutPlanId)
+                  .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<ScheduledWorkoutExercise>(entity =>
+        {
+            entity.HasKey(se => se.Id);
+            entity.HasOne(se => se.ScheduledWorkout)
+                  .WithMany(sw => sw.Exercises)
+                  .HasForeignKey(se => se.ScheduledWorkoutId)
+                  .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(se => se.WorkoutExercise)
+                  .WithMany(we => we.ScheduledExercises)
+                  .HasForeignKey(se => se.WorkoutExerciseId)
+                  .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<WorkoutSet>(entity =>
+        {
+            entity.HasKey(s => s.Id);
+            entity.HasOne(s => s.ScheduledWorkoutExercise)
+                  .WithMany(se => se.Sets)
+                  .HasForeignKey(s => s.ScheduledWorkoutExerciseId)
+                  .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

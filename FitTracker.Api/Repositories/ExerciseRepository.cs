@@ -56,7 +56,7 @@ public class ExerciseRepository : IExerciseRepository
         exerciseDb.Name = exercise.Name;
         exerciseDb.NameDe = exercise.NameDe;
         exerciseDb.IsCustom = exercise.IsCustom;
-        exerciseDb.TargetMuscle = exercise.TargetMuscle;
+        exerciseDb.TargetMuscleGroups = exercise.TargetMuscleGroups;
         exerciseDb.Type = exercise.Type;
         exerciseDb.DescriptionDe = exercise.DescriptionDe;
         exerciseDb.Description = exercise.Description;

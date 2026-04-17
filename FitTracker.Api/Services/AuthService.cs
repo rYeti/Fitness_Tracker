@@ -53,7 +53,8 @@ public class AuthService : IAuthService
             Email = user.Email,
             FirstName = user.FirstName,
             LastName = user.LastName,
-            DateOfBirth = user.DateOfBirth
+            DateOfBirth = user.DateOfBirth,
+            ProfileImageUrl = user.ProfileImageUrl,
         };
     }
 
@@ -102,12 +103,13 @@ public class AuthService : IAuthService
             Email = newUser.Email,
             FirstName = newUser.FirstName,
             LastName = newUser.LastName,
-            DateOfBirth = newUser.DateOfBirth
+            DateOfBirth = newUser.DateOfBirth,
+            ProfileImageUrl = newUser.ProfileImageUrl,
         };
     }
 
     /// <inheritdoc/>
-    public async Task<AuthResponseDto?> UpdateProfileAsync(Guid userId, string firstName, string lastName, string email, DateTime dateOfBirth)
+    public async Task<AuthResponseDto?> UpdateProfileAsync(Guid userId, string firstName, string lastName, string email, DateTime dateOfBirth, string? profileImageUrl)
     {
         var user = await _userRepository.GetUserByIdAsync(userId);
         if (user == null) return null;
@@ -116,6 +118,7 @@ public class AuthService : IAuthService
         user.LastName = lastName;
         user.Email = email;
         user.DateOfBirth = DateTime.SpecifyKind(dateOfBirth, DateTimeKind.Utc);
+        user.ProfileImageUrl = profileImageUrl;
 
         await _userRepository.UpdateUserAsync(user);
 
@@ -128,7 +131,8 @@ public class AuthService : IAuthService
             Email = user.Email,
             FirstName = user.FirstName,
             LastName = user.LastName,
-            DateOfBirth = user.DateOfBirth
+            DateOfBirth = user.DateOfBirth,
+            ProfileImageUrl = user.ProfileImageUrl,
         };
     }
 

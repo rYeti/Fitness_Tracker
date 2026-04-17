@@ -25,7 +25,7 @@ public interface IAuthService
     /// <summary>
     /// Updates the profile fields of an existing user.
     /// </summary>
-    Task<AuthResponseDto?> UpdateProfileAsync(Guid userId, string firstName, string lastName, string email, DateTime dateOfBirth);
+    Task<AuthResponseDto?> UpdateProfileAsync(Guid userId, string firstName, string lastName, string email, DateTime dateOfBirth, string? profileImageUrl);
 
     /// <summary>
     /// Changes the password for the given user after verifying the current password.

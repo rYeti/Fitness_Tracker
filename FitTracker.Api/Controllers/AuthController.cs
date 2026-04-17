@@ -62,7 +62,7 @@ public class AuthController : ControllerBase
         if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
             return Unauthorized();
 
-        var result = await _authService.UpdateProfileAsync(userId, request.FirstName, request.LastName, request.Email, request.DateOfBirth);
+        var result = await _authService.UpdateProfileAsync(userId, request.FirstName, request.LastName, request.Email, request.DateOfBirth, request.ProfileImageUrl);
         if (result == null) return NotFound("User not found.");
 
         return Ok(result);

@@ -38,4 +38,7 @@ public class AuthResponseDto
     /// </summary>
     public DateTime DateOfBirth { get; set; }
 
+    /// <summary>Optional URL of the user's profile image.</summary>
+    public string? ProfileImageUrl { get; set; }
+
 }

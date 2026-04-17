@@ -16,9 +16,9 @@ public class WeightTracking
     /// </summary>
     public DateTime Date { get; set; }
     /// <summary>
-    /// The weight of the user on the specified date. This property is of type decimal to allow for precise weight measurements, including fractional values.
+    /// The weight of the user on the specified date, stored as a double to match Flutter's real column type.
     /// </summary>
-    public decimal Weight { get; set; }
+    public double Weight { get; set; }
 
     /// <summary>An optional note attached to this weight entry.</summary>
     public string? Note { get; set; } = null;

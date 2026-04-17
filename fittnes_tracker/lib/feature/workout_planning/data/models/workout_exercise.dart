@@ -13,6 +13,7 @@ class WorkoutExercise {
   exercise; // The actual exercise data (can be null if not loaded)
   final List<WorkoutSet> sets; // The sets for this exercise
   final String? notes; // Notes specific to this exercise in this workout
+  final int? supersetGroupId; // Non-null when this exercise belongs to a superset pair
 
   WorkoutExercise({
     this.id,
@@ -22,6 +23,7 @@ class WorkoutExercise {
     this.exercise,
     this.sets = const [],
     this.notes,
+    this.supersetGroupId,
   });
 
   // Helper to check if all sets are completed
@@ -42,6 +44,7 @@ class WorkoutExercise {
       'exerciseId': exerciseId,
       'orderPosition': orderPosition,
       'notes': notes,
+      'supersetGroupId': supersetGroupId,
     };
   }
 
@@ -59,6 +62,7 @@ class WorkoutExercise {
       exercise: exercise,
       sets: sets ?? [],
       notes: map['notes'],
+      supersetGroupId: map['supersetGroupId'],
     );
   }
 
@@ -71,6 +75,7 @@ class WorkoutExercise {
     Exercise? exercise,
     List<WorkoutSet>? sets,
     String? notes,
+    Object? supersetGroupId = _sentinel,
   }) {
     return WorkoutExercise(
       id: id ?? this.id,
@@ -80,6 +85,11 @@ class WorkoutExercise {
       exercise: exercise ?? this.exercise,
       sets: sets ?? this.sets,
       notes: notes ?? this.notes,
+      supersetGroupId: identical(supersetGroupId, _sentinel)
+          ? this.supersetGroupId
+          : supersetGroupId as int?,
     );
   }
+
+  static const Object _sentinel = Object();
 }
