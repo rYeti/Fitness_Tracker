@@ -48,7 +48,7 @@ class SyncService {
 
   /// Marks a local record as [WeightSyncStatus.synced] and stores the
   /// UUID returned by the API.
-  Future<void> markAsSynced(int localId, String serverId) =>
+  Future<void> markWeightRecordAsSynced(int localId, String serverId) =>
       _db.weightRecordDao.markSynced(localId: localId, serverId: serverId);
 
   // ── Private helpers ──────────────────────────────────────────────────────
@@ -63,7 +63,7 @@ class SyncService {
       },
     );
     final serverId = response.data['id'] as String;
-    await markAsSynced(record.id, serverId);
+    await markWeightRecordAsSynced(record.id, serverId);
     _logger.i('Synced new record ${record.id} → server $serverId');
   }
 
@@ -82,7 +82,7 @@ class SyncService {
       },
     );
     // serverId doesn't change on an update — re-use the existing one.
-    await markAsSynced(record.id, record.serverId!);
+    await markWeightRecordAsSynced(record.id, record.serverId!);
     _logger.i('Updated record ${record.id} on server ${record.serverId}');
   }
 
@@ -99,4 +99,13 @@ class SyncService {
     await _db.weightRecordDao.deleteWeightRecord(record.id);
     _logger.i('Deleted record ${record.id} from server ${record.serverId}');
   }
+
+  /// Fetches all unsynced local weight records and pushes them to the API.
+  ///
+  /// - [WeightSyncStatus.pending]       → POST /api/WeightTracking/TrackWeight
+  /// - [WeightSyncStatus.pendingUpdate] → PUT
+  /// - [WeightSyncStatus.pendingDelete] → DELETE
+  ///
+  /// Failures for individual records are logged and skipped so one bad
+  /// record doesn't block the rest of the batch.
 }
