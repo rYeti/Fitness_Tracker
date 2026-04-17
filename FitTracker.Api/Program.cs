@@ -77,6 +77,8 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IWeightTrackingRepository, WeightTrackingRepository>();
 builder.Services.AddScoped<IWeightTrackingService, WeightTrackingService>();
+builder.Services.AddScoped<IExerciseRepository, ExerciseRepository>();
+builder.Services.AddScoped<IExerciseService, ExerciseService>();
 
 // ── Build ────────────────────────────────────────────────────
 var app = builder.Build();

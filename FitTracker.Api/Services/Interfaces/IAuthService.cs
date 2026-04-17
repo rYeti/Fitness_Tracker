@@ -2,6 +2,7 @@ using FitTracker.Api.DTOs;
 
 namespace FitTracker.Api.Services.Interfaces;
 
+/// <summary>Business-logic contract for user authentication and account management.</summary>
 public interface IAuthService
 {
     /// <summary>

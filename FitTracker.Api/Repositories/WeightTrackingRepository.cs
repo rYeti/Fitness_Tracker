@@ -6,20 +6,24 @@ using FitTracker.Api.DTOs;
 
 namespace FitTracker.Api.Repositories;
 
+/// <summary>EF Core implementation of <see cref="IWeightTrackingRepository"/>.</summary>
 public class WeightTrackingRepository(AppDbContext context) : IWeightTrackingRepository
 {
     private readonly AppDbContext _context = context;
 
+    /// <inheritdoc/>
     public async Task<WeightTracking?> GetWeightTrackingByIdAsync(Guid id)
     {
         return await _context.WeightTrackings.FindAsync(id);
     }
 
+    /// <inheritdoc/>
     public async Task<List<WeightTracking>> GetWeightTrackingsAsync(Guid id)
     {
         return await _context.WeightTrackings.Where(w => w.UserId == id).ToListAsync();
     }
 
+    /// <inheritdoc/>
     public async Task<WeightTracking?> CreateWeightTrackingAsync(WeightTracking weightTracking)
     {
         _context.WeightTrackings.Add(weightTracking);
@@ -27,6 +31,7 @@ public class WeightTrackingRepository(AppDbContext context) : IWeightTrackingRep
         return weightTracking;
     }
 
+    /// <inheritdoc/>
     public async Task<WeightTracking?> UpdateWeightAsync(Guid id, Guid userId, WeightTrackingRequestDto dto)
     {
         var weightTracking = await _context.WeightTrackings.SingleOrDefaultAsync(w => w.Id == id && w.UserId == userId);
@@ -44,6 +49,7 @@ public class WeightTrackingRepository(AppDbContext context) : IWeightTrackingRep
         return weightTracking;
     }
 
+    /// <inheritdoc/>
     public async Task<bool> DeleteWeightAsync(Guid id, Guid userId)
     {
         var weightTracking = await _context.WeightTrackings.SingleOrDefaultAsync(w => w.Id == id && w.UserId == userId);

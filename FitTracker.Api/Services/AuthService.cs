@@ -9,6 +9,7 @@ using FitTracker.Api.Services.Interfaces;
 
 namespace FitTracker.Api.Services;
 
+/// <summary>JWT-based implementation of <see cref="IAuthService"/>.</summary>
 public class AuthService : IAuthService
 {
 
@@ -26,6 +27,7 @@ public class AuthService : IAuthService
         _configuration = configuration;
     }
 
+    /// <inheritdoc/>
     public async Task<AuthResponseDto?> LoginAsync(string username, string password)
     {
         var user = await _userRepository.GetUserByUsernameAsync(username);
@@ -55,9 +57,7 @@ public class AuthService : IAuthService
         };
     }
 
-    /// <summary>
-    /// <see cref="RegisterAsync"/> 
-    /// </summary>
+    /// <inheritdoc/>
     public async Task<AuthResponseDto?> RegisterAsync(string username, string email, string password, string firstName, string lastName, DateTime dateOfBirth)
     {
         if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(email) || string.IsNullOrEmpty(password))
@@ -106,6 +106,7 @@ public class AuthService : IAuthService
         };
     }
 
+    /// <inheritdoc/>
     public async Task<AuthResponseDto?> UpdateProfileAsync(Guid userId, string firstName, string lastName, string email, DateTime dateOfBirth)
     {
         var user = await _userRepository.GetUserByIdAsync(userId);
@@ -131,6 +132,7 @@ public class AuthService : IAuthService
         };
     }
 
+    /// <inheritdoc/>
     public async Task<bool> ChangePasswordAsync(Guid userId, string currentPassword, string newPassword)
     {
         var user = await _userRepository.GetUserByIdAsync(userId);

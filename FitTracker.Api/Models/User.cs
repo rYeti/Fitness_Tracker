@@ -1,5 +1,6 @@
 namespace FitTracker.Api.Models;
 
+/// <summary>Represents a registered user of the application.</summary>
 public class User
 {
     /// <summary>

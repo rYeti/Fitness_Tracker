@@ -4,15 +4,19 @@ using FitTracker.Api.Services.Interfaces;
 
 namespace FitTracker.Api.Services;
 
+/// <summary>Implementation of <see cref="IWeightTrackingService"/>.</summary>
 public class WeightTrackingService : IWeightTrackingService
 {
     private readonly IWeightTrackingRepository _weightRepository;
 
+    /// <summary>Initialises a new instance of <see cref="WeightTrackingService"/>.</summary>
+    /// <param name="weightTrackingRepository">The weight tracking repository.</param>
     public WeightTrackingService(IWeightTrackingRepository weightTrackingRepository)
     {
         _weightRepository = weightTrackingRepository;
     }
 
+    /// <inheritdoc/>
     public async Task<WeightTrackingResponseDto> LogWeightAsync(WeightTrackingRequestDto weightTrackingRequestDto, Guid userId)
     {
         var weightLog = new Models.WeightTracking
@@ -35,6 +39,7 @@ public class WeightTrackingService : IWeightTrackingService
         };
     }
 
+    /// <inheritdoc/>
     public async Task<List<WeightTrackingResponseDto>> GetWeightLogs(Guid userId)
     {
         if (Guid.Empty == userId)
@@ -53,6 +58,7 @@ public class WeightTrackingService : IWeightTrackingService
         }).ToList();
     }
 
+    /// <inheritdoc/>
     public async Task<WeightTrackingResponseDto> UpdateWeightAsync(Guid id, Guid userId, WeightTrackingRequestDto weightTrackingRequestDto)
     {
         if (Guid.Empty == id)
@@ -76,6 +82,7 @@ public class WeightTrackingService : IWeightTrackingService
         };
     }
 
+    /// <inheritdoc/>
     public async Task<bool> DeleteWeightAsync(Guid id, Guid userId)
     {
         return await _weightRepository.DeleteWeightAsync(id, userId);

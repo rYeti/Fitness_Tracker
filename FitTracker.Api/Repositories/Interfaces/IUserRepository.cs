@@ -2,6 +2,7 @@ using FitTracker.Api.Models;
 
 namespace FitTracker.Api.Repositories.Interfaces;
 
+/// <summary>Data-access contract for user records.</summary>
 public interface IUserRepository
 {
     /// <summary>

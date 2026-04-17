@@ -1,5 +1,6 @@
 namespace FitTracker.Api.Models;
 
+/// <summary>Represents a single weight measurement entry recorded by a user.</summary>
 public class WeightTracking
 {
     /// <summary>
@@ -19,6 +20,7 @@ public class WeightTracking
     /// </summary>
     public decimal Weight { get; set; }
 
+    /// <summary>An optional note attached to this weight entry.</summary>
     public string? Note { get; set; } = null;
 
     // Navigation property to the User

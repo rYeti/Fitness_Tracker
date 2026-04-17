@@ -1,5 +1,6 @@
 namespace FitTracker.Api.DTOs;
 
+/// <summary>Response payload returned after a successful authentication or profile update.</summary>
 public class AuthResponseDto
 {
     /// <summary>
