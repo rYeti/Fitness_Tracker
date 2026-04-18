@@ -14,11 +14,11 @@ val keyProperties = Properties().apply {
 }
 
 android {
-    namespace = "com.example.fittnes_tracker"
+    namespace = "com.ForgeForm.fittnes_tracker"
     compileSdk = flutter.compileSdkVersion
 
     defaultConfig {
-        applicationId = "com.example.fittnes_tracker"
+        applicationId = "com.ForgeForm.fittnes_tracker"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = 1

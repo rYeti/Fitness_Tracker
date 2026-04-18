@@ -43,6 +43,24 @@ public class AppDbContext : DbContext
     /// <summary>The performed workout sets table.</summary>
     public DbSet<WorkoutSet> WorkoutSets { get; set; }
 
+    /// <summary>The food item library table.</summary>
+    public DbSet<FoodItem> FoodItems { get; set; }
+
+    /// <summary>The meal log entries table.</summary>
+    public DbSet<Meal> Meals { get; set; }
+
+    /// <summary>The meal-to-food-item join table.</summary>
+    public DbSet<MealFoodEntry> MealFoodEntries { get; set; }
+
+    /// <summary>The per-user app settings table.</summary>
+    public DbSet<UserSettings> UserSettings { get; set; }
+
+    /// <summary>The meal templates table.</summary>
+    public DbSet<MealTemplate> MealTemplates { get; set; }
+
+    /// <summary>The meal template items table.</summary>
+    public DbSet<MealTemplateItem> MealTemplateItems { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<User>(entity =>
@@ -151,6 +169,64 @@ public class AppDbContext : DbContext
                   .WithMany(se => se.Sets)
                   .HasForeignKey(s => s.ScheduledWorkoutExerciseId)
                   .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<FoodItem>(entity =>
+        {
+            entity.HasKey(f => f.Id);
+            entity.HasOne(f => f.User)
+                  .WithMany()
+                  .HasForeignKey(f => f.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Meal>(entity =>
+        {
+            entity.HasKey(m => m.Id);
+            entity.HasOne(m => m.User)
+                  .WithMany()
+                  .HasForeignKey(m => m.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+            // FoodItemId is an opaque client-side reference — no FK enforced
+        });
+
+        modelBuilder.Entity<MealFoodEntry>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasOne(e => e.Meal)
+                  .WithMany(m => m.FoodEntries)
+                  .HasForeignKey(e => e.MealId)
+                  .OnDelete(DeleteBehavior.Cascade);
+            // FoodItemId is an opaque client-side reference — no FK enforced
+        });
+
+        modelBuilder.Entity<UserSettings>(entity =>
+        {
+            entity.HasKey(s => s.Id);
+            entity.HasOne(s => s.User)
+                  .WithMany()
+                  .HasForeignKey(s => s.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(s => s.UserId).IsUnique(); // one settings row per user
+        });
+
+        modelBuilder.Entity<MealTemplate>(entity =>
+        {
+            entity.HasKey(t => t.Id);
+            entity.HasOne(t => t.User)
+                  .WithMany()
+                  .HasForeignKey(t => t.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<MealTemplateItem>(entity =>
+        {
+            entity.HasKey(i => i.Id);
+            entity.HasOne(i => i.Template)
+                  .WithMany(t => t.Items)
+                  .HasForeignKey(i => i.TemplateId)
+                  .OnDelete(DeleteBehavior.Cascade);
+            // FoodId is an opaque client-side reference — no FK enforced
         });
     }
 }

@@ -562,6 +562,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
       setNumber: nextSetNumber,
       targetReps: '',
       orderPosition: nextSetNumber,
+      syncStatus: 0,
     );
     setState(() {
       exercise.templates = List.from(exercise.templates)..add(newTemplate);
@@ -624,6 +625,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
         setNumber: i + 1,
         targetReps: '',
         orderPosition: i + 1,
+        syncStatus: 0,
       ),
     );
 
@@ -1620,6 +1622,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                                   exerciseId: exerciseData.id,
                                   orderPosition: _exercises.length + 1,
                                   notes: null,
+                                  syncStatus: 0,
                                 ),
                                 templates: [
                                   WorkoutSetTemplateData(
@@ -1628,6 +1631,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                                     setNumber: 1,
                                     targetReps: '',
                                     orderPosition: 1,
+                                    syncStatus: 0,
                                   ),
                                 ],
                                 previousSets: const {},

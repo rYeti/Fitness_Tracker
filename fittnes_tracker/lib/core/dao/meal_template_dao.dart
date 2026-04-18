@@ -233,4 +233,28 @@ class MealTemplateDao {
       return 0;
     }
   }
+
+  // ── Sync helpers ────────────────────────────────────────────────────────────
+
+  /// Returns all templates that have not yet been synced (no serverId).
+  Future<List<Map<String, dynamic>>> getUnsyncedTemplates() async {
+    final templates = await _loadTemplates();
+    return templates
+        .where((t) => t['serverId'] == null || (t['serverId'] as String).isEmpty)
+        .toList();
+  }
+
+  /// Stores the server-assigned UUID on the template so it is not re-synced.
+  Future<void> markTemplateSynced(int localId, String serverId) async {
+    final templates = await _loadTemplates();
+    final index = templates.indexWhere((t) => t['id'] == localId);
+    if (index >= 0) {
+      templates[index]['serverId'] = serverId;
+      await _saveTemplates(templates);
+    }
+  }
+
+  /// Returns the server UUID for the given local template ID, or null.
+  String? getServerId(Map<String, dynamic> template) =>
+      template['serverId'] as String?;
 }

@@ -107,6 +107,29 @@ class $FoodItemTable extends FoodItem
         type: DriftSqlType.string,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _syncStatusMeta = const VerificationMeta(
+    'syncStatus',
+  );
+  @override
+  late final GeneratedColumn<int> syncStatus = GeneratedColumn<int>(
+    'sync_status',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _serverIdMeta = const VerificationMeta(
+    'serverId',
+  );
+  @override
+  late final GeneratedColumn<String> serverId = GeneratedColumn<String>(
+    'server_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -118,6 +141,8 @@ class $FoodItemTable extends FoodItem
     gramm,
     hiddenFromRecent,
     extendedNutrientsJson,
+    syncStatus,
+    serverId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -198,6 +223,18 @@ class $FoodItemTable extends FoodItem
         ),
       );
     }
+    if (data.containsKey('sync_status')) {
+      context.handle(
+        _syncStatusMeta,
+        syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
+      );
+    }
+    if (data.containsKey('server_id')) {
+      context.handle(
+        _serverIdMeta,
+        serverId.isAcceptableOrUnknown(data['server_id']!, _serverIdMeta),
+      );
+    }
     return context;
   }
 
@@ -251,6 +288,15 @@ class $FoodItemTable extends FoodItem
         DriftSqlType.string,
         data['${effectivePrefix}extended_nutrients_json'],
       ),
+      syncStatus:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.int,
+            data['${effectivePrefix}sync_status'],
+          )!,
+      serverId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}server_id'],
+      ),
     );
   }
 
@@ -273,6 +319,12 @@ class FoodItemData extends DataClass implements Insertable<FoodItemData> {
   /// JSON-encoded [ExtendedNutrients]. Null for custom foods and any entry
   /// added before this column was introduced.
   final String? extendedNutrientsJson;
+
+  /// Maps to [FoodItemSyncStatus] by index.
+  final int syncStatus;
+
+  /// UUID assigned by the remote API after first successful sync.
+  final String? serverId;
   const FoodItemData({
     required this.id,
     required this.name,
@@ -283,6 +335,8 @@ class FoodItemData extends DataClass implements Insertable<FoodItemData> {
     required this.gramm,
     required this.hiddenFromRecent,
     this.extendedNutrientsJson,
+    required this.syncStatus,
+    this.serverId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -297,6 +351,10 @@ class FoodItemData extends DataClass implements Insertable<FoodItemData> {
     map['hidden_from_recent'] = Variable<bool>(hiddenFromRecent);
     if (!nullToAbsent || extendedNutrientsJson != null) {
       map['extended_nutrients_json'] = Variable<String>(extendedNutrientsJson);
+    }
+    map['sync_status'] = Variable<int>(syncStatus);
+    if (!nullToAbsent || serverId != null) {
+      map['server_id'] = Variable<String>(serverId);
     }
     return map;
   }
@@ -315,6 +373,11 @@ class FoodItemData extends DataClass implements Insertable<FoodItemData> {
           extendedNutrientsJson == null && nullToAbsent
               ? const Value.absent()
               : Value(extendedNutrientsJson),
+      syncStatus: Value(syncStatus),
+      serverId:
+          serverId == null && nullToAbsent
+              ? const Value.absent()
+              : Value(serverId),
     );
   }
 
@@ -335,6 +398,8 @@ class FoodItemData extends DataClass implements Insertable<FoodItemData> {
       extendedNutrientsJson: serializer.fromJson<String?>(
         json['extendedNutrientsJson'],
       ),
+      syncStatus: serializer.fromJson<int>(json['syncStatus']),
+      serverId: serializer.fromJson<String?>(json['serverId']),
     );
   }
   @override
@@ -352,6 +417,8 @@ class FoodItemData extends DataClass implements Insertable<FoodItemData> {
       'extendedNutrientsJson': serializer.toJson<String?>(
         extendedNutrientsJson,
       ),
+      'syncStatus': serializer.toJson<int>(syncStatus),
+      'serverId': serializer.toJson<String?>(serverId),
     };
   }
 
@@ -365,6 +432,8 @@ class FoodItemData extends DataClass implements Insertable<FoodItemData> {
     int? gramm,
     bool? hiddenFromRecent,
     Value<String?> extendedNutrientsJson = const Value.absent(),
+    int? syncStatus,
+    Value<String?> serverId = const Value.absent(),
   }) => FoodItemData(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -378,6 +447,8 @@ class FoodItemData extends DataClass implements Insertable<FoodItemData> {
         extendedNutrientsJson.present
             ? extendedNutrientsJson.value
             : this.extendedNutrientsJson,
+    syncStatus: syncStatus ?? this.syncStatus,
+    serverId: serverId.present ? serverId.value : this.serverId,
   );
   FoodItemData copyWithCompanion(FoodItemCompanion data) {
     return FoodItemData(
@@ -396,6 +467,9 @@ class FoodItemData extends DataClass implements Insertable<FoodItemData> {
           data.extendedNutrientsJson.present
               ? data.extendedNutrientsJson.value
               : this.extendedNutrientsJson,
+      syncStatus:
+          data.syncStatus.present ? data.syncStatus.value : this.syncStatus,
+      serverId: data.serverId.present ? data.serverId.value : this.serverId,
     );
   }
 
@@ -410,7 +484,9 @@ class FoodItemData extends DataClass implements Insertable<FoodItemData> {
           ..write('fat: $fat, ')
           ..write('gramm: $gramm, ')
           ..write('hiddenFromRecent: $hiddenFromRecent, ')
-          ..write('extendedNutrientsJson: $extendedNutrientsJson')
+          ..write('extendedNutrientsJson: $extendedNutrientsJson, ')
+          ..write('syncStatus: $syncStatus, ')
+          ..write('serverId: $serverId')
           ..write(')'))
         .toString();
   }
@@ -426,6 +502,8 @@ class FoodItemData extends DataClass implements Insertable<FoodItemData> {
     gramm,
     hiddenFromRecent,
     extendedNutrientsJson,
+    syncStatus,
+    serverId,
   );
   @override
   bool operator ==(Object other) =>
@@ -439,7 +517,9 @@ class FoodItemData extends DataClass implements Insertable<FoodItemData> {
           other.fat == this.fat &&
           other.gramm == this.gramm &&
           other.hiddenFromRecent == this.hiddenFromRecent &&
-          other.extendedNutrientsJson == this.extendedNutrientsJson);
+          other.extendedNutrientsJson == this.extendedNutrientsJson &&
+          other.syncStatus == this.syncStatus &&
+          other.serverId == this.serverId);
 }
 
 class FoodItemCompanion extends UpdateCompanion<FoodItemData> {
@@ -452,6 +532,8 @@ class FoodItemCompanion extends UpdateCompanion<FoodItemData> {
   final Value<int> gramm;
   final Value<bool> hiddenFromRecent;
   final Value<String?> extendedNutrientsJson;
+  final Value<int> syncStatus;
+  final Value<String?> serverId;
   const FoodItemCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
@@ -462,6 +544,8 @@ class FoodItemCompanion extends UpdateCompanion<FoodItemData> {
     this.gramm = const Value.absent(),
     this.hiddenFromRecent = const Value.absent(),
     this.extendedNutrientsJson = const Value.absent(),
+    this.syncStatus = const Value.absent(),
+    this.serverId = const Value.absent(),
   });
   FoodItemCompanion.insert({
     this.id = const Value.absent(),
@@ -473,6 +557,8 @@ class FoodItemCompanion extends UpdateCompanion<FoodItemData> {
     this.gramm = const Value.absent(),
     this.hiddenFromRecent = const Value.absent(),
     this.extendedNutrientsJson = const Value.absent(),
+    this.syncStatus = const Value.absent(),
+    this.serverId = const Value.absent(),
   }) : name = Value(name),
        calories = Value(calories),
        protein = Value(protein),
@@ -488,6 +574,8 @@ class FoodItemCompanion extends UpdateCompanion<FoodItemData> {
     Expression<int>? gramm,
     Expression<bool>? hiddenFromRecent,
     Expression<String>? extendedNutrientsJson,
+    Expression<int>? syncStatus,
+    Expression<String>? serverId,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -500,6 +588,8 @@ class FoodItemCompanion extends UpdateCompanion<FoodItemData> {
       if (hiddenFromRecent != null) 'hidden_from_recent': hiddenFromRecent,
       if (extendedNutrientsJson != null)
         'extended_nutrients_json': extendedNutrientsJson,
+      if (syncStatus != null) 'sync_status': syncStatus,
+      if (serverId != null) 'server_id': serverId,
     });
   }
 
@@ -513,6 +603,8 @@ class FoodItemCompanion extends UpdateCompanion<FoodItemData> {
     Value<int>? gramm,
     Value<bool>? hiddenFromRecent,
     Value<String?>? extendedNutrientsJson,
+    Value<int>? syncStatus,
+    Value<String?>? serverId,
   }) {
     return FoodItemCompanion(
       id: id ?? this.id,
@@ -525,6 +617,8 @@ class FoodItemCompanion extends UpdateCompanion<FoodItemData> {
       hiddenFromRecent: hiddenFromRecent ?? this.hiddenFromRecent,
       extendedNutrientsJson:
           extendedNutrientsJson ?? this.extendedNutrientsJson,
+      syncStatus: syncStatus ?? this.syncStatus,
+      serverId: serverId ?? this.serverId,
     );
   }
 
@@ -560,6 +654,12 @@ class FoodItemCompanion extends UpdateCompanion<FoodItemData> {
         extendedNutrientsJson.value,
       );
     }
+    if (syncStatus.present) {
+      map['sync_status'] = Variable<int>(syncStatus.value);
+    }
+    if (serverId.present) {
+      map['server_id'] = Variable<String>(serverId.value);
+    }
     return map;
   }
 
@@ -574,7 +674,9 @@ class FoodItemCompanion extends UpdateCompanion<FoodItemData> {
           ..write('fat: $fat, ')
           ..write('gramm: $gramm, ')
           ..write('hiddenFromRecent: $hiddenFromRecent, ')
-          ..write('extendedNutrientsJson: $extendedNutrientsJson')
+          ..write('extendedNutrientsJson: $extendedNutrientsJson, ')
+          ..write('syncStatus: $syncStatus, ')
+          ..write('serverId: $serverId')
           ..write(')'))
         .toString();
   }
@@ -1281,8 +1383,38 @@ class $MealTableTable extends MealTable
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _syncStatusMeta = const VerificationMeta(
+    'syncStatus',
+  );
   @override
-  List<GeneratedColumn> get $columns => [id, date, category, foodItemId];
+  late final GeneratedColumn<int> syncStatus = GeneratedColumn<int>(
+    'sync_status',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _serverIdMeta = const VerificationMeta(
+    'serverId',
+  );
+  @override
+  late final GeneratedColumn<String> serverId = GeneratedColumn<String>(
+    'server_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    date,
+    category,
+    foodItemId,
+    syncStatus,
+    serverId,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -1325,6 +1457,18 @@ class $MealTableTable extends MealTable
     } else if (isInserting) {
       context.missing(_foodItemIdMeta);
     }
+    if (data.containsKey('sync_status')) {
+      context.handle(
+        _syncStatusMeta,
+        syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
+      );
+    }
+    if (data.containsKey('server_id')) {
+      context.handle(
+        _serverIdMeta,
+        serverId.isAcceptableOrUnknown(data['server_id']!, _serverIdMeta),
+      );
+    }
     return context;
   }
 
@@ -1354,6 +1498,15 @@ class $MealTableTable extends MealTable
             DriftSqlType.int,
             data['${effectivePrefix}food_item_id'],
           )!,
+      syncStatus:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.int,
+            data['${effectivePrefix}sync_status'],
+          )!,
+      serverId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}server_id'],
+      ),
     );
   }
 
@@ -1368,11 +1521,19 @@ class MealTableData extends DataClass implements Insertable<MealTableData> {
   final DateTime date;
   final String category;
   final int foodItemId;
+
+  /// Maps to [MealSyncStatus] by index.
+  final int syncStatus;
+
+  /// UUID assigned by the remote API after first successful sync.
+  final String? serverId;
   const MealTableData({
     required this.id,
     required this.date,
     required this.category,
     required this.foodItemId,
+    required this.syncStatus,
+    this.serverId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1381,6 +1542,10 @@ class MealTableData extends DataClass implements Insertable<MealTableData> {
     map['date'] = Variable<DateTime>(date);
     map['category'] = Variable<String>(category);
     map['food_item_id'] = Variable<int>(foodItemId);
+    map['sync_status'] = Variable<int>(syncStatus);
+    if (!nullToAbsent || serverId != null) {
+      map['server_id'] = Variable<String>(serverId);
+    }
     return map;
   }
 
@@ -1390,6 +1555,11 @@ class MealTableData extends DataClass implements Insertable<MealTableData> {
       date: Value(date),
       category: Value(category),
       foodItemId: Value(foodItemId),
+      syncStatus: Value(syncStatus),
+      serverId:
+          serverId == null && nullToAbsent
+              ? const Value.absent()
+              : Value(serverId),
     );
   }
 
@@ -1403,6 +1573,8 @@ class MealTableData extends DataClass implements Insertable<MealTableData> {
       date: serializer.fromJson<DateTime>(json['date']),
       category: serializer.fromJson<String>(json['category']),
       foodItemId: serializer.fromJson<int>(json['foodItemId']),
+      syncStatus: serializer.fromJson<int>(json['syncStatus']),
+      serverId: serializer.fromJson<String?>(json['serverId']),
     );
   }
   @override
@@ -1413,6 +1585,8 @@ class MealTableData extends DataClass implements Insertable<MealTableData> {
       'date': serializer.toJson<DateTime>(date),
       'category': serializer.toJson<String>(category),
       'foodItemId': serializer.toJson<int>(foodItemId),
+      'syncStatus': serializer.toJson<int>(syncStatus),
+      'serverId': serializer.toJson<String?>(serverId),
     };
   }
 
@@ -1421,11 +1595,15 @@ class MealTableData extends DataClass implements Insertable<MealTableData> {
     DateTime? date,
     String? category,
     int? foodItemId,
+    int? syncStatus,
+    Value<String?> serverId = const Value.absent(),
   }) => MealTableData(
     id: id ?? this.id,
     date: date ?? this.date,
     category: category ?? this.category,
     foodItemId: foodItemId ?? this.foodItemId,
+    syncStatus: syncStatus ?? this.syncStatus,
+    serverId: serverId.present ? serverId.value : this.serverId,
   );
   MealTableData copyWithCompanion(MealTableCompanion data) {
     return MealTableData(
@@ -1434,6 +1612,9 @@ class MealTableData extends DataClass implements Insertable<MealTableData> {
       category: data.category.present ? data.category.value : this.category,
       foodItemId:
           data.foodItemId.present ? data.foodItemId.value : this.foodItemId,
+      syncStatus:
+          data.syncStatus.present ? data.syncStatus.value : this.syncStatus,
+      serverId: data.serverId.present ? data.serverId.value : this.serverId,
     );
   }
 
@@ -1443,13 +1624,16 @@ class MealTableData extends DataClass implements Insertable<MealTableData> {
           ..write('id: $id, ')
           ..write('date: $date, ')
           ..write('category: $category, ')
-          ..write('foodItemId: $foodItemId')
+          ..write('foodItemId: $foodItemId, ')
+          ..write('syncStatus: $syncStatus, ')
+          ..write('serverId: $serverId')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, date, category, foodItemId);
+  int get hashCode =>
+      Object.hash(id, date, category, foodItemId, syncStatus, serverId);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1457,7 +1641,9 @@ class MealTableData extends DataClass implements Insertable<MealTableData> {
           other.id == this.id &&
           other.date == this.date &&
           other.category == this.category &&
-          other.foodItemId == this.foodItemId);
+          other.foodItemId == this.foodItemId &&
+          other.syncStatus == this.syncStatus &&
+          other.serverId == this.serverId);
 }
 
 class MealTableCompanion extends UpdateCompanion<MealTableData> {
@@ -1465,17 +1651,23 @@ class MealTableCompanion extends UpdateCompanion<MealTableData> {
   final Value<DateTime> date;
   final Value<String> category;
   final Value<int> foodItemId;
+  final Value<int> syncStatus;
+  final Value<String?> serverId;
   const MealTableCompanion({
     this.id = const Value.absent(),
     this.date = const Value.absent(),
     this.category = const Value.absent(),
     this.foodItemId = const Value.absent(),
+    this.syncStatus = const Value.absent(),
+    this.serverId = const Value.absent(),
   });
   MealTableCompanion.insert({
     this.id = const Value.absent(),
     required DateTime date,
     required String category,
     required int foodItemId,
+    this.syncStatus = const Value.absent(),
+    this.serverId = const Value.absent(),
   }) : date = Value(date),
        category = Value(category),
        foodItemId = Value(foodItemId);
@@ -1484,12 +1676,16 @@ class MealTableCompanion extends UpdateCompanion<MealTableData> {
     Expression<DateTime>? date,
     Expression<String>? category,
     Expression<int>? foodItemId,
+    Expression<int>? syncStatus,
+    Expression<String>? serverId,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (date != null) 'date': date,
       if (category != null) 'category': category,
       if (foodItemId != null) 'food_item_id': foodItemId,
+      if (syncStatus != null) 'sync_status': syncStatus,
+      if (serverId != null) 'server_id': serverId,
     });
   }
 
@@ -1498,12 +1694,16 @@ class MealTableCompanion extends UpdateCompanion<MealTableData> {
     Value<DateTime>? date,
     Value<String>? category,
     Value<int>? foodItemId,
+    Value<int>? syncStatus,
+    Value<String?>? serverId,
   }) {
     return MealTableCompanion(
       id: id ?? this.id,
       date: date ?? this.date,
       category: category ?? this.category,
       foodItemId: foodItemId ?? this.foodItemId,
+      syncStatus: syncStatus ?? this.syncStatus,
+      serverId: serverId ?? this.serverId,
     );
   }
 
@@ -1522,6 +1722,12 @@ class MealTableCompanion extends UpdateCompanion<MealTableData> {
     if (foodItemId.present) {
       map['food_item_id'] = Variable<int>(foodItemId.value);
     }
+    if (syncStatus.present) {
+      map['sync_status'] = Variable<int>(syncStatus.value);
+    }
+    if (serverId.present) {
+      map['server_id'] = Variable<String>(serverId.value);
+    }
     return map;
   }
 
@@ -1531,7 +1737,9 @@ class MealTableCompanion extends UpdateCompanion<MealTableData> {
           ..write('id: $id, ')
           ..write('date: $date, ')
           ..write('category: $category, ')
-          ..write('foodItemId: $foodItemId')
+          ..write('foodItemId: $foodItemId, ')
+          ..write('syncStatus: $syncStatus, ')
+          ..write('serverId: $serverId')
           ..write(')'))
         .toString();
   }
@@ -1582,8 +1790,19 @@ class $MealFoodTableTable extends MealFoodTable
       'REFERENCES food_item (id)',
     ),
   );
+  static const VerificationMeta _serverIdMeta = const VerificationMeta(
+    'serverId',
+  );
   @override
-  List<GeneratedColumn> get $columns => [id, mealId, foodEntryId];
+  late final GeneratedColumn<String> serverId = GeneratedColumn<String>(
+    'server_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, mealId, foodEntryId, serverId];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -1618,6 +1837,12 @@ class $MealFoodTableTable extends MealFoodTable
     } else if (isInserting) {
       context.missing(_foodEntryIdMeta);
     }
+    if (data.containsKey('server_id')) {
+      context.handle(
+        _serverIdMeta,
+        serverId.isAcceptableOrUnknown(data['server_id']!, _serverIdMeta),
+      );
+    }
     return context;
   }
 
@@ -1642,6 +1867,10 @@ class $MealFoodTableTable extends MealFoodTable
             DriftSqlType.int,
             data['${effectivePrefix}food_entry_id'],
           )!,
+      serverId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}server_id'],
+      ),
     );
   }
 
@@ -1656,10 +1885,14 @@ class MealFoodTableData extends DataClass
   final int id;
   final int mealId;
   final int foodEntryId;
+
+  /// UUID of the MealFoodEntry on the server, used to delete specific entries.
+  final String? serverId;
   const MealFoodTableData({
     required this.id,
     required this.mealId,
     required this.foodEntryId,
+    this.serverId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1667,6 +1900,9 @@ class MealFoodTableData extends DataClass
     map['id'] = Variable<int>(id);
     map['meal_id'] = Variable<int>(mealId);
     map['food_entry_id'] = Variable<int>(foodEntryId);
+    if (!nullToAbsent || serverId != null) {
+      map['server_id'] = Variable<String>(serverId);
+    }
     return map;
   }
 
@@ -1675,6 +1911,10 @@ class MealFoodTableData extends DataClass
       id: Value(id),
       mealId: Value(mealId),
       foodEntryId: Value(foodEntryId),
+      serverId:
+          serverId == null && nullToAbsent
+              ? const Value.absent()
+              : Value(serverId),
     );
   }
 
@@ -1687,6 +1927,7 @@ class MealFoodTableData extends DataClass
       id: serializer.fromJson<int>(json['id']),
       mealId: serializer.fromJson<int>(json['mealId']),
       foodEntryId: serializer.fromJson<int>(json['foodEntryId']),
+      serverId: serializer.fromJson<String?>(json['serverId']),
     );
   }
   @override
@@ -1696,21 +1937,28 @@ class MealFoodTableData extends DataClass
       'id': serializer.toJson<int>(id),
       'mealId': serializer.toJson<int>(mealId),
       'foodEntryId': serializer.toJson<int>(foodEntryId),
+      'serverId': serializer.toJson<String?>(serverId),
     };
   }
 
-  MealFoodTableData copyWith({int? id, int? mealId, int? foodEntryId}) =>
-      MealFoodTableData(
-        id: id ?? this.id,
-        mealId: mealId ?? this.mealId,
-        foodEntryId: foodEntryId ?? this.foodEntryId,
-      );
+  MealFoodTableData copyWith({
+    int? id,
+    int? mealId,
+    int? foodEntryId,
+    Value<String?> serverId = const Value.absent(),
+  }) => MealFoodTableData(
+    id: id ?? this.id,
+    mealId: mealId ?? this.mealId,
+    foodEntryId: foodEntryId ?? this.foodEntryId,
+    serverId: serverId.present ? serverId.value : this.serverId,
+  );
   MealFoodTableData copyWithCompanion(MealFoodTableCompanion data) {
     return MealFoodTableData(
       id: data.id.present ? data.id.value : this.id,
       mealId: data.mealId.present ? data.mealId.value : this.mealId,
       foodEntryId:
           data.foodEntryId.present ? data.foodEntryId.value : this.foodEntryId,
+      serverId: data.serverId.present ? data.serverId.value : this.serverId,
     );
   }
 
@@ -1719,46 +1967,53 @@ class MealFoodTableData extends DataClass
     return (StringBuffer('MealFoodTableData(')
           ..write('id: $id, ')
           ..write('mealId: $mealId, ')
-          ..write('foodEntryId: $foodEntryId')
+          ..write('foodEntryId: $foodEntryId, ')
+          ..write('serverId: $serverId')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, mealId, foodEntryId);
+  int get hashCode => Object.hash(id, mealId, foodEntryId, serverId);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is MealFoodTableData &&
           other.id == this.id &&
           other.mealId == this.mealId &&
-          other.foodEntryId == this.foodEntryId);
+          other.foodEntryId == this.foodEntryId &&
+          other.serverId == this.serverId);
 }
 
 class MealFoodTableCompanion extends UpdateCompanion<MealFoodTableData> {
   final Value<int> id;
   final Value<int> mealId;
   final Value<int> foodEntryId;
+  final Value<String?> serverId;
   const MealFoodTableCompanion({
     this.id = const Value.absent(),
     this.mealId = const Value.absent(),
     this.foodEntryId = const Value.absent(),
+    this.serverId = const Value.absent(),
   });
   MealFoodTableCompanion.insert({
     this.id = const Value.absent(),
     required int mealId,
     required int foodEntryId,
+    this.serverId = const Value.absent(),
   }) : mealId = Value(mealId),
        foodEntryId = Value(foodEntryId);
   static Insertable<MealFoodTableData> custom({
     Expression<int>? id,
     Expression<int>? mealId,
     Expression<int>? foodEntryId,
+    Expression<String>? serverId,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (mealId != null) 'meal_id': mealId,
       if (foodEntryId != null) 'food_entry_id': foodEntryId,
+      if (serverId != null) 'server_id': serverId,
     });
   }
 
@@ -1766,11 +2021,13 @@ class MealFoodTableCompanion extends UpdateCompanion<MealFoodTableData> {
     Value<int>? id,
     Value<int>? mealId,
     Value<int>? foodEntryId,
+    Value<String?>? serverId,
   }) {
     return MealFoodTableCompanion(
       id: id ?? this.id,
       mealId: mealId ?? this.mealId,
       foodEntryId: foodEntryId ?? this.foodEntryId,
+      serverId: serverId ?? this.serverId,
     );
   }
 
@@ -1786,6 +2043,9 @@ class MealFoodTableCompanion extends UpdateCompanion<MealFoodTableData> {
     if (foodEntryId.present) {
       map['food_entry_id'] = Variable<int>(foodEntryId.value);
     }
+    if (serverId.present) {
+      map['server_id'] = Variable<String>(serverId.value);
+    }
     return map;
   }
 
@@ -1794,7 +2054,8 @@ class MealFoodTableCompanion extends UpdateCompanion<MealFoodTableData> {
     return (StringBuffer('MealFoodTableCompanion(')
           ..write('id: $id, ')
           ..write('mealId: $mealId, ')
-          ..write('foodEntryId: $foodEntryId')
+          ..write('foodEntryId: $foodEntryId, ')
+          ..write('serverId: $serverId')
           ..write(')'))
         .toString();
   }
@@ -2580,6 +2841,18 @@ class $ExerciseTableTable extends ExerciseTable
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _syncStatusMeta = const VerificationMeta(
+    'syncStatus',
+  );
+  @override
+  late final GeneratedColumn<int> syncStatus = GeneratedColumn<int>(
+    'sync_status',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -2592,6 +2865,7 @@ class $ExerciseTableTable extends ExerciseTable
     imageUrl,
     isCustom,
     serverId,
+    syncStatus,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2677,6 +2951,12 @@ class $ExerciseTableTable extends ExerciseTable
         serverId.isAcceptableOrUnknown(data['server_id']!, _serverIdMeta),
       );
     }
+    if (data.containsKey('sync_status')) {
+      context.handle(
+        _syncStatusMeta,
+        syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
+      );
+    }
     return context;
   }
 
@@ -2731,6 +3011,11 @@ class $ExerciseTableTable extends ExerciseTable
         DriftSqlType.string,
         data['${effectivePrefix}server_id'],
       ),
+      syncStatus:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.int,
+            data['${effectivePrefix}sync_status'],
+          )!,
     );
   }
 
@@ -2751,9 +3036,8 @@ class ExerciseTableData extends DataClass
   final String targetMuscleGroups;
   final String? imageUrl;
   final bool isCustom;
-
-  /// The UUID assigned by the remote API after the first successful sync. Null until synced.
   final String? serverId;
+  final int syncStatus;
   const ExerciseTableData({
     required this.id,
     required this.name,
@@ -2765,6 +3049,7 @@ class ExerciseTableData extends DataClass
     this.imageUrl,
     required this.isCustom,
     this.serverId,
+    required this.syncStatus,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2789,6 +3074,7 @@ class ExerciseTableData extends DataClass
     if (!nullToAbsent || serverId != null) {
       map['server_id'] = Variable<String>(serverId);
     }
+    map['sync_status'] = Variable<int>(syncStatus);
     return map;
   }
 
@@ -2817,6 +3103,7 @@ class ExerciseTableData extends DataClass
           serverId == null && nullToAbsent
               ? const Value.absent()
               : Value(serverId),
+      syncStatus: Value(syncStatus),
     );
   }
 
@@ -2838,6 +3125,7 @@ class ExerciseTableData extends DataClass
       imageUrl: serializer.fromJson<String?>(json['imageUrl']),
       isCustom: serializer.fromJson<bool>(json['isCustom']),
       serverId: serializer.fromJson<String?>(json['serverId']),
+      syncStatus: serializer.fromJson<int>(json['syncStatus']),
     );
   }
   @override
@@ -2854,6 +3142,7 @@ class ExerciseTableData extends DataClass
       'imageUrl': serializer.toJson<String?>(imageUrl),
       'isCustom': serializer.toJson<bool>(isCustom),
       'serverId': serializer.toJson<String?>(serverId),
+      'syncStatus': serializer.toJson<int>(syncStatus),
     };
   }
 
@@ -2868,6 +3157,7 @@ class ExerciseTableData extends DataClass
     Value<String?> imageUrl = const Value.absent(),
     bool? isCustom,
     Value<String?> serverId = const Value.absent(),
+    int? syncStatus,
   }) => ExerciseTableData(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -2880,6 +3170,7 @@ class ExerciseTableData extends DataClass
     imageUrl: imageUrl.present ? imageUrl.value : this.imageUrl,
     isCustom: isCustom ?? this.isCustom,
     serverId: serverId.present ? serverId.value : this.serverId,
+    syncStatus: syncStatus ?? this.syncStatus,
   );
   ExerciseTableData copyWithCompanion(ExerciseTableCompanion data) {
     return ExerciseTableData(
@@ -2900,6 +3191,8 @@ class ExerciseTableData extends DataClass
       imageUrl: data.imageUrl.present ? data.imageUrl.value : this.imageUrl,
       isCustom: data.isCustom.present ? data.isCustom.value : this.isCustom,
       serverId: data.serverId.present ? data.serverId.value : this.serverId,
+      syncStatus:
+          data.syncStatus.present ? data.syncStatus.value : this.syncStatus,
     );
   }
 
@@ -2915,7 +3208,8 @@ class ExerciseTableData extends DataClass
           ..write('targetMuscleGroups: $targetMuscleGroups, ')
           ..write('imageUrl: $imageUrl, ')
           ..write('isCustom: $isCustom, ')
-          ..write('serverId: $serverId')
+          ..write('serverId: $serverId, ')
+          ..write('syncStatus: $syncStatus')
           ..write(')'))
         .toString();
   }
@@ -2932,6 +3226,7 @@ class ExerciseTableData extends DataClass
     imageUrl,
     isCustom,
     serverId,
+    syncStatus,
   );
   @override
   bool operator ==(Object other) =>
@@ -2946,7 +3241,8 @@ class ExerciseTableData extends DataClass
           other.targetMuscleGroups == this.targetMuscleGroups &&
           other.imageUrl == this.imageUrl &&
           other.isCustom == this.isCustom &&
-          other.serverId == this.serverId);
+          other.serverId == this.serverId &&
+          other.syncStatus == this.syncStatus);
 }
 
 class ExerciseTableCompanion extends UpdateCompanion<ExerciseTableData> {
@@ -2960,6 +3256,7 @@ class ExerciseTableCompanion extends UpdateCompanion<ExerciseTableData> {
   final Value<String?> imageUrl;
   final Value<bool> isCustom;
   final Value<String?> serverId;
+  final Value<int> syncStatus;
   const ExerciseTableCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
@@ -2971,6 +3268,7 @@ class ExerciseTableCompanion extends UpdateCompanion<ExerciseTableData> {
     this.imageUrl = const Value.absent(),
     this.isCustom = const Value.absent(),
     this.serverId = const Value.absent(),
+    this.syncStatus = const Value.absent(),
   });
   ExerciseTableCompanion.insert({
     this.id = const Value.absent(),
@@ -2983,6 +3281,7 @@ class ExerciseTableCompanion extends UpdateCompanion<ExerciseTableData> {
     this.imageUrl = const Value.absent(),
     this.isCustom = const Value.absent(),
     this.serverId = const Value.absent(),
+    this.syncStatus = const Value.absent(),
   }) : name = Value(name),
        type = Value(type),
        targetMuscleGroups = Value(targetMuscleGroups);
@@ -2997,6 +3296,7 @@ class ExerciseTableCompanion extends UpdateCompanion<ExerciseTableData> {
     Expression<String>? imageUrl,
     Expression<bool>? isCustom,
     Expression<String>? serverId,
+    Expression<int>? syncStatus,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -3010,6 +3310,7 @@ class ExerciseTableCompanion extends UpdateCompanion<ExerciseTableData> {
       if (imageUrl != null) 'image_url': imageUrl,
       if (isCustom != null) 'is_custom': isCustom,
       if (serverId != null) 'server_id': serverId,
+      if (syncStatus != null) 'sync_status': syncStatus,
     });
   }
 
@@ -3024,6 +3325,7 @@ class ExerciseTableCompanion extends UpdateCompanion<ExerciseTableData> {
     Value<String?>? imageUrl,
     Value<bool>? isCustom,
     Value<String?>? serverId,
+    Value<int>? syncStatus,
   }) {
     return ExerciseTableCompanion(
       id: id ?? this.id,
@@ -3036,6 +3338,7 @@ class ExerciseTableCompanion extends UpdateCompanion<ExerciseTableData> {
       imageUrl: imageUrl ?? this.imageUrl,
       isCustom: isCustom ?? this.isCustom,
       serverId: serverId ?? this.serverId,
+      syncStatus: syncStatus ?? this.syncStatus,
     );
   }
 
@@ -3072,6 +3375,9 @@ class ExerciseTableCompanion extends UpdateCompanion<ExerciseTableData> {
     if (serverId.present) {
       map['server_id'] = Variable<String>(serverId.value);
     }
+    if (syncStatus.present) {
+      map['sync_status'] = Variable<int>(syncStatus.value);
+    }
     return map;
   }
 
@@ -3087,7 +3393,8 @@ class ExerciseTableCompanion extends UpdateCompanion<ExerciseTableData> {
           ..write('targetMuscleGroups: $targetMuscleGroups, ')
           ..write('imageUrl: $imageUrl, ')
           ..write('isCustom: $isCustom, ')
-          ..write('serverId: $serverId')
+          ..write('serverId: $serverId, ')
+          ..write('syncStatus: $syncStatus')
           ..write(')'))
         .toString();
   }
@@ -3214,6 +3521,18 @@ class $WorkoutTableTable extends WorkoutTable
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _syncStatusMeta = const VerificationMeta(
+    'syncStatus',
+  );
+  @override
+  late final GeneratedColumn<int> syncStatus = GeneratedColumn<int>(
+    'sync_status',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -3226,6 +3545,7 @@ class $WorkoutTableTable extends WorkoutTable
     completedDate,
     color,
     serverId,
+    syncStatus,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3312,6 +3632,12 @@ class $WorkoutTableTable extends WorkoutTable
         serverId.isAcceptableOrUnknown(data['server_id']!, _serverIdMeta),
       );
     }
+    if (data.containsKey('sync_status')) {
+      context.handle(
+        _syncStatusMeta,
+        syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
+      );
+    }
     return context;
   }
 
@@ -3366,6 +3692,11 @@ class $WorkoutTableTable extends WorkoutTable
         DriftSqlType.string,
         data['${effectivePrefix}server_id'],
       ),
+      syncStatus:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.int,
+            data['${effectivePrefix}sync_status'],
+          )!,
     );
   }
 
@@ -3386,9 +3717,8 @@ class WorkoutTableData extends DataClass
   final DateTime? scheduledDate;
   final DateTime? completedDate;
   final int? color;
-
-  /// The UUID assigned by the remote API after the first successful sync. Null until synced.
   final String? serverId;
+  final int syncStatus;
   const WorkoutTableData({
     required this.id,
     required this.name,
@@ -3400,6 +3730,7 @@ class WorkoutTableData extends DataClass
     this.completedDate,
     this.color,
     this.serverId,
+    required this.syncStatus,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3424,6 +3755,7 @@ class WorkoutTableData extends DataClass
     if (!nullToAbsent || serverId != null) {
       map['server_id'] = Variable<String>(serverId);
     }
+    map['sync_status'] = Variable<int>(syncStatus);
     return map;
   }
 
@@ -3452,6 +3784,7 @@ class WorkoutTableData extends DataClass
           serverId == null && nullToAbsent
               ? const Value.absent()
               : Value(serverId),
+      syncStatus: Value(syncStatus),
     );
   }
 
@@ -3473,6 +3806,7 @@ class WorkoutTableData extends DataClass
       completedDate: serializer.fromJson<DateTime?>(json['completedDate']),
       color: serializer.fromJson<int?>(json['color']),
       serverId: serializer.fromJson<String?>(json['serverId']),
+      syncStatus: serializer.fromJson<int>(json['syncStatus']),
     );
   }
   @override
@@ -3491,6 +3825,7 @@ class WorkoutTableData extends DataClass
       'completedDate': serializer.toJson<DateTime?>(completedDate),
       'color': serializer.toJson<int?>(color),
       'serverId': serializer.toJson<String?>(serverId),
+      'syncStatus': serializer.toJson<int>(syncStatus),
     };
   }
 
@@ -3505,6 +3840,7 @@ class WorkoutTableData extends DataClass
     Value<DateTime?> completedDate = const Value.absent(),
     Value<int?> color = const Value.absent(),
     Value<String?> serverId = const Value.absent(),
+    int? syncStatus,
   }) => WorkoutTableData(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -3519,6 +3855,7 @@ class WorkoutTableData extends DataClass
         completedDate.present ? completedDate.value : this.completedDate,
     color: color.present ? color.value : this.color,
     serverId: serverId.present ? serverId.value : this.serverId,
+    syncStatus: syncStatus ?? this.syncStatus,
   );
   WorkoutTableData copyWithCompanion(WorkoutTableCompanion data) {
     return WorkoutTableData(
@@ -3544,6 +3881,8 @@ class WorkoutTableData extends DataClass
               : this.completedDate,
       color: data.color.present ? data.color.value : this.color,
       serverId: data.serverId.present ? data.serverId.value : this.serverId,
+      syncStatus:
+          data.syncStatus.present ? data.syncStatus.value : this.syncStatus,
     );
   }
 
@@ -3559,7 +3898,8 @@ class WorkoutTableData extends DataClass
           ..write('scheduledDate: $scheduledDate, ')
           ..write('completedDate: $completedDate, ')
           ..write('color: $color, ')
-          ..write('serverId: $serverId')
+          ..write('serverId: $serverId, ')
+          ..write('syncStatus: $syncStatus')
           ..write(')'))
         .toString();
   }
@@ -3576,6 +3916,7 @@ class WorkoutTableData extends DataClass
     completedDate,
     color,
     serverId,
+    syncStatus,
   );
   @override
   bool operator ==(Object other) =>
@@ -3590,7 +3931,8 @@ class WorkoutTableData extends DataClass
           other.scheduledDate == this.scheduledDate &&
           other.completedDate == this.completedDate &&
           other.color == this.color &&
-          other.serverId == this.serverId);
+          other.serverId == this.serverId &&
+          other.syncStatus == this.syncStatus);
 }
 
 class WorkoutTableCompanion extends UpdateCompanion<WorkoutTableData> {
@@ -3604,6 +3946,7 @@ class WorkoutTableCompanion extends UpdateCompanion<WorkoutTableData> {
   final Value<DateTime?> completedDate;
   final Value<int?> color;
   final Value<String?> serverId;
+  final Value<int> syncStatus;
   const WorkoutTableCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
@@ -3615,6 +3958,7 @@ class WorkoutTableCompanion extends UpdateCompanion<WorkoutTableData> {
     this.completedDate = const Value.absent(),
     this.color = const Value.absent(),
     this.serverId = const Value.absent(),
+    this.syncStatus = const Value.absent(),
   });
   WorkoutTableCompanion.insert({
     this.id = const Value.absent(),
@@ -3627,6 +3971,7 @@ class WorkoutTableCompanion extends UpdateCompanion<WorkoutTableData> {
     this.completedDate = const Value.absent(),
     this.color = const Value.absent(),
     this.serverId = const Value.absent(),
+    this.syncStatus = const Value.absent(),
   }) : name = Value(name),
        difficulty = Value(difficulty);
   static Insertable<WorkoutTableData> custom({
@@ -3640,6 +3985,7 @@ class WorkoutTableCompanion extends UpdateCompanion<WorkoutTableData> {
     Expression<DateTime>? completedDate,
     Expression<int>? color,
     Expression<String>? serverId,
+    Expression<int>? syncStatus,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -3653,6 +3999,7 @@ class WorkoutTableCompanion extends UpdateCompanion<WorkoutTableData> {
       if (completedDate != null) 'completed_date': completedDate,
       if (color != null) 'color': color,
       if (serverId != null) 'server_id': serverId,
+      if (syncStatus != null) 'sync_status': syncStatus,
     });
   }
 
@@ -3667,6 +4014,7 @@ class WorkoutTableCompanion extends UpdateCompanion<WorkoutTableData> {
     Value<DateTime?>? completedDate,
     Value<int?>? color,
     Value<String?>? serverId,
+    Value<int>? syncStatus,
   }) {
     return WorkoutTableCompanion(
       id: id ?? this.id,
@@ -3680,6 +4028,7 @@ class WorkoutTableCompanion extends UpdateCompanion<WorkoutTableData> {
       completedDate: completedDate ?? this.completedDate,
       color: color ?? this.color,
       serverId: serverId ?? this.serverId,
+      syncStatus: syncStatus ?? this.syncStatus,
     );
   }
 
@@ -3718,6 +4067,9 @@ class WorkoutTableCompanion extends UpdateCompanion<WorkoutTableData> {
     if (serverId.present) {
       map['server_id'] = Variable<String>(serverId.value);
     }
+    if (syncStatus.present) {
+      map['sync_status'] = Variable<int>(syncStatus.value);
+    }
     return map;
   }
 
@@ -3733,7 +4085,8 @@ class WorkoutTableCompanion extends UpdateCompanion<WorkoutTableData> {
           ..write('scheduledDate: $scheduledDate, ')
           ..write('completedDate: $completedDate, ')
           ..write('color: $color, ')
-          ..write('serverId: $serverId')
+          ..write('serverId: $serverId, ')
+          ..write('syncStatus: $syncStatus')
           ..write(')'))
         .toString();
   }
@@ -3853,6 +4206,18 @@ class $WorkoutPlanTableTable extends WorkoutPlanTable
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _syncStatusMeta = const VerificationMeta(
+    'syncStatus',
+  );
+  @override
+  late final GeneratedColumn<int> syncStatus = GeneratedColumn<int>(
+    'sync_status',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -3864,6 +4229,7 @@ class $WorkoutPlanTableTable extends WorkoutPlanTable
     cyclePatternJson,
     isFreeChoice,
     serverId,
+    syncStatus,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3943,6 +4309,12 @@ class $WorkoutPlanTableTable extends WorkoutPlanTable
         serverId.isAcceptableOrUnknown(data['server_id']!, _serverIdMeta),
       );
     }
+    if (data.containsKey('sync_status')) {
+      context.handle(
+        _syncStatusMeta,
+        syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
+      );
+    }
     return context;
   }
 
@@ -3995,6 +4367,11 @@ class $WorkoutPlanTableTable extends WorkoutPlanTable
         DriftSqlType.string,
         data['${effectivePrefix}server_id'],
       ),
+      syncStatus:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.int,
+            data['${effectivePrefix}sync_status'],
+          )!,
     );
   }
 
@@ -4014,9 +4391,8 @@ class WorkoutPlanTableData extends DataClass
   final bool isActive;
   final String cyclePatternJson;
   final bool isFreeChoice;
-
-  /// The UUID assigned by the remote API after the first successful sync. Null until synced.
   final String? serverId;
+  final int syncStatus;
   const WorkoutPlanTableData({
     required this.id,
     required this.name,
@@ -4027,6 +4403,7 @@ class WorkoutPlanTableData extends DataClass
     required this.cyclePatternJson,
     required this.isFreeChoice,
     this.serverId,
+    required this.syncStatus,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -4044,6 +4421,7 @@ class WorkoutPlanTableData extends DataClass
     if (!nullToAbsent || serverId != null) {
       map['server_id'] = Variable<String>(serverId);
     }
+    map['sync_status'] = Variable<int>(syncStatus);
     return map;
   }
 
@@ -4064,6 +4442,7 @@ class WorkoutPlanTableData extends DataClass
           serverId == null && nullToAbsent
               ? const Value.absent()
               : Value(serverId),
+      syncStatus: Value(syncStatus),
     );
   }
 
@@ -4082,6 +4461,7 @@ class WorkoutPlanTableData extends DataClass
       cyclePatternJson: serializer.fromJson<String>(json['cyclePatternJson']),
       isFreeChoice: serializer.fromJson<bool>(json['isFreeChoice']),
       serverId: serializer.fromJson<String?>(json['serverId']),
+      syncStatus: serializer.fromJson<int>(json['syncStatus']),
     );
   }
   @override
@@ -4097,6 +4477,7 @@ class WorkoutPlanTableData extends DataClass
       'cyclePatternJson': serializer.toJson<String>(cyclePatternJson),
       'isFreeChoice': serializer.toJson<bool>(isFreeChoice),
       'serverId': serializer.toJson<String?>(serverId),
+      'syncStatus': serializer.toJson<int>(syncStatus),
     };
   }
 
@@ -4110,6 +4491,7 @@ class WorkoutPlanTableData extends DataClass
     String? cyclePatternJson,
     bool? isFreeChoice,
     Value<String?> serverId = const Value.absent(),
+    int? syncStatus,
   }) => WorkoutPlanTableData(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -4120,6 +4502,7 @@ class WorkoutPlanTableData extends DataClass
     cyclePatternJson: cyclePatternJson ?? this.cyclePatternJson,
     isFreeChoice: isFreeChoice ?? this.isFreeChoice,
     serverId: serverId.present ? serverId.value : this.serverId,
+    syncStatus: syncStatus ?? this.syncStatus,
   );
   WorkoutPlanTableData copyWithCompanion(WorkoutPlanTableCompanion data) {
     return WorkoutPlanTableData(
@@ -4139,6 +4522,8 @@ class WorkoutPlanTableData extends DataClass
               ? data.isFreeChoice.value
               : this.isFreeChoice,
       serverId: data.serverId.present ? data.serverId.value : this.serverId,
+      syncStatus:
+          data.syncStatus.present ? data.syncStatus.value : this.syncStatus,
     );
   }
 
@@ -4153,7 +4538,8 @@ class WorkoutPlanTableData extends DataClass
           ..write('isActive: $isActive, ')
           ..write('cyclePatternJson: $cyclePatternJson, ')
           ..write('isFreeChoice: $isFreeChoice, ')
-          ..write('serverId: $serverId')
+          ..write('serverId: $serverId, ')
+          ..write('syncStatus: $syncStatus')
           ..write(')'))
         .toString();
   }
@@ -4169,6 +4555,7 @@ class WorkoutPlanTableData extends DataClass
     cyclePatternJson,
     isFreeChoice,
     serverId,
+    syncStatus,
   );
   @override
   bool operator ==(Object other) =>
@@ -4182,7 +4569,8 @@ class WorkoutPlanTableData extends DataClass
           other.isActive == this.isActive &&
           other.cyclePatternJson == this.cyclePatternJson &&
           other.isFreeChoice == this.isFreeChoice &&
-          other.serverId == this.serverId);
+          other.serverId == this.serverId &&
+          other.syncStatus == this.syncStatus);
 }
 
 class WorkoutPlanTableCompanion extends UpdateCompanion<WorkoutPlanTableData> {
@@ -4195,6 +4583,7 @@ class WorkoutPlanTableCompanion extends UpdateCompanion<WorkoutPlanTableData> {
   final Value<String> cyclePatternJson;
   final Value<bool> isFreeChoice;
   final Value<String?> serverId;
+  final Value<int> syncStatus;
   const WorkoutPlanTableCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
@@ -4205,6 +4594,7 @@ class WorkoutPlanTableCompanion extends UpdateCompanion<WorkoutPlanTableData> {
     this.cyclePatternJson = const Value.absent(),
     this.isFreeChoice = const Value.absent(),
     this.serverId = const Value.absent(),
+    this.syncStatus = const Value.absent(),
   });
   WorkoutPlanTableCompanion.insert({
     this.id = const Value.absent(),
@@ -4216,6 +4606,7 @@ class WorkoutPlanTableCompanion extends UpdateCompanion<WorkoutPlanTableData> {
     required String cyclePatternJson,
     this.isFreeChoice = const Value.absent(),
     this.serverId = const Value.absent(),
+    this.syncStatus = const Value.absent(),
   }) : name = Value(name),
        startDate = Value(startDate),
        cyclePatternJson = Value(cyclePatternJson);
@@ -4229,6 +4620,7 @@ class WorkoutPlanTableCompanion extends UpdateCompanion<WorkoutPlanTableData> {
     Expression<String>? cyclePatternJson,
     Expression<bool>? isFreeChoice,
     Expression<String>? serverId,
+    Expression<int>? syncStatus,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -4240,6 +4632,7 @@ class WorkoutPlanTableCompanion extends UpdateCompanion<WorkoutPlanTableData> {
       if (cyclePatternJson != null) 'cycle_pattern_json': cyclePatternJson,
       if (isFreeChoice != null) 'is_free_choice': isFreeChoice,
       if (serverId != null) 'server_id': serverId,
+      if (syncStatus != null) 'sync_status': syncStatus,
     });
   }
 
@@ -4253,6 +4646,7 @@ class WorkoutPlanTableCompanion extends UpdateCompanion<WorkoutPlanTableData> {
     Value<String>? cyclePatternJson,
     Value<bool>? isFreeChoice,
     Value<String?>? serverId,
+    Value<int>? syncStatus,
   }) {
     return WorkoutPlanTableCompanion(
       id: id ?? this.id,
@@ -4264,6 +4658,7 @@ class WorkoutPlanTableCompanion extends UpdateCompanion<WorkoutPlanTableData> {
       cyclePatternJson: cyclePatternJson ?? this.cyclePatternJson,
       isFreeChoice: isFreeChoice ?? this.isFreeChoice,
       serverId: serverId ?? this.serverId,
+      syncStatus: syncStatus ?? this.syncStatus,
     );
   }
 
@@ -4297,6 +4692,9 @@ class WorkoutPlanTableCompanion extends UpdateCompanion<WorkoutPlanTableData> {
     if (serverId.present) {
       map['server_id'] = Variable<String>(serverId.value);
     }
+    if (syncStatus.present) {
+      map['sync_status'] = Variable<int>(syncStatus.value);
+    }
     return map;
   }
 
@@ -4311,7 +4709,8 @@ class WorkoutPlanTableCompanion extends UpdateCompanion<WorkoutPlanTableData> {
           ..write('isActive: $isActive, ')
           ..write('cyclePatternJson: $cyclePatternJson, ')
           ..write('isFreeChoice: $isFreeChoice, ')
-          ..write('serverId: $serverId')
+          ..write('serverId: $serverId, ')
+          ..write('syncStatus: $syncStatus')
           ..write(')'))
         .toString();
   }
@@ -4406,6 +4805,18 @@ class $WorkoutExerciseTableTable extends WorkoutExerciseTable
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _syncStatusMeta = const VerificationMeta(
+    'syncStatus',
+  );
+  @override
+  late final GeneratedColumn<int> syncStatus = GeneratedColumn<int>(
+    'sync_status',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -4415,6 +4826,7 @@ class $WorkoutExerciseTableTable extends WorkoutExerciseTable
     notes,
     supersetGroupId,
     serverId,
+    syncStatus,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -4479,6 +4891,12 @@ class $WorkoutExerciseTableTable extends WorkoutExerciseTable
         serverId.isAcceptableOrUnknown(data['server_id']!, _serverIdMeta),
       );
     }
+    if (data.containsKey('sync_status')) {
+      context.handle(
+        _syncStatusMeta,
+        syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
+      );
+    }
     return context;
   }
 
@@ -4523,6 +4941,11 @@ class $WorkoutExerciseTableTable extends WorkoutExerciseTable
         DriftSqlType.string,
         data['${effectivePrefix}server_id'],
       ),
+      syncStatus:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.int,
+            data['${effectivePrefix}sync_status'],
+          )!,
     );
   }
 
@@ -4540,9 +4963,8 @@ class WorkoutExerciseTableData extends DataClass
   final int orderPosition;
   final String? notes;
   final int? supersetGroupId;
-
-  /// The UUID assigned by the remote API after the first successful sync. Null until synced.
   final String? serverId;
+  final int syncStatus;
   const WorkoutExerciseTableData({
     required this.id,
     required this.workoutId,
@@ -4551,6 +4973,7 @@ class WorkoutExerciseTableData extends DataClass
     this.notes,
     this.supersetGroupId,
     this.serverId,
+    required this.syncStatus,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -4568,6 +4991,7 @@ class WorkoutExerciseTableData extends DataClass
     if (!nullToAbsent || serverId != null) {
       map['server_id'] = Variable<String>(serverId);
     }
+    map['sync_status'] = Variable<int>(syncStatus);
     return map;
   }
 
@@ -4587,6 +5011,7 @@ class WorkoutExerciseTableData extends DataClass
           serverId == null && nullToAbsent
               ? const Value.absent()
               : Value(serverId),
+      syncStatus: Value(syncStatus),
     );
   }
 
@@ -4603,6 +5028,7 @@ class WorkoutExerciseTableData extends DataClass
       notes: serializer.fromJson<String?>(json['notes']),
       supersetGroupId: serializer.fromJson<int?>(json['supersetGroupId']),
       serverId: serializer.fromJson<String?>(json['serverId']),
+      syncStatus: serializer.fromJson<int>(json['syncStatus']),
     );
   }
   @override
@@ -4616,6 +5042,7 @@ class WorkoutExerciseTableData extends DataClass
       'notes': serializer.toJson<String?>(notes),
       'supersetGroupId': serializer.toJson<int?>(supersetGroupId),
       'serverId': serializer.toJson<String?>(serverId),
+      'syncStatus': serializer.toJson<int>(syncStatus),
     };
   }
 
@@ -4627,6 +5054,7 @@ class WorkoutExerciseTableData extends DataClass
     Value<String?> notes = const Value.absent(),
     Value<int?> supersetGroupId = const Value.absent(),
     Value<String?> serverId = const Value.absent(),
+    int? syncStatus,
   }) => WorkoutExerciseTableData(
     id: id ?? this.id,
     workoutId: workoutId ?? this.workoutId,
@@ -4636,6 +5064,7 @@ class WorkoutExerciseTableData extends DataClass
     supersetGroupId:
         supersetGroupId.present ? supersetGroupId.value : this.supersetGroupId,
     serverId: serverId.present ? serverId.value : this.serverId,
+    syncStatus: syncStatus ?? this.syncStatus,
   );
   WorkoutExerciseTableData copyWithCompanion(
     WorkoutExerciseTableCompanion data,
@@ -4655,6 +5084,8 @@ class WorkoutExerciseTableData extends DataClass
               ? data.supersetGroupId.value
               : this.supersetGroupId,
       serverId: data.serverId.present ? data.serverId.value : this.serverId,
+      syncStatus:
+          data.syncStatus.present ? data.syncStatus.value : this.syncStatus,
     );
   }
 
@@ -4667,7 +5098,8 @@ class WorkoutExerciseTableData extends DataClass
           ..write('orderPosition: $orderPosition, ')
           ..write('notes: $notes, ')
           ..write('supersetGroupId: $supersetGroupId, ')
-          ..write('serverId: $serverId')
+          ..write('serverId: $serverId, ')
+          ..write('syncStatus: $syncStatus')
           ..write(')'))
         .toString();
   }
@@ -4681,6 +5113,7 @@ class WorkoutExerciseTableData extends DataClass
     notes,
     supersetGroupId,
     serverId,
+    syncStatus,
   );
   @override
   bool operator ==(Object other) =>
@@ -4692,7 +5125,8 @@ class WorkoutExerciseTableData extends DataClass
           other.orderPosition == this.orderPosition &&
           other.notes == this.notes &&
           other.supersetGroupId == this.supersetGroupId &&
-          other.serverId == this.serverId);
+          other.serverId == this.serverId &&
+          other.syncStatus == this.syncStatus);
 }
 
 class WorkoutExerciseTableCompanion
@@ -4704,6 +5138,7 @@ class WorkoutExerciseTableCompanion
   final Value<String?> notes;
   final Value<int?> supersetGroupId;
   final Value<String?> serverId;
+  final Value<int> syncStatus;
   const WorkoutExerciseTableCompanion({
     this.id = const Value.absent(),
     this.workoutId = const Value.absent(),
@@ -4712,6 +5147,7 @@ class WorkoutExerciseTableCompanion
     this.notes = const Value.absent(),
     this.supersetGroupId = const Value.absent(),
     this.serverId = const Value.absent(),
+    this.syncStatus = const Value.absent(),
   });
   WorkoutExerciseTableCompanion.insert({
     this.id = const Value.absent(),
@@ -4721,6 +5157,7 @@ class WorkoutExerciseTableCompanion
     this.notes = const Value.absent(),
     this.supersetGroupId = const Value.absent(),
     this.serverId = const Value.absent(),
+    this.syncStatus = const Value.absent(),
   }) : workoutId = Value(workoutId),
        exerciseId = Value(exerciseId),
        orderPosition = Value(orderPosition);
@@ -4732,6 +5169,7 @@ class WorkoutExerciseTableCompanion
     Expression<String>? notes,
     Expression<int>? supersetGroupId,
     Expression<String>? serverId,
+    Expression<int>? syncStatus,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -4741,6 +5179,7 @@ class WorkoutExerciseTableCompanion
       if (notes != null) 'notes': notes,
       if (supersetGroupId != null) 'superset_group_id': supersetGroupId,
       if (serverId != null) 'server_id': serverId,
+      if (syncStatus != null) 'sync_status': syncStatus,
     });
   }
 
@@ -4752,6 +5191,7 @@ class WorkoutExerciseTableCompanion
     Value<String?>? notes,
     Value<int?>? supersetGroupId,
     Value<String?>? serverId,
+    Value<int>? syncStatus,
   }) {
     return WorkoutExerciseTableCompanion(
       id: id ?? this.id,
@@ -4761,6 +5201,7 @@ class WorkoutExerciseTableCompanion
       notes: notes ?? this.notes,
       supersetGroupId: supersetGroupId ?? this.supersetGroupId,
       serverId: serverId ?? this.serverId,
+      syncStatus: syncStatus ?? this.syncStatus,
     );
   }
 
@@ -4788,6 +5229,9 @@ class WorkoutExerciseTableCompanion
     if (serverId.present) {
       map['server_id'] = Variable<String>(serverId.value);
     }
+    if (syncStatus.present) {
+      map['sync_status'] = Variable<int>(syncStatus.value);
+    }
     return map;
   }
 
@@ -4800,7 +5244,8 @@ class WorkoutExerciseTableCompanion
           ..write('orderPosition: $orderPosition, ')
           ..write('notes: $notes, ')
           ..write('supersetGroupId: $supersetGroupId, ')
-          ..write('serverId: $serverId')
+          ..write('serverId: $serverId, ')
+          ..write('syncStatus: $syncStatus')
           ..write(')'))
         .toString();
   }
@@ -4941,6 +5386,18 @@ class $ScheduledWorkoutTableTable extends ScheduledWorkoutTable
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _syncStatusMeta = const VerificationMeta(
+    'syncStatus',
+  );
+  @override
+  late final GeneratedColumn<int> syncStatus = GeneratedColumn<int>(
+    'sync_status',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -4953,6 +5410,7 @@ class $ScheduledWorkoutTableTable extends ScheduledWorkoutTable
     isCompleted,
     isSkipped,
     serverId,
+    syncStatus,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -5039,6 +5497,12 @@ class $ScheduledWorkoutTableTable extends ScheduledWorkoutTable
         serverId.isAcceptableOrUnknown(data['server_id']!, _serverIdMeta),
       );
     }
+    if (data.containsKey('sync_status')) {
+      context.handle(
+        _syncStatusMeta,
+        syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
+      );
+    }
     return context;
   }
 
@@ -5097,6 +5561,11 @@ class $ScheduledWorkoutTableTable extends ScheduledWorkoutTable
         DriftSqlType.string,
         data['${effectivePrefix}server_id'],
       ),
+      syncStatus:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.int,
+            data['${effectivePrefix}sync_status'],
+          )!,
     );
   }
 
@@ -5124,9 +5593,8 @@ class ScheduledWorkoutTableData extends DataClass
   final String? notes;
   final bool isCompleted;
   final bool isSkipped;
-
-  /// The UUID assigned by the remote API after the first successful sync. Null until synced.
   final String? serverId;
+  final int syncStatus;
   const ScheduledWorkoutTableData({
     required this.id,
     required this.workoutId,
@@ -5138,6 +5606,7 @@ class ScheduledWorkoutTableData extends DataClass
     required this.isCompleted,
     required this.isSkipped,
     this.serverId,
+    required this.syncStatus,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -5160,6 +5629,7 @@ class ScheduledWorkoutTableData extends DataClass
     if (!nullToAbsent || serverId != null) {
       map['server_id'] = Variable<String>(serverId);
     }
+    map['sync_status'] = Variable<int>(syncStatus);
     return map;
   }
 
@@ -5185,6 +5655,7 @@ class ScheduledWorkoutTableData extends DataClass
           serverId == null && nullToAbsent
               ? const Value.absent()
               : Value(serverId),
+      syncStatus: Value(syncStatus),
     );
   }
 
@@ -5204,6 +5675,7 @@ class ScheduledWorkoutTableData extends DataClass
       isCompleted: serializer.fromJson<bool>(json['isCompleted']),
       isSkipped: serializer.fromJson<bool>(json['isSkipped']),
       serverId: serializer.fromJson<String?>(json['serverId']),
+      syncStatus: serializer.fromJson<int>(json['syncStatus']),
     );
   }
   @override
@@ -5220,6 +5692,7 @@ class ScheduledWorkoutTableData extends DataClass
       'isCompleted': serializer.toJson<bool>(isCompleted),
       'isSkipped': serializer.toJson<bool>(isSkipped),
       'serverId': serializer.toJson<String?>(serverId),
+      'syncStatus': serializer.toJson<int>(syncStatus),
     };
   }
 
@@ -5234,6 +5707,7 @@ class ScheduledWorkoutTableData extends DataClass
     bool? isCompleted,
     bool? isSkipped,
     Value<String?> serverId = const Value.absent(),
+    int? syncStatus,
   }) => ScheduledWorkoutTableData(
     id: id ?? this.id,
     workoutId: workoutId ?? this.workoutId,
@@ -5249,6 +5723,7 @@ class ScheduledWorkoutTableData extends DataClass
     isCompleted: isCompleted ?? this.isCompleted,
     isSkipped: isSkipped ?? this.isSkipped,
     serverId: serverId.present ? serverId.value : this.serverId,
+    syncStatus: syncStatus ?? this.syncStatus,
   );
   ScheduledWorkoutTableData copyWithCompanion(
     ScheduledWorkoutTableCompanion data,
@@ -5274,6 +5749,8 @@ class ScheduledWorkoutTableData extends DataClass
           data.isCompleted.present ? data.isCompleted.value : this.isCompleted,
       isSkipped: data.isSkipped.present ? data.isSkipped.value : this.isSkipped,
       serverId: data.serverId.present ? data.serverId.value : this.serverId,
+      syncStatus:
+          data.syncStatus.present ? data.syncStatus.value : this.syncStatus,
     );
   }
 
@@ -5289,7 +5766,8 @@ class ScheduledWorkoutTableData extends DataClass
           ..write('notes: $notes, ')
           ..write('isCompleted: $isCompleted, ')
           ..write('isSkipped: $isSkipped, ')
-          ..write('serverId: $serverId')
+          ..write('serverId: $serverId, ')
+          ..write('syncStatus: $syncStatus')
           ..write(')'))
         .toString();
   }
@@ -5306,6 +5784,7 @@ class ScheduledWorkoutTableData extends DataClass
     isCompleted,
     isSkipped,
     serverId,
+    syncStatus,
   );
   @override
   bool operator ==(Object other) =>
@@ -5320,7 +5799,8 @@ class ScheduledWorkoutTableData extends DataClass
           other.notes == this.notes &&
           other.isCompleted == this.isCompleted &&
           other.isSkipped == this.isSkipped &&
-          other.serverId == this.serverId);
+          other.serverId == this.serverId &&
+          other.syncStatus == this.syncStatus);
 }
 
 class ScheduledWorkoutTableCompanion
@@ -5335,6 +5815,7 @@ class ScheduledWorkoutTableCompanion
   final Value<bool> isCompleted;
   final Value<bool> isSkipped;
   final Value<String?> serverId;
+  final Value<int> syncStatus;
   const ScheduledWorkoutTableCompanion({
     this.id = const Value.absent(),
     this.workoutId = const Value.absent(),
@@ -5346,6 +5827,7 @@ class ScheduledWorkoutTableCompanion
     this.isCompleted = const Value.absent(),
     this.isSkipped = const Value.absent(),
     this.serverId = const Value.absent(),
+    this.syncStatus = const Value.absent(),
   });
   ScheduledWorkoutTableCompanion.insert({
     this.id = const Value.absent(),
@@ -5358,6 +5840,7 @@ class ScheduledWorkoutTableCompanion
     this.isCompleted = const Value.absent(),
     this.isSkipped = const Value.absent(),
     this.serverId = const Value.absent(),
+    this.syncStatus = const Value.absent(),
   }) : workoutId = Value(workoutId),
        scheduledDate = Value(scheduledDate);
   static Insertable<ScheduledWorkoutTableData> custom({
@@ -5371,6 +5854,7 @@ class ScheduledWorkoutTableCompanion
     Expression<bool>? isCompleted,
     Expression<bool>? isSkipped,
     Expression<String>? serverId,
+    Expression<int>? syncStatus,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -5383,6 +5867,7 @@ class ScheduledWorkoutTableCompanion
       if (isCompleted != null) 'is_completed': isCompleted,
       if (isSkipped != null) 'is_skipped': isSkipped,
       if (serverId != null) 'server_id': serverId,
+      if (syncStatus != null) 'sync_status': syncStatus,
     });
   }
 
@@ -5397,6 +5882,7 @@ class ScheduledWorkoutTableCompanion
     Value<bool>? isCompleted,
     Value<bool>? isSkipped,
     Value<String?>? serverId,
+    Value<int>? syncStatus,
   }) {
     return ScheduledWorkoutTableCompanion(
       id: id ?? this.id,
@@ -5409,6 +5895,7 @@ class ScheduledWorkoutTableCompanion
       isCompleted: isCompleted ?? this.isCompleted,
       isSkipped: isSkipped ?? this.isSkipped,
       serverId: serverId ?? this.serverId,
+      syncStatus: syncStatus ?? this.syncStatus,
     );
   }
 
@@ -5445,6 +5932,9 @@ class ScheduledWorkoutTableCompanion
     if (serverId.present) {
       map['server_id'] = Variable<String>(serverId.value);
     }
+    if (syncStatus.present) {
+      map['sync_status'] = Variable<int>(syncStatus.value);
+    }
     return map;
   }
 
@@ -5460,7 +5950,8 @@ class ScheduledWorkoutTableCompanion
           ..write('notes: $notes, ')
           ..write('isCompleted: $isCompleted, ')
           ..write('isSkipped: $isSkipped, ')
-          ..write('serverId: $serverId')
+          ..write('serverId: $serverId, ')
+          ..write('syncStatus: $syncStatus')
           ..write(')'))
         .toString();
   }
@@ -5561,6 +6052,18 @@ class $ScheduledWorkoutExerciseTableTable extends ScheduledWorkoutExerciseTable
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _syncStatusMeta = const VerificationMeta(
+    'syncStatus',
+  );
+  @override
+  late final GeneratedColumn<int> syncStatus = GeneratedColumn<int>(
+    'sync_status',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -5570,6 +6073,7 @@ class $ScheduledWorkoutExerciseTableTable extends ScheduledWorkoutExerciseTable
     notes,
     overrideExerciseId,
     serverId,
+    syncStatus,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -5638,6 +6142,12 @@ class $ScheduledWorkoutExerciseTableTable extends ScheduledWorkoutExerciseTable
         serverId.isAcceptableOrUnknown(data['server_id']!, _serverIdMeta),
       );
     }
+    if (data.containsKey('sync_status')) {
+      context.handle(
+        _syncStatusMeta,
+        syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
+      );
+    }
     return context;
   }
 
@@ -5682,6 +6192,11 @@ class $ScheduledWorkoutExerciseTableTable extends ScheduledWorkoutExerciseTable
         DriftSqlType.string,
         data['${effectivePrefix}server_id'],
       ),
+      syncStatus:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.int,
+            data['${effectivePrefix}sync_status'],
+          )!,
     );
   }
 
@@ -5703,9 +6218,8 @@ class ScheduledWorkoutExerciseTableData extends DataClass
 
   /// Exercise override for this specific day only. Null = use the template exercise.
   final int? overrideExerciseId;
-
-  /// The UUID assigned by the remote API after the first successful sync. Null until synced.
   final String? serverId;
+  final int syncStatus;
   const ScheduledWorkoutExerciseTableData({
     required this.id,
     required this.scheduledWorkoutId,
@@ -5714,6 +6228,7 @@ class ScheduledWorkoutExerciseTableData extends DataClass
     this.notes,
     this.overrideExerciseId,
     this.serverId,
+    required this.syncStatus,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -5731,6 +6246,7 @@ class ScheduledWorkoutExerciseTableData extends DataClass
     if (!nullToAbsent || serverId != null) {
       map['server_id'] = Variable<String>(serverId);
     }
+    map['sync_status'] = Variable<int>(syncStatus);
     return map;
   }
 
@@ -5750,6 +6266,7 @@ class ScheduledWorkoutExerciseTableData extends DataClass
           serverId == null && nullToAbsent
               ? const Value.absent()
               : Value(serverId),
+      syncStatus: Value(syncStatus),
     );
   }
 
@@ -5766,6 +6283,7 @@ class ScheduledWorkoutExerciseTableData extends DataClass
       notes: serializer.fromJson<String?>(json['notes']),
       overrideExerciseId: serializer.fromJson<int?>(json['overrideExerciseId']),
       serverId: serializer.fromJson<String?>(json['serverId']),
+      syncStatus: serializer.fromJson<int>(json['syncStatus']),
     );
   }
   @override
@@ -5779,6 +6297,7 @@ class ScheduledWorkoutExerciseTableData extends DataClass
       'notes': serializer.toJson<String?>(notes),
       'overrideExerciseId': serializer.toJson<int?>(overrideExerciseId),
       'serverId': serializer.toJson<String?>(serverId),
+      'syncStatus': serializer.toJson<int>(syncStatus),
     };
   }
 
@@ -5790,6 +6309,7 @@ class ScheduledWorkoutExerciseTableData extends DataClass
     Value<String?> notes = const Value.absent(),
     Value<int?> overrideExerciseId = const Value.absent(),
     Value<String?> serverId = const Value.absent(),
+    int? syncStatus,
   }) => ScheduledWorkoutExerciseTableData(
     id: id ?? this.id,
     scheduledWorkoutId: scheduledWorkoutId ?? this.scheduledWorkoutId,
@@ -5801,6 +6321,7 @@ class ScheduledWorkoutExerciseTableData extends DataClass
             ? overrideExerciseId.value
             : this.overrideExerciseId,
     serverId: serverId.present ? serverId.value : this.serverId,
+    syncStatus: syncStatus ?? this.syncStatus,
   );
   ScheduledWorkoutExerciseTableData copyWithCompanion(
     ScheduledWorkoutExerciseTableCompanion data,
@@ -5823,6 +6344,8 @@ class ScheduledWorkoutExerciseTableData extends DataClass
               ? data.overrideExerciseId.value
               : this.overrideExerciseId,
       serverId: data.serverId.present ? data.serverId.value : this.serverId,
+      syncStatus:
+          data.syncStatus.present ? data.syncStatus.value : this.syncStatus,
     );
   }
 
@@ -5835,7 +6358,8 @@ class ScheduledWorkoutExerciseTableData extends DataClass
           ..write('isCompleted: $isCompleted, ')
           ..write('notes: $notes, ')
           ..write('overrideExerciseId: $overrideExerciseId, ')
-          ..write('serverId: $serverId')
+          ..write('serverId: $serverId, ')
+          ..write('syncStatus: $syncStatus')
           ..write(')'))
         .toString();
   }
@@ -5849,6 +6373,7 @@ class ScheduledWorkoutExerciseTableData extends DataClass
     notes,
     overrideExerciseId,
     serverId,
+    syncStatus,
   );
   @override
   bool operator ==(Object other) =>
@@ -5860,7 +6385,8 @@ class ScheduledWorkoutExerciseTableData extends DataClass
           other.isCompleted == this.isCompleted &&
           other.notes == this.notes &&
           other.overrideExerciseId == this.overrideExerciseId &&
-          other.serverId == this.serverId);
+          other.serverId == this.serverId &&
+          other.syncStatus == this.syncStatus);
 }
 
 class ScheduledWorkoutExerciseTableCompanion
@@ -5872,6 +6398,7 @@ class ScheduledWorkoutExerciseTableCompanion
   final Value<String?> notes;
   final Value<int?> overrideExerciseId;
   final Value<String?> serverId;
+  final Value<int> syncStatus;
   const ScheduledWorkoutExerciseTableCompanion({
     this.id = const Value.absent(),
     this.scheduledWorkoutId = const Value.absent(),
@@ -5880,6 +6407,7 @@ class ScheduledWorkoutExerciseTableCompanion
     this.notes = const Value.absent(),
     this.overrideExerciseId = const Value.absent(),
     this.serverId = const Value.absent(),
+    this.syncStatus = const Value.absent(),
   });
   ScheduledWorkoutExerciseTableCompanion.insert({
     this.id = const Value.absent(),
@@ -5889,6 +6417,7 @@ class ScheduledWorkoutExerciseTableCompanion
     this.notes = const Value.absent(),
     this.overrideExerciseId = const Value.absent(),
     this.serverId = const Value.absent(),
+    this.syncStatus = const Value.absent(),
   }) : scheduledWorkoutId = Value(scheduledWorkoutId),
        workoutExerciseId = Value(workoutExerciseId);
   static Insertable<ScheduledWorkoutExerciseTableData> custom({
@@ -5899,6 +6428,7 @@ class ScheduledWorkoutExerciseTableCompanion
     Expression<String>? notes,
     Expression<int>? overrideExerciseId,
     Expression<String>? serverId,
+    Expression<int>? syncStatus,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -5910,6 +6440,7 @@ class ScheduledWorkoutExerciseTableCompanion
       if (overrideExerciseId != null)
         'override_exercise_id': overrideExerciseId,
       if (serverId != null) 'server_id': serverId,
+      if (syncStatus != null) 'sync_status': syncStatus,
     });
   }
 
@@ -5921,6 +6452,7 @@ class ScheduledWorkoutExerciseTableCompanion
     Value<String?>? notes,
     Value<int?>? overrideExerciseId,
     Value<String?>? serverId,
+    Value<int>? syncStatus,
   }) {
     return ScheduledWorkoutExerciseTableCompanion(
       id: id ?? this.id,
@@ -5930,6 +6462,7 @@ class ScheduledWorkoutExerciseTableCompanion
       notes: notes ?? this.notes,
       overrideExerciseId: overrideExerciseId ?? this.overrideExerciseId,
       serverId: serverId ?? this.serverId,
+      syncStatus: syncStatus ?? this.syncStatus,
     );
   }
 
@@ -5957,6 +6490,9 @@ class ScheduledWorkoutExerciseTableCompanion
     if (serverId.present) {
       map['server_id'] = Variable<String>(serverId.value);
     }
+    if (syncStatus.present) {
+      map['sync_status'] = Variable<int>(syncStatus.value);
+    }
     return map;
   }
 
@@ -5969,7 +6505,8 @@ class ScheduledWorkoutExerciseTableCompanion
           ..write('isCompleted: $isCompleted, ')
           ..write('notes: $notes, ')
           ..write('overrideExerciseId: $overrideExerciseId, ')
-          ..write('serverId: $serverId')
+          ..write('serverId: $serverId, ')
+          ..write('syncStatus: $syncStatus')
           ..write(')'))
         .toString();
   }
@@ -6094,6 +6631,18 @@ class $WorkoutSetTableTable extends WorkoutSetTable
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _syncStatusMeta = const VerificationMeta(
+    'syncStatus',
+  );
+  @override
+  late final GeneratedColumn<int> syncStatus = GeneratedColumn<int>(
+    'sync_status',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -6106,6 +6655,7 @@ class $WorkoutSetTableTable extends WorkoutSetTable
     isCompleted,
     notes,
     serverId,
+    syncStatus,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -6189,6 +6739,12 @@ class $WorkoutSetTableTable extends WorkoutSetTable
         serverId.isAcceptableOrUnknown(data['server_id']!, _serverIdMeta),
       );
     }
+    if (data.containsKey('sync_status')) {
+      context.handle(
+        _syncStatusMeta,
+        syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
+      );
+    }
     return context;
   }
 
@@ -6242,6 +6798,11 @@ class $WorkoutSetTableTable extends WorkoutSetTable
         DriftSqlType.string,
         data['${effectivePrefix}server_id'],
       ),
+      syncStatus:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.int,
+            data['${effectivePrefix}sync_status'],
+          )!,
     );
   }
 
@@ -6262,9 +6823,8 @@ class WorkoutSetTableData extends DataClass
   final int? durationSeconds;
   final bool isCompleted;
   final String? notes;
-
-  /// The UUID assigned by the remote API after the first successful sync. Null until synced.
   final String? serverId;
+  final int syncStatus;
   const WorkoutSetTableData({
     required this.id,
     required this.scheduledWorkoutExerciseId,
@@ -6276,6 +6836,7 @@ class WorkoutSetTableData extends DataClass
     required this.isCompleted,
     this.notes,
     this.serverId,
+    required this.syncStatus,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -6304,6 +6865,7 @@ class WorkoutSetTableData extends DataClass
     if (!nullToAbsent || serverId != null) {
       map['server_id'] = Variable<String>(serverId);
     }
+    map['sync_status'] = Variable<int>(syncStatus);
     return map;
   }
 
@@ -6330,6 +6892,7 @@ class WorkoutSetTableData extends DataClass
           serverId == null && nullToAbsent
               ? const Value.absent()
               : Value(serverId),
+      syncStatus: Value(syncStatus),
     );
   }
 
@@ -6351,6 +6914,7 @@ class WorkoutSetTableData extends DataClass
       isCompleted: serializer.fromJson<bool>(json['isCompleted']),
       notes: serializer.fromJson<String?>(json['notes']),
       serverId: serializer.fromJson<String?>(json['serverId']),
+      syncStatus: serializer.fromJson<int>(json['syncStatus']),
     );
   }
   @override
@@ -6369,6 +6933,7 @@ class WorkoutSetTableData extends DataClass
       'isCompleted': serializer.toJson<bool>(isCompleted),
       'notes': serializer.toJson<String?>(notes),
       'serverId': serializer.toJson<String?>(serverId),
+      'syncStatus': serializer.toJson<int>(syncStatus),
     };
   }
 
@@ -6383,6 +6948,7 @@ class WorkoutSetTableData extends DataClass
     bool? isCompleted,
     Value<String?> notes = const Value.absent(),
     Value<String?> serverId = const Value.absent(),
+    int? syncStatus,
   }) => WorkoutSetTableData(
     id: id ?? this.id,
     scheduledWorkoutExerciseId:
@@ -6396,6 +6962,7 @@ class WorkoutSetTableData extends DataClass
     isCompleted: isCompleted ?? this.isCompleted,
     notes: notes.present ? notes.value : this.notes,
     serverId: serverId.present ? serverId.value : this.serverId,
+    syncStatus: syncStatus ?? this.syncStatus,
   );
   WorkoutSetTableData copyWithCompanion(WorkoutSetTableCompanion data) {
     return WorkoutSetTableData(
@@ -6417,6 +6984,8 @@ class WorkoutSetTableData extends DataClass
           data.isCompleted.present ? data.isCompleted.value : this.isCompleted,
       notes: data.notes.present ? data.notes.value : this.notes,
       serverId: data.serverId.present ? data.serverId.value : this.serverId,
+      syncStatus:
+          data.syncStatus.present ? data.syncStatus.value : this.syncStatus,
     );
   }
 
@@ -6432,7 +7001,8 @@ class WorkoutSetTableData extends DataClass
           ..write('durationSeconds: $durationSeconds, ')
           ..write('isCompleted: $isCompleted, ')
           ..write('notes: $notes, ')
-          ..write('serverId: $serverId')
+          ..write('serverId: $serverId, ')
+          ..write('syncStatus: $syncStatus')
           ..write(')'))
         .toString();
   }
@@ -6449,6 +7019,7 @@ class WorkoutSetTableData extends DataClass
     isCompleted,
     notes,
     serverId,
+    syncStatus,
   );
   @override
   bool operator ==(Object other) =>
@@ -6463,7 +7034,8 @@ class WorkoutSetTableData extends DataClass
           other.durationSeconds == this.durationSeconds &&
           other.isCompleted == this.isCompleted &&
           other.notes == this.notes &&
-          other.serverId == this.serverId);
+          other.serverId == this.serverId &&
+          other.syncStatus == this.syncStatus);
 }
 
 class WorkoutSetTableCompanion extends UpdateCompanion<WorkoutSetTableData> {
@@ -6477,6 +7049,7 @@ class WorkoutSetTableCompanion extends UpdateCompanion<WorkoutSetTableData> {
   final Value<bool> isCompleted;
   final Value<String?> notes;
   final Value<String?> serverId;
+  final Value<int> syncStatus;
   const WorkoutSetTableCompanion({
     this.id = const Value.absent(),
     this.scheduledWorkoutExerciseId = const Value.absent(),
@@ -6488,6 +7061,7 @@ class WorkoutSetTableCompanion extends UpdateCompanion<WorkoutSetTableData> {
     this.isCompleted = const Value.absent(),
     this.notes = const Value.absent(),
     this.serverId = const Value.absent(),
+    this.syncStatus = const Value.absent(),
   });
   WorkoutSetTableCompanion.insert({
     this.id = const Value.absent(),
@@ -6500,6 +7074,7 @@ class WorkoutSetTableCompanion extends UpdateCompanion<WorkoutSetTableData> {
     this.isCompleted = const Value.absent(),
     this.notes = const Value.absent(),
     this.serverId = const Value.absent(),
+    this.syncStatus = const Value.absent(),
   }) : scheduledWorkoutExerciseId = Value(scheduledWorkoutExerciseId),
        setNumber = Value(setNumber);
   static Insertable<WorkoutSetTableData> custom({
@@ -6513,6 +7088,7 @@ class WorkoutSetTableCompanion extends UpdateCompanion<WorkoutSetTableData> {
     Expression<bool>? isCompleted,
     Expression<String>? notes,
     Expression<String>? serverId,
+    Expression<int>? syncStatus,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -6526,6 +7102,7 @@ class WorkoutSetTableCompanion extends UpdateCompanion<WorkoutSetTableData> {
       if (isCompleted != null) 'is_completed': isCompleted,
       if (notes != null) 'notes': notes,
       if (serverId != null) 'server_id': serverId,
+      if (syncStatus != null) 'sync_status': syncStatus,
     });
   }
 
@@ -6540,6 +7117,7 @@ class WorkoutSetTableCompanion extends UpdateCompanion<WorkoutSetTableData> {
     Value<bool>? isCompleted,
     Value<String?>? notes,
     Value<String?>? serverId,
+    Value<int>? syncStatus,
   }) {
     return WorkoutSetTableCompanion(
       id: id ?? this.id,
@@ -6553,6 +7131,7 @@ class WorkoutSetTableCompanion extends UpdateCompanion<WorkoutSetTableData> {
       isCompleted: isCompleted ?? this.isCompleted,
       notes: notes ?? this.notes,
       serverId: serverId ?? this.serverId,
+      syncStatus: syncStatus ?? this.syncStatus,
     );
   }
 
@@ -6591,6 +7170,9 @@ class WorkoutSetTableCompanion extends UpdateCompanion<WorkoutSetTableData> {
     if (serverId.present) {
       map['server_id'] = Variable<String>(serverId.value);
     }
+    if (syncStatus.present) {
+      map['sync_status'] = Variable<int>(syncStatus.value);
+    }
     return map;
   }
 
@@ -6606,7 +7188,8 @@ class WorkoutSetTableCompanion extends UpdateCompanion<WorkoutSetTableData> {
           ..write('durationSeconds: $durationSeconds, ')
           ..write('isCompleted: $isCompleted, ')
           ..write('notes: $notes, ')
-          ..write('serverId: $serverId')
+          ..write('serverId: $serverId, ')
+          ..write('syncStatus: $syncStatus')
           ..write(')'))
         .toString();
   }
@@ -6668,8 +7251,26 @@ class $WorkoutPlanWorkoutTableTable extends WorkoutPlanWorkoutTable
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _syncStatusMeta = const VerificationMeta(
+    'syncStatus',
+  );
   @override
-  List<GeneratedColumn> get $columns => [id, planId, workoutId, serverId];
+  late final GeneratedColumn<int> syncStatus = GeneratedColumn<int>(
+    'sync_status',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    planId,
+    workoutId,
+    serverId,
+    syncStatus,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -6707,6 +7308,12 @@ class $WorkoutPlanWorkoutTableTable extends WorkoutPlanWorkoutTable
         serverId.isAcceptableOrUnknown(data['server_id']!, _serverIdMeta),
       );
     }
+    if (data.containsKey('sync_status')) {
+      context.handle(
+        _syncStatusMeta,
+        syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
+      );
+    }
     return context;
   }
 
@@ -6738,6 +7345,11 @@ class $WorkoutPlanWorkoutTableTable extends WorkoutPlanWorkoutTable
         DriftSqlType.string,
         data['${effectivePrefix}server_id'],
       ),
+      syncStatus:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.int,
+            data['${effectivePrefix}sync_status'],
+          )!,
     );
   }
 
@@ -6752,14 +7364,14 @@ class WorkoutPlanWorkoutTableData extends DataClass
   final int id;
   final int planId;
   final int workoutId;
-
-  /// The UUID assigned by the remote API after the first successful sync. Null until synced.
   final String? serverId;
+  final int syncStatus;
   const WorkoutPlanWorkoutTableData({
     required this.id,
     required this.planId,
     required this.workoutId,
     this.serverId,
+    required this.syncStatus,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -6770,6 +7382,7 @@ class WorkoutPlanWorkoutTableData extends DataClass
     if (!nullToAbsent || serverId != null) {
       map['server_id'] = Variable<String>(serverId);
     }
+    map['sync_status'] = Variable<int>(syncStatus);
     return map;
   }
 
@@ -6782,6 +7395,7 @@ class WorkoutPlanWorkoutTableData extends DataClass
           serverId == null && nullToAbsent
               ? const Value.absent()
               : Value(serverId),
+      syncStatus: Value(syncStatus),
     );
   }
 
@@ -6795,6 +7409,7 @@ class WorkoutPlanWorkoutTableData extends DataClass
       planId: serializer.fromJson<int>(json['planId']),
       workoutId: serializer.fromJson<int>(json['workoutId']),
       serverId: serializer.fromJson<String?>(json['serverId']),
+      syncStatus: serializer.fromJson<int>(json['syncStatus']),
     );
   }
   @override
@@ -6805,6 +7420,7 @@ class WorkoutPlanWorkoutTableData extends DataClass
       'planId': serializer.toJson<int>(planId),
       'workoutId': serializer.toJson<int>(workoutId),
       'serverId': serializer.toJson<String?>(serverId),
+      'syncStatus': serializer.toJson<int>(syncStatus),
     };
   }
 
@@ -6813,11 +7429,13 @@ class WorkoutPlanWorkoutTableData extends DataClass
     int? planId,
     int? workoutId,
     Value<String?> serverId = const Value.absent(),
+    int? syncStatus,
   }) => WorkoutPlanWorkoutTableData(
     id: id ?? this.id,
     planId: planId ?? this.planId,
     workoutId: workoutId ?? this.workoutId,
     serverId: serverId.present ? serverId.value : this.serverId,
+    syncStatus: syncStatus ?? this.syncStatus,
   );
   WorkoutPlanWorkoutTableData copyWithCompanion(
     WorkoutPlanWorkoutTableCompanion data,
@@ -6827,6 +7445,8 @@ class WorkoutPlanWorkoutTableData extends DataClass
       planId: data.planId.present ? data.planId.value : this.planId,
       workoutId: data.workoutId.present ? data.workoutId.value : this.workoutId,
       serverId: data.serverId.present ? data.serverId.value : this.serverId,
+      syncStatus:
+          data.syncStatus.present ? data.syncStatus.value : this.syncStatus,
     );
   }
 
@@ -6836,13 +7456,14 @@ class WorkoutPlanWorkoutTableData extends DataClass
           ..write('id: $id, ')
           ..write('planId: $planId, ')
           ..write('workoutId: $workoutId, ')
-          ..write('serverId: $serverId')
+          ..write('serverId: $serverId, ')
+          ..write('syncStatus: $syncStatus')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, planId, workoutId, serverId);
+  int get hashCode => Object.hash(id, planId, workoutId, serverId, syncStatus);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -6850,7 +7471,8 @@ class WorkoutPlanWorkoutTableData extends DataClass
           other.id == this.id &&
           other.planId == this.planId &&
           other.workoutId == this.workoutId &&
-          other.serverId == this.serverId);
+          other.serverId == this.serverId &&
+          other.syncStatus == this.syncStatus);
 }
 
 class WorkoutPlanWorkoutTableCompanion
@@ -6859,17 +7481,20 @@ class WorkoutPlanWorkoutTableCompanion
   final Value<int> planId;
   final Value<int> workoutId;
   final Value<String?> serverId;
+  final Value<int> syncStatus;
   const WorkoutPlanWorkoutTableCompanion({
     this.id = const Value.absent(),
     this.planId = const Value.absent(),
     this.workoutId = const Value.absent(),
     this.serverId = const Value.absent(),
+    this.syncStatus = const Value.absent(),
   });
   WorkoutPlanWorkoutTableCompanion.insert({
     this.id = const Value.absent(),
     required int planId,
     required int workoutId,
     this.serverId = const Value.absent(),
+    this.syncStatus = const Value.absent(),
   }) : planId = Value(planId),
        workoutId = Value(workoutId);
   static Insertable<WorkoutPlanWorkoutTableData> custom({
@@ -6877,12 +7502,14 @@ class WorkoutPlanWorkoutTableCompanion
     Expression<int>? planId,
     Expression<int>? workoutId,
     Expression<String>? serverId,
+    Expression<int>? syncStatus,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (planId != null) 'plan_id': planId,
       if (workoutId != null) 'workout_id': workoutId,
       if (serverId != null) 'server_id': serverId,
+      if (syncStatus != null) 'sync_status': syncStatus,
     });
   }
 
@@ -6891,12 +7518,14 @@ class WorkoutPlanWorkoutTableCompanion
     Value<int>? planId,
     Value<int>? workoutId,
     Value<String?>? serverId,
+    Value<int>? syncStatus,
   }) {
     return WorkoutPlanWorkoutTableCompanion(
       id: id ?? this.id,
       planId: planId ?? this.planId,
       workoutId: workoutId ?? this.workoutId,
       serverId: serverId ?? this.serverId,
+      syncStatus: syncStatus ?? this.syncStatus,
     );
   }
 
@@ -6915,6 +7544,9 @@ class WorkoutPlanWorkoutTableCompanion
     if (serverId.present) {
       map['server_id'] = Variable<String>(serverId.value);
     }
+    if (syncStatus.present) {
+      map['sync_status'] = Variable<int>(syncStatus.value);
+    }
     return map;
   }
 
@@ -6924,7 +7556,8 @@ class WorkoutPlanWorkoutTableCompanion
           ..write('id: $id, ')
           ..write('planId: $planId, ')
           ..write('workoutId: $workoutId, ')
-          ..write('serverId: $serverId')
+          ..write('serverId: $serverId, ')
+          ..write('syncStatus: $syncStatus')
           ..write(')'))
         .toString();
   }
@@ -7007,6 +7640,18 @@ class $WorkoutSetTemplateTableTable extends WorkoutSetTemplateTable
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _syncStatusMeta = const VerificationMeta(
+    'syncStatus',
+  );
+  @override
+  late final GeneratedColumn<int> syncStatus = GeneratedColumn<int>(
+    'sync_status',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -7015,6 +7660,7 @@ class $WorkoutSetTemplateTableTable extends WorkoutSetTemplateTable
     targetReps,
     orderPosition,
     serverId,
+    syncStatus,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -7075,6 +7721,12 @@ class $WorkoutSetTemplateTableTable extends WorkoutSetTemplateTable
         serverId.isAcceptableOrUnknown(data['server_id']!, _serverIdMeta),
       );
     }
+    if (data.containsKey('sync_status')) {
+      context.handle(
+        _syncStatusMeta,
+        syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
+      );
+    }
     return context;
   }
 
@@ -7113,6 +7765,11 @@ class $WorkoutSetTemplateTableTable extends WorkoutSetTemplateTable
         DriftSqlType.string,
         data['${effectivePrefix}server_id'],
       ),
+      syncStatus:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.int,
+            data['${effectivePrefix}sync_status'],
+          )!,
     );
   }
 
@@ -7129,9 +7786,8 @@ class WorkoutSetTemplateData extends DataClass
   final int setNumber;
   final String targetReps;
   final int orderPosition;
-
-  /// The UUID assigned by the remote API after the first successful sync. Null until synced.
   final String? serverId;
+  final int syncStatus;
   const WorkoutSetTemplateData({
     required this.id,
     required this.workoutExerciseId,
@@ -7139,6 +7795,7 @@ class WorkoutSetTemplateData extends DataClass
     required this.targetReps,
     required this.orderPosition,
     this.serverId,
+    required this.syncStatus,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -7151,6 +7808,7 @@ class WorkoutSetTemplateData extends DataClass
     if (!nullToAbsent || serverId != null) {
       map['server_id'] = Variable<String>(serverId);
     }
+    map['sync_status'] = Variable<int>(syncStatus);
     return map;
   }
 
@@ -7165,6 +7823,7 @@ class WorkoutSetTemplateData extends DataClass
           serverId == null && nullToAbsent
               ? const Value.absent()
               : Value(serverId),
+      syncStatus: Value(syncStatus),
     );
   }
 
@@ -7180,6 +7839,7 @@ class WorkoutSetTemplateData extends DataClass
       targetReps: serializer.fromJson<String>(json['targetReps']),
       orderPosition: serializer.fromJson<int>(json['orderPosition']),
       serverId: serializer.fromJson<String?>(json['serverId']),
+      syncStatus: serializer.fromJson<int>(json['syncStatus']),
     );
   }
   @override
@@ -7192,6 +7852,7 @@ class WorkoutSetTemplateData extends DataClass
       'targetReps': serializer.toJson<String>(targetReps),
       'orderPosition': serializer.toJson<int>(orderPosition),
       'serverId': serializer.toJson<String?>(serverId),
+      'syncStatus': serializer.toJson<int>(syncStatus),
     };
   }
 
@@ -7202,6 +7863,7 @@ class WorkoutSetTemplateData extends DataClass
     String? targetReps,
     int? orderPosition,
     Value<String?> serverId = const Value.absent(),
+    int? syncStatus,
   }) => WorkoutSetTemplateData(
     id: id ?? this.id,
     workoutExerciseId: workoutExerciseId ?? this.workoutExerciseId,
@@ -7209,6 +7871,7 @@ class WorkoutSetTemplateData extends DataClass
     targetReps: targetReps ?? this.targetReps,
     orderPosition: orderPosition ?? this.orderPosition,
     serverId: serverId.present ? serverId.value : this.serverId,
+    syncStatus: syncStatus ?? this.syncStatus,
   );
   WorkoutSetTemplateData copyWithCompanion(
     WorkoutSetTemplateTableCompanion data,
@@ -7227,6 +7890,8 @@ class WorkoutSetTemplateData extends DataClass
               ? data.orderPosition.value
               : this.orderPosition,
       serverId: data.serverId.present ? data.serverId.value : this.serverId,
+      syncStatus:
+          data.syncStatus.present ? data.syncStatus.value : this.syncStatus,
     );
   }
 
@@ -7238,7 +7903,8 @@ class WorkoutSetTemplateData extends DataClass
           ..write('setNumber: $setNumber, ')
           ..write('targetReps: $targetReps, ')
           ..write('orderPosition: $orderPosition, ')
-          ..write('serverId: $serverId')
+          ..write('serverId: $serverId, ')
+          ..write('syncStatus: $syncStatus')
           ..write(')'))
         .toString();
   }
@@ -7251,6 +7917,7 @@ class WorkoutSetTemplateData extends DataClass
     targetReps,
     orderPosition,
     serverId,
+    syncStatus,
   );
   @override
   bool operator ==(Object other) =>
@@ -7261,7 +7928,8 @@ class WorkoutSetTemplateData extends DataClass
           other.setNumber == this.setNumber &&
           other.targetReps == this.targetReps &&
           other.orderPosition == this.orderPosition &&
-          other.serverId == this.serverId);
+          other.serverId == this.serverId &&
+          other.syncStatus == this.syncStatus);
 }
 
 class WorkoutSetTemplateTableCompanion
@@ -7272,6 +7940,7 @@ class WorkoutSetTemplateTableCompanion
   final Value<String> targetReps;
   final Value<int> orderPosition;
   final Value<String?> serverId;
+  final Value<int> syncStatus;
   const WorkoutSetTemplateTableCompanion({
     this.id = const Value.absent(),
     this.workoutExerciseId = const Value.absent(),
@@ -7279,6 +7948,7 @@ class WorkoutSetTemplateTableCompanion
     this.targetReps = const Value.absent(),
     this.orderPosition = const Value.absent(),
     this.serverId = const Value.absent(),
+    this.syncStatus = const Value.absent(),
   });
   WorkoutSetTemplateTableCompanion.insert({
     this.id = const Value.absent(),
@@ -7287,6 +7957,7 @@ class WorkoutSetTemplateTableCompanion
     required String targetReps,
     required int orderPosition,
     this.serverId = const Value.absent(),
+    this.syncStatus = const Value.absent(),
   }) : workoutExerciseId = Value(workoutExerciseId),
        setNumber = Value(setNumber),
        targetReps = Value(targetReps),
@@ -7298,6 +7969,7 @@ class WorkoutSetTemplateTableCompanion
     Expression<String>? targetReps,
     Expression<int>? orderPosition,
     Expression<String>? serverId,
+    Expression<int>? syncStatus,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -7306,6 +7978,7 @@ class WorkoutSetTemplateTableCompanion
       if (targetReps != null) 'target_reps': targetReps,
       if (orderPosition != null) 'order_position': orderPosition,
       if (serverId != null) 'server_id': serverId,
+      if (syncStatus != null) 'sync_status': syncStatus,
     });
   }
 
@@ -7316,6 +7989,7 @@ class WorkoutSetTemplateTableCompanion
     Value<String>? targetReps,
     Value<int>? orderPosition,
     Value<String?>? serverId,
+    Value<int>? syncStatus,
   }) {
     return WorkoutSetTemplateTableCompanion(
       id: id ?? this.id,
@@ -7324,6 +7998,7 @@ class WorkoutSetTemplateTableCompanion
       targetReps: targetReps ?? this.targetReps,
       orderPosition: orderPosition ?? this.orderPosition,
       serverId: serverId ?? this.serverId,
+      syncStatus: syncStatus ?? this.syncStatus,
     );
   }
 
@@ -7348,6 +8023,9 @@ class WorkoutSetTemplateTableCompanion
     if (serverId.present) {
       map['server_id'] = Variable<String>(serverId.value);
     }
+    if (syncStatus.present) {
+      map['sync_status'] = Variable<int>(syncStatus.value);
+    }
     return map;
   }
 
@@ -7359,7 +8037,8 @@ class WorkoutSetTemplateTableCompanion
           ..write('setNumber: $setNumber, ')
           ..write('targetReps: $targetReps, ')
           ..write('orderPosition: $orderPosition, ')
-          ..write('serverId: $serverId')
+          ..write('serverId: $serverId, ')
+          ..write('syncStatus: $syncStatus')
           ..write(')'))
         .toString();
   }
@@ -7515,6 +8194,8 @@ typedef $$FoodItemTableCreateCompanionBuilder =
       Value<int> gramm,
       Value<bool> hiddenFromRecent,
       Value<String?> extendedNutrientsJson,
+      Value<int> syncStatus,
+      Value<String?> serverId,
     });
 typedef $$FoodItemTableUpdateCompanionBuilder =
     FoodItemCompanion Function({
@@ -7527,6 +8208,8 @@ typedef $$FoodItemTableUpdateCompanionBuilder =
       Value<int> gramm,
       Value<bool> hiddenFromRecent,
       Value<String?> extendedNutrientsJson,
+      Value<int> syncStatus,
+      Value<String?> serverId,
     });
 
 final class $$FoodItemTableReferences
@@ -7609,6 +8292,16 @@ class $$FoodItemTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<int> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get serverId => $composableBuilder(
+    column: $table.serverId,
+    builder: (column) => ColumnFilters(column),
+  );
+
   Expression<bool> mealFoodTableRefs(
     Expression<bool> Function($$MealFoodTableTableFilterComposer f) f,
   ) {
@@ -7688,6 +8381,16 @@ class $$FoodItemTableOrderingComposer
     column: $table.extendedNutrientsJson,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get serverId => $composableBuilder(
+    column: $table.serverId,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$FoodItemTableAnnotationComposer
@@ -7729,6 +8432,14 @@ class $$FoodItemTableAnnotationComposer
     column: $table.extendedNutrientsJson,
     builder: (column) => column,
   );
+
+  GeneratedColumn<int> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get serverId =>
+      $composableBuilder(column: $table.serverId, builder: (column) => column);
 
   Expression<T> mealFoodTableRefs<T extends Object>(
     Expression<T> Function($$MealFoodTableTableAnnotationComposer a) f,
@@ -7793,6 +8504,8 @@ class $$FoodItemTableTableManager
                 Value<int> gramm = const Value.absent(),
                 Value<bool> hiddenFromRecent = const Value.absent(),
                 Value<String?> extendedNutrientsJson = const Value.absent(),
+                Value<int> syncStatus = const Value.absent(),
+                Value<String?> serverId = const Value.absent(),
               }) => FoodItemCompanion(
                 id: id,
                 name: name,
@@ -7803,6 +8516,8 @@ class $$FoodItemTableTableManager
                 gramm: gramm,
                 hiddenFromRecent: hiddenFromRecent,
                 extendedNutrientsJson: extendedNutrientsJson,
+                syncStatus: syncStatus,
+                serverId: serverId,
               ),
           createCompanionCallback:
               ({
@@ -7815,6 +8530,8 @@ class $$FoodItemTableTableManager
                 Value<int> gramm = const Value.absent(),
                 Value<bool> hiddenFromRecent = const Value.absent(),
                 Value<String?> extendedNutrientsJson = const Value.absent(),
+                Value<int> syncStatus = const Value.absent(),
+                Value<String?> serverId = const Value.absent(),
               }) => FoodItemCompanion.insert(
                 id: id,
                 name: name,
@@ -7825,6 +8542,8 @@ class $$FoodItemTableTableManager
                 gramm: gramm,
                 hiddenFromRecent: hiddenFromRecent,
                 extendedNutrientsJson: extendedNutrientsJson,
+                syncStatus: syncStatus,
+                serverId: serverId,
               ),
           withReferenceMapper:
               (p0) =>
@@ -8219,6 +8938,8 @@ typedef $$MealTableTableCreateCompanionBuilder =
       required DateTime date,
       required String category,
       required int foodItemId,
+      Value<int> syncStatus,
+      Value<String?> serverId,
     });
 typedef $$MealTableTableUpdateCompanionBuilder =
     MealTableCompanion Function({
@@ -8226,6 +8947,8 @@ typedef $$MealTableTableUpdateCompanionBuilder =
       Value<DateTime> date,
       Value<String> category,
       Value<int> foodItemId,
+      Value<int> syncStatus,
+      Value<String?> serverId,
     });
 
 final class $$MealTableTableReferences
@@ -8277,6 +9000,16 @@ class $$MealTableTableFilterComposer
 
   ColumnFilters<int> get foodItemId => $composableBuilder(
     column: $table.foodItemId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get serverId => $composableBuilder(
+    column: $table.serverId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -8334,6 +9067,16 @@ class $$MealTableTableOrderingComposer
     column: $table.foodItemId,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get serverId => $composableBuilder(
+    column: $table.serverId,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$MealTableTableAnnotationComposer
@@ -8358,6 +9101,14 @@ class $$MealTableTableAnnotationComposer
     column: $table.foodItemId,
     builder: (column) => column,
   );
+
+  GeneratedColumn<int> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get serverId =>
+      $composableBuilder(column: $table.serverId, builder: (column) => column);
 
   Expression<T> mealFoodTableRefs<T extends Object>(
     Expression<T> Function($$MealFoodTableTableAnnotationComposer a) f,
@@ -8417,11 +9168,15 @@ class $$MealTableTableTableManager
                 Value<DateTime> date = const Value.absent(),
                 Value<String> category = const Value.absent(),
                 Value<int> foodItemId = const Value.absent(),
+                Value<int> syncStatus = const Value.absent(),
+                Value<String?> serverId = const Value.absent(),
               }) => MealTableCompanion(
                 id: id,
                 date: date,
                 category: category,
                 foodItemId: foodItemId,
+                syncStatus: syncStatus,
+                serverId: serverId,
               ),
           createCompanionCallback:
               ({
@@ -8429,11 +9184,15 @@ class $$MealTableTableTableManager
                 required DateTime date,
                 required String category,
                 required int foodItemId,
+                Value<int> syncStatus = const Value.absent(),
+                Value<String?> serverId = const Value.absent(),
               }) => MealTableCompanion.insert(
                 id: id,
                 date: date,
                 category: category,
                 foodItemId: foodItemId,
+                syncStatus: syncStatus,
+                serverId: serverId,
               ),
           withReferenceMapper:
               (p0) =>
@@ -8502,12 +9261,14 @@ typedef $$MealFoodTableTableCreateCompanionBuilder =
       Value<int> id,
       required int mealId,
       required int foodEntryId,
+      Value<String?> serverId,
     });
 typedef $$MealFoodTableTableUpdateCompanionBuilder =
     MealFoodTableCompanion Function({
       Value<int> id,
       Value<int> mealId,
       Value<int> foodEntryId,
+      Value<String?> serverId,
     });
 
 final class $$MealFoodTableTableReferences
@@ -8572,6 +9333,11 @@ class $$MealFoodTableTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get serverId => $composableBuilder(
+    column: $table.serverId,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$MealTableTableFilterComposer get mealId {
     final $$MealTableTableFilterComposer composer = $composerBuilder(
       composer: this,
@@ -8633,6 +9399,11 @@ class $$MealFoodTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get serverId => $composableBuilder(
+    column: $table.serverId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$MealTableTableOrderingComposer get mealId {
     final $$MealTableTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -8691,6 +9462,9 @@ class $$MealFoodTableTableAnnotationComposer
   });
   GeneratedColumn<int> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get serverId =>
+      $composableBuilder(column: $table.serverId, builder: (column) => column);
 
   $$MealTableTableAnnotationComposer get mealId {
     final $$MealTableTableAnnotationComposer composer = $composerBuilder(
@@ -8774,20 +9548,24 @@ class $$MealFoodTableTableTableManager
                 Value<int> id = const Value.absent(),
                 Value<int> mealId = const Value.absent(),
                 Value<int> foodEntryId = const Value.absent(),
+                Value<String?> serverId = const Value.absent(),
               }) => MealFoodTableCompanion(
                 id: id,
                 mealId: mealId,
                 foodEntryId: foodEntryId,
+                serverId: serverId,
               ),
           createCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
                 required int mealId,
                 required int foodEntryId,
+                Value<String?> serverId = const Value.absent(),
               }) => MealFoodTableCompanion.insert(
                 id: id,
                 mealId: mealId,
                 foodEntryId: foodEntryId,
+                serverId: serverId,
               ),
           withReferenceMapper:
               (p0) =>
@@ -9293,6 +10071,7 @@ typedef $$ExerciseTableTableCreateCompanionBuilder =
       Value<String?> imageUrl,
       Value<bool> isCustom,
       Value<String?> serverId,
+      Value<int> syncStatus,
     });
 typedef $$ExerciseTableTableUpdateCompanionBuilder =
     ExerciseTableCompanion Function({
@@ -9306,6 +10085,7 @@ typedef $$ExerciseTableTableUpdateCompanionBuilder =
       Value<String?> imageUrl,
       Value<bool> isCustom,
       Value<String?> serverId,
+      Value<int> syncStatus,
     });
 
 final class $$ExerciseTableTableReferences
@@ -9405,6 +10185,11 @@ class $$ExerciseTableTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<int> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+
   Expression<bool> workoutExerciseTableRefs(
     Expression<bool> Function($$WorkoutExerciseTableTableFilterComposer f) f,
   ) {
@@ -9489,6 +10274,11 @@ class $$ExerciseTableTableOrderingComposer
     column: $table.serverId,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$ExerciseTableTableAnnotationComposer
@@ -9535,6 +10325,11 @@ class $$ExerciseTableTableAnnotationComposer
 
   GeneratedColumn<String> get serverId =>
       $composableBuilder(column: $table.serverId, builder: (column) => column);
+
+  GeneratedColumn<int> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => column,
+  );
 
   Expression<T> workoutExerciseTableRefs<T extends Object>(
     Expression<T> Function($$WorkoutExerciseTableTableAnnotationComposer a) f,
@@ -9605,6 +10400,7 @@ class $$ExerciseTableTableTableManager
                 Value<String?> imageUrl = const Value.absent(),
                 Value<bool> isCustom = const Value.absent(),
                 Value<String?> serverId = const Value.absent(),
+                Value<int> syncStatus = const Value.absent(),
               }) => ExerciseTableCompanion(
                 id: id,
                 name: name,
@@ -9616,6 +10412,7 @@ class $$ExerciseTableTableTableManager
                 imageUrl: imageUrl,
                 isCustom: isCustom,
                 serverId: serverId,
+                syncStatus: syncStatus,
               ),
           createCompanionCallback:
               ({
@@ -9629,6 +10426,7 @@ class $$ExerciseTableTableTableManager
                 Value<String?> imageUrl = const Value.absent(),
                 Value<bool> isCustom = const Value.absent(),
                 Value<String?> serverId = const Value.absent(),
+                Value<int> syncStatus = const Value.absent(),
               }) => ExerciseTableCompanion.insert(
                 id: id,
                 name: name,
@@ -9640,6 +10438,7 @@ class $$ExerciseTableTableTableManager
                 imageUrl: imageUrl,
                 isCustom: isCustom,
                 serverId: serverId,
+                syncStatus: syncStatus,
               ),
           withReferenceMapper:
               (p0) =>
@@ -9716,6 +10515,7 @@ typedef $$WorkoutTableTableCreateCompanionBuilder =
       Value<DateTime?> completedDate,
       Value<int?> color,
       Value<String?> serverId,
+      Value<int> syncStatus,
     });
 typedef $$WorkoutTableTableUpdateCompanionBuilder =
     WorkoutTableCompanion Function({
@@ -9729,6 +10529,7 @@ typedef $$WorkoutTableTableUpdateCompanionBuilder =
       Value<DateTime?> completedDate,
       Value<int?> color,
       Value<String?> serverId,
+      Value<int> syncStatus,
     });
 
 final class $$WorkoutTableTableReferences
@@ -9908,6 +10709,11 @@ class $$WorkoutTableTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<int> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+
   Expression<bool> workoutExerciseTableRefs(
     Expression<bool> Function($$WorkoutExerciseTableTableFilterComposer f) f,
   ) {
@@ -10070,6 +10876,11 @@ class $$WorkoutTableTableOrderingComposer
     column: $table.serverId,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$WorkoutTableTableAnnotationComposer
@@ -10122,6 +10933,11 @@ class $$WorkoutTableTableAnnotationComposer
 
   GeneratedColumn<String> get serverId =>
       $composableBuilder(column: $table.serverId, builder: (column) => column);
+
+  GeneratedColumn<int> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => column,
+  );
 
   Expression<T> workoutExerciseTableRefs<T extends Object>(
     Expression<T> Function($$WorkoutExerciseTableTableAnnotationComposer a) f,
@@ -10273,6 +11089,7 @@ class $$WorkoutTableTableTableManager
                 Value<DateTime?> completedDate = const Value.absent(),
                 Value<int?> color = const Value.absent(),
                 Value<String?> serverId = const Value.absent(),
+                Value<int> syncStatus = const Value.absent(),
               }) => WorkoutTableCompanion(
                 id: id,
                 name: name,
@@ -10284,6 +11101,7 @@ class $$WorkoutTableTableTableManager
                 completedDate: completedDate,
                 color: color,
                 serverId: serverId,
+                syncStatus: syncStatus,
               ),
           createCompanionCallback:
               ({
@@ -10297,6 +11115,7 @@ class $$WorkoutTableTableTableManager
                 Value<DateTime?> completedDate = const Value.absent(),
                 Value<int?> color = const Value.absent(),
                 Value<String?> serverId = const Value.absent(),
+                Value<int> syncStatus = const Value.absent(),
               }) => WorkoutTableCompanion.insert(
                 id: id,
                 name: name,
@@ -10308,6 +11127,7 @@ class $$WorkoutTableTableTableManager
                 completedDate: completedDate,
                 color: color,
                 serverId: serverId,
+                syncStatus: syncStatus,
               ),
           withReferenceMapper:
               (p0) =>
@@ -10462,6 +11282,7 @@ typedef $$WorkoutPlanTableTableCreateCompanionBuilder =
       required String cyclePatternJson,
       Value<bool> isFreeChoice,
       Value<String?> serverId,
+      Value<int> syncStatus,
     });
 typedef $$WorkoutPlanTableTableUpdateCompanionBuilder =
     WorkoutPlanTableCompanion Function({
@@ -10474,6 +11295,7 @@ typedef $$WorkoutPlanTableTableUpdateCompanionBuilder =
       Value<String> cyclePatternJson,
       Value<bool> isFreeChoice,
       Value<String?> serverId,
+      Value<int> syncStatus,
     });
 
 final class $$WorkoutPlanTableTableReferences
@@ -10600,6 +11422,11 @@ class $$WorkoutPlanTableTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<int> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+
   Expression<bool> scheduledWorkoutTableRefs(
     Expression<bool> Function($$ScheduledWorkoutTableTableFilterComposer f) f,
   ) {
@@ -10706,6 +11533,11 @@ class $$WorkoutPlanTableTableOrderingComposer
     column: $table.serverId,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$WorkoutPlanTableTableAnnotationComposer
@@ -10749,6 +11581,11 @@ class $$WorkoutPlanTableTableAnnotationComposer
 
   GeneratedColumn<String> get serverId =>
       $composableBuilder(column: $table.serverId, builder: (column) => column);
+
+  GeneratedColumn<int> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => column,
+  );
 
   Expression<T> scheduledWorkoutTableRefs<T extends Object>(
     Expression<T> Function($$ScheduledWorkoutTableTableAnnotationComposer a) f,
@@ -10853,6 +11690,7 @@ class $$WorkoutPlanTableTableTableManager
                 Value<String> cyclePatternJson = const Value.absent(),
                 Value<bool> isFreeChoice = const Value.absent(),
                 Value<String?> serverId = const Value.absent(),
+                Value<int> syncStatus = const Value.absent(),
               }) => WorkoutPlanTableCompanion(
                 id: id,
                 name: name,
@@ -10863,6 +11701,7 @@ class $$WorkoutPlanTableTableTableManager
                 cyclePatternJson: cyclePatternJson,
                 isFreeChoice: isFreeChoice,
                 serverId: serverId,
+                syncStatus: syncStatus,
               ),
           createCompanionCallback:
               ({
@@ -10875,6 +11714,7 @@ class $$WorkoutPlanTableTableTableManager
                 required String cyclePatternJson,
                 Value<bool> isFreeChoice = const Value.absent(),
                 Value<String?> serverId = const Value.absent(),
+                Value<int> syncStatus = const Value.absent(),
               }) => WorkoutPlanTableCompanion.insert(
                 id: id,
                 name: name,
@@ -10885,6 +11725,7 @@ class $$WorkoutPlanTableTableTableManager
                 cyclePatternJson: cyclePatternJson,
                 isFreeChoice: isFreeChoice,
                 serverId: serverId,
+                syncStatus: syncStatus,
               ),
           withReferenceMapper:
               (p0) =>
@@ -10986,6 +11827,7 @@ typedef $$WorkoutExerciseTableTableCreateCompanionBuilder =
       Value<String?> notes,
       Value<int?> supersetGroupId,
       Value<String?> serverId,
+      Value<int> syncStatus,
     });
 typedef $$WorkoutExerciseTableTableUpdateCompanionBuilder =
     WorkoutExerciseTableCompanion Function({
@@ -10996,6 +11838,7 @@ typedef $$WorkoutExerciseTableTableUpdateCompanionBuilder =
       Value<String?> notes,
       Value<int?> supersetGroupId,
       Value<String?> serverId,
+      Value<int> syncStatus,
     });
 
 final class $$WorkoutExerciseTableTableReferences
@@ -11146,6 +11989,11 @@ class $$WorkoutExerciseTableTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<int> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$WorkoutTableTableFilterComposer get workoutId {
     final $$WorkoutTableTableFilterComposer composer = $composerBuilder(
       composer: this,
@@ -11282,6 +12130,11 @@ class $$WorkoutExerciseTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$WorkoutTableTableOrderingComposer get workoutId {
     final $$WorkoutTableTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -11356,6 +12209,11 @@ class $$WorkoutExerciseTableTableAnnotationComposer
 
   GeneratedColumn<String> get serverId =>
       $composableBuilder(column: $table.serverId, builder: (column) => column);
+
+  GeneratedColumn<int> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => column,
+  );
 
   $$WorkoutTableTableAnnotationComposer get workoutId {
     final $$WorkoutTableTableAnnotationComposer composer = $composerBuilder(
@@ -11511,6 +12369,7 @@ class $$WorkoutExerciseTableTableTableManager
                 Value<String?> notes = const Value.absent(),
                 Value<int?> supersetGroupId = const Value.absent(),
                 Value<String?> serverId = const Value.absent(),
+                Value<int> syncStatus = const Value.absent(),
               }) => WorkoutExerciseTableCompanion(
                 id: id,
                 workoutId: workoutId,
@@ -11519,6 +12378,7 @@ class $$WorkoutExerciseTableTableTableManager
                 notes: notes,
                 supersetGroupId: supersetGroupId,
                 serverId: serverId,
+                syncStatus: syncStatus,
               ),
           createCompanionCallback:
               ({
@@ -11529,6 +12389,7 @@ class $$WorkoutExerciseTableTableTableManager
                 Value<String?> notes = const Value.absent(),
                 Value<int?> supersetGroupId = const Value.absent(),
                 Value<String?> serverId = const Value.absent(),
+                Value<int> syncStatus = const Value.absent(),
               }) => WorkoutExerciseTableCompanion.insert(
                 id: id,
                 workoutId: workoutId,
@@ -11537,6 +12398,7 @@ class $$WorkoutExerciseTableTableTableManager
                 notes: notes,
                 supersetGroupId: supersetGroupId,
                 serverId: serverId,
+                syncStatus: syncStatus,
               ),
           withReferenceMapper:
               (p0) =>
@@ -11694,6 +12556,7 @@ typedef $$ScheduledWorkoutTableTableCreateCompanionBuilder =
       Value<bool> isCompleted,
       Value<bool> isSkipped,
       Value<String?> serverId,
+      Value<int> syncStatus,
     });
 typedef $$ScheduledWorkoutTableTableUpdateCompanionBuilder =
     ScheduledWorkoutTableCompanion Function({
@@ -11707,6 +12570,7 @@ typedef $$ScheduledWorkoutTableTableUpdateCompanionBuilder =
       Value<bool> isCompleted,
       Value<bool> isSkipped,
       Value<String?> serverId,
+      Value<int> syncStatus,
     });
 
 final class $$ScheduledWorkoutTableTableReferences
@@ -11863,6 +12727,11 @@ class $$ScheduledWorkoutTableTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<int> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$WorkoutTableTableFilterComposer get workoutId {
     final $$WorkoutTableTableFilterComposer composer = $composerBuilder(
       composer: this,
@@ -12006,6 +12875,11 @@ class $$ScheduledWorkoutTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$WorkoutTableTableOrderingComposer get workoutId {
     final $$WorkoutTableTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -12109,6 +12983,11 @@ class $$ScheduledWorkoutTableTableAnnotationComposer
 
   GeneratedColumn<String> get serverId =>
       $composableBuilder(column: $table.serverId, builder: (column) => column);
+
+  GeneratedColumn<int> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => column,
+  );
 
   $$WorkoutTableTableAnnotationComposer get workoutId {
     final $$WorkoutTableTableAnnotationComposer composer = $composerBuilder(
@@ -12263,6 +13142,7 @@ class $$ScheduledWorkoutTableTableTableManager
                 Value<bool> isCompleted = const Value.absent(),
                 Value<bool> isSkipped = const Value.absent(),
                 Value<String?> serverId = const Value.absent(),
+                Value<int> syncStatus = const Value.absent(),
               }) => ScheduledWorkoutTableCompanion(
                 id: id,
                 workoutId: workoutId,
@@ -12274,6 +13154,7 @@ class $$ScheduledWorkoutTableTableTableManager
                 isCompleted: isCompleted,
                 isSkipped: isSkipped,
                 serverId: serverId,
+                syncStatus: syncStatus,
               ),
           createCompanionCallback:
               ({
@@ -12287,6 +13168,7 @@ class $$ScheduledWorkoutTableTableTableManager
                 Value<bool> isCompleted = const Value.absent(),
                 Value<bool> isSkipped = const Value.absent(),
                 Value<String?> serverId = const Value.absent(),
+                Value<int> syncStatus = const Value.absent(),
               }) => ScheduledWorkoutTableCompanion.insert(
                 id: id,
                 workoutId: workoutId,
@@ -12298,6 +13180,7 @@ class $$ScheduledWorkoutTableTableTableManager
                 isCompleted: isCompleted,
                 isSkipped: isSkipped,
                 serverId: serverId,
+                syncStatus: syncStatus,
               ),
           withReferenceMapper:
               (p0) =>
@@ -12444,6 +13327,7 @@ typedef $$ScheduledWorkoutExerciseTableTableCreateCompanionBuilder =
       Value<String?> notes,
       Value<int?> overrideExerciseId,
       Value<String?> serverId,
+      Value<int> syncStatus,
     });
 typedef $$ScheduledWorkoutExerciseTableTableUpdateCompanionBuilder =
     ScheduledWorkoutExerciseTableCompanion Function({
@@ -12454,6 +13338,7 @@ typedef $$ScheduledWorkoutExerciseTableTableUpdateCompanionBuilder =
       Value<String?> notes,
       Value<int?> overrideExerciseId,
       Value<String?> serverId,
+      Value<int> syncStatus,
     });
 
 final class $$ScheduledWorkoutExerciseTableTableReferences
@@ -12575,6 +13460,11 @@ class $$ScheduledWorkoutExerciseTableTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<int> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$ScheduledWorkoutTableTableFilterComposer get scheduledWorkoutId {
     final $$ScheduledWorkoutTableTableFilterComposer composer =
         $composerBuilder(
@@ -12682,6 +13572,11 @@ class $$ScheduledWorkoutExerciseTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$ScheduledWorkoutTableTableOrderingComposer get scheduledWorkoutId {
     final $$ScheduledWorkoutTableTableOrderingComposer composer =
         $composerBuilder(
@@ -12758,6 +13653,11 @@ class $$ScheduledWorkoutExerciseTableTableAnnotationComposer
 
   GeneratedColumn<String> get serverId =>
       $composableBuilder(column: $table.serverId, builder: (column) => column);
+
+  GeneratedColumn<int> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => column,
+  );
 
   $$ScheduledWorkoutTableTableAnnotationComposer get scheduledWorkoutId {
     final $$ScheduledWorkoutTableTableAnnotationComposer composer =
@@ -12886,6 +13786,7 @@ class $$ScheduledWorkoutExerciseTableTableTableManager
                 Value<String?> notes = const Value.absent(),
                 Value<int?> overrideExerciseId = const Value.absent(),
                 Value<String?> serverId = const Value.absent(),
+                Value<int> syncStatus = const Value.absent(),
               }) => ScheduledWorkoutExerciseTableCompanion(
                 id: id,
                 scheduledWorkoutId: scheduledWorkoutId,
@@ -12894,6 +13795,7 @@ class $$ScheduledWorkoutExerciseTableTableTableManager
                 notes: notes,
                 overrideExerciseId: overrideExerciseId,
                 serverId: serverId,
+                syncStatus: syncStatus,
               ),
           createCompanionCallback:
               ({
@@ -12904,6 +13806,7 @@ class $$ScheduledWorkoutExerciseTableTableTableManager
                 Value<String?> notes = const Value.absent(),
                 Value<int?> overrideExerciseId = const Value.absent(),
                 Value<String?> serverId = const Value.absent(),
+                Value<int> syncStatus = const Value.absent(),
               }) => ScheduledWorkoutExerciseTableCompanion.insert(
                 id: id,
                 scheduledWorkoutId: scheduledWorkoutId,
@@ -12912,6 +13815,7 @@ class $$ScheduledWorkoutExerciseTableTableTableManager
                 notes: notes,
                 overrideExerciseId: overrideExerciseId,
                 serverId: serverId,
+                syncStatus: syncStatus,
               ),
           withReferenceMapper:
               (p0) =>
@@ -13051,6 +13955,7 @@ typedef $$WorkoutSetTableTableCreateCompanionBuilder =
       Value<bool> isCompleted,
       Value<String?> notes,
       Value<String?> serverId,
+      Value<int> syncStatus,
     });
 typedef $$WorkoutSetTableTableUpdateCompanionBuilder =
     WorkoutSetTableCompanion Function({
@@ -13064,6 +13969,7 @@ typedef $$WorkoutSetTableTableUpdateCompanionBuilder =
       Value<bool> isCompleted,
       Value<String?> notes,
       Value<String?> serverId,
+      Value<int> syncStatus,
     });
 
 final class $$WorkoutSetTableTableReferences
@@ -13160,6 +14066,11 @@ class $$WorkoutSetTableTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<int> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$ScheduledWorkoutExerciseTableTableFilterComposer
   get scheduledWorkoutExerciseId {
     final $$ScheduledWorkoutExerciseTableTableFilterComposer composer =
@@ -13240,6 +14151,11 @@ class $$WorkoutSetTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$ScheduledWorkoutExerciseTableTableOrderingComposer
   get scheduledWorkoutExerciseId {
     final $$ScheduledWorkoutExerciseTableTableOrderingComposer composer =
@@ -13307,6 +14223,11 @@ class $$WorkoutSetTableTableAnnotationComposer
 
   GeneratedColumn<String> get serverId =>
       $composableBuilder(column: $table.serverId, builder: (column) => column);
+
+  GeneratedColumn<int> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => column,
+  );
 
   $$ScheduledWorkoutExerciseTableTableAnnotationComposer
   get scheduledWorkoutExerciseId {
@@ -13381,6 +14302,7 @@ class $$WorkoutSetTableTableTableManager
                 Value<bool> isCompleted = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<String?> serverId = const Value.absent(),
+                Value<int> syncStatus = const Value.absent(),
               }) => WorkoutSetTableCompanion(
                 id: id,
                 scheduledWorkoutExerciseId: scheduledWorkoutExerciseId,
@@ -13392,6 +14314,7 @@ class $$WorkoutSetTableTableTableManager
                 isCompleted: isCompleted,
                 notes: notes,
                 serverId: serverId,
+                syncStatus: syncStatus,
               ),
           createCompanionCallback:
               ({
@@ -13405,6 +14328,7 @@ class $$WorkoutSetTableTableTableManager
                 Value<bool> isCompleted = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<String?> serverId = const Value.absent(),
+                Value<int> syncStatus = const Value.absent(),
               }) => WorkoutSetTableCompanion.insert(
                 id: id,
                 scheduledWorkoutExerciseId: scheduledWorkoutExerciseId,
@@ -13416,6 +14340,7 @@ class $$WorkoutSetTableTableTableManager
                 isCompleted: isCompleted,
                 notes: notes,
                 serverId: serverId,
+                syncStatus: syncStatus,
               ),
           withReferenceMapper:
               (p0) =>
@@ -13492,6 +14417,7 @@ typedef $$WorkoutPlanWorkoutTableTableCreateCompanionBuilder =
       required int planId,
       required int workoutId,
       Value<String?> serverId,
+      Value<int> syncStatus,
     });
 typedef $$WorkoutPlanWorkoutTableTableUpdateCompanionBuilder =
     WorkoutPlanWorkoutTableCompanion Function({
@@ -13499,6 +14425,7 @@ typedef $$WorkoutPlanWorkoutTableTableUpdateCompanionBuilder =
       Value<int> planId,
       Value<int> workoutId,
       Value<String?> serverId,
+      Value<int> syncStatus,
     });
 
 final class $$WorkoutPlanWorkoutTableTableReferences
@@ -13578,6 +14505,11 @@ class $$WorkoutPlanWorkoutTableTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<int> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$WorkoutPlanTableTableFilterComposer get planId {
     final $$WorkoutPlanTableTableFilterComposer composer = $composerBuilder(
       composer: this,
@@ -13644,6 +14576,11 @@ class $$WorkoutPlanWorkoutTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$WorkoutPlanTableTableOrderingComposer get planId {
     final $$WorkoutPlanTableTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -13705,6 +14642,11 @@ class $$WorkoutPlanWorkoutTableTableAnnotationComposer
 
   GeneratedColumn<String> get serverId =>
       $composableBuilder(column: $table.serverId, builder: (column) => column);
+
+  GeneratedColumn<int> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => column,
+  );
 
   $$WorkoutPlanTableTableAnnotationComposer get planId {
     final $$WorkoutPlanTableTableAnnotationComposer composer = $composerBuilder(
@@ -13799,11 +14741,13 @@ class $$WorkoutPlanWorkoutTableTableTableManager
                 Value<int> planId = const Value.absent(),
                 Value<int> workoutId = const Value.absent(),
                 Value<String?> serverId = const Value.absent(),
+                Value<int> syncStatus = const Value.absent(),
               }) => WorkoutPlanWorkoutTableCompanion(
                 id: id,
                 planId: planId,
                 workoutId: workoutId,
                 serverId: serverId,
+                syncStatus: syncStatus,
               ),
           createCompanionCallback:
               ({
@@ -13811,11 +14755,13 @@ class $$WorkoutPlanWorkoutTableTableTableManager
                 required int planId,
                 required int workoutId,
                 Value<String?> serverId = const Value.absent(),
+                Value<int> syncStatus = const Value.absent(),
               }) => WorkoutPlanWorkoutTableCompanion.insert(
                 id: id,
                 planId: planId,
                 workoutId: workoutId,
                 serverId: serverId,
+                syncStatus: syncStatus,
               ),
           withReferenceMapper:
               (p0) =>
@@ -13914,6 +14860,7 @@ typedef $$WorkoutSetTemplateTableTableCreateCompanionBuilder =
       required String targetReps,
       required int orderPosition,
       Value<String?> serverId,
+      Value<int> syncStatus,
     });
 typedef $$WorkoutSetTemplateTableTableUpdateCompanionBuilder =
     WorkoutSetTemplateTableCompanion Function({
@@ -13923,6 +14870,7 @@ typedef $$WorkoutSetTemplateTableTableUpdateCompanionBuilder =
       Value<String> targetReps,
       Value<int> orderPosition,
       Value<String?> serverId,
+      Value<int> syncStatus,
     });
 
 final class $$WorkoutSetTemplateTableTableReferences
@@ -13995,6 +14943,11 @@ class $$WorkoutSetTemplateTableTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<int> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$WorkoutExerciseTableTableFilterComposer get workoutExerciseId {
     final $$WorkoutExerciseTableTableFilterComposer composer = $composerBuilder(
       composer: this,
@@ -14053,6 +15006,11 @@ class $$WorkoutSetTemplateTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$WorkoutExerciseTableTableOrderingComposer get workoutExerciseId {
     final $$WorkoutExerciseTableTableOrderingComposer composer =
         $composerBuilder(
@@ -14105,6 +15063,11 @@ class $$WorkoutSetTemplateTableTableAnnotationComposer
 
   GeneratedColumn<String> get serverId =>
       $composableBuilder(column: $table.serverId, builder: (column) => column);
+
+  GeneratedColumn<int> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => column,
+  );
 
   $$WorkoutExerciseTableTableAnnotationComposer get workoutExerciseId {
     final $$WorkoutExerciseTableTableAnnotationComposer composer =
@@ -14176,6 +15139,7 @@ class $$WorkoutSetTemplateTableTableTableManager
                 Value<String> targetReps = const Value.absent(),
                 Value<int> orderPosition = const Value.absent(),
                 Value<String?> serverId = const Value.absent(),
+                Value<int> syncStatus = const Value.absent(),
               }) => WorkoutSetTemplateTableCompanion(
                 id: id,
                 workoutExerciseId: workoutExerciseId,
@@ -14183,6 +15147,7 @@ class $$WorkoutSetTemplateTableTableTableManager
                 targetReps: targetReps,
                 orderPosition: orderPosition,
                 serverId: serverId,
+                syncStatus: syncStatus,
               ),
           createCompanionCallback:
               ({
@@ -14192,6 +15157,7 @@ class $$WorkoutSetTemplateTableTableTableManager
                 required String targetReps,
                 required int orderPosition,
                 Value<String?> serverId = const Value.absent(),
+                Value<int> syncStatus = const Value.absent(),
               }) => WorkoutSetTemplateTableCompanion.insert(
                 id: id,
                 workoutExerciseId: workoutExerciseId,
@@ -14199,6 +15165,7 @@ class $$WorkoutSetTemplateTableTableTableManager
                 targetReps: targetReps,
                 orderPosition: orderPosition,
                 serverId: serverId,
+                syncStatus: syncStatus,
               ),
           withReferenceMapper:
               (p0) =>

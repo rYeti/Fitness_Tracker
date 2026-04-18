@@ -3,6 +3,7 @@ using System;
 using FitTracker.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace FitTracker.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260418105710_AddFoodMealUserSettings")]
+    partial class AddFoodMealUserSettings
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -152,75 +155,6 @@ namespace FitTracker.Api.Migrations
                     b.HasIndex("MealId");
 
                     b.ToTable("MealFoodEntries");
-                });
-
-            modelBuilder.Entity("FitTracker.Api.Models.MealTemplate", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Category")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Description")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("MealTemplates");
-                });
-
-            modelBuilder.Entity("FitTracker.Api.Models.MealTemplateItem", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<double>("Calories")
-                        .HasColumnType("double precision");
-
-                    b.Property<double>("Carbs")
-                        .HasColumnType("double precision");
-
-                    b.Property<double>("Fat")
-                        .HasColumnType("double precision");
-
-                    b.Property<Guid>("FoodId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("FoodName")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<double>("Protein")
-                        .HasColumnType("double precision");
-
-                    b.Property<double>("Quantity")
-                        .HasColumnType("double precision");
-
-                    b.Property<Guid>("TemplateId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Unit")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TemplateId");
-
-                    b.ToTable("MealTemplateItems");
                 });
 
             modelBuilder.Entity("FitTracker.Api.Models.ScheduledWorkout", b =>
@@ -649,28 +583,6 @@ namespace FitTracker.Api.Migrations
                     b.Navigation("Meal");
                 });
 
-            modelBuilder.Entity("FitTracker.Api.Models.MealTemplate", b =>
-                {
-                    b.HasOne("FitTracker.Api.Models.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("FitTracker.Api.Models.MealTemplateItem", b =>
-                {
-                    b.HasOne("FitTracker.Api.Models.MealTemplate", "Template")
-                        .WithMany("Items")
-                        .HasForeignKey("TemplateId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Template");
-                });
-
             modelBuilder.Entity("FitTracker.Api.Models.ScheduledWorkout", b =>
                 {
                     b.HasOne("FitTracker.Api.Models.Workout", "Workout")
@@ -807,11 +719,6 @@ namespace FitTracker.Api.Migrations
             modelBuilder.Entity("FitTracker.Api.Models.Meal", b =>
                 {
                     b.Navigation("FoodEntries");
-                });
-
-            modelBuilder.Entity("FitTracker.Api.Models.MealTemplate", b =>
-                {
-                    b.Navigation("Items");
                 });
 
             modelBuilder.Entity("FitTracker.Api.Models.ScheduledWorkout", b =>

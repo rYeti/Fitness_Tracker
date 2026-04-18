@@ -1,4 +1,5 @@
 import 'package:ForgeForm/core/app_database.dart';
+import 'package:ForgeForm/core/dao/meal_template_dao.dart';
 import 'package:ForgeForm/core/network/api_client.dart';
 import 'package:ForgeForm/core/network/services/sync_service.dart';
 import 'package:ForgeForm/core/seed_exercises.dart';
@@ -9,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:provider/provider.dart' as provider;
+import 'package:workmanager/workmanager.dart';
 import 'core/di/service_locator.dart';
 import 'core/providers/theme_provider.dart';
 import 'core/providers/user_goals_provider.dart';
@@ -28,6 +30,41 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'feature/onboarding/onboarding_screen.dart';
+
+const _backgroundSyncTask = 'com.forgeform.dailySync';
+
+/// Top-level callback required by workmanager — runs in a separate isolate.
+@pragma('vm:entry-point')
+void _backgroundSyncDispatcher() {
+  Workmanager().executeTask((taskName, inputData) async {
+    if (taskName != _backgroundSyncTask) return true;
+
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+    if (token == null) return true; // not logged in, nothing to sync
+
+    final serverUrl = prefs.getString(serverUrlPrefsKey) ?? serverUrlDefault;
+
+    // Background isolate has its own memory — re-initialise the locator and db.
+    setupLocator();
+    final db = AppDatabase();
+    registerDatabase(db);
+
+    final syncService = SyncService(
+      db: db,
+      apiClient: ApiClient(baseUrl: serverUrl),
+      mealTemplateDao: MealTemplateDao(db),
+    );
+
+    await syncService.syncAll();
+    await prefs.setInt(
+      'last_sync_timestamp',
+      DateTime.now().millisecondsSinceEpoch,
+    );
+
+    return true;
+  });
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -58,6 +95,16 @@ void main() async {
     overrides: [serverUrlProvider.overrideWith((ref) => serverUrlDefault)],
   );
   await container.read(authProvider.notifier).restoreSession();
+
+  // Register the once-a-day background sync task.
+  await Workmanager().initialize(_backgroundSyncDispatcher);
+  await Workmanager().registerPeriodicTask(
+    _backgroundSyncTask,
+    _backgroundSyncTask,
+    frequency: const Duration(hours: 24),
+    existingWorkPolicy: ExistingPeriodicWorkPolicy.keep, // don't reset the 24-h clock on every launch
+    constraints: Constraints(networkType: NetworkType.connected),
+  );
 
   runApp(
     UncontrolledProviderScope(
@@ -249,13 +296,28 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _runInitialSync() async {
     final prefs = await SharedPreferences.getInstance();
+
+    final lastSyncMs = prefs.getInt('last_sync_timestamp');
+    if (lastSyncMs != null) {
+      final lastSync = DateTime.fromMillisecondsSinceEpoch(lastSyncMs);
+      if (DateTime.now().difference(lastSync) < const Duration(hours: 24)) {
+        return;
+      }
+    }
+
     final serverUrl = prefs.getString(serverUrlPrefsKey) ?? serverUrlDefault;
 
+    final db = sl<AppDatabase>();
     final syncService = SyncService(
-      db: sl<AppDatabase>(),
+      db: db,
       apiClient: ApiClient(baseUrl: serverUrl),
+      mealTemplateDao: MealTemplateDao(db),
     );
 
     await syncService.syncAll();
+    await prefs.setInt(
+      'last_sync_timestamp',
+      DateTime.now().millisecondsSinceEpoch,
+    );
   }
 }

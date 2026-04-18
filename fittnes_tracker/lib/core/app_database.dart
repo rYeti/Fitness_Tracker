@@ -60,7 +60,7 @@ class AppDatabase extends _$AppDatabase {
   // Workout planning DAOs will be added here after code generation
 
   @override
-  int get schemaVersion => 30;
+  int get schemaVersion => 31;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -199,6 +199,38 @@ class AppDatabase extends _$AppDatabase {
         ]) {
           try {
             await customStatement(stmt);
+          } catch (_) {}
+        }
+      }
+
+      if (from < 31) {
+        // Add sync_status to all tables that were missing it.
+        for (final table in [
+          'food_item',
+          'meal_table',
+          'meal_food_table',
+          'exercise_table',
+          'workout_table',
+          'workout_exercise_table',
+          'workout_set_template_table',
+          'workout_plan_table',
+          'workout_plan_workout_table',
+          'scheduled_workout_table',
+          'scheduled_workout_exercise_table',
+          'workout_set_table',
+        ]) {
+          try {
+            await customStatement(
+              'ALTER TABLE $table ADD COLUMN sync_status INTEGER NOT NULL DEFAULT 0',
+            );
+          } catch (_) {}
+        }
+        // Add server_id to food tracking tables (workout tables already have it from v29).
+        for (final table in ['food_item', 'meal_table', 'meal_food_table']) {
+          try {
+            await customStatement(
+              'ALTER TABLE $table ADD COLUMN server_id TEXT',
+            );
           } catch (_) {}
         }
       }
@@ -707,6 +739,7 @@ class ScheduledWorkoutDao extends DatabaseAccessor<AppDatabase>
           workoutPlanId: row.readNullable<int>('workout_plan_id'),
           createdAt: row.read<DateTime>('created_at'),
           templateWorkoutId: row.readNullable<int>('template_workout_id'),
+          syncStatus: 0,
         );
 
         // Prefer the actual workout row (w_*). If missing, fall back to the
@@ -727,6 +760,7 @@ class ScheduledWorkoutDao extends DatabaseAccessor<AppDatabase>
             scheduledDate: null,
             completedDate: null,
             color: row.readNullable<int>('w_color'),
+            syncStatus: 0,
           );
         } else if (row.readNullable<int>('tw_id') != null) {
           workout = WorkoutTableData(
@@ -741,6 +775,7 @@ class ScheduledWorkoutDao extends DatabaseAccessor<AppDatabase>
             scheduledDate: null,
             completedDate: null,
             color: row.readNullable<int>('tw_color'),
+            syncStatus: 0,
           );
         } else {
           workout = null;
@@ -811,6 +846,9 @@ class ScheduledWorkoutWithDetails {
   ScheduledWorkoutWithDetails({required this.scheduled, this.workout});
 }
 
+/// Sync state for a locally-stored food item.
+enum FoodItemSyncStatus { pending, synced, pendingUpdate, pendingDelete }
+
 class FoodItem extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get name => text()();
@@ -824,6 +862,10 @@ class FoodItem extends Table {
   /// JSON-encoded [ExtendedNutrients]. Null for custom foods and any entry
   /// added before this column was introduced.
   TextColumn get extendedNutrientsJson => text().nullable()();
+  /// Maps to [FoodItemSyncStatus] by index.
+  IntColumn get syncStatus => integer().withDefault(const Constant(0))();
+  /// UUID assigned by the remote API after first successful sync.
+  TextColumn get serverId => text().nullable()();
 }
 
 class UserSettings extends Table {
@@ -843,17 +885,26 @@ class UserSettings extends Table {
   RealColumn get goalWeight => real().withDefault(const Constant(70.0))();
 }
 
+/// Sync state for a locally-stored meal.
+enum MealSyncStatus { pending, synced, pendingUpdate, pendingDelete }
+
 class MealTable extends Table {
   IntColumn get id => integer().autoIncrement()();
   DateTimeColumn get date => dateTime()();
   TextColumn get category => text()();
   IntColumn get foodItemId => integer()();
+  /// Maps to [MealSyncStatus] by index.
+  IntColumn get syncStatus => integer().withDefault(const Constant(0))();
+  /// UUID assigned by the remote API after first successful sync.
+  TextColumn get serverId => text().nullable()();
 }
 
 class MealFoodTable extends Table {
   IntColumn get id => integer().autoIncrement()();
   IntColumn get mealId => integer().references(MealTable, #id)();
   IntColumn get foodEntryId => integer().references(FoodItem, #id)();
+  /// UUID of the MealFoodEntry on the server, used to delete specific entries.
+  TextColumn get serverId => text().nullable()();
 }
 
 // Persistent search cache table
@@ -935,9 +986,32 @@ class FoodItemDao extends DatabaseAccessor<AppDatabase>
         carbs: Value(carbs),
         fat: Value(fat),
         gramm: Value(gramm),
+        syncStatus: const Value(2), // pendingUpdate
       ),
     );
   }
+
+  // ── Sync helpers ────────────────────────────────────────────────────────────
+
+  Future<List<FoodItemData>> getUnsyncedItems() =>
+      (select(foodItem)
+        ..where((t) => t.syncStatus.isNotValue(1))).get(); // not synced
+
+  Future<void> markSynced({required int localId, required String serverId}) =>
+      (update(foodItem)..where((t) => t.id.equals(localId))).write(
+        FoodItemCompanion(
+          syncStatus: const Value(1), // synced
+          serverId: Value(serverId),
+        ),
+      );
+
+  Future<void> markPendingDelete(int id) =>
+      (update(foodItem)..where((t) => t.id.equals(id))).write(
+        const FoodItemCompanion(syncStatus: Value(3)), // pendingDelete
+      );
+
+  Future<void> deleteById(int id) =>
+      (delete(foodItem)..where((t) => t.id.equals(id))).go();
 }
 
 @DriftAccessor(tables: [UserSettings])
@@ -1083,6 +1157,40 @@ class MealDao extends DatabaseAccessor<AppDatabase> with _$MealDaoMixin {
       (tbl) => tbl.mealId.equals(mealId) & tbl.foodEntryId.equals(foodId),
     )).go();
   }
+
+  // ── Sync helpers ────────────────────────────────────────────────────────────
+
+  Future<List<MealTableData>> getUnsyncedMeals() =>
+      (select(mealTable)..where((t) => t.syncStatus.isNotValue(1))).get();
+
+  Future<void> markMealSynced({
+    required int localId,
+    required String serverId,
+  }) =>
+      (update(mealTable)..where((t) => t.id.equals(localId))).write(
+        MealTableCompanion(
+          syncStatus: const Value(1),
+          serverId: Value(serverId),
+        ),
+      );
+
+  Future<void> markMealPendingUpdate(int id) =>
+      (update(mealTable)..where((t) => t.id.equals(id))).write(
+        const MealTableCompanion(syncStatus: Value(2)),
+      );
+
+  Future<void> markMealPendingDelete(int id) =>
+      (update(mealTable)..where((t) => t.id.equals(id))).write(
+        const MealTableCompanion(syncStatus: Value(3)),
+      );
+
+  Future<List<MealFoodTableData>> getAllFoodEntriesForMeal(int mealId) =>
+      (select(mealFoodTable)..where((t) => t.mealId.equals(mealId))).get();
+
+  Future<void> setFoodEntryServerId(int entryId, String serverId) =>
+      (update(mealFoodTable)..where((t) => t.id.equals(entryId))).write(
+        MealFoodTableCompanion(serverId: Value(serverId)),
+      );
 }
 
 @DriftAccessor(tables: [SearchCacheTable])
@@ -1137,6 +1245,15 @@ class WeightRecord extends Table {
 
 // Workout planning tables
 
+/// Sync state used across all tables that sync with the remote API.
+///
+/// - [pending]       New record, never pushed to the API.
+/// - [synced]        Successfully pushed; [serverId] is set.
+/// - [pendingUpdate] Edited locally after a successful sync.
+/// - [pendingDelete] Deleted locally; must be removed on the API before the
+///                   local row is dropped.
+enum SyncStatus { pending, synced, pendingUpdate, pendingDelete }
+
 /// Table for storing exercise definitions
 class ExerciseTable extends Table {
   IntColumn get id => integer().autoIncrement()();
@@ -1148,8 +1265,8 @@ class ExerciseTable extends Table {
   TextColumn get targetMuscleGroups => text()();
   TextColumn get imageUrl => text().nullable()();
   BoolColumn get isCustom => boolean().withDefault(const Constant(false))();
-  /// The UUID assigned by the remote API after the first successful sync. Null until synced.
   TextColumn get serverId => text().nullable()();
+  IntColumn get syncStatus => integer().withDefault(const Constant(0))();
 }
 
 /// Table for storing complete workouts
@@ -1165,8 +1282,8 @@ class WorkoutTable extends Table {
   DateTimeColumn get scheduledDate => dateTime().nullable()();
   DateTimeColumn get completedDate => dateTime().nullable()();
   IntColumn get color => integer().nullable()();
-  /// The UUID assigned by the remote API after the first successful sync. Null until synced.
   TextColumn get serverId => text().nullable()();
+  IntColumn get syncStatus => integer().withDefault(const Constant(0))();
 }
 
 /// Table for linking exercises to workouts (workout_exercise)
@@ -1187,8 +1304,8 @@ class WorkoutExerciseTable extends Table {
   IntColumn get orderPosition => integer()();
   TextColumn get notes => text().nullable()();
   IntColumn get supersetGroupId => integer().nullable()();
-  /// The UUID assigned by the remote API after the first successful sync. Null until synced.
   TextColumn get serverId => text().nullable()();
+  IntColumn get syncStatus => integer().withDefault(const Constant(0))();
 }
 
 class ScheduledWorkoutExerciseTable extends Table {
@@ -1214,8 +1331,8 @@ class ScheduledWorkoutExerciseTable extends Table {
   /// Exercise override for this specific day only. Null = use the template exercise.
   IntColumn get overrideExerciseId => integer().nullable()();
 
-  /// The UUID assigned by the remote API after the first successful sync. Null until synced.
   TextColumn get serverId => text().nullable()();
+  IntColumn get syncStatus => integer().withDefault(const Constant(0))();
 }
 
 /// Table for storing individual sets within a workout exercise
@@ -1234,8 +1351,8 @@ class WorkoutSetTable extends Table {
   IntColumn get durationSeconds => integer().nullable()();
   BoolColumn get isCompleted => boolean().withDefault(const Constant(false))();
   TextColumn get notes => text().nullable()();
-  /// The UUID assigned by the remote API after the first successful sync. Null until synced.
   TextColumn get serverId => text().nullable()();
+  IntColumn get syncStatus => integer().withDefault(const Constant(0))();
 }
 
 /// Table for workout plans/schedules
@@ -1249,8 +1366,8 @@ class WorkoutPlanTable extends Table {
   BoolColumn get isActive => boolean().withDefault(const Constant(false))();
   TextColumn get cyclePatternJson => text()();
   BoolColumn get isFreeChoice => boolean().withDefault(const Constant(false))();
-  /// The UUID assigned by the remote API after the first successful sync. Null until synced.
   TextColumn get serverId => text().nullable()();
+  IntColumn get syncStatus => integer().withDefault(const Constant(0))();
 }
 
 /// Table for linking workouts to plans (many-to-many)
@@ -1258,8 +1375,8 @@ class WorkoutPlanWorkoutTable extends Table {
   IntColumn get id => integer().autoIncrement()();
   IntColumn get planId => integer().references(WorkoutPlanTable, #id)();
   IntColumn get workoutId => integer().references(WorkoutTable, #id)();
-  /// The UUID assigned by the remote API after the first successful sync. Null until synced.
   TextColumn get serverId => text().nullable()();
+  IntColumn get syncStatus => integer().withDefault(const Constant(0))();
 }
 
 /// Table for storing scheduled workouts (instances of a workout scheduled on a date)
@@ -1291,8 +1408,8 @@ class ScheduledWorkoutTable extends Table {
   BoolColumn get isCompleted => boolean().withDefault(const Constant(false))();
   BoolColumn get isSkipped => boolean().withDefault(const Constant(false))();
 
-  /// The UUID assigned by the remote API after the first successful sync. Null until synced.
   TextColumn get serverId => text().nullable()();
+  IntColumn get syncStatus => integer().withDefault(const Constant(0))();
 }
 
 @DataClassName('WorkoutSetTemplateData')
@@ -1316,8 +1433,8 @@ class WorkoutSetTemplateTable extends Table {
   // Order position for sorting
   IntColumn get orderPosition => integer()();
 
-  /// The UUID assigned by the remote API after the first successful sync. Null until synced.
   TextColumn get serverId => text().nullable()();
+  IntColumn get syncStatus => integer().withDefault(const Constant(0))();
 }
 
 // Weight tracking DAO
@@ -1523,6 +1640,30 @@ class ExerciseDao extends DatabaseAccessor<AppDatabase>
       isCustom: Value(model.isCustom),
     );
   }
+
+  // ── Sync helpers (custom exercises only) ────────────────────────────────────
+
+  Future<List<ExerciseTableData>> getUnsyncedCustomExercises() =>
+      (select(exerciseTable)
+        ..where((e) => e.isCustom.equals(true) & e.syncStatus.isNotValue(1))).get();
+
+  Future<void> markExerciseSynced(int localId, String serverId) =>
+      (update(exerciseTable)..where((e) => e.id.equals(localId))).write(
+        ExerciseTableCompanion(
+          syncStatus: const Value(1),
+          serverId: Value(serverId),
+        ),
+      );
+
+  Future<void> markExercisePendingUpdate(int id) =>
+      (update(exerciseTable)..where((e) => e.id.equals(id))).write(
+        const ExerciseTableCompanion(syncStatus: Value(2)),
+      );
+
+  Future<void> markExercisePendingDelete(int id) =>
+      (update(exerciseTable)..where((e) => e.id.equals(id))).write(
+        const ExerciseTableCompanion(syncStatus: Value(3)),
+      );
 }
 
 /// Returns the exercise name/description in the given locale language,
@@ -1912,6 +2053,85 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
     return (select(workoutTable)
       ..where((w) => w.name.equals(name))).getSingleOrNull();
   }
+
+  // ── Sync helpers ─────────────────────────────────────────────────────────────
+
+  // Workouts (templates only)
+  Future<List<WorkoutTableData>> getUnsyncedTemplates() =>
+      (select(workoutTable)
+        ..where((w) => w.isTemplate.equals(true) & w.syncStatus.isNotValue(1))).get();
+
+  Future<void> markWorkoutSynced(int localId, String serverId) =>
+      (update(workoutTable)..where((w) => w.id.equals(localId))).write(
+        WorkoutTableCompanion(syncStatus: const Value(1), serverId: Value(serverId)),
+      );
+
+  Future<void> markWorkoutPendingUpdate(int id) =>
+      (update(workoutTable)..where((w) => w.id.equals(id))).write(
+        const WorkoutTableCompanion(syncStatus: Value(2)),
+      );
+
+  Future<void> markWorkoutPendingDelete(int id) =>
+      (update(workoutTable)..where((w) => w.id.equals(id))).write(
+        const WorkoutTableCompanion(syncStatus: Value(3)),
+      );
+
+  // WorkoutExercises
+  Future<List<WorkoutExerciseTableData>> getUnsyncedWorkoutExercises() =>
+      (select(workoutExerciseTable)
+        ..where((we) => we.syncStatus.isNotValue(1))).get();
+
+  Future<void> markWorkoutExerciseSynced(int localId, String serverId) =>
+      (update(workoutExerciseTable)..where((we) => we.id.equals(localId))).write(
+        WorkoutExerciseTableCompanion(syncStatus: const Value(1), serverId: Value(serverId)),
+      );
+
+  Future<List<WorkoutExerciseTableData>> getExercisesForWorkoutRaw(int workoutId) =>
+      (select(workoutExerciseTable)..where((we) => we.workoutId.equals(workoutId))).get();
+
+  // WorkoutSetTemplates
+  Future<List<WorkoutSetTemplateData>> getUnsyncedSetTemplates() =>
+      (select(workoutSetTemplateTable)
+        ..where((t) => t.syncStatus.isNotValue(1))).get();
+
+  Future<void> markSetTemplateSynced(int localId, String serverId) =>
+      (update(workoutSetTemplateTable)..where((t) => t.id.equals(localId))).write(
+        WorkoutSetTemplateTableCompanion(syncStatus: const Value(1), serverId: Value(serverId)),
+      );
+
+  // ScheduledWorkouts
+  Future<List<ScheduledWorkoutTableData>> getUnsyncedScheduledWorkouts() =>
+      (select(scheduledWorkoutTable)
+        ..where((sw) => sw.syncStatus.isNotValue(1))).get();
+
+  Future<void> markScheduledWorkoutSynced(int localId, String serverId) =>
+      (update(scheduledWorkoutTable)..where((sw) => sw.id.equals(localId))).write(
+        ScheduledWorkoutTableCompanion(syncStatus: const Value(1), serverId: Value(serverId)),
+      );
+
+  Future<void> markScheduledWorkoutPendingDelete(int id) =>
+      (update(scheduledWorkoutTable)..where((sw) => sw.id.equals(id))).write(
+        const ScheduledWorkoutTableCompanion(syncStatus: Value(3)),
+      );
+
+  // WorkoutSets
+  Future<List<WorkoutSetTableData>> getUnsyncedWorkoutSets() =>
+      (select(workoutSetTable)
+        ..where((s) => s.syncStatus.isNotValue(1))).get();
+
+  Future<List<WorkoutSetTableData>> getSetsForScheduledExercise(int scheduledExerciseId) =>
+      (select(workoutSetTable)
+        ..where((s) => s.scheduledWorkoutExerciseId.equals(scheduledExerciseId))).get();
+
+  Future<void> markWorkoutSetSynced(int localId, String serverId) =>
+      (update(workoutSetTable)..where((s) => s.id.equals(localId))).write(
+        WorkoutSetTableCompanion(syncStatus: const Value(1), serverId: Value(serverId)),
+      );
+
+  Future<void> markWorkoutSetPendingDelete(int id) =>
+      (update(workoutSetTable)..where((s) => s.id.equals(id))).write(
+        const WorkoutSetTableCompanion(syncStatus: Value(3)),
+      );
 
   Future<List<WorkoutSetTableData>> getPreviousWorkoutSetsForExercise({
     required int exerciseId,
@@ -2535,6 +2755,20 @@ class ScheduledWorkoutExerciseDao extends DatabaseAccessor<AppDatabase>
     );
   }
 
+  // ── Sync helpers ─────────────────────────────────────────────────────────────
+
+  Future<List<ScheduledWorkoutExerciseTableData>> getAllForScheduledWorkout(int scheduledWorkoutId) =>
+      (select(scheduledWorkoutExerciseTable)
+        ..where((e) => e.scheduledWorkoutId.equals(scheduledWorkoutId))).get();
+
+  Future<void> markScheduledExerciseSynced(int localId, String serverId) =>
+      (update(scheduledWorkoutExerciseTable)..where((e) => e.id.equals(localId))).write(
+        ScheduledWorkoutExerciseTableCompanion(
+          syncStatus: const Value(1),
+          serverId: Value(serverId),
+        ),
+      );
+
   Future<List<WorkoutExerciseTemplate>> getTemplateWithExercises(
     int workoutId,
   ) async {
@@ -2695,4 +2929,38 @@ class WorkoutPlanDao extends DatabaseAccessor<AppDatabase>
 
     return rowsDeleted > 0;
   }
+
+  // ── Sync helpers ─────────────────────────────────────────────────────────────
+
+  Future<List<WorkoutPlanTableData>> getUnsyncedPlans() =>
+      (select(workoutPlanTable)
+        ..where((p) => p.syncStatus.isNotValue(1))).get();
+
+  Future<void> markPlanSynced(int localId, String serverId) =>
+      (update(workoutPlanTable)..where((p) => p.id.equals(localId))).write(
+        WorkoutPlanTableCompanion(syncStatus: const Value(1), serverId: Value(serverId)),
+      );
+
+  Future<void> markPlanPendingUpdate(int id) =>
+      (update(workoutPlanTable)..where((p) => p.id.equals(id))).write(
+        const WorkoutPlanTableCompanion(syncStatus: Value(2)),
+      );
+
+  Future<void> markPlanPendingDelete(int id) =>
+      (update(workoutPlanTable)..where((p) => p.id.equals(id))).write(
+        const WorkoutPlanTableCompanion(syncStatus: Value(3)),
+      );
+
+  Future<List<WorkoutPlanWorkoutTableData>> getPlanWorkoutsForPlan(int planId) =>
+      (select(workoutPlanWorkoutTable)
+        ..where((pw) => pw.planId.equals(planId))).get();
+
+  Future<List<WorkoutPlanWorkoutTableData>> getUnsyncedPlanWorkouts() =>
+      (select(workoutPlanWorkoutTable)
+        ..where((pw) => pw.syncStatus.isNotValue(1))).get();
+
+  Future<void> markPlanWorkoutSynced(int localId, String serverId) =>
+      (update(workoutPlanWorkoutTable)..where((pw) => pw.id.equals(localId))).write(
+        WorkoutPlanWorkoutTableCompanion(syncStatus: const Value(1), serverId: Value(serverId)),
+      );
 }

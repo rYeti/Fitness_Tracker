@@ -85,6 +85,14 @@ builder.Services.AddScoped<IScheduledWorkoutRepository, ScheduledWorkoutReposito
 builder.Services.AddScoped<IWorkoutService, WorkoutService>();
 builder.Services.AddScoped<IWorkoutPlanService, WorkoutPlanService>();
 builder.Services.AddScoped<IScheduledWorkoutService, ScheduledWorkoutService>();
+builder.Services.AddScoped<IFoodItemRepository, FoodItemRepository>();
+builder.Services.AddScoped<IFoodItemService, FoodItemService>();
+builder.Services.AddScoped<IMealRepository, MealRepository>();
+builder.Services.AddScoped<IMealService, MealService>();
+builder.Services.AddScoped<IUserSettingsRepository, UserSettingsRepository>();
+builder.Services.AddScoped<IUserSettingsService, UserSettingsService>();
+builder.Services.AddScoped<IMealTemplateRepository, MealTemplateRepository>();
+builder.Services.AddScoped<IMealTemplateService, MealTemplateService>();
 
 // ── Build ────────────────────────────────────────────────────
 var app = builder.Build();
