@@ -790,6 +790,10 @@
   "exercisesSubtitle": "Übungen durchsuchen, erstellen & bearbeiten",
   "darkMode": "Dunkelmodus",
   "lightMode": "Hellmodus",
+  "language": "Sprache",
+  "languageSystem": "Systemstandard",
+  "languageEnglish": "English",
+  "languageGerman": "Deutsch",
 
   "start": "Start",
   "stop": "Stop",

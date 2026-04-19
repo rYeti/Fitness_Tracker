@@ -794,6 +794,10 @@
   "exercisesSubtitle": "Browse, create & edit exercises",
   "darkMode": "Dark Mode",
   "lightMode": "Light Mode",
+  "language": "Language",
+  "languageSystem": "System default",
+  "languageEnglish": "English",
+  "languageGerman": "Deutsch",
 
   "start": "Start",
   "stop": "Stop",

@@ -1636,6 +1636,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get lightMode => 'Light Mode';
 
   @override
+  String get language => 'Language';
+
+  @override
+  String get languageSystem => 'System default';
+
+  @override
+  String get languageEnglish => 'English';
+
+  @override
+  String get languageGerman => 'Deutsch';
+
+  @override
   String get start => 'Start';
 
   @override

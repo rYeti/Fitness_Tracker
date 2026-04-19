@@ -5,6 +5,7 @@ import 'package:ForgeForm/core/network/api_client.dart';
 import 'package:ForgeForm/core/network/services/sync_service.dart';
 import 'package:ForgeForm/core/providers/enums.dart';
 import 'package:ForgeForm/core/providers/theme_provider.dart';
+import 'package:ForgeForm/core/providers/locale_provider.dart';
 import 'package:ForgeForm/core/providers/user_goals_provider.dart';
 import 'package:ForgeForm/feature/auth/presentation/providers/auth_provider.dart';
 import 'package:ForgeForm/feature/auth/presentation/view/user_settings_screen.dart';
@@ -207,6 +208,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final calorieGoalProvider = Provider.of<UserGoalsProvider>(context);
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDark = themeProvider.themeMode == ThemeMode.dark;
+    final localeProvider = Provider.of<LocaleProvider>(context);
 
     if (!calorieGoalProvider.isLoaded) {
       return SafeArea(
@@ -544,6 +546,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         title: Text(isDark ? l10n.darkMode : l10n.lightMode),
                         value: isDark,
                         onChanged: (_) => themeProvider.toggleTheme(),
+                      ),
+                      Divider(height: 1, indent: 16, endIndent: 16),
+                      ListTile(
+                        leading: Icon(
+                          Icons.language,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                        title: Text(l10n.language),
+                        trailing: DropdownButton<String?>(
+                          value: localeProvider.locale?.languageCode,
+                          underline: const SizedBox(),
+                          items: [
+                            DropdownMenuItem(
+                              value: null,
+                              child: Text(l10n.languageSystem),
+                            ),
+                            DropdownMenuItem(
+                              value: 'en',
+                              child: Text(l10n.languageEnglish),
+                            ),
+                            DropdownMenuItem(
+                              value: 'de',
+                              child: Text(l10n.languageGerman),
+                            ),
+                          ],
+                          onChanged: (code) => localeProvider.setLocale(
+                            code == null ? null : Locale(code),
+                          ),
+                        ),
                       ),
                       Divider(height: 1, indent: 16, endIndent: 16),
                       SwitchListTile(

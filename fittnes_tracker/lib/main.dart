@@ -13,6 +13,7 @@ import 'package:provider/provider.dart' as provider;
 import 'package:workmanager/workmanager.dart';
 import 'core/di/service_locator.dart';
 import 'core/providers/theme_provider.dart';
+import 'core/providers/locale_provider.dart';
 import 'core/providers/user_goals_provider.dart';
 import 'feature/weight_tracking/presentation/providers/weight_provider.dart';
 import 'feature/food_tracking/data/repositories/meal_template_repository.dart';
@@ -114,6 +115,7 @@ void main() async {
           // Provide the AppDatabase instance directly
           provider.Provider<AppDatabase>.value(value: db),
           provider.ChangeNotifierProvider(create: (_) => ThemeProvider(db)),
+          provider.ChangeNotifierProvider(create: (_) => LocaleProvider()),
           provider.ChangeNotifierProvider(create: (_) => UserGoalsProvider(db)),
           provider.ChangeNotifierProxyProvider<
             UserGoalsProvider,
@@ -158,9 +160,11 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final themeProvider = provider.Provider.of<ThemeProvider>(context);
+    final localeProvider = provider.Provider.of<LocaleProvider>(context);
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      locale: localeProvider.locale,
       localizationsDelegates: [
         AppLocalizations.delegate,
         GlobalMaterialLocalizations.delegate,

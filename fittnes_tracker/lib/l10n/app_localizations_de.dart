@@ -1645,6 +1645,18 @@ class AppLocalizationsDe extends AppLocalizations {
   String get lightMode => 'Hellmodus';
 
   @override
+  String get language => 'Sprache';
+
+  @override
+  String get languageSystem => 'Systemstandard';
+
+  @override
+  String get languageEnglish => 'English';
+
+  @override
+  String get languageGerman => 'Deutsch';
+
+  @override
   String get start => 'Start';
 
   @override
