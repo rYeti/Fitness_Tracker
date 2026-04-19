@@ -14,4 +14,10 @@ public class ScheduledWorkoutRequestDto
 
     /// <summary>Optional notes for this scheduled occurrence.</summary>
     public string? Notes { get; set; }
+
+    /// <summary>Whether this scheduled workout has been completed.</summary>
+    public bool IsCompleted { get; set; }
+
+    /// <summary>Whether this scheduled workout was skipped.</summary>
+    public bool IsSkipped { get; set; }
 }

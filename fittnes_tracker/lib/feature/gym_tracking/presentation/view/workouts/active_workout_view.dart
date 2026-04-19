@@ -437,6 +437,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                 : _workoutNoteController.text,
           ),
           isCompleted: const Value(true),
+          syncStatus: Value(SyncStatus.pendingUpdate.index),
         ),
       );
 
@@ -1126,7 +1127,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
               child: Column(
                 children: [
                   Text(
-                    exerciseData.exercise.name,
+                    exerciseData.exercise.localizedName(Localizations.localeOf(context).languageCode),
                     style: theme.textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: theme.colorScheme.onPrimaryContainer,

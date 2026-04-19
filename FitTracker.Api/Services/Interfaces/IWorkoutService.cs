@@ -35,10 +35,10 @@ public interface IWorkoutService
     Task<bool> DeleteWorkoutAsync(Guid id, Guid userId);
 
     /// <summary>Adds an exercise entry to a workout.</summary>
-    /// <param name="workoutId">The ID of the workout to add the exercise to.</param>
-    /// <param name="dto">The exercise data to add.</param>
-    /// <returns>The newly created workout exercise DTO.</returns>
     Task<WorkoutExerciseResponseDto> AddExerciseToWorkoutAsync(Guid workoutId, WorkoutExerciseRequestDto dto);
+
+    /// <summary>Adds multiple exercise entries to a workout in one call.</summary>
+    Task<List<WorkoutExerciseResponseDto>> AddExercisesToWorkoutBatchAsync(Guid workoutId, List<WorkoutExerciseRequestDto> dtos);
 
     /// <summary>Updates an existing workout exercise entry.</summary>
     /// <param name="weId">The ID of the workout exercise to update.</param>
@@ -52,10 +52,10 @@ public interface IWorkoutService
     Task<bool> DeleteWorkoutExerciseAsync(Guid weId);
 
     /// <summary>Adds a set template to a workout exercise.</summary>
-    /// <param name="workoutExerciseId">The ID of the workout exercise to add the set template to.</param>
-    /// <param name="dto">The set template data to add.</param>
-    /// <returns>The newly created set template DTO.</returns>
     Task<WorkoutSetTemplateResponseDto> AddSetTemplateAsync(Guid workoutExerciseId, WorkoutSetTemplateRequestDto dto);
+
+    /// <summary>Adds multiple set templates to a workout exercise in one call.</summary>
+    Task<List<WorkoutSetTemplateResponseDto>> AddSetTemplatesBatchAsync(Guid workoutExerciseId, List<WorkoutSetTemplateRequestDto> dtos);
 
     /// <summary>Updates an existing set template.</summary>
     /// <param name="id">The ID of the set template to update.</param>

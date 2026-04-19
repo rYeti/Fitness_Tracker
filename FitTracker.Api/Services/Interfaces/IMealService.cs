@@ -23,6 +23,9 @@ public interface IMealService
     /// <summary>Adds a food item to an existing meal. Returns null if the meal is not found.</summary>
     Task<MealFoodEntryResponseDto?> AddFoodToMealAsync(Guid mealId, Guid userId, Guid foodItemId);
 
+    /// <summary>Adds multiple food items to a meal in one call.</summary>
+    Task<List<MealFoodEntryResponseDto>> AddFoodsToMealBatchAsync(Guid mealId, Guid userId, List<Guid> foodItemIds);
+
     /// <summary>Removes a food item from a meal. Returns false if not found.</summary>
     Task<bool> RemoveFoodFromMealAsync(Guid mealId, Guid userId, Guid foodItemId);
 }

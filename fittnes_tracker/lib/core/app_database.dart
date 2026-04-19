@@ -1569,16 +1569,18 @@ class ExerciseDao extends DatabaseAccessor<AppDatabase>
     }).toList();
   }
 
-  // Search exercises by name
+  // Search exercises by name (matches English and German)
   Future<List<ExerciseTableData>> searchExercises(String query) async {
     final lowerQuery = query.toLowerCase();
     final allExercises = await getAllExercises();
     return allExercises
-        .where((e) => e.name.toLowerCase().contains(lowerQuery))
+        .where((e) =>
+            e.name.toLowerCase().contains(lowerQuery) ||
+            (e.nameDe?.toLowerCase().contains(lowerQuery) ?? false))
         .toList();
   }
 
-  // Get exercises by muscle group with search
+  // Get exercises by muscle group with search (matches English and German)
   Future<List<ExerciseTableData>> searchExercisesByMuscleGroup(
     MuscleGroup muscleGroup,
     String query,
@@ -1588,7 +1590,9 @@ class ExerciseDao extends DatabaseAccessor<AppDatabase>
 
     final lowerQuery = query.toLowerCase();
     return exercises
-        .where((e) => e.name.toLowerCase().contains(lowerQuery))
+        .where((e) =>
+            e.name.toLowerCase().contains(lowerQuery) ||
+            (e.nameDe?.toLowerCase().contains(lowerQuery) ?? false))
         .toList();
   }
 

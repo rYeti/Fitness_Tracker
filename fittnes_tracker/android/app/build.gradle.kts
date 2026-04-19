@@ -38,7 +38,7 @@ android {
         create("release") {
             keyAlias = keyProperties["keyAlias"] as String
             keyPassword = keyProperties["keyPassword"] as String
-            storeFile = keyProperties["storeFile"]?.let { File(it as String) }
+            storeFile = keyProperties["storeFile"]?.let { file(it as String) }
             storePassword = keyProperties["storePassword"] as String
         }
     }

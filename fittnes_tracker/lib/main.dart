@@ -89,7 +89,7 @@ void main() async {
   final hasToken = prefs.getString('token') != null;
   final showOnboarding = !(prefs.getBool('onboarding_complete') ?? false);
 
-  // Always apply the compile-time default so a changed IP takes effect immediately.
+  // Always apply the compile-time default so changing the IP in code takes effect immediately.
   await prefs.setString(serverUrlPrefsKey, serverUrlDefault);
   final container = ProviderContainer(
     overrides: [serverUrlProvider.overrideWith((ref) => serverUrlDefault)],
@@ -297,6 +297,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _runInitialSync() async {
     final prefs = await SharedPreferences.getInstance();
 
+    await prefs.remove('last_sync_timestamp'); // TODO: remove after confirming sync works
     final lastSyncMs = prefs.getInt('last_sync_timestamp');
     if (lastSyncMs != null) {
       final lastSync = DateTime.fromMillisecondsSinceEpoch(lastSyncMs);

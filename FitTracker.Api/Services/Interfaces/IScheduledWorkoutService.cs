@@ -32,10 +32,10 @@ public interface IScheduledWorkoutService
     Task<bool> DeleteScheduledWorkoutAsync(Guid id);
 
     /// <summary>Adds a performed set to a scheduled workout exercise.</summary>
-    /// <param name="scheduledWorkoutExerciseId">The ID of the scheduled workout exercise to add the set to.</param>
-    /// <param name="dto">The set data to create.</param>
-    /// <returns>The newly created workout set DTO.</returns>
     Task<WorkoutSetResponseDto> AddSetAsync(Guid scheduledWorkoutExerciseId, WorkoutSetRequestDto dto);
+
+    /// <summary>Adds multiple performed sets to a scheduled workout exercise in one call.</summary>
+    Task<List<WorkoutSetResponseDto>> AddSetsBatchAsync(Guid scheduledWorkoutExerciseId, List<WorkoutSetRequestDto> dtos);
 
     /// <summary>Updates an existing performed set.</summary>
     /// <param name="setId">The ID of the set to update.</param>

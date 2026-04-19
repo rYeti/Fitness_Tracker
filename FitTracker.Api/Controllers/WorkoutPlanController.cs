@@ -105,6 +105,14 @@ public class WorkoutPlanController : ControllerBase
         return Ok();
     }
 
+    /// <summary>Adds multiple workouts to a plan in a single request.</summary>
+    [HttpPost("{planId}/workouts/batch")]
+    public async Task<IActionResult> AddWorkoutsBatch([FromRoute] Guid planId, [FromBody] List<Guid> workoutIds)
+    {
+        await _planService.AddWorkoutsToPlanBatchAsync(planId, workoutIds);
+        return Ok();
+    }
+
     /// <summary>Removes a workout from a plan.</summary>
     /// <param name="planId">The ID of the plan.</param>
     /// <param name="workoutId">The ID of the workout to remove.</param>

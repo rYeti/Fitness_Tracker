@@ -1244,7 +1244,7 @@ class _WorkoutDetailsScreenState extends State<_WorkoutDetailsScreen> {
     showDialog<String>(
       context: context,
       builder: (ctx) => SimpleDialog(
-        title: Text(_exercises[index].$1.name),
+        title: Text(_exercises[index].$1.localizedName(Localizations.localeOf(context).languageCode)),
         children: [
           if (!hasSuperset)
             SimpleDialogOption(
@@ -1586,7 +1586,7 @@ class _ExerciseCardState extends State<_ExerciseCard> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            widget.exercise.name,
+                            widget.exercise.localizedName(Localizations.localeOf(context).languageCode),
                             style: theme.textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                             ),

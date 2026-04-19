@@ -1,6 +1,12 @@
+import 'package:ForgeForm/core/app_database.dart';
+import 'package:ForgeForm/core/dao/meal_template_dao.dart';
+import 'package:ForgeForm/core/di/service_locator.dart';
+import 'package:ForgeForm/core/network/api_client.dart';
+import 'package:ForgeForm/core/network/services/sync_service.dart';
 import 'package:ForgeForm/core/providers/enums.dart';
 import 'package:ForgeForm/core/providers/theme_provider.dart';
 import 'package:ForgeForm/core/providers/user_goals_provider.dart';
+import 'package:ForgeForm/feature/auth/presentation/providers/auth_provider.dart';
 import 'package:ForgeForm/feature/auth/presentation/view/user_settings_screen.dart';
 import 'package:ForgeForm/feature/gym_tracking/presentation/view/exercises/exercise_management_screen.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
@@ -89,6 +95,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadProfileFromDb());
     _loadRestTimerPreference();
+  }
+
+  bool _isSyncing = false;
+
+  Future<void> _runSync() async {
+    setState(() => _isSyncing = true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final serverUrl = prefs.getString(serverUrlPrefsKey) ?? serverUrlDefault;
+      final db = sl<AppDatabase>();
+      final syncService = SyncService(
+        db: db,
+        apiClient: ApiClient(baseUrl: serverUrl),
+        mealTemplateDao: MealTemplateDao(db),
+      );
+      await syncService.syncAll();
+      await prefs.setInt('last_sync_timestamp', DateTime.now().millisecondsSinceEpoch);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Sync complete')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Sync failed: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSyncing = false);
+    }
   }
 
   Future<void> _loadRestTimerPreference() async {
@@ -523,6 +560,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         },
                       ),
                     ],
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // ── Sync ──────────────────────────────────────────────────
+                _SectionLabel('Sync'),
+                Card(
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: colorScheme.outlineVariant),
+                  ),
+                  child: ListTile(
+                    leading: _isSyncing
+                        ? SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: colorScheme.primary,
+                            ),
+                          )
+                        : Icon(Icons.sync, color: colorScheme.onSurfaceVariant),
+                    title: const Text('Sync now'),
+                    subtitle: const Text('Push all pending local changes to the server'),
+                    onTap: _isSyncing ? null : _runSync,
                   ),
                 ),
 

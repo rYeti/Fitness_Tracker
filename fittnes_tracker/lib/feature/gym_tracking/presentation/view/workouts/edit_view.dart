@@ -476,25 +476,42 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
                 ),
               ),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    workout.name,
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    AppLocalizations.of(context)!.exercisesAndSets(
-                      workout.exercises.length,
-                      workout.exercises.fold<int>(
-                        0,
-                        (sum, ex) => sum + ex.sets.length,
+              child: GestureDetector(
+                onTap: () {
+                  if (workout.id != null) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder:
+                            (_) =>
+                                EditSingleWorkoutView(workoutId: workout.id!),
                       ),
+                    ).then((result) {
+                      _loadPlans();
+                    });
+                  }
+                },
+                behavior: HitTestBehavior.opaque,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      workout.name,
+                      style: Theme.of(context).textTheme.titleMedium,
                     ),
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
+                    const SizedBox(height: 6),
+                    Text(
+                      AppLocalizations.of(context)!.exercisesAndSets(
+                        workout.exercises.length,
+                        workout.exercises.fold<int>(
+                          0,
+                          (sum, ex) => sum + ex.sets.length,
+                        ),
+                      ),
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
               ),
             ),
             Row(
@@ -552,7 +569,7 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
             children: [
               Expanded(
                 child: Text(
-                  exercise.exercise?.name ??
+                  exercise.exercise?.localizedName(Localizations.localeOf(context).languageCode) ??
                       AppLocalizations.of(context)!.unknownExercise,
                   style: Theme.of(
                     context,
@@ -1098,7 +1115,7 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
           content: Text(
             AppLocalizations.of(
               context,
-            )!.exerciseAddedToWorkout(selectedExercise.name),
+            )!.exerciseAddedToWorkout(selectedExercise.localizedName(Localizations.localeOf(context).languageCode)),
           ),
         ),
       );
@@ -1125,7 +1142,7 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
         return AlertDialog(
           title: Text(l10n.removeExerciseTitle),
           content: Text(
-            l10n.removeExerciseConfirmBody(exercise.exercise?.name ?? 'exercise'),
+            l10n.removeExerciseConfirmBody(exercise.exercise?.localizedName(Localizations.localeOf(context).languageCode) ?? 'exercise'),
           ),
           actions: [
             TextButton(
@@ -1230,7 +1247,7 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
         return AlertDialog(
           title: Text(l10n.removeSet),
           content: Text(
-            l10n.removeSetConfirmBody(set.setNumber, exercise.exercise?.name ?? 'exercise'),
+            l10n.removeSetConfirmBody(set.setNumber, exercise.exercise?.localizedName(Localizations.localeOf(context).languageCode) ?? 'exercise'),
           ),
           actions: [
             TextButton(
@@ -1582,25 +1599,42 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
         child: Row(
           children: [
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    workout.name,
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    AppLocalizations.of(context)!.exercisesAndSets(
-                      workout.exercises.length,
-                      workout.exercises.fold<int>(
-                        0,
-                        (sum, ex) => sum + ex.sets.length,
+              child: GestureDetector(
+                onTap: () {
+                  if (workout.id != null) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder:
+                            (_) =>
+                                EditSingleWorkoutView(workoutId: workout.id!),
                       ),
+                    ).then((result) {
+                      _loadPlans();
+                    });
+                  }
+                },
+                behavior: HitTestBehavior.opaque,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      workout.name,
+                      style: Theme.of(context).textTheme.titleMedium,
                     ),
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
+                    const SizedBox(height: 6),
+                    Text(
+                      AppLocalizations.of(context)!.exercisesAndSets(
+                        workout.exercises.length,
+                        workout.exercises.fold<int>(
+                          0,
+                          (sum, ex) => sum + ex.sets.length,
+                        ),
+                      ),
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
               ),
             ),
             Row(

@@ -30,10 +30,10 @@ public class Exercise
     /// <summary>The German description of the exercise.</summary>
     public string DescriptionDe { get; set; } = "";
 
-    // Navigation property to the User
-    public User User { get; set; } = null!;
+    // Navigation property to the User (null for system/global exercises)
+    public User? User { get; set; }
 
-    /// <summary>The ID of the user who owns this exercise.</summary>
-    public Guid UserId { get; set; }
+    /// <summary>The ID of the user who owns this exercise. Null for system-provided exercises.</summary>
+    public Guid? UserId { get; set; }
 
 }

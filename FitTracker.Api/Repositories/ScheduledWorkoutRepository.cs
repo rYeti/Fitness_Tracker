@@ -56,6 +56,8 @@ public class ScheduledWorkoutRepository : IScheduledWorkoutRepository
         sw.WorkoutPlanId = dto.WorkoutPlanId;
         sw.ScheduledDate = dto.ScheduledDate;
         sw.Notes = dto.Notes;
+        sw.IsCompleted = dto.IsCompleted;
+        sw.IsSkipped = dto.IsSkipped;
 
         await _context.SaveChangesAsync();
         return sw;

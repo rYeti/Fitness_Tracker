@@ -35,9 +35,10 @@ public interface IWorkoutPlanService
     Task<bool> DeletePlanAsync(Guid id, Guid userId);
 
     /// <summary>Adds a workout to a plan.</summary>
-    /// <param name="planId">The ID of the plan.</param>
-    /// <param name="workoutId">The ID of the workout to add.</param>
     Task AddWorkoutToPlanAsync(Guid planId, Guid workoutId);
+
+    /// <summary>Adds multiple workouts to a plan in one call.</summary>
+    Task AddWorkoutsToPlanBatchAsync(Guid planId, List<Guid> workoutIds);
 
     /// <summary>Removes a workout from a plan.</summary>
     /// <param name="planId">The ID of the plan.</param>

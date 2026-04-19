@@ -25,7 +25,16 @@ class ApiClient {
           if (token != null) {
             options.headers['Authorization'] = 'Bearer $token';
           }
+          if (options.data != null) {
+            _logger.d('${options.method} ${options.path} body: ${options.data}');
+          }
           handler.next(options);
+        },
+        onError: (error, handler) {
+          if (error.response != null) {
+            _logger.e('${error.requestOptions.method} ${error.requestOptions.path} → ${error.response?.statusCode} body: ${error.response?.data}');
+          }
+          handler.next(error);
         },
       ),
     );
@@ -64,7 +73,11 @@ class ApiClient {
       );
       return response;
     } catch (e) {
-      _logger.e('POST request failed: $e');
+      if (e is DioException && e.response != null) {
+        _logger.e('POST request failed: $e\nResponse body: ${e.response?.data}');
+      } else {
+        _logger.e('POST request failed: $e');
+      }
       rethrow;
     }
   }

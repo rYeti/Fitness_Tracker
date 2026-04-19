@@ -82,7 +82,7 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Exercise>(entity =>
         {
             entity.HasKey(e => e.Id);
-            entity.HasOne(e => e.User).WithMany().HasForeignKey(e => e.UserId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.User).WithMany().HasForeignKey(e => e.UserId).IsRequired(false).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<Workout>(entity =>

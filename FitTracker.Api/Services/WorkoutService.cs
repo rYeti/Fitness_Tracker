@@ -82,6 +82,15 @@ public class WorkoutService : IWorkoutService
     }
 
     /// <inheritdoc/>
+    public async Task<List<WorkoutExerciseResponseDto>> AddExercisesToWorkoutBatchAsync(Guid workoutId, List<WorkoutExerciseRequestDto> dtos)
+    {
+        var results = new List<WorkoutExerciseResponseDto>();
+        foreach (var dto in dtos)
+            results.Add(await AddExerciseToWorkoutAsync(workoutId, dto));
+        return results;
+    }
+
+    /// <inheritdoc/>
     public async Task<WorkoutExerciseResponseDto?> UpdateWorkoutExerciseAsync(Guid weId, WorkoutExerciseRequestDto dto)
     {
         var updated = await _workoutRepository.UpdateWorkoutExerciseAsync(weId, dto);
@@ -108,6 +117,15 @@ public class WorkoutService : IWorkoutService
 
         var created = await _workoutRepository.AddSetTemplateAsync(template);
         return ToSetTemplateDto(created);
+    }
+
+    /// <inheritdoc/>
+    public async Task<List<WorkoutSetTemplateResponseDto>> AddSetTemplatesBatchAsync(Guid workoutExerciseId, List<WorkoutSetTemplateRequestDto> dtos)
+    {
+        var results = new List<WorkoutSetTemplateResponseDto>();
+        foreach (var dto in dtos)
+            results.Add(await AddSetTemplateAsync(workoutExerciseId, dto));
+        return results;
     }
 
     /// <inheritdoc/>

@@ -140,17 +140,15 @@ class SyncService {
         'estimatedDurationMinutes': w.estimatedDurationMinutes,
         'isTemplate': w.isTemplate,
         'scheduledDate': w.scheduledDate?.toUtc().toIso8601String(),
-        'color': w.color,
+        'color': w.color?.toSigned(32),
       },
     );
     final serverId = response.data['id'] as String;
     await _db.workoutDao.markWorkoutSynced(w.id, serverId);
 
-    // Push exercises for this workout.
+    // Push exercises for this workout (batch).
     final exercises = await _db.workoutDao.getExercisesForWorkoutRaw(w.id);
-    for (final we in exercises) {
-      await _syncNewWorkoutExercise(we, serverId);
-    }
+    await _syncNewWorkoutExercisesBatch(exercises, serverId);
     _logger.i('Synced new workout ${w.id} → server $serverId');
   }
 
@@ -165,19 +163,17 @@ class SyncService {
         'estimatedDurationMinutes': w.estimatedDurationMinutes,
         'isTemplate': w.isTemplate,
         'scheduledDate': w.scheduledDate?.toUtc().toIso8601String(),
-        'color': w.color,
+        'color': w.color?.toSigned(32),
       },
     );
     await _db.workoutDao.markWorkoutSynced(w.id, w.serverId!);
 
     // Sync unsynced exercises for this workout.
     final exercises = await _db.workoutDao.getExercisesForWorkoutRaw(w.id);
-    for (final we in exercises.where((e) => e.syncStatus != 1)) {
-      if (we.serverId == null) {
-        await _syncNewWorkoutExercise(we, w.serverId!);
-      } else {
-        await _syncUpdateWorkoutExercise(we);
-      }
+    final newExercises = exercises.where((e) => e.syncStatus != 1 && e.serverId == null).toList();
+    if (newExercises.isNotEmpty) await _syncNewWorkoutExercisesBatch(newExercises, w.serverId!);
+    for (final we in exercises.where((e) => e.syncStatus != 1 && e.serverId != null)) {
+      await _syncUpdateWorkoutExercise(we);
     }
     _logger.i('Updated workout ${w.id} on server ${w.serverId}');
   }
@@ -192,30 +188,38 @@ class SyncService {
     _logger.i('Deleted workout ${w.id} from server ${w.serverId}');
   }
 
-  Future<void> _syncNewWorkoutExercise(
-    WorkoutExerciseTableData we,
+  Future<void> _syncNewWorkoutExercisesBatch(
+    List<WorkoutExerciseTableData> exercises,
     String workoutServerId,
   ) async {
-    // Need the exercise's serverId to reference it on the API.
-    final exercise = await _db.exerciseDao.getExerciseById(we.exerciseId);
-    if (exercise?.serverId == null) return; // exercise not synced yet
-
-    final response = await _apiClient.post(
-      'api/Workout/$workoutServerId/exercises',
-      data: {
+    final dtos = <Map<String, dynamic>>[];
+    final valid = <WorkoutExerciseTableData>[];
+    for (final we in exercises) {
+      final exercise = await _db.exerciseDao.getExerciseById(we.exerciseId);
+      if (exercise?.serverId == null) continue;
+      dtos.add({
         'exerciseId': exercise!.serverId,
         'orderPosition': we.orderPosition,
         'notes': we.notes,
         'supersetGroupId': we.supersetGroupId,
-      },
-    );
-    final weServerId = response.data['id'] as String;
-    await _db.workoutDao.markWorkoutExerciseSynced(we.id, weServerId);
+      });
+      valid.add(we);
+    }
+    if (dtos.isEmpty) return;
 
-    // Push set templates.
-    final templates = await _db.workoutDao.getSetTemplatesForWorkoutExercise(we.id);
-    for (final t in templates.where((t) => t.syncStatus != 1)) {
-      await _syncNewSetTemplate(t, weServerId);
+    final response = await _apiClient.post(
+      'api/Workout/$workoutServerId/exercises/batch',
+      data: dtos,
+    );
+    final serverList = (response.data as List).cast<Map<String, dynamic>>();
+
+    for (var i = 0; i < valid.length && i < serverList.length; i++) {
+      final weServerId = serverList[i]['id'] as String;
+      await _db.workoutDao.markWorkoutExerciseSynced(valid[i].id, weServerId);
+
+      final templates = await _db.workoutDao.getSetTemplatesForWorkoutExercise(valid[i].id);
+      final pending = templates.where((t) => t.syncStatus != 1).toList();
+      if (pending.isNotEmpty) await _syncNewSetTemplatesBatch(pending, weServerId);
     }
   }
 
@@ -236,20 +240,22 @@ class SyncService {
     await _db.workoutDao.markWorkoutExerciseSynced(we.id, we.serverId!);
   }
 
-  Future<void> _syncNewSetTemplate(
-    WorkoutSetTemplateData t,
+  Future<void> _syncNewSetTemplatesBatch(
+    List<WorkoutSetTemplateData> templates,
     String workoutExerciseServerId,
   ) async {
     final response = await _apiClient.post(
-      'api/Workout/exercises/$workoutExerciseServerId/sets',
-      data: {
+      'api/Workout/exercises/$workoutExerciseServerId/sets/batch',
+      data: templates.map((t) => {
         'setNumber': t.setNumber,
         'targetReps': t.targetReps,
         'orderPosition': t.orderPosition,
-      },
+      }).toList(),
     );
-    final serverId = response.data['id'] as String;
-    await _db.workoutDao.markSetTemplateSynced(t.id, serverId);
+    final serverList = (response.data as List).cast<Map<String, dynamic>>();
+    for (var i = 0; i < templates.length && i < serverList.length; i++) {
+      await _db.workoutDao.markSetTemplateSynced(templates[i].id, serverList[i]['id'] as String);
+    }
   }
 
   // ── Workout plans ─────────────────────────────────────────────────────────
@@ -290,11 +296,9 @@ class SyncService {
     final serverId = response.data['id'] as String;
     await _db.workoutPlanDao.markPlanSynced(p.id, serverId);
 
-    // Link workouts to the plan.
+    // Link workouts to the plan (batch).
     final links = await _db.workoutPlanDao.getPlanWorkoutsForPlan(p.id);
-    for (final link in links.where((l) => l.syncStatus != 1)) {
-      await _syncNewPlanWorkout(link, serverId);
-    }
+    await _syncNewPlanWorkoutsBatch(links.where((l) => l.syncStatus != 1).toList(), serverId);
     _logger.i('Synced new plan ${p.id} → server $serverId');
   }
 
@@ -313,9 +317,7 @@ class SyncService {
     await _db.workoutPlanDao.markPlanSynced(p.id, p.serverId!);
 
     final links = await _db.workoutPlanDao.getPlanWorkoutsForPlan(p.id);
-    for (final link in links.where((l) => l.syncStatus != 1)) {
-      await _syncNewPlanWorkout(link, p.serverId!);
-    }
+    await _syncNewPlanWorkoutsBatch(links.where((l) => l.syncStatus != 1).toList(), p.serverId!);
     _logger.i('Updated plan ${p.id} on server ${p.serverId}');
   }
 
@@ -329,21 +331,24 @@ class SyncService {
     _logger.i('Deleted plan ${p.id} from server ${p.serverId}');
   }
 
-  Future<void> _syncNewPlanWorkout(
-    WorkoutPlanWorkoutTableData link,
+  Future<void> _syncNewPlanWorkoutsBatch(
+    List<WorkoutPlanWorkoutTableData> links,
     String planServerId,
   ) async {
-    final workout = await _db.workoutDao.getWorkoutById(link.workoutId);
-    if (workout == null) return;
-    final workoutRow = await ((_db.select(_db.workoutTable))
-      ..where((w) => w.id.equals(link.workoutId))).getSingleOrNull();
-    if (workoutRow?.serverId == null) return; // workout not synced yet
-
-    await _apiClient.post(
-      'api/WorkoutPlan/$planServerId/workouts/${workoutRow!.serverId}',
-    );
-    await _db.workoutPlanDao.markPlanWorkoutSynced(link.id, planServerId);
-    _logger.i('Linked workout ${link.workoutId} to plan $planServerId');
+    final serverIds = <String>[];
+    final valid = <WorkoutPlanWorkoutTableData>[];
+    for (final link in links) {
+      final workoutRow = await ((_db.select(_db.workoutTable))
+        ..where((w) => w.id.equals(link.workoutId))).getSingleOrNull();
+      if (workoutRow?.serverId == null) continue;
+      serverIds.add(workoutRow!.serverId!);
+      valid.add(link);
+    }
+    if (serverIds.isEmpty) return;
+    await _apiClient.post('api/WorkoutPlan/$planServerId/workouts/batch', data: serverIds);
+    for (final link in valid) {
+      await _db.workoutPlanDao.markPlanWorkoutSynced(link.id, planServerId);
+    }
   }
 
   // ── Scheduled workouts ────────────────────────────────────────────────────
@@ -390,6 +395,8 @@ class SyncService {
         'workoutPlanId': planServerId,
         'scheduledDate': sw.scheduledDate.toUtc().toIso8601String(),
         'notes': sw.notes,
+        'isCompleted': sw.isCompleted,
+        'isSkipped': sw.isSkipped,
       },
     );
     final swServerId = response.data['id'] as String;
@@ -428,6 +435,8 @@ class SyncService {
         'workoutPlanId': planServerId,
         'scheduledDate': sw.scheduledDate.toUtc().toIso8601String(),
         'notes': sw.notes,
+        'isCompleted': sw.isCompleted,
+        'isSkipped': sw.isSkipped,
       },
     );
     await _db.workoutDao.markScheduledWorkoutSynced(sw.id, sw.serverId!);
@@ -489,18 +498,24 @@ class SyncService {
         await _db.scheduledWorkoutExerciseDao.getAllForScheduledWorkout(localSwId);
 
     for (final localEx in localExercises) {
-      if (localEx.serverId == null) continue; // exercise not synced yet
+      if (localEx.serverId == null) continue;
       final sets = await _db.workoutDao.getSetsForScheduledExercise(localEx.id);
 
-      for (final set in sets.where((s) => s.syncStatus != 1)) {
+      // Batch new sets.
+      final newSets = sets.where((s) => s.syncStatus == 0 && s.serverId == null).toList();
+      if (newSets.isNotEmpty) {
         try {
-          if (set.serverId == null) {
-            await _syncNewWorkoutSet(set, swServerId, localEx.serverId!);
-          } else if (set.syncStatus == 2) {
-            await _syncUpdateWorkoutSet(set);
-          } else if (set.syncStatus == 3) {
-            await _syncDeleteWorkoutSet(set);
-          }
+          await _syncNewWorkoutSetsBatch(newSets, swServerId, localEx.serverId!);
+        } catch (e) {
+          _logger.w('Batch set sync failed for exercise ${localEx.id}: $e');
+        }
+      }
+
+      // Handle updates and deletes individually.
+      for (final set in sets.where((s) => s.syncStatus == 2 || s.syncStatus == 3)) {
+        try {
+          if (set.syncStatus == 2) await _syncUpdateWorkoutSet(set);
+          else await _syncDeleteWorkoutSet(set);
         } catch (e) {
           _logger.w('Set sync failed for local ${set.id}: $e');
         }
@@ -508,24 +523,26 @@ class SyncService {
     }
   }
 
-  Future<void> _syncNewWorkoutSet(
-    WorkoutSetTableData s,
+  Future<void> _syncNewWorkoutSetsBatch(
+    List<WorkoutSetTableData> sets,
     String swServerId,
     String scheduledExerciseServerId,
   ) async {
     final response = await _apiClient.post(
-      'api/ScheduledWorkout/$swServerId/exercises/$scheduledExerciseServerId/sets',
-      data: {
+      'api/ScheduledWorkout/$swServerId/exercises/$scheduledExerciseServerId/sets/batch',
+      data: sets.map((s) => {
         'setNumber': s.setNumber,
         'reps': s.reps,
         'weight': s.weight,
         'weightUnit': s.weightUnit,
         'durationSeconds': s.durationSeconds,
         'notes': s.notes,
-      },
+      }).toList(),
     );
-    final serverId = response.data['id'] as String;
-    await _db.workoutDao.markWorkoutSetSynced(s.id, serverId);
+    final serverList = (response.data as List).cast<Map<String, dynamic>>();
+    for (var i = 0; i < sets.length && i < serverList.length; i++) {
+      await _db.workoutDao.markWorkoutSetSynced(sets[i].id, serverList[i]['id'] as String);
+    }
   }
 
   Future<void> _syncUpdateWorkoutSet(WorkoutSetTableData s) async {
@@ -670,22 +687,12 @@ class SyncService {
     final mealServerId = response.data['id'] as String;
     await _db.mealDao.markMealSynced(localId: meal.id, serverId: mealServerId);
 
-    // Push each food entry in the join table.
+    // Push food entries in a batch.
     final entries = await _db.mealDao.getAllFoodEntriesForMeal(meal.id);
-    for (final entry in entries) {
-      if (entry.serverId != null) continue; // already pushed
-      try {
-        final food = await _db.foodItemDao.getFoodItemById(entry.foodEntryId);
-        if (food?.serverId == null) continue; // food not synced yet — skip
-        final entryResponse = await _apiClient.post(
-          'api/Meal/$mealServerId/foods/${food!.serverId}',
-        );
-        final entryServerId = entryResponse.data['id'] as String;
-        await _db.mealDao.setFoodEntryServerId(entry.id, entryServerId);
-      } catch (e) {
-        _logger.w('Failed to sync food entry ${entry.id} for meal ${meal.id}: $e');
-      }
-    }
+    await _syncMealFoodEntriesBatch(
+      entries.where((e) => e.serverId == null).toList(),
+      mealServerId,
+    );
     _logger.i('Synced new meal ${meal.id} → server $mealServerId');
   }
 
@@ -710,23 +717,37 @@ class SyncService {
       serverId: meal.serverId!,
     );
 
-    // Push any food entries that haven't been synced yet.
+    // Push any food entries that haven't been synced yet (batch).
     final entries = await _db.mealDao.getAllFoodEntriesForMeal(meal.id);
-    for (final entry in entries) {
-      if (entry.serverId != null) continue;
-      try {
-        final food = await _db.foodItemDao.getFoodItemById(entry.foodEntryId);
-        if (food?.serverId == null) continue;
-        final entryResponse = await _apiClient.post(
-          'api/Meal/${meal.serverId}/foods/${food!.serverId}',
-        );
-        final entryServerId = entryResponse.data['id'] as String;
-        await _db.mealDao.setFoodEntryServerId(entry.id, entryServerId);
-      } catch (e) {
-        _logger.w('Failed to sync food entry ${entry.id}: $e');
-      }
-    }
+    await _syncMealFoodEntriesBatch(
+      entries.where((e) => e.serverId == null).toList(),
+      meal.serverId!,
+    );
     _logger.i('Updated meal ${meal.id} on server ${meal.serverId}');
+  }
+
+  Future<void> _syncMealFoodEntriesBatch(
+    List<dynamic> entries,
+    String mealServerId,
+  ) async {
+    final foodServerIds = <String>[];
+    final valid = <dynamic>[];
+    for (final entry in entries) {
+      final food = await _db.foodItemDao.getFoodItemById(entry.foodEntryId);
+      if (food?.serverId == null) continue;
+      foodServerIds.add(food!.serverId!);
+      valid.add(entry);
+    }
+    if (foodServerIds.isEmpty) return;
+
+    final response = await _apiClient.post(
+      'api/Meal/$mealServerId/foods/batch',
+      data: foodServerIds,
+    );
+    final serverList = (response.data as List).cast<Map<String, dynamic>>();
+    for (var i = 0; i < valid.length && i < serverList.length; i++) {
+      await _db.mealDao.setFoodEntryServerId(valid[i].id, serverList[i]['id'] as String);
+    }
   }
 
   Future<void> _syncDeleteMeal(MealTableData meal) async {

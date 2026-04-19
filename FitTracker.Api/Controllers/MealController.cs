@@ -74,6 +74,14 @@ public class MealController(IMealService mealService) : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>Adds multiple food items to a meal in a single request.</summary>
+    [HttpPost("{mealId:guid}/foods/batch")]
+    public async Task<IActionResult> AddFoodsBatch([FromRoute] Guid mealId, [FromBody] List<Guid> foodItemIds)
+    {
+        var result = await mealService.AddFoodsToMealBatchAsync(mealId, UserId, foodItemIds);
+        return Ok(result);
+    }
+
     /// <summary>Removes a food item from a meal.</summary>
     /// <param name="mealId">The meal ID.</param>
     /// <param name="foodItemId">The food item ID to remove.</param>

@@ -66,6 +66,18 @@ public class MealService(IMealRepository repository) : IMealService
     }
 
     /// <inheritdoc/>
+    public async Task<List<MealFoodEntryResponseDto>> AddFoodsToMealBatchAsync(Guid mealId, Guid userId, List<Guid> foodItemIds)
+    {
+        var results = new List<MealFoodEntryResponseDto>();
+        foreach (var foodItemId in foodItemIds)
+        {
+            var entry = await AddFoodToMealAsync(mealId, userId, foodItemId);
+            if (entry is not null) results.Add(entry);
+        }
+        return results;
+    }
+
+    /// <inheritdoc/>
     public async Task<bool> RemoveFoodFromMealAsync(Guid mealId, Guid userId, Guid foodItemId)
     {
         var meal = await repository.GetMealByIdAsync(mealId, userId);

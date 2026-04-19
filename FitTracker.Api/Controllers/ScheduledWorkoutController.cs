@@ -106,6 +106,17 @@ public class ScheduledWorkoutController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>Adds multiple performed sets to a scheduled workout exercise in a single request.</summary>
+    [HttpPost("{scheduledWorkoutId}/exercises/{workoutExerciseId}/sets/batch")]
+    public async Task<IActionResult> AddSetsBatch([FromRoute] Guid scheduledWorkoutId, [FromRoute] Guid workoutExerciseId, [FromBody] List<WorkoutSetRequestDto> dtos)
+    {
+        var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
+        if (userId == Guid.Empty) return NotFound("User not found");
+
+        var result = await _scheduledService.AddSetsBatchAsync(workoutExerciseId, dtos);
+        return Ok(result);
+    }
+
     /// <summary>Updates an existing performed set.</summary>
     /// <param name="setId">The ID of the set to update.</param>
     /// <param name="dto">The updated set data.</param>

@@ -84,6 +84,15 @@ public class ScheduledWorkoutService : IScheduledWorkoutService
     }
 
     /// <inheritdoc/>
+    public async Task<List<WorkoutSetResponseDto>> AddSetsBatchAsync(Guid scheduledWorkoutExerciseId, List<WorkoutSetRequestDto> dtos)
+    {
+        var results = new List<WorkoutSetResponseDto>();
+        foreach (var dto in dtos)
+            results.Add(await AddSetAsync(scheduledWorkoutExerciseId, dto));
+        return results;
+    }
+
+    /// <inheritdoc/>
     public async Task<WorkoutSetResponseDto?> UpdateSetAsync(Guid setId, WorkoutSetRequestDto dto)
     {
         var updated = await _scheduledRepository.UpdateSetAsync(setId, dto);

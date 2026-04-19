@@ -105,6 +105,22 @@ public class WorkoutController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>Adds multiple exercise entries to a workout in a single request.</summary>
+    [HttpPost("{workoutId}/exercises/batch")]
+    public async Task<IActionResult> AddExercisesBatch([FromRoute] Guid workoutId, [FromBody] List<WorkoutExerciseRequestDto> dtos)
+    {
+        var result = await _workoutService.AddExercisesToWorkoutBatchAsync(workoutId, dtos);
+        return Ok(result);
+    }
+
+    /// <summary>Adds multiple set templates to a workout exercise in a single request.</summary>
+    [HttpPost("exercises/{workoutExerciseId}/sets/batch")]
+    public async Task<IActionResult> AddSetTemplatesBatch([FromRoute] Guid workoutExerciseId, [FromBody] List<WorkoutSetTemplateRequestDto> dtos)
+    {
+        var result = await _workoutService.AddSetTemplatesBatchAsync(workoutExerciseId, dtos);
+        return Ok(result);
+    }
+
     /// <summary>Updates an existing workout exercise entry.</summary>
     /// <param name="exerciseId">The ID of the workout exercise to update.</param>
     /// <param name="dto">The updated exercise data.</param>

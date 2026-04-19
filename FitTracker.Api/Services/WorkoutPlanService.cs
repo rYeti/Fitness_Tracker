@@ -78,6 +78,13 @@ public class WorkoutPlanService : IWorkoutPlanService
     }
 
     /// <inheritdoc/>
+    public async Task AddWorkoutsToPlanBatchAsync(Guid planId, List<Guid> workoutIds)
+    {
+        foreach (var workoutId in workoutIds)
+            await AddWorkoutToPlanAsync(planId, workoutId);
+    }
+
+    /// <inheritdoc/>
     public async Task<bool> RemoveWorkoutFromPlanAsync(Guid planId, Guid workoutId)
     {
         return await _planRepository.RemoveWorkoutFromPlanAsync(planId, workoutId);
