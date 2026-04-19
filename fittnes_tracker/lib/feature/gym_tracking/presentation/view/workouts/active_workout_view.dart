@@ -234,6 +234,28 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
           ),
         );
       }
+      // Pre-populate set controllers from DB data for every exercise.
+      // Without this, after process death the user resumes mid-workout and
+      // the summary only shows data for the exercise that was active on
+      // resume — all earlier exercises have no controllers yet.
+      for (final ex in exercises) {
+        for (final template in ex.templates) {
+          final existing = ex.existingSets[template.setNumber];
+          _getOrCreateSetController(
+            ex.workoutExercise.id,
+            template.setNumber,
+            'weight',
+            existing?.weight?.toString() ?? '',
+          );
+          _getOrCreateSetController(
+            ex.workoutExercise.id,
+            template.setNumber,
+            'reps',
+            existing?.reps?.toString() ?? '',
+          );
+        }
+      }
+
       final maxGroupId = exercises
           .map((e) => e.supersetGroupId ?? 0)
           .fold(0, (a, b) => a > b ? a : b);

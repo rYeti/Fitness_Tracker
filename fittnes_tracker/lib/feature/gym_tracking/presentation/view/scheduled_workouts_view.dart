@@ -516,6 +516,8 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
                               _postponeWorkout(item);
                             } else if (value == 'unskip') {
                               _unskipWorkout(item);
+                            } else if (value == 'delete') {
+                              _deleteScheduledWorkout(item);
                             }
                           },
                           itemBuilder: (context) => [
@@ -552,6 +554,16 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
                                 ),
                               ),
                             ],
+                            PopupMenuItem(
+                              value: 'delete',
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                                  const SizedBox(width: 8),
+                                  Text(l10n.delete, style: const TextStyle(color: Colors.red)),
+                                ],
+                              ),
+                            ),
                           ],
                         ),
                     ],
@@ -632,6 +644,30 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
   Future<void> _unskipWorkout(ScheduledWorkoutWithDetails item) async {
     final provider = context.read<ScheduleWorkoutProvider>();
     await provider.unskipWorkout(item.scheduled.id);
+  }
+
+  Future<void> _deleteScheduledWorkout(ScheduledWorkoutWithDetails item) async {
+    final l10n = AppLocalizations.of(context)!;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.deleteWorkout),
+        content: Text(l10n.deleteWorkoutConfirmation(item.workout?.name ?? '')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(l10n.cancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(l10n.delete, style: const TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final provider = context.read<ScheduleWorkoutProvider>();
+    await provider.removeScheduled(item.scheduled.id, selectedDate);
   }
 
   Future<void> _postponeWorkout(ScheduledWorkoutWithDetails item) async {
