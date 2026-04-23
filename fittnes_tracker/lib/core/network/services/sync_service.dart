@@ -24,19 +24,37 @@ class SyncService {
   /// exercises → workout templates → workout plans → scheduled workouts →
   /// food items → meals → meal templates → user settings → weight logs.
   Future<void> syncAll() async {
-    await _syncSystemExerciseIds(); // gives system exercises their serverIds before any workout sync
-    await _reconcileAll(); // reset any records deleted server-side before pushing
-    await syncCustomExercises();
+    // Phase 1: system exercise IDs must come first (workouts depend on them).
+    await _syncSystemExerciseIds();
+
+    // Phase 2: reconcile must finish before any push — its GET calls run in
+    // parallel internally, but a push running alongside reconcile could race:
+    // reconcile snapshots the server list before the push completes, then
+    // resets the just-synced serverId, causing duplicate records next sync.
+    await _reconcileAll();
+
+    // Phase 3: independent pushes in parallel.
+    await Future.wait([
+      syncCustomExercises(),
+      syncFoodItems(),
+      syncUserSettings(),
+      syncWeightLogs(),
+    ]);
+
+    // Phase 3: workouts depend on exercises being synced.
     await syncWorkoutTemplates();
-    await _syncMissingWorkoutExercises(); // catches exercises skipped in prior syncs
-    await syncWorkoutPlans();
+    await _syncMissingWorkoutExercises();
+
+    // Phase 4: plans depend on workouts; meals depend on food items — run in parallel.
+    await Future.wait([
+      syncWorkoutPlans(),
+      syncMeals(),
+      syncMealTemplates(),
+    ]);
+
+    // Phase 5: scheduled workouts depend on plans and workouts.
     await syncScheduledWorkouts();
-    await _syncMissingScheduledExerciseSets(); // catches sets skipped in prior syncs
-    await syncFoodItems();
-    await syncMeals();
-    await syncMealTemplates();
-    await syncUserSettings();
-    await syncWeightLogs();
+    await _syncMissingScheduledExerciseSets();
   }
 
   // ── Custom exercises ──────────────────────────────────────────────────────
@@ -519,8 +537,11 @@ class SyncService {
       // Handle updates and deletes individually.
       for (final set in sets.where((s) => s.syncStatus == 2 || s.syncStatus == 3)) {
         try {
-          if (set.syncStatus == 2) await _syncUpdateWorkoutSet(set);
-          else await _syncDeleteWorkoutSet(set);
+          if (set.syncStatus == 2) {
+            await _syncUpdateWorkoutSet(set);
+          } else {
+            await _syncDeleteWorkoutSet(set);
+          }
         } catch (e) {
           _logger.w('Set sync failed for local ${set.id}: $e');
         }
@@ -609,112 +630,108 @@ class SyncService {
   /// any local record whose serverId is no longer present on the server.
   /// This handles the case where records were manually deleted from the server.
   Future<void> _reconcileAll() async {
-    await _reconcileTable<ExerciseTableData>(
-      endpoint: 'api/Exercise/UserExercise',
-      localQuery: () async {
-        final all = await (_db.select(_db.exerciseTable)
-          ..where((t) => t.serverId.isNotNull())).get();
-        return all.where((e) => e.isCustom).toList();
-      },
-      getServerId: (r) => r.serverId!,
-      getLocalId: (r) => r.id,
-      resetRow: (id) => (_db.update(_db.exerciseTable)..where((t) => t.id.equals(id)))
-          .write(const ExerciseTableCompanion(serverId: Value(null), syncStatus: Value(0))),
-    );
-
-    await _reconcileTable<WorkoutTableData>(
-      endpoint: 'api/Workout',
-      localQuery: () => (_db.select(_db.workoutTable)
-        ..where((t) => t.serverId.isNotNull())).get(),
-      getServerId: (r) => r.serverId!,
-      getLocalId: (r) => r.id,
-      resetRow: (id) async {
-        await (_db.update(_db.workoutTable)..where((t) => t.id.equals(id)))
-            .write(const WorkoutTableCompanion(serverId: Value(null), syncStatus: Value(0)));
-        // Cascade to workout exercises and their set templates.
-        final exercises = await (_db.select(_db.workoutExerciseTable)
-          ..where((e) => e.workoutId.equals(id))).get();
-        for (final ex in exercises) {
-          await (_db.update(_db.workoutExerciseTable)..where((t) => t.id.equals(ex.id)))
-              .write(const WorkoutExerciseTableCompanion(serverId: Value(null), syncStatus: Value(0)));
-          await (_db.update(_db.workoutSetTemplateTable)
-            ..where((t) => t.workoutExerciseId.equals(ex.id)))
-              .write(const WorkoutSetTemplateTableCompanion(serverId: Value(null), syncStatus: Value(0)));
-        }
-      },
-    );
-
-    await _reconcileTable<WorkoutPlanTableData>(
-      endpoint: 'api/WorkoutPlan',
-      localQuery: () => (_db.select(_db.workoutPlanTable)
-        ..where((t) => t.serverId.isNotNull())).get(),
-      getServerId: (r) => r.serverId!,
-      getLocalId: (r) => r.id,
-      resetRow: (id) async {
-        await (_db.update(_db.workoutPlanTable)..where((t) => t.id.equals(id)))
-            .write(const WorkoutPlanTableCompanion(serverId: Value(null), syncStatus: Value(0)));
-        await (_db.update(_db.workoutPlanWorkoutTable)
-          ..where((t) => t.planId.equals(id)))
-            .write(const WorkoutPlanWorkoutTableCompanion(syncStatus: Value(0)));
-      },
-    );
-
-    await _reconcileTable<ScheduledWorkoutTableData>(
-      endpoint: 'api/ScheduledWorkout',
-      localQuery: () => (_db.select(_db.scheduledWorkoutTable)
-        ..where((t) => t.serverId.isNotNull())).get(),
-      getServerId: (r) => r.serverId!,
-      getLocalId: (r) => r.id,
-      resetRow: (id) async {
-        await (_db.update(_db.scheduledWorkoutTable)..where((t) => t.id.equals(id)))
-            .write(const ScheduledWorkoutTableCompanion(serverId: Value(null), syncStatus: Value(0)));
-        final exercises =
-            await _db.scheduledWorkoutExerciseDao.getAllForScheduledWorkout(id);
-        for (final ex in exercises) {
-          await (_db.update(_db.scheduledWorkoutExerciseTable)..where((t) => t.id.equals(ex.id)))
-              .write(const ScheduledWorkoutExerciseTableCompanion(serverId: Value(null), syncStatus: Value(0)));
-          final sets = await _db.workoutDao.getSetsForScheduledExercise(ex.id);
-          for (final s in sets) {
-            await (_db.update(_db.workoutSetTable)..where((t) => t.id.equals(s.id)))
-                .write(const WorkoutSetTableCompanion(serverId: Value(null), syncStatus: Value(0)));
+    // All reconcile fetches are independent GETs — run them in parallel.
+    await Future.wait([
+      _reconcileTable<ExerciseTableData>(
+        endpoint: 'api/Exercise/UserExercise',
+        localQuery: () async {
+          final all = await (_db.select(_db.exerciseTable)
+            ..where((t) => t.serverId.isNotNull())).get();
+          return all.where((e) => e.isCustom).toList();
+        },
+        getServerId: (r) => r.serverId!,
+        getLocalId: (r) => r.id,
+        resetRow: (id) => (_db.update(_db.exerciseTable)..where((t) => t.id.equals(id)))
+            .write(const ExerciseTableCompanion(serverId: Value(null), syncStatus: Value(0))),
+      ),
+      _reconcileTable<WorkoutTableData>(
+        endpoint: 'api/Workout',
+        localQuery: () => (_db.select(_db.workoutTable)
+          ..where((t) => t.serverId.isNotNull())).get(),
+        getServerId: (r) => r.serverId!,
+        getLocalId: (r) => r.id,
+        resetRow: (id) async {
+          await (_db.update(_db.workoutTable)..where((t) => t.id.equals(id)))
+              .write(const WorkoutTableCompanion(serverId: Value(null), syncStatus: Value(0)));
+          final exercises = await (_db.select(_db.workoutExerciseTable)
+            ..where((e) => e.workoutId.equals(id))).get();
+          for (final ex in exercises) {
+            await (_db.update(_db.workoutExerciseTable)..where((t) => t.id.equals(ex.id)))
+                .write(const WorkoutExerciseTableCompanion(serverId: Value(null), syncStatus: Value(0)));
+            await (_db.update(_db.workoutSetTemplateTable)
+              ..where((t) => t.workoutExerciseId.equals(ex.id)))
+                .write(const WorkoutSetTemplateTableCompanion(serverId: Value(null), syncStatus: Value(0)));
           }
-        }
-      },
-    );
-
-    await _reconcileTable<FoodItemData>(
-      endpoint: 'api/FoodItem',
-      localQuery: () => (_db.select(_db.foodItem)
-        ..where((t) => t.serverId.isNotNull())).get(),
-      getServerId: (r) => r.serverId!,
-      getLocalId: (r) => r.id,
-      resetRow: (id) => (_db.update(_db.foodItem)..where((t) => t.id.equals(id)))
-          .write(const FoodItemCompanion(serverId: Value(null), syncStatus: Value(0))),
-    );
-
-    await _reconcileTable<MealTableData>(
-      endpoint: 'api/Meal/all',
-      localQuery: () => (_db.select(_db.mealTable)
-        ..where((t) => t.serverId.isNotNull())).get(),
-      getServerId: (r) => r.serverId!,
-      getLocalId: (r) => r.id,
-      resetRow: (id) async {
-        await (_db.update(_db.mealTable)..where((t) => t.id.equals(id)))
-            .write(const MealTableCompanion(serverId: Value(null), syncStatus: Value(0)));
-        await (_db.update(_db.mealFoodTable)..where((t) => t.mealId.equals(id)))
-            .write(const MealFoodTableCompanion(serverId: Value(null)));
-      },
-    );
-
-    await _reconcileTable<WeightRecordData>(
-      endpoint: 'api/WeightTracking/TrackWeight',
-      localQuery: () => (_db.select(_db.weightRecord)
-        ..where((t) => t.serverId.isNotNull())).get(),
-      getServerId: (r) => r.serverId!,
-      getLocalId: (r) => r.id,
-      resetRow: (id) => (_db.update(_db.weightRecord)..where((t) => t.id.equals(id)))
-          .write(const WeightRecordCompanion(serverId: Value(null), syncStatus: Value(0))),
-    );
+        },
+      ),
+      _reconcileTable<WorkoutPlanTableData>(
+        endpoint: 'api/WorkoutPlan',
+        localQuery: () => (_db.select(_db.workoutPlanTable)
+          ..where((t) => t.serverId.isNotNull())).get(),
+        getServerId: (r) => r.serverId!,
+        getLocalId: (r) => r.id,
+        resetRow: (id) async {
+          await (_db.update(_db.workoutPlanTable)..where((t) => t.id.equals(id)))
+              .write(const WorkoutPlanTableCompanion(serverId: Value(null), syncStatus: Value(0)));
+          await (_db.update(_db.workoutPlanWorkoutTable)
+            ..where((t) => t.planId.equals(id)))
+              .write(const WorkoutPlanWorkoutTableCompanion(syncStatus: Value(0)));
+        },
+      ),
+      _reconcileTable<ScheduledWorkoutTableData>(
+        endpoint: 'api/ScheduledWorkout',
+        localQuery: () => (_db.select(_db.scheduledWorkoutTable)
+          ..where((t) => t.serverId.isNotNull())).get(),
+        getServerId: (r) => r.serverId!,
+        getLocalId: (r) => r.id,
+        resetRow: (id) async {
+          await (_db.update(_db.scheduledWorkoutTable)..where((t) => t.id.equals(id)))
+              .write(const ScheduledWorkoutTableCompanion(serverId: Value(null), syncStatus: Value(0)));
+          final exercises =
+              await _db.scheduledWorkoutExerciseDao.getAllForScheduledWorkout(id);
+          for (final ex in exercises) {
+            await (_db.update(_db.scheduledWorkoutExerciseTable)..where((t) => t.id.equals(ex.id)))
+                .write(const ScheduledWorkoutExerciseTableCompanion(serverId: Value(null), syncStatus: Value(0)));
+            final sets = await _db.workoutDao.getSetsForScheduledExercise(ex.id);
+            for (final s in sets) {
+              await (_db.update(_db.workoutSetTable)..where((t) => t.id.equals(s.id)))
+                  .write(const WorkoutSetTableCompanion(serverId: Value(null), syncStatus: Value(0)));
+            }
+          }
+        },
+      ),
+      _reconcileTable<FoodItemData>(
+        endpoint: 'api/FoodItem',
+        localQuery: () => (_db.select(_db.foodItem)
+          ..where((t) => t.serverId.isNotNull())).get(),
+        getServerId: (r) => r.serverId!,
+        getLocalId: (r) => r.id,
+        resetRow: (id) => (_db.update(_db.foodItem)..where((t) => t.id.equals(id)))
+            .write(const FoodItemCompanion(serverId: Value(null), syncStatus: Value(0))),
+      ),
+      _reconcileTable<MealTableData>(
+        endpoint: 'api/Meal/all',
+        localQuery: () => (_db.select(_db.mealTable)
+          ..where((t) => t.serverId.isNotNull())).get(),
+        getServerId: (r) => r.serverId!,
+        getLocalId: (r) => r.id,
+        resetRow: (id) async {
+          await (_db.update(_db.mealTable)..where((t) => t.id.equals(id)))
+              .write(const MealTableCompanion(serverId: Value(null), syncStatus: Value(0)));
+          await (_db.update(_db.mealFoodTable)..where((t) => t.mealId.equals(id)))
+              .write(const MealFoodTableCompanion(serverId: Value(null)));
+        },
+      ),
+      _reconcileTable<WeightRecordData>(
+        endpoint: 'api/WeightTracking/TrackWeight',
+        localQuery: () => (_db.select(_db.weightRecord)
+          ..where((t) => t.serverId.isNotNull())).get(),
+        getServerId: (r) => r.serverId!,
+        getLocalId: (r) => r.id,
+        resetRow: (id) => (_db.update(_db.weightRecord)..where((t) => t.id.equals(id)))
+            .write(const WeightRecordCompanion(serverId: Value(null), syncStatus: Value(0))),
+      ),
+    ]);
   }
 
   Future<void> _reconcileTable<T>({
@@ -1151,11 +1168,33 @@ class SyncService {
       if (e['isCustom'] == true) continue;
       final serverId = e['id'] as String;
       final name = e['name'] as String;
+
+      // Already in local DB with serverId — nothing to do.
+      if (await _db.exerciseDao.getExerciseByServerId(serverId) != null) continue;
+
+      // Try to match an existing local exercise by name and stamp its serverId.
       final locals = await _db.exerciseDao.searchExercises(name);
-      for (final local in locals) {
-        if (local.serverId == null && local.name.toLowerCase() == name.toLowerCase()) {
-          await _db.exerciseDao.markExerciseSynced(local.id, serverId);
-        }
+      final match = locals.where(
+        (local) => local.serverId == null && local.name.toLowerCase() == name.toLowerCase(),
+      ).firstOrNull;
+
+      if (match != null) {
+        await _db.exerciseDao.markExerciseSynced(match.id, serverId);
+      } else {
+        // No local match (e.g. fresh install, seed hasn't run yet) — create
+        // from server data so workout exercise links can be resolved immediately.
+        await _db.exerciseDao.saveExercise(ExerciseTableCompanion(
+          name: Value(name),
+          description: Value(e['description'] as String?),
+          nameDe: Value(e['nameDe'] as String?),
+          descriptionDe: Value(e['descriptionDe'] as String?),
+          type: Value(e['type'] as int? ?? 0),
+          targetMuscleGroups: Value(e['targetMuscleGroups'] as String? ?? ''),
+          imageUrl: Value(e['imageUrl'] as String?),
+          isCustom: const Value(false),
+          serverId: Value(serverId),
+          syncStatus: const Value(1),
+        ));
       }
     }
   }
