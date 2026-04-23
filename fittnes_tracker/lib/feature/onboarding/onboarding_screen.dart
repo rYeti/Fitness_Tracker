@@ -1,4 +1,5 @@
 import 'package:ForgeForm/core/app_database.dart';
+import 'package:drift/drift.dart' show Value;
 import 'package:ForgeForm/core/providers/enums.dart';
 import 'package:ForgeForm/core/providers/user_goals_provider.dart';
 import 'package:ForgeForm/feature/auth/presentation/view/login_screen.dart';
@@ -145,10 +146,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
       await provider.saveCalorieGoal(finalCalories);
 
+      // Mark as already-synced so it is never pushed to the server.
+      // It stays as a local starting-weight reference only.
       await db.weightRecordDao.addWeightRecord(
         WeightRecordCompanion.insert(
           date: DateTime.now(),
           weight: currentWeight,
+          syncStatus: Value(WeightSyncStatus.synced.index),
         ),
       );
 

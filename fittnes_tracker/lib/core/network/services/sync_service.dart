@@ -1,7 +1,7 @@
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/dao/meal_template_dao.dart';
 import 'package:ForgeForm/core/network/api_client.dart';
-import 'package:drift/drift.dart' show Value;
+import 'package:drift/drift.dart';
 import 'package:logger/logger.dart';
 
 class SyncService {
@@ -24,6 +24,9 @@ class SyncService {
   /// exercises → workout templates → workout plans → scheduled workouts →
   /// food items → meals → meal templates → user settings → weight logs.
   Future<void> syncAll() async {
+    // Phase 0: remove any duplicate rows caused by previous sync bugs.
+    await _deduplicateAll();
+
     // Phase 1: system exercise IDs must come first (workouts depend on them).
     await _syncSystemExerciseIds();
 
@@ -623,6 +626,196 @@ class SyncService {
       } catch (e) {
         _logger.w('_syncMissingWorkoutExercises failed for workout ${w.id}: $e');
       }
+    }
+  }
+
+  /// Deduplicates workout_table rows by name, keeping the row with a non-null
+  /// serverId (preferred) or the lowest local id. Re-links any
+  /// scheduled_workout_table rows from the loser to the winner before deleting
+  /// the loser, so the subsequent SW content dedup can finish the job.
+  Future<void> _deduplicateWorkoutsByContent() async {
+    try {
+      final all = await (_db.select(_db.workoutTable)
+        ..orderBy([(t) => OrderingTerm.asc(t.id)])).get();
+
+      // Sort so non-null serverId comes first (those are the "winners").
+      final sorted = [...all]..sort((a, b) {
+        if (a.serverId != null && b.serverId == null) return -1;
+        if (a.serverId == null && b.serverId != null) return 1;
+        return a.id.compareTo(b.id);
+      });
+
+      final seen = <String, WorkoutTableData>{};
+      for (final w in sorted) {
+        final key = w.name.toLowerCase().trim();
+        if (!seen.containsKey(key)) {
+          seen[key] = w;
+        } else {
+          final winner = seen[key]!;
+          // Re-link scheduled workouts from loser → winner.
+          await (_db.update(_db.scheduledWorkoutTable)
+            ..where((t) => t.workoutId.equals(w.id)))
+            .write(ScheduledWorkoutTableCompanion(workoutId: Value(winner.id)));
+          // Cascade-delete loser's child exercises.
+          final exercises = await (_db.select(_db.workoutExerciseTable)
+            ..where((e) => e.workoutId.equals(w.id))).get();
+          for (final ex in exercises) {
+            await (_db.delete(_db.workoutSetTemplateTable)
+              ..where((t) => t.workoutExerciseId.equals(ex.id))).go();
+          }
+          await (_db.delete(_db.workoutExerciseTable)
+            ..where((t) => t.workoutId.equals(w.id))).go();
+          await (_db.delete(_db.workoutTable)
+            ..where((t) => t.id.equals(w.id))).go();
+          _logger.i('Dedup by name: removed duplicate workout ${w.id} "${w.name}", re-linked SWs to winner ${winner.id}');
+        }
+      }
+    } catch (e) {
+      _logger.w('_deduplicateWorkoutsByContent failed: $e');
+    }
+  }
+
+  /// Removes duplicate rows (same serverId) from every synced table, keeping
+  /// the row with the lowest local id. Cascades to child tables.
+  Future<void> _deduplicateScheduledWorkoutsByContent() async {
+    try {
+      final all = await (_db.select(_db.scheduledWorkoutTable)
+        ..orderBy([(t) => OrderingTerm.asc(t.id)])).get();
+
+      // Group by workoutId + scheduledDate — keep first (lowest id), delete the rest.
+      final seen = <String>{};
+      for (final sw in all) {
+        // Normalize to date-only so UTC-stored vs local-stored dates on the
+        // same calendar day are treated as identical.
+        final d = sw.scheduledDate;
+        final key = '${sw.workoutId}_${d.year}-${d.month}-${d.day}';
+        if (!seen.add(key)) {
+          final exercises = await _db.scheduledWorkoutExerciseDao.getAllForScheduledWorkout(sw.id);
+          for (final ex in exercises) {
+            await (_db.delete(_db.workoutSetTable)..where((t) => t.scheduledWorkoutExerciseId.equals(ex.id))).go();
+          }
+          await (_db.delete(_db.scheduledWorkoutExerciseTable)..where((t) => t.scheduledWorkoutId.equals(sw.id))).go();
+          await (_db.delete(_db.scheduledWorkoutTable)..where((t) => t.id.equals(sw.id))).go();
+          _logger.i('Dedup by content: removed duplicate SW ${sw.id} (workout ${sw.workoutId} date ${sw.scheduledDate})');
+        }
+      }
+    } catch (e) {
+      _logger.w('_deduplicateScheduledWorkoutsByContent failed: $e');
+    }
+  }
+
+  Future<void> _deduplicateAll() async {
+    // Content-based dedup for workouts: two rows with the same name are always
+    // duplicates. Must run first so SWs are re-linked before SW dedup.
+    await _deduplicateWorkoutsByContent();
+
+    // Content-based dedup for scheduled workouts: two rows for the same
+    // workout+date are always duplicates regardless of their serverIds.
+    await _deduplicateScheduledWorkoutsByContent();
+
+    await _deduplicateTable<ScheduledWorkoutTableData>(
+      query: () => (_db.select(_db.scheduledWorkoutTable)
+        ..where((t) => t.serverId.isNotNull())
+        ..orderBy([(t) => OrderingTerm.asc(t.id)])).get(),
+      getServerId: (r) => r.serverId!,
+      getLocalId: (r) => r.id,
+      onDelete: (id) async {
+        final exercises = await _db.scheduledWorkoutExerciseDao.getAllForScheduledWorkout(id);
+        for (final ex in exercises) {
+          await (_db.delete(_db.workoutSetTable)..where((t) => t.scheduledWorkoutExerciseId.equals(ex.id))).go();
+        }
+        await (_db.delete(_db.scheduledWorkoutExerciseTable)..where((t) => t.scheduledWorkoutId.equals(id))).go();
+        await (_db.delete(_db.scheduledWorkoutTable)..where((t) => t.id.equals(id))).go();
+      },
+    );
+
+    await _deduplicateTable<WorkoutTableData>(
+      query: () => (_db.select(_db.workoutTable)
+        ..where((t) => t.serverId.isNotNull())
+        ..orderBy([(t) => OrderingTerm.asc(t.id)])).get(),
+      getServerId: (r) => r.serverId!,
+      getLocalId: (r) => r.id,
+      onDelete: (id) async {
+        final exercises = await (_db.select(_db.workoutExerciseTable)
+          ..where((e) => e.workoutId.equals(id))).get();
+        for (final ex in exercises) {
+          await (_db.delete(_db.workoutSetTemplateTable)..where((t) => t.workoutExerciseId.equals(ex.id))).go();
+        }
+        await (_db.delete(_db.workoutExerciseTable)..where((t) => t.workoutId.equals(id))).go();
+        await (_db.delete(_db.workoutTable)..where((t) => t.id.equals(id))).go();
+      },
+    );
+
+    await _deduplicateTable<ExerciseTableData>(
+      query: () => (_db.select(_db.exerciseTable)
+        ..where((t) => t.serverId.isNotNull())
+        ..orderBy([(t) => OrderingTerm.asc(t.id)])).get(),
+      getServerId: (r) => r.serverId!,
+      getLocalId: (r) => r.id,
+      onDelete: (id) => (_db.delete(_db.exerciseTable)..where((t) => t.id.equals(id))).go(),
+    );
+
+    await _deduplicateTable<WorkoutExerciseTableData>(
+      query: () => (_db.select(_db.workoutExerciseTable)
+        ..where((t) => t.serverId.isNotNull())
+        ..orderBy([(t) => OrderingTerm.asc(t.id)])).get(),
+      getServerId: (r) => r.serverId!,
+      getLocalId: (r) => r.id,
+      onDelete: (id) async {
+        await (_db.delete(_db.workoutSetTemplateTable)..where((t) => t.workoutExerciseId.equals(id))).go();
+        await (_db.delete(_db.workoutExerciseTable)..where((t) => t.id.equals(id))).go();
+      },
+    );
+
+    await _deduplicateTable<FoodItemData>(
+      query: () => (_db.select(_db.foodItem)
+        ..where((t) => t.serverId.isNotNull())
+        ..orderBy([(t) => OrderingTerm.asc(t.id)])).get(),
+      getServerId: (r) => r.serverId!,
+      getLocalId: (r) => r.id,
+      onDelete: (id) => (_db.delete(_db.foodItem)..where((t) => t.id.equals(id))).go(),
+    );
+
+    await _deduplicateTable<MealTableData>(
+      query: () => (_db.select(_db.mealTable)
+        ..where((t) => t.serverId.isNotNull())
+        ..orderBy([(t) => OrderingTerm.asc(t.id)])).get(),
+      getServerId: (r) => r.serverId!,
+      getLocalId: (r) => r.id,
+      onDelete: (id) async {
+        await (_db.delete(_db.mealFoodTable)..where((t) => t.mealId.equals(id))).go();
+        await (_db.delete(_db.mealTable)..where((t) => t.id.equals(id))).go();
+      },
+    );
+
+    await _deduplicateTable<WeightRecordData>(
+      query: () => (_db.select(_db.weightRecord)
+        ..where((t) => t.serverId.isNotNull())
+        ..orderBy([(t) => OrderingTerm.asc(t.id)])).get(),
+      getServerId: (r) => r.serverId!,
+      getLocalId: (r) => r.id,
+      onDelete: (id) => (_db.delete(_db.weightRecord)..where((t) => t.id.equals(id))).go(),
+    );
+  }
+
+  Future<void> _deduplicateTable<T>({
+    required Future<List<T>> Function() query,
+    required String Function(T) getServerId,
+    required int Function(T) getLocalId,
+    required Future<void> Function(int localId) onDelete,
+  }) async {
+    try {
+      final rows = await query();
+      final seen = <String>{};
+      for (final row in rows) {
+        final sid = getServerId(row);
+        if (!seen.add(sid)) {
+          await onDelete(getLocalId(row));
+          _logger.i('Dedup: removed duplicate local ${getLocalId(row)} (serverId $sid)');
+        }
+      }
+    } catch (e) {
+      _logger.w('_deduplicateTable failed: $e');
     }
   }
 
@@ -1227,45 +1420,106 @@ class SyncService {
     for (final w in list) {
       final workoutServerId = w['id'] as String;
       if (await _db.workoutDao.getWorkoutByServerId(workoutServerId) != null) continue;
-      final localWorkoutId = await _db.into(_db.workoutTable).insert(
-        WorkoutTableCompanion(
-          name: Value(w['name'] as String),
-          description: Value(w['description'] as String?),
-          difficulty: Value(w['difficulty'] as int),
-          estimatedDurationMinutes: Value(w['estimatedDurationMinutes'] as int? ?? 30),
-          isTemplate: Value(w['isTemplate'] as bool),
-          scheduledDate: Value(w['scheduledDate'] != null ? DateTime.parse(w['scheduledDate'] as String) : null),
-          completedDate: Value(w['completedDate'] != null ? DateTime.parse(w['completedDate'] as String) : null),
-          color: Value(w['color'] as int?),
-          serverId: Value(workoutServerId),
-          syncStatus: const Value(1),
-        ),
-      );
+
+      // Guard: if a local workout with the same name exists but no serverId
+      // (reconcile cleared it), stamp its serverId instead of inserting a new
+      // row — this prevents duplicate workouts after a server wipe-and-resync.
+      final nameMatch = await (_db.select(_db.workoutTable)
+        ..where((t) => t.serverId.isNull() & t.name.equals(w['name'] as String))
+        ..limit(1)).getSingleOrNull();
+
+      late int localWorkoutId;
+      if (nameMatch != null) {
+        localWorkoutId = nameMatch.id;
+        await (_db.update(_db.workoutTable)..where((t) => t.id.equals(localWorkoutId)))
+            .write(WorkoutTableCompanion(serverId: Value(workoutServerId), syncStatus: const Value(1)));
+        _logger.i('Re-linked existing workout $localWorkoutId to server $workoutServerId');
+      } else {
+        localWorkoutId = await _db.into(_db.workoutTable).insert(
+          WorkoutTableCompanion(
+            name: Value(w['name'] as String),
+            description: Value(w['description'] as String?),
+            difficulty: Value(w['difficulty'] as int),
+            estimatedDurationMinutes: Value(w['estimatedDurationMinutes'] as int? ?? 30),
+            isTemplate: Value(w['isTemplate'] as bool),
+            scheduledDate: Value(w['scheduledDate'] != null ? DateTime.parse(w['scheduledDate'] as String) : null),
+            completedDate: Value(w['completedDate'] != null ? DateTime.parse(w['completedDate'] as String) : null),
+            color: Value(w['color'] as int?),
+            serverId: Value(workoutServerId),
+            syncStatus: const Value(1),
+          ),
+        );
+      }
+
       final exercises = (w['exercises'] as List).cast<Map<String, dynamic>>();
       for (final ex in exercises) {
         final exServerId = ex['id'] as String;
         if (await _db.workoutDao.getWorkoutExerciseByServerId(exServerId) != null) continue;
         final localExercise = await _db.exerciseDao.getExerciseByServerId(ex['exerciseId'] as String);
         if (localExercise == null) continue;
-        final localWeId = await _db.into(_db.workoutExerciseTable).insert(
-          WorkoutExerciseTableCompanion(
-            workoutId: Value(localWorkoutId),
-            exerciseId: Value(localExercise.id),
-            orderPosition: Value(ex['orderPosition'] as int),
-            notes: Value(ex['notes'] as String?),
-            supersetGroupId: Value(ex['supersetGroupId'] as int?),
-            serverId: Value(exServerId),
-            syncStatus: const Value(1),
-          ),
-        );
+
+        // When re-using an existing workout, stamp existing unsynced exercises
+        // rather than inserting new ones.
+        int localWeId;
+        if (nameMatch != null) {
+          final weMatch = await (_db.select(_db.workoutExerciseTable)
+            ..where((t) => t.workoutId.equals(localWorkoutId) &
+                           t.exerciseId.equals(localExercise.id) &
+                           t.serverId.isNull())
+            ..limit(1)).getSingleOrNull();
+          if (weMatch != null) {
+            localWeId = weMatch.id;
+            await (_db.update(_db.workoutExerciseTable)..where((t) => t.id.equals(localWeId)))
+                .write(WorkoutExerciseTableCompanion(serverId: Value(exServerId), syncStatus: const Value(1)));
+          } else {
+            localWeId = await _db.into(_db.workoutExerciseTable).insert(
+              WorkoutExerciseTableCompanion(
+                workoutId: Value(localWorkoutId),
+                exerciseId: Value(localExercise.id),
+                orderPosition: Value(ex['orderPosition'] as int),
+                notes: Value(ex['notes'] as String?),
+                supersetGroupId: Value(ex['supersetGroupId'] as int?),
+                serverId: Value(exServerId),
+                syncStatus: const Value(1),
+              ),
+            );
+          }
+        } else {
+          localWeId = await _db.into(_db.workoutExerciseTable).insert(
+            WorkoutExerciseTableCompanion(
+              workoutId: Value(localWorkoutId),
+              exerciseId: Value(localExercise.id),
+              orderPosition: Value(ex['orderPosition'] as int),
+              notes: Value(ex['notes'] as String?),
+              supersetGroupId: Value(ex['supersetGroupId'] as int?),
+              serverId: Value(exServerId),
+              syncStatus: const Value(1),
+            ),
+          );
+        }
+
         for (final st in (ex['setTemplates'] as List).cast<Map<String, dynamic>>()) {
+          final stServerId = st['id'] as String;
+          // Stamp existing unsynced set template if one already exists.
+          if (nameMatch != null) {
+            final stMatch = await (_db.select(_db.workoutSetTemplateTable)
+              ..where((t) => t.workoutExerciseId.equals(localWeId) &
+                             t.setNumber.equals(st['setNumber'] as int) &
+                             t.serverId.isNull())
+              ..limit(1)).getSingleOrNull();
+            if (stMatch != null) {
+              await (_db.update(_db.workoutSetTemplateTable)..where((t) => t.id.equals(stMatch.id)))
+                  .write(WorkoutSetTemplateTableCompanion(serverId: Value(stServerId), syncStatus: const Value(1)));
+              continue;
+            }
+          }
           await _db.into(_db.workoutSetTemplateTable).insert(
             WorkoutSetTemplateTableCompanion(
               workoutExerciseId: Value(localWeId),
               setNumber: Value(st['setNumber'] as int),
               targetReps: Value(st['targetReps'] as String),
               orderPosition: Value(st['orderPosition'] as int),
-              serverId: Value(st['id'] as String),
+              serverId: Value(stServerId),
               syncStatus: const Value(1),
             ),
           );
@@ -1317,6 +1571,31 @@ class SyncService {
       if (await _db.scheduledWorkoutDao.getByServerId(swServerId) != null) continue;
       final localWorkout = await _db.workoutDao.getWorkoutByServerId(sw['workoutId'] as String);
       if (localWorkout == null) continue;
+      final scheduledDate = DateTime.parse(sw['scheduledDate'] as String);
+
+      // Guard against duplicates: check by workout + calendar date using a
+      // range query so UTC-stored and local-stored dates on the same calendar
+      // day are treated as identical.
+      final dateStart = DateTime(scheduledDate.year, scheduledDate.month, scheduledDate.day);
+      final dateEnd = dateStart.add(const Duration(days: 1));
+      final existingByContent = await (_db.select(_db.scheduledWorkoutTable)
+        ..where((t) =>
+            t.workoutId.equals(localWorkout.id) &
+            t.scheduledDate.isBiggerOrEqualValue(dateStart) &
+            t.scheduledDate.isSmallerThanValue(dateEnd))
+        ..limit(1)).getSingleOrNull();
+      if (existingByContent != null) {
+        if (existingByContent.serverId == null) {
+          await (_db.update(_db.scheduledWorkoutTable)
+            ..where((t) => t.id.equals(existingByContent.id))).write(
+              ScheduledWorkoutTableCompanion(
+                serverId: Value(swServerId),
+                syncStatus: const Value(1),
+              ),
+            );
+        }
+        continue;
+      }
       int? localPlanId;
       if (sw['workoutPlanId'] != null) {
         localPlanId = (await _db.workoutPlanDao.getPlanByServerId(sw['workoutPlanId'] as String))?.id;

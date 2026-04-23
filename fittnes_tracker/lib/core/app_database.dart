@@ -647,7 +647,7 @@ class ScheduledWorkoutDao extends DatabaseAccessor<AppDatabase>
       select(scheduledWorkoutTable).get();
 
   Future<ScheduledWorkoutTableData?> getByServerId(String serverId) =>
-      (select(scheduledWorkoutTable)..where((t) => t.serverId.equals(serverId))).getSingleOrNull();
+      (select(scheduledWorkoutTable)..where((t) => t.serverId.equals(serverId))..limit(1)).getSingleOrNull();
 
   Future<List<ScheduledWorkoutWithDetails>> getScheduledWithDetailsForDate(
     DateTime date,
@@ -1017,7 +1017,7 @@ class FoodItemDao extends DatabaseAccessor<AppDatabase>
       (delete(foodItem)..where((t) => t.id.equals(id))).go();
 
   Future<FoodItemData?> getByServerId(String serverId) =>
-      (select(foodItem)..where((f) => f.serverId.equals(serverId))).getSingleOrNull();
+      (select(foodItem)..where((f) => f.serverId.equals(serverId))..limit(1)).getSingleOrNull();
 }
 
 @DriftAccessor(tables: [UserSettings])
@@ -1203,10 +1203,10 @@ class MealDao extends DatabaseAccessor<AppDatabase> with _$MealDaoMixin {
       );
 
   Future<MealTableData?> getByServerId(String serverId) =>
-      (select(mealTable)..where((m) => m.serverId.equals(serverId))).getSingleOrNull();
+      (select(mealTable)..where((m) => m.serverId.equals(serverId))..limit(1)).getSingleOrNull();
 
   Future<MealFoodTableData?> getFoodEntryByServerId(String serverId) =>
-      (select(mealFoodTable)..where((f) => f.serverId.equals(serverId))).getSingleOrNull();
+      (select(mealFoodTable)..where((f) => f.serverId.equals(serverId))..limit(1)).getSingleOrNull();
 }
 
 @DriftAccessor(tables: [SearchCacheTable])
@@ -1549,7 +1549,7 @@ class WeightRecordDao extends DatabaseAccessor<AppDatabase>
       );
 
   Future<WeightRecordData?> getByServerId(String serverId) =>
-      (select(weightRecord)..where((t) => t.serverId.equals(serverId))).getSingleOrNull();
+      (select(weightRecord)..where((t) => t.serverId.equals(serverId))..limit(1)).getSingleOrNull();
 }
 
 // Workout planning DAOs
@@ -1689,7 +1689,7 @@ class ExerciseDao extends DatabaseAccessor<AppDatabase>
       );
 
   Future<ExerciseTableData?> getExerciseByServerId(String serverId) =>
-      (select(exerciseTable)..where((e) => e.serverId.equals(serverId))).getSingleOrNull();
+      (select(exerciseTable)..where((e) => e.serverId.equals(serverId))..limit(1)).getSingleOrNull();
 }
 
 /// Returns the exercise name/description in the given locale language,
@@ -2160,10 +2160,10 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
       );
 
   Future<WorkoutTableData?> getWorkoutByServerId(String serverId) =>
-      (select(workoutTable)..where((w) => w.serverId.equals(serverId))).getSingleOrNull();
+      (select(workoutTable)..where((w) => w.serverId.equals(serverId))..limit(1)).getSingleOrNull();
 
   Future<WorkoutExerciseTableData?> getWorkoutExerciseByServerId(String serverId) =>
-      (select(workoutExerciseTable)..where((we) => we.serverId.equals(serverId))).getSingleOrNull();
+      (select(workoutExerciseTable)..where((we) => we.serverId.equals(serverId))..limit(1)).getSingleOrNull();
 
   Future<List<WorkoutSetTableData>> getPreviousWorkoutSetsForExercise({
     required int exerciseId,
@@ -2802,7 +2802,7 @@ class ScheduledWorkoutExerciseDao extends DatabaseAccessor<AppDatabase>
       );
 
   Future<ScheduledWorkoutExerciseTableData?> getByServerId(String serverId) =>
-      (select(scheduledWorkoutExerciseTable)..where((e) => e.serverId.equals(serverId))).getSingleOrNull();
+      (select(scheduledWorkoutExerciseTable)..where((e) => e.serverId.equals(serverId))..limit(1)).getSingleOrNull();
 
   Future<List<WorkoutExerciseTemplate>> getTemplateWithExercises(
     int workoutId,
@@ -3000,5 +3000,5 @@ class WorkoutPlanDao extends DatabaseAccessor<AppDatabase>
       );
 
   Future<WorkoutPlanTableData?> getPlanByServerId(String serverId) =>
-      (select(workoutPlanTable)..where((p) => p.serverId.equals(serverId))).getSingleOrNull();
+      (select(workoutPlanTable)..where((p) => p.serverId.equals(serverId))..limit(1)).getSingleOrNull();
 }
