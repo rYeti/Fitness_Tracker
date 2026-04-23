@@ -2,12 +2,11 @@ import '../app_database.dart';
 import 'package:flutter/material.dart';
 
 class ThemeProvider with ChangeNotifier {
-  late ThemeMode _themeMode = ThemeMode.light;
+  ThemeMode _themeMode;
   final AppDatabase db;
 
-  ThemeProvider(this.db) {
-    loadTheme();
-  }
+  ThemeProvider(this.db, {ThemeMode initialTheme = ThemeMode.light})
+      : _themeMode = initialTheme;
 
   ThemeMode get themeMode => _themeMode;
 
@@ -17,13 +16,6 @@ class ThemeProvider with ChangeNotifier {
     await db.userSettingsDao.updateThemeMode(
       _themeMode == ThemeMode.dark ? 'dark' : 'light',
     );
-    notifyListeners();
-  }
-
-  Future<void> loadTheme() async {
-    final settings = await db.userSettingsDao.getSettings();
-    _themeMode =
-        settings?.themeMode == 'dark' ? ThemeMode.dark : ThemeMode.light;
     notifyListeners();
   }
 

@@ -91,6 +91,17 @@ public class ScheduledWorkoutController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>Creates scheduled workout exercise entries for the given workout exercise IDs.</summary>
+    /// <param name="scheduledWorkoutId">The ID of the scheduled workout.</param>
+    /// <param name="workoutExerciseIds">The list of workout exercise template IDs to link.</param>
+    /// <returns>The newly created scheduled exercise DTOs.</returns>
+    [HttpPost("{scheduledWorkoutId}/exercises/batch")]
+    public async Task<IActionResult> CreateExercisesBatch([FromRoute] Guid scheduledWorkoutId, [FromBody] List<Guid> workoutExerciseIds)
+    {
+        var result = await _scheduledService.CreateExercisesBatchAsync(scheduledWorkoutId, workoutExerciseIds);
+        return Ok(result);
+    }
+
     /// <summary>Adds a performed set to a scheduled workout exercise.</summary>
     /// <param name="scheduledWorkoutId">The ID of the scheduled workout (used for routing context).</param>
     /// <param name="workoutExerciseId">The ID of the scheduled workout exercise to add the set to.</param>

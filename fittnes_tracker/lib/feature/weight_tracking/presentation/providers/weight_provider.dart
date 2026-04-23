@@ -77,6 +77,8 @@ class WeightProvider with ChangeNotifier {
     }
   }
 
+  Future<void> reload() => _loadWeightRecords();
+
   // Delete a weight record
   Future<void> deleteWeightRecord(int id) async {
     await _repository.deleteWeightRecord(id);

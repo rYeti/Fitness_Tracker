@@ -646,6 +646,9 @@ class ScheduledWorkoutDao extends DatabaseAccessor<AppDatabase>
   Future<List<ScheduledWorkoutTableData>> getAll() =>
       select(scheduledWorkoutTable).get();
 
+  Future<ScheduledWorkoutTableData?> getByServerId(String serverId) =>
+      (select(scheduledWorkoutTable)..where((t) => t.serverId.equals(serverId))).getSingleOrNull();
+
   Future<List<ScheduledWorkoutWithDetails>> getScheduledWithDetailsForDate(
     DateTime date,
   ) async {
@@ -1012,6 +1015,9 @@ class FoodItemDao extends DatabaseAccessor<AppDatabase>
 
   Future<void> deleteById(int id) =>
       (delete(foodItem)..where((t) => t.id.equals(id))).go();
+
+  Future<FoodItemData?> getByServerId(String serverId) =>
+      (select(foodItem)..where((f) => f.serverId.equals(serverId))).getSingleOrNull();
 }
 
 @DriftAccessor(tables: [UserSettings])
@@ -1141,9 +1147,13 @@ class MealDao extends DatabaseAccessor<AppDatabase> with _$MealDaoMixin {
     return delete(mealTable).delete(meal);
   }
 
-  Future<int> addFoodToMeal(int foodId, int mealId) {
+  Future<int> addFoodToMeal(int foodId, int mealId, [String? serverId]) {
     return into(mealFoodTable).insert(
-      MealFoodTableCompanion.insert(mealId: mealId, foodEntryId: foodId),
+      MealFoodTableCompanion(
+        mealId: Value(mealId),
+        foodEntryId: Value(foodId),
+        serverId: serverId != null ? Value(serverId) : const Value.absent(),
+      ),
     );
   }
 
@@ -1191,6 +1201,12 @@ class MealDao extends DatabaseAccessor<AppDatabase> with _$MealDaoMixin {
       (update(mealFoodTable)..where((t) => t.id.equals(entryId))).write(
         MealFoodTableCompanion(serverId: Value(serverId)),
       );
+
+  Future<MealTableData?> getByServerId(String serverId) =>
+      (select(mealTable)..where((m) => m.serverId.equals(serverId))).getSingleOrNull();
+
+  Future<MealFoodTableData?> getFoodEntryByServerId(String serverId) =>
+      (select(mealFoodTable)..where((f) => f.serverId.equals(serverId))).getSingleOrNull();
 }
 
 @DriftAccessor(tables: [SearchCacheTable])
@@ -1531,6 +1547,9 @@ class WeightRecordDao extends DatabaseAccessor<AppDatabase>
           syncStatus: Value(WeightSyncStatus.pendingDelete.index),
         ),
       );
+
+  Future<WeightRecordData?> getByServerId(String serverId) =>
+      (select(weightRecord)..where((t) => t.serverId.equals(serverId))).getSingleOrNull();
 }
 
 // Workout planning DAOs
@@ -1668,6 +1687,9 @@ class ExerciseDao extends DatabaseAccessor<AppDatabase>
       (update(exerciseTable)..where((e) => e.id.equals(id))).write(
         const ExerciseTableCompanion(syncStatus: Value(3)),
       );
+
+  Future<ExerciseTableData?> getExerciseByServerId(String serverId) =>
+      (select(exerciseTable)..where((e) => e.serverId.equals(serverId))).getSingleOrNull();
 }
 
 /// Returns the exercise name/description in the given locale language,
@@ -2136,6 +2158,12 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
       (update(workoutSetTable)..where((s) => s.id.equals(id))).write(
         const WorkoutSetTableCompanion(syncStatus: Value(3)),
       );
+
+  Future<WorkoutTableData?> getWorkoutByServerId(String serverId) =>
+      (select(workoutTable)..where((w) => w.serverId.equals(serverId))).getSingleOrNull();
+
+  Future<WorkoutExerciseTableData?> getWorkoutExerciseByServerId(String serverId) =>
+      (select(workoutExerciseTable)..where((we) => we.serverId.equals(serverId))).getSingleOrNull();
 
   Future<List<WorkoutSetTableData>> getPreviousWorkoutSetsForExercise({
     required int exerciseId,
@@ -2773,6 +2801,9 @@ class ScheduledWorkoutExerciseDao extends DatabaseAccessor<AppDatabase>
         ),
       );
 
+  Future<ScheduledWorkoutExerciseTableData?> getByServerId(String serverId) =>
+      (select(scheduledWorkoutExerciseTable)..where((e) => e.serverId.equals(serverId))).getSingleOrNull();
+
   Future<List<WorkoutExerciseTemplate>> getTemplateWithExercises(
     int workoutId,
   ) async {
@@ -2967,4 +2998,7 @@ class WorkoutPlanDao extends DatabaseAccessor<AppDatabase>
       (update(workoutPlanWorkoutTable)..where((pw) => pw.id.equals(localId))).write(
         WorkoutPlanWorkoutTableCompanion(syncStatus: const Value(1), serverId: Value(serverId)),
       );
+
+  Future<WorkoutPlanTableData?> getPlanByServerId(String serverId) =>
+      (select(workoutPlanTable)..where((p) => p.serverId.equals(serverId))).getSingleOrNull();
 }

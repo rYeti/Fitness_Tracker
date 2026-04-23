@@ -7,18 +7,18 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-// Load signing credentials from key.properties (never commit that file)
+// Load signing credentials from key.properties
 val keyPropertiesFile = rootProject.file("key.properties")
 val keyProperties = Properties().apply {
     if (keyPropertiesFile.exists()) load(keyPropertiesFile.inputStream())
 }
 
 android {
-    namespace = "com.ForgeForm.fittnes_tracker"
+    namespace = "com.example.fittnes_tracker"
     compileSdk = flutter.compileSdkVersion
 
     defaultConfig {
-        applicationId = "com.ForgeForm.fittnes_tracker"
+        applicationId = "com.example.fittnes_tracker"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = 1

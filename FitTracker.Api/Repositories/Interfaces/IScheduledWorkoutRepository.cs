@@ -36,6 +36,12 @@ public interface IScheduledWorkoutRepository
     /// <returns>The matching scheduled exercise, or <c>null</c> if not found.</returns>
     Task<ScheduledWorkoutExercise?> GetScheduledExerciseAsync(Guid id);
 
+    /// <summary>Creates scheduled workout exercise records for a set of workout exercise IDs.</summary>
+    /// <param name="scheduledWorkoutId">The scheduled workout to attach exercises to.</param>
+    /// <param name="workoutExerciseIds">The workout exercise template IDs to link.</param>
+    /// <returns>The newly created scheduled workout exercises.</returns>
+    Task<List<ScheduledWorkoutExercise>> CreateExercisesBatchAsync(Guid scheduledWorkoutId, List<Guid> workoutExerciseIds);
+
     /// <summary>Adds a performed set to a scheduled workout exercise.</summary>
     /// <param name="set">The workout set entity to persist.</param>
     /// <returns>The newly created workout set.</returns>

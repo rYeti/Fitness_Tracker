@@ -26,10 +26,24 @@ class UserGoalsProvider with ChangeNotifier {
   late final WeightRepository weightRepo;
   bool _loadedFromDb = false;
 
-  UserGoalsProvider(this.db) {
+  UserGoalsProvider(
+    this.db, {
+    UserSetting? initialSettings,
+    double? initialCurrentWeight,
+  }) {
     repo = NutritionRepository(db);
     weightRepo = WeightRepository(db);
-    _init();
+    if (initialSettings != null) {
+      _calorieGoal = initialSettings.dailyCalorieGoal;
+      _name = initialSettings.name;
+      _startingWeight = initialSettings.startingWeight;
+      _goalWeight = initialSettings.goalWeight;
+      _loadedFromDb = true;
+    }
+    if (initialCurrentWeight != null) {
+      _currentWeight = initialCurrentWeight;
+    }
+    if (initialSettings == null) _init();
   }
 
   Future<void> _init() async {

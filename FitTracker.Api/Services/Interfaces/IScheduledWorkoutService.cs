@@ -57,4 +57,10 @@ public interface IScheduledWorkoutService
     /// <param name="scheduledWorkoutId">The ID of the scheduled workout to complete.</param>
     /// <returns><c>true</c> if updated; <c>false</c> if not found.</returns>
     Task<bool> CompleteWorkoutAsync(Guid scheduledWorkoutId);
+
+    /// <summary>Creates scheduled workout exercise entries for the given workout exercise IDs.</summary>
+    /// <param name="scheduledWorkoutId">The scheduled workout to attach exercises to.</param>
+    /// <param name="workoutExerciseIds">The workout exercise template IDs to link.</param>
+    /// <returns>The newly created scheduled exercise DTOs.</returns>
+    Task<List<ScheduledWorkoutExerciseResponseDto>> CreateExercisesBatchAsync(Guid scheduledWorkoutId, List<Guid> workoutExerciseIds);
 }

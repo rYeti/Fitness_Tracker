@@ -1,6 +1,7 @@
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/dao/meal_template_dao.dart';
 import 'package:ForgeForm/core/network/api_client.dart';
+import 'package:drift/drift.dart' show Value;
 import 'package:logger/logger.dart';
 
 class SyncService {
@@ -23,10 +24,13 @@ class SyncService {
   /// exercises → workout templates → workout plans → scheduled workouts →
   /// food items → meals → meal templates → user settings → weight logs.
   Future<void> syncAll() async {
+    await _syncSystemExerciseIds(); // gives system exercises their serverIds before any workout sync
     await syncCustomExercises();
     await syncWorkoutTemplates();
+    await _syncMissingWorkoutExercises(); // catches exercises skipped in prior syncs
     await syncWorkoutPlans();
     await syncScheduledWorkouts();
+    await _syncMissingScheduledExerciseSets(); // catches sets skipped in prior syncs
     await syncFoodItems();
     await syncMeals();
     await syncMealTemplates();
@@ -572,6 +576,83 @@ class SyncService {
       ..where((t) => t.id.equals(s.id))).go();
   }
 
+  /// Finds workouts already on the server whose exercises were never pushed
+  /// (skipped because system exercise serverIds were missing at sync time).
+  Future<void> _syncMissingWorkoutExercises() async {
+    final syncedWorkouts = await (_db.select(_db.workoutTable)
+      ..where((w) => w.serverId.isNotNull())).get();
+
+    for (final w in syncedWorkouts) {
+      try {
+        final exercises = await _db.workoutDao.getExercisesForWorkoutRaw(w.id);
+        final unsyncedExercises = exercises.where((e) => e.serverId == null).toList();
+        if (unsyncedExercises.isNotEmpty) {
+          await _syncNewWorkoutExercisesBatch(unsyncedExercises, w.serverId!);
+        }
+        // Also check for set templates on exercises that are now synced.
+        final syncedExercises = exercises.where((e) => e.serverId != null).toList();
+        for (final ex in syncedExercises) {
+          final templates = await _db.workoutDao.getSetTemplatesForWorkoutExercise(ex.id);
+          final unsyncedTemplates = templates.where((t) => t.serverId == null).toList();
+          if (unsyncedTemplates.isNotEmpty) {
+            await _syncNewSetTemplatesBatch(unsyncedTemplates, ex.serverId!);
+          }
+        }
+      } catch (e) {
+        _logger.w('_syncMissingWorkoutExercises failed for workout ${w.id}: $e');
+      }
+    }
+  }
+
+  /// Finds scheduled workouts already on the server whose exercises were never
+  /// created (server had no WorkoutExercises at original sync time), creates
+  /// them via the batch endpoint, then pushes any pending sets.
+  Future<void> _syncMissingScheduledExerciseSets() async {
+    final syncedSws = await (_db.select(_db.scheduledWorkoutTable)
+      ..where((sw) => sw.serverId.isNotNull())).get();
+
+    for (final sw in syncedSws) {
+      try {
+        final localExercises =
+            await _db.scheduledWorkoutExerciseDao.getAllForScheduledWorkout(sw.id);
+        final missingServerId = localExercises.where((e) => e.serverId == null).toList();
+
+        if (missingServerId.isNotEmpty) {
+          // Collect workout exercise serverIds for the missing entries.
+          final weServerIds = <String>[];
+          final valid = <ScheduledWorkoutExerciseTableData>[];
+          for (final localEx in missingServerId) {
+            final weRow = await (_db.select(_db.workoutExerciseTable)
+              ..where((we) => we.id.equals(localEx.workoutExerciseId))).getSingleOrNull();
+            if (weRow?.serverId == null) continue;
+            weServerIds.add(weRow!.serverId!);
+            valid.add(localEx);
+          }
+
+          if (weServerIds.isNotEmpty) {
+            // POST to the new batch endpoint to create ScheduledWorkoutExercise records.
+            final response = await _apiClient.post(
+              'api/ScheduledWorkout/${sw.serverId}/exercises/batch',
+              data: weServerIds,
+            );
+            final serverList = (response.data as List).cast<Map<String, dynamic>>();
+            for (var i = 0; i < valid.length && i < serverList.length; i++) {
+              await _db.scheduledWorkoutExerciseDao.markScheduledExerciseSynced(
+                valid[i].id,
+                serverList[i]['id'] as String,
+              );
+            }
+          }
+        }
+
+        // Push any sets that still have no serverId.
+        await _syncSetsForScheduledWorkout(sw.id, sw.serverId!);
+      } catch (e) {
+        _logger.w('_syncMissingScheduledExerciseSets failed for sw ${sw.id}: $e');
+      }
+    }
+  }
+
   // ── Food items ────────────────────────────────────────────────────────────
 
   Future<void> syncFoodItems() async {
@@ -905,6 +986,283 @@ class SyncService {
     _logger.i(
       'Deleted weight record ${record.id} from server ${record.serverId}',
     );
+  }
+
+  // ── Pull (server → local) ─────────────────────────────────────────────────
+
+  /// Downloads all server data and inserts any records not yet present locally.
+  /// Safe to run on a fresh install or after switching devices.
+  Future<void> pullAll() async {
+    await _syncSystemExerciseIds(); // must run first so workout exercise lookups work
+    await _pullCustomExercises();
+    await _pullWorkouts();
+    await _pullWorkoutPlans();
+    await _pullScheduledWorkouts();
+    await _pullFoodItems();
+    await _pullMeals();             // food items must exist before meals
+    await _pullWeightLogs();
+  }
+
+  /// Fetches all system (non-custom) exercises from the server and stores their
+  /// server Guid as `serverId` on matching local exercises (matched by name).
+  /// This is required before pulling workouts, since workout exercises reference
+  /// exercises by their server Guid.
+  Future<void> _syncSystemExerciseIds() async {
+    final response = await _apiClient.get('api/Exercise/AllExercises');
+    final list = (response.data as List).cast<Map<String, dynamic>>();
+    for (final e in list) {
+      if (e['isCustom'] == true) continue;
+      final serverId = e['id'] as String;
+      final name = e['name'] as String;
+      final locals = await _db.exerciseDao.searchExercises(name);
+      for (final local in locals) {
+        if (local.serverId == null && local.name.toLowerCase() == name.toLowerCase()) {
+          await _db.exerciseDao.markExerciseSynced(local.id, serverId);
+        }
+      }
+    }
+  }
+
+  Future<void> _pullCustomExercises() async {
+    final response = await _apiClient.get('api/Exercise/UserExercise');
+    final list = (response.data as List).cast<Map<String, dynamic>>();
+    for (final e in list) {
+      final serverId = e['id'] as String;
+      if (await _db.exerciseDao.getExerciseByServerId(serverId) != null) continue;
+      await _db.exerciseDao.saveExercise(ExerciseTableCompanion(
+        name: Value(e['name'] as String),
+        description: Value(e['description'] as String?),
+        nameDe: Value(e['nameDe'] as String?),
+        descriptionDe: Value(e['descriptionDe'] as String?),
+        type: Value(e['type'] as int),
+        targetMuscleGroups: Value(e['targetMuscleGroups'] as String? ?? ''),
+        imageUrl: Value(e['imageUrl'] as String?),
+        isCustom: const Value(true),
+        serverId: Value(serverId),
+        syncStatus: const Value(1),
+      ));
+      _logger.i('Pulled exercise $serverId');
+    }
+  }
+
+  Future<void> _pullWorkouts() async {
+    final response = await _apiClient.get('api/Workout');
+    final list = (response.data as List).cast<Map<String, dynamic>>();
+    for (final w in list) {
+      final workoutServerId = w['id'] as String;
+      if (await _db.workoutDao.getWorkoutByServerId(workoutServerId) != null) continue;
+      final localWorkoutId = await _db.into(_db.workoutTable).insert(
+        WorkoutTableCompanion(
+          name: Value(w['name'] as String),
+          description: Value(w['description'] as String?),
+          difficulty: Value(w['difficulty'] as int),
+          estimatedDurationMinutes: Value(w['estimatedDurationMinutes'] as int? ?? 30),
+          isTemplate: Value(w['isTemplate'] as bool),
+          scheduledDate: Value(w['scheduledDate'] != null ? DateTime.parse(w['scheduledDate'] as String) : null),
+          completedDate: Value(w['completedDate'] != null ? DateTime.parse(w['completedDate'] as String) : null),
+          color: Value(w['color'] as int?),
+          serverId: Value(workoutServerId),
+          syncStatus: const Value(1),
+        ),
+      );
+      final exercises = (w['exercises'] as List).cast<Map<String, dynamic>>();
+      for (final ex in exercises) {
+        final exServerId = ex['id'] as String;
+        if (await _db.workoutDao.getWorkoutExerciseByServerId(exServerId) != null) continue;
+        final localExercise = await _db.exerciseDao.getExerciseByServerId(ex['exerciseId'] as String);
+        if (localExercise == null) continue;
+        final localWeId = await _db.into(_db.workoutExerciseTable).insert(
+          WorkoutExerciseTableCompanion(
+            workoutId: Value(localWorkoutId),
+            exerciseId: Value(localExercise.id),
+            orderPosition: Value(ex['orderPosition'] as int),
+            notes: Value(ex['notes'] as String?),
+            supersetGroupId: Value(ex['supersetGroupId'] as int?),
+            serverId: Value(exServerId),
+            syncStatus: const Value(1),
+          ),
+        );
+        for (final st in (ex['setTemplates'] as List).cast<Map<String, dynamic>>()) {
+          await _db.into(_db.workoutSetTemplateTable).insert(
+            WorkoutSetTemplateTableCompanion(
+              workoutExerciseId: Value(localWeId),
+              setNumber: Value(st['setNumber'] as int),
+              targetReps: Value(st['targetReps'] as String),
+              orderPosition: Value(st['orderPosition'] as int),
+              serverId: Value(st['id'] as String),
+              syncStatus: const Value(1),
+            ),
+          );
+        }
+      }
+      _logger.i('Pulled workout $workoutServerId');
+    }
+  }
+
+  Future<void> _pullWorkoutPlans() async {
+    final response = await _apiClient.get('api/WorkoutPlan');
+    final list = (response.data as List).cast<Map<String, dynamic>>();
+    for (final p in list) {
+      final planServerId = p['id'] as String;
+      if (await _db.workoutPlanDao.getPlanByServerId(planServerId) != null) continue;
+      final localPlanId = await _db.into(_db.workoutPlanTable).insert(
+        WorkoutPlanTableCompanion(
+          name: Value(p['name'] as String),
+          description: Value(p['description'] as String?),
+          startDate: Value(DateTime.parse(p['startDate'] as String)),
+          createdAt: Value(DateTime.parse(p['createdAt'] as String)),
+          isActive: Value(p['isActive'] as bool),
+          cyclePatternJson: Value(p['cyclePatternJson'] as String),
+          isFreeChoice: Value(p['isFreeChoice'] as bool),
+          serverId: Value(planServerId),
+          syncStatus: const Value(1),
+        ),
+      );
+      for (final workoutServerId in (p['workoutIds'] as List).cast<String>()) {
+        final localWorkout = await _db.workoutDao.getWorkoutByServerId(workoutServerId);
+        if (localWorkout == null) continue;
+        await _db.into(_db.workoutPlanWorkoutTable).insert(
+          WorkoutPlanWorkoutTableCompanion(
+            planId: Value(localPlanId),
+            workoutId: Value(localWorkout.id),
+            syncStatus: const Value(1),
+          ),
+        );
+      }
+      _logger.i('Pulled plan $planServerId');
+    }
+  }
+
+  Future<void> _pullScheduledWorkouts() async {
+    final response = await _apiClient.get('api/ScheduledWorkout');
+    final list = (response.data as List).cast<Map<String, dynamic>>();
+    for (final sw in list) {
+      final swServerId = sw['id'] as String;
+      if (await _db.scheduledWorkoutDao.getByServerId(swServerId) != null) continue;
+      final localWorkout = await _db.workoutDao.getWorkoutByServerId(sw['workoutId'] as String);
+      if (localWorkout == null) continue;
+      int? localPlanId;
+      if (sw['workoutPlanId'] != null) {
+        localPlanId = (await _db.workoutPlanDao.getPlanByServerId(sw['workoutPlanId'] as String))?.id;
+      }
+      int? localTemplateId;
+      if (sw['templateWorkoutId'] != null) {
+        localTemplateId = (await _db.workoutDao.getWorkoutByServerId(sw['templateWorkoutId'] as String))?.id;
+      }
+      final localSwId = await _db.scheduledWorkoutDao.scheduleWorkout(
+        ScheduledWorkoutTableCompanion(
+          workoutId: Value(localWorkout.id),
+          scheduledDate: Value(DateTime.parse(sw['scheduledDate'] as String)),
+          createdAt: Value(DateTime.parse(sw['createdAt'] as String)),
+          notes: Value(sw['notes'] as String?),
+          isCompleted: Value(sw['isCompleted'] as bool),
+          isSkipped: Value(sw['isSkipped'] as bool),
+          workoutPlanId: Value(localPlanId),
+          templateWorkoutId: Value(localTemplateId),
+          serverId: Value(swServerId),
+          syncStatus: const Value(1),
+        ),
+      );
+      for (final se in (sw['exercises'] as List).cast<Map<String, dynamic>>()) {
+        final seServerId = se['id'] as String;
+        final localWe = await _db.workoutDao.getWorkoutExerciseByServerId(se['workoutExerciseId'] as String);
+        if (localWe == null) continue;
+        final localSeId = await _db.into(_db.scheduledWorkoutExerciseTable).insert(
+          ScheduledWorkoutExerciseTableCompanion(
+            scheduledWorkoutId: Value(localSwId),
+            workoutExerciseId: Value(localWe.id),
+            isCompleted: Value(se['isCompleted'] as bool),
+            notes: Value(se['notes'] as String?),
+            serverId: Value(seServerId),
+            syncStatus: const Value(1),
+          ),
+        );
+        for (final s in (se['sets'] as List).cast<Map<String, dynamic>>()) {
+          await _db.into(_db.workoutSetTable).insert(
+            WorkoutSetTableCompanion(
+              scheduledWorkoutExerciseId: Value(localSeId),
+              setNumber: Value(s['setNumber'] as int),
+              reps: Value(s['reps'] as int?),
+              weight: Value((s['weight'] as num?)?.toDouble()),
+              weightUnit: Value(s['weightUnit'] as String?),
+              durationSeconds: Value(s['durationSeconds'] as int?),
+              isCompleted: Value(s['isCompleted'] as bool),
+              notes: Value(s['notes'] as String?),
+              serverId: Value(s['id'] as String),
+              syncStatus: const Value(1),
+            ),
+          );
+        }
+      }
+      _logger.i('Pulled scheduled workout $swServerId');
+    }
+  }
+
+  Future<void> _pullWeightLogs() async {
+    final response = await _apiClient.get('api/WeightTracking/TrackWeight');
+    final list = (response.data as List).cast<Map<String, dynamic>>();
+    for (final w in list) {
+      final serverId = w['id'] as String;
+      if (await _db.weightRecordDao.getByServerId(serverId) != null) continue;
+      await _db.weightRecordDao.addWeightRecord(
+        WeightRecordCompanion(
+          date: Value(DateTime.parse(w['date'] as String)),
+          weight: Value((w['weight'] as num).toDouble()),
+          note: Value(w['note'] as String?),
+          syncStatus: Value(WeightSyncStatus.synced.index),
+          serverId: Value(serverId),
+        ),
+      );
+    }
+    _logger.i('Pulled ${list.length} weight records');
+  }
+
+  Future<void> _pullFoodItems() async {
+    final response = await _apiClient.get('api/FoodItem');
+    final list = (response.data as List).cast<Map<String, dynamic>>();
+    for (final f in list) {
+      final serverId = f['id'] as String;
+      if (await _db.foodItemDao.getByServerId(serverId) != null) continue;
+      await _db.foodItemDao.insertFoodItem(FoodItemCompanion(
+        name: Value(f['name'] as String),
+        calories: Value(f['calories'] as int),
+        protein: Value(f['protein'] as int),
+        carbs: Value(f['carbs'] as int),
+        fat: Value(f['fat'] as int),
+        gramm: Value(f['gramm'] as int? ?? 100),
+        hiddenFromRecent: Value(f['hiddenFromRecent'] as bool? ?? false),
+        extendedNutrientsJson: Value(f['extendedNutrientsJson'] as String?),
+        serverId: Value(serverId),
+        syncStatus: const Value(1),
+      ));
+    }
+    _logger.i('Pulled ${list.length} food items');
+  }
+
+  Future<void> _pullMeals() async {
+    final response = await _apiClient.get('api/Meal/all');
+    final list = (response.data as List).cast<Map<String, dynamic>>();
+    for (final m in list) {
+      final mealServerId = m['id'] as String;
+      if (await _db.mealDao.getByServerId(mealServerId) != null) continue;
+      final localFood = await _db.foodItemDao.getByServerId(m['foodItemId'] as String);
+      if (localFood == null) continue;
+      final localMealId = await _db.mealDao.insertMeal(MealTableCompanion(
+        date: Value(DateTime.parse(m['date'] as String)),
+        category: Value(m['category'] as String),
+        foodItemId: Value(localFood.id),
+        serverId: Value(mealServerId),
+        syncStatus: const Value(1),
+      ));
+      for (final entry in (m['foodEntries'] as List).cast<Map<String, dynamic>>()) {
+        final entryServerId = entry['id'] as String;
+        if (await _db.mealDao.getFoodEntryByServerId(entryServerId) != null) continue;
+        final entryFood = await _db.foodItemDao.getByServerId(entry['foodItemId'] as String);
+        if (entryFood == null) continue;
+        await _db.mealDao.addFoodToMeal(entryFood.id, localMealId, entryServerId);
+      }
+    }
+    _logger.i('Pulled ${list.length} meals');
   }
 
   // ── Legacy ────────────────────────────────────────────────────────────────

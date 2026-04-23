@@ -42,8 +42,8 @@ public class ScheduledWorkoutService : IScheduledWorkoutService
             ScheduledDate = dto.ScheduledDate,
             CreatedAt = DateTime.UtcNow,
             Notes = dto.Notes,
-            IsCompleted = false,
-            IsSkipped = false,
+            IsCompleted = dto.IsCompleted,
+            IsSkipped = dto.IsSkipped,
         };
 
         var created = await _scheduledRepository.CreateScheduledWorkoutAsync(sw);
@@ -115,6 +115,13 @@ public class ScheduledWorkoutService : IScheduledWorkoutService
     public async Task<bool> CompleteWorkoutAsync(Guid scheduledWorkoutId)
     {
         return await _scheduledRepository.CompleteWorkoutAsync(scheduledWorkoutId);
+    }
+
+    /// <inheritdoc/>
+    public async Task<List<ScheduledWorkoutExerciseResponseDto>> CreateExercisesBatchAsync(Guid scheduledWorkoutId, List<Guid> workoutExerciseIds)
+    {
+        var created = await _scheduledRepository.CreateExercisesBatchAsync(scheduledWorkoutId, workoutExerciseIds);
+        return [.. created.Select(ToExerciseDto)];
     }
 
     private static ScheduledWorkoutResponseDto ToDto(ScheduledWorkout sw) => new()

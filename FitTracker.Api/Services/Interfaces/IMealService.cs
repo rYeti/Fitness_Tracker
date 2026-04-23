@@ -28,4 +28,7 @@ public interface IMealService
 
     /// <summary>Removes a food item from a meal. Returns false if not found.</summary>
     Task<bool> RemoveFoodFromMealAsync(Guid mealId, Guid userId, Guid foodItemId);
+
+    /// <summary>Returns all meal entries for the specified user across all dates.</summary>
+    Task<List<MealResponseDto>> GetAllMealsAsync(Guid userId);
 }

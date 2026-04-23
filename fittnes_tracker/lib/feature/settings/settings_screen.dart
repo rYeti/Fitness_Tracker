@@ -1,3 +1,5 @@
+import 'package:ForgeForm/feature/auth/presentation/view/login_screen.dart' as auth_login;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/dao/meal_template_dao.dart';
 import 'package:ForgeForm/core/di/service_locator.dart';
@@ -9,11 +11,13 @@ import 'package:ForgeForm/core/providers/locale_provider.dart';
 import 'package:ForgeForm/core/providers/user_goals_provider.dart';
 import 'package:ForgeForm/feature/auth/presentation/providers/auth_provider.dart';
 import 'package:ForgeForm/feature/auth/presentation/view/user_settings_screen.dart';
+import 'package:ForgeForm/feature/food_tracking/presentation/view/food_tracking_screen.dart';
 import 'package:ForgeForm/feature/gym_tracking/presentation/view/exercises/exercise_management_screen.dart';
+import 'package:ForgeForm/feature/weight_tracking/presentation/providers/weight_provider.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
+import 'package:provider/provider.dart' hide Consumer;
 import 'package:shared_preferences/shared_preferences.dart';
 
 extension SexLocalizations on Sex {
@@ -99,6 +103,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   bool _isSyncing = false;
+  bool _isPulling = false;
 
   Future<void> _runSync() async {
     setState(() => _isSyncing = true);
@@ -126,6 +131,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
     } finally {
       if (mounted) setState(() => _isSyncing = false);
+    }
+  }
+
+  Future<void> _runPull() async {
+    setState(() => _isPulling = true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final serverUrl = prefs.getString(serverUrlPrefsKey) ?? serverUrlDefault;
+      final db = sl<AppDatabase>();
+      final syncService = SyncService(
+        db: db,
+        apiClient: ApiClient(baseUrl: serverUrl),
+        mealTemplateDao: MealTemplateDao(db),
+      );
+      await syncService.pullAll();
+      if (mounted) {
+        globalFoodTrackingKey.currentState?.loadNutritionData();
+        Provider.of<WeightProvider>(context, listen: false).reload();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Restore complete')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Restore failed: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isPulling = false);
     }
   }
 
@@ -619,6 +654,81 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     subtitle: const Text('Push all pending local changes to the server'),
                     onTap: _isSyncing ? null : _runSync,
                   ),
+                ),
+                const SizedBox(height: 8),
+                Card(
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: colorScheme.outlineVariant),
+                  ),
+                  child: ListTile(
+                    leading: _isPulling
+                        ? SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: colorScheme.primary,
+                            ),
+                          )
+                        : Icon(Icons.cloud_download_outlined, color: colorScheme.onSurfaceVariant),
+                    title: const Text('Restore from server'),
+                    subtitle: const Text('Download server data to this device'),
+                    onTap: _isPulling ? null : _runPull,
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // ── Account actions ───────────────────────────────────────
+                Consumer(
+                  builder: (context, ref, _) {
+                    return Card(
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(color: colorScheme.outlineVariant),
+                      ),
+                      child: ListTile(
+                        leading: Icon(Icons.logout, color: colorScheme.error),
+                        title: Text(
+                          l10n.signOut,
+                          style: TextStyle(color: colorScheme.error),
+                        ),
+                        onTap: () async {
+                          final confirmed = await showDialog<bool>(
+                            context: context,
+                            builder: (_) => AlertDialog(
+                              title: Text(l10n.signOut),
+                              content: Text(l10n.signOutConfirm),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context, false),
+                                  child: Text(l10n.cancel),
+                                ),
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context, true),
+                                  child: Text(l10n.signOut),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (confirmed == true) {
+                            await ref.read(authProvider.notifier).logout();
+                            if (context.mounted) {
+                              Navigator.of(context).pushAndRemoveUntil(
+                                MaterialPageRoute(
+                                  builder: (_) => const auth_login.LoginScreen(),
+                                ),
+                                (_) => false,
+                              );
+                            }
+                          }
+                        },
+                      ),
+                    );
+                  },
                 ),
 
                 const SizedBox(height: 16),

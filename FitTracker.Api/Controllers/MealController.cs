@@ -14,6 +14,14 @@ public class MealController(IMealService mealService) : ControllerBase
     private Guid UserId =>
         Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
 
+    /// <summary>Returns all meals for the authenticated user across all dates.</summary>
+    [HttpGet("all")]
+    public async Task<IActionResult> GetAll()
+    {
+        var result = await mealService.GetAllMealsAsync(UserId);
+        return Ok(result);
+    }
+
     /// <summary>Returns all meals for the authenticated user on the given date.</summary>
     /// <param name="date">The date to query (UTC).</param>
     [HttpGet]

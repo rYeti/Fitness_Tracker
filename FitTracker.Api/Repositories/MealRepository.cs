@@ -69,6 +69,13 @@ public class MealRepository(AppDbContext context) : IMealRepository
     }
 
     /// <inheritdoc/>
+    public Task<List<Meal>> GetAllMealsAsync(Guid userId) =>
+        context.Meals
+            .Where(m => m.UserId == userId)
+            .Include(m => m.FoodEntries)
+            .ToListAsync();
+
+    /// <inheritdoc/>
     public async Task<bool> RemoveFoodFromMealAsync(Guid mealId, Guid foodItemId)
     {
         var entry = await context.MealFoodEntries

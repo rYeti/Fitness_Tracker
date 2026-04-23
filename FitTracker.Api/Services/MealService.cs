@@ -86,6 +86,13 @@ public class MealService(IMealRepository repository) : IMealService
         return await repository.RemoveFoodFromMealAsync(mealId, foodItemId);
     }
 
+    /// <inheritdoc/>
+    public async Task<List<MealResponseDto>> GetAllMealsAsync(Guid userId)
+    {
+        var meals = await repository.GetAllMealsAsync(userId);
+        return meals.Select(ToDto).ToList();
+    }
+
     private static MealResponseDto ToDto(Meal m) => new()
     {
         Id = m.Id,

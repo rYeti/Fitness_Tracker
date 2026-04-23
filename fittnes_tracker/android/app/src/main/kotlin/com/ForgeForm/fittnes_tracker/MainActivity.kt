@@ -1,4 +1,4 @@
-package com.ForgeForm.fittnes_tracker
+package com.example.fittnes_tracker
 
 import io.flutter.embedding.android.FlutterActivity
 

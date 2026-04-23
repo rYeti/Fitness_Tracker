@@ -83,12 +83,20 @@ void main() async {
   // Register the database instance with the service locator
   registerDatabase(db);
 
-  // Seed exercises if database is empty
-  await seedExercisesIfEmpty(db);
-
   final prefs = await SharedPreferences.getInstance();
   final hasToken = prefs.getString('token') != null;
   final showOnboarding = !(prefs.getBool('onboarding_complete') ?? false);
+
+  // Load settings and latest weight before runApp so providers start with correct values.
+  final userSettings = await db.userSettingsDao.getSettings();
+  final initialTheme =
+      userSettings?.themeMode == 'dark' ? ThemeMode.dark : ThemeMode.light;
+  final localeCode = prefs.getString('app_locale');
+  final initialLocale = localeCode != null ? Locale(localeCode) : null;
+  final latestWeight = await db.weightRecordDao.getLatestWeightRecord();
+
+  // Run seeding in the background — no need to block the UI.
+  seedExercisesIfEmpty(db);
 
   // Always apply the compile-time default so changing the IP in code takes effect immediately.
   await prefs.setString(serverUrlPrefsKey, serverUrlDefault);
@@ -114,9 +122,9 @@ void main() async {
         providers: [
           // Provide the AppDatabase instance directly
           provider.Provider<AppDatabase>.value(value: db),
-          provider.ChangeNotifierProvider(create: (_) => ThemeProvider(db)),
-          provider.ChangeNotifierProvider(create: (_) => LocaleProvider()),
-          provider.ChangeNotifierProvider(create: (_) => UserGoalsProvider(db)),
+          provider.ChangeNotifierProvider(create: (_) => ThemeProvider(db, initialTheme: initialTheme)),
+          provider.ChangeNotifierProvider(create: (_) => LocaleProvider(initialLocale: initialLocale)),
+          provider.ChangeNotifierProvider(create: (_) => UserGoalsProvider(db, initialSettings: userSettings, initialCurrentWeight: latestWeight?.weight)),
           provider.ChangeNotifierProxyProvider<
             UserGoalsProvider,
             WeightProvider
@@ -226,7 +234,7 @@ class HomeScreen extends StatefulWidget {
   _HomeScreenState createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int _selectedIndex = 0;
 
   final List<Widget> _screens = [
@@ -240,10 +248,24 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // If the OS killed the app while the user was mid-workout, jump straight
     // to the gym tab so ScheduledWorkoutsView can auto-resume the session.
     _switchToGymTabIfWorkoutInProgress();
     _runInitialSync();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _runInitialSync();
+    }
   }
 
   Future<void> _switchToGymTabIfWorkoutInProgress() async {
@@ -300,18 +322,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _runInitialSync() async {
     final prefs = await SharedPreferences.getInstance();
-
-    await prefs.remove('last_sync_timestamp'); // TODO: remove after confirming sync works
     final lastSyncMs = prefs.getInt('last_sync_timestamp');
     if (lastSyncMs != null) {
       final lastSync = DateTime.fromMillisecondsSinceEpoch(lastSyncMs);
-      if (DateTime.now().difference(lastSync) < const Duration(hours: 24)) {
+      if (DateTime.now().difference(lastSync) < const Duration(minutes: 15)) {
         return;
       }
     }
 
-    final serverUrl = prefs.getString(serverUrlPrefsKey) ?? serverUrlDefault;
+    final token = prefs.getString('token');
+    if (token == null) return; // not logged in
 
+    final serverUrl = prefs.getString(serverUrlPrefsKey) ?? serverUrlDefault;
     final db = sl<AppDatabase>();
     final syncService = SyncService(
       db: db,
@@ -319,10 +341,19 @@ class _HomeScreenState extends State<HomeScreen> {
       mealTemplateDao: MealTemplateDao(db),
     );
 
-    await syncService.syncAll();
-    await prefs.setInt(
-      'last_sync_timestamp',
-      DateTime.now().millisecondsSinceEpoch,
-    );
+    try {
+      await syncService.syncAll();
+      await syncService.pullAll();
+      await prefs.setInt(
+        'last_sync_timestamp',
+        DateTime.now().millisecondsSinceEpoch,
+      );
+      if (mounted) {
+        globalFoodTrackingKey.currentState?.loadNutritionData();
+        provider.Provider.of<WeightProvider>(context, listen: false).reload();
+      }
+    } catch (_) {
+      // silent — no network or server down, try again next time
+    }
   }
 }

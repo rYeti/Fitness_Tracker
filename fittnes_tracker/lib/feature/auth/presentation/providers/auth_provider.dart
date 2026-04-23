@@ -151,7 +151,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
 /// SharedPreferences key and fallback for the API server URL.
 const serverUrlPrefsKey = 'server_url';
-const serverUrlDefault = 'http://192.168.2.214:5033/';
+const serverUrlDefault = 'https://fittracker-api-soav3zyeaa-ey.a.run.app/';
 
 /// Holds the active API server URL. Seeded at startup from SharedPreferences
 /// (see main.dart). Update this provider to instantly switch the URL at runtime.
