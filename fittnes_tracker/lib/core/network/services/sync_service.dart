@@ -25,6 +25,7 @@ class SyncService {
   /// food items → meals → meal templates → user settings → weight logs.
   Future<void> syncAll() async {
     await _syncSystemExerciseIds(); // gives system exercises their serverIds before any workout sync
+    await _reconcileAll(); // reset any records deleted server-side before pushing
     await syncCustomExercises();
     await syncWorkoutTemplates();
     await _syncMissingWorkoutExercises(); // catches exercises skipped in prior syncs
@@ -601,6 +602,142 @@ class SyncService {
       } catch (e) {
         _logger.w('_syncMissingWorkoutExercises failed for workout ${w.id}: $e');
       }
+    }
+  }
+
+  /// For every synced entity type, fetches the current server list and resets
+  /// any local record whose serverId is no longer present on the server.
+  /// This handles the case where records were manually deleted from the server.
+  Future<void> _reconcileAll() async {
+    await _reconcileTable<ExerciseTableData>(
+      endpoint: 'api/Exercise/UserExercise',
+      localQuery: () async {
+        final all = await (_db.select(_db.exerciseTable)
+          ..where((t) => t.serverId.isNotNull())).get();
+        return all.where((e) => e.isCustom).toList();
+      },
+      getServerId: (r) => r.serverId!,
+      getLocalId: (r) => r.id,
+      resetRow: (id) => (_db.update(_db.exerciseTable)..where((t) => t.id.equals(id)))
+          .write(const ExerciseTableCompanion(serverId: Value(null), syncStatus: Value(0))),
+    );
+
+    await _reconcileTable<WorkoutTableData>(
+      endpoint: 'api/Workout',
+      localQuery: () => (_db.select(_db.workoutTable)
+        ..where((t) => t.serverId.isNotNull())).get(),
+      getServerId: (r) => r.serverId!,
+      getLocalId: (r) => r.id,
+      resetRow: (id) async {
+        await (_db.update(_db.workoutTable)..where((t) => t.id.equals(id)))
+            .write(const WorkoutTableCompanion(serverId: Value(null), syncStatus: Value(0)));
+        // Cascade to workout exercises and their set templates.
+        final exercises = await (_db.select(_db.workoutExerciseTable)
+          ..where((e) => e.workoutId.equals(id))).get();
+        for (final ex in exercises) {
+          await (_db.update(_db.workoutExerciseTable)..where((t) => t.id.equals(ex.id)))
+              .write(const WorkoutExerciseTableCompanion(serverId: Value(null), syncStatus: Value(0)));
+          await (_db.update(_db.workoutSetTemplateTable)
+            ..where((t) => t.workoutExerciseId.equals(ex.id)))
+              .write(const WorkoutSetTemplateTableCompanion(serverId: Value(null), syncStatus: Value(0)));
+        }
+      },
+    );
+
+    await _reconcileTable<WorkoutPlanTableData>(
+      endpoint: 'api/WorkoutPlan',
+      localQuery: () => (_db.select(_db.workoutPlanTable)
+        ..where((t) => t.serverId.isNotNull())).get(),
+      getServerId: (r) => r.serverId!,
+      getLocalId: (r) => r.id,
+      resetRow: (id) async {
+        await (_db.update(_db.workoutPlanTable)..where((t) => t.id.equals(id)))
+            .write(const WorkoutPlanTableCompanion(serverId: Value(null), syncStatus: Value(0)));
+        await (_db.update(_db.workoutPlanWorkoutTable)
+          ..where((t) => t.planId.equals(id)))
+            .write(const WorkoutPlanWorkoutTableCompanion(syncStatus: Value(0)));
+      },
+    );
+
+    await _reconcileTable<ScheduledWorkoutTableData>(
+      endpoint: 'api/ScheduledWorkout',
+      localQuery: () => (_db.select(_db.scheduledWorkoutTable)
+        ..where((t) => t.serverId.isNotNull())).get(),
+      getServerId: (r) => r.serverId!,
+      getLocalId: (r) => r.id,
+      resetRow: (id) async {
+        await (_db.update(_db.scheduledWorkoutTable)..where((t) => t.id.equals(id)))
+            .write(const ScheduledWorkoutTableCompanion(serverId: Value(null), syncStatus: Value(0)));
+        final exercises =
+            await _db.scheduledWorkoutExerciseDao.getAllForScheduledWorkout(id);
+        for (final ex in exercises) {
+          await (_db.update(_db.scheduledWorkoutExerciseTable)..where((t) => t.id.equals(ex.id)))
+              .write(const ScheduledWorkoutExerciseTableCompanion(serverId: Value(null), syncStatus: Value(0)));
+          final sets = await _db.workoutDao.getSetsForScheduledExercise(ex.id);
+          for (final s in sets) {
+            await (_db.update(_db.workoutSetTable)..where((t) => t.id.equals(s.id)))
+                .write(const WorkoutSetTableCompanion(serverId: Value(null), syncStatus: Value(0)));
+          }
+        }
+      },
+    );
+
+    await _reconcileTable<FoodItemData>(
+      endpoint: 'api/FoodItem',
+      localQuery: () => (_db.select(_db.foodItem)
+        ..where((t) => t.serverId.isNotNull())).get(),
+      getServerId: (r) => r.serverId!,
+      getLocalId: (r) => r.id,
+      resetRow: (id) => (_db.update(_db.foodItem)..where((t) => t.id.equals(id)))
+          .write(const FoodItemCompanion(serverId: Value(null), syncStatus: Value(0))),
+    );
+
+    await _reconcileTable<MealTableData>(
+      endpoint: 'api/Meal/all',
+      localQuery: () => (_db.select(_db.mealTable)
+        ..where((t) => t.serverId.isNotNull())).get(),
+      getServerId: (r) => r.serverId!,
+      getLocalId: (r) => r.id,
+      resetRow: (id) async {
+        await (_db.update(_db.mealTable)..where((t) => t.id.equals(id)))
+            .write(const MealTableCompanion(serverId: Value(null), syncStatus: Value(0)));
+        await (_db.update(_db.mealFoodTable)..where((t) => t.mealId.equals(id)))
+            .write(const MealFoodTableCompanion(serverId: Value(null)));
+      },
+    );
+
+    await _reconcileTable<WeightRecordData>(
+      endpoint: 'api/WeightTracking/TrackWeight',
+      localQuery: () => (_db.select(_db.weightRecord)
+        ..where((t) => t.serverId.isNotNull())).get(),
+      getServerId: (r) => r.serverId!,
+      getLocalId: (r) => r.id,
+      resetRow: (id) => (_db.update(_db.weightRecord)..where((t) => t.id.equals(id)))
+          .write(const WeightRecordCompanion(serverId: Value(null), syncStatus: Value(0))),
+    );
+  }
+
+  Future<void> _reconcileTable<T>({
+    required String endpoint,
+    required Future<List<T>> Function() localQuery,
+    required String Function(T) getServerId,
+    required int Function(T) getLocalId,
+    required Future<void> Function(int localId) resetRow,
+  }) async {
+    try {
+      final response = await _apiClient.get(endpoint);
+      final serverIds = (response.data as List)
+          .cast<Map<String, dynamic>>()
+          .map((e) => e['id'] as String)
+          .toSet();
+      final locals = await localQuery();
+      for (final row in locals) {
+        if (serverIds.contains(getServerId(row))) continue;
+        await resetRow(getLocalId(row));
+        _logger.i('Reconcile $endpoint: reset local ${getLocalId(row)} (server ${getServerId(row)} gone)');
+      }
+    } catch (e) {
+      _logger.w('_reconcileTable($endpoint) failed: $e');
     }
   }
 
