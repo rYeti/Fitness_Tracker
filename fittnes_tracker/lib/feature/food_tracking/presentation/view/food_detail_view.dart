@@ -52,6 +52,8 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
   double _calculatedCarbs = 0;
   double _calculatedFat = 0;
 
+  ExtendedNutrients? _scaledNutrients;
+
   bool _isPremium = false;
 
   @override
@@ -93,6 +95,7 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
       _calculatedProtein = widget.foodItem.protein * (grams / base);
       _calculatedCarbs = widget.foodItem.carbs * (grams / base);
       _calculatedFat = widget.foodItem.fat * (grams / base);
+      _scaledNutrients = widget.foodItem.extendedNutrients?.scaleTo(grams);
     });
   }
 
@@ -226,7 +229,7 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
 
   Widget _buildExtendedNutrientsCard() {
     final loc = AppLocalizations.of(context)!;
-    final nutrients = widget.foodItem.extendedNutrients!;
+    final nutrients = _scaledNutrients ?? widget.foodItem.extendedNutrients!;
 
     if (!_isPremium) {
       return Card(
