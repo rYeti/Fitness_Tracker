@@ -41,6 +41,14 @@ public class ScheduledWorkoutRepository : IScheduledWorkoutRepository
     /// <inheritdoc/>
     public async Task<ScheduledWorkout> CreateScheduledWorkoutAsync(ScheduledWorkout sw)
     {
+        var existing = await _context.ScheduledWorkouts
+            .Include(s => s.Exercises)
+                .ThenInclude(e => e.Sets)
+            .FirstOrDefaultAsync(s => s.Id == sw.Id);
+
+        if (existing != null)
+            return existing;
+
         var workoutExercises = await _context.WorkoutExercises
             .Where(we => we.WorkoutId == sw.WorkoutId)
             .OrderBy(we => we.OrderPosition)
@@ -65,7 +73,10 @@ public class ScheduledWorkoutRepository : IScheduledWorkoutRepository
     /// <inheritdoc/>
     public async Task<ScheduledWorkout?> UpdateScheduledWorkoutAsync(Guid id, ScheduledWorkoutRequestDto dto)
     {
-        var sw = await _context.ScheduledWorkouts.FirstOrDefaultAsync(s => s.Id == id);
+        var sw = await _context.ScheduledWorkouts
+            .Include(s => s.Exercises)
+                .ThenInclude(e => e.Sets)
+            .FirstOrDefaultAsync(s => s.Id == id);
         if (sw == null) return null;
 
         sw.WorkoutId = dto.WorkoutId;
@@ -99,17 +110,30 @@ public class ScheduledWorkoutRepository : IScheduledWorkoutRepository
     /// <inheritdoc/>
     public async Task<List<ScheduledWorkoutExercise>> CreateExercisesBatchAsync(Guid scheduledWorkoutId, List<Guid> workoutExerciseIds)
     {
-        var created = workoutExerciseIds.Select(weId => new ScheduledWorkoutExercise
-        {
-            Id = Guid.NewGuid(),
-            ScheduledWorkoutId = scheduledWorkoutId,
-            WorkoutExerciseId = weId,
-            IsCompleted = false,
-        }).ToList();
+        var existingWeIds = await _context.ScheduledWorkoutExercises
+            .Where(e => e.ScheduledWorkoutId == scheduledWorkoutId)
+            .Select(e => e.WorkoutExerciseId)
+            .ToListAsync();
 
-        _context.ScheduledWorkoutExercises.AddRange(created);
-        await _context.SaveChangesAsync();
-        return created;
+        var toCreate = workoutExerciseIds
+            .Where(weId => !existingWeIds.Contains(weId))
+            .Select(weId => new ScheduledWorkoutExercise
+            {
+                Id = Guid.NewGuid(),
+                ScheduledWorkoutId = scheduledWorkoutId,
+                WorkoutExerciseId = weId,
+                IsCompleted = false,
+            }).ToList();
+
+        if (toCreate.Count > 0)
+        {
+            _context.ScheduledWorkoutExercises.AddRange(toCreate);
+            await _context.SaveChangesAsync();
+        }
+
+        return await _context.ScheduledWorkoutExercises
+            .Where(e => e.ScheduledWorkoutId == scheduledWorkoutId)
+            .ToListAsync();
     }
 
     /// <inheritdoc/>
@@ -131,6 +155,7 @@ public class ScheduledWorkoutRepository : IScheduledWorkoutRepository
         set.Weight = dto.Weight;
         set.WeightUnit = dto.WeightUnit;
         set.DurationSeconds = dto.DurationSeconds;
+        set.IsCompleted = dto.IsCompleted;
         set.Notes = dto.Notes;
 
         await _context.SaveChangesAsync();

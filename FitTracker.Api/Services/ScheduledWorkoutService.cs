@@ -76,7 +76,7 @@ public class ScheduledWorkoutService : IScheduledWorkoutService
             WeightUnit = dto.WeightUnit,
             DurationSeconds = dto.DurationSeconds,
             Notes = dto.Notes,
-            IsCompleted = false,
+            IsCompleted = dto.IsCompleted,
         };
 
         var created = await _scheduledRepository.AddSetAsync(set);

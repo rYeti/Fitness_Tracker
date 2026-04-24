@@ -241,7 +241,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     const DashboardScreen(),
     FoodTrackingScreen(key: globalFoodTrackingKey),
     const GymTrackingScreen(),
-    const ProgressScreen(),
+    ProgressScreen(key: globalProgressKey),
     const SettingsScreen(),
   ];
 
@@ -350,6 +350,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       );
       if (mounted) {
         globalFoodTrackingKey.currentState?.loadNutritionData();
+        globalProgressKey.currentState?.reloadGymData();
         provider.Provider.of<WeightProvider>(context, listen: false).reload();
       }
     } catch (_) {

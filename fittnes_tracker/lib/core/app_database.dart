@@ -580,19 +580,28 @@ class ScheduledWorkoutDao extends DatabaseAccessor<AppDatabase>
   Future<void> skipWorkout(int id) {
     return (update(scheduledWorkoutTable)..where(
       (t) => t.id.equals(id),
-    )).write(const ScheduledWorkoutTableCompanion(isSkipped: Value(true)));
+    )).write(const ScheduledWorkoutTableCompanion(
+      isSkipped: Value(true),
+      syncStatus: Value(2),
+    ));
   }
 
   Future<void> unskipWorkout(int id) {
     return (update(scheduledWorkoutTable)..where(
       (t) => t.id.equals(id),
-    )).write(const ScheduledWorkoutTableCompanion(isSkipped: Value(false)));
+    )).write(const ScheduledWorkoutTableCompanion(
+      isSkipped: Value(false),
+      syncStatus: Value(2),
+    ));
   }
 
   Future<void> postponeWorkout(int id, DateTime newDate) {
     return (update(scheduledWorkoutTable)..where(
       (t) => t.id.equals(id),
-    )).write(ScheduledWorkoutTableCompanion(scheduledDate: Value(newDate)));
+    )).write(ScheduledWorkoutTableCompanion(
+      scheduledDate: Value(newDate),
+      syncStatus: const Value(2),
+    ));
   }
 
   /// Returns a map of date → (color, isCompleted, isSkipped) for all scheduled
@@ -2776,14 +2785,20 @@ class ScheduledWorkoutExerciseDao extends DatabaseAccessor<AppDatabase>
   Future<void> updateNotes(int id, String? notes) {
     return (update(scheduledWorkoutExerciseTable)..where(
       (tbl) => tbl.id.equals(id),
-    )).write(ScheduledWorkoutExerciseTableCompanion(notes: Value(notes)));
+    )).write(ScheduledWorkoutExerciseTableCompanion(
+      notes: Value(notes),
+      syncStatus: const Value(2),
+    ));
   }
 
   /// 4️⃣ Mark exercise completed
   Future<void> setCompleted(int id, bool completed) {
     return (update(scheduledWorkoutExerciseTable)
       ..where((tbl) => tbl.id.equals(id))).write(
-      ScheduledWorkoutExerciseTableCompanion(isCompleted: Value(completed)),
+      ScheduledWorkoutExerciseTableCompanion(
+        isCompleted: Value(completed),
+        syncStatus: const Value(2),
+      ),
     );
   }
 

@@ -18,6 +18,9 @@ public class WorkoutSetRequestDto
     /// <summary>The duration of this set in seconds, or null if not a timed set.</summary>
     public int? DurationSeconds { get; set; }
 
+    /// <summary>Whether this set has been marked as completed by the user.</summary>
+    public bool IsCompleted { get; set; }
+
     /// <summary>Optional notes recorded for this set.</summary>
     public string? Notes { get; set; }
 }

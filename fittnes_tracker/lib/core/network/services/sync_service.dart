@@ -565,6 +565,7 @@ class SyncService {
         'weight': s.weight,
         'weightUnit': s.weightUnit,
         'durationSeconds': s.durationSeconds,
+        'isCompleted': s.isCompleted,
         'notes': s.notes,
       }).toList(),
     );
@@ -584,6 +585,7 @@ class SyncService {
         'weight': s.weight,
         'weightUnit': s.weightUnit,
         'durationSeconds': s.durationSeconds,
+        'isCompleted': s.isCompleted,
         'notes': s.notes,
       },
     );
@@ -936,10 +938,11 @@ class SyncService {
   }) async {
     try {
       final response = await _apiClient.get(endpoint);
-      final serverIds = (response.data as List)
-          .cast<Map<String, dynamic>>()
-          .map((e) => e['id'] as String)
-          .toSet();
+      final list = (response.data as List).cast<Map<String, dynamic>>();
+      // Safety guard: an empty response could mean a transient server error.
+      // Never wipe all local serverIds based on an empty list.
+      if (list.isEmpty) return;
+      final serverIds = list.map((e) => e['id'] as String).toSet();
       final locals = await localQuery();
       for (final row in locals) {
         if (serverIds.contains(getServerId(row))) continue;
@@ -951,9 +954,11 @@ class SyncService {
     }
   }
 
-  /// Finds scheduled workouts already on the server whose exercises were never
-  /// created (server had no WorkoutExercises at original sync time), creates
-  /// them via the batch endpoint, then pushes any pending sets.
+  /// For every synced scheduled workout, ensures local scheduled exercise
+  /// serverIds are stamped (by fetching the SW from the server), then pushes
+  /// any pending sets.  Never creates duplicate exercises: exercises are
+  /// auto-created server-side when the SW is POSTed, so we only need to store
+  /// their IDs — not create new ones.
   Future<void> _syncMissingScheduledExerciseSets() async {
     final syncedSws = await (_db.select(_db.scheduledWorkoutTable)
       ..where((sw) => sw.serverId.isNotNull())).get();
@@ -965,29 +970,45 @@ class SyncService {
         final missingServerId = localExercises.where((e) => e.serverId == null).toList();
 
         if (missingServerId.isNotEmpty) {
-          // Collect workout exercise serverIds for the missing entries.
-          final weServerIds = <String>[];
-          final valid = <ScheduledWorkoutExerciseTableData>[];
-          for (final localEx in missingServerId) {
-            final weRow = await (_db.select(_db.workoutExerciseTable)
-              ..where((we) => we.id.equals(localEx.workoutExerciseId))).getSingleOrNull();
-            if (weRow?.serverId == null) continue;
-            weServerIds.add(weRow!.serverId!);
-            valid.add(localEx);
-          }
+          // Fetch the existing scheduled workout from the server to get the
+          // server-assigned exercise IDs.  The server auto-creates exercises
+          // when the SW is POSTed, so they should already exist — we must NOT
+          // POST again or we will create duplicates.
+          final swResponse = await _apiClient.get('api/ScheduledWorkout/${sw.serverId}');
+          final serverExercises =
+              (swResponse.data['exercises'] as List? ?? []).cast<Map<String, dynamic>>();
 
-          if (weServerIds.isNotEmpty) {
-            // POST to the new batch endpoint to create ScheduledWorkoutExercise records.
-            final response = await _apiClient.post(
-              'api/ScheduledWorkout/${sw.serverId}/exercises/batch',
-              data: weServerIds,
-            );
-            final serverList = (response.data as List).cast<Map<String, dynamic>>();
-            for (var i = 0; i < valid.length && i < serverList.length; i++) {
-              await _db.scheduledWorkoutExerciseDao.markScheduledExerciseSynced(
-                valid[i].id,
-                serverList[i]['id'] as String,
+          await _storeScheduledExerciseServerIds(sw.id, sw.serverId!, serverExercises);
+
+          // After stamping from the server, check if any are genuinely absent
+          // (e.g. workout template changed after SW was created on server).
+          final stillMissing = (await _db.scheduledWorkoutExerciseDao
+                  .getAllForScheduledWorkout(sw.id))
+              .where((e) => e.serverId == null)
+              .toList();
+
+          if (stillMissing.isNotEmpty) {
+            final weServerIds = <String>[];
+            final valid = <ScheduledWorkoutExerciseTableData>[];
+            for (final localEx in stillMissing) {
+              final weRow = await (_db.select(_db.workoutExerciseTable)
+                ..where((we) => we.id.equals(localEx.workoutExerciseId))).getSingleOrNull();
+              if (weRow?.serverId == null) continue;
+              weServerIds.add(weRow!.serverId!);
+              valid.add(localEx);
+            }
+            if (weServerIds.isNotEmpty) {
+              final response = await _apiClient.post(
+                'api/ScheduledWorkout/${sw.serverId}/exercises/batch',
+                data: weServerIds,
               );
+              final serverList = (response.data as List).cast<Map<String, dynamic>>();
+              for (var i = 0; i < valid.length && i < serverList.length; i++) {
+                await _db.scheduledWorkoutExerciseDao.markScheduledExerciseSynced(
+                  valid[i].id,
+                  serverList[i]['id'] as String,
+                );
+              }
             }
           }
         }
@@ -1345,9 +1366,39 @@ class SyncService {
     await _pullWorkouts();
     await _pullWorkoutPlans();
     await _pullScheduledWorkouts();
+    // Second pass: re-link any scheduled exercises that were skipped because
+    // the workout exercise wasn't created yet on the first pass.
+    await _relinkMissingScheduledExercises();
     await _pullFoodItems();
     await _pullMeals();             // food items must exist before meals
     await _pullWeightLogs();
+    await _pullMealTemplates();
+    // Clean up any content-based duplicates the pull may have created.
+    await _deduplicateScheduledWorkoutsByContent();
+  }
+
+  /// Re-fetches each synced scheduled workout from the server and stores
+  /// exercise serverIds for any local scheduled exercise that still has none.
+  /// This fixes the case where `_pullWorkouts` skipped some workout exercises
+  /// (missing exercise serverId), so `_pullScheduledWorkouts` couldn't link them.
+  Future<void> _relinkMissingScheduledExercises() async {
+    final syncedSws = await (_db.select(_db.scheduledWorkoutTable)
+      ..where((sw) => sw.serverId.isNotNull())).get();
+
+    for (final sw in syncedSws) {
+      try {
+        final exercises =
+            await _db.scheduledWorkoutExerciseDao.getAllForScheduledWorkout(sw.id);
+        if (exercises.any((e) => e.serverId == null)) {
+          final response = await _apiClient.get('api/ScheduledWorkout/${sw.serverId}');
+          final serverExercises =
+              (response.data['exercises'] as List? ?? []).cast<Map<String, dynamic>>();
+          await _storeScheduledExerciseServerIds(sw.id, sw.serverId!, serverExercises);
+        }
+      } catch (e) {
+        _logger.w('_relinkMissingScheduledExercises failed for sw ${sw.id}: $e');
+      }
+    }
   }
 
   /// Fetches all system (non-custom) exercises from the server and stores their
@@ -1456,7 +1507,10 @@ class SyncService {
         final exServerId = ex['id'] as String;
         if (await _db.workoutDao.getWorkoutExerciseByServerId(exServerId) != null) continue;
         final localExercise = await _db.exerciseDao.getExerciseByServerId(ex['exerciseId'] as String);
-        if (localExercise == null) continue;
+        if (localExercise == null) {
+          _logger.w('Pull workout $workoutServerId: skipping exercise — no local match for exercise server ID ${ex['exerciseId']}');
+          continue;
+        }
 
         // When re-using an existing workout, stamp existing unsynced exercises
         // rather than inserting new ones.
@@ -1568,71 +1622,116 @@ class SyncService {
     final list = (response.data as List).cast<Map<String, dynamic>>();
     for (final sw in list) {
       final swServerId = sw['id'] as String;
-      if (await _db.scheduledWorkoutDao.getByServerId(swServerId) != null) continue;
       final localWorkout = await _db.workoutDao.getWorkoutByServerId(sw['workoutId'] as String);
       if (localWorkout == null) continue;
-      final scheduledDate = DateTime.parse(sw['scheduledDate'] as String);
 
-      // Guard against duplicates: check by workout + calendar date using a
-      // range query so UTC-stored and local-stored dates on the same calendar
-      // day are treated as identical.
-      final dateStart = DateTime(scheduledDate.year, scheduledDate.month, scheduledDate.day);
-      final dateEnd = dateStart.add(const Duration(days: 1));
-      final existingByContent = await (_db.select(_db.scheduledWorkoutTable)
-        ..where((t) =>
-            t.workoutId.equals(localWorkout.id) &
-            t.scheduledDate.isBiggerOrEqualValue(dateStart) &
-            t.scheduledDate.isSmallerThanValue(dateEnd))
-        ..limit(1)).getSingleOrNull();
-      if (existingByContent != null) {
-        if (existingByContent.serverId == null) {
+      // Resolve (or create) the local scheduled workout row.
+      int localSwId;
+      final existingBySid = await _db.scheduledWorkoutDao.getByServerId(swServerId);
+      if (existingBySid != null) {
+        localSwId = existingBySid.id;
+        // Always update mutable server-authoritative fields so completions/skips
+        // made on other devices are reflected locally.
+        if (existingBySid.syncStatus == 1) {
           await (_db.update(_db.scheduledWorkoutTable)
-            ..where((t) => t.id.equals(existingByContent.id))).write(
+            ..where((t) => t.id.equals(localSwId))).write(
               ScheduledWorkoutTableCompanion(
-                serverId: Value(swServerId),
-                syncStatus: const Value(1),
+                isCompleted: Value(sw['isCompleted'] as bool),
+                isSkipped: Value(sw['isSkipped'] as bool),
+                notes: Value(sw['notes'] as String?),
               ),
             );
         }
-        continue;
+      } else {
+        // Convert to local time for comparison — locally stored dates use local midnight.
+        final scheduledDate = DateTime.parse(sw['scheduledDate'] as String).toLocal();
+        final dateStart = DateTime(scheduledDate.year, scheduledDate.month, scheduledDate.day);
+        final dateEnd = dateStart.add(const Duration(days: 1));
+        final existingByContent = await (_db.select(_db.scheduledWorkoutTable)
+          ..where((t) =>
+              t.workoutId.equals(localWorkout.id) &
+              t.scheduledDate.isBiggerOrEqualValue(dateStart) &
+              t.scheduledDate.isSmallerThanValue(dateEnd))
+          ..limit(1)).getSingleOrNull();
+
+        if (existingByContent != null) {
+          // If it already has a different serverId, this is a server-side duplicate — skip entirely.
+          if (existingByContent.serverId != null && existingByContent.serverId != swServerId) continue;
+          localSwId = existingByContent.id;
+          final companion = existingByContent.serverId == null
+              ? ScheduledWorkoutTableCompanion(
+                  serverId: Value(swServerId),
+                  syncStatus: const Value(1),
+                  isCompleted: Value(sw['isCompleted'] as bool),
+                  isSkipped: Value(sw['isSkipped'] as bool),
+                  notes: Value(sw['notes'] as String?),
+                )
+              : ScheduledWorkoutTableCompanion(
+                  isCompleted: Value(sw['isCompleted'] as bool),
+                  isSkipped: Value(sw['isSkipped'] as bool),
+                  notes: Value(sw['notes'] as String?),
+                );
+          await (_db.update(_db.scheduledWorkoutTable)
+            ..where((t) => t.id.equals(existingByContent.id))).write(companion);
+        } else {
+          int? localPlanId;
+          if (sw['workoutPlanId'] != null) {
+            localPlanId = (await _db.workoutPlanDao.getPlanByServerId(sw['workoutPlanId'] as String))?.id;
+          }
+          int? localTemplateId;
+          if (sw['templateWorkoutId'] != null) {
+            localTemplateId = (await _db.workoutDao.getWorkoutByServerId(sw['templateWorkoutId'] as String))?.id;
+          }
+          localSwId = await _db.scheduledWorkoutDao.scheduleWorkout(
+            ScheduledWorkoutTableCompanion(
+              workoutId: Value(localWorkout.id),
+              scheduledDate: Value(scheduledDate),
+              createdAt: Value(DateTime.parse(sw['createdAt'] as String)),
+              notes: Value(sw['notes'] as String?),
+              isCompleted: Value(sw['isCompleted'] as bool),
+              isSkipped: Value(sw['isSkipped'] as bool),
+              workoutPlanId: Value(localPlanId),
+              templateWorkoutId: Value(localTemplateId),
+              serverId: Value(swServerId),
+              syncStatus: const Value(1),
+            ),
+          );
+        }
       }
-      int? localPlanId;
-      if (sw['workoutPlanId'] != null) {
-        localPlanId = (await _db.workoutPlanDao.getPlanByServerId(sw['workoutPlanId'] as String))?.id;
-      }
-      int? localTemplateId;
-      if (sw['templateWorkoutId'] != null) {
-        localTemplateId = (await _db.workoutDao.getWorkoutByServerId(sw['templateWorkoutId'] as String))?.id;
-      }
-      final localSwId = await _db.scheduledWorkoutDao.scheduleWorkout(
-        ScheduledWorkoutTableCompanion(
-          workoutId: Value(localWorkout.id),
-          scheduledDate: Value(DateTime.parse(sw['scheduledDate'] as String)),
-          createdAt: Value(DateTime.parse(sw['createdAt'] as String)),
-          notes: Value(sw['notes'] as String?),
-          isCompleted: Value(sw['isCompleted'] as bool),
-          isSkipped: Value(sw['isSkipped'] as bool),
-          workoutPlanId: Value(localPlanId),
-          templateWorkoutId: Value(localTemplateId),
-          serverId: Value(swServerId),
-          syncStatus: const Value(1),
-        ),
-      );
+
+      // Always sync exercises and sets — fill in anything missing locally.
       for (final se in (sw['exercises'] as List).cast<Map<String, dynamic>>()) {
         final seServerId = se['id'] as String;
-        final localWe = await _db.workoutDao.getWorkoutExerciseByServerId(se['workoutExerciseId'] as String);
-        if (localWe == null) continue;
-        final localSeId = await _db.into(_db.scheduledWorkoutExerciseTable).insert(
-          ScheduledWorkoutExerciseTableCompanion(
-            scheduledWorkoutId: Value(localSwId),
-            workoutExerciseId: Value(localWe.id),
-            isCompleted: Value(se['isCompleted'] as bool),
-            notes: Value(se['notes'] as String?),
-            serverId: Value(seServerId),
-            syncStatus: const Value(1),
-          ),
-        );
+
+        final existingSe = await _db.scheduledWorkoutExerciseDao.getByServerId(seServerId);
+        int localSeId;
+        if (existingSe != null) {
+          localSeId = existingSe.id;
+        } else {
+          final localWe = await _db.workoutDao.getWorkoutExerciseByServerId(se['workoutExerciseId'] as String);
+          if (localWe == null) {
+            _logger.w('Pull SW $swServerId: skipping exercise $seServerId — no local workout exercise for ${se['workoutExerciseId']}');
+            continue;
+          }
+          localSeId = await _db.into(_db.scheduledWorkoutExerciseTable).insert(
+            ScheduledWorkoutExerciseTableCompanion(
+              scheduledWorkoutId: Value(localSwId),
+              workoutExerciseId: Value(localWe.id),
+              isCompleted: Value(se['isCompleted'] as bool),
+              notes: Value(se['notes'] as String?),
+              serverId: Value(seServerId),
+              syncStatus: const Value(1),
+            ),
+          );
+        }
+
         for (final s in (se['sets'] as List).cast<Map<String, dynamic>>()) {
+          final setServerId = s['id'] as String;
+          final existingSet = await (_db.select(_db.workoutSetTable)
+            ..where((t) => t.serverId.equals(setServerId))
+            ..limit(1)).getSingleOrNull();
+          if (existingSet != null) continue;
+
           await _db.into(_db.workoutSetTable).insert(
             WorkoutSetTableCompanion(
               scheduledWorkoutExerciseId: Value(localSeId),
@@ -1643,7 +1742,7 @@ class SyncService {
               durationSeconds: Value(s['durationSeconds'] as int?),
               isCompleted: Value(s['isCompleted'] as bool),
               notes: Value(s['notes'] as String?),
-              serverId: Value(s['id'] as String),
+              serverId: Value(setServerId),
               syncStatus: const Value(1),
             ),
           );
@@ -1718,6 +1817,43 @@ class SyncService {
       }
     }
     _logger.i('Pulled ${list.length} meals');
+  }
+
+  Future<void> _pullMealTemplates() async {
+    final response = await _apiClient.get('api/MealTemplate');
+    final list = (response.data as List).cast<Map<String, dynamic>>();
+    final existing = await _mealTemplateDao.getAllTemplates();
+    final existingServerIds = existing
+        .map((t) => t['serverId'] as String?)
+        .whereType<String>()
+        .toSet();
+
+    for (final t in list) {
+      final serverId = t['id'] as String;
+      if (existingServerIds.contains(serverId)) continue;
+
+      final items = (t['items'] as List? ?? [])
+          .cast<Map<String, dynamic>>()
+          .map((i) => {
+                'foodName': i['foodName'] ?? '',
+                'quantity': (i['quantity'] as num?)?.toDouble() ?? 0.0,
+                'unit': i['unit'] ?? 'g',
+                'calories': (i['calories'] as num?)?.toDouble() ?? 0.0,
+                'protein': (i['protein'] as num?)?.toDouble() ?? 0.0,
+                'carbs': (i['carbs'] as num?)?.toDouble() ?? 0.0,
+                'fat': (i['fat'] as num?)?.toDouble() ?? 0.0,
+              })
+          .toList();
+
+      final localId = await _mealTemplateDao.insertTemplate({
+        'name': t['name'],
+        'description': t['description'] ?? '',
+        'category': t['category'] ?? '',
+        'items': items,
+        'serverId': serverId,
+      });
+      _logger.i('Pulled meal template $serverId → local $localId');
+    }
   }
 
   // ── Legacy ────────────────────────────────────────────────────────────────

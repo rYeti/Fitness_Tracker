@@ -10,6 +10,8 @@ import 'package:ForgeForm/core/providers/user_goals_provider.dart';
 
 enum TimeRange { week, month, threeMonths, allTime, custom }
 
+final globalProgressKey = GlobalKey<_ProgressScreenState>();
+
 class ProgressScreen extends StatefulWidget {
   const ProgressScreen({Key? key}) : super(key: key);
 
@@ -74,6 +76,8 @@ class _ProgressScreenState extends State<ProgressScreen>
   Future<void> _loadProgressData() async {
     await Future.wait([_loadGymData(), _loadNutritionData()]);
   }
+
+  void reloadGymData() => _loadGymData();
 
   Future<void> _loadGymData() async {
     setState(() => _gymLoading = true);
@@ -151,7 +155,7 @@ class _ProgressScreenState extends State<ProgressScreen>
     JOIN exercise_table                   e   ON e.id   = we.exercise_id
     JOIN workout_set_table                ws  ON ws.scheduled_workout_exercise_id = swe.id
     WHERE sw.is_completed = 1
-      AND ws.is_completed = 1
+      AND (ws.reps IS NOT NULL OR ws.weight IS NOT NULL)
       AND sw.scheduled_date >= ?
       AND sw.scheduled_date <= ?
     GROUP BY we.exercise_id, sw.scheduled_date
