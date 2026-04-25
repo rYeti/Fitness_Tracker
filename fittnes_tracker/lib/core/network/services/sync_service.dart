@@ -706,6 +706,14 @@ class SyncService {
     }
   }
 
+  Future<void> _deduplicateMealsByContent() async {
+    try {
+      await _db.mealDao.deduplicateMeals();
+    } catch (e) {
+      _logger.w('_deduplicateMealsByContent failed: $e');
+    }
+  }
+
   Future<void> _deduplicateAll() async {
     // Content-based dedup for workouts: two rows with the same name are always
     // duplicates. Must run first so SWs are re-linked before SW dedup.
@@ -1375,6 +1383,7 @@ class SyncService {
     await _pullMealTemplates();
     // Clean up any content-based duplicates the pull may have created.
     await _deduplicateScheduledWorkoutsByContent();
+    await _deduplicateMealsByContent();
   }
 
   /// Re-fetches each synced scheduled workout from the server and stores
@@ -1798,21 +1807,50 @@ class SyncService {
     final list = (response.data as List).cast<Map<String, dynamic>>();
     for (final m in list) {
       final mealServerId = m['id'] as String;
-      if (await _db.mealDao.getByServerId(mealServerId) != null) continue;
       final localFood = await _db.foodItemDao.getByServerId(m['foodItemId'] as String);
       if (localFood == null) continue;
-      final localMealId = await _db.mealDao.insertMeal(MealTableCompanion(
-        date: Value(DateTime.parse(m['date'] as String)),
-        category: Value(m['category'] as String),
-        foodItemId: Value(localFood.id),
-        serverId: Value(mealServerId),
-        syncStatus: const Value(1),
-      ));
+
+      // Check by serverId first (already synced).
+      var existing = await _db.mealDao.getByServerId(mealServerId);
+
+      // If not found by serverId, look for a locally-created meal with same date+category
+      // that hasn't been linked to the server yet — adopt it rather than duplicating.
+      if (existing == null) {
+        final serverDate = _toLocalMidnight(DateTime.parse(m['date'] as String));
+        final unlinked = await _db.mealDao.getMealByDateAndCategory(serverDate, m['category'] as String);
+        if (unlinked != null && unlinked.serverId == null) {
+          await _db.mealDao.markMealSynced(localId: unlinked.id, serverId: mealServerId);
+          existing = await _db.mealDao.getMealById(unlinked.id);
+        }
+      }
+
+      final int localMealId;
+      if (existing == null) {
+        final serverDate = _toLocalMidnight(DateTime.parse(m['date'] as String));
+        localMealId = await _db.mealDao.insertMeal(MealTableCompanion(
+          date: Value(serverDate),
+          category: Value(m['category'] as String),
+          foodItemId: Value(localFood.id),
+          serverId: Value(mealServerId),
+          syncStatus: const Value(1),
+        ));
+      } else {
+        localMealId = existing.id;
+      }
+
       for (final entry in (m['foodEntries'] as List).cast<Map<String, dynamic>>()) {
         final entryServerId = entry['id'] as String;
         if (await _db.mealDao.getFoodEntryByServerId(entryServerId) != null) continue;
         final entryFood = await _db.foodItemDao.getByServerId(entry['foodItemId'] as String);
         if (entryFood == null) continue;
+        // Skip if this food item is already in the meal (locally added, no serverId yet).
+        final existingEntries = await _db.mealDao.getFoodItemsForMeal(localMealId);
+        if (existingEntries.any((e) => e.foodEntryId == entryFood.id)) {
+          // Just stamp the serverId on the existing entry.
+          final match = existingEntries.firstWhere((e) => e.foodEntryId == entryFood.id);
+          await _db.mealDao.setFoodEntryServerId(match.id, entryServerId);
+          continue;
+        }
         await _db.mealDao.addFoodToMeal(entryFood.id, localMealId, entryServerId);
       }
     }
@@ -1854,6 +1892,11 @@ class SyncService {
       });
       _logger.i('Pulled meal template $serverId → local $localId');
     }
+  }
+
+  DateTime _toLocalMidnight(DateTime dt) {
+    final local = dt.toLocal();
+    return DateTime(local.year, local.month, local.day);
   }
 
   // ── Legacy ────────────────────────────────────────────────────────────────

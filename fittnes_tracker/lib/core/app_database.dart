@@ -1005,6 +1005,13 @@ class FoodItemDao extends DatabaseAccessor<AppDatabase>
 
   // ── Sync helpers ────────────────────────────────────────────────────────────
 
+  Future<int> countCustomFoodItems() async {
+    final items = await (select(foodItem)
+          ..where((t) => t.serverId.isNull() & t.extendedNutrientsJson.isNull()))
+        .get();
+    return items.length;
+  }
+
   Future<List<FoodItemData>> getUnsyncedItems() =>
       (select(foodItem)
         ..where((t) => t.syncStatus.isNotValue(1))).get(); // not synced
@@ -1140,7 +1147,12 @@ class MealDao extends DatabaseAccessor<AppDatabase> with _$MealDaoMixin {
   MealDao(AppDatabase db) : super(db);
 
   Future<List<MealTableData>> getMealsForDate(DateTime date) {
-    return (select(mealTable)..where((tbl) => tbl.date.equals(date))).get();
+    final start = DateTime(date.year, date.month, date.day);
+    final end = start.add(const Duration(days: 1));
+    return (select(mealTable)
+      ..where((tbl) =>
+          tbl.date.isBiggerOrEqualValue(start) &
+          tbl.date.isSmallerThanValue(end))).get();
   }
 
   Future<MealTableData?> getMealById(int id) {
@@ -1214,8 +1226,57 @@ class MealDao extends DatabaseAccessor<AppDatabase> with _$MealDaoMixin {
   Future<MealTableData?> getByServerId(String serverId) =>
       (select(mealTable)..where((m) => m.serverId.equals(serverId))..limit(1)).getSingleOrNull();
 
+  Future<MealTableData?> getMealByDateAndCategory(DateTime date, String category) {
+    final start = DateTime(date.year, date.month, date.day);
+    final end = start.add(const Duration(days: 1));
+    return (select(mealTable)
+          ..where((t) =>
+              t.date.isBiggerOrEqualValue(start) &
+              t.date.isSmallerThanValue(end) &
+              t.category.equals(category))
+          ..limit(1))
+        .getSingleOrNull();
+  }
+
   Future<MealFoodTableData?> getFoodEntryByServerId(String serverId) =>
       (select(mealFoodTable)..where((f) => f.serverId.equals(serverId))..limit(1)).getSingleOrNull();
+
+  /// Removes duplicate meal rows for the same date+category, keeping the one
+  /// with a serverId (or lowest id). Re-parents food entries before deleting.
+  Future<void> deduplicateMeals() async {
+    final all = await (select(mealTable)
+          ..orderBy([(t) => OrderingTerm.asc(t.id)]))
+        .get();
+
+    final Map<String, List<MealTableData>> groups = {};
+    for (final meal in all) {
+      final d = meal.date;
+      final key = '${d.year}-${d.month}-${d.day}|${meal.category}';
+      groups.putIfAbsent(key, () => []).add(meal);
+    }
+
+    for (final group in groups.values) {
+      if (group.length <= 1) continue;
+      final keeper = group.firstWhere(
+        (m) => m.serverId != null,
+        orElse: () => group.first,
+      );
+      for (final dupe in group) {
+        if (dupe.id == keeper.id) continue;
+        final dupeEntries = await getFoodItemsForMeal(dupe.id);
+        final keeperEntries = await getFoodItemsForMeal(keeper.id);
+        final keeperFoodIds = keeperEntries.map((e) => e.foodEntryId).toSet();
+        for (final entry in dupeEntries) {
+          if (!keeperFoodIds.contains(entry.foodEntryId)) {
+            await (update(mealFoodTable)..where((t) => t.id.equals(entry.id)))
+                .write(MealFoodTableCompanion(mealId: Value(keeper.id)));
+            keeperFoodIds.add(entry.foodEntryId);
+          }
+        }
+        await (delete(mealTable)..where((t) => t.id.equals(dupe.id))).go();
+      }
+    }
+  }
 }
 
 @DriftAccessor(tables: [SearchCacheTable])

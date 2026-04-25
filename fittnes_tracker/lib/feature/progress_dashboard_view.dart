@@ -7,6 +7,9 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/providers/user_goals_provider.dart';
+import 'package:ForgeForm/core/providers/access_provider.dart';
+import 'package:ForgeForm/feature/premium/paywall_screen.dart';
+import 'package:ForgeForm/feature/premium/premium_gate.dart';
 
 enum TimeRange { week, month, threeMonths, allTime, custom }
 
@@ -62,6 +65,8 @@ class _ProgressScreenState extends State<ProgressScreen>
   }
 
   DateTime _rangeStart(TimeRange range, DateTime? customStart) {
+    final hasPremium = context.read<AccessProvider>().hasPremiumAccess;
+    if (!hasPremium) return DateTime.now().subtract(const Duration(days: 7));
     if (range == TimeRange.custom && customStart != null) return customStart;
     final now = DateTime.now();
     switch (range) {
@@ -108,6 +113,7 @@ class _ProgressScreenState extends State<ProgressScreen>
     setState(() => _nutritionLoading = true);
     try {
       final db = context.read<AppDatabase>();
+      await db.mealDao.deduplicateMeals();
       final startDate = _rangeStart(_nutritionRange, _nutritionCustomStart);
       final endDate = _nutritionCustomEnd ?? DateTime.now();
       final nutritionData = await _loadNutritionDataForRange(db, startDate, endDate);
@@ -269,9 +275,12 @@ class _ProgressScreenState extends State<ProgressScreen>
 
     while (currentDate.isBefore(end) ||
         currentDate.isAtSameMomentAs(end)) {
+      final dayEnd = currentDate.add(const Duration(days: 1));
       final meals =
           await (db.select(db.mealTable)
-            ..where((t) => t.date.equals(currentDate))).get();
+            ..where((t) =>
+                t.date.isBiggerOrEqualValue(currentDate) &
+                t.date.isSmallerThanValue(dayEnd))).get();
 
       int totalCalories = 0;
       int totalProtein = 0;
@@ -431,8 +440,12 @@ class _ProgressScreenState extends State<ProgressScreen>
                 AppLocalizations.of(context)!.completeWorkoutsProgress,
               )
             else
-              ..._exerciseProgress.map(
-                (data) => _buildExerciseCard(data, theme),
+              PremiumGate(
+                child: Column(
+                  children: _exerciseProgress
+                      .map((data) => _buildExerciseCard(data, theme))
+                      .toList(),
+                ),
               ),
           ],
         ),
@@ -720,7 +733,7 @@ class _ProgressScreenState extends State<ProgressScreen>
             ],
 
             if (_weightRecords.isNotEmpty && _dailyData.isNotEmpty) ...[
-              _buildWeightCorrelationChart(theme),
+              PremiumGate(child: _buildWeightCorrelationChart(theme)),
               const SizedBox(height: 24),
             ],
 
@@ -874,7 +887,7 @@ class _ProgressScreenState extends State<ProgressScreen>
                     bottomTitles: AxisTitles(
                       sideTitles: SideTitles(
                         showTitles: true,
-                        interval: _dailyData.length > 30 ? 7 : 1,
+                        interval: _dailyData.length > 60 ? 14 : _dailyData.length > 14 ? 7 : _dailyData.length > 7 ? 3 : 1,
                         getTitlesWidget: (value, meta) {
                           final index = value.toInt();
                           if (index < 0 || index >= _dailyData.length) {
@@ -882,10 +895,13 @@ class _ProgressScreenState extends State<ProgressScreen>
                           }
                           final date = _dailyData[index].date;
                           return Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: Text(
-                              DateFormat('M/d').format(date),
-                              style: const TextStyle(fontSize: 10),
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Transform.rotate(
+                              angle: -0.5,
+                              child: Text(
+                                DateFormat('d.M').format(date),
+                                style: const TextStyle(fontSize: 9),
+                              ),
                             ),
                           );
                         },
@@ -1182,6 +1198,31 @@ class _ProgressScreenState extends State<ProgressScreen>
     DateTime? customEnd,
     required void Function(TimeRange range, {DateTime? customStart, DateTime? customEnd}) onChanged,
   }) {
+    final hasPremium = context.watch<AccessProvider>().hasPremiumAccess;
+
+    Widget premiumChip(String label, TimeRange range) => ChoiceChip(
+          label: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(label),
+              if (!hasPremium) ...[
+                const SizedBox(width: 4),
+                const Icon(Icons.lock, size: 12),
+              ],
+            ],
+          ),
+          selected: selectedRange == range,
+          onSelected: (_) {
+            if (!hasPremium) {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const PaywallScreen()),
+              );
+            } else {
+              onChanged(range);
+            }
+          },
+        );
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -1202,43 +1243,36 @@ class _ProgressScreenState extends State<ProgressScreen>
                 ChoiceChip(
                   label: Text(AppLocalizations.of(context)!.sevenDays),
                   selected: selectedRange == TimeRange.week,
-                  onSelected: (selected) {
-                    onChanged(TimeRange.week);
-                  },
+                  onSelected: (_) => onChanged(TimeRange.week),
                 ),
+                premiumChip(AppLocalizations.of(context)!.thirtyDays, TimeRange.month),
+                premiumChip(AppLocalizations.of(context)!.ninetyDays, TimeRange.threeMonths),
+                premiumChip(AppLocalizations.of(context)!.allTime, TimeRange.allTime),
                 ChoiceChip(
-                  label: Text(AppLocalizations.of(context)!.thirtyDays),
-                  selected: selectedRange == TimeRange.month,
-                  onSelected: (selected) {
-                    onChanged(TimeRange.month);
-                  },
-                ),
-                ChoiceChip(
-                  label: Text(AppLocalizations.of(context)!.ninetyDays),
-                  selected: selectedRange == TimeRange.threeMonths,
-                  onSelected: (selected) {
-                    onChanged(TimeRange.threeMonths);
-                  },
-                ),
-                ChoiceChip(
-                  label: Text(AppLocalizations.of(context)!.allTime),
-                  selected: selectedRange == TimeRange.allTime,
-                  onSelected: (selected) {
-                    onChanged(TimeRange.allTime);
-                  },
-                ),
-                ChoiceChip(
-                  label: Text(AppLocalizations.of(context)!.custom),
+                  label: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(AppLocalizations.of(context)!.custom),
+                      if (!hasPremium) ...[
+                        const SizedBox(width: 4),
+                        const Icon(Icons.lock, size: 12),
+                      ],
+                    ],
+                  ),
                   selected: selectedRange == TimeRange.custom,
-                  onSelected: (selected) async {
+                  onSelected: (_) async {
+                    if (!hasPremium) {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const PaywallScreen()),
+                      );
+                      return;
+                    }
                     final picked = await showDateRangePicker(
                       context: context,
                       firstDate: DateTime(2020),
                       lastDate: DateTime.now(),
                       initialDateRange: DateTimeRange(
-                        start: DateTime.now().subtract(
-                          const Duration(days: 30),
-                        ),
+                        start: DateTime.now().subtract(const Duration(days: 30)),
                         end: DateTime.now(),
                       ),
                     );

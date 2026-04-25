@@ -48,6 +48,7 @@ dependencies:
   flutter_svg: ^2.0.7
   audioplayers: ^6.1.0
   workmanager: ^0.9.0+3
+  purchases_flutter: ^8.0.0
 
 dev_dependencies:
   flutter_test:

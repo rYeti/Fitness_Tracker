@@ -1,3 +1,4 @@
+import 'package:ForgeForm/core/providers/access_provider.dart';
 import 'package:ForgeForm/feature/auth/presentation/providers/auth_provider.dart';
 import 'package:ForgeForm/feature/onboarding/onboarding_screen.dart'
     show onboardingFieldDecoration;
@@ -6,6 +7,7 @@ import 'package:ForgeForm/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -81,6 +83,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             .showSnackBar(SnackBar(content: Text(next.error!)));
       }
       if (next.isAuthenticated) {
+        final serverUrl = ref.read(serverUrlProvider);
+        context.read<AccessProvider>().initialize(
+          userId: next.user!.username,
+          serverBaseUrl: serverUrl,
+          bearerToken: next.user!.token,
+        );
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => HomeScreen()),

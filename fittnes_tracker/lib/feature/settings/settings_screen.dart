@@ -5,6 +5,7 @@ import 'package:ForgeForm/core/dao/meal_template_dao.dart';
 import 'package:ForgeForm/core/di/service_locator.dart';
 import 'package:ForgeForm/core/network/api_client.dart';
 import 'package:ForgeForm/core/network/services/sync_service.dart';
+import 'package:ForgeForm/core/providers/access_provider.dart';
 import 'package:ForgeForm/core/providers/enums.dart';
 import 'package:ForgeForm/core/providers/theme_provider.dart';
 import 'package:ForgeForm/core/providers/locale_provider.dart';
@@ -697,6 +698,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           style: TextStyle(color: colorScheme.error),
                         ),
                         onTap: () async {
+                          final access = context.read<AccessProvider>();
                           final confirmed = await showDialog<bool>(
                             context: context,
                             builder: (_) => AlertDialog(
@@ -715,6 +717,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             ),
                           );
                           if (confirmed == true) {
+                            await access.reset();
                             await ref.read(authProvider.notifier).logout();
                             if (context.mounted) {
                               Navigator.of(context).pushAndRemoveUntil(

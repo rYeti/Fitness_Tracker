@@ -1,3 +1,4 @@
+import 'package:ForgeForm/core/providers/access_provider.dart';
 import 'package:ForgeForm/feature/auth/presentation/providers/auth_provider.dart';
 import 'package:ForgeForm/feature/auth/presentation/view/login_screen.dart';
 import 'package:ForgeForm/feature/onboarding/onboarding_screen.dart'
@@ -6,6 +7,7 @@ import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
 class UserSettingsScreen extends ConsumerStatefulWidget {
   const UserSettingsScreen({super.key});
@@ -110,6 +112,7 @@ class _UserSettingsScreenState extends ConsumerState<UserSettingsScreen> {
   }
 
   Future<void> _signOut() async {
+    final access = context.read<AccessProvider>();
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) {
@@ -134,6 +137,7 @@ class _UserSettingsScreenState extends ConsumerState<UserSettingsScreen> {
       },
     );
     if (confirmed != true || !mounted) return;
+    await access.reset();
     await ref.read(authProvider.notifier).logout();
     if (!mounted) return;
     Navigator.pushAndRemoveUntil(

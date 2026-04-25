@@ -30,7 +30,9 @@ import 'feature/food_tracking/presentation/view/meal_templates_screen.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:async' show unawaited;
 import 'feature/onboarding/onboarding_screen.dart';
+import 'core/providers/access_provider.dart';
 
 const _backgroundSyncTask = 'com.forgeform.dailySync';
 
@@ -105,6 +107,17 @@ void main() async {
   );
   await container.read(authProvider.notifier).restoreSession();
 
+  // Initialize premium / trainer-client access for already-logged-in users.
+  final accessProvider = AccessProvider();
+  final restoredAuth = container.read(authProvider);
+  if (restoredAuth.user != null) {
+    unawaited(accessProvider.initialize(
+      userId: restoredAuth.user!.username,
+      serverBaseUrl: serverUrlDefault,
+      bearerToken: restoredAuth.user!.token,
+    ));
+  }
+
   // Register the once-a-day background sync task.
   await Workmanager().initialize(_backgroundSyncDispatcher);
   await Workmanager().registerPeriodicTask(
@@ -147,6 +160,9 @@ void main() async {
           ),
           provider.ChangeNotifierProvider(
             create: (_) => WorkoutProvider()..loadTemplates(),
+          ),
+          provider.ChangeNotifierProvider<AccessProvider>.value(
+            value: accessProvider,
           ),
         ],
         child: MyApp(showOnboarding: showOnboarding, hasToken: hasToken),

@@ -1,6 +1,8 @@
 // lib/feature/presentation/view/food_add_screen.dart
 import 'package:ForgeForm/core/app_database.dart';
+import 'package:ForgeForm/core/providers/access_provider.dart';
 import 'package:ForgeForm/core/utils/app_logger.dart';
+import 'package:ForgeForm/feature/premium/paywall_screen.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:dio/dio.dart' show CancelToken;
 import 'package:drift/drift.dart' show Value;
@@ -594,6 +596,17 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
   }
 
   Future<void> _addCustomFood() async {
+    final hasPremium = context.read<AccessProvider>().hasPremiumAccess;
+    if (!hasPremium) {
+      final count = await db.foodItemDao.countCustomFoodItems();
+      if (!mounted) return;
+      if (count >= 10) {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const PaywallScreen()),
+        );
+        return;
+      }
+    }
     final formKey = GlobalKey<FormState>();
     final nameController = TextEditingController();
     final caloriesController = TextEditingController();

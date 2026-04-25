@@ -1,3 +1,4 @@
+import 'package:ForgeForm/core/providers/access_provider.dart';
 import 'package:ForgeForm/feature/auth/presentation/providers/auth_provider.dart';
 import 'package:ForgeForm/feature/onboarding/onboarding_screen.dart'
     show onboardingFieldDecoration;
@@ -5,6 +6,7 @@ import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:ForgeForm/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:provider/provider.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -45,6 +47,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             .showSnackBar(SnackBar(content: Text(next.error!)));
       }
       if (next.isAuthenticated) {
+        final serverUrl = ref.read(serverUrlProvider);
+        context.read<AccessProvider>().initialize(
+          userId: next.user!.username,
+          serverBaseUrl: serverUrl,
+          bearerToken: next.user!.token,
+        );
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => HomeScreen()),

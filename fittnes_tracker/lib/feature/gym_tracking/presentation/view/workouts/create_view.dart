@@ -1,6 +1,8 @@
 import 'package:drift/drift.dart' as drift hide Column;
 import 'dart:convert';
 import 'package:ForgeForm/core/app_database.dart';
+import 'package:ForgeForm/core/providers/access_provider.dart';
+import 'package:ForgeForm/feature/premium/paywall_screen.dart';
 import 'package:ForgeForm/feature/workout_planning/data/models/workout.dart';
 import 'package:ForgeForm/feature/workout_planning/data/models/exercise.dart';
 import 'package:ForgeForm/feature/gym_tracking/presentation/widgets/exercise_selection_modal.dart';
@@ -505,7 +507,16 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
                     label: l10n.freeChoiceLabel,
                     description: l10n.freeChoiceModeSubtitle,
                     selected: _isFreeChoice,
-                    onTap: () => setState(() => _isFreeChoice = true),
+                    locked: !context.read<AccessProvider>().hasPremiumAccess,
+                    onTap: () {
+                      if (!context.read<AccessProvider>().hasPremiumAccess) {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const PaywallScreen()),
+                        );
+                        return;
+                      }
+                      setState(() => _isFreeChoice = true);
+                    },
                   ),
                 ],
               ),
@@ -622,6 +633,7 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
     required String description,
     required bool selected,
     required VoidCallback onTap,
+    bool locked = false,
   }) {
     final contentColor = selected
         ? theme.colorScheme.onPrimaryContainer
@@ -645,7 +657,18 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, color: contentColor, size: 28),
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Icon(icon, color: contentColor, size: 28),
+                  if (locked)
+                    Positioned(
+                      top: -4,
+                      right: -8,
+                      child: Icon(Icons.lock, size: 12, color: theme.colorScheme.primary),
+                    ),
+                ],
+              ),
               const SizedBox(height: 6),
               Text(
                 label,

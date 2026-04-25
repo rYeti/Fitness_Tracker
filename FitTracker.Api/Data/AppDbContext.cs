@@ -61,6 +61,9 @@ public class AppDbContext : DbContext
     /// <summary>The meal template items table.</summary>
     public DbSet<MealTemplateItem> MealTemplateItems { get; set; }
 
+    /// <summary>Trainer–client relationships.</summary>
+    public DbSet<TrainerClient> TrainerClients { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<User>(entity =>
@@ -227,6 +230,20 @@ public class AppDbContext : DbContext
                   .HasForeignKey(i => i.TemplateId)
                   .OnDelete(DeleteBehavior.Cascade);
             // FoodId is an opaque client-side reference — no FK enforced
+        });
+
+        modelBuilder.Entity<TrainerClient>(entity =>
+        {
+            entity.HasKey(t => t.Id);
+            entity.HasOne(t => t.Trainer)
+                  .WithMany()
+                  .HasForeignKey(t => t.TrainerId)
+                  .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(t => t.Client)
+                  .WithMany()
+                  .HasForeignKey(t => t.ClientId)
+                  .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(t => t.InviteCode).IsUnique();
         });
     }
 }

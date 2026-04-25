@@ -1,6 +1,8 @@
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/di/service_locator.dart';
+import 'package:ForgeForm/core/providers/access_provider.dart';
 import 'package:ForgeForm/feature/gym_tracking/presentation/providers/workout_provider.dart';
+import 'package:ForgeForm/feature/premium/paywall_screen.dart';
 import 'package:ForgeForm/feature/gym_tracking/presentation/view/workouts/create_view.dart';
 import 'package:ForgeForm/feature/gym_tracking/presentation/view/workouts/edit_view.dart';
 import 'package:ForgeForm/feature/gym_tracking/presentation/view/workouts/importer/csv_import_screen.dart';
@@ -55,12 +57,46 @@ class WorkoutsListViewState extends State<WorkoutsListView> {
   }
 
   void _showImportOptions(AppLocalizations l10n) {
+    final hasPremium = context.read<AccessProvider>().hasPremiumAccess;
+    final planCount = context.read<WorkoutProvider>().plans.length;
     showModalBottomSheet(
       context: context,
       builder: (ctx) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            ListTile(
+              leading: Icon(
+                Icons.add_circle_outline,
+                color: (!hasPremium && planCount >= 1) ? Colors.grey : null,
+              ),
+              title: Row(
+                children: [
+                  Text(l10n.createFirstWorkout),
+                  if (!hasPremium && planCount >= 1) ...[
+                    const SizedBox(width: 6),
+                    const Icon(Icons.lock, size: 14, color: Colors.orange),
+                  ],
+                ],
+              ),
+              subtitle: (!hasPremium && planCount >= 1)
+                  ? const Text('Premium — upgrade to create multiple plans')
+                  : null,
+              onTap: () async {
+                Navigator.pop(ctx);
+                if (!hasPremium && planCount >= 1) {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const PaywallScreen()),
+                  );
+                  return;
+                }
+                await Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => CreateWorkoutView()),
+                );
+                if (mounted) context.read<WorkoutProvider>().loadCompletePlans();
+              },
+            ),
+            const Divider(height: 1),
             ListTile(
               leading: const Icon(Icons.upload_file),
               title: Text(l10n.importFitNotes),
