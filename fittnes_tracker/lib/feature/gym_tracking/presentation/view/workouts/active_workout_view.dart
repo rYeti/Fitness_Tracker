@@ -284,12 +284,20 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     required int workoutExerciseId,
   }) async {
     try {
+      // templateWorkoutId is not pushed to/pulled from the server, so it can be
+      // null after a data restore. Fall back to workoutId — which IS always
+      // synced — and refers to the same template workout in the common case.
+      final templateId =
+          widget.scheduledWorkout.scheduled.templateWorkoutId;
+      final matchId =
+          templateId ?? widget.scheduledWorkout.scheduled.workoutId;
+
       final previousScheduledWorkouts =
           await (db.select(db.scheduledWorkoutTable)
                 ..where(
-                  (t) => t.templateWorkoutId.equals(
-                    widget.scheduledWorkout.scheduled.templateWorkoutId!,
-                  ),
+                  (t) => templateId != null
+                      ? t.templateWorkoutId.equals(matchId)
+                      : t.workoutId.equals(matchId),
                 )
                 ..where(
                   (t) => t.id.isNotValue(widget.scheduledWorkout.scheduled.id),
@@ -353,7 +361,15 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
   Future<void> _saveCurrentExercise() async {
     if (_currentExerciseIndex >= _exercises.length) return;
     if (widget.isReadOnly) return;
+
+    // Capture db before the async gap to avoid BuildContext-across-await lint.
     final db = context.read<AppDatabase>();
+
+    // Ensure any pending IME composition on Android is committed before we
+    // read controller text. If this is called from _completeWorkout, the
+    // unfocus already happened; the extra unfocus here is a no-op.
+    FocusManager.instance.primaryFocus?.unfocus();
+    await Future<void>.delayed(Duration.zero);
     final exerciseData = _exercises[_currentExerciseIndex];
 
     try {
@@ -442,6 +458,13 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
       Navigator.pop(context);
       return;
     }
+
+    // Dismiss the keyboard and flush any pending IME composition on Android
+    // before reading controller values, otherwise in-progress text can read
+    // as empty and get saved as 0.
+    FocusManager.instance.primaryFocus?.unfocus();
+    await Future<void>.delayed(Duration.zero);
+
     setState(() => _isSaving = true);
 
     try {

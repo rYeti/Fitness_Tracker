@@ -506,7 +506,7 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
                       ),
                       if (isCompleted)
                         const Icon(Icons.check_circle, color: Colors.green, size: 32)
-                      else if (!isRestDay)
+                      else
                         PopupMenuButton<String>(
                           icon: const Icon(Icons.more_vert),
                           onSelected: (value) {
@@ -521,7 +521,18 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
                             }
                           },
                           itemBuilder: (context) => [
-                            if (isSkipped)
+                            if (isRestDay) ...[
+                              PopupMenuItem(
+                                value: 'postpone',
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.calendar_today, size: 18),
+                                    const SizedBox(width: 8),
+                                    Text(l10n.move),
+                                  ],
+                                ),
+                              ),
+                            ] else if (isSkipped)
                               PopupMenuItem(
                                 value: 'unskip',
                                 child: Row(

@@ -933,6 +933,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get postponeWorkout => 'Training verschieben';
 
   @override
+  String get move => 'Verschieben';
+
+  @override
   String get skipWorkout => 'Training überspringen';
 
   @override
@@ -1891,4 +1894,33 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get upgradeToPremium => 'Auf Premium upgraden';
+
+  @override
+  String get paywallUnlockPotential => 'Entfalte dein volles Potenzial';
+
+  @override
+  String get paywallNoPlans => 'Keine Tarife verfügbar.';
+
+  @override
+  String get paywallRestorePurchases => 'Käufe wiederherstellen';
+
+  @override
+  String get paywallFeatureProgress =>
+      'Vollständiges Fortschritts-Dashboard — 30 Tage & benutzerdefinierter Zeitraum';
+
+  @override
+  String get paywallFeaturePlans => 'Unbegrenzte Trainingspläne';
+
+  @override
+  String get paywallFeatureTemplates => 'Unbegrenzte Mahlzeiten-Vorlagen';
+
+  @override
+  String get paywallFeatureCorrelation =>
+      'Gewichts- & Kalorien-Korrelationsdiagramm';
+
+  @override
+  String get paywallFeatureGraphs => 'Übungsfortschrittsgraphen';
+
+  @override
+  String get paywallFeatureExport => 'Trainingsdaten exportieren (CSV)';
 }

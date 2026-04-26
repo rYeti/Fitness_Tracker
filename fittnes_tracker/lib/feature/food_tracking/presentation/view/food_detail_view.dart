@@ -1,9 +1,9 @@
 import 'package:ForgeForm/core/app_database.dart';
+import 'package:ForgeForm/core/providers/access_provider.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/models/extended_nutrients.dart';
 import '../../data/models/food_item_model.dart';
 import '../../data/models/portion_option.dart';
@@ -54,8 +54,6 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
 
   ExtendedNutrients? _scaledNutrients;
 
-  bool _isPremium = false;
-
   @override
   void initState() {
     super.initState();
@@ -76,15 +74,6 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
       _portionInput == _portionInput.roundToDouble() ? 0 : 1,
     ));
     _calculateNutrition();
-    _loadPremiumStatus();
-  }
-
-  Future<void> _loadPremiumStatus() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (!mounted) return;
-    setState(() {
-      _isPremium = prefs.getBool('is_premium') ?? true; // TODO: remove debug override
-    });
   }
 
   void _calculateNutrition() {
@@ -230,8 +219,9 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
   Widget _buildExtendedNutrientsCard() {
     final loc = AppLocalizations.of(context)!;
     final nutrients = _scaledNutrients ?? widget.foodItem.extendedNutrients!;
+    final isPremium = context.read<AccessProvider>().hasPremiumAccess;
 
-    if (!_isPremium) {
+    if (!isPremium) {
       return Card(
         elevation: 4,
         child: Padding(

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:ForgeForm/core/providers/access_provider.dart';
 import 'package:ForgeForm/feature/auth/presentation/providers/auth_provider.dart';
+import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class PaywallScreen extends ConsumerStatefulWidget {
@@ -83,6 +84,16 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
+
+    final features = [
+      l10n.paywallFeatureProgress,
+      l10n.paywallFeaturePlans,
+      l10n.paywallFeatureTemplates,
+      l10n.paywallFeatureCorrelation,
+      l10n.paywallFeatureGraphs,
+      l10n.paywallFeatureExport,
+    ];
 
     return Scaffold(
       backgroundColor: const Color(0xFF1A1A2E),
@@ -137,20 +148,29 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Unlock your full potential',
+                l10n.paywallUnlockPotential,
                 style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white60),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 32),
               // Feature list
-              ..._features.map(
+              ...features.map(
                 (f) => Padding(
                   padding: const EdgeInsets.symmetric(vertical: 6),
                   child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.check_circle, color: Color(0xFFFF6B3E), size: 20),
+                      const Padding(
+                        padding: EdgeInsets.only(top: 2),
+                        child: Icon(Icons.check_circle, color: Color(0xFFFF6B3E), size: 20),
+                      ),
                       const SizedBox(width: 12),
-                      Text(f, style: const TextStyle(color: Colors.white, fontSize: 15)),
+                      Expanded(
+                        child: Text(
+                          f,
+                          style: const TextStyle(color: Colors.white, fontSize: 15),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -164,7 +184,7 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
               if (_loading)
                 const CircularProgressIndicator(color: Color(0xFFFF6B3E))
               else if (_packages.isEmpty)
-                const Text('No plans available.', style: TextStyle(color: Colors.white60))
+                Text(l10n.paywallNoPlans, style: const TextStyle(color: Colors.white60))
               else
                 ..._packages.map(
                   (pkg) => _PackageButton(
@@ -176,9 +196,9 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
               const SizedBox(height: 16),
               TextButton(
                 onPressed: _purchasing ? null : _restore,
-                child: const Text(
-                  'Restore purchases',
-                  style: TextStyle(color: Colors.white54),
+                child: Text(
+                  l10n.paywallRestorePurchases,
+                  style: const TextStyle(color: Colors.white54),
                 ),
               ),
               const SizedBox(height: 8),
@@ -233,12 +253,3 @@ class _PackageButton extends StatelessWidget {
     );
   }
 }
-
-const _features = [
-  'Full progress dashboard — 30 days & custom range',
-  'Unlimited workout plans',
-  'Unlimited meal templates',
-  'Weight & calorie correlation chart',
-  'Exercise progress graphs',
-  'Export workout data (CSV)',
-];

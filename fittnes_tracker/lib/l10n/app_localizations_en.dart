@@ -930,6 +930,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get postponeWorkout => 'Postpone Workout';
 
   @override
+  String get move => 'Move';
+
+  @override
   String get skipWorkout => 'Skip Workout';
 
   @override
@@ -1881,4 +1884,32 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get upgradeToPremium => 'Upgrade to Premium';
+
+  @override
+  String get paywallUnlockPotential => 'Unlock your full potential';
+
+  @override
+  String get paywallNoPlans => 'No plans available.';
+
+  @override
+  String get paywallRestorePurchases => 'Restore purchases';
+
+  @override
+  String get paywallFeatureProgress =>
+      'Full progress dashboard — 30 days & custom range';
+
+  @override
+  String get paywallFeaturePlans => 'Unlimited workout plans';
+
+  @override
+  String get paywallFeatureTemplates => 'Unlimited meal templates';
+
+  @override
+  String get paywallFeatureCorrelation => 'Weight & calorie correlation chart';
+
+  @override
+  String get paywallFeatureGraphs => 'Exercise progress graphs';
+
+  @override
+  String get paywallFeatureExport => 'Export workout data (CSV)';
 }

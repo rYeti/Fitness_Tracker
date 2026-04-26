@@ -471,6 +471,7 @@
   "skipped": "Übersprungen",
   "jumpTo": "Springen zu",
   "postponeWorkout": "Training verschieben",
+  "move": "Verschieben",
   "skipWorkout": "Training überspringen",
   "viewLabel": "Ansicht",
   "dayCycleLength": "{n}-Tage-Zyklus",
@@ -892,5 +893,14 @@
   "premiumFeatureTitle": "Premium-Funktion",
   "premiumFeatureBody": "Upgrade auf Premium, um detaillierte Nährwertdaten einschließlich Vitamine und Mineralstoffe zu sehen.",
   "premiumBadge": "Premium",
-  "upgradeToPremium": "Auf Premium upgraden"
+  "upgradeToPremium": "Auf Premium upgraden",
+  "paywallUnlockPotential": "Entfalte dein volles Potenzial",
+  "paywallNoPlans": "Keine Tarife verfügbar.",
+  "paywallRestorePurchases": "Käufe wiederherstellen",
+  "paywallFeatureProgress": "Vollständiges Fortschritts-Dashboard — 30 Tage & benutzerdefinierter Zeitraum",
+  "paywallFeaturePlans": "Unbegrenzte Trainingspläne",
+  "paywallFeatureTemplates": "Unbegrenzte Mahlzeiten-Vorlagen",
+  "paywallFeatureCorrelation": "Gewichts- & Kalorien-Korrelationsdiagramm",
+  "paywallFeatureGraphs": "Übungsfortschrittsgraphen",
+  "paywallFeatureExport": "Trainingsdaten exportieren (CSV)"
 }

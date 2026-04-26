@@ -72,7 +72,7 @@ class _MealTemplatesScreenState extends State<MealTemplatesScreen> {
               final repo = context.read<MealTemplateRepository>();
               final all = await repo.getAllTemplates();
               if (!context.mounted) return;
-              if (all.length >= 3) {
+              if (all.isNotEmpty) {
                 Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const PaywallScreen()),
                 );
@@ -151,6 +151,19 @@ class _TemplateListTabState extends State<TemplateListTab>
                   const SizedBox(height: 16),
                   ElevatedButton(
                     onPressed: () async {
+                      final hasPremium = context.read<AccessProvider>().hasPremiumAccess;
+                      if (!hasPremium) {
+                        final repo = context.read<MealTemplateRepository>();
+                        final all = await repo.getAllTemplates();
+                        if (!context.mounted) return;
+                        if (all.isNotEmpty) {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const PaywallScreen()),
+                          );
+                          return;
+                        }
+                      }
+                      if (!context.mounted) return;
                       final result = await Navigator.push(
                         context,
                         MaterialPageRoute(

@@ -475,6 +475,7 @@
   "skipped": "Skipped",
   "jumpTo": "Jump To",
   "postponeWorkout": "Postpone Workout",
+  "move": "Move",
   "skipWorkout": "Skip Workout",
   "viewLabel": "View",
   "dayCycleLength": "{n}-day cycle",
@@ -896,5 +897,14 @@
   "premiumFeatureTitle": "Premium Feature",
   "premiumFeatureBody": "Upgrade to Premium to see detailed nutrition data including vitamins and minerals.",
   "premiumBadge": "Premium",
-  "upgradeToPremium": "Upgrade to Premium"
+  "upgradeToPremium": "Upgrade to Premium",
+  "paywallUnlockPotential": "Unlock your full potential",
+  "paywallNoPlans": "No plans available.",
+  "paywallRestorePurchases": "Restore purchases",
+  "paywallFeatureProgress": "Full progress dashboard — 30 days & custom range",
+  "paywallFeaturePlans": "Unlimited workout plans",
+  "paywallFeatureTemplates": "Unlimited meal templates",
+  "paywallFeatureCorrelation": "Weight & calorie correlation chart",
+  "paywallFeatureGraphs": "Exercise progress graphs",
+  "paywallFeatureExport": "Export workout data (CSV)"
 }

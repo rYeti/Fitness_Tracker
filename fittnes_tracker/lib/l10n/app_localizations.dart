@@ -1790,6 +1790,12 @@ abstract class AppLocalizations {
   /// **'Postpone Workout'**
   String get postponeWorkout;
 
+  /// No description provided for @move.
+  ///
+  /// In en, this message translates to:
+  /// **'Move'**
+  String get move;
+
   /// No description provided for @skipWorkout.
   ///
   /// In en, this message translates to:
@@ -3481,6 +3487,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Upgrade to Premium'**
   String get upgradeToPremium;
+
+  /// No description provided for @paywallUnlockPotential.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock your full potential'**
+  String get paywallUnlockPotential;
+
+  /// No description provided for @paywallNoPlans.
+  ///
+  /// In en, this message translates to:
+  /// **'No plans available.'**
+  String get paywallNoPlans;
+
+  /// No description provided for @paywallRestorePurchases.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore purchases'**
+  String get paywallRestorePurchases;
+
+  /// No description provided for @paywallFeatureProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'Full progress dashboard — 30 days & custom range'**
+  String get paywallFeatureProgress;
+
+  /// No description provided for @paywallFeaturePlans.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlimited workout plans'**
+  String get paywallFeaturePlans;
+
+  /// No description provided for @paywallFeatureTemplates.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlimited meal templates'**
+  String get paywallFeatureTemplates;
+
+  /// No description provided for @paywallFeatureCorrelation.
+  ///
+  /// In en, this message translates to:
+  /// **'Weight & calorie correlation chart'**
+  String get paywallFeatureCorrelation;
+
+  /// No description provided for @paywallFeatureGraphs.
+  ///
+  /// In en, this message translates to:
+  /// **'Exercise progress graphs'**
+  String get paywallFeatureGraphs;
+
+  /// No description provided for @paywallFeatureExport.
+  ///
+  /// In en, this message translates to:
+  /// **'Export workout data (CSV)'**
+  String get paywallFeatureExport;
 }
 
 class _AppLocalizationsDelegate

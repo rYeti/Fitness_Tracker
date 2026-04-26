@@ -414,11 +414,19 @@ class SyncService {
       planServerId = planRow?.serverId;
     }
 
+    String? templateWorkoutServerId;
+    if (sw.templateWorkoutId != null) {
+      final templateRow = await ((_db.select(_db.workoutTable))
+        ..where((w) => w.id.equals(sw.templateWorkoutId!))).getSingleOrNull();
+      templateWorkoutServerId = templateRow?.serverId;
+    }
+
     final response = await _apiClient.post(
       'api/ScheduledWorkout',
       data: {
         'workoutId': workoutRow!.serverId,
         'workoutPlanId': planServerId,
+        'templateWorkoutId': templateWorkoutServerId,
         'scheduledDate': sw.scheduledDate.toUtc().toIso8601String(),
         'notes': sw.notes,
         'isCompleted': sw.isCompleted,
@@ -454,11 +462,19 @@ class SyncService {
       planServerId = planRow?.serverId;
     }
 
+    String? templateWorkoutServerId;
+    if (sw.templateWorkoutId != null) {
+      final templateRow = await ((_db.select(_db.workoutTable))
+        ..where((w) => w.id.equals(sw.templateWorkoutId!))).getSingleOrNull();
+      templateWorkoutServerId = templateRow?.serverId;
+    }
+
     await _apiClient.put(
       'api/ScheduledWorkout/${sw.serverId}',
       data: {
         'workoutId': workoutRow!.serverId,
         'workoutPlanId': planServerId,
+        'templateWorkoutId': templateWorkoutServerId,
         'scheduledDate': sw.scheduledDate.toUtc().toIso8601String(),
         'notes': sw.notes,
         'isCompleted': sw.isCompleted,
