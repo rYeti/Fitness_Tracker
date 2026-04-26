@@ -1,5 +1,8 @@
+import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/providers/access_provider.dart';
+import 'package:ForgeForm/core/providers/user_goals_provider.dart';
 import 'package:ForgeForm/feature/auth/presentation/providers/auth_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ForgeForm/feature/onboarding/onboarding_screen.dart'
     show onboardingFieldDecoration;
 import 'package:ForgeForm/l10n/app_localizations.dart';
@@ -77,15 +80,30 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     final l10n = AppLocalizations.of(context)!;
     final authState = ref.watch(authProvider);
 
-    ref.listen<AuthState>(authProvider, (_, next) {
+    ref.listen<AuthState>(authProvider, (_, next) async {
       if (next.error != null) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(next.error!)));
       }
       if (next.isAuthenticated) {
         final serverUrl = ref.read(serverUrlProvider);
+        final newUserId = next.user!.username;
+        final db = context.read<AppDatabase>();
+
+        final prefs = await SharedPreferences.getInstance();
+        final lastUserId = prefs.getString('last_logged_in_user');
+        if (lastUserId != newUserId) {
+          await db.clearAllUserData();
+          await prefs.remove('meal_templates');
+          await prefs.remove('last_sync_timestamp');
+          if (!context.mounted) return;
+          await context.read<UserGoalsProvider>().reload();
+        }
+        await prefs.setString('last_logged_in_user', newUserId);
+
+        if (!context.mounted) return;
         context.read<AccessProvider>().initialize(
-          userId: next.user!.username,
+          userId: newUserId,
           serverBaseUrl: serverUrl,
           bearerToken: next.user!.token,
         );

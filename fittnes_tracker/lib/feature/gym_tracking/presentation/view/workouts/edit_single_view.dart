@@ -316,7 +316,9 @@ class _EditSingleWorkoutViewState extends State<EditSingleWorkoutView> {
       if (exercise.supersetGroupId != null) {
         _clearSupersetGroup(exercise.supersetGroupId!);
       }
-      final updated = _workout!.exercises.where((e) => e.id != exercise.id).toList();
+      final updated = _workout!.exercises
+          .where((e) => !identical(e, exercise))
+          .toList();
       _rebuildWorkout(updated);
     });
   }
@@ -332,7 +334,7 @@ class _EditSingleWorkoutViewState extends State<EditSingleWorkoutView> {
 
     setState(() {
       final updated = _workout!.exercises.map((e) {
-        if (e.id == exercise.id) {
+        if (identical(e, exercise)) {
           return e.copyWith(sets: [...e.sets, newSet]);
         }
         return e;
@@ -347,9 +349,26 @@ class _EditSingleWorkoutViewState extends State<EditSingleWorkoutView> {
     setState(() {
       final updated = _workout!.exercises.map((exercise) {
         if (exercise.sets.any((s) => identical(s, set))) {
-          return exercise.copyWith(
-            sets: exercise.sets.where((s) => !identical(s, set)).toList(),
-          );
+          final remaining = exercise.sets
+              .where((s) => !identical(s, set))
+              .toList();
+          // Re-sequence set numbers so display stays 1, 2, 3…
+          final renumbered = remaining.asMap().entries.map((entry) {
+            final s = entry.value;
+            return WorkoutSet(
+              id: s.id,
+              exerciseInstanceId: s.exerciseInstanceId,
+              setNumber: entry.key + 1,
+              reps: s.reps,
+              weight: s.weight,
+              weightUnit: s.weightUnit,
+              durationSeconds: s.durationSeconds,
+              isCompleted: s.isCompleted,
+              notes: s.notes,
+              targetReps: s.targetReps,
+            );
+          }).toList();
+          return exercise.copyWith(sets: renumbered);
         }
         return exercise;
       }).toList();

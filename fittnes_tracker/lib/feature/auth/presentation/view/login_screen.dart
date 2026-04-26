@@ -1,4 +1,6 @@
+import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/providers/access_provider.dart';
+import 'package:ForgeForm/core/providers/user_goals_provider.dart';
 import 'package:ForgeForm/feature/auth/presentation/providers/auth_provider.dart';
 import 'package:ForgeForm/feature/onboarding/onboarding_screen.dart'
     show onboardingFieldDecoration;
@@ -7,6 +9,7 @@ import 'package:ForgeForm/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -41,15 +44,31 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final l10n = AppLocalizations.of(context)!;
     final authState = ref.watch(authProvider);
 
-    ref.listen<AuthState>(authProvider, (_, next) {
+    ref.listen<AuthState>(authProvider, (_, next) async {
       if (next.error != null) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(next.error!)));
       }
       if (next.isAuthenticated) {
         final serverUrl = ref.read(serverUrlProvider);
+        final newUserId = next.user!.username;
+        final db = context.read<AppDatabase>();
+
+        // Wipe local data only when a different user is logging in
+        final prefs = await SharedPreferences.getInstance();
+        final lastUserId = prefs.getString('last_logged_in_user');
+        if (lastUserId != newUserId) {
+          await db.clearAllUserData();
+          await prefs.remove('meal_templates');
+          await prefs.remove('last_sync_timestamp');
+          if (!context.mounted) return;
+          await context.read<UserGoalsProvider>().reload();
+        }
+        await prefs.setString('last_logged_in_user', newUserId);
+
+        if (!context.mounted) return;
         context.read<AccessProvider>().initialize(
-          userId: next.user!.username,
+          userId: newUserId,
           serverBaseUrl: serverUrl,
           bearerToken: next.user!.token,
         );

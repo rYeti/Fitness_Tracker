@@ -1370,6 +1370,7 @@ class SyncService {
   /// Safe to run on a fresh install or after switching devices.
   Future<void> pullAll() async {
     await _syncSystemExerciseIds(); // must run first so workout exercise lookups work
+    await _pullUserSettings();
     await _pullCustomExercises();
     await _pullWorkouts();
     await _pullWorkoutPlans();
@@ -1384,6 +1385,33 @@ class SyncService {
     // Clean up any content-based duplicates the pull may have created.
     await _deduplicateScheduledWorkoutsByContent();
     await _deduplicateMealsByContent();
+  }
+
+  Future<void> _pullUserSettings() async {
+    try {
+      final response = await _apiClient.get('api/UserSettings');
+      final data = response.data as Map<String, dynamic>?;
+      if (data == null) return;
+      final existing = await _db.userSettingsDao.getSettings();
+      if (existing != null) return; // already populated, let syncUserSettings handle updates
+      await _db.userSettingsDao.updateProfile(
+        name: data['name'] as String?,
+        age: data['age'] as int?,
+        heightCm: data['heightCm'] as int?,
+        sex: data['sex'] as String?,
+        activityLevel: data['activityLevel'] as int?,
+        goalType: data['goalType'] as int?,
+        startingWeight: (data['startingWeight'] as num?)?.toDouble(),
+        goalWeight: (data['goalWeight'] as num?)?.toDouble(),
+      );
+      final calorieGoal = data['dailyCalorieGoal'] as int?;
+      if (calorieGoal != null) {
+        await _db.userSettingsDao.setCalorieGoal(calorieGoal);
+      }
+      _logger.i('Pulled user settings from server');
+    } catch (e) {
+      _logger.w('_pullUserSettings failed: $e');
+    }
   }
 
   /// Re-fetches each synced scheduled workout from the server and stores

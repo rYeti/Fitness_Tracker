@@ -111,6 +111,9 @@ void main() async {
   final accessProvider = AccessProvider();
   final restoredAuth = container.read(authProvider);
   if (restoredAuth.user != null) {
+    // Ensure last_logged_in_user is always set so the login-time user-switch
+    // detection never incorrectly wipes data for an existing session.
+    await prefs.setString('last_logged_in_user', restoredAuth.user!.username);
     unawaited(accessProvider.initialize(
       userId: restoredAuth.user!.username,
       serverBaseUrl: serverUrlDefault,

@@ -57,7 +57,28 @@ class AppDatabase extends _$AppDatabase {
   /// useful for in-memory tests.
   AppDatabase.test(QueryExecutor executor) : super(executor);
 
-  // Workout planning DAOs will be added here after code generation
+  /// Deletes all user-generated data from every table.
+  /// Call this on logout so the next user starts with a clean local DB.
+  Future<void> clearAllUserData() async {
+    await transaction(() async {
+      await delete(mealFoodTable).go();
+      await delete(mealTable).go();
+      await delete(foodItem).go();
+      await delete(workoutSetTable).go();
+      await delete(workoutSetTemplateTable).go();
+      await delete(scheduledWorkoutExerciseTable).go();
+      await delete(workoutExerciseTable).go();
+      await delete(scheduledWorkoutTable).go();
+      await delete(workoutPlanWorkoutTable).go();
+      await delete(workoutTable).go();
+      await delete(workoutPlanTable).go();
+      await delete(weightRecord).go();
+      await delete(userSettings).go();
+      await delete(searchCacheTable).go();
+      // Keep built-in exercises; remove only user-created ones
+      await (delete(exerciseTable)..where((e) => e.isCustom.equals(true))).go();
+    });
+  }
 
   @override
   int get schemaVersion => 31;
@@ -671,10 +692,22 @@ class ScheduledWorkoutDao extends DatabaseAccessor<AppDatabase>
         workoutTable,
         workoutTable.id.equalsExp(scheduledWorkoutTable.workoutId),
       ),
-    ])..where(
-      scheduledWorkoutTable.scheduledDate.isBiggerOrEqualValue(start) &
-          scheduledWorkoutTable.scheduledDate.isSmallerThanValue(end),
-    );
+      leftOuterJoin(
+        workoutPlanTable,
+        workoutPlanTable.id.equalsExp(scheduledWorkoutTable.workoutPlanId),
+      ),
+    ])
+      ..where(
+        scheduledWorkoutTable.scheduledDate.isBiggerOrEqualValue(start) &
+            scheduledWorkoutTable.scheduledDate.isSmallerThanValue(end),
+      )
+      // Active plan's workouts come first so firstOrNull picks the right one.
+      ..orderBy([
+        OrderingTerm(
+          expression: workoutPlanTable.isActive,
+          mode: OrderingMode.desc,
+        ),
+      ]);
 
     final results = await query.get();
 
@@ -1531,19 +1564,26 @@ class WeightRecordDao extends DatabaseAccessor<AppDatabase>
 
   // Get all weight records ordered by date
   Future<List<WeightRecordData>> getAllWeightRecords() =>
-      (select(weightRecord)..orderBy([
-        (t) => OrderingTerm(expression: t.date, mode: OrderingMode.desc),
-      ])).get();
+      (select(weightRecord)
+            ..where((t) => t.syncStatus.isNotValue(WeightSyncStatus.pendingDelete.index))
+            ..orderBy([
+              (t) => OrderingTerm(expression: t.date, mode: OrderingMode.desc),
+            ]))
+          .get();
 
   // Watch all weight records (reactive stream)
   Stream<List<WeightRecordData>> watchAllWeightRecords() =>
-      (select(weightRecord)..orderBy([
-        (t) => OrderingTerm(expression: t.date, mode: OrderingMode.desc),
-      ])).watch();
+      (select(weightRecord)
+            ..where((t) => t.syncStatus.isNotValue(WeightSyncStatus.pendingDelete.index))
+            ..orderBy([
+              (t) => OrderingTerm(expression: t.date, mode: OrderingMode.desc),
+            ]))
+          .watch();
 
   // Get the most recent weight record
   Future<WeightRecordData?> getLatestWeightRecord() =>
       (select(weightRecord)
+            ..where((t) => t.syncStatus.isNotValue(WeightSyncStatus.pendingDelete.index))
             ..orderBy([
               (t) => OrderingTerm(expression: t.date, mode: OrderingMode.desc),
             ])

@@ -152,14 +152,9 @@ class _FoodTrackingScreenState extends State<FoodTrackingScreen> {
 
   // Making this method public so it can be called from outside
   Future<void> loadNutritionData() async {
-    setState(() => _isLoading = true);
+    if (mounted) setState(() => _isLoading = true);
     try {
-      final mealCategories = [
-        'Breakfast',
-        'Lunch',
-        'Dinner',
-        'Snacks',
-      ];
+      const mealCategories = ['Breakfast', 'Lunch', 'Dinner', 'Snacks'];
       final mealFoods = <String, List<FoodItemData>>{};
 
       for (final category in mealCategories) {
@@ -169,30 +164,34 @@ class _FoodTrackingScreenState extends State<FoodTrackingScreen> {
         );
       }
 
-      setState(() {
-        _mealFoods = mealFoods;
-      });
+      if (mounted) {
+        setState(() {
+          _mealFoods = mealFoods;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
       if (mounted) {
+        setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(AppLocalizations.of(context)!.failedToLoadData(e)),
           ),
         );
       }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
-
     return Scaffold(
       appBar: AppBar(
+        bottom: _isLoading
+            ? const PreferredSize(
+                preferredSize: Size.fromHeight(2),
+                child: LinearProgressIndicator(),
+              )
+            : null,
         title: RichText(
           text: const TextSpan(
             children: [
