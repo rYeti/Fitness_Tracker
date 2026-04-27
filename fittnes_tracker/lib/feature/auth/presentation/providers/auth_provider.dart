@@ -141,6 +141,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  Future<bool> forgotPassword(String email) async {
+    try {
+      await _authRepository.forgotPassword(email);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('token');

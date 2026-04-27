@@ -1,8 +1,11 @@
+using FitTracker.Api.Data;
 using FitTracker.Api.DTOs;
 using FitTracker.Api.Repositories.Interfaces;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using FitTracker.Api.Models;
 using FitTracker.Api.Services.Interfaces;
@@ -15,16 +18,15 @@ public class AuthService : IAuthService
 
     private readonly IUserRepository _userRepository;
     private readonly IConfiguration _configuration;
+    private readonly AppDbContext _db;
+    private readonly IEmailService _emailService;
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="AuthService"/> class with the specified user repository and configuration.
-    /// </summary>
-    /// <param name="userRepository"></param>
-    /// <param name="configuration"></param>
-    public AuthService(IUserRepository userRepository, IConfiguration configuration)
+    public AuthService(IUserRepository userRepository, IConfiguration configuration, AppDbContext db, IEmailService emailService)
     {
         _userRepository = userRepository;
         _configuration = configuration;
+        _db = db;
+        _emailService = emailService;
     }
 
     /// <inheritdoc/>
@@ -158,6 +160,52 @@ public class AuthService : IAuthService
         if (!BCrypt.Net.BCrypt.Verify(password, user.PasswordHash)) return false;
 
         await _userRepository.DeleteUserAsync(userId);
+        return true;
+    }
+
+    /// <inheritdoc/>
+    public async Task<bool> ForgotPasswordAsync(string email, string resetBaseUrl)
+    {
+        var user = await _userRepository.GetUserByEmailAsync(email);
+        if (user == null) return true; // return true to avoid user enumeration
+
+        // Invalidate any existing unused tokens for this user
+        var existing = await _db.PasswordResetTokens
+            .Where(t => t.UserId == user.Id && t.UsedAt == null && t.ExpiresAt > DateTime.UtcNow)
+            .ToListAsync();
+        _db.PasswordResetTokens.RemoveRange(existing);
+
+        var rawToken = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+        var resetToken = new PasswordResetToken
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            Token = rawToken,
+            ExpiresAt = DateTime.UtcNow.AddMinutes(15),
+        };
+
+        _db.PasswordResetTokens.Add(resetToken);
+        await _db.SaveChangesAsync();
+
+        var resetLink = $"{resetBaseUrl}?token={Uri.EscapeDataString(rawToken)}";
+        await _emailService.SendPasswordResetEmailAsync(user.Email, resetLink);
+        return true;
+    }
+
+    /// <inheritdoc/>
+    public async Task<bool> ResetPasswordAsync(string token, string newPassword)
+    {
+        var resetToken = await _db.PasswordResetTokens
+            .Include(t => t.User)
+            .FirstOrDefaultAsync(t => t.Token == token);
+
+        if (resetToken == null) return false;
+        if (resetToken.UsedAt != null) return false;
+        if (resetToken.ExpiresAt <= DateTime.UtcNow) return false;
+
+        resetToken.User.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+        resetToken.UsedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
         return true;
     }
 

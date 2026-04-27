@@ -1928,8 +1928,10 @@ class AppLocalizationsDe extends AppLocalizations {
   String get deleteAccount => 'Konto löschen';
 
   @override
-  String get deleteAccountWarning => 'Dies löscht dauerhaft dein Konto und alle deine Daten, einschließlich Trainings, Mahlzeiten und Gewichtsverlauf. Trainer-Beziehungen werden ebenfalls entfernt. Dies kann nicht rückgängig gemacht werden.';
+  String get deleteAccountWarning =>
+      'Dies löscht dauerhaft dein Konto und alle deine Daten, einschließlich Trainings, Mahlzeiten und Gewichtsverlauf. Trainer-Beziehungen werden ebenfalls entfernt. Dies kann nicht rückgängig gemacht werden.';
 
   @override
-  String get deleteAccountError => 'Konto konnte nicht gelöscht werden. Bitte überprüfe dein Passwort und versuche es erneut.';
+  String get deleteAccountError =>
+      'Konto konnte nicht gelöscht werden. Bitte überprüfe dein Passwort und versuche es erneut.';
 }

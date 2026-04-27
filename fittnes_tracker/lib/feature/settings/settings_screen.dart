@@ -21,6 +21,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart' hide Consumer;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 extension SexLocalizations on Sex {
   String localized(BuildContext ctx) {
@@ -815,6 +816,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     );
                   },
+                ),
+
+                const SizedBox(height: 16),
+
+                Center(
+                  child: GestureDetector(
+                    onTap: () => launchUrl(Uri.parse('https://forgefrom.netlify.app/')),
+                    child: Text(
+                      'forgefrom.netlify.app',
+                      style: TextStyle(
+                        fontFamily: 'Exo 2',
+                        fontSize: 13,
+                        color: Theme.of(context).colorScheme.primary,
+                        decoration: TextDecoration.underline,
+                        decorationColor: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                  ),
                 ),
 
                 const SizedBox(height: 16),

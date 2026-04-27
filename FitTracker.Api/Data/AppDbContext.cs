@@ -64,6 +64,9 @@ public class AppDbContext : DbContext
     /// <summary>Trainer–client relationships.</summary>
     public DbSet<TrainerClient> TrainerClients { get; set; }
 
+    /// <summary>Password reset tokens table.</summary>
+    public DbSet<PasswordResetToken> PasswordResetTokens { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<User>(entity =>
@@ -244,6 +247,16 @@ public class AppDbContext : DbContext
                   .HasForeignKey(t => t.ClientId)
                   .OnDelete(DeleteBehavior.Restrict);
             entity.HasIndex(t => t.InviteCode).IsUnique();
+        });
+
+        modelBuilder.Entity<PasswordResetToken>(entity =>
+        {
+            entity.HasKey(t => t.Id);
+            entity.HasOne(t => t.User)
+                  .WithMany()
+                  .HasForeignKey(t => t.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(t => t.Token).IsUnique();
         });
     }
 }

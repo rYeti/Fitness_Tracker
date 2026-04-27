@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 // ── Shared input decoration helper ────────────────────────────────────────────
 
@@ -456,6 +457,20 @@ class _WelcomePage extends StatelessWidget {
                     ),
                   ),
                 ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          GestureDetector(
+            onTap: () => launchUrl(Uri.parse('https://forgefrom.netlify.app/')),
+            child: Text(
+              'forgefrom.netlify.app',
+              style: TextStyle(
+                fontFamily: 'Exo 2',
+                fontSize: 13,
+                color: cs.primary,
+                decoration: TextDecoration.underline,
+                decorationColor: cs.primary,
               ),
             ),
           ),

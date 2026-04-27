@@ -12,12 +12,12 @@ namespace FitTracker.Api.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
+    private readonly IConfiguration _configuration;
 
-    /// <summary>Initialises a new instance of <see cref="AuthController"/>.</summary>
-    /// <param name="authService">The authentication service.</param>
-    public AuthController(IAuthService authService)
+    public AuthController(IAuthService authService, IConfiguration configuration)
     {
         _authService = authService;
+        _configuration = configuration;
     }
 
     /// <summary>Authenticates a user and returns a JWT token.</summary>
@@ -100,5 +100,23 @@ public class AuthController : ControllerBase
         if (!success) return BadRequest("Password is incorrect.");
 
         return NoContent();
+    }
+
+    /// <summary>Requests a password reset email for the given address.</summary>
+    [HttpPost("forgot-password")]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequestDto request)
+    {
+        var resetBaseUrl = _configuration["App:PasswordResetUrl"] ?? "https://yourapp.com/reset-password";
+        await _authService.ForgotPasswordAsync(request.Email, resetBaseUrl);
+        return Ok("If an account with that email exists, a reset link has been sent.");
+    }
+
+    /// <summary>Resets the user's password using a valid reset token.</summary>
+    [HttpPost("reset-password")]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequestDto request)
+    {
+        var success = await _authService.ResetPasswordAsync(request.Token, request.NewPassword);
+        if (!success) return BadRequest("The reset link is invalid or has expired.");
+        return Ok("Password updated successfully.");
     }
 }

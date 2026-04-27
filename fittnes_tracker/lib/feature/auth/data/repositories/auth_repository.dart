@@ -61,6 +61,13 @@ class AuthRepository {
     );
   }
 
+  Future<void> forgotPassword(String email) async {
+    await _apiClient.post(
+      'api/auth/forgot-password',
+      data: {'email': email},
+    );
+  }
+
   Future<AuthResponseModel> register(
     String username,
     String email,

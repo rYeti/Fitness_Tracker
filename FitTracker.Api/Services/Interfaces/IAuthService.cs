@@ -38,4 +38,16 @@ public interface IAuthService
     /// Returns true on success, false if the password is wrong or user not found.
     /// </summary>
     Task<bool> DeleteAccountAsync(Guid userId, string password);
+
+    /// <summary>
+    /// Generates a password reset token for the user with the given email and triggers
+    /// the email send. Always returns true to avoid user enumeration.
+    /// </summary>
+    Task<bool> ForgotPasswordAsync(string email, string resetBaseUrl);
+
+    /// <summary>
+    /// Validates the reset token and updates the user's password.
+    /// Returns true on success, false if the token is invalid, expired, or already used.
+    /// </summary>
+    Task<bool> ResetPasswordAsync(string token, string newPassword);
 }

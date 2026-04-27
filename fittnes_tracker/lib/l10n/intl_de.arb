@@ -902,5 +902,8 @@
   "paywallFeatureTemplates": "Unbegrenzte Mahlzeiten-Vorlagen",
   "paywallFeatureCorrelation": "Gewichts- & Kalorien-Korrelationsdiagramm",
   "paywallFeatureGraphs": "Übungsfortschrittsgraphen",
-  "paywallFeatureExport": "Trainingsdaten exportieren (CSV)"
+  "paywallFeatureExport": "Trainingsdaten exportieren (CSV)",
+  "deleteAccount": "Konto löschen",
+  "deleteAccountWarning": "Dies löscht dauerhaft dein Konto und alle deine Daten, einschließlich Trainings, Mahlzeiten und Gewichtsverlauf. Trainer-Beziehungen werden ebenfalls entfernt. Dies kann nicht rückgängig gemacht werden.",
+  "deleteAccountError": "Konto konnte nicht gelöscht werden. Bitte überprüfe dein Passwort und versuche es erneut."
 }
