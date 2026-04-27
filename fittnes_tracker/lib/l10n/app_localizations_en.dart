@@ -1912,4 +1912,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get paywallFeatureExport => 'Export workout data (CSV)';
+
+  @override
+  String get deleteAccount => 'Delete Account';
+
+  @override
+  String get deleteAccountWarning => 'This will permanently delete your account and all your data including workouts, meals, and weight history. Any trainer relationships will also be removed. This cannot be undone.';
+
+  @override
+  String get deleteAccountError => 'Failed to delete account. Please check your password and try again.';
 }

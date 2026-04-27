@@ -149,6 +149,18 @@ public class AuthService : IAuthService
         return true;
     }
 
+    /// <inheritdoc/>
+    public async Task<bool> DeleteAccountAsync(Guid userId, string password)
+    {
+        var user = await _userRepository.GetUserByIdAsync(userId);
+        if (user == null) return false;
+
+        if (!BCrypt.Net.BCrypt.Verify(password, user.PasswordHash)) return false;
+
+        await _userRepository.DeleteUserAsync(userId);
+        return true;
+    }
+
     private string GenerateJwtToken(User user, int expireDays = 7)
     {
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));

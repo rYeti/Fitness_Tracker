@@ -33,6 +33,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async' show unawaited;
 import 'feature/onboarding/onboarding_screen.dart';
 import 'core/providers/access_provider.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 
 const _backgroundSyncTask = 'com.forgeform.dailySync';
 
@@ -71,6 +72,10 @@ void _backgroundSyncDispatcher() {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  FlutterNativeSplash.preserve(
+    widgetsBinding: WidgetsFlutterBinding.ensureInitialized(),
+  );
+
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -114,11 +119,13 @@ void main() async {
     // Ensure last_logged_in_user is always set so the login-time user-switch
     // detection never incorrectly wipes data for an existing session.
     await prefs.setString('last_logged_in_user', restoredAuth.user!.username);
-    unawaited(accessProvider.initialize(
-      userId: restoredAuth.user!.username,
-      serverBaseUrl: serverUrlDefault,
-      bearerToken: restoredAuth.user!.token,
-    ));
+    unawaited(
+      accessProvider.initialize(
+        userId: restoredAuth.user!.username,
+        serverBaseUrl: serverUrlDefault,
+        bearerToken: restoredAuth.user!.token,
+      ),
+    );
   }
 
   // Register the once-a-day background sync task.
@@ -127,9 +134,12 @@ void main() async {
     _backgroundSyncTask,
     _backgroundSyncTask,
     frequency: const Duration(hours: 24),
-    existingWorkPolicy: ExistingPeriodicWorkPolicy.keep, // don't reset the 24-h clock on every launch
+    existingWorkPolicy:
+        ExistingPeriodicWorkPolicy
+            .keep, // don't reset the 24-h clock on every launch
     constraints: Constraints(networkType: NetworkType.connected),
   );
+  FlutterNativeSplash.remove();
 
   runApp(
     UncontrolledProviderScope(
@@ -138,9 +148,20 @@ void main() async {
         providers: [
           // Provide the AppDatabase instance directly
           provider.Provider<AppDatabase>.value(value: db),
-          provider.ChangeNotifierProvider(create: (_) => ThemeProvider(db, initialTheme: initialTheme)),
-          provider.ChangeNotifierProvider(create: (_) => LocaleProvider(initialLocale: initialLocale)),
-          provider.ChangeNotifierProvider(create: (_) => UserGoalsProvider(db, initialSettings: userSettings, initialCurrentWeight: latestWeight?.weight)),
+          provider.ChangeNotifierProvider(
+            create: (_) => ThemeProvider(db, initialTheme: initialTheme),
+          ),
+          provider.ChangeNotifierProvider(
+            create: (_) => LocaleProvider(initialLocale: initialLocale),
+          ),
+          provider.ChangeNotifierProvider(
+            create:
+                (_) => UserGoalsProvider(
+                  db,
+                  initialSettings: userSettings,
+                  initialCurrentWeight: latestWeight?.weight,
+                ),
+          ),
           provider.ChangeNotifierProxyProvider<
             UserGoalsProvider,
             WeightProvider

@@ -46,8 +46,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     ref.listen<AuthState>(authProvider, (_, next) async {
       if (next.error != null) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(next.error!)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(next.error!)));
       }
       if (next.isAuthenticated) {
         final serverUrl = ref.read(serverUrlProvider);
@@ -91,17 +92,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               // Brand header
               Column(
                 children: [
-                  Container(
-                    width: 72,
-                    height: 72,
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primaryContainer,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Icon(
-                      Icons.fitness_center,
-                      size: 40,
-                      color: theme.colorScheme.onPrimaryContainer,
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: Image.asset(
+                      'assets/icon/app_icon.png',
+                      width: 72,
+                      height: 72,
+                      fit: BoxFit.cover,
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -147,8 +144,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           : Icons.visibility_off_outlined,
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
-                    onPressed: () =>
-                        setState(() => _obscurePassword = !_obscurePassword),
+                    onPressed:
+                        () => setState(
+                          () => _obscurePassword = !_obscurePassword,
+                        ),
                   ),
                 ),
                 obscureText: _obscurePassword,
@@ -167,22 +166,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: authState.isLoading
-                    ? SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: theme.colorScheme.onPrimary,
+                child:
+                    authState.isLoading
+                        ? SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: theme.colorScheme.onPrimary,
+                          ),
+                        )
+                        : Text(
+                          l10n.login,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                      )
-                    : Text(
-                        l10n.login,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
               ),
 
               const SizedBox(height: 24),
@@ -198,12 +198,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                   ),
                   TextButton(
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const RegisterScreen(),
-                      ),
-                    ),
+                    onPressed:
+                        () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const RegisterScreen(),
+                          ),
+                        ),
                     style: TextButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 6),
                     ),

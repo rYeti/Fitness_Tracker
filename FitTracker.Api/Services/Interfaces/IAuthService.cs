@@ -32,4 +32,10 @@ public interface IAuthService
     /// Returns true on success, false if the current password is wrong.
     /// </summary>
     Task<bool> ChangePasswordAsync(Guid userId, string currentPassword, string newPassword);
+
+    /// <summary>
+    /// Deletes the account after verifying the password.
+    /// Returns true on success, false if the password is wrong or user not found.
+    /// </summary>
+    Task<bool> DeleteAccountAsync(Guid userId, string password);
 }

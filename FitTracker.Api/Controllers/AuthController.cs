@@ -84,4 +84,21 @@ public class AuthController : ControllerBase
 
         return NoContent();
     }
+
+    /// <summary>Permanently deletes the authenticated user's account and all associated data.</summary>
+    /// <param name="request">The user's current password for confirmation.</param>
+    /// <returns>204 No Content on success, or 400 Bad Request if the password is incorrect.</returns>
+    [Authorize]
+    [HttpDelete("account")]
+    public async Task<IActionResult> DeleteAccount([FromBody] DeleteAccountRequestDto request)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub");
+        if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
+            return Unauthorized();
+
+        var success = await _authService.DeleteAccountAsync(userId, request.Password);
+        if (!success) return BadRequest("Password is incorrect.");
+
+        return NoContent();
+    }
 }

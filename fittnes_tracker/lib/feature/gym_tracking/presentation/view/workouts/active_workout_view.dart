@@ -366,10 +366,11 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     final db = context.read<AppDatabase>();
 
     // Ensure any pending IME composition on Android is committed before we
-    // read controller text. If this is called from _completeWorkout, the
-    // unfocus already happened; the extra unfocus here is a no-op.
+    // read controller text. endOfFrame waits for the full frame pipeline
+    // (including platform-channel round-trips from the IME), which is required
+    // on Android 13+ where composition commits can take longer than one tick.
     FocusManager.instance.primaryFocus?.unfocus();
-    await Future<void>.delayed(Duration.zero);
+    await WidgetsBinding.instance.endOfFrame;
     final exerciseData = _exercises[_currentExerciseIndex];
 
     try {
@@ -463,7 +464,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     // before reading controller values, otherwise in-progress text can read
     // as empty and get saved as 0.
     FocusManager.instance.primaryFocus?.unfocus();
-    await Future<void>.delayed(Duration.zero);
+    await WidgetsBinding.instance.endOfFrame;
 
     setState(() => _isSaving = true);
 

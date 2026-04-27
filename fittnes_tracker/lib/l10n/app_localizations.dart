@@ -3541,6 +3541,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Export workout data (CSV)'**
   String get paywallFeatureExport;
+
+  /// No description provided for @deleteAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Account'**
+  String get deleteAccount;
+
+  /// No description provided for @deleteAccountWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'This will permanently delete your account and all your data including workouts, meals, and weight history. Any trainer relationships will also be removed. This cannot be undone.'**
+  String get deleteAccountWarning;
+
+  /// No description provided for @deleteAccountError.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to delete account. Please check your password and try again.'**
+  String get deleteAccountError;
 }
 
 class _AppLocalizationsDelegate

@@ -53,6 +53,14 @@ class AuthRepository {
     );
   }
 
+  Future<void> deleteAccount({required String token, required String password}) async {
+    await _apiClient.delete(
+      'api/auth/account',
+      data: {'password': password},
+      options: Options(headers: {'Authorization': 'Bearer $token'}),
+    );
+  }
+
   Future<AuthResponseModel> register(
     String username,
     String email,

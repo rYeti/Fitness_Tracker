@@ -37,4 +37,9 @@ public interface IUserRepository
     /// Updates an existing user's profile fields.
     /// </summary>
     Task UpdateUserAsync(User user);
+
+    /// <summary>
+    /// Deletes the user and all their data. Trainer-client relationships are removed first.
+    /// </summary>
+    Task DeleteUserAsync(Guid id);
 }

@@ -1,3 +1,4 @@
+import 'package:ForgeForm/feature/auth/data/repositories/auth_repository.dart';
 import 'package:ForgeForm/feature/auth/presentation/view/login_screen.dart' as auth_login;
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:ForgeForm/core/app_database.dart';
@@ -726,6 +727,88 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 ),
                                 (_) => false,
                               );
+                            }
+                          }
+                        },
+                      ),
+                    );
+                  },
+                ),
+
+                const SizedBox(height: 8),
+
+                // ── Delete account ────────────────────────────────────────
+                Consumer(
+                  builder: (context, ref, _) {
+                    return Card(
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(color: colorScheme.outlineVariant),
+                      ),
+                      child: ListTile(
+                        leading: Icon(Icons.delete_forever, color: colorScheme.error),
+                        title: Text(
+                          l10n.deleteAccount,
+                          style: TextStyle(color: colorScheme.error),
+                        ),
+                        onTap: () async {
+                          final passwordController = TextEditingController();
+                          final confirmed = await showDialog<bool>(
+                            context: context,
+                            builder: (_) => AlertDialog(
+                              title: Text(l10n.deleteAccount),
+                              content: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(l10n.deleteAccountWarning),
+                                  const SizedBox(height: 16),
+                                  TextField(
+                                    controller: passwordController,
+                                    obscureText: true,
+                                    decoration: InputDecoration(
+                                      labelText: l10n.password,
+                                      border: const OutlineInputBorder(),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context, false),
+                                  child: Text(l10n.cancel),
+                                ),
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context, true),
+                                  style: TextButton.styleFrom(foregroundColor: colorScheme.error),
+                                  child: Text(l10n.deleteAccount),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (confirmed == true && context.mounted) {
+                            final token = ref.read(authProvider).user?.token;
+                            if (token == null) return;
+                            final access = context.read<AccessProvider>();
+                            try {
+                              final serverUrl = ref.read(serverUrlProvider);
+                              final repo = AuthRepository(ApiClient(baseUrl: serverUrl));
+                              await repo.deleteAccount(token: token, password: passwordController.text);
+                              await access.reset();
+                              await ref.read(authProvider.notifier).logout();
+                              if (context.mounted) {
+                                Navigator.of(context).pushAndRemoveUntil(
+                                  MaterialPageRoute(builder: (_) => const auth_login.LoginScreen()),
+                                  (_) => false,
+                                );
+                              }
+                            } catch (_) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text(l10n.deleteAccountError)),
+                                );
+                              }
                             }
                           }
                         },

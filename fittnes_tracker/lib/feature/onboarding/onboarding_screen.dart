@@ -372,14 +372,14 @@ class _WelcomePage extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 72,
-            height: 72,
-            decoration: BoxDecoration(
-              color: cs.primary.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(20),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: Image.asset(
+              'assets/icon/app_icon.png',
+              width: 72,
+              height: 72,
+              fit: BoxFit.cover,
             ),
-            child: Icon(Icons.fitness_center, color: cs.primary, size: 36),
           ),
           const SizedBox(height: 28),
           RichText(
