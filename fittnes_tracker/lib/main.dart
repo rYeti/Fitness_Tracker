@@ -6,6 +6,7 @@ import 'package:ForgeForm/core/seed_exercises.dart';
 import 'package:ForgeForm/feature/auth/presentation/providers/auth_provider.dart';
 import 'package:ForgeForm/feature/auth/presentation/view/login_screen.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -128,17 +129,19 @@ void main() async {
     );
   }
 
-  // Register the once-a-day background sync task.
-  await Workmanager().initialize(_backgroundSyncDispatcher);
-  await Workmanager().registerPeriodicTask(
-    _backgroundSyncTask,
-    _backgroundSyncTask,
-    frequency: const Duration(hours: 24),
-    existingWorkPolicy:
-        ExistingPeriodicWorkPolicy
-            .keep, // don't reset the 24-h clock on every launch
-    constraints: Constraints(networkType: NetworkType.connected),
-  );
+  // Register the once-a-day background sync task (mobile only).
+  if (!kIsWeb) {
+    await Workmanager().initialize(_backgroundSyncDispatcher);
+    await Workmanager().registerPeriodicTask(
+      _backgroundSyncTask,
+      _backgroundSyncTask,
+      frequency: const Duration(hours: 24),
+      existingWorkPolicy:
+          ExistingPeriodicWorkPolicy
+              .keep, // don't reset the 24-h clock on every launch
+      constraints: Constraints(networkType: NetworkType.connected),
+    );
+  }
   FlutterNativeSplash.remove();
 
   runApp(

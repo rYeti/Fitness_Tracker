@@ -15,7 +15,7 @@ val keyProperties = Properties().apply {
 
 android {
     namespace = "com.forgeform.app"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.forgeform.app"
@@ -46,8 +46,8 @@ android {
     buildTypes {
         getByName("release") {
             signingConfig = signingConfigs.getByName("release")
-            isMinifyEnabled = false
-            isShrinkResources = false
+            isMinifyEnabled = true
+            isShrinkResources = true
         }
         getByName("debug") {
             isMinifyEnabled = false

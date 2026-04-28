@@ -5,10 +5,10 @@ import 'package:dio/dio.dart';
 
 // ── Configuration ────────────────────────────────────────────────────────────
 // Replace with your RevenueCat public SDK key from app.revenuecat.com
-const _revenueCatApiKey = 'YOUR_REVENUECAT_PUBLIC_SDK_KEY';
+const _revenueCatApiKey = 'test_TCvOuZHakLANaavLrSNHqXdWMbB';
 
 // The entitlement identifier set up in your RevenueCat dashboard.
-const _premiumEntitlementId = 'premium';
+const _premiumEntitlementId = 'ForgeForm Pro';
 
 // SharedPreferences keys used to cache access state across cold starts.
 const _prefIsPremium = 'access_is_premium';
@@ -90,6 +90,7 @@ class AccessProvider extends ChangeNotifier {
   // ── Private helpers ────────────────────────────────────────────────────────
 
   Future<void> _checkRevenueCat(String? userId) async {
+    if (kIsWeb) return;
     try {
       if (!(await Purchases.isConfigured)) {
         final config = PurchasesConfiguration(_revenueCatApiKey);
@@ -107,12 +108,14 @@ class AccessProvider extends ChangeNotifier {
 
   Future<void> _checkTrainerClient(String baseUrl, String token) async {
     try {
-      final dio = Dio(BaseOptions(
-        baseUrl: baseUrl,
-        headers: {'Authorization': 'Bearer $token'},
-        connectTimeout: const Duration(seconds: 10),
-        receiveTimeout: const Duration(seconds: 10),
-      ));
+      final dio = Dio(
+        BaseOptions(
+          baseUrl: baseUrl,
+          headers: {'Authorization': 'Bearer $token'},
+          connectTimeout: const Duration(seconds: 10),
+          receiveTimeout: const Duration(seconds: 10),
+        ),
+      );
       final response = await dio.get('api/TrainerClient/status');
       _isTrainerClient =
           (response.data as Map<String, dynamic>)['isTrainerClient'] as bool? ??

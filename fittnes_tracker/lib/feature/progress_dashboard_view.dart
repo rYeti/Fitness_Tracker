@@ -66,7 +66,7 @@ class _ProgressScreenState extends State<ProgressScreen>
 
   DateTime _rangeStart(TimeRange range, DateTime? customStart) {
     final hasPremium = context.read<AccessProvider>().hasPremiumAccess;
-    if (!hasPremium) return DateTime.now().subtract(const Duration(days: 7));
+    if (!hasPremium) return DateTime.now().subtract(const Duration(days: 30));
     if (range == TimeRange.custom && customStart != null) return customStart;
     final now = DateTime.now();
     switch (range) {
