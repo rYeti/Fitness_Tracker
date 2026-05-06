@@ -30,6 +30,9 @@ public class WorkoutPlan
     /// <summary>Whether the user may choose any workout freely rather than following the fixed cycle pattern.</summary>
     public bool IsFreeChoice { get; set; }
 
+    /// <summary>The number of days this plan is scheduled for. Null for legacy plans.</summary>
+    public int? DurationDays { get; set; }
+
     /// <summary>Navigation property to the user who owns this plan.</summary>
     public User User { get; set; } = null!;
 

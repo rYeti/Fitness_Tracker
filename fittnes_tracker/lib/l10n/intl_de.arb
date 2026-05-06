@@ -905,5 +905,13 @@
   "paywallFeatureExport": "Trainingsdaten exportieren (CSV)",
   "deleteAccount": "Konto löschen",
   "deleteAccountWarning": "Dies löscht dauerhaft dein Konto und alle deine Daten, einschließlich Trainings, Mahlzeiten und Gewichtsverlauf. Trainer-Beziehungen werden ebenfalls entfernt. Dies kann nicht rückgängig gemacht werden.",
-  "deleteAccountError": "Konto konnte nicht gelöscht werden. Bitte überprüfe dein Passwort und versuche es erneut."
+  "deleteAccountError": "Konto konnte nicht gelöscht werden. Bitte überprüfe dein Passwort und versuche es erneut.",
+
+  "planDurationLabel": "Plan-Dauer",
+  "nWeeks": "{count} Wochen",
+  "@nWeeks": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  }
 }

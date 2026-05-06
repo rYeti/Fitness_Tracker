@@ -81,7 +81,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 31;
+  int get schemaVersion => 32;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -254,6 +254,14 @@ class AppDatabase extends _$AppDatabase {
             );
           } catch (_) {}
         }
+      }
+
+      if (from < 32) {
+        try {
+          await customStatement(
+            'ALTER TABLE workout_plan_table ADD COLUMN duration_days INTEGER',
+          );
+        } catch (_) {}
       }
 
       // Migration from version 1 to 2
@@ -1485,6 +1493,7 @@ class WorkoutPlanTable extends Table {
   BoolColumn get isActive => boolean().withDefault(const Constant(false))();
   TextColumn get cyclePatternJson => text()();
   BoolColumn get isFreeChoice => boolean().withDefault(const Constant(false))();
+  IntColumn get durationDays => integer().nullable()();
   TextColumn get serverId => text().nullable()();
   IntColumn get syncStatus => integer().withDefault(const Constant(0))();
 }
@@ -2050,9 +2059,10 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
           )).getSingleOrNull();
 
       final templates =
-          await (select(workoutSetTemplateTable)..where(
-            (t) => t.workoutExerciseId.equals(workoutExercise.id),
-          )).get();
+          await (select(workoutSetTemplateTable)
+                ..where((t) => t.workoutExerciseId.equals(workoutExercise.id))
+                ..orderBy([(t) => OrderingTerm.asc(t.setNumber)]))
+              .get();
 
       if (exercise != null) {
         results.add((exercise, templates, workoutExercise));

@@ -49,15 +49,12 @@ class SyncService {
     await _syncMissingWorkoutExercises();
 
     // Phase 4: plans depend on workouts; meals depend on food items — run in parallel.
-    await Future.wait([
-      syncWorkoutPlans(),
-      syncMeals(),
-      syncMealTemplates(),
-    ]);
+    await Future.wait([syncWorkoutPlans(), syncMeals(), syncMealTemplates()]);
 
     // Phase 5: scheduled workouts depend on plans and workouts.
     await syncScheduledWorkouts();
     await _syncMissingScheduledExerciseSets();
+    _logger.i('syncAll: complete');
   }
 
   // ── Custom exercises ──────────────────────────────────────────────────────
@@ -104,7 +101,10 @@ class SyncService {
   }
 
   Future<void> _syncUpdateExercise(ExerciseTableData e) async {
-    if (e.serverId == null) { await _syncNewExercise(e); return; }
+    if (e.serverId == null) {
+      await _syncNewExercise(e);
+      return;
+    }
     await _apiClient.put(
       'api/Exercise/UserExercise/${e.serverId}',
       data: {
@@ -179,7 +179,10 @@ class SyncService {
   }
 
   Future<void> _syncUpdateWorkout(WorkoutTableData w) async {
-    if (w.serverId == null) { await _syncNewWorkout(w); return; }
+    if (w.serverId == null) {
+      await _syncNewWorkout(w);
+      return;
+    }
     await _apiClient.put(
       'api/Workout/${w.serverId}',
       data: {
@@ -196,9 +199,15 @@ class SyncService {
 
     // Sync unsynced exercises for this workout.
     final exercises = await _db.workoutDao.getExercisesForWorkoutRaw(w.id);
-    final newExercises = exercises.where((e) => e.syncStatus != 1 && e.serverId == null).toList();
-    if (newExercises.isNotEmpty) await _syncNewWorkoutExercisesBatch(newExercises, w.serverId!);
-    for (final we in exercises.where((e) => e.syncStatus != 1 && e.serverId != null)) {
+    final newExercises =
+        exercises
+            .where((e) => e.syncStatus != 1 && e.serverId == null)
+            .toList();
+    if (newExercises.isNotEmpty)
+      await _syncNewWorkoutExercisesBatch(newExercises, w.serverId!);
+    for (final we in exercises.where(
+      (e) => e.syncStatus != 1 && e.serverId != null,
+    )) {
       await _syncUpdateWorkoutExercise(we);
     }
     _logger.i('Updated workout ${w.id} on server ${w.serverId}');
@@ -221,8 +230,23 @@ class SyncService {
     final dtos = <Map<String, dynamic>>[];
     final valid = <WorkoutExerciseTableData>[];
     for (final we in exercises) {
-      final exercise = await _db.exerciseDao.getExerciseById(we.exerciseId);
-      if (exercise?.serverId == null) continue;
+      var exercise = await _db.exerciseDao.getExerciseById(we.exerciseId);
+      if (exercise?.serverId == null && exercise != null) {
+        // The local exercise row has no serverId — this happens when
+        // _syncSystemExerciseIds created a new row from server data instead of
+        // matching the existing local row (e.g. slight name difference).
+        // Try to find any synced exercise with the same name as a fallback.
+        final candidates = await _db.exerciseDao.searchExercises(exercise.name);
+        final synced = candidates.where((c) => c.serverId != null).firstOrNull;
+        if (synced != null) {
+          _logger.i('_syncNewWorkoutExercisesBatch: resolved exercise "${exercise.name}" via synced duplicate (local ${exercise.id} → ${synced.id})');
+          exercise = synced;
+        }
+      }
+      if (exercise?.serverId == null) {
+        _logger.w('_syncNewWorkoutExercisesBatch: skipping workoutExercise ${we.id} (pos ${we.orderPosition}, exerciseId=${we.exerciseId}, name="${exercise?.name}") — no serverId found');
+        continue;
+      }
       dtos.add({
         'exerciseId': exercise!.serverId,
         'orderPosition': we.orderPosition,
@@ -243,9 +267,12 @@ class SyncService {
       final weServerId = serverList[i]['id'] as String;
       await _db.workoutDao.markWorkoutExerciseSynced(valid[i].id, weServerId);
 
-      final templates = await _db.workoutDao.getSetTemplatesForWorkoutExercise(valid[i].id);
+      final templates = await _db.workoutDao.getSetTemplatesForWorkoutExercise(
+        valid[i].id,
+      );
       final pending = templates.where((t) => t.syncStatus != 1).toList();
-      if (pending.isNotEmpty) await _syncNewSetTemplatesBatch(pending, weServerId);
+      if (pending.isNotEmpty)
+        await _syncNewSetTemplatesBatch(pending, weServerId);
     }
   }
 
@@ -272,15 +299,23 @@ class SyncService {
   ) async {
     final response = await _apiClient.post(
       'api/Workout/exercises/$workoutExerciseServerId/sets/batch',
-      data: templates.map((t) => {
-        'setNumber': t.setNumber,
-        'targetReps': t.targetReps,
-        'orderPosition': t.orderPosition,
-      }).toList(),
+      data:
+          templates
+              .map(
+                (t) => {
+                  'setNumber': t.setNumber,
+                  'targetReps': t.targetReps,
+                  'orderPosition': t.orderPosition,
+                },
+              )
+              .toList(),
     );
     final serverList = (response.data as List).cast<Map<String, dynamic>>();
     for (var i = 0; i < templates.length && i < serverList.length; i++) {
-      await _db.workoutDao.markSetTemplateSynced(templates[i].id, serverList[i]['id'] as String);
+      await _db.workoutDao.markSetTemplateSynced(
+        templates[i].id,
+        serverList[i]['id'] as String,
+      );
     }
   }
 
@@ -308,7 +343,18 @@ class SyncService {
     }
   }
 
+  Future<int?> _getPlanDurationDays(int planId) async {
+    final row = await _db
+        .customSelect(
+          'SELECT duration_days FROM workout_plan_table WHERE id = ?',
+          variables: [Variable.withInt(planId)],
+        )
+        .getSingleOrNull();
+    return row?.read<int?>('duration_days');
+  }
+
   Future<void> _syncNewPlan(WorkoutPlanTableData p) async {
+    final durationDays = await _getPlanDurationDays(p.id);
     final response = await _apiClient.post(
       'api/WorkoutPlan',
       data: {
@@ -317,6 +363,7 @@ class SyncService {
         'startDate': p.startDate.toUtc().toIso8601String(),
         'cyclePatternJson': p.cyclePatternJson,
         'isFreeChoice': p.isFreeChoice,
+        'durationDays': durationDays,
       },
     );
     final serverId = response.data['id'] as String;
@@ -324,12 +371,19 @@ class SyncService {
 
     // Link workouts to the plan (batch).
     final links = await _db.workoutPlanDao.getPlanWorkoutsForPlan(p.id);
-    await _syncNewPlanWorkoutsBatch(links.where((l) => l.syncStatus != 1).toList(), serverId);
+    await _syncNewPlanWorkoutsBatch(
+      links.where((l) => l.syncStatus != 1).toList(),
+      serverId,
+    );
     _logger.i('Synced new plan ${p.id} → server $serverId');
   }
 
   Future<void> _syncUpdatePlan(WorkoutPlanTableData p) async {
-    if (p.serverId == null) { await _syncNewPlan(p); return; }
+    if (p.serverId == null) {
+      await _syncNewPlan(p);
+      return;
+    }
+    final durationDays = await _getPlanDurationDays(p.id);
     await _apiClient.put(
       'api/WorkoutPlan/${p.serverId}',
       data: {
@@ -338,12 +392,16 @@ class SyncService {
         'startDate': p.startDate.toUtc().toIso8601String(),
         'cyclePatternJson': p.cyclePatternJson,
         'isFreeChoice': p.isFreeChoice,
+        'durationDays': durationDays,
       },
     );
     await _db.workoutPlanDao.markPlanSynced(p.id, p.serverId!);
 
     final links = await _db.workoutPlanDao.getPlanWorkoutsForPlan(p.id);
-    await _syncNewPlanWorkoutsBatch(links.where((l) => l.syncStatus != 1).toList(), p.serverId!);
+    await _syncNewPlanWorkoutsBatch(
+      links.where((l) => l.syncStatus != 1).toList(),
+      p.serverId!,
+    );
     _logger.i('Updated plan ${p.id} on server ${p.serverId}');
   }
 
@@ -364,14 +422,18 @@ class SyncService {
     final serverIds = <String>[];
     final valid = <WorkoutPlanWorkoutTableData>[];
     for (final link in links) {
-      final workoutRow = await ((_db.select(_db.workoutTable))
-        ..where((w) => w.id.equals(link.workoutId))).getSingleOrNull();
+      final workoutRow =
+          await ((_db.select(_db.workoutTable))
+            ..where((w) => w.id.equals(link.workoutId))).getSingleOrNull();
       if (workoutRow?.serverId == null) continue;
       serverIds.add(workoutRow!.serverId!);
       valid.add(link);
     }
     if (serverIds.isEmpty) return;
-    await _apiClient.post('api/WorkoutPlan/$planServerId/workouts/batch', data: serverIds);
+    await _apiClient.post(
+      'api/WorkoutPlan/$planServerId/workouts/batch',
+      data: serverIds,
+    );
     for (final link in valid) {
       await _db.workoutPlanDao.markPlanWorkoutSynced(link.id, planServerId);
     }
@@ -381,6 +443,7 @@ class SyncService {
 
   Future<void> syncScheduledWorkouts() async {
     final unsynced = await _db.workoutDao.getUnsyncedScheduledWorkouts();
+    _logger.i('syncScheduledWorkouts: ${unsynced.length} unsynced rows');
     if (unsynced.isEmpty) return;
 
     for (final sw in unsynced) {
@@ -403,21 +466,25 @@ class SyncService {
 
   Future<void> _syncNewScheduledWorkout(ScheduledWorkoutTableData sw) async {
     // Resolve server IDs for the referenced workout and plan.
-    final workoutRow = await ((_db.select(_db.workoutTable))
-      ..where((w) => w.id.equals(sw.workoutId))).getSingleOrNull();
+    final workoutRow =
+        await ((_db.select(_db.workoutTable))
+          ..where((w) => w.id.equals(sw.workoutId))).getSingleOrNull();
     if (workoutRow?.serverId == null) return; // workout not synced yet
 
     String? planServerId;
     if (sw.workoutPlanId != null) {
-      final planRow = await ((_db.select(_db.workoutPlanTable))
-        ..where((p) => p.id.equals(sw.workoutPlanId!))).getSingleOrNull();
+      final planRow =
+          await ((_db.select(_db.workoutPlanTable))
+            ..where((p) => p.id.equals(sw.workoutPlanId!))).getSingleOrNull();
       planServerId = planRow?.serverId;
     }
 
     String? templateWorkoutServerId;
     if (sw.templateWorkoutId != null) {
-      final templateRow = await ((_db.select(_db.workoutTable))
-        ..where((w) => w.id.equals(sw.templateWorkoutId!))).getSingleOrNull();
+      final templateRow =
+          await ((_db.select(_db.workoutTable))..where(
+            (w) => w.id.equals(sw.templateWorkoutId!),
+          )).getSingleOrNull();
       templateWorkoutServerId = templateRow?.serverId;
     }
 
@@ -449,23 +516,35 @@ class SyncService {
   }
 
   Future<void> _syncUpdateScheduledWorkout(ScheduledWorkoutTableData sw) async {
-    if (sw.serverId == null) { await _syncNewScheduledWorkout(sw); return; }
+    if (sw.serverId == null) {
+      await _syncNewScheduledWorkout(sw);
+      return;
+    }
 
-    final workoutRow = await ((_db.select(_db.workoutTable))
-      ..where((w) => w.id.equals(sw.workoutId))).getSingleOrNull();
-    if (workoutRow?.serverId == null) return;
+    final workoutRow =
+        await ((_db.select(_db.workoutTable))
+          ..where((w) => w.id.equals(sw.workoutId))).getSingleOrNull();
+    if (workoutRow?.serverId == null) {
+      _logger.w(
+        '_syncUpdateScheduledWorkout: SW ${sw.id} skipped — workout ${sw.workoutId} has no serverId (workout not yet synced)',
+      );
+      return;
+    }
 
     String? planServerId;
     if (sw.workoutPlanId != null) {
-      final planRow = await ((_db.select(_db.workoutPlanTable))
-        ..where((p) => p.id.equals(sw.workoutPlanId!))).getSingleOrNull();
+      final planRow =
+          await ((_db.select(_db.workoutPlanTable))
+            ..where((p) => p.id.equals(sw.workoutPlanId!))).getSingleOrNull();
       planServerId = planRow?.serverId;
     }
 
     String? templateWorkoutServerId;
     if (sw.templateWorkoutId != null) {
-      final templateRow = await ((_db.select(_db.workoutTable))
-        ..where((w) => w.id.equals(sw.templateWorkoutId!))).getSingleOrNull();
+      final templateRow =
+          await ((_db.select(_db.workoutTable))..where(
+            (w) => w.id.equals(sw.templateWorkoutId!),
+          )).getSingleOrNull();
       templateWorkoutServerId = templateRow?.serverId;
     }
 
@@ -505,13 +584,15 @@ class SyncService {
     String swServerId,
     List<Map<String, dynamic>> serverExercises,
   ) async {
-    final localExercises =
-        await _db.scheduledWorkoutExerciseDao.getAllForScheduledWorkout(localSwId);
+    final localExercises = await _db.scheduledWorkoutExerciseDao
+        .getAllForScheduledWorkout(localSwId);
 
     for (final localEx in localExercises) {
       // Look up the server UUID of this exercise's workout exercise template.
-      final weRow = await ((_db.select(_db.workoutExerciseTable))
-        ..where((we) => we.id.equals(localEx.workoutExerciseId))).getSingleOrNull();
+      final weRow =
+          await ((_db.select(_db.workoutExerciseTable))..where(
+            (we) => we.id.equals(localEx.workoutExerciseId),
+          )).getSingleOrNull();
       if (weRow?.serverId == null) continue;
 
       // Find the matching server exercise by its workoutExerciseId.
@@ -536,25 +617,40 @@ class SyncService {
     int localSwId,
     String swServerId,
   ) async {
-    final localExercises =
-        await _db.scheduledWorkoutExerciseDao.getAllForScheduledWorkout(localSwId);
+    final localExercises = await _db.scheduledWorkoutExerciseDao
+        .getAllForScheduledWorkout(localSwId);
 
+    _logger.i(
+      '_syncSetsForScheduledWorkout: SW $localSwId has ${localExercises.length} exercises',
+    );
     for (final localEx in localExercises) {
-      if (localEx.serverId == null) continue;
+      if (localEx.serverId == null) {
+        _logger.w(
+          '_syncSetsForScheduledWorkout: skipping exercise ${localEx.id} (workoutExerciseId=${localEx.workoutExerciseId}) — no serverId',
+        );
+        continue;
+      }
       final sets = await _db.workoutDao.getSetsForScheduledExercise(localEx.id);
 
       // Batch new sets.
-      final newSets = sets.where((s) => s.syncStatus == 0 && s.serverId == null).toList();
+      final newSets =
+          sets.where((s) => s.syncStatus == 0 && s.serverId == null).toList();
       if (newSets.isNotEmpty) {
         try {
-          await _syncNewWorkoutSetsBatch(newSets, swServerId, localEx.serverId!);
+          await _syncNewWorkoutSetsBatch(
+            newSets,
+            swServerId,
+            localEx.serverId!,
+          );
         } catch (e) {
           _logger.w('Batch set sync failed for exercise ${localEx.id}: $e');
         }
       }
 
       // Handle updates and deletes individually.
-      for (final set in sets.where((s) => s.syncStatus == 2 || s.syncStatus == 3)) {
+      for (final set in sets.where(
+        (s) => s.syncStatus == 2 || s.syncStatus == 3,
+      )) {
         try {
           if (set.syncStatus == 2) {
             await _syncUpdateWorkoutSet(set);
@@ -575,20 +671,31 @@ class SyncService {
   ) async {
     final response = await _apiClient.post(
       'api/ScheduledWorkout/$swServerId/exercises/$scheduledExerciseServerId/sets/batch',
-      data: sets.map((s) => {
-        'setNumber': s.setNumber,
-        'reps': s.reps,
-        'weight': s.weight,
-        'weightUnit': s.weightUnit,
-        'durationSeconds': s.durationSeconds,
-        'isCompleted': s.isCompleted,
-        'notes': s.notes,
-      }).toList(),
+      data:
+          sets
+              .map(
+                (s) => {
+                  'setNumber': s.setNumber,
+                  'reps': s.reps,
+                  'weight': s.weight,
+                  'weightUnit': s.weightUnit,
+                  'durationSeconds': s.durationSeconds,
+                  'isCompleted': s.isCompleted,
+                  'notes': s.notes,
+                },
+              )
+              .toList(),
     );
     final serverList = (response.data as List).cast<Map<String, dynamic>>();
     for (var i = 0; i < sets.length && i < serverList.length; i++) {
-      await _db.workoutDao.markWorkoutSetSynced(sets[i].id, serverList[i]['id'] as String);
+      await _db.workoutDao.markWorkoutSetSynced(
+        sets[i].id,
+        serverList[i]['id'] as String,
+      );
     }
+    _logger.i(
+      '_syncNewWorkoutSetsBatch: pushed ${serverList.length} sets to SW $swServerId / exercise $scheduledExerciseServerId',
+    );
   }
 
   Future<void> _syncUpdateWorkoutSet(WorkoutSetTableData s) async {
@@ -614,7 +721,9 @@ class SyncService {
         ..where((t) => t.id.equals(s.id))).go();
       return;
     }
-    await _apiClient.delete('api/ScheduledWorkout/exercises/sets/${s.serverId}');
+    await _apiClient.delete(
+      'api/ScheduledWorkout/exercises/sets/${s.serverId}',
+    );
     await ((_db.delete(_db.workoutSetTable))
       ..where((t) => t.id.equals(s.id))).go();
   }
@@ -622,27 +731,34 @@ class SyncService {
   /// Finds workouts already on the server whose exercises were never pushed
   /// (skipped because system exercise serverIds were missing at sync time).
   Future<void> _syncMissingWorkoutExercises() async {
-    final syncedWorkouts = await (_db.select(_db.workoutTable)
-      ..where((w) => w.serverId.isNotNull())).get();
+    final syncedWorkouts =
+        await (_db.select(_db.workoutTable)
+          ..where((w) => w.serverId.isNotNull())).get();
 
     for (final w in syncedWorkouts) {
       try {
         final exercises = await _db.workoutDao.getExercisesForWorkoutRaw(w.id);
-        final unsyncedExercises = exercises.where((e) => e.serverId == null).toList();
+        final unsyncedExercises =
+            exercises.where((e) => e.serverId == null).toList();
         if (unsyncedExercises.isNotEmpty) {
           await _syncNewWorkoutExercisesBatch(unsyncedExercises, w.serverId!);
         }
         // Also check for set templates on exercises that are now synced.
-        final syncedExercises = exercises.where((e) => e.serverId != null).toList();
+        final syncedExercises =
+            exercises.where((e) => e.serverId != null).toList();
         for (final ex in syncedExercises) {
-          final templates = await _db.workoutDao.getSetTemplatesForWorkoutExercise(ex.id);
-          final unsyncedTemplates = templates.where((t) => t.serverId == null).toList();
+          final templates = await _db.workoutDao
+              .getSetTemplatesForWorkoutExercise(ex.id);
+          final unsyncedTemplates =
+              templates.where((t) => t.serverId == null).toList();
           if (unsyncedTemplates.isNotEmpty) {
             await _syncNewSetTemplatesBatch(unsyncedTemplates, ex.serverId!);
           }
         }
       } catch (e) {
-        _logger.w('_syncMissingWorkoutExercises failed for workout ${w.id}: $e');
+        _logger.w(
+          '_syncMissingWorkoutExercises failed for workout ${w.id}: $e',
+        );
       }
     }
   }
@@ -653,8 +769,9 @@ class SyncService {
   /// the loser, so the subsequent SW content dedup can finish the job.
   Future<void> _deduplicateWorkoutsByContent() async {
     try {
-      final all = await (_db.select(_db.workoutTable)
-        ..orderBy([(t) => OrderingTerm.asc(t.id)])).get();
+      final all =
+          await (_db.select(_db.workoutTable)
+            ..orderBy([(t) => OrderingTerm.asc(t.id)])).get();
 
       // Sort so non-null serverId comes first (those are the "winners").
       final sorted = [...all]..sort((a, b) {
@@ -671,12 +788,13 @@ class SyncService {
         } else {
           final winner = seen[key]!;
           // Re-link scheduled workouts from loser → winner.
-          await (_db.update(_db.scheduledWorkoutTable)
-            ..where((t) => t.workoutId.equals(w.id)))
-            .write(ScheduledWorkoutTableCompanion(workoutId: Value(winner.id)));
+          await (_db.update(_db.scheduledWorkoutTable)..where(
+            (t) => t.workoutId.equals(w.id),
+          )).write(ScheduledWorkoutTableCompanion(workoutId: Value(winner.id)));
           // Cascade-delete loser's child exercises.
-          final exercises = await (_db.select(_db.workoutExerciseTable)
-            ..where((e) => e.workoutId.equals(w.id))).get();
+          final exercises =
+              await (_db.select(_db.workoutExerciseTable)
+                ..where((e) => e.workoutId.equals(w.id))).get();
           for (final ex in exercises) {
             await (_db.delete(_db.workoutSetTemplateTable)
               ..where((t) => t.workoutExerciseId.equals(ex.id))).go();
@@ -685,7 +803,9 @@ class SyncService {
             ..where((t) => t.workoutId.equals(w.id))).go();
           await (_db.delete(_db.workoutTable)
             ..where((t) => t.id.equals(w.id))).go();
-          _logger.i('Dedup by name: removed duplicate workout ${w.id} "${w.name}", re-linked SWs to winner ${winner.id}');
+          _logger.i(
+            'Dedup by name: removed duplicate workout ${w.id} "${w.name}", re-linked SWs to winner ${winner.id}',
+          );
         }
       }
     } catch (e) {
@@ -697,8 +817,9 @@ class SyncService {
   /// the row with the lowest local id. Cascades to child tables.
   Future<void> _deduplicateScheduledWorkoutsByContent() async {
     try {
-      final all = await (_db.select(_db.scheduledWorkoutTable)
-        ..orderBy([(t) => OrderingTerm.asc(t.id)])).get();
+      final all =
+          await (_db.select(_db.scheduledWorkoutTable)
+            ..orderBy([(t) => OrderingTerm.asc(t.id)])).get();
 
       // Group by workoutId + scheduledDate — keep first (lowest id), delete the rest.
       final seen = <String>{};
@@ -708,17 +829,49 @@ class SyncService {
         final d = sw.scheduledDate;
         final key = '${sw.workoutId}_${d.year}-${d.month}-${d.day}';
         if (!seen.add(key)) {
-          final exercises = await _db.scheduledWorkoutExerciseDao.getAllForScheduledWorkout(sw.id);
+          final exercises = await _db.scheduledWorkoutExerciseDao
+              .getAllForScheduledWorkout(sw.id);
           for (final ex in exercises) {
-            await (_db.delete(_db.workoutSetTable)..where((t) => t.scheduledWorkoutExerciseId.equals(ex.id))).go();
+            await (_db.delete(_db.workoutSetTable)
+              ..where((t) => t.scheduledWorkoutExerciseId.equals(ex.id))).go();
           }
-          await (_db.delete(_db.scheduledWorkoutExerciseTable)..where((t) => t.scheduledWorkoutId.equals(sw.id))).go();
-          await (_db.delete(_db.scheduledWorkoutTable)..where((t) => t.id.equals(sw.id))).go();
-          _logger.i('Dedup by content: removed duplicate SW ${sw.id} (workout ${sw.workoutId} date ${sw.scheduledDate})');
+          await (_db.delete(_db.scheduledWorkoutExerciseTable)
+            ..where((t) => t.scheduledWorkoutId.equals(sw.id))).go();
+          await (_db.delete(_db.scheduledWorkoutTable)
+            ..where((t) => t.id.equals(sw.id))).go();
+          _logger.i(
+            'Dedup by content: removed duplicate SW ${sw.id} (workout ${sw.workoutId} date ${sw.scheduledDate})',
+          );
         }
       }
     } catch (e) {
       _logger.w('_deduplicateScheduledWorkoutsByContent failed: $e');
+    }
+  }
+
+  Future<void> _deduplicateScheduledExercisesByContent() async {
+    try {
+      final all =
+          await (_db.select(_db.scheduledWorkoutExerciseTable)
+            ..orderBy([(t) => OrderingTerm.asc(t.id)])).get();
+
+      // Keep the first (lowest id) row per (scheduledWorkoutId, workoutExerciseId).
+      final seen = <String>{};
+      for (final ex in all) {
+        final key = '${ex.scheduledWorkoutId}_${ex.workoutExerciseId}';
+        if (!seen.add(key)) {
+          await (_db.delete(_db.workoutSetTable)
+            ..where((t) => t.scheduledWorkoutExerciseId.equals(ex.id))).go();
+          await (_db.delete(_db.scheduledWorkoutExerciseTable)
+            ..where((t) => t.id.equals(ex.id))).go();
+          _logger.i(
+            'Dedup by content: removed duplicate ScheduledExercise ${ex.id} '
+            '(SW ${ex.scheduledWorkoutId}, WE ${ex.workoutExerciseId})',
+          );
+        }
+      }
+    } catch (e) {
+      _logger.w('_deduplicateScheduledExercisesByContent failed: $e');
     }
   }
 
@@ -739,88 +892,134 @@ class SyncService {
     // workout+date are always duplicates regardless of their serverIds.
     await _deduplicateScheduledWorkoutsByContent();
 
+    // Content-based dedup for scheduled workout exercises: two rows with the
+    // same (scheduledWorkoutId, workoutExerciseId) are always duplicates,
+    // caused by concurrent debounce saves both inserting before either updates
+    // the in-memory scheduledExerciseId.
+    await _deduplicateScheduledExercisesByContent();
+
     await _deduplicateTable<ScheduledWorkoutTableData>(
-      query: () => (_db.select(_db.scheduledWorkoutTable)
-        ..where((t) => t.serverId.isNotNull())
-        ..orderBy([(t) => OrderingTerm.asc(t.id)])).get(),
+      query:
+          () =>
+              (_db.select(_db.scheduledWorkoutTable)
+                    ..where((t) => t.serverId.isNotNull())
+                    ..orderBy([(t) => OrderingTerm.asc(t.id)]))
+                  .get(),
       getServerId: (r) => r.serverId!,
       getLocalId: (r) => r.id,
       onDelete: (id) async {
-        final exercises = await _db.scheduledWorkoutExerciseDao.getAllForScheduledWorkout(id);
+        final exercises = await _db.scheduledWorkoutExerciseDao
+            .getAllForScheduledWorkout(id);
         for (final ex in exercises) {
-          await (_db.delete(_db.workoutSetTable)..where((t) => t.scheduledWorkoutExerciseId.equals(ex.id))).go();
+          await (_db.delete(_db.workoutSetTable)
+            ..where((t) => t.scheduledWorkoutExerciseId.equals(ex.id))).go();
         }
-        await (_db.delete(_db.scheduledWorkoutExerciseTable)..where((t) => t.scheduledWorkoutId.equals(id))).go();
-        await (_db.delete(_db.scheduledWorkoutTable)..where((t) => t.id.equals(id))).go();
+        await (_db.delete(_db.scheduledWorkoutExerciseTable)
+          ..where((t) => t.scheduledWorkoutId.equals(id))).go();
+        await (_db.delete(_db.scheduledWorkoutTable)
+          ..where((t) => t.id.equals(id))).go();
       },
     );
 
     await _deduplicateTable<WorkoutTableData>(
-      query: () => (_db.select(_db.workoutTable)
-        ..where((t) => t.serverId.isNotNull())
-        ..orderBy([(t) => OrderingTerm.asc(t.id)])).get(),
+      query:
+          () =>
+              (_db.select(_db.workoutTable)
+                    ..where((t) => t.serverId.isNotNull())
+                    ..orderBy([(t) => OrderingTerm.asc(t.id)]))
+                  .get(),
       getServerId: (r) => r.serverId!,
       getLocalId: (r) => r.id,
       onDelete: (id) async {
-        final exercises = await (_db.select(_db.workoutExerciseTable)
-          ..where((e) => e.workoutId.equals(id))).get();
+        final exercises =
+            await (_db.select(_db.workoutExerciseTable)
+              ..where((e) => e.workoutId.equals(id))).get();
         for (final ex in exercises) {
-          await (_db.delete(_db.workoutSetTemplateTable)..where((t) => t.workoutExerciseId.equals(ex.id))).go();
+          await (_db.delete(_db.workoutSetTemplateTable)
+            ..where((t) => t.workoutExerciseId.equals(ex.id))).go();
         }
-        await (_db.delete(_db.workoutExerciseTable)..where((t) => t.workoutId.equals(id))).go();
-        await (_db.delete(_db.workoutTable)..where((t) => t.id.equals(id))).go();
+        await (_db.delete(_db.workoutExerciseTable)
+          ..where((t) => t.workoutId.equals(id))).go();
+        await (_db.delete(_db.workoutTable)
+          ..where((t) => t.id.equals(id))).go();
       },
     );
 
     await _deduplicateTable<ExerciseTableData>(
-      query: () => (_db.select(_db.exerciseTable)
-        ..where((t) => t.serverId.isNotNull())
-        ..orderBy([(t) => OrderingTerm.asc(t.id)])).get(),
+      query:
+          () =>
+              (_db.select(_db.exerciseTable)
+                    ..where((t) => t.serverId.isNotNull())
+                    ..orderBy([(t) => OrderingTerm.asc(t.id)]))
+                  .get(),
       getServerId: (r) => r.serverId!,
       getLocalId: (r) => r.id,
-      onDelete: (id) => (_db.delete(_db.exerciseTable)..where((t) => t.id.equals(id))).go(),
+      onDelete:
+          (id) =>
+              (_db.delete(_db.exerciseTable)
+                ..where((t) => t.id.equals(id))).go(),
     );
 
     await _deduplicateTable<WorkoutExerciseTableData>(
-      query: () => (_db.select(_db.workoutExerciseTable)
-        ..where((t) => t.serverId.isNotNull())
-        ..orderBy([(t) => OrderingTerm.asc(t.id)])).get(),
+      query:
+          () =>
+              (_db.select(_db.workoutExerciseTable)
+                    ..where((t) => t.serverId.isNotNull())
+                    ..orderBy([(t) => OrderingTerm.asc(t.id)]))
+                  .get(),
       getServerId: (r) => r.serverId!,
       getLocalId: (r) => r.id,
       onDelete: (id) async {
-        await (_db.delete(_db.workoutSetTemplateTable)..where((t) => t.workoutExerciseId.equals(id))).go();
-        await (_db.delete(_db.workoutExerciseTable)..where((t) => t.id.equals(id))).go();
+        await (_db.delete(_db.workoutSetTemplateTable)
+          ..where((t) => t.workoutExerciseId.equals(id))).go();
+        await (_db.delete(_db.workoutExerciseTable)
+          ..where((t) => t.id.equals(id))).go();
       },
     );
 
     await _deduplicateTable<FoodItemData>(
-      query: () => (_db.select(_db.foodItem)
-        ..where((t) => t.serverId.isNotNull())
-        ..orderBy([(t) => OrderingTerm.asc(t.id)])).get(),
+      query:
+          () =>
+              (_db.select(_db.foodItem)
+                    ..where((t) => t.serverId.isNotNull())
+                    ..orderBy([(t) => OrderingTerm.asc(t.id)]))
+                  .get(),
       getServerId: (r) => r.serverId!,
       getLocalId: (r) => r.id,
-      onDelete: (id) => (_db.delete(_db.foodItem)..where((t) => t.id.equals(id))).go(),
+      onDelete:
+          (id) =>
+              (_db.delete(_db.foodItem)..where((t) => t.id.equals(id))).go(),
     );
 
     await _deduplicateTable<MealTableData>(
-      query: () => (_db.select(_db.mealTable)
-        ..where((t) => t.serverId.isNotNull())
-        ..orderBy([(t) => OrderingTerm.asc(t.id)])).get(),
+      query:
+          () =>
+              (_db.select(_db.mealTable)
+                    ..where((t) => t.serverId.isNotNull())
+                    ..orderBy([(t) => OrderingTerm.asc(t.id)]))
+                  .get(),
       getServerId: (r) => r.serverId!,
       getLocalId: (r) => r.id,
       onDelete: (id) async {
-        await (_db.delete(_db.mealFoodTable)..where((t) => t.mealId.equals(id))).go();
+        await (_db.delete(_db.mealFoodTable)
+          ..where((t) => t.mealId.equals(id))).go();
         await (_db.delete(_db.mealTable)..where((t) => t.id.equals(id))).go();
       },
     );
 
     await _deduplicateTable<WeightRecordData>(
-      query: () => (_db.select(_db.weightRecord)
-        ..where((t) => t.serverId.isNotNull())
-        ..orderBy([(t) => OrderingTerm.asc(t.id)])).get(),
+      query:
+          () =>
+              (_db.select(_db.weightRecord)
+                    ..where((t) => t.serverId.isNotNull())
+                    ..orderBy([(t) => OrderingTerm.asc(t.id)]))
+                  .get(),
       getServerId: (r) => r.serverId!,
       getLocalId: (r) => r.id,
-      onDelete: (id) => (_db.delete(_db.weightRecord)..where((t) => t.id.equals(id))).go(),
+      onDelete:
+          (id) =>
+              (_db.delete(_db.weightRecord)
+                ..where((t) => t.id.equals(id))).go(),
     );
   }
 
@@ -837,7 +1036,9 @@ class SyncService {
         final sid = getServerId(row);
         if (!seen.add(sid)) {
           await onDelete(getLocalId(row));
-          _logger.i('Dedup: removed duplicate local ${getLocalId(row)} (serverId $sid)');
+          _logger.i(
+            'Dedup: removed duplicate local ${getLocalId(row)} (serverId $sid)',
+          );
         }
       }
     } catch (e) {
@@ -854,101 +1055,176 @@ class SyncService {
       _reconcileTable<ExerciseTableData>(
         endpoint: 'api/Exercise/UserExercise',
         localQuery: () async {
-          final all = await (_db.select(_db.exerciseTable)
-            ..where((t) => t.serverId.isNotNull())).get();
+          final all =
+              await (_db.select(_db.exerciseTable)
+                ..where((t) => t.serverId.isNotNull())).get();
           return all.where((e) => e.isCustom).toList();
         },
         getServerId: (r) => r.serverId!,
         getLocalId: (r) => r.id,
-        resetRow: (id) => (_db.update(_db.exerciseTable)..where((t) => t.id.equals(id)))
-            .write(const ExerciseTableCompanion(serverId: Value(null), syncStatus: Value(0))),
+        resetRow:
+            (id) => (_db.update(_db.exerciseTable)
+              ..where((t) => t.id.equals(id))).write(
+              const ExerciseTableCompanion(
+                serverId: Value(null),
+                syncStatus: Value(0),
+              ),
+            ),
       ),
       _reconcileTable<WorkoutTableData>(
         endpoint: 'api/Workout',
-        localQuery: () => (_db.select(_db.workoutTable)
-          ..where((t) => t.serverId.isNotNull())).get(),
+        localQuery:
+            () =>
+                (_db.select(_db.workoutTable)
+                  ..where((t) => t.serverId.isNotNull())).get(),
         getServerId: (r) => r.serverId!,
         getLocalId: (r) => r.id,
         resetRow: (id) async {
-          await (_db.update(_db.workoutTable)..where((t) => t.id.equals(id)))
-              .write(const WorkoutTableCompanion(serverId: Value(null), syncStatus: Value(0)));
-          final exercises = await (_db.select(_db.workoutExerciseTable)
-            ..where((e) => e.workoutId.equals(id))).get();
+          await (_db.update(_db.workoutTable)
+            ..where((t) => t.id.equals(id))).write(
+            const WorkoutTableCompanion(
+              serverId: Value(null),
+              syncStatus: Value(0),
+            ),
+          );
+          final exercises =
+              await (_db.select(_db.workoutExerciseTable)
+                ..where((e) => e.workoutId.equals(id))).get();
           for (final ex in exercises) {
-            await (_db.update(_db.workoutExerciseTable)..where((t) => t.id.equals(ex.id)))
-                .write(const WorkoutExerciseTableCompanion(serverId: Value(null), syncStatus: Value(0)));
+            await (_db.update(_db.workoutExerciseTable)
+              ..where((t) => t.id.equals(ex.id))).write(
+              const WorkoutExerciseTableCompanion(
+                serverId: Value(null),
+                syncStatus: Value(0),
+              ),
+            );
             await (_db.update(_db.workoutSetTemplateTable)
-              ..where((t) => t.workoutExerciseId.equals(ex.id)))
-                .write(const WorkoutSetTemplateTableCompanion(serverId: Value(null), syncStatus: Value(0)));
+              ..where((t) => t.workoutExerciseId.equals(ex.id))).write(
+              const WorkoutSetTemplateTableCompanion(
+                serverId: Value(null),
+                syncStatus: Value(0),
+              ),
+            );
           }
         },
       ),
       _reconcileTable<WorkoutPlanTableData>(
         endpoint: 'api/WorkoutPlan',
-        localQuery: () => (_db.select(_db.workoutPlanTable)
-          ..where((t) => t.serverId.isNotNull())).get(),
+        localQuery:
+            () =>
+                (_db.select(_db.workoutPlanTable)
+                  ..where((t) => t.serverId.isNotNull())).get(),
         getServerId: (r) => r.serverId!,
         getLocalId: (r) => r.id,
         resetRow: (id) async {
-          await (_db.update(_db.workoutPlanTable)..where((t) => t.id.equals(id)))
-              .write(const WorkoutPlanTableCompanion(serverId: Value(null), syncStatus: Value(0)));
+          await (_db.update(_db.workoutPlanTable)
+            ..where((t) => t.id.equals(id))).write(
+            const WorkoutPlanTableCompanion(
+              serverId: Value(null),
+              syncStatus: Value(0),
+            ),
+          );
           await (_db.update(_db.workoutPlanWorkoutTable)
-            ..where((t) => t.planId.equals(id)))
-              .write(const WorkoutPlanWorkoutTableCompanion(syncStatus: Value(0)));
+            ..where((t) => t.planId.equals(id))).write(
+            const WorkoutPlanWorkoutTableCompanion(syncStatus: Value(0)),
+          );
         },
       ),
       _reconcileTable<ScheduledWorkoutTableData>(
         endpoint: 'api/ScheduledWorkout',
-        localQuery: () => (_db.select(_db.scheduledWorkoutTable)
-          ..where((t) => t.serverId.isNotNull())).get(),
+        localQuery:
+            () =>
+                (_db.select(_db.scheduledWorkoutTable)
+                  ..where((t) => t.serverId.isNotNull())).get(),
         getServerId: (r) => r.serverId!,
         getLocalId: (r) => r.id,
         resetRow: (id) async {
-          await (_db.update(_db.scheduledWorkoutTable)..where((t) => t.id.equals(id)))
-              .write(const ScheduledWorkoutTableCompanion(serverId: Value(null), syncStatus: Value(0)));
-          final exercises =
-              await _db.scheduledWorkoutExerciseDao.getAllForScheduledWorkout(id);
+          await (_db.update(_db.scheduledWorkoutTable)
+            ..where((t) => t.id.equals(id))).write(
+            const ScheduledWorkoutTableCompanion(
+              serverId: Value(null),
+              syncStatus: Value(0),
+            ),
+          );
+          final exercises = await _db.scheduledWorkoutExerciseDao
+              .getAllForScheduledWorkout(id);
           for (final ex in exercises) {
-            await (_db.update(_db.scheduledWorkoutExerciseTable)..where((t) => t.id.equals(ex.id)))
-                .write(const ScheduledWorkoutExerciseTableCompanion(serverId: Value(null), syncStatus: Value(0)));
-            final sets = await _db.workoutDao.getSetsForScheduledExercise(ex.id);
+            await (_db.update(_db.scheduledWorkoutExerciseTable)
+              ..where((t) => t.id.equals(ex.id))).write(
+              const ScheduledWorkoutExerciseTableCompanion(
+                serverId: Value(null),
+                syncStatus: Value(0),
+              ),
+            );
+            final sets = await _db.workoutDao.getSetsForScheduledExercise(
+              ex.id,
+            );
             for (final s in sets) {
-              await (_db.update(_db.workoutSetTable)..where((t) => t.id.equals(s.id)))
-                  .write(const WorkoutSetTableCompanion(serverId: Value(null), syncStatus: Value(0)));
+              await (_db.update(_db.workoutSetTable)
+                ..where((t) => t.id.equals(s.id))).write(
+                const WorkoutSetTableCompanion(
+                  serverId: Value(null),
+                  syncStatus: Value(0),
+                ),
+              );
             }
           }
         },
       ),
       _reconcileTable<FoodItemData>(
         endpoint: 'api/FoodItem',
-        localQuery: () => (_db.select(_db.foodItem)
-          ..where((t) => t.serverId.isNotNull())).get(),
+        localQuery:
+            () =>
+                (_db.select(_db.foodItem)
+                  ..where((t) => t.serverId.isNotNull())).get(),
         getServerId: (r) => r.serverId!,
         getLocalId: (r) => r.id,
-        resetRow: (id) => (_db.update(_db.foodItem)..where((t) => t.id.equals(id)))
-            .write(const FoodItemCompanion(serverId: Value(null), syncStatus: Value(0))),
+        resetRow:
+            (id) => (_db.update(_db.foodItem)
+              ..where((t) => t.id.equals(id))).write(
+              const FoodItemCompanion(
+                serverId: Value(null),
+                syncStatus: Value(0),
+              ),
+            ),
       ),
       _reconcileTable<MealTableData>(
         endpoint: 'api/Meal/all',
-        localQuery: () => (_db.select(_db.mealTable)
-          ..where((t) => t.serverId.isNotNull())).get(),
+        localQuery:
+            () =>
+                (_db.select(_db.mealTable)
+                  ..where((t) => t.serverId.isNotNull())).get(),
         getServerId: (r) => r.serverId!,
         getLocalId: (r) => r.id,
         resetRow: (id) async {
-          await (_db.update(_db.mealTable)..where((t) => t.id.equals(id)))
-              .write(const MealTableCompanion(serverId: Value(null), syncStatus: Value(0)));
-          await (_db.update(_db.mealFoodTable)..where((t) => t.mealId.equals(id)))
-              .write(const MealFoodTableCompanion(serverId: Value(null)));
+          await (_db.update(_db.mealTable)
+            ..where((t) => t.id.equals(id))).write(
+            const MealTableCompanion(
+              serverId: Value(null),
+              syncStatus: Value(0),
+            ),
+          );
+          await (_db.update(_db.mealFoodTable)..where(
+            (t) => t.mealId.equals(id),
+          )).write(const MealFoodTableCompanion(serverId: Value(null)));
         },
       ),
       _reconcileTable<WeightRecordData>(
         endpoint: 'api/WeightTracking/TrackWeight',
-        localQuery: () => (_db.select(_db.weightRecord)
-          ..where((t) => t.serverId.isNotNull())).get(),
+        localQuery:
+            () =>
+                (_db.select(_db.weightRecord)
+                  ..where((t) => t.serverId.isNotNull())).get(),
         getServerId: (r) => r.serverId!,
         getLocalId: (r) => r.id,
-        resetRow: (id) => (_db.update(_db.weightRecord)..where((t) => t.id.equals(id)))
-            .write(const WeightRecordCompanion(serverId: Value(null), syncStatus: Value(0))),
+        resetRow:
+            (id) => (_db.update(_db.weightRecord)
+              ..where((t) => t.id.equals(id))).write(
+              const WeightRecordCompanion(
+                serverId: Value(null),
+                syncStatus: Value(0),
+              ),
+            ),
       ),
     ]);
   }
@@ -963,15 +1239,14 @@ class SyncService {
     try {
       final response = await _apiClient.get(endpoint);
       final list = (response.data as List).cast<Map<String, dynamic>>();
-      // Safety guard: an empty response could mean a transient server error.
-      // Never wipe all local serverIds based on an empty list.
-      if (list.isEmpty) return;
       final serverIds = list.map((e) => e['id'] as String).toSet();
       final locals = await localQuery();
       for (final row in locals) {
         if (serverIds.contains(getServerId(row))) continue;
         await resetRow(getLocalId(row));
-        _logger.i('Reconcile $endpoint: reset local ${getLocalId(row)} (server ${getServerId(row)} gone)');
+        _logger.i(
+          'Reconcile $endpoint: reset local ${getLocalId(row)} (server ${getServerId(row)} gone)',
+        );
       }
     } catch (e) {
       _logger.w('_reconcileTable($endpoint) failed: $e');
@@ -984,39 +1259,55 @@ class SyncService {
   /// auto-created server-side when the SW is POSTed, so we only need to store
   /// their IDs — not create new ones.
   Future<void> _syncMissingScheduledExerciseSets() async {
-    final syncedSws = await (_db.select(_db.scheduledWorkoutTable)
-      ..where((sw) => sw.serverId.isNotNull())).get();
+    final syncedSws =
+        await (_db.select(_db.scheduledWorkoutTable)
+          ..where((sw) => sw.serverId.isNotNull())).get();
 
+    _logger.i(
+      '_syncMissingScheduledExerciseSets: checking ${syncedSws.length} synced SWs',
+    );
     for (final sw in syncedSws) {
       try {
-        final localExercises =
-            await _db.scheduledWorkoutExerciseDao.getAllForScheduledWorkout(sw.id);
-        final missingServerId = localExercises.where((e) => e.serverId == null).toList();
-
+        final localExercises = await _db.scheduledWorkoutExerciseDao
+            .getAllForScheduledWorkout(sw.id);
+        final missingServerId =
+            localExercises.where((e) => e.serverId == null).toList();
         if (missingServerId.isNotEmpty) {
+          _logger.w(
+            '_syncMissingScheduledExerciseSets: SW ${sw.id} has ${missingServerId.length} exercises with no serverId — fetching from server',
+          );
           // Fetch the existing scheduled workout from the server to get the
           // server-assigned exercise IDs.  The server auto-creates exercises
           // when the SW is POSTed, so they should already exist — we must NOT
           // POST again or we will create duplicates.
-          final swResponse = await _apiClient.get('api/ScheduledWorkout/${sw.serverId}');
+          final swResponse = await _apiClient.get(
+            'api/ScheduledWorkout/${sw.serverId}',
+          );
           final serverExercises =
-              (swResponse.data['exercises'] as List? ?? []).cast<Map<String, dynamic>>();
+              (swResponse.data['exercises'] as List? ?? [])
+                  .cast<Map<String, dynamic>>();
 
-          await _storeScheduledExerciseServerIds(sw.id, sw.serverId!, serverExercises);
+          await _storeScheduledExerciseServerIds(
+            sw.id,
+            sw.serverId!,
+            serverExercises,
+          );
 
           // After stamping from the server, check if any are genuinely absent
           // (e.g. workout template changed after SW was created on server).
-          final stillMissing = (await _db.scheduledWorkoutExerciseDao
-                  .getAllForScheduledWorkout(sw.id))
-              .where((e) => e.serverId == null)
-              .toList();
+          final stillMissing =
+              (await _db.scheduledWorkoutExerciseDao.getAllForScheduledWorkout(
+                sw.id,
+              )).where((e) => e.serverId == null).toList();
 
           if (stillMissing.isNotEmpty) {
             final weServerIds = <String>[];
             final valid = <ScheduledWorkoutExerciseTableData>[];
             for (final localEx in stillMissing) {
-              final weRow = await (_db.select(_db.workoutExerciseTable)
-                ..where((we) => we.id.equals(localEx.workoutExerciseId))).getSingleOrNull();
+              final weRow =
+                  await (_db.select(_db.workoutExerciseTable)..where(
+                    (we) => we.id.equals(localEx.workoutExerciseId),
+                  )).getSingleOrNull();
               if (weRow?.serverId == null) continue;
               weServerIds.add(weRow!.serverId!);
               valid.add(localEx);
@@ -1026,12 +1317,14 @@ class SyncService {
                 'api/ScheduledWorkout/${sw.serverId}/exercises/batch',
                 data: weServerIds,
               );
-              final serverList = (response.data as List).cast<Map<String, dynamic>>();
+              final serverList =
+                  (response.data as List).cast<Map<String, dynamic>>();
               for (var i = 0; i < valid.length && i < serverList.length; i++) {
-                await _db.scheduledWorkoutExerciseDao.markScheduledExerciseSynced(
-                  valid[i].id,
-                  serverList[i]['id'] as String,
-                );
+                await _db.scheduledWorkoutExerciseDao
+                    .markScheduledExerciseSynced(
+                      valid[i].id,
+                      serverList[i]['id'] as String,
+                    );
               }
             }
           }
@@ -1040,7 +1333,9 @@ class SyncService {
         // Push any sets that still have no serverId.
         await _syncSetsForScheduledWorkout(sw.id, sw.serverId!);
       } catch (e) {
-        _logger.w('_syncMissingScheduledExerciseSets failed for sw ${sw.id}: $e');
+        _logger.w(
+          '_syncMissingScheduledExerciseSets failed for sw ${sw.id}: $e',
+        );
       }
     }
   }
@@ -1106,7 +1401,10 @@ class SyncService {
         'extendedNutrientsJson': item.extendedNutrientsJson,
       },
     );
-    await _db.foodItemDao.markSynced(localId: item.id, serverId: item.serverId!);
+    await _db.foodItemDao.markSynced(
+      localId: item.id,
+      serverId: item.serverId!,
+    );
     _logger.i('Updated food item ${item.id} on server ${item.serverId}');
   }
 
@@ -1181,8 +1479,7 @@ class SyncService {
         'date': meal.date.toUtc().toIso8601String(),
         'category': meal.category,
         'foodItemId':
-            primaryFood?.serverId ??
-            '00000000-0000-0000-0000-000000000000',
+            primaryFood?.serverId ?? '00000000-0000-0000-0000-000000000000',
       },
     );
     await _db.mealDao.markMealSynced(
@@ -1219,7 +1516,10 @@ class SyncService {
     );
     final serverList = (response.data as List).cast<Map<String, dynamic>>();
     for (var i = 0; i < valid.length && i < serverList.length; i++) {
-      await _db.mealDao.setFoodEntryServerId(valid[i].id, serverList[i]['id'] as String);
+      await _db.mealDao.setFoodEntryServerId(
+        valid[i].id,
+        serverList[i]['id'] as String,
+      );
     }
   }
 
@@ -1251,8 +1551,9 @@ class SyncService {
   }
 
   Future<void> _syncNewMealTemplate(Map<String, dynamic> template) async {
-    final items = (template['items'] as List<dynamic>? ?? [])
-        .cast<Map<String, dynamic>>();
+    final items =
+        (template['items'] as List<dynamic>? ?? [])
+            .cast<Map<String, dynamic>>();
 
     final response = await _apiClient.post(
       'api/MealTemplate',
@@ -1260,16 +1561,22 @@ class SyncService {
         'name': template['name'],
         'description': template['description'] ?? '',
         'category': template['category'],
-        'items': items.map((i) => {
-          'foodId': '00000000-0000-0000-0000-000000000000', // no FK enforced
-          'foodName': i['foodName'] ?? i['food_name'] ?? '',
-          'quantity': (i['quantity'] as num?)?.toDouble() ?? 0.0,
-          'unit': i['unit'] ?? 'g',
-          'calories': (i['calories'] as num?)?.toDouble() ?? 0.0,
-          'protein': (i['protein'] as num?)?.toDouble() ?? 0.0,
-          'carbs': (i['carbs'] as num?)?.toDouble() ?? 0.0,
-          'fat': (i['fat'] as num?)?.toDouble() ?? 0.0,
-        }).toList(),
+        'items':
+            items
+                .map(
+                  (i) => {
+                    'foodId':
+                        '00000000-0000-0000-0000-000000000000', // no FK enforced
+                    'foodName': i['foodName'] ?? i['food_name'] ?? '',
+                    'quantity': (i['quantity'] as num?)?.toDouble() ?? 0.0,
+                    'unit': i['unit'] ?? 'g',
+                    'calories': (i['calories'] as num?)?.toDouble() ?? 0.0,
+                    'protein': (i['protein'] as num?)?.toDouble() ?? 0.0,
+                    'carbs': (i['carbs'] as num?)?.toDouble() ?? 0.0,
+                    'fat': (i['fat'] as num?)?.toDouble() ?? 0.0,
+                  },
+                )
+                .toList(),
       },
     );
     final serverId = response.data['id'] as String;
@@ -1363,7 +1670,9 @@ class SyncService {
       localId: record.id,
       serverId: record.serverId!,
     );
-    _logger.i('Updated weight record ${record.id} on server ${record.serverId}');
+    _logger.i(
+      'Updated weight record ${record.id} on server ${record.serverId}',
+    );
   }
 
   Future<void> _syncDeleteWeight(WeightRecordData record) async {
@@ -1395,7 +1704,7 @@ class SyncService {
     // the workout exercise wasn't created yet on the first pass.
     await _relinkMissingScheduledExercises();
     await _pullFoodItems();
-    await _pullMeals();             // food items must exist before meals
+    await _pullMeals(); // food items must exist before meals
     await _pullWeightLogs();
     await _pullMealTemplates();
     // Clean up any content-based duplicates the pull may have created.
@@ -1409,7 +1718,8 @@ class SyncService {
       final data = response.data as Map<String, dynamic>?;
       if (data == null) return;
       final existing = await _db.userSettingsDao.getSettings();
-      if (existing != null) return; // already populated, let syncUserSettings handle updates
+      if (existing != null)
+        return; // already populated, let syncUserSettings handle updates
       await _db.userSettingsDao.updateProfile(
         name: data['name'] as String?,
         age: data['age'] as int?,
@@ -1435,21 +1745,31 @@ class SyncService {
   /// This fixes the case where `_pullWorkouts` skipped some workout exercises
   /// (missing exercise serverId), so `_pullScheduledWorkouts` couldn't link them.
   Future<void> _relinkMissingScheduledExercises() async {
-    final syncedSws = await (_db.select(_db.scheduledWorkoutTable)
-      ..where((sw) => sw.serverId.isNotNull())).get();
+    final syncedSws =
+        await (_db.select(_db.scheduledWorkoutTable)
+          ..where((sw) => sw.serverId.isNotNull())).get();
 
     for (final sw in syncedSws) {
       try {
-        final exercises =
-            await _db.scheduledWorkoutExerciseDao.getAllForScheduledWorkout(sw.id);
+        final exercises = await _db.scheduledWorkoutExerciseDao
+            .getAllForScheduledWorkout(sw.id);
         if (exercises.any((e) => e.serverId == null)) {
-          final response = await _apiClient.get('api/ScheduledWorkout/${sw.serverId}');
+          final response = await _apiClient.get(
+            'api/ScheduledWorkout/${sw.serverId}',
+          );
           final serverExercises =
-              (response.data['exercises'] as List? ?? []).cast<Map<String, dynamic>>();
-          await _storeScheduledExerciseServerIds(sw.id, sw.serverId!, serverExercises);
+              (response.data['exercises'] as List? ?? [])
+                  .cast<Map<String, dynamic>>();
+          await _storeScheduledExerciseServerIds(
+            sw.id,
+            sw.serverId!,
+            serverExercises,
+          );
         }
       } catch (e) {
-        _logger.w('_relinkMissingScheduledExercises failed for sw ${sw.id}: $e');
+        _logger.w(
+          '_relinkMissingScheduledExercises failed for sw ${sw.id}: $e',
+        );
       }
     }
   }
@@ -1467,31 +1787,57 @@ class SyncService {
       final name = e['name'] as String;
 
       // Already in local DB with serverId — nothing to do.
-      if (await _db.exerciseDao.getExerciseByServerId(serverId) != null) continue;
+      if (await _db.exerciseDao.getExerciseByServerId(serverId) != null)
+        continue;
 
-      // Try to match an existing local exercise by name and stamp its serverId.
-      final locals = await _db.exerciseDao.searchExercises(name);
-      final match = locals.where(
-        (local) => local.serverId == null && local.name.toLowerCase() == name.toLowerCase(),
-      ).firstOrNull;
+      // Try to match an existing local exercise and stamp its serverId.
+      // Priority: exact English name → exact German name → single unambiguous
+      // candidate from search results (avoids creating orphaned duplicate rows).
+      final nameDe = e['nameDe'] as String?;
+      final localsEn = await _db.exerciseDao.searchExercises(name);
+      final unsyncedLocals = localsEn.where((l) => l.serverId == null && !l.isCustom).toList();
+
+      ExerciseTableData? match = unsyncedLocals
+          .where((l) => l.name.toLowerCase() == name.toLowerCase())
+          .firstOrNull;
+
+      if (match == null && nameDe != null && nameDe.isNotEmpty) {
+        final localsDe = await _db.exerciseDao.searchExercises(nameDe);
+        match = localsDe
+            .where((l) => l.serverId == null && !l.isCustom && l.name.toLowerCase() == nameDe.toLowerCase())
+            .firstOrNull;
+        if (match != null) {
+          _logger.i('_syncSystemExerciseIds: matched "${match.name}" to server "$name" via nameDe');
+        }
+      }
+
+      // Last resort: if the search returned exactly one unsynced system exercise,
+      // it is almost certainly the same exercise with a slightly different name.
+      // Stamp it rather than creating a duplicate orphan row.
+      if (match == null && unsyncedLocals.length == 1) {
+        match = unsyncedLocals.first;
+        _logger.w('_syncSystemExerciseIds: fuzzy-matched "${match.name}" to server "$name" (only candidate)');
+      }
 
       if (match != null) {
         await _db.exerciseDao.markExerciseSynced(match.id, serverId);
       } else {
         // No local match (e.g. fresh install, seed hasn't run yet) — create
         // from server data so workout exercise links can be resolved immediately.
-        await _db.exerciseDao.saveExercise(ExerciseTableCompanion(
-          name: Value(name),
-          description: Value(e['description'] as String?),
-          nameDe: Value(e['nameDe'] as String?),
-          descriptionDe: Value(e['descriptionDe'] as String?),
-          type: Value(e['type'] as int? ?? 0),
-          targetMuscleGroups: Value(e['targetMuscleGroups'] as String? ?? ''),
-          imageUrl: Value(e['imageUrl'] as String?),
-          isCustom: const Value(false),
-          serverId: Value(serverId),
-          syncStatus: const Value(1),
-        ));
+        await _db.exerciseDao.saveExercise(
+          ExerciseTableCompanion(
+            name: Value(name),
+            description: Value(e['description'] as String?),
+            nameDe: Value(e['nameDe'] as String?),
+            descriptionDe: Value(e['descriptionDe'] as String?),
+            type: Value(e['type'] as int? ?? 0),
+            targetMuscleGroups: Value(e['targetMuscleGroups'] as String? ?? ''),
+            imageUrl: Value(e['imageUrl'] as String?),
+            isCustom: const Value(false),
+            serverId: Value(serverId),
+            syncStatus: const Value(1),
+          ),
+        );
       }
     }
   }
@@ -1501,19 +1847,22 @@ class SyncService {
     final list = (response.data as List).cast<Map<String, dynamic>>();
     for (final e in list) {
       final serverId = e['id'] as String;
-      if (await _db.exerciseDao.getExerciseByServerId(serverId) != null) continue;
-      await _db.exerciseDao.saveExercise(ExerciseTableCompanion(
-        name: Value(e['name'] as String),
-        description: Value(e['description'] as String?),
-        nameDe: Value(e['nameDe'] as String?),
-        descriptionDe: Value(e['descriptionDe'] as String?),
-        type: Value(e['type'] as int),
-        targetMuscleGroups: Value(e['targetMuscleGroups'] as String? ?? ''),
-        imageUrl: Value(e['imageUrl'] as String?),
-        isCustom: const Value(true),
-        serverId: Value(serverId),
-        syncStatus: const Value(1),
-      ));
+      if (await _db.exerciseDao.getExerciseByServerId(serverId) != null)
+        continue;
+      await _db.exerciseDao.saveExercise(
+        ExerciseTableCompanion(
+          name: Value(e['name'] as String),
+          description: Value(e['description'] as String?),
+          nameDe: Value(e['nameDe'] as String?),
+          descriptionDe: Value(e['descriptionDe'] as String?),
+          type: Value(e['type'] as int),
+          targetMuscleGroups: Value(e['targetMuscleGroups'] as String? ?? ''),
+          imageUrl: Value(e['imageUrl'] as String?),
+          isCustom: const Value(true),
+          serverId: Value(serverId),
+          syncStatus: const Value(1),
+        ),
+      );
       _logger.i('Pulled exercise $serverId');
     }
   }
@@ -1523,45 +1872,76 @@ class SyncService {
     final list = (response.data as List).cast<Map<String, dynamic>>();
     for (final w in list) {
       final workoutServerId = w['id'] as String;
-      if (await _db.workoutDao.getWorkoutByServerId(workoutServerId) != null) continue;
+      if (await _db.workoutDao.getWorkoutByServerId(workoutServerId) != null)
+        continue;
 
       // Guard: if a local workout with the same name exists but no serverId
       // (reconcile cleared it), stamp its serverId instead of inserting a new
       // row — this prevents duplicate workouts after a server wipe-and-resync.
-      final nameMatch = await (_db.select(_db.workoutTable)
-        ..where((t) => t.serverId.isNull() & t.name.equals(w['name'] as String))
-        ..limit(1)).getSingleOrNull();
+      final nameMatch =
+          await (_db.select(_db.workoutTable)
+                ..where(
+                  (t) =>
+                      t.serverId.isNull() & t.name.equals(w['name'] as String),
+                )
+                ..limit(1))
+              .getSingleOrNull();
 
       late int localWorkoutId;
       if (nameMatch != null) {
         localWorkoutId = nameMatch.id;
-        await (_db.update(_db.workoutTable)..where((t) => t.id.equals(localWorkoutId)))
-            .write(WorkoutTableCompanion(serverId: Value(workoutServerId), syncStatus: const Value(1)));
-        _logger.i('Re-linked existing workout $localWorkoutId to server $workoutServerId');
-      } else {
-        localWorkoutId = await _db.into(_db.workoutTable).insert(
+        await (_db.update(_db.workoutTable)
+          ..where((t) => t.id.equals(localWorkoutId))).write(
           WorkoutTableCompanion(
-            name: Value(w['name'] as String),
-            description: Value(w['description'] as String?),
-            difficulty: Value(w['difficulty'] as int),
-            estimatedDurationMinutes: Value(w['estimatedDurationMinutes'] as int? ?? 30),
-            isTemplate: Value(w['isTemplate'] as bool),
-            scheduledDate: Value(w['scheduledDate'] != null ? DateTime.parse(w['scheduledDate'] as String) : null),
-            completedDate: Value(w['completedDate'] != null ? DateTime.parse(w['completedDate'] as String) : null),
-            color: Value(w['color'] as int?),
             serverId: Value(workoutServerId),
             syncStatus: const Value(1),
           ),
         );
+        _logger.i(
+          'Re-linked existing workout $localWorkoutId to server $workoutServerId',
+        );
+      } else {
+        localWorkoutId = await _db
+            .into(_db.workoutTable)
+            .insert(
+              WorkoutTableCompanion(
+                name: Value(w['name'] as String),
+                description: Value(w['description'] as String?),
+                difficulty: Value(w['difficulty'] as int),
+                estimatedDurationMinutes: Value(
+                  w['estimatedDurationMinutes'] as int? ?? 30,
+                ),
+                isTemplate: Value(w['isTemplate'] as bool),
+                scheduledDate: Value(
+                  w['scheduledDate'] != null
+                      ? DateTime.parse(w['scheduledDate'] as String)
+                      : null,
+                ),
+                completedDate: Value(
+                  w['completedDate'] != null
+                      ? DateTime.parse(w['completedDate'] as String)
+                      : null,
+                ),
+                color: Value(w['color'] as int?),
+                serverId: Value(workoutServerId),
+                syncStatus: const Value(1),
+              ),
+            );
       }
 
       final exercises = (w['exercises'] as List).cast<Map<String, dynamic>>();
       for (final ex in exercises) {
         final exServerId = ex['id'] as String;
-        if (await _db.workoutDao.getWorkoutExerciseByServerId(exServerId) != null) continue;
-        final localExercise = await _db.exerciseDao.getExerciseByServerId(ex['exerciseId'] as String);
+        if (await _db.workoutDao.getWorkoutExerciseByServerId(exServerId) !=
+            null)
+          continue;
+        final localExercise = await _db.exerciseDao.getExerciseByServerId(
+          ex['exerciseId'] as String,
+        );
         if (localExercise == null) {
-          _logger.w('Pull workout $workoutServerId: skipping exercise — no local match for exercise server ID ${ex['exerciseId']}');
+          _logger.w(
+            'Pull workout $workoutServerId: skipping exercise — no local match for exercise server ID ${ex['exerciseId']}',
+          );
           continue;
         }
 
@@ -1569,67 +1949,94 @@ class SyncService {
         // rather than inserting new ones.
         int localWeId;
         if (nameMatch != null) {
-          final weMatch = await (_db.select(_db.workoutExerciseTable)
-            ..where((t) => t.workoutId.equals(localWorkoutId) &
-                           t.exerciseId.equals(localExercise.id) &
-                           t.serverId.isNull())
-            ..limit(1)).getSingleOrNull();
+          final weMatch =
+              await (_db.select(_db.workoutExerciseTable)
+                    ..where(
+                      (t) =>
+                          t.workoutId.equals(localWorkoutId) &
+                          t.exerciseId.equals(localExercise.id) &
+                          t.serverId.isNull(),
+                    )
+                    ..limit(1))
+                  .getSingleOrNull();
           if (weMatch != null) {
             localWeId = weMatch.id;
-            await (_db.update(_db.workoutExerciseTable)..where((t) => t.id.equals(localWeId)))
-                .write(WorkoutExerciseTableCompanion(serverId: Value(exServerId), syncStatus: const Value(1)));
-          } else {
-            localWeId = await _db.into(_db.workoutExerciseTable).insert(
+            await (_db.update(_db.workoutExerciseTable)
+              ..where((t) => t.id.equals(localWeId))).write(
               WorkoutExerciseTableCompanion(
-                workoutId: Value(localWorkoutId),
-                exerciseId: Value(localExercise.id),
-                orderPosition: Value(ex['orderPosition'] as int),
-                notes: Value(ex['notes'] as String?),
-                supersetGroupId: Value(ex['supersetGroupId'] as int?),
                 serverId: Value(exServerId),
                 syncStatus: const Value(1),
               ),
             );
+          } else {
+            localWeId = await _db
+                .into(_db.workoutExerciseTable)
+                .insert(
+                  WorkoutExerciseTableCompanion(
+                    workoutId: Value(localWorkoutId),
+                    exerciseId: Value(localExercise.id),
+                    orderPosition: Value(ex['orderPosition'] as int),
+                    notes: Value(ex['notes'] as String?),
+                    supersetGroupId: Value(ex['supersetGroupId'] as int?),
+                    serverId: Value(exServerId),
+                    syncStatus: const Value(1),
+                  ),
+                );
           }
         } else {
-          localWeId = await _db.into(_db.workoutExerciseTable).insert(
-            WorkoutExerciseTableCompanion(
-              workoutId: Value(localWorkoutId),
-              exerciseId: Value(localExercise.id),
-              orderPosition: Value(ex['orderPosition'] as int),
-              notes: Value(ex['notes'] as String?),
-              supersetGroupId: Value(ex['supersetGroupId'] as int?),
-              serverId: Value(exServerId),
-              syncStatus: const Value(1),
-            ),
-          );
+          localWeId = await _db
+              .into(_db.workoutExerciseTable)
+              .insert(
+                WorkoutExerciseTableCompanion(
+                  workoutId: Value(localWorkoutId),
+                  exerciseId: Value(localExercise.id),
+                  orderPosition: Value(ex['orderPosition'] as int),
+                  notes: Value(ex['notes'] as String?),
+                  supersetGroupId: Value(ex['supersetGroupId'] as int?),
+                  serverId: Value(exServerId),
+                  syncStatus: const Value(1),
+                ),
+              );
         }
 
-        for (final st in (ex['setTemplates'] as List).cast<Map<String, dynamic>>()) {
+        for (final st
+            in (ex['setTemplates'] as List).cast<Map<String, dynamic>>()) {
           final stServerId = st['id'] as String;
           // Stamp existing unsynced set template if one already exists.
           if (nameMatch != null) {
-            final stMatch = await (_db.select(_db.workoutSetTemplateTable)
-              ..where((t) => t.workoutExerciseId.equals(localWeId) &
-                             t.setNumber.equals(st['setNumber'] as int) &
-                             t.serverId.isNull())
-              ..limit(1)).getSingleOrNull();
+            final stMatch =
+                await (_db.select(_db.workoutSetTemplateTable)
+                      ..where(
+                        (t) =>
+                            t.workoutExerciseId.equals(localWeId) &
+                            t.setNumber.equals(st['setNumber'] as int) &
+                            t.serverId.isNull(),
+                      )
+                      ..limit(1))
+                    .getSingleOrNull();
             if (stMatch != null) {
-              await (_db.update(_db.workoutSetTemplateTable)..where((t) => t.id.equals(stMatch.id)))
-                  .write(WorkoutSetTemplateTableCompanion(serverId: Value(stServerId), syncStatus: const Value(1)));
+              await (_db.update(_db.workoutSetTemplateTable)
+                ..where((t) => t.id.equals(stMatch.id))).write(
+                WorkoutSetTemplateTableCompanion(
+                  serverId: Value(stServerId),
+                  syncStatus: const Value(1),
+                ),
+              );
               continue;
             }
           }
-          await _db.into(_db.workoutSetTemplateTable).insert(
-            WorkoutSetTemplateTableCompanion(
-              workoutExerciseId: Value(localWeId),
-              setNumber: Value(st['setNumber'] as int),
-              targetReps: Value(st['targetReps'] as String),
-              orderPosition: Value(st['orderPosition'] as int),
-              serverId: Value(stServerId),
-              syncStatus: const Value(1),
-            ),
-          );
+          await _db
+              .into(_db.workoutSetTemplateTable)
+              .insert(
+                WorkoutSetTemplateTableCompanion(
+                  workoutExerciseId: Value(localWeId),
+                  setNumber: Value(st['setNumber'] as int),
+                  targetReps: Value(st['targetReps'] as String),
+                  orderPosition: Value(st['orderPosition'] as int),
+                  serverId: Value(stServerId),
+                  syncStatus: const Value(1),
+                ),
+              );
         }
       }
       _logger.i('Pulled workout $workoutServerId');
@@ -1641,30 +2048,44 @@ class SyncService {
     final list = (response.data as List).cast<Map<String, dynamic>>();
     for (final p in list) {
       final planServerId = p['id'] as String;
-      if (await _db.workoutPlanDao.getPlanByServerId(planServerId) != null) continue;
-      final localPlanId = await _db.into(_db.workoutPlanTable).insert(
-        WorkoutPlanTableCompanion(
-          name: Value(p['name'] as String),
-          description: Value(p['description'] as String?),
-          startDate: Value(DateTime.parse(p['startDate'] as String)),
-          createdAt: Value(DateTime.parse(p['createdAt'] as String)),
-          isActive: Value(p['isActive'] as bool),
-          cyclePatternJson: Value(p['cyclePatternJson'] as String),
-          isFreeChoice: Value(p['isFreeChoice'] as bool),
-          serverId: Value(planServerId),
-          syncStatus: const Value(1),
-        ),
-      );
-      for (final workoutServerId in (p['workoutIds'] as List).cast<String>()) {
-        final localWorkout = await _db.workoutDao.getWorkoutByServerId(workoutServerId);
-        if (localWorkout == null) continue;
-        await _db.into(_db.workoutPlanWorkoutTable).insert(
-          WorkoutPlanWorkoutTableCompanion(
-            planId: Value(localPlanId),
-            workoutId: Value(localWorkout.id),
-            syncStatus: const Value(1),
-          ),
+      if (await _db.workoutPlanDao.getPlanByServerId(planServerId) != null)
+        continue;
+      final localPlanId = await _db
+          .into(_db.workoutPlanTable)
+          .insert(
+            WorkoutPlanTableCompanion(
+              name: Value(p['name'] as String),
+              description: Value(p['description'] as String?),
+              startDate: Value(DateTime.parse(p['startDate'] as String)),
+              createdAt: Value(DateTime.parse(p['createdAt'] as String)),
+              isActive: Value(p['isActive'] as bool),
+              cyclePatternJson: Value(p['cyclePatternJson'] as String),
+              isFreeChoice: Value(p['isFreeChoice'] as bool),
+              serverId: Value(planServerId),
+              syncStatus: const Value(1),
+            ),
+          );
+      final serverDurationDays = p['durationDays'] as int?;
+      if (serverDurationDays != null) {
+        await _db.customStatement(
+          'UPDATE workout_plan_table SET duration_days = ? WHERE id = ?',
+          [serverDurationDays, localPlanId],
         );
+      }
+      for (final workoutServerId in (p['workoutIds'] as List).cast<String>()) {
+        final localWorkout = await _db.workoutDao.getWorkoutByServerId(
+          workoutServerId,
+        );
+        if (localWorkout == null) continue;
+        await _db
+            .into(_db.workoutPlanWorkoutTable)
+            .insert(
+              WorkoutPlanWorkoutTableCompanion(
+                planId: Value(localPlanId),
+                workoutId: Value(localWorkout.id),
+                syncStatus: const Value(1),
+              ),
+            );
       }
       _logger.i('Pulled plan $planServerId');
     }
@@ -1675,12 +2096,16 @@ class SyncService {
     final list = (response.data as List).cast<Map<String, dynamic>>();
     for (final sw in list) {
       final swServerId = sw['id'] as String;
-      final localWorkout = await _db.workoutDao.getWorkoutByServerId(sw['workoutId'] as String);
+      final localWorkout = await _db.workoutDao.getWorkoutByServerId(
+        sw['workoutId'] as String,
+      );
       if (localWorkout == null) continue;
 
       // Resolve (or create) the local scheduled workout row.
       int localSwId;
-      final existingBySid = await _db.scheduledWorkoutDao.getByServerId(swServerId);
+      final existingBySid = await _db.scheduledWorkoutDao.getByServerId(
+        swServerId,
+      );
       if (existingBySid != null) {
         localSwId = existingBySid.id;
         // Always update mutable server-authoritative fields so completions/skips
@@ -1688,52 +2113,70 @@ class SyncService {
         if (existingBySid.syncStatus == 1) {
           await (_db.update(_db.scheduledWorkoutTable)
             ..where((t) => t.id.equals(localSwId))).write(
-              ScheduledWorkoutTableCompanion(
-                isCompleted: Value(sw['isCompleted'] as bool),
-                isSkipped: Value(sw['isSkipped'] as bool),
-                notes: Value(sw['notes'] as String?),
-              ),
-            );
+            ScheduledWorkoutTableCompanion(
+              isCompleted: Value(sw['isCompleted'] as bool),
+              isSkipped: Value(sw['isSkipped'] as bool),
+              notes: Value(sw['notes'] as String?),
+            ),
+          );
         }
       } else {
         // Convert to local time for comparison — locally stored dates use local midnight.
-        final scheduledDate = DateTime.parse(sw['scheduledDate'] as String).toLocal();
-        final dateStart = DateTime(scheduledDate.year, scheduledDate.month, scheduledDate.day);
+        final scheduledDate =
+            DateTime.parse(sw['scheduledDate'] as String).toLocal();
+        final dateStart = DateTime(
+          scheduledDate.year,
+          scheduledDate.month,
+          scheduledDate.day,
+        );
         final dateEnd = dateStart.add(const Duration(days: 1));
-        final existingByContent = await (_db.select(_db.scheduledWorkoutTable)
-          ..where((t) =>
-              t.workoutId.equals(localWorkout.id) &
-              t.scheduledDate.isBiggerOrEqualValue(dateStart) &
-              t.scheduledDate.isSmallerThanValue(dateEnd))
-          ..limit(1)).getSingleOrNull();
+        final existingByContent =
+            await (_db.select(_db.scheduledWorkoutTable)
+                  ..where(
+                    (t) =>
+                        t.workoutId.equals(localWorkout.id) &
+                        t.scheduledDate.isBiggerOrEqualValue(dateStart) &
+                        t.scheduledDate.isSmallerThanValue(dateEnd),
+                  )
+                  ..limit(1))
+                .getSingleOrNull();
 
         if (existingByContent != null) {
           // If it already has a different serverId, this is a server-side duplicate — skip entirely.
-          if (existingByContent.serverId != null && existingByContent.serverId != swServerId) continue;
+          if (existingByContent.serverId != null &&
+              existingByContent.serverId != swServerId)
+            continue;
           localSwId = existingByContent.id;
-          final companion = existingByContent.serverId == null
-              ? ScheduledWorkoutTableCompanion(
-                  serverId: Value(swServerId),
-                  syncStatus: const Value(1),
-                  isCompleted: Value(sw['isCompleted'] as bool),
-                  isSkipped: Value(sw['isSkipped'] as bool),
-                  notes: Value(sw['notes'] as String?),
-                )
-              : ScheduledWorkoutTableCompanion(
-                  isCompleted: Value(sw['isCompleted'] as bool),
-                  isSkipped: Value(sw['isSkipped'] as bool),
-                  notes: Value(sw['notes'] as String?),
-                );
+          final companion =
+              existingByContent.serverId == null
+                  ? ScheduledWorkoutTableCompanion(
+                    serverId: Value(swServerId),
+                    syncStatus: const Value(1),
+                    isCompleted: Value(sw['isCompleted'] as bool),
+                    isSkipped: Value(sw['isSkipped'] as bool),
+                    notes: Value(sw['notes'] as String?),
+                  )
+                  : ScheduledWorkoutTableCompanion(
+                    isCompleted: Value(sw['isCompleted'] as bool),
+                    isSkipped: Value(sw['isSkipped'] as bool),
+                    notes: Value(sw['notes'] as String?),
+                  );
           await (_db.update(_db.scheduledWorkoutTable)
             ..where((t) => t.id.equals(existingByContent.id))).write(companion);
         } else {
           int? localPlanId;
           if (sw['workoutPlanId'] != null) {
-            localPlanId = (await _db.workoutPlanDao.getPlanByServerId(sw['workoutPlanId'] as String))?.id;
+            localPlanId =
+                (await _db.workoutPlanDao.getPlanByServerId(
+                  sw['workoutPlanId'] as String,
+                ))?.id;
           }
           int? localTemplateId;
           if (sw['templateWorkoutId'] != null) {
-            localTemplateId = (await _db.workoutDao.getWorkoutByServerId(sw['templateWorkoutId'] as String))?.id;
+            localTemplateId =
+                (await _db.workoutDao.getWorkoutByServerId(
+                  sw['templateWorkoutId'] as String,
+                ))?.id;
           }
           localSwId = await _db.scheduledWorkoutDao.scheduleWorkout(
             ScheduledWorkoutTableCompanion(
@@ -1756,49 +2199,86 @@ class SyncService {
       for (final se in (sw['exercises'] as List).cast<Map<String, dynamic>>()) {
         final seServerId = se['id'] as String;
 
-        final existingSe = await _db.scheduledWorkoutExerciseDao.getByServerId(seServerId);
+        final existingSe = await _db.scheduledWorkoutExerciseDao.getByServerId(
+          seServerId,
+        );
         int localSeId;
         if (existingSe != null) {
           localSeId = existingSe.id;
         } else {
-          final localWe = await _db.workoutDao.getWorkoutExerciseByServerId(se['workoutExerciseId'] as String);
+          final localWe = await _db.workoutDao.getWorkoutExerciseByServerId(
+            se['workoutExerciseId'] as String,
+          );
           if (localWe == null) {
-            _logger.w('Pull SW $swServerId: skipping exercise $seServerId — no local workout exercise for ${se['workoutExerciseId']}');
+            _logger.w(
+              'Pull SW $swServerId: skipping exercise $seServerId — no local workout exercise for ${se['workoutExerciseId']}',
+            );
             continue;
           }
-          localSeId = await _db.into(_db.scheduledWorkoutExerciseTable).insert(
-            ScheduledWorkoutExerciseTableCompanion(
-              scheduledWorkoutId: Value(localSwId),
-              workoutExerciseId: Value(localWe.id),
-              isCompleted: Value(se['isCompleted'] as bool),
-              notes: Value(se['notes'] as String?),
-              serverId: Value(seServerId),
-              syncStatus: const Value(1),
-            ),
-          );
+          localSeId = await _db
+              .into(_db.scheduledWorkoutExerciseTable)
+              .insert(
+                ScheduledWorkoutExerciseTableCompanion(
+                  scheduledWorkoutId: Value(localSwId),
+                  workoutExerciseId: Value(localWe.id),
+                  isCompleted: Value(se['isCompleted'] as bool),
+                  notes: Value(se['notes'] as String?),
+                  serverId: Value(seServerId),
+                  syncStatus: const Value(1),
+                ),
+              );
         }
 
         for (final s in (se['sets'] as List).cast<Map<String, dynamic>>()) {
           final setServerId = s['id'] as String;
-          final existingSet = await (_db.select(_db.workoutSetTable)
-            ..where((t) => t.serverId.equals(setServerId))
-            ..limit(1)).getSingleOrNull();
+          final existingSet =
+              await (_db.select(_db.workoutSetTable)
+                    ..where((t) => t.serverId.equals(setServerId))
+                    ..limit(1))
+                  .getSingleOrNull();
           if (existingSet != null) continue;
 
-          await _db.into(_db.workoutSetTable).insert(
-            WorkoutSetTableCompanion(
-              scheduledWorkoutExerciseId: Value(localSeId),
-              setNumber: Value(s['setNumber'] as int),
-              reps: Value(s['reps'] as int?),
-              weight: Value((s['weight'] as num?)?.toDouble()),
-              weightUnit: Value(s['weightUnit'] as String?),
-              durationSeconds: Value(s['durationSeconds'] as int?),
-              isCompleted: Value(s['isCompleted'] as bool),
-              notes: Value(s['notes'] as String?),
-              serverId: Value(setServerId),
-              syncStatus: const Value(1),
-            ),
-          );
+          // If a local set for the same exercise+setNumber exists without a
+          // serverId, stamp it rather than inserting a duplicate row. This
+          // prevents double rows when _saveCurrentExercise re-inserts sets
+          // after losing their serverIds.
+          final unlinkedSet =
+              await (_db.select(_db.workoutSetTable)
+                    ..where(
+                      (t) =>
+                          t.scheduledWorkoutExerciseId.equals(localSeId) &
+                          t.setNumber.equals(s['setNumber'] as int) &
+                          t.serverId.isNull(),
+                    )
+                    ..limit(1))
+                  .getSingleOrNull();
+          if (unlinkedSet != null) {
+            await (_db.update(_db.workoutSetTable)
+              ..where((t) => t.id.equals(unlinkedSet.id))).write(
+              WorkoutSetTableCompanion(
+                serverId: Value(setServerId),
+                syncStatus: const Value(1),
+              ),
+            );
+            continue;
+          }
+
+          await _db
+              .into(_db.workoutSetTable)
+              .insert(
+                WorkoutSetTableCompanion(
+                  scheduledWorkoutExerciseId: Value(localSeId),
+                  setNumber: Value(s['setNumber'] as int),
+                  reps: Value(s['reps'] as int?),
+                  weight: Value((s['weight'] as num?)?.toDouble()),
+                  weightUnit: Value(s['weightUnit'] as String?),
+                  durationSeconds: Value(s['durationSeconds'] as int?),
+                  isCompleted: Value(s['isCompleted'] as bool),
+                  notes: Value(s['notes'] as String?),
+                  serverId: Value(setServerId),
+                  syncStatus: const Value(1),
+                ),
+              );
         }
       }
       _logger.i('Pulled scheduled workout $swServerId');
@@ -1830,18 +2310,20 @@ class SyncService {
     for (final f in list) {
       final serverId = f['id'] as String;
       if (await _db.foodItemDao.getByServerId(serverId) != null) continue;
-      await _db.foodItemDao.insertFoodItem(FoodItemCompanion(
-        name: Value(f['name'] as String),
-        calories: Value(f['calories'] as int),
-        protein: Value(f['protein'] as int),
-        carbs: Value(f['carbs'] as int),
-        fat: Value(f['fat'] as int),
-        gramm: Value(f['gramm'] as int? ?? 100),
-        hiddenFromRecent: Value(f['hiddenFromRecent'] as bool? ?? false),
-        extendedNutrientsJson: Value(f['extendedNutrientsJson'] as String?),
-        serverId: Value(serverId),
-        syncStatus: const Value(1),
-      ));
+      await _db.foodItemDao.insertFoodItem(
+        FoodItemCompanion(
+          name: Value(f['name'] as String),
+          calories: Value(f['calories'] as int),
+          protein: Value(f['protein'] as int),
+          carbs: Value(f['carbs'] as int),
+          fat: Value(f['fat'] as int),
+          gramm: Value(f['gramm'] as int? ?? 100),
+          hiddenFromRecent: Value(f['hiddenFromRecent'] as bool? ?? false),
+          extendedNutrientsJson: Value(f['extendedNutrientsJson'] as String?),
+          serverId: Value(serverId),
+          syncStatus: const Value(1),
+        ),
+      );
     }
     _logger.i('Pulled ${list.length} food items');
   }
@@ -1851,7 +2333,9 @@ class SyncService {
     final list = (response.data as List).cast<Map<String, dynamic>>();
     for (final m in list) {
       final mealServerId = m['id'] as String;
-      final localFood = await _db.foodItemDao.getByServerId(m['foodItemId'] as String);
+      final localFood = await _db.foodItemDao.getByServerId(
+        m['foodItemId'] as String,
+      );
       if (localFood == null) continue;
 
       // Check by serverId first (already synced).
@@ -1860,42 +2344,66 @@ class SyncService {
       // If not found by serverId, look for a locally-created meal with same date+category
       // that hasn't been linked to the server yet — adopt it rather than duplicating.
       if (existing == null) {
-        final serverDate = _toLocalMidnight(DateTime.parse(m['date'] as String));
-        final unlinked = await _db.mealDao.getMealByDateAndCategory(serverDate, m['category'] as String);
+        final serverDate = _toLocalMidnight(
+          DateTime.parse(m['date'] as String),
+        );
+        final unlinked = await _db.mealDao.getMealByDateAndCategory(
+          serverDate,
+          m['category'] as String,
+        );
         if (unlinked != null && unlinked.serverId == null) {
-          await _db.mealDao.markMealSynced(localId: unlinked.id, serverId: mealServerId);
+          await _db.mealDao.markMealSynced(
+            localId: unlinked.id,
+            serverId: mealServerId,
+          );
           existing = await _db.mealDao.getMealById(unlinked.id);
         }
       }
 
       final int localMealId;
       if (existing == null) {
-        final serverDate = _toLocalMidnight(DateTime.parse(m['date'] as String));
-        localMealId = await _db.mealDao.insertMeal(MealTableCompanion(
-          date: Value(serverDate),
-          category: Value(m['category'] as String),
-          foodItemId: Value(localFood.id),
-          serverId: Value(mealServerId),
-          syncStatus: const Value(1),
-        ));
+        final serverDate = _toLocalMidnight(
+          DateTime.parse(m['date'] as String),
+        );
+        localMealId = await _db.mealDao.insertMeal(
+          MealTableCompanion(
+            date: Value(serverDate),
+            category: Value(m['category'] as String),
+            foodItemId: Value(localFood.id),
+            serverId: Value(mealServerId),
+            syncStatus: const Value(1),
+          ),
+        );
       } else {
         localMealId = existing.id;
       }
 
-      for (final entry in (m['foodEntries'] as List).cast<Map<String, dynamic>>()) {
+      for (final entry
+          in (m['foodEntries'] as List).cast<Map<String, dynamic>>()) {
         final entryServerId = entry['id'] as String;
-        if (await _db.mealDao.getFoodEntryByServerId(entryServerId) != null) continue;
-        final entryFood = await _db.foodItemDao.getByServerId(entry['foodItemId'] as String);
+        if (await _db.mealDao.getFoodEntryByServerId(entryServerId) != null)
+          continue;
+        final entryFood = await _db.foodItemDao.getByServerId(
+          entry['foodItemId'] as String,
+        );
         if (entryFood == null) continue;
         // Skip if this food item is already in the meal (locally added, no serverId yet).
-        final existingEntries = await _db.mealDao.getFoodItemsForMeal(localMealId);
+        final existingEntries = await _db.mealDao.getFoodItemsForMeal(
+          localMealId,
+        );
         if (existingEntries.any((e) => e.foodEntryId == entryFood.id)) {
           // Just stamp the serverId on the existing entry.
-          final match = existingEntries.firstWhere((e) => e.foodEntryId == entryFood.id);
+          final match = existingEntries.firstWhere(
+            (e) => e.foodEntryId == entryFood.id,
+          );
           await _db.mealDao.setFoodEntryServerId(match.id, entryServerId);
           continue;
         }
-        await _db.mealDao.addFoodToMeal(entryFood.id, localMealId, entryServerId);
+        await _db.mealDao.addFoodToMeal(
+          entryFood.id,
+          localMealId,
+          entryServerId,
+        );
       }
     }
     _logger.i('Pulled ${list.length} meals');
@@ -1905,27 +2413,31 @@ class SyncService {
     final response = await _apiClient.get('api/MealTemplate');
     final list = (response.data as List).cast<Map<String, dynamic>>();
     final existing = await _mealTemplateDao.getAllTemplates();
-    final existingServerIds = existing
-        .map((t) => t['serverId'] as String?)
-        .whereType<String>()
-        .toSet();
+    final existingServerIds =
+        existing
+            .map((t) => t['serverId'] as String?)
+            .whereType<String>()
+            .toSet();
 
     for (final t in list) {
       final serverId = t['id'] as String;
       if (existingServerIds.contains(serverId)) continue;
 
-      final items = (t['items'] as List? ?? [])
-          .cast<Map<String, dynamic>>()
-          .map((i) => {
-                'foodName': i['foodName'] ?? '',
-                'quantity': (i['quantity'] as num?)?.toDouble() ?? 0.0,
-                'unit': i['unit'] ?? 'g',
-                'calories': (i['calories'] as num?)?.toDouble() ?? 0.0,
-                'protein': (i['protein'] as num?)?.toDouble() ?? 0.0,
-                'carbs': (i['carbs'] as num?)?.toDouble() ?? 0.0,
-                'fat': (i['fat'] as num?)?.toDouble() ?? 0.0,
-              })
-          .toList();
+      final items =
+          (t['items'] as List? ?? [])
+              .cast<Map<String, dynamic>>()
+              .map(
+                (i) => {
+                  'foodName': i['foodName'] ?? '',
+                  'quantity': (i['quantity'] as num?)?.toDouble() ?? 0.0,
+                  'unit': i['unit'] ?? 'g',
+                  'calories': (i['calories'] as num?)?.toDouble() ?? 0.0,
+                  'protein': (i['protein'] as num?)?.toDouble() ?? 0.0,
+                  'carbs': (i['carbs'] as num?)?.toDouble() ?? 0.0,
+                  'fat': (i['fat'] as num?)?.toDouble() ?? 0.0,
+                },
+              )
+              .toList();
 
       final localId = await _mealTemplateDao.insertTemplate({
         'name': t['name'],

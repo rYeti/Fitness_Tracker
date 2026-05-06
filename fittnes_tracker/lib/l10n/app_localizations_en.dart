@@ -1923,4 +1923,12 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get deleteAccountError =>
       'Failed to delete account. Please check your password and try again.';
+
+  @override
+  String get planDurationLabel => 'Plan Duration';
+
+  @override
+  String nWeeks(int count) {
+    return '$count weeks';
+  }
 }

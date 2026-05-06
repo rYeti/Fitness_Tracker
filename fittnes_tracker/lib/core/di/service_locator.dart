@@ -1,4 +1,5 @@
 import 'package:ForgeForm/core/app_database.dart';
+import 'package:ForgeForm/core/services/notification_service.dart';
 import 'package:get_it/get_it.dart';
 import '../network/api_client.dart';
 import '../../feature/food_tracking/data/data_sources/food_api.dart';
@@ -17,6 +18,7 @@ void setupLocator() {
     ),
   );
   sl.registerLazySingleton(() => FoodApi());
+  sl.registerLazySingleton(() => NotificationService());
   // Database will be registered after creation in main.dart
 }
 

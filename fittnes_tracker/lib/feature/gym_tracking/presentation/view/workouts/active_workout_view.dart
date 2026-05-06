@@ -179,14 +179,15 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
         final exercise = exerciseData.$1;
         final templates = exerciseData.$2;
         final workoutExercise = exerciseData.$3;
-        final previousSets = await _loadPreviousWorkoutSets(
+        final (previousSets, previousExerciseNote) =
+            await _loadPreviousWorkoutSets(
           db: db,
           workoutExerciseId: workoutExercise.id,
         );
         final previousSetsMap = {
           for (var set in previousSets) set.setNumber: set,
         };
-        final scheduledExercise =
+        final scheduledExerciseRows =
             await (db.select(db.scheduledWorkoutExerciseTable)
                   ..where((t) => t.workoutExerciseId.equals(workoutExercise.id))
                   ..where(
@@ -194,7 +195,8 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                       widget.scheduledWorkout.scheduled.id,
                     ),
                   ))
-                .getSingleOrNull();
+                .get();
+        final scheduledExercise = scheduledExerciseRows.firstOrNull;
         // If a per-day override exercise was saved, load that instead
         final overrideId = scheduledExercise?.overrideExerciseId;
         final resolvedExercise =
@@ -230,6 +232,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
             previousSets: previousSetsMap,
             scheduledExerciseId: scheduledExercise?.id,
             existingSets: existingSetsMap,
+            previousExerciseNote: previousExerciseNote,
             supersetGroupId: workoutExercise.supersetGroupId,
           ),
         );
@@ -279,14 +282,11 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     }
   }
 
-  Future<List<WorkoutSetTableData>> _loadPreviousWorkoutSets({
+  Future<(List<WorkoutSetTableData>, String?)> _loadPreviousWorkoutSets({
     required AppDatabase db,
     required int workoutExerciseId,
   }) async {
     try {
-      // templateWorkoutId is not pushed to/pulled from the server, so it can be
-      // null after a data restore. Fall back to workoutId — which IS always
-      // synced — and refers to the same template workout in the common case.
       final templateId =
           widget.scheduledWorkout.scheduled.templateWorkoutId;
       final matchId =
@@ -309,9 +309,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                 )
                 ..orderBy([(t) => OrderingTerm.desc(t.scheduledDate)]))
               .get();
-      if (previousScheduledWorkouts.isEmpty) {
-        return [];
-      }
+      if (previousScheduledWorkouts.isEmpty) return (<WorkoutSetTableData>[], null);
 
       final mostRecentWorkout = previousScheduledWorkouts.first;
 
@@ -323,9 +321,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                 ..where((t) => t.workoutExerciseId.equals(workoutExerciseId)))
               .getSingleOrNull();
 
-      if (previousScheduledExercise == null) {
-        return [];
-      }
+      if (previousScheduledExercise == null) return (<WorkoutSetTableData>[], null);
 
       final sets =
           await (db.select(db.workoutSetTable)
@@ -337,10 +333,10 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                 ..orderBy([(t) => OrderingTerm.asc(t.setNumber)]))
               .get();
 
-      return sets;
+      return (sets, previousScheduledExercise.notes);
     } catch (e) {
       AppLogger.i('Error loading previous sets: $e');
-      return [];
+      return (<WorkoutSetTableData>[], null);
     }
   }
 
@@ -358,20 +354,24 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     return controller;
   }
 
-  Future<void> _saveCurrentExercise() async {
+  Future<void> _saveCurrentExercise({bool flushIme = false}) async {
     if (_currentExerciseIndex >= _exercises.length) return;
     if (widget.isReadOnly) return;
 
-    // Capture db before the async gap to avoid BuildContext-across-await lint.
+    // Capture both db and exerciseData before any async gap. _currentExerciseIndex
+    // can change via setState in _nextExercise (which calls this without await),
+    // so reading it after endOfFrame would save the wrong exercise's data.
     final db = context.read<AppDatabase>();
-
-    // Ensure any pending IME composition on Android is committed before we
-    // read controller text. endOfFrame waits for the full frame pipeline
-    // (including platform-channel round-trips from the IME), which is required
-    // on Android 13+ where composition commits can take longer than one tick.
-    FocusManager.instance.primaryFocus?.unfocus();
-    await WidgetsBinding.instance.endOfFrame;
     final exerciseData = _exercises[_currentExerciseIndex];
+
+    // Always wait one frame so any pending IME composition is committed before
+    // reading controller text. On navigation/completion (flushIme: true) we
+    // also unfocus first to flush the Android 16 platform-channel round-trip.
+    // On debounce autosaves we skip unfocus so the keyboard stays open.
+    if (flushIme) {
+      FocusManager.instance.primaryFocus?.unfocus();
+    }
+    await WidgetsBinding.instance.endOfFrame;
 
     try {
       final exerciseNoteKey = _getExerciseNoteKey(
@@ -395,20 +395,30 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
           ),
         );
       } else {
-        scheduledExerciseId = await db
-            .into(db.scheduledWorkoutExerciseTable)
-            .insert(
-              ScheduledWorkoutExerciseTableCompanion.insert(
-                scheduledWorkoutId: widget.scheduledWorkout.scheduled.id,
-                workoutExerciseId: exerciseData.workoutExercise.id,
-                notes: Value(
-                  noteController?.text.isEmpty ?? true
-                      ? null
-                      : noteController!.text,
-                ),
-              ),
-            );
+        // Guard against concurrent saves both seeing scheduledExerciseId==null
+        // and each inserting a duplicate row.
+        final existing = await (db.select(db.scheduledWorkoutExerciseTable)
+              ..where((t) => t.workoutExerciseId.equals(exerciseData.workoutExercise.id))
+              ..where((t) => t.scheduledWorkoutId.equals(widget.scheduledWorkout.scheduled.id)))
+            .get();
 
+        if (existing.isNotEmpty) {
+          scheduledExerciseId = existing.first.id;
+        } else {
+          scheduledExerciseId = await db
+              .into(db.scheduledWorkoutExerciseTable)
+              .insert(
+                ScheduledWorkoutExerciseTableCompanion.insert(
+                  scheduledWorkoutId: widget.scheduledWorkout.scheduled.id,
+                  workoutExerciseId: exerciseData.workoutExercise.id,
+                  notes: Value(
+                    noteController?.text.isEmpty ?? true
+                        ? null
+                        : noteController!.text,
+                  ),
+                ),
+              );
+        }
         exerciseData.scheduledExerciseId = scheduledExerciseId;
       }
 
@@ -427,7 +437,6 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
           template.setNumber,
           'reps',
         );
-
         final weightController = _setControllers[weightKey];
         final repsController = _setControllers[repsKey];
 
@@ -460,16 +469,23 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
       return;
     }
 
-    // Dismiss the keyboard and flush any pending IME composition on Android
-    // before reading controller values, otherwise in-progress text can read
-    // as empty and get saved as 0.
+    // Cancel any pending debounce save, then flush IME before reading controllers.
+    _saveDebounce?.cancel();
     FocusManager.instance.primaryFocus?.unfocus();
     await WidgetsBinding.instance.endOfFrame;
 
     setState(() => _isSaving = true);
 
     try {
-      await _saveCurrentExercise();
+      // Save every exercise — a stale debounce could have wiped a prior exercise's
+      // sets after navigation, so we do a full pass here as a safety net.
+      // IME is already flushed above, so flushIme is not needed inside the loop.
+      final originalIndex = _currentExerciseIndex;
+      for (var i = 0; i < _exercises.length; i++) {
+        _currentExerciseIndex = i;
+        await _saveCurrentExercise();
+      }
+      _currentExerciseIndex = originalIndex;
 
       final db = context.read<AppDatabase>();
 
@@ -547,7 +563,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
 
       if (isOnFirst) {
         // Jump to partner at same set index (clamped to its length)
-        _saveCurrentExercise();
+        _saveCurrentExercise(flushIme: true);
         final partnerSetIndex =
             _currentSetIndex < partnerSets ? _currentSetIndex : partnerSets - 1;
         setState(() {
@@ -559,7 +575,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
         // Back on second exercise — advance set or leave superset
         if (_currentSetIndex < maxSets - 1) {
           final nextSet = _currentSetIndex + 1;
-          _saveCurrentExercise();
+          _saveCurrentExercise(flushIme: true);
           final firstIndex = partnerIndex; // partner is now the "first"
           final firstSets = _exercises[firstIndex].templates.length;
           final firstSetIndex = nextSet < firstSets ? nextSet : firstSets - 1;
@@ -569,7 +585,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
           });
           if (_restTimerEnabled) showRestTimer(context);
         } else {
-          _saveCurrentExercise();
+          _saveCurrentExercise(flushIme: true);
           // Both exercises done — skip past the superset pair
           final afterSuperset =
               (partnerIndex > _currentExerciseIndex
@@ -702,7 +718,8 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
   void _nextExercise() {
     if (widget.isReadOnly) return;
     if (_currentExerciseIndex < _exercises.length - 1) {
-      _saveCurrentExercise();
+      _saveDebounce?.cancel();
+      _saveCurrentExercise(flushIme: true);
       setState(() {
         _currentExerciseIndex++;
         _currentSetIndex = 0;
@@ -713,7 +730,8 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
   void _previousExercise() {
     if (widget.isReadOnly) return;
     if (_currentExerciseIndex > 0) {
-      _saveCurrentExercise();
+      _saveDebounce?.cancel();
+      _saveCurrentExercise(flushIme: true);
       setState(() {
         _currentExerciseIndex--;
         _currentSetIndex = 0;
@@ -798,7 +816,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
       canPop: false,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
-        await _saveCurrentExercise();
+        await _saveCurrentExercise(flushIme: true);
         if (context.mounted) Navigator.of(context).pop();
       },
       child: SafeArea(
@@ -824,7 +842,10 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
               ),
             ],
           ),
-          body: Column(
+          body: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => FocusScope.of(context).unfocus(),
+            child: Column(
             children: [
               LinearProgressIndicator(
                 value: progress,
@@ -872,6 +893,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
 
               _buildNavigationButtons(theme, l10n),
             ],
+          ),
           ),
         ),
       ),
@@ -1163,6 +1185,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     final exerciseNoteController = _exerciseNoteControllers[exerciseNoteKey];
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -1248,6 +1271,18 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                         fontWeight: FontWeight.bold,
                       ),
                     ),
+                    if (exerciseData.previousExerciseNote != null &&
+                        exerciseData.previousExerciseNote!.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        exerciseData.previousExerciseNote!,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                          fontStyle: FontStyle.italic,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -1343,7 +1378,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
               ),
             ),
           ),
-          const SizedBox(height: 16),
+            const SizedBox(height: 16),
 
           Card(
             elevation: 2,
@@ -1835,7 +1870,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                                       () => supersetPickIndex = null,
                                     );
                                   } else {
-                                    _saveCurrentExercise();
+                                    _saveCurrentExercise(flushIme: true);
                                     setState(() {
                                       _currentExerciseIndex = index;
                                       _currentSetIndex = 0;
@@ -2352,6 +2387,7 @@ class _ExerciseWithSets {
   List<WorkoutSetTemplateData> templates;
   final Map<int, WorkoutSetTableData> previousSets;
   final Map<int, WorkoutSetTableData> existingSets;
+  final String? previousExerciseNote;
   int? scheduledExerciseId;
   int? supersetGroupId;
   _ExerciseWithSets({
@@ -2361,6 +2397,7 @@ class _ExerciseWithSets {
     required this.previousSets,
     this.scheduledExerciseId,
     required this.existingSets,
+    this.previousExerciseNote,
     this.supersetGroupId,
   });
 }

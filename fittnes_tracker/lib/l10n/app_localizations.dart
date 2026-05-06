@@ -3559,6 +3559,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Failed to delete account. Please check your password and try again.'**
   String get deleteAccountError;
+
+  /// No description provided for @planDurationLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Plan Duration'**
+  String get planDurationLabel;
+
+  /// No description provided for @nWeeks.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} weeks'**
+  String nWeeks(int count);
 }
 
 class _AppLocalizationsDelegate

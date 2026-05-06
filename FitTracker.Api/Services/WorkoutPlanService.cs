@@ -45,6 +45,7 @@ public class WorkoutPlanService : IWorkoutPlanService
             IsActive = true,
             CyclePatternJson = dto.CyclePatternJson,
             IsFreeChoice = dto.IsFreeChoice,
+            DurationDays = dto.DurationDays,
         };
 
         var created = await _planRepository.CreatePlanAsync(plan);
@@ -101,6 +102,7 @@ public class WorkoutPlanService : IWorkoutPlanService
         IsActive = p.IsActive,
         CyclePatternJson = p.CyclePatternJson,
         IsFreeChoice = p.IsFreeChoice,
+        DurationDays = p.DurationDays,
         WorkoutIds = [.. p.PlanWorkouts.Select(pw => pw.WorkoutId)],
     };
 }

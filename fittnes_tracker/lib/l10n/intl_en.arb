@@ -909,5 +909,13 @@
   "paywallFeatureExport": "Export workout data (CSV)",
   "deleteAccount": "Delete Account",
   "deleteAccountWarning": "This will permanently delete your account and all your data including workouts, meals, and weight history. Any trainer relationships will also be removed. This cannot be undone.",
-  "deleteAccountError": "Failed to delete account. Please check your password and try again."
+  "deleteAccountError": "Failed to delete account. Please check your password and try again.",
+
+  "planDurationLabel": "Plan Duration",
+  "nWeeks": "{count} weeks",
+  "@nWeeks": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  }
 }

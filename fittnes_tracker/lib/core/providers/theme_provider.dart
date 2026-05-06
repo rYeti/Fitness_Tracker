@@ -1,5 +1,6 @@
 import '../app_database.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class ThemeProvider with ChangeNotifier {
   ThemeMode _themeMode;
@@ -115,6 +116,12 @@ class ThemeProvider with ChangeNotifier {
         backgroundColor: Color(0xFF333333),
         foregroundColor: Colors.white,
         iconTheme: IconThemeData(color: Colors.white),
+        systemOverlayStyle: SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.light,
+          systemNavigationBarColor: Colors.transparent,
+          systemNavigationBarIconBrightness: Brightness.dark,
+        ),
         titleTextStyle: TextStyle(
           fontFamily: 'Montserrat',
           color: Colors.white,
@@ -243,6 +250,12 @@ class ThemeProvider with ChangeNotifier {
         backgroundColor: Color(0xFF333333),
         foregroundColor: Colors.white,
         iconTheme: IconThemeData(color: Colors.white),
+        systemOverlayStyle: SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.light,
+          systemNavigationBarColor: Colors.transparent,
+          systemNavigationBarIconBrightness: Brightness.light,
+        ),
         titleTextStyle: TextStyle(
           fontFamily: 'Montserrat',
           color: Colors.white,

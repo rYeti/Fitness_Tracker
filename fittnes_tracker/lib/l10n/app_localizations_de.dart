@@ -1934,4 +1934,12 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get deleteAccountError =>
       'Konto konnte nicht gelöscht werden. Bitte überprüfe dein Passwort und versuche es erneut.';
+
+  @override
+  String get planDurationLabel => 'Plan-Dauer';
+
+  @override
+  String nWeeks(int count) {
+    return '$count Wochen';
+  }
 }

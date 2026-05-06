@@ -1,4 +1,5 @@
 import 'package:ForgeForm/core/app_database.dart';
+import 'package:ForgeForm/feature/auth/presentation/view/register_screen.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:ForgeForm/core/providers/enums.dart';
 import 'package:ForgeForm/core/providers/user_goals_provider.dart';
@@ -167,6 +168,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const LoginScreen()),
         (_) => false,
+      );
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => RegisterScreen(initName: _nameController.text.trim()),
+        ),
       );
     } catch (e) {
       if (mounted) {

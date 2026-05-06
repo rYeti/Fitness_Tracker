@@ -1,7 +1,9 @@
 import 'package:drift/drift.dart' as drift hide Column;
 import 'dart:convert';
 import 'package:ForgeForm/core/app_database.dart';
+import 'package:ForgeForm/core/di/service_locator.dart';
 import 'package:ForgeForm/core/providers/access_provider.dart';
+import 'package:ForgeForm/core/services/notification_service.dart';
 import 'package:ForgeForm/feature/premium/paywall_screen.dart';
 import 'package:ForgeForm/feature/workout_planning/data/models/workout.dart';
 import 'package:ForgeForm/feature/workout_planning/data/models/exercise.dart';
@@ -28,6 +30,7 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
   List<String?> _cyclePattern = [];
   DateTime? _startDate = DateTime.now();
   bool _isFreeChoice = false;
+  int _durationWeeks = 12;
 
   // Map to store exercises for each workout name (exercise, sets, supersetGroupId)
   Map<String, List<(Exercise, List<SetTemplates>, int?)>> _workoutExercises = {};
@@ -252,6 +255,12 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
       isFreeChoice: drift.Value(_isFreeChoice),
     );
     final planId = await db.into(db.workoutPlanTable).insert(planCompanion);
+    if (!_isFreeChoice) {
+      await db.customStatement(
+        'UPDATE workout_plan_table SET duration_days = ? WHERE id = ?',
+        [_durationWeeks * 7, planId],
+      );
+    }
 
     // Step 4️⃣: Save templates for workouts
     final workoutNames = _isFreeChoice
@@ -331,9 +340,9 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
       }
     }
 
-    // Step 5️⃣: Schedule workouts for 360 days (cycle mode only)
+    // Step 5️⃣: Schedule workouts for the chosen duration (cycle mode only)
     if (!_isFreeChoice) {
-      for (int day = 0; day < 360; day++) {
+      for (int day = 0; day < _durationWeeks * 7; day++) {
         final date = _startDate!.add(Duration(days: day));
         final cycleIndex = day % _cyclePattern.length;
         final workoutName = _cyclePattern[cycleIndex];
@@ -348,6 +357,14 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
 
         await db.scheduledWorkoutDao.scheduleWorkout(scheduledWorkout);
       }
+    }
+
+    if (!_isFreeChoice) {
+      final planEndDate = _startDate!.add(Duration(days: _durationWeeks * 7));
+      await sl<NotificationService>().schedulePlanExpiryWarning(
+        planName: _workoutNameController.text.trim(),
+        planEndDate: planEndDate,
+      );
     }
 
     ScaffoldMessenger.of(
@@ -523,6 +540,9 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
             ),
             Divider(height: 1, color: theme.dividerColor),
 
+            // Duration picker (cycle mode only)
+            if (!_isFreeChoice) _buildDurationPicker(theme, l10n),
+
             // Header (cycle mode only)
             if (!_isFreeChoice)
               Container(
@@ -688,6 +708,59 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildDurationPicker(ThemeData theme, AppLocalizations l10n) {
+    final hasPremium = context.read<AccessProvider>().hasPremiumAccess;
+    const freeOptions = [4, 8, 12];
+    const premiumOptions = [26, 52];
+    final allOptions = [...freeOptions, ...premiumOptions];
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            l10n.planDurationLabel,
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            children: allOptions.map((weeks) {
+              final isPremiumOption = premiumOptions.contains(weeks);
+              final isLocked = isPremiumOption && !hasPremium;
+              final isSelected = _durationWeeks == weeks;
+              return ChoiceChip(
+                label: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(l10n.nWeeks(weeks)),
+                    if (isLocked) ...[
+                      const SizedBox(width: 4),
+                      const Icon(Icons.lock, size: 14),
+                    ],
+                  ],
+                ),
+                selected: isSelected,
+                onSelected: (_) {
+                  if (isLocked) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const PaywallScreen()),
+                    );
+                    return;
+                  }
+                  setState(() => _durationWeeks = weeks);
+                },
+              );
+            }).toList(),
+          ),
+        ],
       ),
     );
   }

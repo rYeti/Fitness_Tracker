@@ -55,6 +55,7 @@ public class WorkoutPlanRepository : IWorkoutPlanRepository
         plan.StartDate = dto.StartDate;
         plan.CyclePatternJson = dto.CyclePatternJson;
         plan.IsFreeChoice = dto.IsFreeChoice;
+        plan.DurationDays = dto.DurationDays;
 
         await _context.SaveChangesAsync();
         return plan;

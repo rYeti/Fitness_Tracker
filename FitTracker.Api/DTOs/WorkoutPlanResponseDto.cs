@@ -30,6 +30,9 @@ public class WorkoutPlanResponseDto
     /// <summary>Whether the user may choose any workout freely rather than following the fixed cycle pattern.</summary>
     public bool IsFreeChoice { get; set; }
 
+    /// <summary>The number of days this plan is scheduled for. Null for free-choice plans.</summary>
+    public int? DurationDays { get; set; }
+
     /// <summary>The list of workout IDs that are part of this plan.</summary>
     public List<Guid> WorkoutIds { get; set; } = new();
 }

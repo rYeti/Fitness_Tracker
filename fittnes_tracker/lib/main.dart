@@ -13,6 +13,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:provider/provider.dart' as provider;
 import 'package:workmanager/workmanager.dart';
 import 'core/di/service_locator.dart';
+import 'core/services/notification_service.dart';
 import 'core/providers/theme_provider.dart';
 import 'core/providers/locale_provider.dart';
 import 'core/providers/user_goals_provider.dart';
@@ -86,6 +87,7 @@ void main() async {
   );
   await initializeDateFormatting();
   setupLocator();
+  await sl<NotificationService>().init();
   final db = AppDatabase();
 
   // Register the database instance with the service locator
@@ -227,6 +229,13 @@ class MyApp extends StatelessWidget {
       darkTheme: themeProvider.darkTheme,
       themeMode: themeProvider.themeMode,
       title: 'ForgeForm',
+      builder: (context, child) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
+          child: child!,
+        );
+      },
       home:
           showOnboarding
               ? const OnboardingScreen()
@@ -326,10 +335,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Scaffold(
-        body: IndexedStack(index: _selectedIndex, children: _screens),
-        bottomNavigationBar: BottomNavigationBar(
+    return Scaffold(
+      body: IndexedStack(index: _selectedIndex, children: _screens),
+      bottomNavigationBar: BottomNavigationBar(
           currentIndex: _selectedIndex,
           onTap: _onTabTapped,
           selectedItemColor: Theme.of(context).colorScheme.primary,
@@ -359,7 +367,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             ),
           ],
         ),
-      ),
     );
   }
 
@@ -368,7 +375,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final lastSyncMs = prefs.getInt('last_sync_timestamp');
     if (lastSyncMs != null) {
       final lastSync = DateTime.fromMillisecondsSinceEpoch(lastSyncMs);
-      if (DateTime.now().difference(lastSync) < const Duration(minutes: 15)) {
+      if (DateTime.now().difference(lastSync) < const Duration(hours: 6)) {
         return;
       }
     }

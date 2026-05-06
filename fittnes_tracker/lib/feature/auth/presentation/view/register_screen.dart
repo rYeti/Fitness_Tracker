@@ -13,7 +13,8 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
-  const RegisterScreen({super.key});
+  final String? initName;
+  const RegisterScreen({super.key, this.initName});
 
   @override
   ConsumerState<RegisterScreen> createState() => _RegisterScreenState();
@@ -29,6 +30,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   DateTime? _selectedDate;
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initName != null && widget.initName!.isNotEmpty) {
+      final parts = widget.initName!.trim().split(' ');
+      _firstNameController.text = parts.first;
+      if (parts.length > 1) {
+        _lastNameController.text = parts.sublist(1).join(' ');
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -53,18 +66,20 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   void _submit(AppLocalizations l10n) {
     if (_passwordController.text != _confirmPasswordController.text) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.passwordsDoNotMatch)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.passwordsDoNotMatch)));
       return;
     }
     if (_selectedDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.pleaseSelectDateOfBirth)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.pleaseSelectDateOfBirth)));
       return;
     }
-    ref.read(authProvider.notifier).register(
+    ref
+        .read(authProvider.notifier)
+        .register(
           _usernameController.text.trim(),
           _emailController.text.trim(),
           _passwordController.text,
@@ -82,8 +97,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
     ref.listen<AuthState>(authProvider, (_, next) async {
       if (next.error != null) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(next.error!)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(next.error!)));
       }
       if (next.isAuthenticated) {
         final serverUrl = ref.read(serverUrlProvider);
@@ -157,8 +173,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   Expanded(
                     child: TextField(
                       controller: _firstNameController,
-                      decoration:
-                          onboardingFieldDecoration(context, l10n.firstName),
+                      decoration: onboardingFieldDecoration(
+                        context,
+                        l10n.firstName,
+                      ),
                       textInputAction: TextInputAction.next,
                       textCapitalization: TextCapitalization.words,
                     ),
@@ -167,8 +185,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   Expanded(
                     child: TextField(
                       controller: _lastNameController,
-                      decoration:
-                          onboardingFieldDecoration(context, l10n.lastName),
+                      decoration: onboardingFieldDecoration(
+                        context,
+                        l10n.lastName,
+                      ),
                       textInputAction: TextInputAction.next,
                       textCapitalization: TextCapitalization.words,
                     ),
@@ -205,8 +225,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           : Icons.visibility_off_outlined,
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
-                    onPressed: () =>
-                        setState(() => _obscurePassword = !_obscurePassword),
+                    onPressed:
+                        () => setState(
+                          () => _obscurePassword = !_obscurePassword,
+                        ),
                   ),
                 ),
                 obscureText: _obscurePassword,
@@ -227,8 +249,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           : Icons.visibility_off_outlined,
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
-                    onPressed: () =>
-                        setState(() => _obscureConfirm = !_obscureConfirm),
+                    onPressed:
+                        () =>
+                            setState(() => _obscureConfirm = !_obscureConfirm),
                   ),
                 ),
                 obscureText: _obscureConfirm,
@@ -252,9 +275,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       ),
                     ),
                     controller: TextEditingController(
-                      text: _selectedDate != null
-                          ? DateFormat.yMMMd().format(_selectedDate!)
-                          : '',
+                      text:
+                          _selectedDate != null
+                              ? DateFormat.yMMMd().format(_selectedDate!)
+                              : '',
                     ),
                   ),
                 ),
@@ -270,22 +294,23 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: authState.isLoading
-                    ? SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: theme.colorScheme.onPrimary,
+                child:
+                    authState.isLoading
+                        ? SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: theme.colorScheme.onPrimary,
+                          ),
+                        )
+                        : Text(
+                          l10n.register,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                      )
-                    : Text(
-                        l10n.register,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
               ),
 
               const SizedBox(height: 24),
