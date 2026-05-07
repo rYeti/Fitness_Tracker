@@ -81,7 +81,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 32;
+  int get schemaVersion => 33;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -257,6 +257,16 @@ class AppDatabase extends _$AppDatabase {
       }
 
       if (from < 32) {
+        try {
+          await customStatement(
+            'ALTER TABLE workout_plan_table ADD COLUMN duration_days INTEGER',
+          );
+        } catch (_) {}
+      }
+
+      if (from < 33) {
+        // Re-apply duration_days for devices that were already at v32 before
+        // the column was added to the schema (the from<32 guard never ran).
         try {
           await customStatement(
             'ALTER TABLE workout_plan_table ADD COLUMN duration_days INTEGER',

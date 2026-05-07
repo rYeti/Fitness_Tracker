@@ -108,7 +108,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
         final prefs = await SharedPreferences.getInstance();
         final lastUserId = prefs.getString('last_logged_in_user');
-        if (lastUserId != newUserId) {
+        if (lastUserId != null && lastUserId != newUserId) {
           await db.clearAllUserData();
           await prefs.remove('meal_templates');
           await prefs.remove('last_sync_timestamp');

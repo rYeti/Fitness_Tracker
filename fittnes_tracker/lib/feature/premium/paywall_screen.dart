@@ -27,6 +27,12 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
 
   Future<void> _loadOfferings() async {
     try {
+      if (!(await Purchases.isConfigured)) {
+        setState(() {
+          _loading = false;
+        });
+        return;
+      }
       final offerings = await Purchases.getOfferings();
       final current = offerings.current;
       setState(() {
@@ -106,7 +112,7 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
         ),
       ),
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Column(
             children: [
@@ -175,7 +181,7 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                   ),
                 ),
               ),
-              const Spacer(),
+              const SizedBox(height: 32),
               if (_error != null)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),

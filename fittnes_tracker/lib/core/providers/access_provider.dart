@@ -91,6 +91,7 @@ class AccessProvider extends ChangeNotifier {
 
   Future<void> _checkRevenueCat(String? userId) async {
     if (kIsWeb) return;
+    if (_revenueCatApiKey.isEmpty) return;
     try {
       if (!(await Purchases.isConfigured)) {
         final config = PurchasesConfiguration(_revenueCatApiKey);

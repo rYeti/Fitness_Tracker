@@ -15,7 +15,7 @@ import 'food_detail_view.dart';
 final globalFoodTrackingKey = GlobalKey<_FoodTrackingScreenState>();
 
 class FoodTrackingScreen extends StatefulWidget {
-  const FoodTrackingScreen({Key? key}) : super(key: key);
+  const FoodTrackingScreen({super.key});
 
   @override
   State<FoodTrackingScreen> createState() => _FoodTrackingScreenState();

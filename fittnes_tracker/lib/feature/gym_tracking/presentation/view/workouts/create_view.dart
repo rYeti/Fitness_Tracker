@@ -26,6 +26,7 @@ class CreateWorkoutView extends StatefulWidget {
 class _CreateWorkoutViewState extends State<CreateWorkoutView> {
   final _workoutNameController = TextEditingController();
   int _currentStep = 0;
+  bool _isSaving = false;
 
   List<String?> _cyclePattern = [];
   DateTime? _startDate = DateTime.now();
@@ -155,8 +156,14 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
   }
 
   Widget _buildNavigationBar(ThemeData theme, AppLocalizations l10n) {
+    final mq = MediaQuery.of(context);
+    // Only add bottom system inset when the keyboard is hidden. When the
+    // keyboard is visible the Scaffold has already shrunk the body upward, so
+    // adding padding.bottom again causes a RenderFlex overflow.
+    final bottomPadding =
+        mq.viewInsets.bottom == 0 ? mq.padding.bottom : 0.0;
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottomPadding),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         boxShadow: [
@@ -167,8 +174,7 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
           ),
         ],
       ),
-      child: SafeArea(
-        child: Row(
+      child: Row(
           children: [
             if (_currentStep > 0)
               Expanded(
@@ -185,10 +191,19 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
             Expanded(
               flex: 2,
               child: ElevatedButton.icon(
-                onPressed: _nextOrSave,
-                icon: Icon(
-                  _isLastStep ? Icons.check : Icons.arrow_forward,
-                ),
+                onPressed: _isSaving ? null : _nextOrSave,
+                icon: _isSaving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Icon(
+                        _isLastStep ? Icons.check : Icons.arrow_forward,
+                      ),
                 label: Text(_isLastStep ? l10n.save : l10n.next),
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
@@ -201,7 +216,6 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
             ),
           ],
         ),
-      ),
     );
   }
 
@@ -256,10 +270,13 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
     );
     final planId = await db.into(db.workoutPlanTable).insert(planCompanion);
     if (!_isFreeChoice) {
-      await db.customStatement(
-        'UPDATE workout_plan_table SET duration_days = ? WHERE id = ?',
-        [_durationWeeks * 7, planId],
-      );
+      await (db.update(db.workoutPlanTable)
+            ..where((t) => t.id.equals(planId)))
+          .write(
+            WorkoutPlanTableCompanion(
+              durationDays: drift.Value(_durationWeeks * 7),
+            ),
+          );
     }
 
     // Step 4️⃣: Save templates for workouts
@@ -361,17 +378,21 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
 
     if (!_isFreeChoice) {
       final planEndDate = _startDate!.add(Duration(days: _durationWeeks * 7));
-      await sl<NotificationService>().schedulePlanExpiryWarning(
-        planName: _workoutNameController.text.trim(),
-        planEndDate: planEndDate,
-      );
+      try {
+        await sl<NotificationService>().schedulePlanExpiryWarning(
+          planName: _workoutNameController.text.trim(),
+          planEndDate: planEndDate,
+        );
+      } catch (_) {
+        // Exact alarm permission not granted — notification skipped, save continues.
+      }
     }
 
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(l10n.workoutSavedSuccessfully)));
     await Future.delayed(const Duration(milliseconds: 500));
-    if (context.mounted) Navigator.of(context).pop(true);
+    if (mounted) Navigator.of(context).pop(true);
   }
 
   @override
@@ -391,7 +412,8 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
     });
   }
 
-  void _nextOrSave() {
+  Future<void> _nextOrSave() async {
+    if (_isSaving) return;
     final l10n = AppLocalizations.of(context)!;
     if (_currentStep == 0) {
       if (_workoutNameController.text.trim().isEmpty) {
@@ -425,13 +447,24 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
         return;
       }
     }
-    setState(() {
-      if (_isLastStep) {
-        _saveWorkout();
-      } else {
-        _currentStep++;
+    if (_isLastStep) {
+      setState(() => _isSaving = true);
+      try {
+        await _saveWorkout();
+      } catch (e) {
+        if (mounted) {
+          setState(() => _isSaving = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Could not save workout: $e')),
+          );
+        }
       }
-    });
+    } else {
+      // Dismiss the keyboard (open from step 0's autofocus) before showing
+      // the next step, otherwise the reduced body height causes overflow.
+      FocusScope.of(context).unfocus();
+      setState(() => _currentStep++);
+    }
   }
 
   Widget _buildStepContent() {
@@ -500,131 +533,145 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
 
+    // SingleChildScrollView wraps the entire step so all fixed items
+    // (mode selector, duration picker, cycle header) plus the list scroll as
+    // one unit when the keyboard reduces the available height.
+    // Lists use shrinkWrap+NeverScrollableScrollPhysics so they size to their
+    // content inside the outer scroll view.
+    // (hasScrollableList variable removed — no longer needed)
+
     return Stack(
       children: [
-        Column(
-          children: [
-            // Mode selector
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-              child: Row(
-                children: [
-                  _buildModeCard(
-                    theme: theme,
-                    icon: Icons.repeat,
-                    label: l10n.cyclePattern,
-                    description: l10n.cycleModeSubtitle,
-                    selected: !_isFreeChoice,
-                    onTap: () => setState(() => _isFreeChoice = false),
-                  ),
-                  const SizedBox(width: 12),
-                  _buildModeCard(
-                    theme: theme,
-                    icon: Icons.shuffle,
-                    label: l10n.freeChoiceLabel,
-                    description: l10n.freeChoiceModeSubtitle,
-                    selected: _isFreeChoice,
-                    locked: !context.read<AccessProvider>().hasPremiumAccess,
-                    onTap: () {
-                      if (!context.read<AccessProvider>().hasPremiumAccess) {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => const PaywallScreen()),
-                        );
-                        return;
-                      }
-                      setState(() => _isFreeChoice = true);
-                    },
-                  ),
-                ],
-              ),
-            ),
-            Divider(height: 1, color: theme.dividerColor),
-
-            // Duration picker (cycle mode only)
-            if (!_isFreeChoice) _buildDurationPicker(theme, l10n),
-
-            // Header (cycle mode only)
-            if (!_isFreeChoice)
-              Container(
-                padding: const EdgeInsets.all(16),
-                color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
-                child: Row(
+        SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Mode selector — compact segmented button replaces tall cards
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.calendar_month, color: theme.colorScheme.primary),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            l10n.buildYourCycle,
-                            style: theme.textTheme.titleMedium
-                                ?.copyWith(fontWeight: FontWeight.bold),
+                    SizedBox(
+                      width: double.infinity,
+                      child: SegmentedButton<bool>(
+                        segments: [
+                          ButtonSegment<bool>(
+                            value: false,
+                            label: Text(l10n.cyclePattern),
+                            icon: const Icon(Icons.repeat),
                           ),
-                          Text(
-                            l10n.dayCycleLength(_cyclePattern.length),
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
+                          ButtonSegment<bool>(
+                            value: true,
+                            label: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(l10n.freeChoiceLabel),
+                                if (!context
+                                    .read<AccessProvider>()
+                                    .hasPremiumAccess) ...[
+                                  const SizedBox(width: 4),
+                                  Icon(
+                                    Icons.lock,
+                                    size: 12,
+                                    color: theme.colorScheme.primary,
+                                  ),
+                                ],
+                              ],
                             ),
+                            icon: const Icon(Icons.shuffle),
                           ),
                         ],
+                        selected: {_isFreeChoice},
+                        onSelectionChanged: (selected) {
+                          final wantFree = selected.first;
+                          if (wantFree &&
+                              !context
+                                  .read<AccessProvider>()
+                                  .hasPremiumAccess) {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const PaywallScreen(),
+                              ),
+                            );
+                            return;
+                          }
+                          setState(() => _isFreeChoice = wantFree);
+                        },
                       ),
                     ),
+                    const SizedBox(height: 6),
+                    Text(
+                      _isFreeChoice
+                          ? l10n.freeChoiceModeSubtitle
+                          : l10n.cycleModeSubtitle,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
                   ],
                 ),
               ),
+              Divider(height: 1, color: theme.dividerColor),
 
-            // Workout list
-            Expanded(
-              child: _isFreeChoice
-                  ? _buildFreeChoiceList(theme, l10n)
-                  : (_cyclePattern.isEmpty
-                      ? _buildEmptyState(theme, l10n)
-                      : ReorderableListView.builder(
-                          padding: const EdgeInsets.only(
-                            left: 16,
-                            right: 16,
-                            top: 16,
-                            bottom: 88,
-                          ),
-                          itemCount: _cyclePattern.length,
-                          onReorder: (oldIndex, newIndex) {
-                            setState(() {
-                              if (newIndex > oldIndex) newIndex -= 1;
-                              final item = _cyclePattern.removeAt(oldIndex);
-                              _cyclePattern.insert(newIndex, item);
-                            });
-                          },
-                          itemBuilder: (context, index) {
-                            final entry = _cyclePattern[index];
-                            final isRestDay = entry == "Rest Day";
-                            return _WorkoutDayCard(
-                              key: ValueKey('$entry-$index'),
-                              dayNumber: index + 1,
-                              workoutName: entry!,
-                              isRestDay: isRestDay,
-                              exerciseCount:
-                                  _workoutExercises[entry]?.length ?? 0,
-                              workoutColor: _workoutColors[entry],
-                              onTap: () {
-                                if (!isRestDay) _showWorkoutDetails(entry);
-                              },
-                              onDelete: () {
-                                setState(() {
-                                  _cyclePattern.removeAt(index);
-                                  if (!isRestDay) {
-                                    _workoutExercises.remove(entry);
-                                  }
-                                });
-                              },
-                              onColorChanged: (color) {
-                                setState(() => _workoutColors[entry] = color);
-                              },
-                            );
-                          },
-                        )),
-            ),
-          ],
+              // Duration picker (cycle mode only)
+              if (!_isFreeChoice) _buildDurationPicker(theme, l10n),
+
+              // Workout list / empty state.
+              // Lists use shrinkWrap so they size to content inside the
+              // outer SingleChildScrollView instead of needing Expanded.
+              if (_isFreeChoice)
+                _buildFreeChoiceList(theme, l10n)
+              else if (_cyclePattern.isEmpty)
+                _buildEmptyState(theme, l10n)
+              else
+                ReorderableListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  padding: const EdgeInsets.only(
+                    left: 16,
+                    right: 16,
+                    top: 16,
+                    bottom: 88,
+                  ),
+                  itemCount: _cyclePattern.length,
+                  onReorder: (oldIndex, newIndex) {
+                    setState(() {
+                      if (newIndex > oldIndex) newIndex -= 1;
+                      final item = _cyclePattern.removeAt(oldIndex);
+                      _cyclePattern.insert(newIndex, item);
+                    });
+                  },
+                  itemBuilder: (context, index) {
+                    final entry = _cyclePattern[index];
+                    final isRestDay = entry == "Rest Day";
+                    return _WorkoutDayCard(
+                      key: ValueKey('$entry-$index'),
+                      dayNumber: index + 1,
+                      workoutName: entry!,
+                      isRestDay: isRestDay,
+                      exerciseCount: _workoutExercises[entry]?.length ?? 0,
+                      workoutColor: _workoutColors[entry],
+                      onTap: () {
+                        if (!isRestDay) _showWorkoutDetails(entry);
+                      },
+                      onDelete: () {
+                        setState(() {
+                          _cyclePattern.removeAt(index);
+                          if (!isRestDay) {
+                            _workoutExercises.remove(entry);
+                          }
+                        });
+                      },
+                      onColorChanged: (color) {
+                        setState(() => _workoutColors[entry] = color);
+                      },
+                    );
+                  },
+                ),
+            ],
+          ),
         ),
 
         // FAB — free choice shows simple add; cycle shows speed dial
@@ -643,72 +690,6 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
                 ),
         ),
       ],
-    );
-  }
-
-  Widget _buildModeCard({
-    required ThemeData theme,
-    required IconData icon,
-    required String label,
-    required String description,
-    required bool selected,
-    required VoidCallback onTap,
-    bool locked = false,
-  }) {
-    final contentColor = selected
-        ? theme.colorScheme.onPrimaryContainer
-        : theme.colorScheme.onSurfaceVariant;
-    final borderColor = selected
-        ? theme.colorScheme.primary
-        : theme.colorScheme.outline;
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
-          decoration: BoxDecoration(
-            color: selected
-                ? theme.colorScheme.primaryContainer
-                : theme.colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: borderColor, width: selected ? 2 : 1),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Icon(icon, color: contentColor, size: 28),
-                  if (locked)
-                    Positioned(
-                      top: -4,
-                      right: -8,
-                      child: Icon(Icons.lock, size: 12, color: theme.colorScheme.primary),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Text(
-                label,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: contentColor,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                description,
-                style: theme.textTheme.bodySmall?.copyWith(color: contentColor),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 
@@ -767,9 +748,10 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
 
   Widget _buildFreeChoiceList(ThemeData theme, AppLocalizations l10n) {
     if (_workoutExercises.isEmpty) {
-      return Center(
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.fitness_center,
                 size: 64,
@@ -793,6 +775,8 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
     }
     final names = _workoutExercises.keys.toList();
     return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 88),
       itemCount: names.length,
       itemBuilder: (context, index) {
@@ -841,9 +825,10 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
   }
 
   Widget _buildEmptyState(ThemeData theme, AppLocalizations l10n) {
-    return Center(
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
             Icons.event_available,
@@ -922,6 +907,9 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
         );
       },
     );
+
+    // Dismiss any lingering keyboard from the dialog's autofocused TextField.
+    if (mounted) FocusScope.of(context).unfocus();
 
     if (result != null && result.isNotEmpty) {
       setState(() {

@@ -41,6 +41,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
   final Map<String, TextEditingController> _setControllers = {};
   List<_ExerciseWithSets> _exercises = [];
   Timer? _saveDebounce;
+  Future<void>? _pendingExerciseSave;
   int _nextSupersetGroupId = 1;
 
   /// Returns the index of the superset partner of [index], or null if none.
@@ -450,8 +451,8 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                   WorkoutSetTableCompanion.insert(
                     scheduledWorkoutExerciseId: scheduledExerciseId,
                     setNumber: template.setNumber,
-                    weight: Value(weight ?? 0.0),
-                    reps: Value(reps ?? 0),
+                    weight: Value(weight),
+                    reps: Value(reps),
                     isCompleted: const Value(true),
                   ),
                 );
@@ -469,8 +470,11 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
       return;
     }
 
-    // Cancel any pending debounce save, then flush IME before reading controllers.
+    // Cancel any pending debounce save, wait for any in-flight navigation save,
+    // then flush IME before reading controllers.
     _saveDebounce?.cancel();
+    await _pendingExerciseSave;
+    _pendingExerciseSave = null;
     FocusManager.instance.primaryFocus?.unfocus();
     await WidgetsBinding.instance.endOfFrame;
 
@@ -563,7 +567,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
 
       if (isOnFirst) {
         // Jump to partner at same set index (clamped to its length)
-        _saveCurrentExercise(flushIme: true);
+        _pendingExerciseSave = _saveCurrentExercise(flushIme: true);
         final partnerSetIndex =
             _currentSetIndex < partnerSets ? _currentSetIndex : partnerSets - 1;
         setState(() {
@@ -575,7 +579,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
         // Back on second exercise — advance set or leave superset
         if (_currentSetIndex < maxSets - 1) {
           final nextSet = _currentSetIndex + 1;
-          _saveCurrentExercise(flushIme: true);
+          _pendingExerciseSave = _saveCurrentExercise(flushIme: true);
           final firstIndex = partnerIndex; // partner is now the "first"
           final firstSets = _exercises[firstIndex].templates.length;
           final firstSetIndex = nextSet < firstSets ? nextSet : firstSets - 1;
@@ -585,7 +589,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
           });
           if (_restTimerEnabled) showRestTimer(context);
         } else {
-          _saveCurrentExercise(flushIme: true);
+          _pendingExerciseSave = _saveCurrentExercise(flushIme: true);
           // Both exercises done — skip past the superset pair
           final afterSuperset =
               (partnerIndex > _currentExerciseIndex
@@ -719,7 +723,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     if (widget.isReadOnly) return;
     if (_currentExerciseIndex < _exercises.length - 1) {
       _saveDebounce?.cancel();
-      _saveCurrentExercise(flushIme: true);
+      _pendingExerciseSave = _saveCurrentExercise(flushIme: true);
       setState(() {
         _currentExerciseIndex++;
         _currentSetIndex = 0;
@@ -731,7 +735,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     if (widget.isReadOnly) return;
     if (_currentExerciseIndex > 0) {
       _saveDebounce?.cancel();
-      _saveCurrentExercise(flushIme: true);
+      _pendingExerciseSave = _saveCurrentExercise(flushIme: true);
       setState(() {
         _currentExerciseIndex--;
         _currentSetIndex = 0;
@@ -1870,7 +1874,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                                       () => supersetPickIndex = null,
                                     );
                                   } else {
-                                    _saveCurrentExercise(flushIme: true);
+                                    _pendingExerciseSave = _saveCurrentExercise(flushIme: true);
                                     setState(() {
                                       _currentExerciseIndex = index;
                                       _currentSetIndex = 0;

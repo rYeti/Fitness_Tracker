@@ -27,13 +27,13 @@ class _ProgressScreenState extends State<ProgressScreen>
   late TabController _tabController;
 
   // Gym tab state
-  TimeRange _gymRange = TimeRange.month;
+  TimeRange _gymRange = TimeRange.week;
   DateTime? _gymCustomStart;
   DateTime? _gymCustomEnd;
   bool _gymLoading = true;
 
   // Nutrition tab state
-  TimeRange _nutritionRange = TimeRange.month;
+  TimeRange _nutritionRange = TimeRange.week;
   DateTime? _nutritionCustomStart;
   DateTime? _nutritionCustomEnd;
   bool _nutritionLoading = true;
@@ -66,7 +66,7 @@ class _ProgressScreenState extends State<ProgressScreen>
 
   DateTime _rangeStart(TimeRange range, DateTime? customStart) {
     final hasPremium = context.read<AccessProvider>().hasPremiumAccess;
-    if (!hasPremium) return DateTime.now().subtract(const Duration(days: 30));
+    if (!hasPremium) return DateTime.now().subtract(const Duration(days: 7));
     if (range == TimeRange.custom && customStart != null) return customStart;
     final now = DateTime.now();
     switch (range) {
@@ -852,6 +852,28 @@ class _ProgressScreenState extends State<ProgressScreen>
   }
 
   Widget _buildCalorieTrendChart(ThemeData theme, int calorieGoal) {
+    // Aggregate to weekly averages when there's more than a month of data.
+    final useWeekly = _dailyData.length > 30;
+    final List<({String label, double calories})> points;
+
+    if (useWeekly) {
+      final Map<int, List<DailyNutritionData>> byWeek = {};
+      for (final d in _dailyData) {
+        byWeek.putIfAbsent(_getWeekNumber(d.date), () => []).add(d);
+      }
+      final sortedKeys = byWeek.keys.toList()..sort();
+      points = sortedKeys.map((k) {
+        final days = byWeek[k]!;
+        final avg = days.map((d) => d.calories).reduce((a, b) => a + b) / days.length;
+        final label = DateFormat('d.M').format(days.first.date);
+        return (label: label, calories: avg);
+      }).toList();
+    } else {
+      points = _dailyData
+          .map((d) => (label: DateFormat('d.M').format(d.date), calories: d.calories.toDouble()))
+          .toList();
+    }
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -860,12 +882,9 @@ class _ProgressScreenState extends State<ProgressScreen>
           children: [
             Text(
               AppLocalizations.of(context)!.calorieTrend,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
-
             SizedBox(
               height: 250,
               child: LineChart(
@@ -876,51 +895,36 @@ class _ProgressScreenState extends State<ProgressScreen>
                       sideTitles: SideTitles(
                         showTitles: true,
                         reservedSize: 50,
-                        getTitlesWidget: (value, meta) {
-                          return Text(
-                            value.toInt().toString(),
-                            style: const TextStyle(fontSize: 10),
-                          );
-                        },
+                        getTitlesWidget: (value, meta) => Text(
+                          value.toInt().toString(),
+                          style: const TextStyle(fontSize: 10),
+                        ),
                       ),
                     ),
                     bottomTitles: AxisTitles(
                       sideTitles: SideTitles(
                         showTitles: true,
-                        interval: _dailyData.length > 60 ? 14 : _dailyData.length > 14 ? 7 : _dailyData.length > 7 ? 3 : 1,
+                        interval: (points.length / 6).ceilToDouble().clamp(1, double.infinity),
                         getTitlesWidget: (value, meta) {
                           final index = value.toInt();
-                          if (index < 0 || index >= _dailyData.length) {
-                            return const Text('');
-                          }
-                          final date = _dailyData[index].date;
+                          if (index < 0 || index >= points.length) return const Text('');
                           return Padding(
                             padding: const EdgeInsets.only(top: 4),
                             child: Transform.rotate(
                               angle: -0.5,
-                              child: Text(
-                                DateFormat('d.M').format(date),
-                                style: const TextStyle(fontSize: 9),
-                              ),
+                              child: Text(points[index].label, style: const TextStyle(fontSize: 9)),
                             ),
                           );
                         },
                       ),
                     ),
-                    rightTitles: AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
-                    ),
-                    topTitles: AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
-                    ),
+                    rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
                   ),
                   borderData: FlBorderData(show: false),
                   lineBarsData: [
                     LineChartBarData(
-                      spots: List.generate(
-                        _dailyData.length,
-                        (i) => FlSpot(i.toDouble(), calorieGoal.toDouble()),
-                      ),
+                      spots: List.generate(points.length, (i) => FlSpot(i.toDouble(), calorieGoal.toDouble())),
                       isCurved: false,
                       color: Colors.grey,
                       barWidth: 2,
@@ -928,27 +932,20 @@ class _ProgressScreenState extends State<ProgressScreen>
                       dashArray: [5, 5],
                     ),
                     LineChartBarData(
-                      spots:
-                          _dailyData.asMap().entries.map((e) {
-                            return FlSpot(
-                              e.key.toDouble(),
-                              e.value.calories.toDouble(),
-                            );
-                          }).toList(),
+                      spots: points.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value.calories)).toList(),
                       isCurved: true,
                       color: theme.colorScheme.primary,
                       barWidth: 3,
-                      dotData: FlDotData(show: true),
+                      dotData: FlDotData(show: false),
                       belowBarData: BarAreaData(
                         show: true,
-                        color: theme.colorScheme.primary.withValues(alpha: 0.2),
+                        color: theme.colorScheme.primary.withValues(alpha: 0.15),
                       ),
                     ),
                   ],
                 ),
               ),
             ),
-
             const SizedBox(height: 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -1310,7 +1307,7 @@ class _ProgressScreenState extends State<ProgressScreen>
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -1405,7 +1402,7 @@ class _ProgressScreenState extends State<ProgressScreen>
             Icon(
               icon,
               size: 64,
-              color: theme.colorScheme.onSurfaceVariant.withOpacity(0.5),
+              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
             ),
             const SizedBox(height: 16),
             Text(

@@ -4195,6 +4195,17 @@ class $WorkoutPlanTableTable extends WorkoutPlanTable
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _durationDaysMeta = const VerificationMeta(
+    'durationDays',
+  );
+  @override
+  late final GeneratedColumn<int> durationDays = GeneratedColumn<int>(
+    'duration_days',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _serverIdMeta = const VerificationMeta(
     'serverId',
   );
@@ -4228,6 +4239,7 @@ class $WorkoutPlanTableTable extends WorkoutPlanTable
     isActive,
     cyclePatternJson,
     isFreeChoice,
+    durationDays,
     serverId,
     syncStatus,
   ];
@@ -4303,6 +4315,15 @@ class $WorkoutPlanTableTable extends WorkoutPlanTable
         ),
       );
     }
+    if (data.containsKey('duration_days')) {
+      context.handle(
+        _durationDaysMeta,
+        durationDays.isAcceptableOrUnknown(
+          data['duration_days']!,
+          _durationDaysMeta,
+        ),
+      );
+    }
     if (data.containsKey('server_id')) {
       context.handle(
         _serverIdMeta,
@@ -4363,6 +4384,10 @@ class $WorkoutPlanTableTable extends WorkoutPlanTable
             DriftSqlType.bool,
             data['${effectivePrefix}is_free_choice'],
           )!,
+      durationDays: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}duration_days'],
+      ),
       serverId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}server_id'],
@@ -4391,6 +4416,7 @@ class WorkoutPlanTableData extends DataClass
   final bool isActive;
   final String cyclePatternJson;
   final bool isFreeChoice;
+  final int? durationDays;
   final String? serverId;
   final int syncStatus;
   const WorkoutPlanTableData({
@@ -4402,6 +4428,7 @@ class WorkoutPlanTableData extends DataClass
     required this.isActive,
     required this.cyclePatternJson,
     required this.isFreeChoice,
+    this.durationDays,
     this.serverId,
     required this.syncStatus,
   });
@@ -4418,6 +4445,9 @@ class WorkoutPlanTableData extends DataClass
     map['is_active'] = Variable<bool>(isActive);
     map['cycle_pattern_json'] = Variable<String>(cyclePatternJson);
     map['is_free_choice'] = Variable<bool>(isFreeChoice);
+    if (!nullToAbsent || durationDays != null) {
+      map['duration_days'] = Variable<int>(durationDays);
+    }
     if (!nullToAbsent || serverId != null) {
       map['server_id'] = Variable<String>(serverId);
     }
@@ -4438,6 +4468,10 @@ class WorkoutPlanTableData extends DataClass
       isActive: Value(isActive),
       cyclePatternJson: Value(cyclePatternJson),
       isFreeChoice: Value(isFreeChoice),
+      durationDays:
+          durationDays == null && nullToAbsent
+              ? const Value.absent()
+              : Value(durationDays),
       serverId:
           serverId == null && nullToAbsent
               ? const Value.absent()
@@ -4460,6 +4494,7 @@ class WorkoutPlanTableData extends DataClass
       isActive: serializer.fromJson<bool>(json['isActive']),
       cyclePatternJson: serializer.fromJson<String>(json['cyclePatternJson']),
       isFreeChoice: serializer.fromJson<bool>(json['isFreeChoice']),
+      durationDays: serializer.fromJson<int?>(json['durationDays']),
       serverId: serializer.fromJson<String?>(json['serverId']),
       syncStatus: serializer.fromJson<int>(json['syncStatus']),
     );
@@ -4476,6 +4511,7 @@ class WorkoutPlanTableData extends DataClass
       'isActive': serializer.toJson<bool>(isActive),
       'cyclePatternJson': serializer.toJson<String>(cyclePatternJson),
       'isFreeChoice': serializer.toJson<bool>(isFreeChoice),
+      'durationDays': serializer.toJson<int?>(durationDays),
       'serverId': serializer.toJson<String?>(serverId),
       'syncStatus': serializer.toJson<int>(syncStatus),
     };
@@ -4490,6 +4526,7 @@ class WorkoutPlanTableData extends DataClass
     bool? isActive,
     String? cyclePatternJson,
     bool? isFreeChoice,
+    Value<int?> durationDays = const Value.absent(),
     Value<String?> serverId = const Value.absent(),
     int? syncStatus,
   }) => WorkoutPlanTableData(
@@ -4501,6 +4538,7 @@ class WorkoutPlanTableData extends DataClass
     isActive: isActive ?? this.isActive,
     cyclePatternJson: cyclePatternJson ?? this.cyclePatternJson,
     isFreeChoice: isFreeChoice ?? this.isFreeChoice,
+    durationDays: durationDays.present ? durationDays.value : this.durationDays,
     serverId: serverId.present ? serverId.value : this.serverId,
     syncStatus: syncStatus ?? this.syncStatus,
   );
@@ -4521,6 +4559,10 @@ class WorkoutPlanTableData extends DataClass
           data.isFreeChoice.present
               ? data.isFreeChoice.value
               : this.isFreeChoice,
+      durationDays:
+          data.durationDays.present
+              ? data.durationDays.value
+              : this.durationDays,
       serverId: data.serverId.present ? data.serverId.value : this.serverId,
       syncStatus:
           data.syncStatus.present ? data.syncStatus.value : this.syncStatus,
@@ -4538,6 +4580,7 @@ class WorkoutPlanTableData extends DataClass
           ..write('isActive: $isActive, ')
           ..write('cyclePatternJson: $cyclePatternJson, ')
           ..write('isFreeChoice: $isFreeChoice, ')
+          ..write('durationDays: $durationDays, ')
           ..write('serverId: $serverId, ')
           ..write('syncStatus: $syncStatus')
           ..write(')'))
@@ -4554,6 +4597,7 @@ class WorkoutPlanTableData extends DataClass
     isActive,
     cyclePatternJson,
     isFreeChoice,
+    durationDays,
     serverId,
     syncStatus,
   );
@@ -4569,6 +4613,7 @@ class WorkoutPlanTableData extends DataClass
           other.isActive == this.isActive &&
           other.cyclePatternJson == this.cyclePatternJson &&
           other.isFreeChoice == this.isFreeChoice &&
+          other.durationDays == this.durationDays &&
           other.serverId == this.serverId &&
           other.syncStatus == this.syncStatus);
 }
@@ -4582,6 +4627,7 @@ class WorkoutPlanTableCompanion extends UpdateCompanion<WorkoutPlanTableData> {
   final Value<bool> isActive;
   final Value<String> cyclePatternJson;
   final Value<bool> isFreeChoice;
+  final Value<int?> durationDays;
   final Value<String?> serverId;
   final Value<int> syncStatus;
   const WorkoutPlanTableCompanion({
@@ -4593,6 +4639,7 @@ class WorkoutPlanTableCompanion extends UpdateCompanion<WorkoutPlanTableData> {
     this.isActive = const Value.absent(),
     this.cyclePatternJson = const Value.absent(),
     this.isFreeChoice = const Value.absent(),
+    this.durationDays = const Value.absent(),
     this.serverId = const Value.absent(),
     this.syncStatus = const Value.absent(),
   });
@@ -4605,6 +4652,7 @@ class WorkoutPlanTableCompanion extends UpdateCompanion<WorkoutPlanTableData> {
     this.isActive = const Value.absent(),
     required String cyclePatternJson,
     this.isFreeChoice = const Value.absent(),
+    this.durationDays = const Value.absent(),
     this.serverId = const Value.absent(),
     this.syncStatus = const Value.absent(),
   }) : name = Value(name),
@@ -4619,6 +4667,7 @@ class WorkoutPlanTableCompanion extends UpdateCompanion<WorkoutPlanTableData> {
     Expression<bool>? isActive,
     Expression<String>? cyclePatternJson,
     Expression<bool>? isFreeChoice,
+    Expression<int>? durationDays,
     Expression<String>? serverId,
     Expression<int>? syncStatus,
   }) {
@@ -4631,6 +4680,7 @@ class WorkoutPlanTableCompanion extends UpdateCompanion<WorkoutPlanTableData> {
       if (isActive != null) 'is_active': isActive,
       if (cyclePatternJson != null) 'cycle_pattern_json': cyclePatternJson,
       if (isFreeChoice != null) 'is_free_choice': isFreeChoice,
+      if (durationDays != null) 'duration_days': durationDays,
       if (serverId != null) 'server_id': serverId,
       if (syncStatus != null) 'sync_status': syncStatus,
     });
@@ -4645,6 +4695,7 @@ class WorkoutPlanTableCompanion extends UpdateCompanion<WorkoutPlanTableData> {
     Value<bool>? isActive,
     Value<String>? cyclePatternJson,
     Value<bool>? isFreeChoice,
+    Value<int?>? durationDays,
     Value<String?>? serverId,
     Value<int>? syncStatus,
   }) {
@@ -4657,6 +4708,7 @@ class WorkoutPlanTableCompanion extends UpdateCompanion<WorkoutPlanTableData> {
       isActive: isActive ?? this.isActive,
       cyclePatternJson: cyclePatternJson ?? this.cyclePatternJson,
       isFreeChoice: isFreeChoice ?? this.isFreeChoice,
+      durationDays: durationDays ?? this.durationDays,
       serverId: serverId ?? this.serverId,
       syncStatus: syncStatus ?? this.syncStatus,
     );
@@ -4689,6 +4741,9 @@ class WorkoutPlanTableCompanion extends UpdateCompanion<WorkoutPlanTableData> {
     if (isFreeChoice.present) {
       map['is_free_choice'] = Variable<bool>(isFreeChoice.value);
     }
+    if (durationDays.present) {
+      map['duration_days'] = Variable<int>(durationDays.value);
+    }
     if (serverId.present) {
       map['server_id'] = Variable<String>(serverId.value);
     }
@@ -4709,6 +4764,7 @@ class WorkoutPlanTableCompanion extends UpdateCompanion<WorkoutPlanTableData> {
           ..write('isActive: $isActive, ')
           ..write('cyclePatternJson: $cyclePatternJson, ')
           ..write('isFreeChoice: $isFreeChoice, ')
+          ..write('durationDays: $durationDays, ')
           ..write('serverId: $serverId, ')
           ..write('syncStatus: $syncStatus')
           ..write(')'))
@@ -11281,6 +11337,7 @@ typedef $$WorkoutPlanTableTableCreateCompanionBuilder =
       Value<bool> isActive,
       required String cyclePatternJson,
       Value<bool> isFreeChoice,
+      Value<int?> durationDays,
       Value<String?> serverId,
       Value<int> syncStatus,
     });
@@ -11294,6 +11351,7 @@ typedef $$WorkoutPlanTableTableUpdateCompanionBuilder =
       Value<bool> isActive,
       Value<String> cyclePatternJson,
       Value<bool> isFreeChoice,
+      Value<int?> durationDays,
       Value<String?> serverId,
       Value<int> syncStatus,
     });
@@ -11417,6 +11475,11 @@ class $$WorkoutPlanTableTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<int> get durationDays => $composableBuilder(
+    column: $table.durationDays,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<String> get serverId => $composableBuilder(
     column: $table.serverId,
     builder: (column) => ColumnFilters(column),
@@ -11529,6 +11592,11 @@ class $$WorkoutPlanTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get durationDays => $composableBuilder(
+    column: $table.durationDays,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get serverId => $composableBuilder(
     column: $table.serverId,
     builder: (column) => ColumnOrderings(column),
@@ -11576,6 +11644,11 @@ class $$WorkoutPlanTableTableAnnotationComposer
 
   GeneratedColumn<bool> get isFreeChoice => $composableBuilder(
     column: $table.isFreeChoice,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get durationDays => $composableBuilder(
+    column: $table.durationDays,
     builder: (column) => column,
   );
 
@@ -11689,6 +11762,7 @@ class $$WorkoutPlanTableTableTableManager
                 Value<bool> isActive = const Value.absent(),
                 Value<String> cyclePatternJson = const Value.absent(),
                 Value<bool> isFreeChoice = const Value.absent(),
+                Value<int?> durationDays = const Value.absent(),
                 Value<String?> serverId = const Value.absent(),
                 Value<int> syncStatus = const Value.absent(),
               }) => WorkoutPlanTableCompanion(
@@ -11700,6 +11774,7 @@ class $$WorkoutPlanTableTableTableManager
                 isActive: isActive,
                 cyclePatternJson: cyclePatternJson,
                 isFreeChoice: isFreeChoice,
+                durationDays: durationDays,
                 serverId: serverId,
                 syncStatus: syncStatus,
               ),
@@ -11713,6 +11788,7 @@ class $$WorkoutPlanTableTableTableManager
                 Value<bool> isActive = const Value.absent(),
                 required String cyclePatternJson,
                 Value<bool> isFreeChoice = const Value.absent(),
+                Value<int?> durationDays = const Value.absent(),
                 Value<String?> serverId = const Value.absent(),
                 Value<int> syncStatus = const Value.absent(),
               }) => WorkoutPlanTableCompanion.insert(
@@ -11724,6 +11800,7 @@ class $$WorkoutPlanTableTableTableManager
                 isActive: isActive,
                 cyclePatternJson: cyclePatternJson,
                 isFreeChoice: isFreeChoice,
+                durationDays: durationDays,
                 serverId: serverId,
                 syncStatus: syncStatus,
               ),
