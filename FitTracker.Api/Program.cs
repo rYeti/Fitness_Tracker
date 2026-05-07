@@ -97,8 +97,15 @@ builder.Services.AddScoped<ITrainerClientRepository, TrainerClientRepository>();
 builder.Services.AddScoped<ITrainerClientService, TrainerClientService>();
 builder.Services.AddSingleton<IEmailService, ConsoleEmailService>();
 
+
 // ── Build ────────────────────────────────────────────────────
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    db.Database.Migrate();
+}
 
 // ── Middleware pipeline ──────────────────────────────────────
 if (app.Environment.IsDevelopment())

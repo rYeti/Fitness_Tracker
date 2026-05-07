@@ -121,21 +121,21 @@ class _EditMealTemplateScreenState extends State<EditMealTemplateScreen> {
                   style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const Spacer(),
-                ElevatedButton.icon(
+                IconButton(
                   onPressed: _scanBarcode,
                   icon: const Icon(Icons.qr_code_scanner),
-                  label: Text(l10n.scan),
-                  style: ElevatedButton.styleFrom(
+                  tooltip: l10n.scan,
+                  style: IconButton.styleFrom(
                     foregroundColor: Colors.white,
                     backgroundColor: Colors.deepPurple,
                   ),
                 ),
                 const SizedBox(width: 8),
-                ElevatedButton.icon(
+                IconButton(
                   onPressed: _addFood,
                   icon: const Icon(Icons.add),
-                  label: Text(l10n.add),
-                  style: ElevatedButton.styleFrom(
+                  tooltip: l10n.add,
+                  style: IconButton.styleFrom(
                     foregroundColor: Colors.white,
                     backgroundColor: Theme.of(context).colorScheme.primary,
                   ),

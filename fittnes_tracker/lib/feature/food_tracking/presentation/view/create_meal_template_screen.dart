@@ -118,21 +118,21 @@ class _CreateMealTemplateScreenState extends State<CreateMealTemplateScreen> {
                   ),
                 ),
                 const Spacer(),
-                ElevatedButton.icon(
+                IconButton(
                   onPressed: _scanBarcode,
                   icon: const Icon(Icons.qr_code_scanner),
-                  label: Text(loc.scan),
-                  style: ElevatedButton.styleFrom(
+                  tooltip: loc.scan,
+                  style: IconButton.styleFrom(
                     foregroundColor: Colors.white,
                     backgroundColor: Colors.deepPurple,
                   ),
                 ),
                 const SizedBox(width: 8),
-                ElevatedButton.icon(
+                IconButton(
                   onPressed: _addFood,
                   icon: const Icon(Icons.add),
-                  label: Text(loc.add),
-                  style: ElevatedButton.styleFrom(
+                  tooltip: loc.add,
+                  style: IconButton.styleFrom(
                     foregroundColor: Colors.white,
                     backgroundColor: Theme.of(context).colorScheme.primary,
                   ),

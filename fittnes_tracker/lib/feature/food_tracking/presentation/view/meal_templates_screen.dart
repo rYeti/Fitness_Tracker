@@ -297,10 +297,11 @@ class TemplateCard extends StatelessWidget {
                 ),
               ],
               const SizedBox(height: 8),
-              Row(
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
                 children: [
                   _infoBadge(context, AppLocalizations.of(context)!.itemsCount(template.items.length), mutedBg, muted),
-                  const SizedBox(width: 6),
                   _infoBadge(
                     context,
                     '${template.totalCalories.toStringAsFixed(0)} kcal',
