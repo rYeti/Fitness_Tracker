@@ -95,7 +95,11 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
     final features = [
       l10n.paywallFeatureProgress,
       l10n.paywallFeaturePlans,
+      l10n.paywallFeatureLongPlans,
+      l10n.paywallFeatureFreeChoice,
       l10n.paywallFeatureTemplates,
+      l10n.paywallFeatureCustomFoods,
+      l10n.paywallFeatureNutrition,
       l10n.paywallFeatureCorrelation,
       l10n.paywallFeatureGraphs,
       l10n.paywallFeatureExport,

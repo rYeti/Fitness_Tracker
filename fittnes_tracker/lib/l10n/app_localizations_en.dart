@@ -1896,7 +1896,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get paywallFeatureProgress =>
-      'Full progress dashboard — 30 days & custom range';
+      'Full progress dashboard — 7, 30, 90 days & all-time view';
 
   @override
   String get paywallFeaturePlans => 'Unlimited workout plans';
@@ -1912,6 +1912,22 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get paywallFeatureExport => 'Export workout data (CSV)';
+
+  @override
+  String get paywallFeatureNutrition =>
+      'Detailed nutrition breakdown — vitamins & minerals';
+
+  @override
+  String get paywallFeatureCustomFoods =>
+      'Unlimited custom foods (free: up to 10)';
+
+  @override
+  String get paywallFeatureLongPlans =>
+      'Extended workout plan durations — up to 1 year';
+
+  @override
+  String get paywallFeatureFreeChoice =>
+      'Free choice workout mode — schedule any workout on any day';
 
   @override
   String get deleteAccount => 'Delete Account';
@@ -1986,5 +2002,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get premiumUpgradeMultiplePlans =>
-      'Premium — upgrade to create multiple plans';
+      'Premium — upgrade to create unlimited plans';
+
+  @override
+  String get freeTemplateLimitReached =>
+      'Free limit reached — upgrade to create more than 3 templates';
+
+  @override
+  String itemsCount(int count) {
+    return '$count items';
+  }
 }

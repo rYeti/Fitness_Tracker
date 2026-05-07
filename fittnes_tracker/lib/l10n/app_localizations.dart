@@ -3509,7 +3509,7 @@ abstract class AppLocalizations {
   /// No description provided for @paywallFeatureProgress.
   ///
   /// In en, this message translates to:
-  /// **'Full progress dashboard — 30 days & custom range'**
+  /// **'Full progress dashboard — 7, 30, 90 days & all-time view'**
   String get paywallFeatureProgress;
 
   /// No description provided for @paywallFeaturePlans.
@@ -3541,6 +3541,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Export workout data (CSV)'**
   String get paywallFeatureExport;
+
+  /// No description provided for @paywallFeatureNutrition.
+  ///
+  /// In en, this message translates to:
+  /// **'Detailed nutrition breakdown — vitamins & minerals'**
+  String get paywallFeatureNutrition;
+
+  /// No description provided for @paywallFeatureCustomFoods.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlimited custom foods (free: up to 10)'**
+  String get paywallFeatureCustomFoods;
+
+  /// No description provided for @paywallFeatureLongPlans.
+  ///
+  /// In en, this message translates to:
+  /// **'Extended workout plan durations — up to 1 year'**
+  String get paywallFeatureLongPlans;
+
+  /// No description provided for @paywallFeatureFreeChoice.
+  ///
+  /// In en, this message translates to:
+  /// **'Free choice workout mode — schedule any workout on any day'**
+  String get paywallFeatureFreeChoice;
 
   /// No description provided for @deleteAccount.
   ///
@@ -3665,8 +3689,20 @@ abstract class AppLocalizations {
   /// No description provided for @premiumUpgradeMultiplePlans.
   ///
   /// In en, this message translates to:
-  /// **'Premium — upgrade to create multiple plans'**
+  /// **'Premium — upgrade to create unlimited plans'**
   String get premiumUpgradeMultiplePlans;
+
+  /// No description provided for @freeTemplateLimitReached.
+  ///
+  /// In en, this message translates to:
+  /// **'Free limit reached — upgrade to create more than 3 templates'**
+  String get freeTemplateLimitReached;
+
+  /// No description provided for @itemsCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} items'**
+  String itemsCount(int count);
 }
 
 class _AppLocalizationsDelegate

@@ -897,12 +897,19 @@
   "paywallUnlockPotential": "Entfalte dein volles Potenzial",
   "paywallNoPlans": "Keine Tarife verfügbar.",
   "paywallRestorePurchases": "Käufe wiederherstellen",
-  "paywallFeatureProgress": "Vollständiges Fortschritts-Dashboard — 30 Tage & benutzerdefinierter Zeitraum",
+  "paywallFeatureProgress": "Vollständiges Fortschritts-Dashboard — 7, 30, 90 Tage & Gesamtansicht",
   "paywallFeaturePlans": "Unbegrenzte Trainingspläne",
   "paywallFeatureTemplates": "Unbegrenzte Mahlzeiten-Vorlagen",
   "paywallFeatureCorrelation": "Gewichts- & Kalorien-Korrelationsdiagramm",
   "paywallFeatureGraphs": "Übungsfortschrittsgraphen",
   "paywallFeatureExport": "Trainingsdaten exportieren (CSV)",
+  "paywallFeatureNutrition": "Detaillierte Nährwertanalyse — Vitamine & Mineralstoffe",
+  "paywallFeatureCustomFoods": "Unbegrenzte eigene Lebensmittel (kostenlos: bis zu 10)",
+  "paywallFeatureLongPlans": "Erweiterte Trainingsplandauer — bis zu 1 Jahr",
+  "paywallFeatureFreeChoice": "Freie Auswahl — beliebige Workouts an beliebigen Tagen einplanen",
+  "paywallFeatureNutrition": "Detaillierte Nährwertanalyse — Vitamine & Mineralstoffe",
+  "paywallFeatureCustomFoods": "Unbegrenzte eigene Lebensmittel (kostenlos: bis zu 10)",
+  "paywallFeatureLongPlans": "Erweiterte Trainingsplandauer — bis zu 1 Jahr",
   "deleteAccount": "Konto löschen",
   "deleteAccountWarning": "Dies löscht dauerhaft dein Konto und alle deine Daten, einschließlich Trainings, Mahlzeiten und Gewichtsverlauf. Trainer-Beziehungen werden ebenfalls entfernt. Dies kann nicht rückgängig gemacht werden.",
   "deleteAccountError": "Konto konnte nicht gelöscht werden. Bitte überprüfe dein Passwort und versuche es erneut.",
@@ -941,5 +948,12 @@
     "placeholders": { "error": { "type": "Object" } }
   },
 
-  "premiumUpgradeMultiplePlans": "Premium — upgrade für mehrere Pläne erforderlich"
+  "premiumUpgradeMultiplePlans": "Premium — upgrade für unbegrenzte Pläne erforderlich",
+
+  "freeTemplateLimitReached": "Kostenloses Limit erreicht — upgrade für mehr als 3 Vorlagen",
+
+  "itemsCount": "{count} Einträge",
+  "@itemsCount": {
+    "placeholders": { "count": { "type": "int" } }
+  }
 }

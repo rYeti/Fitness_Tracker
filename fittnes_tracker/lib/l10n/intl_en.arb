@@ -901,12 +901,19 @@
   "paywallUnlockPotential": "Unlock your full potential",
   "paywallNoPlans": "No plans available.",
   "paywallRestorePurchases": "Restore purchases",
-  "paywallFeatureProgress": "Full progress dashboard — 30 days & custom range",
+  "paywallFeatureProgress": "Full progress dashboard — 7, 30, 90 days & all-time view",
   "paywallFeaturePlans": "Unlimited workout plans",
   "paywallFeatureTemplates": "Unlimited meal templates",
   "paywallFeatureCorrelation": "Weight & calorie correlation chart",
   "paywallFeatureGraphs": "Exercise progress graphs",
   "paywallFeatureExport": "Export workout data (CSV)",
+  "paywallFeatureNutrition": "Detailed nutrition breakdown — vitamins & minerals",
+  "paywallFeatureCustomFoods": "Unlimited custom foods (free: up to 10)",
+  "paywallFeatureLongPlans": "Extended workout plan durations — up to 1 year",
+  "paywallFeatureFreeChoice": "Free choice workout mode — schedule any workout on any day",
+  "paywallFeatureNutrition": "Detailed nutrition breakdown — vitamins & minerals",
+  "paywallFeatureCustomFoods": "Unlimited custom foods (free: up to 10)",
+  "paywallFeatureLongPlans": "Extended workout plan durations — up to 1 year",
   "deleteAccount": "Delete Account",
   "deleteAccountWarning": "This will permanently delete your account and all your data including workouts, meals, and weight history. Any trainer relationships will also be removed. This cannot be undone.",
   "deleteAccountError": "Failed to delete account. Please check your password and try again.",
@@ -945,5 +952,12 @@
     "placeholders": { "error": { "type": "Object" } }
   },
 
-  "premiumUpgradeMultiplePlans": "Premium — upgrade to create multiple plans"
+  "premiumUpgradeMultiplePlans": "Premium — upgrade to create unlimited plans",
+
+  "freeTemplateLimitReached": "Free limit reached — upgrade to create more than 3 templates",
+
+  "itemsCount": "{count} items",
+  "@itemsCount": {
+    "placeholders": { "count": { "type": "int" } }
+  }
 }

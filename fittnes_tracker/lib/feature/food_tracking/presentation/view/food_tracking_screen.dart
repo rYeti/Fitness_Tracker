@@ -233,7 +233,7 @@ class _FoodTrackingScreenState extends State<FoodTrackingScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.restaurant_menu, color: Colors.white),
-            tooltip: 'Meal Templates',
+            tooltip: AppLocalizations.of(context)!.mealTemplates,
             onPressed: () {
               Navigator.pushNamed(context, '/meal-templates');
             },
@@ -525,9 +525,12 @@ class _FoodTrackingScreenState extends State<FoodTrackingScreen> {
                               dense: true,
                               contentPadding: EdgeInsets.zero,
                               title: Text(food.name),
-                              subtitle: Text(
-                                '${food.calories} kcal · P: ${food.protein}g · C: ${food.carbs}g · F: ${food.fat}g',
-                              ),
+                              subtitle: Builder(builder: (ctx) {
+                                final l = AppLocalizations.of(ctx)!;
+                                return Text(
+                                  '${food.calories} kcal · ${l.proteinLabel}: ${food.protein}g · ${l.carbsLabel}: ${food.carbs}g · ${l.fatLabel}: ${food.fat}g',
+                                );
+                              }),
                               onTap: () async {
                                 await Navigator.push(
                                   context,

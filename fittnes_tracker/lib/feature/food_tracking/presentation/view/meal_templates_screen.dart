@@ -72,7 +72,7 @@ class _MealTemplatesScreenState extends State<MealTemplatesScreen> {
               final repo = context.read<MealTemplateRepository>();
               final all = await repo.getAllTemplates();
               if (!context.mounted) return;
-              if (all.isNotEmpty) {
+              if (all.length >= 3) {
                 Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const PaywallScreen()),
                 );
@@ -130,7 +130,7 @@ class _TemplateListTabState extends State<TemplateListTab>
             );
           }
           if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
+            return Center(child: Text(AppLocalizations.of(context)!.failedToLoadData(snapshot.error ?? '')));
           }
           final templates = snapshot.data ?? [];
           if (templates.isEmpty) {
@@ -156,7 +156,7 @@ class _TemplateListTabState extends State<TemplateListTab>
                         final repo = context.read<MealTemplateRepository>();
                         final all = await repo.getAllTemplates();
                         if (!context.mounted) return;
-                        if (all.isNotEmpty) {
+                        if (all.length >= 3) {
                           Navigator.of(context).push(
                             MaterialPageRoute(builder: (_) => const PaywallScreen()),
                           );
@@ -299,7 +299,7 @@ class TemplateCard extends StatelessWidget {
               const SizedBox(height: 8),
               Row(
                 children: [
-                  _infoBadge(context, '${template.items.length} items', mutedBg, muted),
+                  _infoBadge(context, AppLocalizations.of(context)!.itemsCount(template.items.length), mutedBg, muted),
                   const SizedBox(width: 6),
                   _infoBadge(
                     context,

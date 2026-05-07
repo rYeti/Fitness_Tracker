@@ -1,5 +1,6 @@
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/utils/app_logger.dart';
+import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
@@ -48,14 +49,15 @@ class _EditMealTemplateScreenState extends State<EditMealTemplateScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
         backgroundColor: const Color(0xFF333333),
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text(
-          'Edit Meal Template',
-          style: TextStyle(
+        title: Text(
+          l10n.editMealTemplate,
+          style: const TextStyle(
             fontFamily: 'Montserrat',
             fontWeight: FontWeight.w700,
             fontSize: 17,
@@ -70,13 +72,13 @@ class _EditMealTemplateScreenState extends State<EditMealTemplateScreen> {
           children: [
             TextFormField(
               controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: 'Template Name',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: l10n.templateName,
+                border: const OutlineInputBorder(),
               ),
               validator: (value) {
                 if (value == null || value.isEmpty) {
-                  return 'Please enter a name';
+                  return l10n.pleaseEnterAName;
                 }
                 return null;
               },
@@ -84,26 +86,25 @@ class _EditMealTemplateScreenState extends State<EditMealTemplateScreen> {
             const SizedBox(height: 16),
             TextFormField(
               controller: _descriptionController,
-              decoration: const InputDecoration(
-                labelText: 'Description (Optional)',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: l10n.descriptionOptional,
+                border: const OutlineInputBorder(),
               ),
               maxLines: 2,
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
-              decoration: const InputDecoration(
-                labelText: 'Category',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: l10n.category,
+                border: const OutlineInputBorder(),
               ),
               value: _selectedCategory,
-              items:
-                  ['Breakfast', 'Lunch', 'Dinner', 'Snack'].map((category) {
-                    return DropdownMenuItem<String>(
-                      value: category,
-                      child: Text(category),
-                    );
-                  }).toList(),
+              items: [
+                DropdownMenuItem(value: 'Breakfast', child: Text(l10n.mealBreakfast)),
+                DropdownMenuItem(value: 'Lunch',     child: Text(l10n.mealLunch)),
+                DropdownMenuItem(value: 'Dinner',    child: Text(l10n.mealDinner)),
+                DropdownMenuItem(value: 'Snack',     child: Text(l10n.mealSnacks)),
+              ],
               onChanged: (value) {
                 if (value != null) {
                   setState(() {
@@ -115,15 +116,15 @@ class _EditMealTemplateScreenState extends State<EditMealTemplateScreen> {
             const SizedBox(height: 24),
             Row(
               children: [
-                const Text(
-                  'Foods',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                Text(
+                  l10n.foods,
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const Spacer(),
                 ElevatedButton.icon(
                   onPressed: _scanBarcode,
                   icon: const Icon(Icons.qr_code_scanner),
-                  label: const Text('Scan'),
+                  label: Text(l10n.scan),
                   style: ElevatedButton.styleFrom(
                     foregroundColor: Colors.white,
                     backgroundColor: Colors.deepPurple,
@@ -133,7 +134,7 @@ class _EditMealTemplateScreenState extends State<EditMealTemplateScreen> {
                 ElevatedButton.icon(
                   onPressed: _addFood,
                   icon: const Icon(Icons.add),
-                  label: const Text('Add'),
+                  label: Text(l10n.add),
                   style: ElevatedButton.styleFrom(
                     foregroundColor: Colors.white,
                     backgroundColor: Theme.of(context).colorScheme.primary,
@@ -142,21 +143,20 @@ class _EditMealTemplateScreenState extends State<EditMealTemplateScreen> {
               ],
             ),
             const SizedBox(height: 16),
-            ..._buildFoodItems(),
+            ..._buildFoodItems(l10n),
             const SizedBox(height: 24),
             ElevatedButton(
               onPressed: _saveTemplate,
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 backgroundColor: Theme.of(context).colorScheme.primary,
-                foregroundColor:
-                    Colors.white, // Explicitly set text color to white
+                foregroundColor: Colors.white,
                 textStyle: const TextStyle(
                   fontSize: 16.0,
                   fontWeight: FontWeight.bold,
-                ), // Make text more visible
+                ),
               ),
-              child: const Text('Save Changes'),
+              child: Text(l10n.saveChanges),
             ),
           ],
         ),
@@ -164,13 +164,13 @@ class _EditMealTemplateScreenState extends State<EditMealTemplateScreen> {
     );
   }
 
-  List<Widget> _buildFoodItems() {
+  List<Widget> _buildFoodItems(AppLocalizations l10n) {
     if (_selectedFoods.isEmpty) {
       return [
-        const Center(
+        Center(
           child: Padding(
-            padding: EdgeInsets.all(16.0),
-            child: Text('No foods added yet'),
+            padding: const EdgeInsets.all(16.0),
+            child: Text(l10n.noFoodsAdded),
           ),
         ),
       ];
@@ -230,40 +230,34 @@ class _EditMealTemplateScreenState extends State<EditMealTemplateScreen> {
   }
 
   void _scanBarcode() async {
-    // Don't allow barcode scanning on web or desktop
+    final l10n = AppLocalizations.of(context)!;
     if (kIsWeb) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Barcode scanning is not supported on web'),
-        ),
+        SnackBar(content: Text(l10n.barcodeNotSupportedWeb)),
       );
       return;
     }
 
     try {
-      // Navigate to barcode scanner screen with isTemplate flag set to true
       final scannedFood = await Navigator.push(
         context,
         MaterialPageRoute(
-          builder:
-              (context) => BarcodeScannerView(
-                category: _selectedCategory,
-                isTemplate:
-                    true, // Set this to true to indicate we're adding to template
-              ),
+          builder: (context) => BarcodeScannerView(
+            category: _selectedCategory,
+            isTemplate: true,
+          ),
         ),
       );
 
-      // If a food item was scanned and returned
+      if (!mounted) return;
+
       if (scannedFood != null) {
-        // Convert scanned food (likely FoodItemModel) to MealTemplateItem
         if (scannedFood is FoodItemModel) {
           setState(() {
             _selectedFoods.add(
               MealTemplateItem(
-                templateId:
-                    widget.template.id ?? -1, // Use existing template ID
-                foodId: scannedFood.id ?? 0, // Use 0 if ID is null
+                templateId: widget.template.id ?? -1,
+                foodId: scannedFood.id ?? 0,
                 foodName: scannedFood.name,
                 quantity: scannedFood.gramm.toDouble(),
                 unit: 'g',
@@ -274,20 +268,17 @@ class _EditMealTemplateScreenState extends State<EditMealTemplateScreen> {
               ),
             );
           });
-
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('${scannedFood.name} added to template'),
+              content: Text(l10n.addedToTemplate(scannedFood.name)),
               backgroundColor: Colors.green,
             ),
           );
         } else if (scannedFood is FoodItemData) {
-          // Handle if it's a FoodItemData object instead
           setState(() {
             _selectedFoods.add(
               MealTemplateItem(
-                templateId:
-                    widget.template.id ?? -1, // Use existing template ID
+                templateId: widget.template.id ?? -1,
                 foodId: scannedFood.id,
                 foodName: scannedFood.name,
                 quantity: scannedFood.gramm.toDouble(),
@@ -299,23 +290,20 @@ class _EditMealTemplateScreenState extends State<EditMealTemplateScreen> {
               ),
             );
           });
-
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('${scannedFood.name} added to template'),
+              content: Text(l10n.addedToTemplate(scannedFood.name)),
               backgroundColor: Colors.green,
             ),
           );
         }
       }
     } catch (e) {
-      if (kDebugMode) {
-        AppLogger.i('Error scanning barcode: $e');
-      }
-
+      if (kDebugMode) AppLogger.i('Error scanning barcode: $e');
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error scanning barcode: $e'),
+          content: Text(l10n.errorScanningBarcode(e)),
           backgroundColor: Colors.red,
         ),
       );
@@ -323,10 +311,11 @@ class _EditMealTemplateScreenState extends State<EditMealTemplateScreen> {
   }
 
   void _saveTemplate() {
+    final l10n = AppLocalizations.of(context)!;
     if (_formKey.currentState!.validate()) {
       if (_selectedFoods.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please add at least one food')),
+          SnackBar(content: Text(l10n.pleaseAddAtLeastOneFood)),
         );
         return;
       }
@@ -343,18 +332,20 @@ class _EditMealTemplateScreenState extends State<EditMealTemplateScreen> {
         context,
         listen: false,
       );
+      final messenger = ScaffoldMessenger.of(context);
+      final navigator = Navigator.of(context);
       repository
           .updateMealTemplate(template)
           .then((_) {
-            Navigator.pop(context, true); // Return success
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Template updated successfully')),
+            navigator.pop(true);
+            messenger.showSnackBar(
+              SnackBar(content: Text(l10n.templateUpdatedSuccessfully)),
             );
           })
           .catchError((error) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text('Error: $error')));
+            messenger.showSnackBar(
+              SnackBar(content: Text(l10n.errorCreatingTemplate(error))),
+            );
           });
     }
   }
