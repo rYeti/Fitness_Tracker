@@ -917,5 +917,33 @@
     "placeholders": {
       "count": { "type": "int" }
     }
-  }
+  },
+
+  "forgotPasswordTitle": "Forgot Password",
+  "resetYourPassword": "Reset your password",
+  "forgotPasswordDescription": "Enter the email address linked to your account and we'll send you a reset link.",
+  "sendResetLink": "Send Reset Link",
+  "checkYourEmail": "Check your email",
+  "resetLinkSentBody": "If an account is linked to {email}, you'll receive a reset link shortly.",
+  "@resetLinkSentBody": {
+    "placeholders": { "email": { "type": "String" } }
+  },
+  "backToLogin": "Back to Login",
+
+  "syncNow": "Sync now",
+  "syncNowSubtitle": "Push all pending local changes to the server",
+  "syncComplete": "Sync complete",
+  "syncFailed": "Sync failed: {error}",
+  "@syncFailed": {
+    "placeholders": { "error": { "type": "Object" } }
+  },
+  "restoreFromServer": "Restore from server",
+  "restoreFromServerSubtitle": "Download server data to this device",
+  "restoreComplete": "Restore complete",
+  "restoreFailed": "Restore failed: {error}",
+  "@restoreFailed": {
+    "placeholders": { "error": { "type": "Object" } }
+  },
+
+  "premiumUpgradeMultiplePlans": "Premium — upgrade to create multiple plans"
 }

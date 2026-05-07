@@ -80,7 +80,7 @@ class WorkoutsListViewState extends State<WorkoutsListView> {
                 ],
               ),
               subtitle: (!hasPremium && planCount >= 1)
-                  ? const Text('Premium — upgrade to create multiple plans')
+                  ? Text(l10n.premiumUpgradeMultiplePlans)
                   : null,
               onTap: () async {
                 Navigator.pop(ctx);

@@ -1942,4 +1942,62 @@ class AppLocalizationsDe extends AppLocalizations {
   String nWeeks(int count) {
     return '$count Wochen';
   }
+
+  @override
+  String get forgotPasswordTitle => 'Passwort vergessen';
+
+  @override
+  String get resetYourPassword => 'Passwort zurücksetzen';
+
+  @override
+  String get forgotPasswordDescription =>
+      'Gib die E-Mail-Adresse ein, die mit deinem Konto verknüpft ist, und wir schicken dir einen Link zum Zurücksetzen.';
+
+  @override
+  String get sendResetLink => 'Link senden';
+
+  @override
+  String get checkYourEmail => 'Prüfe deine E-Mails';
+
+  @override
+  String resetLinkSentBody(String email) {
+    return 'Falls ein Konto mit $email verknüpft ist, erhältst du in Kürze einen Reset-Link.';
+  }
+
+  @override
+  String get backToLogin => 'Zurück zur Anmeldung';
+
+  @override
+  String get syncNow => 'Jetzt synchronisieren';
+
+  @override
+  String get syncNowSubtitle =>
+      'Alle ausstehenden lokalen Änderungen auf den Server übertragen';
+
+  @override
+  String get syncComplete => 'Synchronisierung abgeschlossen';
+
+  @override
+  String syncFailed(Object error) {
+    return 'Synchronisierung fehlgeschlagen: $error';
+  }
+
+  @override
+  String get restoreFromServer => 'Vom Server wiederherstellen';
+
+  @override
+  String get restoreFromServerSubtitle =>
+      'Serverdaten auf dieses Gerät herunterladen';
+
+  @override
+  String get restoreComplete => 'Wiederherstellung abgeschlossen';
+
+  @override
+  String restoreFailed(Object error) {
+    return 'Wiederherstellung fehlgeschlagen: $error';
+  }
+
+  @override
+  String get premiumUpgradeMultiplePlans =>
+      'Premium — upgrade für mehrere Pläne erforderlich';
 }

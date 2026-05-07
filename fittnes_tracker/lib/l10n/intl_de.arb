@@ -913,5 +913,33 @@
     "placeholders": {
       "count": { "type": "int" }
     }
-  }
+  },
+
+  "forgotPasswordTitle": "Passwort vergessen",
+  "resetYourPassword": "Passwort zurücksetzen",
+  "forgotPasswordDescription": "Gib die E-Mail-Adresse ein, die mit deinem Konto verknüpft ist, und wir schicken dir einen Link zum Zurücksetzen.",
+  "sendResetLink": "Link senden",
+  "checkYourEmail": "Prüfe deine E-Mails",
+  "resetLinkSentBody": "Falls ein Konto mit {email} verknüpft ist, erhältst du in Kürze einen Reset-Link.",
+  "@resetLinkSentBody": {
+    "placeholders": { "email": { "type": "String" } }
+  },
+  "backToLogin": "Zurück zur Anmeldung",
+
+  "syncNow": "Jetzt synchronisieren",
+  "syncNowSubtitle": "Alle ausstehenden lokalen Änderungen auf den Server übertragen",
+  "syncComplete": "Synchronisierung abgeschlossen",
+  "syncFailed": "Synchronisierung fehlgeschlagen: {error}",
+  "@syncFailed": {
+    "placeholders": { "error": { "type": "Object" } }
+  },
+  "restoreFromServer": "Vom Server wiederherstellen",
+  "restoreFromServerSubtitle": "Serverdaten auf dieses Gerät herunterladen",
+  "restoreComplete": "Wiederherstellung abgeschlossen",
+  "restoreFailed": "Wiederherstellung fehlgeschlagen: {error}",
+  "@restoreFailed": {
+    "placeholders": { "error": { "type": "Object" } }
+  },
+
+  "premiumUpgradeMultiplePlans": "Premium — upgrade für mehrere Pläne erforderlich"
 }

@@ -3571,6 +3571,102 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count} weeks'**
   String nWeeks(int count);
+
+  /// No description provided for @forgotPasswordTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Forgot Password'**
+  String get forgotPasswordTitle;
+
+  /// No description provided for @resetYourPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset your password'**
+  String get resetYourPassword;
+
+  /// No description provided for @forgotPasswordDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the email address linked to your account and we\'ll send you a reset link.'**
+  String get forgotPasswordDescription;
+
+  /// No description provided for @sendResetLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Send Reset Link'**
+  String get sendResetLink;
+
+  /// No description provided for @checkYourEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Check your email'**
+  String get checkYourEmail;
+
+  /// No description provided for @resetLinkSentBody.
+  ///
+  /// In en, this message translates to:
+  /// **'If an account is linked to {email}, you\'ll receive a reset link shortly.'**
+  String resetLinkSentBody(String email);
+
+  /// No description provided for @backToLogin.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to Login'**
+  String get backToLogin;
+
+  /// No description provided for @syncNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync now'**
+  String get syncNow;
+
+  /// No description provided for @syncNowSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Push all pending local changes to the server'**
+  String get syncNowSubtitle;
+
+  /// No description provided for @syncComplete.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync complete'**
+  String get syncComplete;
+
+  /// No description provided for @syncFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync failed: {error}'**
+  String syncFailed(Object error);
+
+  /// No description provided for @restoreFromServer.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore from server'**
+  String get restoreFromServer;
+
+  /// No description provided for @restoreFromServerSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Download server data to this device'**
+  String get restoreFromServerSubtitle;
+
+  /// No description provided for @restoreComplete.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore complete'**
+  String get restoreComplete;
+
+  /// No description provided for @restoreFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore failed: {error}'**
+  String restoreFailed(Object error);
+
+  /// No description provided for @premiumUpgradeMultiplePlans.
+  ///
+  /// In en, this message translates to:
+  /// **'Premium — upgrade to create multiple plans'**
+  String get premiumUpgradeMultiplePlans;
 }
 
 class _AppLocalizationsDelegate

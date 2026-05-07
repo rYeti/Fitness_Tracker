@@ -2,6 +2,7 @@ import 'package:ForgeForm/feature/auth/presentation/providers/auth_provider.dart
 import 'package:ForgeForm/feature/onboarding/onboarding_screen.dart'
     show onboardingFieldDecoration;
 import 'package:flutter/material.dart';
+import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class ForgotPasswordScreen extends ConsumerStatefulWidget {
@@ -34,32 +35,33 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Forgot Password')),
+      appBar: AppBar(title: Text(l10n.forgotPasswordTitle)),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 28),
-          child: _sent ? _confirmation(theme) : _form(theme),
+          child: _sent ? _confirmation(theme, l10n) : _form(theme, l10n),
         ),
       ),
     );
   }
 
-  Widget _form(ThemeData theme) {
+  Widget _form(ThemeData theme, AppLocalizations l10n) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const SizedBox(height: 48),
         Text(
-          'Reset your password',
+          l10n.resetYourPassword,
           style: theme.textTheme.headlineSmall?.copyWith(
             fontWeight: FontWeight.bold,
           ),
         ),
         const SizedBox(height: 8),
         Text(
-          'Enter the email address linked to your account and we\'ll send you a reset link.',
+          l10n.forgotPasswordDescription,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
@@ -67,7 +69,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
         const SizedBox(height: 32),
         TextField(
           controller: _emailController,
-          decoration: onboardingFieldDecoration(context, 'Email'),
+          decoration: onboardingFieldDecoration(context, l10n.email),
           keyboardType: TextInputType.emailAddress,
           textInputAction: TextInputAction.done,
           onSubmitted: (_) => _submit(),
@@ -90,16 +92,16 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                     color: theme.colorScheme.onPrimary,
                   ),
                 )
-              : const Text(
-                  'Send Reset Link',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              : Text(
+                  l10n.sendResetLink,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
         ),
       ],
     );
   }
 
-  Widget _confirmation(ThemeData theme) {
+  Widget _confirmation(ThemeData theme, AppLocalizations l10n) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -111,7 +113,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
         ),
         const SizedBox(height: 24),
         Text(
-          'Check your email',
+          l10n.checkYourEmail,
           textAlign: TextAlign.center,
           style: theme.textTheme.headlineSmall?.copyWith(
             fontWeight: FontWeight.bold,
@@ -119,7 +121,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
         ),
         const SizedBox(height: 12),
         Text(
-          'If an account is linked to ${_emailController.text.trim()}, you\'ll receive a reset link shortly.',
+          l10n.resetLinkSentBody(_emailController.text.trim()),
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
@@ -134,7 +136,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
               borderRadius: BorderRadius.circular(12),
             ),
           ),
-          child: const Text('Back to Login'),
+          child: Text(l10n.backToLogin),
         ),
       ],
     );

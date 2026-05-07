@@ -109,6 +109,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _isPulling = false;
 
   Future<void> _runSync() async {
+    final l10n = AppLocalizations.of(context)!;
     setState(() => _isSyncing = true);
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -123,13 +124,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await prefs.setInt('last_sync_timestamp', DateTime.now().millisecondsSinceEpoch);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Sync complete')),
+          SnackBar(content: Text(l10n.syncComplete)),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Sync failed: $e')),
+          SnackBar(content: Text(l10n.syncFailed(e))),
         );
       }
     } finally {
@@ -138,6 +139,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _runPull() async {
+    final l10n = AppLocalizations.of(context)!;
     setState(() => _isPulling = true);
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -153,13 +155,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
         globalFoodTrackingKey.currentState?.loadNutritionData();
         Provider.of<WeightProvider>(context, listen: false).reload();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Restore complete')),
+          SnackBar(content: Text(l10n.restoreComplete)),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Restore failed: $e')),
+          SnackBar(content: Text(l10n.restoreFailed(e))),
         );
       }
     } finally {
@@ -653,8 +655,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             ),
                           )
                         : Icon(Icons.sync, color: colorScheme.onSurfaceVariant),
-                    title: const Text('Sync now'),
-                    subtitle: const Text('Push all pending local changes to the server'),
+                    title: Text(l10n.syncNow),
+                    subtitle: Text(l10n.syncNowSubtitle),
                     onTap: _isSyncing ? null : _runSync,
                   ),
                 ),
@@ -676,8 +678,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             ),
                           )
                         : Icon(Icons.cloud_download_outlined, color: colorScheme.onSurfaceVariant),
-                    title: const Text('Restore from server'),
-                    subtitle: const Text('Download server data to this device'),
+                    title: Text(l10n.restoreFromServer),
+                    subtitle: Text(l10n.restoreFromServerSubtitle),
                     onTap: _isPulling ? null : _runPull,
                   ),
                 ),

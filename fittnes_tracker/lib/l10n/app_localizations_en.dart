@@ -1931,4 +1931,60 @@ class AppLocalizationsEn extends AppLocalizations {
   String nWeeks(int count) {
     return '$count weeks';
   }
+
+  @override
+  String get forgotPasswordTitle => 'Forgot Password';
+
+  @override
+  String get resetYourPassword => 'Reset your password';
+
+  @override
+  String get forgotPasswordDescription =>
+      'Enter the email address linked to your account and we\'ll send you a reset link.';
+
+  @override
+  String get sendResetLink => 'Send Reset Link';
+
+  @override
+  String get checkYourEmail => 'Check your email';
+
+  @override
+  String resetLinkSentBody(String email) {
+    return 'If an account is linked to $email, you\'ll receive a reset link shortly.';
+  }
+
+  @override
+  String get backToLogin => 'Back to Login';
+
+  @override
+  String get syncNow => 'Sync now';
+
+  @override
+  String get syncNowSubtitle => 'Push all pending local changes to the server';
+
+  @override
+  String get syncComplete => 'Sync complete';
+
+  @override
+  String syncFailed(Object error) {
+    return 'Sync failed: $error';
+  }
+
+  @override
+  String get restoreFromServer => 'Restore from server';
+
+  @override
+  String get restoreFromServerSubtitle => 'Download server data to this device';
+
+  @override
+  String get restoreComplete => 'Restore complete';
+
+  @override
+  String restoreFailed(Object error) {
+    return 'Restore failed: $error';
+  }
+
+  @override
+  String get premiumUpgradeMultiplePlans =>
+      'Premium — upgrade to create multiple plans';
 }
