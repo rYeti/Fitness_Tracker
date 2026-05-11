@@ -27,7 +27,12 @@ class AccessProvider extends ChangeNotifier {
   bool get isTrainerClient => _isTrainerClient;
 
   /// True if the user has access to premium features from ANY source.
-  bool get hasPremiumAccess => _isPremium || _isTrainerClient;
+  /// In debug builds without a RevenueCat key, always returns true so features
+  /// can be tested without a real subscription.
+  bool get hasPremiumAccess =>
+      kDebugMode && _revenueCatApiKey.isEmpty
+          ? true
+          : _isPremium || _isTrainerClient;
 
   bool get initialized => _initialized;
 

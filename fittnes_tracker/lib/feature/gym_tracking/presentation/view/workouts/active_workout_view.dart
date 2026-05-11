@@ -188,6 +188,9 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
         final previousSetsMap = {
           for (var set in previousSets) set.setNumber: set,
         };
+        AppLogger.i(
+          '[PrevSets] weId=${workoutExercise.id} previousSets keys=${previousSetsMap.keys.toList()} templateSetNumbers=${templates.map((t) => t.setNumber).toList()}',
+        );
         final scheduledExerciseRows =
             await (db.select(db.scheduledWorkoutExerciseTable)
                   ..where((t) => t.workoutExerciseId.equals(workoutExercise.id))
@@ -290,53 +293,95 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     try {
       final templateId =
           widget.scheduledWorkout.scheduled.templateWorkoutId;
-      final matchId =
-          templateId ?? widget.scheduledWorkout.scheduled.workoutId;
+      final workoutId = widget.scheduledWorkout.scheduled.workoutId;
 
-      final previousScheduledWorkouts =
-          await (db.select(db.scheduledWorkoutTable)
-                ..where(
-                  (t) => templateId != null
-                      ? t.templateWorkoutId.equals(matchId)
-                      : t.workoutId.equals(matchId),
-                )
-                ..where(
-                  (t) => t.id.isNotValue(widget.scheduledWorkout.scheduled.id),
-                )
-                ..where((t) => t.isCompleted.equals(true))
-                ..where(
-                  (t) =>
-                      t.scheduledDate.isSmallerThanValue(widget.scheduledDate),
-                )
-                ..orderBy([(t) => OrderingTerm.desc(t.scheduledDate)]))
-              .get();
+      AppLogger.i(
+        '[PrevSets] weId=$workoutExerciseId templateId=$templateId workoutId=$workoutId scheduledDate=${widget.scheduledDate}',
+      );
+
+      // Build candidate sets: try templateWorkoutId match first (free-choice
+      // plans store the same ID in both columns), then fall back to workoutId.
+      // Using both means we find the previous session even when templateWorkoutId
+      // was not stored (e.g. older records or post-sync edge cases).
+      Future<List<ScheduledWorkoutTableData>> queryCandidates(
+        bool byTemplateId,
+      ) {
+        final baseQuery = db.select(db.scheduledWorkoutTable)
+          ..where(
+            (t) => byTemplateId
+                ? t.templateWorkoutId.equals(templateId!)
+                : t.workoutId.equals(workoutId),
+          )
+          ..where(
+            (t) => t.id.isNotValue(widget.scheduledWorkout.scheduled.id),
+          )
+          ..where((t) => t.isCompleted.equals(true))
+          ..where(
+            (t) => t.scheduledDate.isSmallerThanValue(widget.scheduledDate),
+          )
+          ..orderBy([(t) => OrderingTerm.desc(t.scheduledDate)]);
+        return baseQuery.get();
+      }
+
+      List<ScheduledWorkoutTableData> previousScheduledWorkouts =
+          templateId != null ? await queryCandidates(true) : [];
+
+      AppLogger.i(
+        '[PrevSets] templateId lookup found ${previousScheduledWorkouts.length} sessions',
+      );
+
+      // Fall back to workoutId lookup if the templateWorkoutId search found
+      // nothing (handles records created before templateWorkoutId was populated).
+      if (previousScheduledWorkouts.isEmpty) {
+        previousScheduledWorkouts = await queryCandidates(false);
+        AppLogger.i(
+          '[PrevSets] workoutId fallback found ${previousScheduledWorkouts.length} sessions',
+        );
+      }
+
       if (previousScheduledWorkouts.isEmpty) return (<WorkoutSetTableData>[], null);
 
-      final mostRecentWorkout = previousScheduledWorkouts.first;
+      // Walk from most-recent backwards until we find a session that actually
+      // recorded this exercise (the user may have skipped it in the last session).
+      for (final candidate in previousScheduledWorkouts) {
+        final exerciseRows =
+            await (db.select(db.scheduledWorkoutExerciseTable)
+                  ..where(
+                    (t) => t.scheduledWorkoutId.equals(candidate.id),
+                  )
+                  ..where((t) => t.workoutExerciseId.equals(workoutExerciseId))
+                  ..limit(1))
+                .get();
 
-      final previousScheduledExercise =
-          await (db.select(db.scheduledWorkoutExerciseTable)
-                ..where(
-                  (t) => t.scheduledWorkoutId.equals(mostRecentWorkout.id),
-                )
-                ..where((t) => t.workoutExerciseId.equals(workoutExerciseId)))
-              .getSingleOrNull();
+        final previousScheduledExercise =
+            exerciseRows.isNotEmpty ? exerciseRows.first : null;
 
-      if (previousScheduledExercise == null) return (<WorkoutSetTableData>[], null);
+        AppLogger.i(
+          '[PrevSets] candidate sw.id=${candidate.id} date=${candidate.scheduledDate} exercise=${previousScheduledExercise?.id}',
+        );
 
-      final sets =
-          await (db.select(db.workoutSetTable)
-                ..where(
-                  (t) => t.scheduledWorkoutExerciseId.equals(
-                    previousScheduledExercise.id,
-                  ),
-                )
-                ..orderBy([(t) => OrderingTerm.asc(t.setNumber)]))
-              .get();
+        if (previousScheduledExercise == null) continue;
 
-      return (sets, previousScheduledExercise.notes);
-    } catch (e) {
-      AppLogger.i('Error loading previous sets: $e');
+        final sets =
+            await (db.select(db.workoutSetTable)
+                  ..where(
+                    (t) => t.scheduledWorkoutExerciseId.equals(
+                      previousScheduledExercise.id,
+                    ),
+                  )
+                  ..orderBy([(t) => OrderingTerm.asc(t.setNumber)]))
+                .get();
+
+        AppLogger.i('[PrevSets] sets found: ${sets.length}');
+
+        if (sets.isEmpty) continue;
+
+        return (sets, previousScheduledExercise.notes);
+      }
+
+      return (<WorkoutSetTableData>[], null);
+    } catch (e, st) {
+      AppLogger.i('Error loading previous sets: $e\n$st');
       return (<WorkoutSetTableData>[], null);
     }
   }
