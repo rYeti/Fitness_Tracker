@@ -55,6 +55,7 @@ dependencies:
   purchases_ui_flutter: ^10.0.1
   flutter_local_notifications: ^18.0.1
   timezone: ^0.9.4
+  app_links: ^6.0.0
 
 dev_dependencies:
   flutter_test:

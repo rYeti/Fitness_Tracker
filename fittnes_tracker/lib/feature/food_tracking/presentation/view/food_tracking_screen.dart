@@ -539,6 +539,7 @@ class _FoodTrackingScreenState extends State<FoodTrackingScreen> {
                                       foodItem: FoodItemModel.fromData(food),
                                       category: category,
                                       date: _selectedDate,
+                                      isEditing: true,
                                     ),
                                   ),
                                 );

@@ -2012,4 +2012,77 @@ class AppLocalizationsEn extends AppLocalizations {
   String itemsCount(int count) {
     return '$count items';
   }
+
+  @override
+  String get sortResults => 'Sort results';
+
+  @override
+  String get sortTooltip => 'Sort';
+
+  @override
+  String get sortRelevance => 'Relevance';
+
+  @override
+  String get sortHighestProtein => 'Highest protein';
+
+  @override
+  String get sortLowestCalories => 'Lowest calories';
+
+  @override
+  String get sortLowestCarbs => 'Lowest carbs';
+
+  @override
+  String get sortLowestFat => 'Lowest fat';
+
+  @override
+  String get sortHighestFibre => 'Highest fibre';
+
+  @override
+  String get tooManyRequests =>
+      'Too many requests — please wait a moment and try again.';
+
+  @override
+  String get couldNotFetchProductData =>
+      'Could not fetch product data. Please try again.';
+
+  @override
+  String get unknown => 'Unknown';
+
+  @override
+  String get requestedPlanNotFound =>
+      'Requested plan not found and no plans exist';
+
+  @override
+  String get requestedPlanNotFoundShowingAll =>
+      'Requested plan not found — showing all plans';
+
+  @override
+  String foundTemplateWorkouts(int count) {
+    return 'Found $count template workout(s) from your scheduled workouts that can be added to this plan.';
+  }
+
+  @override
+  String get addWorkoutsToPlanHint =>
+      'To add workouts to this plan:\n\n1. Import workout templates using the CSV import button\n2. Use the + button to add imported workouts to this plan\n3. Scheduled workouts are separate from plan templates';
+
+  @override
+  String get syncSectionLabel => 'Sync';
+
+  @override
+  String get forgotPassword => 'Forgot password?';
+
+  @override
+  String get resetPasswordTitle => 'Reset Password';
+
+  @override
+  String get resetPasswordDescription => 'Enter and confirm your new password below.';
+
+  @override
+  String get resetPasswordButton => 'Reset Password';
+
+  @override
+  String get passwordResetSuccess => 'Password updated successfully. You can now log in.';
+
+  @override
+  String get passwordResetExpired => 'This link has expired or has already been used.';
 }

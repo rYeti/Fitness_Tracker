@@ -199,13 +199,17 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
         if (_plans!.isEmpty && mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Requested plan not found and no plans exist'),
+              content: Text(
+                AppLocalizations.of(context)!.requestedPlanNotFound,
+              ),
             ),
           );
         } else if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Requested plan not found — showing all plans'),
+              content: Text(
+                AppLocalizations.of(context)!.requestedPlanNotFoundShowingAll,
+              ),
             ),
           );
         }
@@ -569,7 +573,9 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
             children: [
               Expanded(
                 child: Text(
-                  exercise.exercise?.localizedName(Localizations.localeOf(context).languageCode) ??
+                  exercise.exercise?.localizedName(
+                        Localizations.localeOf(context).languageCode,
+                      ) ??
                       AppLocalizations.of(context)!.unknownExercise,
                   style: Theme.of(
                     context,
@@ -689,11 +695,10 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
                 const SizedBox(height: 8),
                 Text(
                   templateWorkoutIds.isNotEmpty
-                      ? 'Found ${templateWorkoutIds.length} template workout(s) from your scheduled workouts that can be added to this plan.'
-                      : 'To add workouts to this plan:\n\n'
-                          '1. Import workout templates using the CSV import button\n'
-                          '2. Use the + button to add imported workouts to this plan\n'
-                          '3. Scheduled workouts are separate from plan templates',
+                      ? AppLocalizations.of(
+                        context,
+                      )!.foundTemplateWorkouts(templateWorkoutIds.length)
+                      : AppLocalizations.of(context)!.addWorkoutsToPlanHint,
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.grey),
                 ),
@@ -706,7 +711,9 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
                           templateWorkoutIds.toList(),
                         ),
                     icon: const Icon(Icons.auto_awesome),
-                    label: const Text('Add from Scheduled Workouts'),
+                    label: Text(
+                      AppLocalizations.of(context)!.addFromScheduledWorkouts,
+                    ),
                   ),
                   const SizedBox(height: 8),
                 ],
@@ -719,7 +726,7 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
                     );
                   },
                   icon: const Icon(Icons.file_upload),
-                  label: const Text('Import CSV Workouts'),
+                  label: Text(AppLocalizations.of(context)!.importCsvWorkouts),
                 ),
               ],
             ),
@@ -1052,14 +1059,16 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
   }
 
   Future<void> _addExerciseToWorkout(Workout workout) async {
+    final cannotAddMsg =
+        AppLocalizations.of(context)!.cannotAddExerciseToUnsavedWorkout;
     // Use the same selection modal as in create_view to pick an exercise
     final selectedExercise = await ExerciseSelectionModal.show(context);
 
     if (selectedExercise == null) return;
     if (workout.id == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cannot add exercise to unsaved workout')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(cannotAddMsg)));
       return;
     }
 
@@ -1113,9 +1122,11 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            AppLocalizations.of(
-              context,
-            )!.exerciseAddedToWorkout(selectedExercise.localizedName(Localizations.localeOf(context).languageCode)),
+            AppLocalizations.of(context)!.exerciseAddedToWorkout(
+              selectedExercise.localizedName(
+                Localizations.localeOf(context).languageCode,
+              ),
+            ),
           ),
         ),
       );
@@ -1142,7 +1153,12 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
         return AlertDialog(
           title: Text(l10n.removeExerciseTitle),
           content: Text(
-            l10n.removeExerciseConfirmBody(exercise.exercise?.localizedName(Localizations.localeOf(context).languageCode) ?? 'exercise'),
+            l10n.removeExerciseConfirmBody(
+              exercise.exercise?.localizedName(
+                    Localizations.localeOf(context).languageCode,
+                  ) ??
+                  'exercise',
+            ),
           ),
           actions: [
             TextButton(
@@ -1247,7 +1263,13 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
         return AlertDialog(
           title: Text(l10n.removeSet),
           content: Text(
-            l10n.removeSetConfirmBody(set.setNumber, exercise.exercise?.localizedName(Localizations.localeOf(context).languageCode) ?? 'exercise'),
+            l10n.removeSetConfirmBody(
+              set.setNumber,
+              exercise.exercise?.localizedName(
+                    Localizations.localeOf(context).languageCode,
+                  ) ??
+                  'exercise',
+            ),
           ),
           actions: [
             TextButton(
@@ -1293,9 +1315,11 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
         _loadPlans();
       } catch (e) {
         if (!mounted) return;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.failedToRemoveSet(e))));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(AppLocalizations.of(context)!.failedToRemoveSet(e)),
+          ),
+        );
       }
     }
   }
@@ -1366,7 +1390,9 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
           exerciseInstanceId: set.exerciseInstanceId,
           setNumber: set.setNumber,
           reps: int.tryParse(repsController.text) ?? set.reps,
-          weight: double.tryParse(weightController.text) ?? set.weight,
+          weight:
+              double.tryParse(weightController.text.replaceAll(',', '.')) ??
+              set.weight,
           weightUnit: weightUnit,
           isCompleted: set.isCompleted,
         );
@@ -1403,7 +1429,9 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(AppLocalizations.of(context)!.failedToUpdateSet(e))),
+            SnackBar(
+              content: Text(AppLocalizations.of(context)!.failedToUpdateSet(e)),
+            ),
           );
         }
       }
@@ -1469,9 +1497,9 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
         _loadPlans(); // Refresh the list
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(l10n.failedToCreatePlan(e))),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(l10n.failedToCreatePlan(e))));
         }
       }
     }
@@ -1544,9 +1572,11 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
         _loadPlans(); // Refresh the view
       } catch (e) {
         if (!mounted) return;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.failedToAddWorkout(e))));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(AppLocalizations.of(context)!.failedToAddWorkout(e)),
+          ),
+        );
       }
     }
   }
@@ -1579,14 +1609,20 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
         await sl<AppDatabase>().workoutPlanDao.deleteWorkoutPlan(plan.id!);
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context)!.deletedWorkoutPlan(plan.name))),
+          SnackBar(
+            content: Text(
+              AppLocalizations.of(context)!.deletedWorkoutPlan(plan.name),
+            ),
+          ),
         );
         _loadPlans(); // Refresh the view
       } catch (e) {
         if (!mounted) return;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.failedToDeletePlan(e))));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(AppLocalizations.of(context)!.failedToDeletePlan(e)),
+          ),
+        );
       }
     }
   }

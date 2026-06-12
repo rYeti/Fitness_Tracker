@@ -150,6 +150,20 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  /// Returns null on success, or an error message string on failure.
+  Future<String?> resetPassword(String token, String newPassword) async {
+    try {
+      await _authRepository.resetPassword(token, newPassword);
+      return null;
+    } catch (e) {
+      final msg = e.toString();
+      if (msg.contains('400') || msg.contains('invalid') || msg.contains('expired')) {
+        return 'This link has expired or has already been used.';
+      }
+      return 'Something went wrong. Please try again.';
+    }
+  }
+
   Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('token');

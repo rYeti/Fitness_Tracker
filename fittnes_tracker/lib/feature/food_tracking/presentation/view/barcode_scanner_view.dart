@@ -19,11 +19,13 @@ class BarcodeScannerView extends StatefulWidget {
   const BarcodeScannerView({
     super.key,
     required this.category,
-    this.isTemplate = false, // Add this parameter
+    this.isTemplate = false,
+    this.date,
   });
 
   final String category;
-  final bool isTemplate; // Flag to indicate if we're adding to a template
+  final bool isTemplate;
+  final DateTime? date;
 
   @override
   _BarcodeScannerViewState createState() => _BarcodeScannerViewState();
@@ -58,6 +60,7 @@ class _BarcodeScannerViewState extends State<BarcodeScannerView> {
                 category: widget.category,
                 isTemplate: widget.isTemplate,
                 portionOptions: barcodeResult.portionOptions,
+                date: widget.date,
               ),
         ),
       );
@@ -73,12 +76,13 @@ class _BarcodeScannerViewState extends State<BarcodeScannerView> {
         final isRateLimit =
             error.toString().contains('429') ||
             error.toString().contains('rate');
+        final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
               isRateLimit
-                  ? 'Too many requests — please wait a moment and try again.'
-                  : 'Could not fetch product data. Please try again.',
+                  ? l10n.tooManyRequests
+                  : l10n.couldNotFetchProductData,
             ),
           ),
         );
@@ -95,8 +99,8 @@ class _BarcodeScannerViewState extends State<BarcodeScannerView> {
     if (kIsWeb || !isMobileDevice) {
       return Scaffold(
         appBar: AppBar(title: Text(AppLocalizations.of(context)!.scanBarcode)),
-        body: const Center(
-          child: Text('Barcode scanning is only supported on mobile devices.'),
+        body: Center(
+          child: Text(AppLocalizations.of(context)!.barcodeNotSupportedMobile),
         ),
       );
     }

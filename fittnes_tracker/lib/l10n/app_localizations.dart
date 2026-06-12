@@ -3703,6 +3703,123 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count} items'**
   String itemsCount(int count);
+
+  /// No description provided for @sortResults.
+  ///
+  /// In en, this message translates to:
+  /// **'Sort results'**
+  String get sortResults;
+
+  /// No description provided for @sortTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Sort'**
+  String get sortTooltip;
+
+  /// No description provided for @sortRelevance.
+  ///
+  /// In en, this message translates to:
+  /// **'Relevance'**
+  String get sortRelevance;
+
+  /// No description provided for @sortHighestProtein.
+  ///
+  /// In en, this message translates to:
+  /// **'Highest protein'**
+  String get sortHighestProtein;
+
+  /// No description provided for @sortLowestCalories.
+  ///
+  /// In en, this message translates to:
+  /// **'Lowest calories'**
+  String get sortLowestCalories;
+
+  /// No description provided for @sortLowestCarbs.
+  ///
+  /// In en, this message translates to:
+  /// **'Lowest carbs'**
+  String get sortLowestCarbs;
+
+  /// No description provided for @sortLowestFat.
+  ///
+  /// In en, this message translates to:
+  /// **'Lowest fat'**
+  String get sortLowestFat;
+
+  /// No description provided for @sortHighestFibre.
+  ///
+  /// In en, this message translates to:
+  /// **'Highest fibre'**
+  String get sortHighestFibre;
+
+  /// No description provided for @tooManyRequests.
+  ///
+  /// In en, this message translates to:
+  /// **'Too many requests — please wait a moment and try again.'**
+  String get tooManyRequests;
+
+  /// No description provided for @couldNotFetchProductData.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not fetch product data. Please try again.'**
+  String get couldNotFetchProductData;
+
+  /// No description provided for @unknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown'**
+  String get unknown;
+
+  /// No description provided for @requestedPlanNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'Requested plan not found and no plans exist'**
+  String get requestedPlanNotFound;
+
+  /// No description provided for @requestedPlanNotFoundShowingAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Requested plan not found — showing all plans'**
+  String get requestedPlanNotFoundShowingAll;
+
+  /// No description provided for @foundTemplateWorkouts.
+  ///
+  /// In en, this message translates to:
+  /// **'Found {count} template workout(s) from your scheduled workouts that can be added to this plan.'**
+  String foundTemplateWorkouts(int count);
+
+  /// No description provided for @addWorkoutsToPlanHint.
+  ///
+  /// In en, this message translates to:
+  /// **'To add workouts to this plan:\n\n1. Import workout templates using the CSV import button\n2. Use the + button to add imported workouts to this plan\n3. Scheduled workouts are separate from plan templates'**
+  String get addWorkoutsToPlanHint;
+
+  /// No description provided for @syncSectionLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync'**
+  String get syncSectionLabel;
+
+  /// No description provided for @forgotPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Forgot password?'**
+  String get forgotPassword;
+
+  /// **'Reset Password'**
+  String get resetPasswordTitle;
+
+  /// **'Enter and confirm your new password below.'**
+  String get resetPasswordDescription;
+
+  /// **'Reset Password'**
+  String get resetPasswordButton;
+
+  /// **'Password updated successfully. You can now log in.'**
+  String get passwordResetSuccess;
+
+  /// **'This link has expired or has already been used.'**
+  String get passwordResetExpired;
 }
 
 class _AppLocalizationsDelegate

@@ -13,148 +13,89 @@ class WeightTrackingScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final colorScheme = Theme.of(context).colorScheme;
-    return SafeArea(child: Scaffold(
-      backgroundColor: colorScheme.surface,
-      appBar: AppBar(
-        title: RichText(
-          text: const TextSpan(
-            children: [
-              TextSpan(
-                text: 'Forge',
-                style: TextStyle(
-                  fontFamily: 'Montserrat',
-                  fontWeight: FontWeight.w800,
-                  fontSize: 20,
-                  color: Color(0xFFFF6B3E),
+    return SafeArea(
+      child: Scaffold(
+        backgroundColor: colorScheme.surface,
+        appBar: AppBar(
+          title: RichText(
+            text: const TextSpan(
+              children: [
+                TextSpan(
+                  text: 'Forge',
+                  style: TextStyle(
+                    fontFamily: 'Montserrat',
+                    fontWeight: FontWeight.w800,
+                    fontSize: 20,
+                    color: Color(0xFFFF6B3E),
+                  ),
                 ),
-              ),
-              TextSpan(
-                text: 'Form',
-                style: TextStyle(
-                  fontFamily: 'Montserrat',
-                  fontWeight: FontWeight.w800,
-                  fontSize: 20,
-                  color: Colors.white,
+                TextSpan(
+                  text: 'Form',
+                  style: TextStyle(
+                    fontFamily: 'Montserrat',
+                    fontWeight: FontWeight.w800,
+                    fontSize: 20,
+                    color: Colors.white,
+                  ),
                 ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(
-              Provider.of<ThemeProvider>(context).themeMode == ThemeMode.light
-                  ? Icons.dark_mode
-                  : Icons.light_mode,
-              color: Colors.white,
+              ],
             ),
-            onPressed:
-                () =>
-                    Provider.of<ThemeProvider>(
-                      context,
-                      listen: false,
-                    ).toggleTheme(),
           ),
-          IconButton(
-            icon: const Icon(Icons.flag, color: Colors.white),
-            tooltip: l10n.weightGoals,
-            onPressed: () => Navigator.pushNamed(context, '/weight-goals'),
-          ),
-          PopupMenuButton(
-            icon: const Icon(Icons.more_vert, color: Colors.white),
-            itemBuilder:
-                (ctx) => [
-                  PopupMenuItem(child: Text(l10n.setWeightGoal)),
-                  PopupMenuItem(value: 'bmi', child: Text(l10n.calculateBMI)),
-                ],
-            onSelected: (value) {
-              if (value == 'goals') {
-                Navigator.pushNamed(context, '/weight-goals');
-              } else if (value == 'bmi') {
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(SnackBar(content: Text(l10n.bmiComingSoon)));
-              }
-            },
-          ),
-        ],
-      ),
-      body: Consumer<WeightProvider>(
-        builder: (context, weightProvider, _) {
-          final colorScheme = Theme.of(context).colorScheme;
-          if (weightProvider.isLoading) {
-            return Center(
-              child: CircularProgressIndicator(color: colorScheme.primary),
-            );
-          }
-          final weightRecords = weightProvider.weightRecords;
-          if (weightRecords.isEmpty) {
-            return _buildEmptyState(context, weightProvider);
-          }
-          return Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerLow,
-                    borderRadius: BorderRadius.circular(12.0),
-                    border: Border.all(
-                      color: colorScheme.onSurface.withValues(alpha: 0.10),
-                      width: 0.5,
-                    ),
-                  ),
-                  padding: const EdgeInsets.all(14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        l10n.currentWeight,
-                        style: TextStyle(
-                          fontFamily: 'Exo 2',
-                          fontSize: 12,
-                          color: colorScheme.onSurface.withValues(alpha: 0.55),
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          Text(
-                            '${weightProvider.latestWeightRecord?.weight.toStringAsFixed(1) ?? '--'} kg',
-                            style: TextStyle(
-                              fontFamily: 'Montserrat',
-                              fontWeight: FontWeight.w800,
-                              fontSize: 28,
-                              color: colorScheme.primary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
+          actions: [
+            IconButton(
+              icon: Icon(
+                Provider.of<ThemeProvider>(context).themeMode == ThemeMode.light
+                    ? Icons.dark_mode
+                    : Icons.light_mode,
+                color: Colors.white,
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerLow,
-                    borderRadius: BorderRadius.circular(12.0),
-                    border: Border.all(
-                      color: colorScheme.onSurface.withValues(alpha: 0.10),
-                      width: 0.5,
-                    ),
-                  ),
-                  padding: const EdgeInsets.all(14),
-                  child: SizedBox(
-                    height: 180,
-                    child: WeightChart(weightRecords: weightRecords),
-                  ),
-                ),
-              ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
+              onPressed:
+                  () =>
+                      Provider.of<ThemeProvider>(
+                        context,
+                        listen: false,
+                      ).toggleTheme(),
+            ),
+            IconButton(
+              icon: const Icon(Icons.flag, color: Colors.white),
+              tooltip: l10n.weightGoals,
+              onPressed: () => Navigator.pushNamed(context, '/weight-goals'),
+            ),
+            PopupMenuButton(
+              icon: const Icon(Icons.more_vert, color: Colors.white),
+              itemBuilder:
+                  (ctx) => [
+                    PopupMenuItem(child: Text(l10n.setWeightGoal)),
+                    PopupMenuItem(value: 'bmi', child: Text(l10n.calculateBMI)),
+                  ],
+              onSelected: (value) {
+                if (value == 'goals') {
+                  Navigator.pushNamed(context, '/weight-goals');
+                } else if (value == 'bmi') {
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text(l10n.bmiComingSoon)));
+                }
+              },
+            ),
+          ],
+        ),
+        body: Consumer<WeightProvider>(
+          builder: (context, weightProvider, _) {
+            final colorScheme = Theme.of(context).colorScheme;
+            if (weightProvider.isLoading) {
+              return Center(
+                child: CircularProgressIndicator(color: colorScheme.primary),
+              );
+            }
+            final weightRecords = weightProvider.weightRecords;
+            if (weightRecords.isEmpty) {
+              return _buildEmptyState(context, weightProvider);
+            }
+            return Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
                   child: Container(
                     decoration: BoxDecoration(
                       color: colorScheme.surfaceContainerLow,
@@ -164,95 +105,158 @@ class WeightTrackingScreen extends StatelessWidget {
                         width: 0.5,
                       ),
                     ),
-                    child: ListView.separated(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      itemCount: weightRecords.length,
-                      separatorBuilder:
-                          (_, __) => Divider(
-                            height: 0.5,
-                            thickness: 0.5,
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l10n.currentWeight,
+                          style: TextStyle(
+                            fontFamily: 'Exo 2',
+                            fontSize: 12,
                             color: colorScheme.onSurface.withValues(
-                              alpha: 0.10,
+                              alpha: 0.55,
                             ),
                           ),
-                      itemBuilder: (context, index) {
-                        final record = weightRecords[index];
-                        return ListTile(
-                          dense: true,
-                          title: Text(
-                            '${record.weight.toStringAsFixed(1)} kg',
-                            style: TextStyle(
-                              fontFamily: 'Montserrat',
-                              fontWeight: FontWeight.w700,
-                              fontSize: 14,
-                              color: colorScheme.onSurface,
-                            ),
-                          ),
-                          subtitle: Text(
-                            DateFormat('EEEE, MMMM d, y').format(record.date),
-                            style: TextStyle(
-                              fontFamily: 'Exo 2',
-                              fontSize: 11,
-                              color: colorScheme.onSurface.withValues(
-                                alpha: 0.55,
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            Text(
+                              '${weightProvider.latestWeightRecord?.weight.toStringAsFixed(1) ?? '--'} kg',
+                              style: TextStyle(
+                                fontFamily: 'Montserrat',
+                                fontWeight: FontWeight.w800,
+                                fontSize: 28,
+                                color: colorScheme.primary,
                               ),
                             ),
-                          ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: Icon(
-                                  Icons.edit,
-                                  size: 18,
-                                  color: colorScheme.onSurface.withValues(
-                                    alpha: 0.55,
-                                  ),
-                                ),
-                                onPressed:
-                                    () => _showAddEditWeightDialog(
-                                      context,
-                                      weightProvider,
-                                      record: record,
-                                    ),
-                              ),
-                              IconButton(
-                                icon: Icon(
-                                  Icons.delete_outline,
-                                  size: 18,
-                                  color: colorScheme.onSurface.withValues(
-                                    alpha: 0.55,
-                                  ),
-                                ),
-                                onPressed:
-                                    () => _confirmDelete(
-                                      context,
-                                      weightProvider,
-                                      record.id,
-                                    ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
+                          ],
+                        ),
+                      ],
                     ),
                   ),
                 ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerLow,
+                      borderRadius: BorderRadius.circular(12.0),
+                      border: Border.all(
+                        color: colorScheme.onSurface.withValues(alpha: 0.10),
+                        width: 0.5,
+                      ),
+                    ),
+                    padding: const EdgeInsets.all(14),
+                    child: SizedBox(
+                      height: 180,
+                      child: WeightChart(weightRecords: weightRecords),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceContainerLow,
+                        borderRadius: BorderRadius.circular(12.0),
+                        border: Border.all(
+                          color: colorScheme.onSurface.withValues(alpha: 0.10),
+                          width: 0.5,
+                        ),
+                      ),
+                      child: ListView.separated(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        itemCount: weightRecords.length,
+                        separatorBuilder:
+                            (_, __) => Divider(
+                              height: 0.5,
+                              thickness: 0.5,
+                              color: colorScheme.onSurface.withValues(
+                                alpha: 0.10,
+                              ),
+                            ),
+                        itemBuilder: (context, index) {
+                          final record = weightRecords[index];
+                          return ListTile(
+                            dense: true,
+                            title: Text(
+                              '${record.weight.toStringAsFixed(1)} kg',
+                              style: TextStyle(
+                                fontFamily: 'Montserrat',
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14,
+                                color: colorScheme.onSurface,
+                              ),
+                            ),
+                            subtitle: Text(
+                              DateFormat('EEEE, MMMM d, y').format(record.date),
+                              style: TextStyle(
+                                fontFamily: 'Exo 2',
+                                fontSize: 11,
+                                color: colorScheme.onSurface.withValues(
+                                  alpha: 0.55,
+                                ),
+                              ),
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: Icon(
+                                    Icons.edit,
+                                    size: 18,
+                                    color: colorScheme.onSurface.withValues(
+                                      alpha: 0.55,
+                                    ),
+                                  ),
+                                  onPressed:
+                                      () => _showAddEditWeightDialog(
+                                        context,
+                                        weightProvider,
+                                        record: record,
+                                      ),
+                                ),
+                                IconButton(
+                                  icon: Icon(
+                                    Icons.delete_outline,
+                                    size: 18,
+                                    color: colorScheme.onSurface.withValues(
+                                      alpha: 0.55,
+                                    ),
+                                  ),
+                                  onPressed:
+                                      () => _confirmDelete(
+                                        context,
+                                        weightProvider,
+                                        record.id,
+                                      ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+        floatingActionButton: FloatingActionButton(
+          onPressed:
+              () => _showAddEditWeightDialog(
+                context,
+                Provider.of<WeightProvider>(context, listen: false),
               ),
-            ],
-          );
-        },
+          elevation: 2,
+          child: const Icon(Icons.add),
+        ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed:
-            () => _showAddEditWeightDialog(
-              context,
-              Provider.of<WeightProvider>(context, listen: false),
-            ),
-        elevation: 2,
-        child: const Icon(Icons.add),
-      ),
-    ));
+    );
   }
 
   Widget _buildEmptyState(BuildContext context, WeightProvider provider) {
@@ -563,7 +567,7 @@ class _AddEditWeightDialogState extends State<AddEditWeightDialog> {
   }
 
   void _saveWeight(bool isEditing, AppLocalizations l10n) {
-    final weight = double.tryParse(_weightController.text);
+    final weight = double.tryParse(_weightController.text.replaceAll(',', '.'));
     if (weight == null) {
       ScaffoldMessenger.of(
         context,

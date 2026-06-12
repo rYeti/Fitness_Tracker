@@ -13,6 +13,7 @@ class FoodDetailsScreen extends StatefulWidget {
   final FoodItemModel foodItem;
   final String category;
   final bool isTemplate;
+  final bool isEditing;
   final List<PortionOption> portionOptions;
   final DateTime? date;
 
@@ -21,6 +22,7 @@ class FoodDetailsScreen extends StatefulWidget {
     required this.foodItem,
     required this.category,
     this.isTemplate = false,
+    this.isEditing = false,
     this.portionOptions = const [],
     this.date,
   });
@@ -485,23 +487,15 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
                     final base = widget.foodItem.gramm > 0
                         ? widget.foodItem.gramm.toDouble()
                         : 100.0;
-                    final newFoodId = await db.foodItemDao.insertFoodItem(
-                      FoodItemCompanion.insert(
-                        name: widget.foodItem.name,
+                    if (widget.isEditing) {
+                      await db.foodItemDao.updateFoodItem(
+                        widget.foodItem.id!,
                         calories: (widget.foodItem.calories * grams / base).round(),
                         protein: (widget.foodItem.protein * grams / base).round(),
                         carbs: (widget.foodItem.carbs * grams / base).round(),
                         fat: (widget.foodItem.fat * grams / base).round(),
-                        gramm: Value(grams.round()),
-                        extendedNutrientsJson: Value(
-                          widget.foodItem.extendedNutrients?.scaleTo(grams).toJsonString(),
-                        ),
-                      ),
-                    );
-                    final newFood = await db.foodItemDao.getFoodItemById(newFoodId);
-                    if (!mounted) return;
-                    if (newFood != null) {
-                      await _repository.addFoodToMeal(widget.category, newFood, date: widget.date);
+                        gramm: grams.round(),
+                      );
                       if (!mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
@@ -512,10 +506,41 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
                         ),
                       );
                       Navigator.pop(context, true);
+                    } else {
+                      final newFoodId = await db.foodItemDao.insertFoodItem(
+                        FoodItemCompanion.insert(
+                          name: widget.foodItem.name,
+                          calories: (widget.foodItem.calories * grams / base).round(),
+                          protein: (widget.foodItem.protein * grams / base).round(),
+                          carbs: (widget.foodItem.carbs * grams / base).round(),
+                          fat: (widget.foodItem.fat * grams / base).round(),
+                          gramm: Value(grams.round()),
+                          extendedNutrientsJson: Value(
+                            widget.foodItem.extendedNutrients?.scaleTo(grams).toJsonString(),
+                          ),
+                        ),
+                      );
+                      final newFood = await db.foodItemDao.getFoodItemById(newFoodId);
+                      if (!mounted) return;
+                      if (newFood != null) {
+                        await _repository.addFoodToMeal(widget.category, newFood, date: widget.date);
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              '${widget.foodItem.name} (${grams.round()}g) ${AppLocalizations.of(context)!.addedSuccessfully}',
+                            ),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                        Navigator.pop(context, true);
+                      }
                     }
                   },
           child: Text(
-            AppLocalizations.of(context)!.addToLog,
+            widget.isEditing
+                ? AppLocalizations.of(context)!.updatePortion
+                : AppLocalizations.of(context)!.addToLog,
             style: const TextStyle(fontSize: 16),
           ),
         ),

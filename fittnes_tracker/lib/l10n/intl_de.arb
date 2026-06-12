@@ -955,5 +955,33 @@
   "itemsCount": "{count} Einträge",
   "@itemsCount": {
     "placeholders": { "count": { "type": "int" } }
-  }
+  },
+
+  "sortResults": "Ergebnisse sortieren",
+  "sortTooltip": "Sortieren",
+  "sortRelevance": "Relevanz",
+  "sortHighestProtein": "Höchstes Protein",
+  "sortLowestCalories": "Wenigste Kalorien",
+  "sortLowestCarbs": "Wenigste Kohlenhydrate",
+  "sortLowestFat": "Wenigste Fette",
+  "sortHighestFibre": "Höchster Ballaststoffgehalt",
+
+  "tooManyRequests": "Zu viele Anfragen – bitte warte einen Moment und versuche es erneut.",
+  "couldNotFetchProductData": "Produktdaten konnten nicht abgerufen werden. Bitte versuche es erneut.",
+  "unknown": "Unbekannt",
+  "requestedPlanNotFound": "Angeforderter Plan nicht gefunden und keine Pläne vorhanden",
+  "requestedPlanNotFoundShowingAll": "Angeforderter Plan nicht gefunden – alle Pläne werden angezeigt",
+  "foundTemplateWorkouts": "{count} Vorlagen-Training(s) aus geplanten Trainings können zu diesem Plan hinzugefügt werden.",
+  "@foundTemplateWorkouts": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "addWorkoutsToPlanHint": "Um Trainings zu diesem Plan hinzuzufügen:\n\n1. Importiere Trainingsvorlagen über den CSV-Import-Button\n2. Verwende den +-Button, um importierte Trainings zu diesem Plan hinzuzufügen\n3. Geplante Trainings sind getrennt von Plan-Vorlagen",
+  "syncSectionLabel": "Synchronisierung",
+  "forgotPassword": "Passwort vergessen?",
+
+  "resetPasswordTitle": "Passwort zurücksetzen",
+  "resetPasswordDescription": "Gib dein neues Passwort ein und bestätige es.",
+  "resetPasswordButton": "Passwort zurücksetzen",
+  "passwordResetSuccess": "Passwort erfolgreich geändert. Du kannst dich jetzt einloggen.",
+  "passwordResetExpired": "Dieser Link ist abgelaufen oder wurde bereits verwendet."
 }

@@ -455,7 +455,7 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
         if (mounted) {
           setState(() => _isSaving = false);
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Could not save workout: $e')),
+            SnackBar(content: Text(AppLocalizations.of(context)!.saveFailed(e.toString()))),
           );
         }
       }

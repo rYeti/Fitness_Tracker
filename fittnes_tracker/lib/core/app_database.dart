@@ -2110,35 +2110,63 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
         workoutId = workout.id!;
       }
 
-      // 🔹 2️⃣ If updating, remove old exercises & sets
+      // 🔹 2️⃣ If updating, diff old vs new exercises.
+      // Update in-place when the same exerciseId is still present so that
+      // workoutExercise.id stays stable — historical scheduledWorkoutExercise
+      // rows (and the progress-screen JOIN) depend on these IDs not changing.
+      // Only hard-delete rows for exercises that were actually removed.
+      Map<int, WorkoutExerciseTableData> existingByExerciseId = {};
       if (workout.id != null) {
         final existingExercises =
             await (select(workoutExerciseTable)
               ..where((we) => we.workoutId.equals(workoutId))).get();
 
-        for (final exercise in existingExercises) {
-          await (delete(workoutSetTable)..where(
-            (s) => s.scheduledWorkoutExerciseId.equals(exercise.id),
-          )).go();
-        }
+        existingByExerciseId = {
+          for (final e in existingExercises) e.exerciseId: e,
+        };
 
-        await (delete(workoutExerciseTable)
-          ..where((we) => we.workoutId.equals(workoutId))).go();
+        final newExerciseIds =
+            workout.exercises.map((e) => e.exerciseId).toSet();
+
+        // Delete only the exercises that are no longer in the workout.
+        for (final ex in existingExercises) {
+          if (!newExerciseIds.contains(ex.exerciseId)) {
+            await (delete(workoutSetTemplateTable)
+              ..where((t) => t.workoutExerciseId.equals(ex.id))).go();
+            await (delete(workoutExerciseTable)
+              ..where((we) => we.id.equals(ex.id))).go();
+          }
+        }
       }
 
       // 🔹 3️⃣ Save exercises + sets
       for (final exercise in workout.exercises) {
-        final exerciseCompanion = WorkoutExerciseTableCompanion(
-          workoutId: Value(workoutId),
-          exerciseId: Value(exercise.exerciseId),
-          orderPosition: Value(exercise.orderPosition),
-          notes: Value(exercise.notes),
-          supersetGroupId: Value(exercise.supersetGroupId),
-        );
+        int exerciseInstanceId;
 
-        final exerciseInstanceId = await into(
-          workoutExerciseTable,
-        ).insert(exerciseCompanion);
+        final existing = existingByExerciseId[exercise.exerciseId];
+        if (existing != null) {
+          // Update in-place — preserve the ID so historical data stays linked.
+          exerciseInstanceId = existing.id;
+          await (update(workoutExerciseTable)
+            ..where((we) => we.id.equals(exerciseInstanceId))).write(
+            WorkoutExerciseTableCompanion(
+              orderPosition: Value(exercise.orderPosition),
+              notes: Value(exercise.notes),
+              supersetGroupId: Value(exercise.supersetGroupId),
+            ),
+          );
+        } else {
+          // New exercise added to the workout — insert fresh.
+          exerciseInstanceId = await into(workoutExerciseTable).insert(
+            WorkoutExerciseTableCompanion(
+              workoutId: Value(workoutId),
+              exerciseId: Value(exercise.exerciseId),
+              orderPosition: Value(exercise.orderPosition),
+              notes: Value(exercise.notes),
+              supersetGroupId: Value(exercise.supersetGroupId),
+            ),
+          );
+        }
 
         // ✅ ONLY insert into workoutSetTable if NOT template
         if (!workout.isTemplate) {

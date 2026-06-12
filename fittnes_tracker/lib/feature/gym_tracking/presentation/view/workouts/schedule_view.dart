@@ -1,3 +1,4 @@
+import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 
 class ScheduleView extends StatefulWidget {
@@ -43,7 +44,7 @@ class _WorkoutDatePickerState extends State<ScheduleView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Select Workout Dates')),
+      appBar: AppBar(title: Text(AppLocalizations.of(context)!.selectWorkoutDates)),
       body: CalendarDatePicker(
         initialDate: DateTime.now(),
         firstDate: DateTime(2020),

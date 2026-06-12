@@ -68,6 +68,13 @@ class AuthRepository {
     );
   }
 
+  Future<void> resetPassword(String token, String newPassword) async {
+    await _apiClient.post(
+      'api/auth/reset-password',
+      data: {'token': token, 'newPassword': newPassword},
+    );
+  }
+
   Future<AuthResponseModel> register(
     String username,
     String email,

@@ -959,5 +959,33 @@
   "itemsCount": "{count} items",
   "@itemsCount": {
     "placeholders": { "count": { "type": "int" } }
-  }
+  },
+
+  "sortResults": "Sort results",
+  "sortTooltip": "Sort",
+  "sortRelevance": "Relevance",
+  "sortHighestProtein": "Highest protein",
+  "sortLowestCalories": "Lowest calories",
+  "sortLowestCarbs": "Lowest carbs",
+  "sortLowestFat": "Lowest fat",
+  "sortHighestFibre": "Highest fibre",
+
+  "tooManyRequests": "Too many requests — please wait a moment and try again.",
+  "couldNotFetchProductData": "Could not fetch product data. Please try again.",
+  "unknown": "Unknown",
+  "requestedPlanNotFound": "Requested plan not found and no plans exist",
+  "requestedPlanNotFoundShowingAll": "Requested plan not found — showing all plans",
+  "foundTemplateWorkouts": "Found {count} template workout(s) from your scheduled workouts that can be added to this plan.",
+  "@foundTemplateWorkouts": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "addWorkoutsToPlanHint": "To add workouts to this plan:\n\n1. Import workout templates using the CSV import button\n2. Use the + button to add imported workouts to this plan\n3. Scheduled workouts are separate from plan templates",
+  "syncSectionLabel": "Sync",
+  "forgotPassword": "Forgot password?",
+
+  "resetPasswordTitle": "Reset Password",
+  "resetPasswordDescription": "Enter and confirm your new password below.",
+  "resetPasswordButton": "Reset Password",
+  "passwordResetSuccess": "Password updated successfully. You can now log in.",
+  "passwordResetExpired": "This link has expired or has already been used."
 }

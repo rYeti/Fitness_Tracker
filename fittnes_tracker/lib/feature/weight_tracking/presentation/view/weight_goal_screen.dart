@@ -131,21 +131,25 @@ class _WeightGoalScreenState extends State<WeightGoalScreen> {
 
   void _saveWeightGoals() {
     final l10n = AppLocalizations.of(context)!;
-    final startingWeight = double.tryParse(_startingWeightController.text);
-    final goalWeight = double.tryParse(_goalWeightController.text);
+    final startingWeight = double.tryParse(
+      _startingWeightController.text.replaceAll(',', '.'),
+    );
+    final goalWeight = double.tryParse(
+      _goalWeightController.text.replaceAll(',', '.'),
+    );
 
     if (startingWeight == null || goalWeight == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.pleaseEnterValidWeights)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.pleaseEnterValidWeights)));
       return;
     }
 
     _goalsProvider.setWeightGoals(startingWeight, goalWeight);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(l10n.weightGoalsSaved)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(l10n.weightGoalsSaved)));
 
     Navigator.pop(context);
   }

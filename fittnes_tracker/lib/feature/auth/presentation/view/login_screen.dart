@@ -169,7 +169,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 4),
                   ),
                   child: Text(
-                    'Forgot password?',
+                    l10n.forgotPassword,
                     style: TextStyle(
                       color: theme.colorScheme.primary,
                       fontWeight: FontWeight.w500,

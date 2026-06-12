@@ -176,14 +176,19 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
         return;
       }
       final exercises = <_ExerciseWithSets>[];
-      for (final exerciseData in exercisesData) {
+      for (var exIdx = 0; exIdx < exercisesData.length; exIdx++) {
+        final exerciseData = exercisesData[exIdx];
         final exercise = exerciseData.$1;
         final templates = exerciseData.$2;
         final workoutExercise = exerciseData.$3;
-        final (previousSets, previousExerciseNote) =
-            await _loadPreviousWorkoutSets(
+        final (
+          previousSets,
+          previousExerciseNote,
+        ) = await _loadPreviousWorkoutSets(
           db: db,
           workoutExerciseId: workoutExercise.id,
+          exerciseId: workoutExercise.exerciseId,
+          exerciseOrderIndex: exIdx,
         );
         final previousSetsMap = {
           for (var set in previousSets) set.setNumber: set,
@@ -289,10 +294,11 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
   Future<(List<WorkoutSetTableData>, String?)> _loadPreviousWorkoutSets({
     required AppDatabase db,
     required int workoutExerciseId,
+    required int exerciseId,
+    required int exerciseOrderIndex,
   }) async {
     try {
-      final templateId =
-          widget.scheduledWorkout.scheduled.templateWorkoutId;
+      final templateId = widget.scheduledWorkout.scheduled.templateWorkoutId;
       final workoutId = widget.scheduledWorkout.scheduled.workoutId;
 
       AppLogger.i(
@@ -306,20 +312,22 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
       Future<List<ScheduledWorkoutTableData>> queryCandidates(
         bool byTemplateId,
       ) {
-        final baseQuery = db.select(db.scheduledWorkoutTable)
-          ..where(
-            (t) => byTemplateId
-                ? t.templateWorkoutId.equals(templateId!)
-                : t.workoutId.equals(workoutId),
-          )
-          ..where(
-            (t) => t.id.isNotValue(widget.scheduledWorkout.scheduled.id),
-          )
-          ..where((t) => t.isCompleted.equals(true))
-          ..where(
-            (t) => t.scheduledDate.isSmallerThanValue(widget.scheduledDate),
-          )
-          ..orderBy([(t) => OrderingTerm.desc(t.scheduledDate)]);
+        final baseQuery =
+            db.select(db.scheduledWorkoutTable)
+              ..where(
+                (t) =>
+                    byTemplateId
+                        ? t.templateWorkoutId.equals(templateId!)
+                        : t.workoutId.equals(workoutId),
+              )
+              ..where(
+                (t) => t.id.isNotValue(widget.scheduledWorkout.scheduled.id),
+              )
+              ..where((t) => t.isCompleted.equals(true))
+              ..where(
+                (t) => t.scheduledDate.isSmallerThanValue(widget.scheduledDate),
+              )
+              ..orderBy([(t) => OrderingTerm.desc(t.scheduledDate)]);
         return baseQuery.get();
       }
 
@@ -339,19 +347,71 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
         );
       }
 
-      if (previousScheduledWorkouts.isEmpty) return (<WorkoutSetTableData>[], null);
+      if (previousScheduledWorkouts.isEmpty)
+        return (<WorkoutSetTableData>[], null);
 
       // Walk from most-recent backwards until we find a session that actually
       // recorded this exercise (the user may have skipped it in the last session).
       for (final candidate in previousScheduledWorkouts) {
-        final exerciseRows =
+        var exerciseRows =
             await (db.select(db.scheduledWorkoutExerciseTable)
-                  ..where(
-                    (t) => t.scheduledWorkoutId.equals(candidate.id),
-                  )
+                  ..where((t) => t.scheduledWorkoutId.equals(candidate.id))
                   ..where((t) => t.workoutExerciseId.equals(workoutExerciseId))
                   ..limit(1))
                 .get();
+
+        // Fallback 1: the exact workoutExerciseId wasn't found because the
+        // template was edited and the workoutExercise rows were replaced with
+        // new IDs. Resolve via exerciseId → current workoutExercise IDs, then
+        // retry. This works for sessions recorded AFTER the fix to saveCompleteWorkout.
+        if (exerciseRows.isEmpty) {
+          final altWeIds = await (db.select(db.workoutExerciseTable)
+                ..where((t) => t.workoutId.equals(candidate.workoutId))
+                ..where((t) => t.exerciseId.equals(exerciseId)))
+              .get()
+              .then((rows) => rows.map((r) => r.id).toList());
+
+          if (altWeIds.isNotEmpty) {
+            exerciseRows =
+                await (db.select(db.scheduledWorkoutExerciseTable)
+                      ..where((t) => t.scheduledWorkoutId.equals(candidate.id))
+                      ..where((t) => t.workoutExerciseId.isIn(altWeIds))
+                      ..limit(1))
+                    .get();
+          }
+        }
+
+        // Fallback 2: the workoutExercise rows from the previous session were
+        // hard-deleted (old-style edit before the saveCompleteWorkout fix).
+        // The scheduledWorkoutExercise rows still exist but their
+        // workoutExerciseId points to a row that no longer exists. Match by
+        // order position: get all swe rows for the candidate session whose
+        // workoutExerciseId is no longer in workoutExerciseTable (orphaned),
+        // sort by id (insertion order), and pick the one at exerciseOrderIndex.
+        if (exerciseRows.isEmpty) {
+          final currentWeIds = await (db.select(db.workoutExerciseTable)..where(
+            (t) => t.workoutId.equals(candidate.workoutId),
+          )).get().then((rows) => rows.map((r) => r.id).toSet());
+
+          final allSessionExercises =
+              await (db.select(db.scheduledWorkoutExerciseTable)
+                    ..where((t) => t.scheduledWorkoutId.equals(candidate.id))
+                    ..orderBy([(t) => OrderingTerm.asc(t.id)]))
+                  .get();
+
+          final orphaned =
+              allSessionExercises
+                  .where((swe) => !currentWeIds.contains(swe.workoutExerciseId))
+                  .toList();
+
+          AppLogger.i(
+            '[PrevSets] positional fallback: ${orphaned.length} orphaned rows, picking index $exerciseOrderIndex',
+          );
+
+          if (exerciseOrderIndex < orphaned.length) {
+            exerciseRows = [orphaned[exerciseOrderIndex]];
+          }
+        }
 
         final previousScheduledExercise =
             exerciseRows.isNotEmpty ? exerciseRows.first : null;
@@ -443,10 +503,19 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
       } else {
         // Guard against concurrent saves both seeing scheduledExerciseId==null
         // and each inserting a duplicate row.
-        final existing = await (db.select(db.scheduledWorkoutExerciseTable)
-              ..where((t) => t.workoutExerciseId.equals(exerciseData.workoutExercise.id))
-              ..where((t) => t.scheduledWorkoutId.equals(widget.scheduledWorkout.scheduled.id)))
-            .get();
+        final existing =
+            await (db.select(db.scheduledWorkoutExerciseTable)
+                  ..where(
+                    (t) => t.workoutExerciseId.equals(
+                      exerciseData.workoutExercise.id,
+                    ),
+                  )
+                  ..where(
+                    (t) => t.scheduledWorkoutId.equals(
+                      widget.scheduledWorkout.scheduled.id,
+                    ),
+                  ))
+                .get();
 
         if (existing.isNotEmpty) {
           scheduledExerciseId = existing.first.id;
@@ -487,7 +556,9 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
         final repsController = _setControllers[repsKey];
 
         if (weightController != null && repsController != null) {
-          final weight = double.tryParse(weightController.text);
+          final weight = double.tryParse(
+            weightController.text.replaceAll(',', '.'),
+          );
           final reps = int.tryParse(repsController.text);
           if (weight != null || reps != null) {
             await db
@@ -895,54 +966,54 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
             behavior: HitTestBehavior.opaque,
             onTap: () => FocusScope.of(context).unfocus(),
             child: Column(
-            children: [
-              LinearProgressIndicator(
-                value: progress,
-                minHeight: 8,
-                backgroundColor: theme.colorScheme.surfaceVariant,
-                valueColor: AlwaysStoppedAnimation(theme.colorScheme.primary),
-              ),
-
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          l10n.exerciseXofY(
-                            _currentExerciseIndex + 1,
-                            totalExercises,
-                          ),
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          l10n.stepXofY(
-                            _currentSetIndex + 1,
-                            currentExercise.templates.length,
-                          ),
-                          style: theme.textTheme.bodyMedium,
-                        ),
-                      ],
-                    ),
-                    TextButton.icon(
-                      onPressed: () => _showExerciseList(context),
-                      icon: const Icon(Icons.list),
-                      label: Text(l10n.jumpTo),
-                    ),
-                  ],
+              children: [
+                LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 8,
+                  backgroundColor: theme.colorScheme.surfaceVariant,
+                  valueColor: AlwaysStoppedAnimation(theme.colorScheme.primary),
                 ),
-              ),
 
-              Expanded(child: _buildSetFocusedView(currentExercise, theme)),
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            l10n.exerciseXofY(
+                              _currentExerciseIndex + 1,
+                              totalExercises,
+                            ),
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            l10n.stepXofY(
+                              _currentSetIndex + 1,
+                              currentExercise.templates.length,
+                            ),
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                        ],
+                      ),
+                      TextButton.icon(
+                        onPressed: () => _showExerciseList(context),
+                        icon: const Icon(Icons.list),
+                        label: Text(l10n.jumpTo),
+                      ),
+                    ],
+                  ),
+                ),
 
-              _buildNavigationButtons(theme, l10n),
-            ],
-          ),
+                Expanded(child: _buildSetFocusedView(currentExercise, theme)),
+
+                _buildNavigationButtons(theme, l10n),
+              ],
+            ),
           ),
         ),
       ),
@@ -1035,15 +1106,22 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          exercise.exercise.localizedName(Localizations.localeOf(context).languageCode),
+                          exercise.exercise.localizedName(
+                            Localizations.localeOf(context).languageCode,
+                          ),
                           style: theme.textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        if (exercise.exercise.localizedDescription(Localizations.localeOf(context).languageCode) != null) ...[
+                        if (exercise.exercise.localizedDescription(
+                              Localizations.localeOf(context).languageCode,
+                            ) !=
+                            null) ...[
                           const SizedBox(height: 4),
                           Text(
-                            exercise.exercise.localizedDescription(Localizations.localeOf(context).languageCode)!,
+                            exercise.exercise.localizedDescription(
+                              Localizations.localeOf(context).languageCode,
+                            )!,
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: Colors.grey,
                             ),
@@ -1245,7 +1323,9 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
               child: Column(
                 children: [
                   Text(
-                    exerciseData.exercise.localizedName(Localizations.localeOf(context).languageCode),
+                    exerciseData.exercise.localizedName(
+                      Localizations.localeOf(context).languageCode,
+                    ),
                     style: theme.textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: theme.colorScheme.onPrimaryContainer,
@@ -1427,7 +1507,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
               ),
             ),
           ),
-            const SizedBox(height: 16),
+          const SizedBox(height: 16),
 
           Card(
             elevation: 2,
@@ -1529,7 +1609,9 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                                     color:
                                         isCurrent || isPast
                                             ? Colors.white
-                                            : theme.colorScheme.onSurfaceVariant,
+                                            : theme
+                                                .colorScheme
+                                                .onSurfaceVariant,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
@@ -1843,7 +1925,11 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                                   ],
                                 ),
                                 title: Text(
-                                  exercise.exercise.localizedName(Localizations.localeOf(context).languageCode),
+                                  exercise.exercise.localizedName(
+                                    Localizations.localeOf(
+                                      context,
+                                    ).languageCode,
+                                  ),
                                   style: TextStyle(
                                     fontWeight:
                                         isCurrent
@@ -1919,7 +2005,9 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                                       () => supersetPickIndex = null,
                                     );
                                   } else {
-                                    _pendingExerciseSave = _saveCurrentExercise(flushIme: true);
+                                    _pendingExerciseSave = _saveCurrentExercise(
+                                      flushIme: true,
+                                    );
                                     setState(() {
                                       _currentExerciseIndex = index;
                                       _currentSetIndex = 0;
@@ -1933,7 +2021,13 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                                     context: sheetContext,
                                     builder:
                                         (ctx) => SimpleDialog(
-                                          title: Text(exercise.exercise.localizedName(Localizations.localeOf(ctx).languageCode)),
+                                          title: Text(
+                                            exercise.exercise.localizedName(
+                                              Localizations.localeOf(
+                                                ctx,
+                                              ).languageCode,
+                                            ),
+                                          ),
                                           children: [
                                             if (isInSuperset)
                                               SimpleDialogOption(
@@ -2245,7 +2339,9 @@ class WorkoutSummaryDialog extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                exercise.exercise.localizedName(Localizations.localeOf(context).languageCode),
+                                exercise.exercise.localizedName(
+                                  Localizations.localeOf(context).languageCode,
+                                ),
                                 style: theme.textTheme.titleMedium?.copyWith(
                                   fontWeight: FontWeight.bold,
                                 ),

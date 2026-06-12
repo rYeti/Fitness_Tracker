@@ -89,8 +89,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   void _recalculate() {
     final age = int.tryParse(_ageController.text.trim()) ?? 0;
-    final height = double.tryParse(_heightController.text.trim()) ?? 0;
-    final weight = double.tryParse(_currentWeightController.text.trim()) ?? 70;
+    final height = double.tryParse(_heightController.text.trim().replaceAll(',', '.')) ?? 0;
+    final weight = double.tryParse(_currentWeightController.text.trim().replaceAll(',', '.')) ?? 70;
     if (age > 0 && height > 0) {
       final kcal = context.read<UserGoalsProvider>().calculateCalorieTarget(
         sex: _sex,

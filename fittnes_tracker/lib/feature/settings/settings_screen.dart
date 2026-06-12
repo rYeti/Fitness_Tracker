@@ -1,5 +1,6 @@
 import 'package:ForgeForm/feature/auth/data/repositories/auth_repository.dart';
-import 'package:ForgeForm/feature/auth/presentation/view/login_screen.dart' as auth_login;
+import 'package:ForgeForm/feature/auth/presentation/view/login_screen.dart'
+    as auth_login;
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/dao/meal_template_dao.dart';
@@ -22,6 +23,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart' hide Consumer;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:ForgeForm/feature/premium/premium_gate.dart';
 
 extension SexLocalizations on Sex {
   String localized(BuildContext ctx) {
@@ -121,17 +123,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
         mealTemplateDao: MealTemplateDao(db),
       );
       await syncService.syncAll();
-      await prefs.setInt('last_sync_timestamp', DateTime.now().millisecondsSinceEpoch);
+      await prefs.setInt(
+        'last_sync_timestamp',
+        DateTime.now().millisecondsSinceEpoch,
+      );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.syncComplete)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(l10n.syncComplete)));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.syncFailed(e))),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(l10n.syncFailed(e))));
       }
     } finally {
       if (mounted) setState(() => _isSyncing = false);
@@ -154,15 +159,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (mounted) {
         globalFoodTrackingKey.currentState?.loadNutritionData();
         Provider.of<WeightProvider>(context, listen: false).reload();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.restoreComplete)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(l10n.restoreComplete)));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.restoreFailed(e))),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(l10n.restoreFailed(e))));
       }
     } finally {
       if (mounted) setState(() => _isPulling = false);
@@ -249,6 +254,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDark = themeProvider.themeMode == ThemeMode.dark;
     final localeProvider = Provider.of<LocaleProvider>(context);
+    final hasPremium = context.watch<AccessProvider>().hasPremiumAccess;
 
     if (!calorieGoalProvider.isLoaded) {
       return SafeArea(
@@ -452,10 +458,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   decoration: _fieldDecoration(l10n.dailyCalorieGoal),
                   validator: (v) {
-                    if (v == null || v.trim().isEmpty)
+                    if (v == null || v.trim().isEmpty) {
                       return l10n.pleaseEnterValidNumber;
-                    if (int.tryParse(v.trim()) == null)
+                    }
+                    if (int.tryParse(v.trim()) == null) {
                       return l10n.pleaseEnterValidNumber;
+                    }
                     return null;
                   },
                 ),
@@ -498,10 +506,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       );
                       await provider.saveCalorieGoal(kcal);
                     } catch (e) {
-                      if (mounted)
+                      if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(content: Text(l10n.failedToSaveProfile(e))),
                         );
+                      }
                     } finally {
                       if (mounted) setState(() => _isSaving = false);
                     }
@@ -548,12 +557,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       await calorieGoalProvider.saveCalorieGoal(newGoal);
                       success = true;
                     } catch (e) {
-                      if (mounted)
+                      if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(l10n.failedToUpdateCalorieGoal(e)),
                           ),
                         );
+                      }
                     } finally {
                       if (mounted) setState(() => _isSaving = false);
                     }
@@ -611,24 +621,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               child: Text(l10n.languageGerman),
                             ),
                           ],
-                          onChanged: (code) => localeProvider.setLocale(
-                            code == null ? null : Locale(code),
-                          ),
+                          onChanged:
+                              (code) => localeProvider.setLocale(
+                                code == null ? null : Locale(code),
+                              ),
                         ),
                       ),
                       Divider(height: 1, indent: 16, endIndent: 16),
-                      SwitchListTile(
-                        secondary: Icon(
-                          Icons.timer_outlined,
-                          color: colorScheme.onSurfaceVariant,
+                      PremiumGate(
+                        child: SwitchListTile(
+                          secondary: Icon(
+                            Icons.timer_outlined,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                          title: Text(l10n.restTimerSetting),
+                          subtitle: Text(l10n.restTimerSettingSubtitle),
+                          value: _restTimerEnabled,
+                          onChanged: (value) {
+                            setState(() => _restTimerEnabled = value);
+                            _saveRestTimerPreference(value);
+                          },
                         ),
-                        title: Text(l10n.restTimerSetting),
-                        subtitle: Text(l10n.restTimerSettingSubtitle),
-                        value: _restTimerEnabled,
-                        onChanged: (value) {
-                          setState(() => _restTimerEnabled = value);
-                          _saveRestTimerPreference(value);
-                        },
                       ),
                     ],
                   ),
@@ -637,7 +650,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 16),
 
                 // ── Sync ──────────────────────────────────────────────────
-                _SectionLabel('Sync'),
+                _SectionLabel(l10n.syncSectionLabel),
                 Card(
                   elevation: 0,
                   shape: RoundedRectangleBorder(
@@ -645,16 +658,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     side: BorderSide(color: colorScheme.outlineVariant),
                   ),
                   child: ListTile(
-                    leading: _isSyncing
-                        ? SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: colorScheme.primary,
+                    leading:
+                        _isSyncing
+                            ? SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: colorScheme.primary,
+                              ),
+                            )
+                            : Icon(
+                              Icons.sync,
+                              color: colorScheme.onSurfaceVariant,
                             ),
-                          )
-                        : Icon(Icons.sync, color: colorScheme.onSurfaceVariant),
                     title: Text(l10n.syncNow),
                     subtitle: Text(l10n.syncNowSubtitle),
                     onTap: _isSyncing ? null : _runSync,
@@ -668,16 +685,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     side: BorderSide(color: colorScheme.outlineVariant),
                   ),
                   child: ListTile(
-                    leading: _isPulling
-                        ? SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: colorScheme.primary,
+                    leading:
+                        _isPulling
+                            ? SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: colorScheme.primary,
+                              ),
+                            )
+                            : Icon(
+                              Icons.cloud_download_outlined,
+                              color: colorScheme.onSurfaceVariant,
                             ),
-                          )
-                        : Icon(Icons.cloud_download_outlined, color: colorScheme.onSurfaceVariant),
                     title: Text(l10n.restoreFromServer),
                     subtitle: Text(l10n.restoreFromServerSubtitle),
                     onTap: _isPulling ? null : _runPull,
@@ -705,20 +726,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           final access = context.read<AccessProvider>();
                           final confirmed = await showDialog<bool>(
                             context: context,
-                            builder: (_) => AlertDialog(
-                              title: Text(l10n.signOut),
-                              content: Text(l10n.signOutConfirm),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context, false),
-                                  child: Text(l10n.cancel),
+                            builder:
+                                (_) => AlertDialog(
+                                  title: Text(l10n.signOut),
+                                  content: Text(l10n.signOutConfirm),
+                                  actions: [
+                                    TextButton(
+                                      onPressed:
+                                          () => Navigator.pop(context, false),
+                                      child: Text(l10n.cancel),
+                                    ),
+                                    TextButton(
+                                      onPressed:
+                                          () => Navigator.pop(context, true),
+                                      child: Text(l10n.signOut),
+                                    ),
+                                  ],
                                 ),
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context, true),
-                                  child: Text(l10n.signOut),
-                                ),
-                              ],
-                            ),
                           );
                           if (confirmed == true) {
                             await access.reset();
@@ -726,7 +750,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             if (context.mounted) {
                               Navigator.of(context).pushAndRemoveUntil(
                                 MaterialPageRoute(
-                                  builder: (_) => const auth_login.LoginScreen(),
+                                  builder:
+                                      (_) => const auth_login.LoginScreen(),
                                 ),
                                 (_) => false,
                               );
@@ -750,7 +775,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         side: BorderSide(color: colorScheme.outlineVariant),
                       ),
                       child: ListTile(
-                        leading: Icon(Icons.delete_forever, color: colorScheme.error),
+                        leading: Icon(
+                          Icons.delete_forever,
+                          color: colorScheme.error,
+                        ),
                         title: Text(
                           l10n.deleteAccount,
                           style: TextStyle(color: colorScheme.error),
@@ -759,36 +787,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           final passwordController = TextEditingController();
                           final confirmed = await showDialog<bool>(
                             context: context,
-                            builder: (_) => AlertDialog(
-                              title: Text(l10n.deleteAccount),
-                              content: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(l10n.deleteAccountWarning),
-                                  const SizedBox(height: 16),
-                                  TextField(
-                                    controller: passwordController,
-                                    obscureText: true,
-                                    decoration: InputDecoration(
-                                      labelText: l10n.password,
-                                      border: const OutlineInputBorder(),
-                                    ),
+                            builder:
+                                (_) => AlertDialog(
+                                  title: Text(l10n.deleteAccount),
+                                  content: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(l10n.deleteAccountWarning),
+                                      const SizedBox(height: 16),
+                                      TextField(
+                                        controller: passwordController,
+                                        obscureText: true,
+                                        decoration: InputDecoration(
+                                          labelText: l10n.password,
+                                          border: const OutlineInputBorder(),
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context, false),
-                                  child: Text(l10n.cancel),
+                                  actions: [
+                                    TextButton(
+                                      onPressed:
+                                          () => Navigator.pop(context, false),
+                                      child: Text(l10n.cancel),
+                                    ),
+                                    TextButton(
+                                      onPressed:
+                                          () => Navigator.pop(context, true),
+                                      style: TextButton.styleFrom(
+                                        foregroundColor: colorScheme.error,
+                                      ),
+                                      child: Text(l10n.deleteAccount),
+                                    ),
+                                  ],
                                 ),
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context, true),
-                                  style: TextButton.styleFrom(foregroundColor: colorScheme.error),
-                                  child: Text(l10n.deleteAccount),
-                                ),
-                              ],
-                            ),
                           );
                           if (confirmed == true && context.mounted) {
                             final token = ref.read(authProvider).user?.token;
@@ -796,20 +830,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             final access = context.read<AccessProvider>();
                             try {
                               final serverUrl = ref.read(serverUrlProvider);
-                              final repo = AuthRepository(ApiClient(baseUrl: serverUrl));
-                              await repo.deleteAccount(token: token, password: passwordController.text);
+                              final repo = AuthRepository(
+                                ApiClient(baseUrl: serverUrl),
+                              );
+                              await repo.deleteAccount(
+                                token: token,
+                                password: passwordController.text,
+                              );
                               await access.reset();
                               await ref.read(authProvider.notifier).logout();
                               if (context.mounted) {
                                 Navigator.of(context).pushAndRemoveUntil(
-                                  MaterialPageRoute(builder: (_) => const auth_login.LoginScreen()),
+                                  MaterialPageRoute(
+                                    builder:
+                                        (_) => const auth_login.LoginScreen(),
+                                  ),
                                   (_) => false,
                                 );
                               }
                             } catch (_) {
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text(l10n.deleteAccountError)),
+                                  SnackBar(
+                                    content: Text(l10n.deleteAccountError),
+                                  ),
                                 );
                               }
                             }
@@ -824,9 +868,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                 Center(
                   child: GestureDetector(
-                    onTap: () => launchUrl(Uri.parse('https://forgefrom.netlify.app/')),
+                    onTap:
+                        () => launchUrl(
+                          Uri.parse('https://forgefrom.netlify.app/'),
+                        ),
                     child: Text(
                       'forgefrom.netlify.app',
+                      style: TextStyle(
+                        fontFamily: 'Exo 2',
+                        fontSize: 13,
+                        color: Theme.of(context).colorScheme.primary,
+                        decoration: TextDecoration.underline,
+                        decorationColor: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 8),
+
+                Center(
+                  child: GestureDetector(
+                    onTap:
+                        () => launchUrl(
+                          Uri.parse('https://forgefrom.netlify.app/'),
+                        ),
+                    child: Text(
+                      'Privacy Policy',
                       style: TextStyle(
                         fontFamily: 'Exo 2',
                         fontSize: 13,

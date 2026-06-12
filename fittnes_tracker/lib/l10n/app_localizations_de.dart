@@ -2025,4 +2025,77 @@ class AppLocalizationsDe extends AppLocalizations {
   String itemsCount(int count) {
     return '$count Einträge';
   }
+
+  @override
+  String get sortResults => 'Ergebnisse sortieren';
+
+  @override
+  String get sortTooltip => 'Sortieren';
+
+  @override
+  String get sortRelevance => 'Relevanz';
+
+  @override
+  String get sortHighestProtein => 'Höchstes Protein';
+
+  @override
+  String get sortLowestCalories => 'Wenigste Kalorien';
+
+  @override
+  String get sortLowestCarbs => 'Wenigste Kohlenhydrate';
+
+  @override
+  String get sortLowestFat => 'Wenigste Fette';
+
+  @override
+  String get sortHighestFibre => 'Höchster Ballaststoffgehalt';
+
+  @override
+  String get tooManyRequests =>
+      'Zu viele Anfragen – bitte warte einen Moment und versuche es erneut.';
+
+  @override
+  String get couldNotFetchProductData =>
+      'Produktdaten konnten nicht abgerufen werden. Bitte versuche es erneut.';
+
+  @override
+  String get unknown => 'Unbekannt';
+
+  @override
+  String get requestedPlanNotFound =>
+      'Angeforderter Plan nicht gefunden und keine Pläne vorhanden';
+
+  @override
+  String get requestedPlanNotFoundShowingAll =>
+      'Angeforderter Plan nicht gefunden – alle Pläne werden angezeigt';
+
+  @override
+  String foundTemplateWorkouts(int count) {
+    return '$count Vorlagen-Training(s) aus geplanten Trainings können zu diesem Plan hinzugefügt werden.';
+  }
+
+  @override
+  String get addWorkoutsToPlanHint =>
+      'Um Trainings zu diesem Plan hinzuzufügen:\n\n1. Importiere Trainingsvorlagen über den CSV-Import-Button\n2. Verwende den +-Button, um importierte Trainings zu diesem Plan hinzuzufügen\n3. Geplante Trainings sind getrennt von Plan-Vorlagen';
+
+  @override
+  String get syncSectionLabel => 'Synchronisierung';
+
+  @override
+  String get forgotPassword => 'Passwort vergessen?';
+
+  @override
+  String get resetPasswordTitle => 'Passwort zurücksetzen';
+
+  @override
+  String get resetPasswordDescription => 'Gib dein neues Passwort ein und bestätige es.';
+
+  @override
+  String get resetPasswordButton => 'Passwort zurücksetzen';
+
+  @override
+  String get passwordResetSuccess => 'Passwort erfolgreich geändert. Du kannst dich jetzt einloggen.';
+
+  @override
+  String get passwordResetExpired => 'Dieser Link ist abgelaufen oder wurde bereits verwendet.';
 }

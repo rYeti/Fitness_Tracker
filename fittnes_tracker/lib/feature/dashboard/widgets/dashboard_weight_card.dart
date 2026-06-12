@@ -242,8 +242,12 @@ class _DashboardWeightCardState extends State<DashboardWeightCard> {
   void _saveWeightGoals() {
     final l10n = AppLocalizations.of(context)!;
     FocusScope.of(context).unfocus();
-    final startingWeight = double.tryParse(_startingWeightController.text);
-    final goalWeight = double.tryParse(_goalWeightController.text);
+    final startingWeight = double.tryParse(
+      _startingWeightController.text.replaceAll(',', '.'),
+    );
+    final goalWeight = double.tryParse(
+      _goalWeightController.text.replaceAll(',', '.'),
+    );
     if (startingWeight == null || goalWeight == null) {
       ScaffoldMessenger.of(
         context,

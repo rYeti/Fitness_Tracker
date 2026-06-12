@@ -32,7 +32,9 @@ import 'feature/food_tracking/presentation/view/meal_templates_screen.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:async' show unawaited;
+import 'dart:async';
+import 'package:app_links/app_links.dart';
+import 'feature/auth/presentation/view/reset_password_screen.dart';
 import 'feature/onboarding/onboarding_screen.dart';
 import 'core/providers/access_provider.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
@@ -200,7 +202,7 @@ void main() async {
   );
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   final bool showOnboarding;
   final bool hasToken;
 
@@ -211,11 +213,43 @@ class MyApp extends StatelessWidget {
   });
 
   @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  final _navigatorKey = GlobalKey<NavigatorState>();
+  StreamSubscription<Uri>? _linkSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _linkSub = AppLinks().uriLinkStream.listen((uri) {
+      if (uri.scheme == 'forgeform' && uri.host == 'reset-password') {
+        final token = uri.queryParameters['token'];
+        if (token != null && token.isNotEmpty) {
+          _navigatorKey.currentState?.push(
+            MaterialPageRoute(
+              builder: (_) => ResetPasswordScreen(token: token),
+            ),
+          );
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _linkSub?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final themeProvider = provider.Provider.of<ThemeProvider>(context);
     final localeProvider = provider.Provider.of<LocaleProvider>(context);
 
     return MaterialApp(
+      navigatorKey: _navigatorKey,
       debugShowCheckedModeBanner: false,
       locale: localeProvider.locale,
       localizationsDelegates: [
@@ -237,9 +271,9 @@ class MyApp extends StatelessWidget {
         );
       },
       home:
-          showOnboarding
+          widget.showOnboarding
               ? const OnboardingScreen()
-              : hasToken
+              : widget.hasToken
               ? const HomeScreen()
               : const LoginScreen(),
 
