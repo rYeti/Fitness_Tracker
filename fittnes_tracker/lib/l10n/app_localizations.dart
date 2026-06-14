@@ -3806,18 +3806,33 @@ abstract class AppLocalizations {
   /// **'Forgot password?'**
   String get forgotPassword;
 
+  /// No description provided for @resetPasswordTitle.
+  ///
+  /// In en, this message translates to:
   /// **'Reset Password'**
   String get resetPasswordTitle;
 
+  /// No description provided for @resetPasswordDescription.
+  ///
+  /// In en, this message translates to:
   /// **'Enter and confirm your new password below.'**
   String get resetPasswordDescription;
 
+  /// No description provided for @resetPasswordButton.
+  ///
+  /// In en, this message translates to:
   /// **'Reset Password'**
   String get resetPasswordButton;
 
+  /// No description provided for @passwordResetSuccess.
+  ///
+  /// In en, this message translates to:
   /// **'Password updated successfully. You can now log in.'**
   String get passwordResetSuccess;
 
+  /// No description provided for @passwordResetExpired.
+  ///
+  /// In en, this message translates to:
   /// **'This link has expired or has already been used.'**
   String get passwordResetExpired;
 }

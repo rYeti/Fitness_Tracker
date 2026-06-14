@@ -2088,14 +2088,17 @@ class AppLocalizationsDe extends AppLocalizations {
   String get resetPasswordTitle => 'Passwort zurücksetzen';
 
   @override
-  String get resetPasswordDescription => 'Gib dein neues Passwort ein und bestätige es.';
+  String get resetPasswordDescription =>
+      'Gib dein neues Passwort ein und bestätige es.';
 
   @override
   String get resetPasswordButton => 'Passwort zurücksetzen';
 
   @override
-  String get passwordResetSuccess => 'Passwort erfolgreich geändert. Du kannst dich jetzt einloggen.';
+  String get passwordResetSuccess =>
+      'Passwort erfolgreich geändert. Du kannst dich jetzt einloggen.';
 
   @override
-  String get passwordResetExpired => 'Dieser Link ist abgelaufen oder wurde bereits verwendet.';
+  String get passwordResetExpired =>
+      'Dieser Link ist abgelaufen oder wurde bereits verwendet.';
 }
