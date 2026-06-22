@@ -7,5 +7,6 @@ public class MealTemplateResponseDto
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
     public string Category { get; set; } = string.Empty;
+    public decimal? TotalWeightGrams { get; set; }
     public List<MealTemplateItemResponseDto> Items { get; set; } = [];
 }

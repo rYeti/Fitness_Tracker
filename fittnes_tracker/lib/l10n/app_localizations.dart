@@ -3806,20 +3806,71 @@ abstract class AppLocalizations {
   /// **'Forgot password?'**
   String get forgotPassword;
 
+  /// No description provided for @resetPasswordTitle.
+  ///
+  /// In en, this message translates to:
   /// **'Reset Password'**
   String get resetPasswordTitle;
 
+  /// No description provided for @resetPasswordDescription.
+  ///
+  /// In en, this message translates to:
   /// **'Enter and confirm your new password below.'**
   String get resetPasswordDescription;
 
+  /// No description provided for @resetPasswordButton.
+  ///
+  /// In en, this message translates to:
   /// **'Reset Password'**
   String get resetPasswordButton;
 
+  /// No description provided for @passwordResetSuccess.
+  ///
+  /// In en, this message translates to:
   /// **'Password updated successfully. You can now log in.'**
   String get passwordResetSuccess;
 
+  /// No description provided for @passwordResetExpired.
+  ///
+  /// In en, this message translates to:
   /// **'This link has expired or has already been used.'**
   String get passwordResetExpired;
+
+  /// No description provided for @templateBatchWeight.
+  ///
+  /// In en, this message translates to:
+  /// **'Total batch weight (g)'**
+  String get templateBatchWeight;
+
+  /// No description provided for @templateBatchWeightHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. weigh your full pot / tray after cooking'**
+  String get templateBatchWeightHint;
+
+  /// No description provided for @templateFullBatch.
+  ///
+  /// In en, this message translates to:
+  /// **'Full batch: {weight}g • {calories} kcal'**
+  String templateFullBatch(String weight, String calories);
+
+  /// No description provided for @templatePortionLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Your portion (g)'**
+  String get templatePortionLabel;
+
+  /// No description provided for @templateLogFull.
+  ///
+  /// In en, this message translates to:
+  /// **'Log Full Template'**
+  String get templateLogFull;
+
+  /// No description provided for @templateLogPortion.
+  ///
+  /// In en, this message translates to:
+  /// **'Log Portion'**
+  String get templateLogPortion;
 }
 
 class _AppLocalizationsDelegate

@@ -368,4 +368,48 @@ class NutritionRepository {
       }
     }
   }
+
+  /// Logs a template as a single food entry, scaled to [portionGrams].
+  ///
+  /// If [portionGrams] is provided and [template.totalWeightGrams] > 0, macros
+  /// are scaled proportionally. Otherwise the full template macros are used.
+  Future<void> applyTemplatePortion(
+    String category,
+    MealTemplate template,
+    double? portionGrams,
+  ) async {
+    final total = template.totalWeightGrams;
+    final ratio =
+        (portionGrams != null && total != null && total > 0)
+            ? portionGrams / total
+            : 1.0;
+
+    final scaledCalories = (template.totalCalories * ratio).round();
+    final scaledProtein = (template.totalProtein * ratio).round();
+    final scaledCarbs = (template.totalCarbs * ratio).round();
+    final scaledFat = (template.totalFat * ratio).round();
+    final grammValue =
+        portionGrams?.toInt() ?? total?.toInt() ?? scaledCalories;
+
+    final suffix =
+        portionGrams != null
+            ? ' (${portionGrams.toStringAsFixed(0)}g)'
+            : '';
+
+    final foodId = await db.foodItemDao.insertFoodItem(
+      FoodItemCompanion.insert(
+        name: '${template.name}$suffix',
+        calories: scaledCalories,
+        protein: scaledProtein,
+        carbs: scaledCarbs,
+        fat: scaledFat,
+        gramm: Value(grammValue),
+      ),
+    );
+
+    final foodItem = await db.foodItemDao.getFoodItemById(foodId);
+    if (foodItem != null) {
+      await addFoodToMeal(category, foodItem);
+    }
+  }
 }

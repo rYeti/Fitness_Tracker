@@ -1,14 +1,10 @@
-import 'package:ForgeForm/core/app_database.dart';
-import 'package:ForgeForm/core/utils/app_logger.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
+import '../../data/models/food_item_model.dart';
 import '../../data/models/meal_template.dart';
 import '../../data/repositories/meal_template_repository.dart';
-import '../widgets/food_search_screen.dart';
-import 'barcode_scanner_view.dart';
-import '../../data/models/food_item_model.dart';
+import 'food_add_screen.dart';
 
 class CreateMealTemplateScreen extends StatefulWidget {
   final String? initialCategory;
@@ -25,6 +21,7 @@ class _CreateMealTemplateScreenState extends State<CreateMealTemplateScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
+  final _batchWeightController = TextEditingController();
   String _selectedCategory = 'Breakfast';
   List<MealTemplateItem> _selectedFoods = [];
 
@@ -40,6 +37,7 @@ class _CreateMealTemplateScreenState extends State<CreateMealTemplateScreen> {
   void dispose() {
     _nameController.dispose();
     _descriptionController.dispose();
+    _batchWeightController.dispose();
     super.dispose();
   }
 
@@ -89,12 +87,23 @@ class _CreateMealTemplateScreenState extends State<CreateMealTemplateScreen> {
               maxLines: 2,
             ),
             const SizedBox(height: 16),
+            TextFormField(
+              controller: _batchWeightController,
+              decoration: InputDecoration(
+                labelText: loc.templateBatchWeight,
+                hintText: loc.templateBatchWeightHint,
+                border: const OutlineInputBorder(),
+                suffixText: 'g',
+              ),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            ),
+            const SizedBox(height: 16),
             DropdownButtonFormField<String>(
               decoration: InputDecoration(
                 labelText: loc.category,
                 border: const OutlineInputBorder(),
               ),
-              value: _selectedCategory,
+              initialValue: _selectedCategory,
               items: [
                 DropdownMenuItem(value: 'Breakfast', child: Text(loc.mealBreakfast)),
                 DropdownMenuItem(value: 'Lunch', child: Text(loc.mealLunch)),
@@ -118,16 +127,6 @@ class _CreateMealTemplateScreenState extends State<CreateMealTemplateScreen> {
                   ),
                 ),
                 const Spacer(),
-                IconButton(
-                  onPressed: _scanBarcode,
-                  icon: const Icon(Icons.qr_code_scanner),
-                  tooltip: loc.scan,
-                  style: IconButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    backgroundColor: Colors.deepPurple,
-                  ),
-                ),
-                const SizedBox(width: 8),
                 IconButton(
                   onPressed: _addFood,
                   icon: const Icon(Icons.add),
@@ -197,116 +196,32 @@ class _CreateMealTemplateScreenState extends State<CreateMealTemplateScreen> {
   }
 
   void _addFood() async {
-    final result = await Navigator.push(
+    final result = await Navigator.push<FoodItemModel>(
       context,
       MaterialPageRoute(
-        builder:
-            (context) => const FoodSearchScreen(allowMultipleSelection: true),
+        builder: (context) => FoodAddScreen(
+          category: _selectedCategory,
+          isTemplate: true,
+        ),
       ),
     );
 
-    if (result != null && result is List<FoodItemData>) {
+    if (result != null) {
       setState(() {
-        _selectedFoods.addAll(
-          result.map(
-            (food) => MealTemplateItem(
-              templateId: -1,
-              foodId: food.id,
-              foodName: food.name,
-              quantity: food.gramm.toDouble(),
-              unit: 'g',
-              calories: food.calories.toDouble(),
-              protein: food.protein.toDouble(),
-              carbs: food.carbs.toDouble(),
-              fat: food.fat.toDouble(),
-            ),
+        _selectedFoods.add(
+          MealTemplateItem(
+            templateId: -1,
+            foodId: result.id ?? 0,
+            foodName: result.name,
+            quantity: result.gramm.toDouble(),
+            unit: 'g',
+            calories: result.calories.toDouble(),
+            protein: result.protein.toDouble(),
+            carbs: result.carbs.toDouble(),
+            fat: result.fat.toDouble(),
           ),
         );
       });
-    }
-  }
-
-  void _scanBarcode() async {
-    final loc = AppLocalizations.of(context)!;
-    if (kIsWeb) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(loc.barcodeNotSupportedOnWeb)));
-      return;
-    }
-
-    try {
-      final scannedFood = await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder:
-              (context) => BarcodeScannerView(
-                category: _selectedCategory,
-                isTemplate: true,
-              ),
-        ),
-      );
-
-      if (scannedFood != null) {
-        if (scannedFood is FoodItemModel) {
-          setState(() {
-            _selectedFoods.add(
-              MealTemplateItem(
-                templateId: -1,
-                foodId: scannedFood.id ?? 0,
-                foodName: scannedFood.name,
-                quantity: scannedFood.gramm.toDouble(),
-                unit: 'g',
-                calories: scannedFood.calories.toDouble(),
-                protein: scannedFood.protein.toDouble(),
-                carbs: scannedFood.carbs.toDouble(),
-                fat: scannedFood.fat.toDouble(),
-              ),
-            );
-          });
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(loc.addedToTemplate(scannedFood.name)),
-              backgroundColor: Colors.green,
-            ),
-          );
-        } else if (scannedFood is FoodItemData) {
-          setState(() {
-            _selectedFoods.add(
-              MealTemplateItem(
-                templateId: -1,
-                foodId: scannedFood.id,
-                foodName: scannedFood.name,
-                quantity: scannedFood.gramm.toDouble(),
-                unit: 'g',
-                calories: scannedFood.calories.toDouble(),
-                protein: scannedFood.protein.toDouble(),
-                carbs: scannedFood.carbs.toDouble(),
-                fat: scannedFood.fat.toDouble(),
-              ),
-            );
-          });
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(loc.addedToTemplate(scannedFood.name)),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        AppLogger.i('Error scanning barcode: $e');
-      }
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(AppLocalizations.of(context)!.errorScanningBarcode(e)),
-          backgroundColor: Colors.red,
-        ),
-      );
     }
   }
 
@@ -320,11 +235,13 @@ class _CreateMealTemplateScreenState extends State<CreateMealTemplateScreen> {
         return;
       }
 
+      final batchWeight = double.tryParse(_batchWeightController.text);
       final template = MealTemplate(
         name: _nameController.text,
         description: _descriptionController.text,
         category: _selectedCategory,
         items: _selectedFoods,
+        totalWeightGrams: batchWeight,
       );
 
       final repository = Provider.of<MealTemplateRepository>(

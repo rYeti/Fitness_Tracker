@@ -983,5 +983,18 @@
   "resetPasswordDescription": "Gib dein neues Passwort ein und bestätige es.",
   "resetPasswordButton": "Passwort zurücksetzen",
   "passwordResetSuccess": "Passwort erfolgreich geändert. Du kannst dich jetzt einloggen.",
-  "passwordResetExpired": "Dieser Link ist abgelaufen oder wurde bereits verwendet."
+  "passwordResetExpired": "Dieser Link ist abgelaufen oder wurde bereits verwendet.",
+
+  "templateBatchWeight": "Gesamtgewicht der Portion (g)",
+  "templateBatchWeightHint": "z. B. Gesamtgewicht des gekochten Gerichts abwiegen",
+  "templateFullBatch": "Gesamt: {weight}g • {calories} kcal",
+  "@templateFullBatch": {
+    "placeholders": {
+      "weight": { "type": "String" },
+      "calories": { "type": "String" }
+    }
+  },
+  "templatePortionLabel": "Deine Portion (g)",
+  "templateLogFull": "Gesamte Vorlage eintragen",
+  "templateLogPortion": "Portion eintragen"
 }

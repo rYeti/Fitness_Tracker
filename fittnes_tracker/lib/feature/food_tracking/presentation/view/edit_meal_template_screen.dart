@@ -1,14 +1,10 @@
-import 'package:ForgeForm/core/app_database.dart';
-import 'package:ForgeForm/core/utils/app_logger.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
+import '../../data/models/food_item_model.dart';
 import '../../data/models/meal_template.dart';
 import '../../data/repositories/meal_template_repository.dart';
-import '../widgets/food_search_screen.dart';
-import 'barcode_scanner_view.dart';
-import '../../data/models/food_item_model.dart';
+import 'food_add_screen.dart';
 
 class EditMealTemplateScreen extends StatefulWidget {
   final MealTemplate template;
@@ -24,19 +20,23 @@ class _EditMealTemplateScreenState extends State<EditMealTemplateScreen> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
   late final TextEditingController _descriptionController;
+  late final TextEditingController _batchWeightController;
   late String _selectedCategory;
   late List<MealTemplateItem> _selectedFoods;
 
   @override
   void initState() {
     super.initState();
-    // Initialize with existing template data
     _nameController = TextEditingController(text: widget.template.name);
     _descriptionController = TextEditingController(
       text: widget.template.description ?? '',
     );
+    _batchWeightController = TextEditingController(
+      text: widget.template.totalWeightGrams != null
+          ? widget.template.totalWeightGrams!.toStringAsFixed(0)
+          : '',
+    );
     _selectedCategory = widget.template.category;
-    // Create a deep copy of the items to prevent modifying the original
     _selectedFoods = List.from(widget.template.items);
   }
 
@@ -44,6 +44,7 @@ class _EditMealTemplateScreenState extends State<EditMealTemplateScreen> {
   void dispose() {
     _nameController.dispose();
     _descriptionController.dispose();
+    _batchWeightController.dispose();
     super.dispose();
   }
 
@@ -93,12 +94,23 @@ class _EditMealTemplateScreenState extends State<EditMealTemplateScreen> {
               maxLines: 2,
             ),
             const SizedBox(height: 16),
+            TextFormField(
+              controller: _batchWeightController,
+              decoration: InputDecoration(
+                labelText: l10n.templateBatchWeight,
+                hintText: l10n.templateBatchWeightHint,
+                border: const OutlineInputBorder(),
+                suffixText: 'g',
+              ),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            ),
+            const SizedBox(height: 16),
             DropdownButtonFormField<String>(
               decoration: InputDecoration(
                 labelText: l10n.category,
                 border: const OutlineInputBorder(),
               ),
-              value: _selectedCategory,
+              initialValue: _selectedCategory,
               items: [
                 DropdownMenuItem(value: 'Breakfast', child: Text(l10n.mealBreakfast)),
                 DropdownMenuItem(value: 'Lunch',     child: Text(l10n.mealLunch)),
@@ -106,11 +118,7 @@ class _EditMealTemplateScreenState extends State<EditMealTemplateScreen> {
                 DropdownMenuItem(value: 'Snack',     child: Text(l10n.mealSnacks)),
               ],
               onChanged: (value) {
-                if (value != null) {
-                  setState(() {
-                    _selectedCategory = value;
-                  });
-                }
+                if (value != null) setState(() => _selectedCategory = value);
               },
             ),
             const SizedBox(height: 24),
@@ -121,16 +129,6 @@ class _EditMealTemplateScreenState extends State<EditMealTemplateScreen> {
                   style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const Spacer(),
-                IconButton(
-                  onPressed: _scanBarcode,
-                  icon: const Icon(Icons.qr_code_scanner),
-                  tooltip: l10n.scan,
-                  style: IconButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    backgroundColor: Colors.deepPurple,
-                  ),
-                ),
-                const SizedBox(width: 8),
                 IconButton(
                   onPressed: _addFood,
                   icon: const Icon(Icons.add),
@@ -198,115 +196,32 @@ class _EditMealTemplateScreenState extends State<EditMealTemplateScreen> {
   }
 
   void _addFood() async {
-    // Navigate to food selection screen and get back selected food
-    final result = await Navigator.push(
+    final result = await Navigator.push<FoodItemModel>(
       context,
       MaterialPageRoute(
-        builder:
-            (context) => const FoodSearchScreen(allowMultipleSelection: true),
+        builder: (context) => FoodAddScreen(
+          category: _selectedCategory,
+          isTemplate: true,
+        ),
       ),
     );
 
-    if (result != null && result is List<FoodItemData>) {
+    if (result != null) {
       setState(() {
-        // Convert FoodItemData to MealTemplateItem
-        _selectedFoods.addAll(
-          result.map(
-            (food) => MealTemplateItem(
-              templateId: widget.template.id ?? -1, // Use existing template ID
-              foodId: food.id,
-              foodName: food.name,
-              quantity: food.gramm.toDouble(),
-              unit: 'g',
-              calories: food.calories.toDouble(),
-              protein: food.protein.toDouble(),
-              carbs: food.carbs.toDouble(),
-              fat: food.fat.toDouble(),
-            ),
+        _selectedFoods.add(
+          MealTemplateItem(
+            templateId: widget.template.id ?? -1,
+            foodId: result.id ?? 0,
+            foodName: result.name,
+            quantity: result.gramm.toDouble(),
+            unit: 'g',
+            calories: result.calories.toDouble(),
+            protein: result.protein.toDouble(),
+            carbs: result.carbs.toDouble(),
+            fat: result.fat.toDouble(),
           ),
         );
       });
-    }
-  }
-
-  void _scanBarcode() async {
-    final l10n = AppLocalizations.of(context)!;
-    if (kIsWeb) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.barcodeNotSupportedWeb)),
-      );
-      return;
-    }
-
-    try {
-      final scannedFood = await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => BarcodeScannerView(
-            category: _selectedCategory,
-            isTemplate: true,
-          ),
-        ),
-      );
-
-      if (!mounted) return;
-
-      if (scannedFood != null) {
-        if (scannedFood is FoodItemModel) {
-          setState(() {
-            _selectedFoods.add(
-              MealTemplateItem(
-                templateId: widget.template.id ?? -1,
-                foodId: scannedFood.id ?? 0,
-                foodName: scannedFood.name,
-                quantity: scannedFood.gramm.toDouble(),
-                unit: 'g',
-                calories: scannedFood.calories.toDouble(),
-                protein: scannedFood.protein.toDouble(),
-                carbs: scannedFood.carbs.toDouble(),
-                fat: scannedFood.fat.toDouble(),
-              ),
-            );
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(l10n.addedToTemplate(scannedFood.name)),
-              backgroundColor: Colors.green,
-            ),
-          );
-        } else if (scannedFood is FoodItemData) {
-          setState(() {
-            _selectedFoods.add(
-              MealTemplateItem(
-                templateId: widget.template.id ?? -1,
-                foodId: scannedFood.id,
-                foodName: scannedFood.name,
-                quantity: scannedFood.gramm.toDouble(),
-                unit: 'g',
-                calories: scannedFood.calories.toDouble(),
-                protein: scannedFood.protein.toDouble(),
-                carbs: scannedFood.carbs.toDouble(),
-                fat: scannedFood.fat.toDouble(),
-              ),
-            );
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(l10n.addedToTemplate(scannedFood.name)),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (kDebugMode) AppLogger.i('Error scanning barcode: $e');
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(l10n.errorScanningBarcode(e)),
-          backgroundColor: Colors.red,
-        ),
-      );
     }
   }
 
@@ -320,12 +235,14 @@ class _EditMealTemplateScreenState extends State<EditMealTemplateScreen> {
         return;
       }
 
+      final batchWeight = double.tryParse(_batchWeightController.text);
       final template = MealTemplate(
         id: widget.template.id,
         name: _nameController.text,
         description: _descriptionController.text,
         category: _selectedCategory,
         items: _selectedFoods,
+        totalWeightGrams: batchWeight,
       );
 
       final repository = Provider.of<MealTemplateRepository>(

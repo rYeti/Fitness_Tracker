@@ -21,6 +21,9 @@ public class MealTemplate
     /// <summary>Navigation property to the owning user.</summary>
     public User User { get; set; } = null!;
 
+    /// <summary>Total weight of the prepared batch in grams (used for portion scaling).</summary>
+    public decimal? TotalWeightGrams { get; set; }
+
     /// <summary>The food items that make up this template.</summary>
     public ICollection<MealTemplateItem> Items { get; set; } = [];
 }

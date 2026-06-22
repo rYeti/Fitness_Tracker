@@ -20,8 +20,14 @@ import 'food_detail_view.dart';
 class FoodAddScreen extends StatefulWidget {
   final String category;
   final DateTime? date;
+  final bool isTemplate;
 
-  const FoodAddScreen({super.key, required this.category, this.date});
+  const FoodAddScreen({
+    super.key,
+    required this.category,
+    this.date,
+    this.isTemplate = false,
+  });
 
   @override
   _FoodAddScreenState createState() => _FoodAddScreenState();
@@ -39,7 +45,8 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
   CancelToken _apiCancelToken = CancelToken();
   Timer? _debounce;
   String _lastSearchQuery = ''; // Track last search to prevent stale results
-  FoodSortOrder _sortOrder = FoodSortOrder.relevance;
+  FoodSortField _sortField = FoodSortField.relevance;
+  bool _sortAscending = false;
 
   // Reuse the same meal localization approach as food_tracking_screen
   final Map<String, String Function(AppLocalizations)> _mealLabelGetters = {
@@ -415,13 +422,18 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
         builder:
             (context) => BarcodeScannerView(
               category: widget.category,
-              isTemplate: false,
+              isTemplate: widget.isTemplate,
               date: widget.date,
             ),
       ),
     );
 
     if (scanned == null || scanned is bool) return;
+
+    if (widget.isTemplate && scanned is FoodItemModel && mounted) {
+      Navigator.pop(context, scanned);
+      return;
+    }
 
     try {
       await _repository.addFoodToMeal(
@@ -530,6 +542,20 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
     final base = item.gramm > 0 ? item.gramm : 100;
     final ratio = newGramm / base;
 
+    if (widget.isTemplate) {
+      final food = FoodItemModel(
+        id: item.id,
+        name: item.name,
+        calories: (item.calories * ratio).round(),
+        protein: (item.protein * ratio).round(),
+        carbs: (item.carbs * ratio).round(),
+        fat: (item.fat * ratio).round(),
+        gramm: newGramm,
+      );
+      if (mounted) Navigator.pop(context, food);
+      return;
+    }
+
     final newFoodId = await db.foodItemDao.insertFoodItem(
       FoodItemCompanion.insert(
         name: item.name,
@@ -619,120 +645,170 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
       gramm: (productData['_gramm'] as int?) ?? 100,
       extendedNutrients: extended,
     );
-    await Navigator.push<bool>(
+    final result = await Navigator.push<dynamic>(
       context,
       MaterialPageRoute(
         builder:
             (context) => FoodDetailsScreen(
               foodItem: foodItem,
               category: widget.category,
+              isTemplate: widget.isTemplate,
               portionOptions: _buildPortionOptions(productData),
               date: widget.date,
             ),
       ),
     );
-  }
-
-  String _sortLabel(AppLocalizations l10n) {
-    switch (_sortOrder) {
-      case FoodSortOrder.highestProtein:
-        return l10n.sortHighestProtein;
-      case FoodSortOrder.lowestCalories:
-        return l10n.sortLowestCalories;
-      case FoodSortOrder.lowestCarbs:
-        return l10n.sortLowestCarbs;
-      case FoodSortOrder.lowestFat:
-        return l10n.sortLowestFat;
-      case FoodSortOrder.highestFibre:
-        return l10n.sortHighestFibre;
-      case FoodSortOrder.relevance:
-        return l10n.sortRelevance;
+    if (widget.isTemplate && result is FoodItemModel && mounted) {
+      Navigator.pop(context, result);
     }
   }
 
+  String _sortLabel(AppLocalizations l10n) {
+    final arrow = _sortAscending ? ' ↑' : ' ↓';
+    return switch (_sortField) {
+      FoodSortField.relevance => l10n.sortRelevance,
+      FoodSortField.protein   => '${l10n.protein}$arrow',
+      FoodSortField.calories  => '${l10n.calories}$arrow',
+      FoodSortField.carbs     => '${l10n.carbs}$arrow',
+      FoodSortField.fat       => '${l10n.fat}$arrow',
+      FoodSortField.fibre     => 'Fibre$arrow',
+    };
+  }
+
+  String _macroSubtitle(Map<String, dynamic> result) {
+    final n = result['nutriments'] as Map? ?? {};
+    final kcal = (n['energy-kcal_100g'] as num?)?.toInt() ?? 0;
+    final pro = (n['proteins_100g'] as num?)?.toInt() ?? 0;
+    final carbs = (n['carbohydrates_100g'] as num?)?.toInt() ?? 0;
+    final fat = (n['fat_100g'] as num?)?.toInt() ?? 0;
+    if (kcal == 0 && pro == 0 && carbs == 0 && fat == 0) {
+      return result['brands']?.toString() ?? 'Generic';
+    }
+    return '$kcal kcal | P: ${pro}g | C: ${carbs}g | F: ${fat}g';
+  }
+
+  List<FoodItemData> _sortFoodItemData(List<FoodItemData> items) {
+    final copy = [...items];
+    int cmp(int a, int b) => _sortAscending ? a.compareTo(b) : b.compareTo(a);
+    switch (_sortField) {
+      case FoodSortField.protein:
+        copy.sort((a, b) => cmp(a.protein, b.protein));
+      case FoodSortField.calories:
+        copy.sort((a, b) => cmp(a.calories, b.calories));
+      case FoodSortField.carbs:
+        copy.sort((a, b) => cmp(a.carbs, b.carbs));
+      case FoodSortField.fat:
+        copy.sort((a, b) => cmp(a.fat, b.fat));
+      case FoodSortField.fibre:
+      case FoodSortField.relevance:
+        copy.sort((a, b) => b.id.compareTo(a.id));
+    }
+    return copy;
+  }
+
   List<Map<String, dynamic>> _sortResults(List<Map<String, dynamic>> results) {
-    if (_sortOrder == FoodSortOrder.relevance) return results;
+    if (_sortField == FoodSortField.relevance) return results;
     final copy = [...results];
     copy.sort((a, b) {
       final na = (a['nutriments'] as Map? ?? {});
       final nb = (b['nutriments'] as Map? ?? {});
-      switch (_sortOrder) {
-        case FoodSortOrder.highestProtein:
-          return ((nb['proteins_100g'] ?? 0.0) as num).compareTo(
-            (na['proteins_100g'] ?? 0.0) as num,
-          );
-        case FoodSortOrder.lowestCalories:
-          return ((na['energy-kcal_100g'] ?? 9999) as num).compareTo(
-            (nb['energy-kcal_100g'] ?? 9999) as num,
-          );
-        case FoodSortOrder.lowestCarbs:
-          return ((na['carbohydrates_100g'] ?? 9999) as num).compareTo(
-            (nb['carbohydrates_100g'] ?? 9999) as num,
-          );
-        case FoodSortOrder.lowestFat:
-          return ((na['fat_100g'] ?? 9999) as num).compareTo(
-            (nb['fat_100g'] ?? 9999) as num,
-          );
-        case FoodSortOrder.highestFibre:
-          return ((nb['fiber_100g'] ?? 0.0) as num).compareTo(
-            (na['fiber_100g'] ?? 0.0) as num,
-          );
-        case FoodSortOrder.relevance:
+      double val(Map m, String key, {double fallback = 0}) =>
+          (m[key] as num?)?.toDouble() ?? fallback;
+      var va = 0.0;
+      var vb = 0.0;
+      switch (_sortField) {
+        case FoodSortField.protein:
+          va = val(na, 'proteins_100g');
+          vb = val(nb, 'proteins_100g');
+        case FoodSortField.calories:
+          va = val(na, 'energy-kcal_100g');
+          vb = val(nb, 'energy-kcal_100g');
+        case FoodSortField.carbs:
+          va = val(na, 'carbohydrates_100g');
+          vb = val(nb, 'carbohydrates_100g');
+        case FoodSortField.fat:
+          va = val(na, 'fat_100g');
+          vb = val(nb, 'fat_100g');
+        case FoodSortField.fibre:
+          va = val(na, 'fiber_100g');
+          vb = val(nb, 'fiber_100g');
+        case FoodSortField.relevance:
           return 0;
       }
+      return _sortAscending ? va.compareTo(vb) : vb.compareTo(va);
     });
     return copy;
   }
 
   Future<void> _showSortDialog() async {
     final l10n = AppLocalizations.of(context)!;
-    final labels = {
-      FoodSortOrder.relevance: l10n.sortRelevance,
-      FoodSortOrder.highestProtein: l10n.sortHighestProtein,
-      FoodSortOrder.lowestCalories: l10n.sortLowestCalories,
-      FoodSortOrder.lowestCarbs: l10n.sortLowestCarbs,
-      FoodSortOrder.lowestFat: l10n.sortLowestFat,
-      FoodSortOrder.highestFibre: l10n.sortHighestFibre,
+    final fieldLabels = {
+      FoodSortField.relevance: l10n.sortRelevance,
+      FoodSortField.protein:   l10n.protein,
+      FoodSortField.calories:  l10n.calories,
+      FoodSortField.carbs:     l10n.carbs,
+      FoodSortField.fat:       l10n.fat,
+      FoodSortField.fibre:     l10n.sortHighestFibre.replaceFirst('Highest ', '').replaceFirst('Höchste ', ''),
     };
 
-    FoodSortOrder provisional = _sortOrder;
+    var currentField = _sortField;
+    var currentAscending = _sortAscending;
 
-    final selected = await showDialog<FoodSortOrder>(
+    final result = await showDialog<(FoodSortField, bool)>(
       context: context,
-      builder:
-          (ctx) => StatefulBuilder(
-            builder:
-                (ctx, setDialogState) => AlertDialog(
-                  title: Text(l10n.sortResults),
-                  contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                  content: RadioGroup<FoodSortOrder>(
-                    groupValue: provisional,
-                    onChanged: (v) {
-                      if (v != null) Navigator.of(ctx).pop(v);
-                    },
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children:
-                          FoodSortOrder.values.map((order) {
-                            return RadioListTile<FoodSortOrder>(
-                              value: order,
-                              title: Text(labels[order]!),
-                            );
-                          }).toList(),
-                    ),
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.of(ctx).pop(),
-                      child: Text(AppLocalizations.of(ctx)!.cancel),
-                    ),
-                  ],
-                ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: Text(l10n.sortResults),
+          contentPadding: const EdgeInsets.symmetric(vertical: 8),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: FoodSortField.values.map((field) {
+              final isSelected = currentField == field;
+              // ignore: deprecated_member_use
+              return RadioListTile<FoodSortField>(
+                value: field,
+                // ignore: deprecated_member_use
+                groupValue: currentField,
+                title: Text(fieldLabels[field]!),
+                secondary: isSelected && field != FoodSortField.relevance
+                    ? IconButton(
+                        icon: Icon(
+                          currentAscending
+                              ? Icons.arrow_upward
+                              : Icons.arrow_downward,
+                          size: 20,
+                        ),
+                        tooltip: currentAscending ? '↑ lowest first' : '↓ highest first',
+                        onPressed: () =>
+                            setDialogState(() => currentAscending = !currentAscending),
+                      )
+                    : null,
+                // ignore: deprecated_member_use
+                onChanged: (v) {
+                  if (v != null) setDialogState(() => currentField = v);
+                },
+              );
+            }).toList(),
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text(l10n.cancel),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop((currentField, currentAscending)),
+              child: const Text('Apply'),
+            ),
+          ],
+        ),
+      ),
     );
 
-    if (selected != null && mounted) {
-      setState(() => _sortOrder = selected);
+    if (result != null && mounted) {
+      setState(() {
+        _sortField = result.$1;
+        _sortAscending = result.$2;
+      });
     }
   }
 
@@ -1041,7 +1117,7 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
                       icon: Icon(
                         Icons.tune,
                         color:
-                            _sortOrder != FoodSortOrder.relevance
+                            _sortField != FoodSortField.relevance
                                 ? colorScheme.primary
                                 : colorScheme.onSurface.withValues(alpha: 0.55),
                       ),
@@ -1051,7 +1127,7 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
                   ],
                 ),
               ),
-              if (_sortOrder != FoodSortOrder.relevance)
+              if (_sortField != FoodSortField.relevance)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
                   child: Chip(
@@ -1068,10 +1144,10 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
                       size: 16,
                       color: colorScheme.onPrimaryContainer,
                     ),
-                    onDeleted:
-                        () => setState(
-                          () => _sortOrder = FoodSortOrder.relevance,
-                        ),
+                    onDeleted: () => setState(() {
+                      _sortField = FoodSortField.relevance;
+                      _sortAscending = false;
+                    }),
                     visualDensity: VisualDensity.compact,
                     padding: EdgeInsets.zero,
                   ),
@@ -1118,9 +1194,7 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
                             seen[key] = item;
                           }
                         }
-                        final foodItems =
-                            seen.values.toList()
-                              ..sort((a, b) => b.id.compareTo(a.id));
+                        final foodItems = _sortFoodItemData(seen.values.toList());
                         return ListView.builder(
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
@@ -1311,7 +1385,7 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
                                 _itemName(result).isNotEmpty
                                     ? _itemName(result)
                                     : 'Unknown',
-                            subtitle: result['brands']?.toString() ?? 'Generic',
+                            subtitle: _macroSubtitle(result),
                             onTap: () => _selectFoodItem(result),
                           ),
                         ),
@@ -1407,11 +1481,11 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
   }
 }
 
-enum FoodSortOrder {
+enum FoodSortField {
   relevance,
-  highestProtein,
-  lowestCalories,
-  lowestCarbs,
-  lowestFat,
-  highestFibre,
+  protein,
+  calories,
+  carbs,
+  fat,
+  fibre,
 }

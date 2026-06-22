@@ -4,6 +4,7 @@ class MealTemplate {
   final String? description;
   final String category; // Breakfast, Lunch, Dinner, Snack, etc.
   final List<MealTemplateItem> items;
+  final double? totalWeightGrams;
 
   MealTemplate({
     this.id,
@@ -11,18 +12,21 @@ class MealTemplate {
     this.description = '',
     required this.category,
     required this.items,
+    this.totalWeightGrams,
   });
 
-  // Add methods for calculating total calories, macros, etc.
   double get totalCalories => items.fold(0, (sum, item) => sum + item.calories);
+  double get totalProtein => items.fold(0, (sum, item) => sum + item.protein);
+  double get totalCarbs => items.fold(0, (sum, item) => sum + item.carbs);
+  double get totalFat => items.fold(0, (sum, item) => sum + item.fat);
 
-  // Backwards compatibility
   Map<String, dynamic> toMap() {
     return {
       if (id != null) 'id': id,
       'name': name,
       'description': description ?? '',
       'category': category,
+      if (totalWeightGrams != null) 'total_weight_grams': totalWeightGrams,
     };
   }
 
@@ -36,6 +40,7 @@ class MealTemplate {
       description: map['description'] ?? '',
       category: map['category'],
       items: items,
+      totalWeightGrams: (map['total_weight_grams'] as num?)?.toDouble(),
     );
   }
 }

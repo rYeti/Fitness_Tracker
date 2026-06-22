@@ -32,6 +32,7 @@ public class MealTemplateService(IMealTemplateRepository repository) : IMealTemp
             Name = dto.Name,
             Description = dto.Description,
             Category = dto.Category,
+            TotalWeightGrams = dto.TotalWeightGrams,
             Items = dto.Items.Select(i => ToItemModel(i)).ToList(),
         };
 
@@ -47,6 +48,7 @@ public class MealTemplateService(IMealTemplateRepository repository) : IMealTemp
             Name = dto.Name,
             Description = dto.Description,
             Category = dto.Category,
+            TotalWeightGrams = dto.TotalWeightGrams,
             Items = dto.Items.Select(i => ToItemModel(i)).ToList(),
         };
 
@@ -77,6 +79,7 @@ public class MealTemplateService(IMealTemplateRepository repository) : IMealTemp
         Name = t.Name,
         Description = t.Description,
         Category = t.Category,
+        TotalWeightGrams = t.TotalWeightGrams,
         Items = t.Items.Select(i => new MealTemplateItemResponseDto
         {
             Id = i.Id,

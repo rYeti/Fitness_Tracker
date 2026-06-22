@@ -12,6 +12,9 @@ public class MealTemplateRequestDto
     /// <summary>Meal category (e.g. Breakfast, Lunch, Dinner, Snack).</summary>
     public string Category { get; set; } = string.Empty;
 
+    /// <summary>Total weight of the prepared batch in grams (used for portion scaling).</summary>
+    public decimal? TotalWeightGrams { get; set; }
+
     /// <summary>The food items that make up this template.</summary>
     public List<MealTemplateItemRequestDto> Items { get; set; } = [];
 }

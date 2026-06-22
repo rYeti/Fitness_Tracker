@@ -17,6 +17,8 @@ class MealTemplateRepository {
       'name': template.name,
       'description': template.description ?? '',
       'category': template.category,
+      if (template.totalWeightGrams != null)
+        'total_weight_grams': template.totalWeightGrams,
       'items': [],
     };
 
@@ -107,6 +109,7 @@ class MealTemplateRepository {
         description: map['description'],
         category: map['category'],
         items: items,
+        totalWeightGrams: (map['total_weight_grams'] as num?)?.toDouble(),
       );
     }).toList();
   }
@@ -126,7 +129,9 @@ class MealTemplateRepository {
       'name': template.name,
       'description': template.description ?? '',
       'category': template.category,
-      'items': [], // Start with empty items array, we'll add them after update
+      if (template.totalWeightGrams != null)
+        'total_weight_grams': template.totalWeightGrams,
+      'items': [],
     };
 
     // Update the template

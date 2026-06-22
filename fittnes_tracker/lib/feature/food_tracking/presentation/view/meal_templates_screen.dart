@@ -308,6 +308,13 @@ class TemplateCard extends StatelessWidget {
                     mutedBg,
                     muted,
                   ),
+                  if (template.totalWeightGrams != null)
+                    _infoBadge(
+                      context,
+                      '${template.totalWeightGrams!.toStringAsFixed(0)}g batch',
+                      colorScheme.primaryContainer,
+                      colorScheme.onPrimaryContainer,
+                    ),
                 ],
               ),
             ],
@@ -336,93 +343,15 @@ class TemplateCard extends StatelessWidget {
   }
 
   void _showApplyTemplateDialog(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            backgroundColor: colorScheme.surfaceContainerLow,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12.0),
-            ),
-            title: Text(
-              AppLocalizations.of(context)!.applyTemplate,
-              style: TextStyle(
-                fontFamily: 'Montserrat',
-                fontWeight: FontWeight.w700,
-                fontSize: 16,
-                color: colorScheme.onSurface,
-              ),
-            ),
-            content: Text(
-              AppLocalizations.of(context)!.applyTemplateQuestion,
-              style: TextStyle(
-                fontFamily: 'Exo 2',
-                fontSize: 14,
-                color: colorScheme.onSurface.withValues(alpha: 0.55),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                style: TextButton.styleFrom(
-                  foregroundColor: colorScheme.onSurface.withValues(alpha: 0.55),
-                ),
-                child: Text(AppLocalizations.of(context)!.cancel),
-              ),
-              ElevatedButton(
-                onPressed: () async {
-                  Navigator.pop(context);
-                  final db = Provider.of<AppDatabase>(context, listen: false);
-                  final nutritionRepository = NutritionRepository(db);
-                  try {
-                    await nutritionRepository.applyTemplateToMeal(
-                      template.category,
-                      template.items,
-                    );
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            AppLocalizations.of(context)!.templateApplied(template.name, template.category),
-                          ),
-                          backgroundColor: colorScheme.primary,
-                        ),
-                      );
-                      Navigator.of(context).popUntil((route) => route.isFirst);
-                      final currentState = globalFoodTrackingKey.currentState;
-                      if (currentState != null) {
-                        currentState.loadNutritionData();
-                      } else if (context.mounted) {
-                        Navigator.of(context).pushReplacementNamed('/');
-                      }
-                    }
-                  } catch (e) {
-                    AppLogger.i('Error applying template: $e');
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(AppLocalizations.of(context)!.errorApplyingTemplate(e)),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                    }
-                  }
-                },
-                style: ElevatedButton.styleFrom(
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8.0),
-                  ),
-                ),
-                child: Text(AppLocalizations.of(context)!.apply),
-              ),
-            ],
-          ),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _PortionBottomSheet(template: template),
     );
   }
 
-  void _confirmDeleteTemplate(BuildContext context) {
+  void _confirmDeleteTemplate(BuildContext context) {  // keep below _showApplyTemplateDialog
     final colorScheme = Theme.of(context).colorScheme;
     showDialog(
       context: context,
@@ -473,5 +402,260 @@ class TemplateCard extends StatelessWidget {
             ],
           ),
     );
+  }
+}
+
+// ── Portion Bottom Sheet ─────────────────────────────────────────────────────
+
+class _PortionBottomSheet extends StatefulWidget {
+  final MealTemplate template;
+  const _PortionBottomSheet({required this.template});
+
+  @override
+  State<_PortionBottomSheet> createState() => _PortionBottomSheetState();
+}
+
+class _PortionBottomSheetState extends State<_PortionBottomSheet> {
+  final _portionController = TextEditingController();
+  late String _category;
+  double? _portionGrams;
+
+  static const _categories = ['Breakfast', 'Lunch', 'Dinner', 'Snack'];
+
+  @override
+  void initState() {
+    super.initState();
+    _category = widget.template.category;
+  }
+
+  @override
+  void dispose() {
+    _portionController.dispose();
+    super.dispose();
+  }
+
+  bool get _hasBatchWeight =>
+      widget.template.totalWeightGrams != null &&
+      widget.template.totalWeightGrams! > 0;
+
+  double get _ratio =>
+      (_portionGrams != null && _hasBatchWeight)
+          ? (_portionGrams! / widget.template.totalWeightGrams!)
+          : 1.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+    final colorScheme = Theme.of(context).colorScheme;
+    final t = widget.template;
+
+    final scaledCal = (t.totalCalories * _ratio).round();
+    final scaledP   = (t.totalProtein  * _ratio).round();
+    final scaledC   = (t.totalCarbs    * _ratio).round();
+    final scaledF   = (t.totalFat      * _ratio).round();
+
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerLow,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // drag handle
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: colorScheme.onSurface.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+
+            // template name
+            Text(
+              t.name,
+              style: TextStyle(
+                fontFamily: 'Montserrat',
+                fontWeight: FontWeight.w700,
+                fontSize: 17,
+                color: colorScheme.onSurface,
+              ),
+            ),
+            if (_hasBatchWeight) ...[
+              const SizedBox(height: 4),
+              Text(
+                loc.templateFullBatch(
+                  t.totalWeightGrams!.toStringAsFixed(0),
+                  t.totalCalories.toStringAsFixed(0),
+                ),
+                style: TextStyle(
+                  fontFamily: 'Exo 2',
+                  fontSize: 13,
+                  color: colorScheme.onSurface.withValues(alpha: 0.55),
+                ),
+              ),
+            ],
+            const SizedBox(height: 16),
+
+            // portion input (only when batch weight is set)
+            if (_hasBatchWeight) ...[
+              TextField(
+                controller: _portionController,
+                decoration: InputDecoration(
+                  labelText: loc.templatePortionLabel,
+                  border: const OutlineInputBorder(),
+                  suffixText: 'g',
+                ),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                onChanged: (v) {
+                  setState(() {
+                    _portionGrams = double.tryParse(v);
+                  });
+                },
+              ),
+              const SizedBox(height: 12),
+            ],
+
+            // live macro preview card
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: colorScheme.primaryContainer.withValues(alpha: 0.35),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _macroChip('$scaledCal', 'kcal', colorScheme),
+                  _macroChip('${scaledP}g', 'P', colorScheme),
+                  _macroChip('${scaledC}g', 'C', colorScheme),
+                  _macroChip('${scaledF}g', 'F', colorScheme),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // category dropdown
+            DropdownButtonFormField<String>(
+              initialValue: _category,
+              decoration: InputDecoration(
+                labelText: loc.mealCategory,
+                border: const OutlineInputBorder(),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              ),
+              items: _categories
+                  .map((c) => DropdownMenuItem(value: c, child: Text(_localizedCategory(loc, c))))
+                  .toList(),
+              onChanged: (v) => setState(() => _category = v!),
+            ),
+            const SizedBox(height: 16),
+
+            // log button
+            ElevatedButton(
+              onPressed: _log,
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                backgroundColor: colorScheme.primary,
+                foregroundColor: colorScheme.onPrimary,
+                textStyle: const TextStyle(
+                  fontFamily: 'Exo 2',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: Text(
+                _hasBatchWeight ? loc.templateLogPortion : loc.templateLogFull,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _macroChip(String value, String label, ColorScheme cs) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: TextStyle(
+            fontFamily: 'Montserrat',
+            fontWeight: FontWeight.w700,
+            fontSize: 14,
+            color: cs.onSurface,
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(
+            fontFamily: 'Exo 2',
+            fontSize: 11,
+            color: cs.onSurface.withValues(alpha: 0.55),
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _localizedCategory(AppLocalizations loc, String cat) {
+    switch (cat) {
+      case 'Breakfast': return loc.mealBreakfast;
+      case 'Lunch':     return loc.mealLunch;
+      case 'Dinner':    return loc.mealDinner;
+      default:          return loc.mealSnacks;
+    }
+  }
+
+  Future<void> _log() async {
+    final loc = AppLocalizations.of(context)!;
+    final colorScheme = Theme.of(context).colorScheme;
+    final db = Provider.of<AppDatabase>(context, listen: false);
+    final repo = NutritionRepository(db);
+
+    final portionArg = _hasBatchWeight ? _portionGrams : null;
+
+    try {
+      await repo.applyTemplatePortion(_category, widget.template, portionArg);
+      if (!mounted) return;
+      Navigator.pop(context); // close sheet
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            AppLocalizations.of(context)!.templateApplied(
+              widget.template.name,
+              _localizedCategory(loc, _category),
+            ),
+          ),
+          backgroundColor: colorScheme.primary,
+        ),
+      );
+      Navigator.of(context).popUntil((route) => route.isFirst);
+      final currentState = globalFoodTrackingKey.currentState;
+      if (currentState != null) {
+        currentState.loadNutritionData();
+      }
+    } catch (e) {
+      AppLogger.i('Error applying template: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.errorApplyingTemplate(e)),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 }

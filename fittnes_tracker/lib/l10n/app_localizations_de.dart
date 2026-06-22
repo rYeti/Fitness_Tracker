@@ -2088,14 +2088,38 @@ class AppLocalizationsDe extends AppLocalizations {
   String get resetPasswordTitle => 'Passwort zurücksetzen';
 
   @override
-  String get resetPasswordDescription => 'Gib dein neues Passwort ein und bestätige es.';
+  String get resetPasswordDescription =>
+      'Gib dein neues Passwort ein und bestätige es.';
 
   @override
   String get resetPasswordButton => 'Passwort zurücksetzen';
 
   @override
-  String get passwordResetSuccess => 'Passwort erfolgreich geändert. Du kannst dich jetzt einloggen.';
+  String get passwordResetSuccess =>
+      'Passwort erfolgreich geändert. Du kannst dich jetzt einloggen.';
 
   @override
-  String get passwordResetExpired => 'Dieser Link ist abgelaufen oder wurde bereits verwendet.';
+  String get passwordResetExpired =>
+      'Dieser Link ist abgelaufen oder wurde bereits verwendet.';
+
+  @override
+  String get templateBatchWeight => 'Gesamtgewicht der Portion (g)';
+
+  @override
+  String get templateBatchWeightHint =>
+      'z. B. Gesamtgewicht des gekochten Gerichts abwiegen';
+
+  @override
+  String templateFullBatch(String weight, String calories) {
+    return 'Gesamt: ${weight}g • $calories kcal';
+  }
+
+  @override
+  String get templatePortionLabel => 'Deine Portion (g)';
+
+  @override
+  String get templateLogFull => 'Gesamte Vorlage eintragen';
+
+  @override
+  String get templateLogPortion => 'Portion eintragen';
 }

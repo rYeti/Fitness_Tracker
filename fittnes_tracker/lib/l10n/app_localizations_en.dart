@@ -2075,14 +2075,38 @@ class AppLocalizationsEn extends AppLocalizations {
   String get resetPasswordTitle => 'Reset Password';
 
   @override
-  String get resetPasswordDescription => 'Enter and confirm your new password below.';
+  String get resetPasswordDescription =>
+      'Enter and confirm your new password below.';
 
   @override
   String get resetPasswordButton => 'Reset Password';
 
   @override
-  String get passwordResetSuccess => 'Password updated successfully. You can now log in.';
+  String get passwordResetSuccess =>
+      'Password updated successfully. You can now log in.';
 
   @override
-  String get passwordResetExpired => 'This link has expired or has already been used.';
+  String get passwordResetExpired =>
+      'This link has expired or has already been used.';
+
+  @override
+  String get templateBatchWeight => 'Total batch weight (g)';
+
+  @override
+  String get templateBatchWeightHint =>
+      'e.g. weigh your full pot / tray after cooking';
+
+  @override
+  String templateFullBatch(String weight, String calories) {
+    return 'Full batch: ${weight}g • $calories kcal';
+  }
+
+  @override
+  String get templatePortionLabel => 'Your portion (g)';
+
+  @override
+  String get templateLogFull => 'Log Full Template';
+
+  @override
+  String get templateLogPortion => 'Log Portion';
 }

@@ -987,5 +987,18 @@
   "resetPasswordDescription": "Enter and confirm your new password below.",
   "resetPasswordButton": "Reset Password",
   "passwordResetSuccess": "Password updated successfully. You can now log in.",
-  "passwordResetExpired": "This link has expired or has already been used."
+  "passwordResetExpired": "This link has expired or has already been used.",
+
+  "templateBatchWeight": "Total batch weight (g)",
+  "templateBatchWeightHint": "e.g. weigh your full pot / tray after cooking",
+  "templateFullBatch": "Full batch: {weight}g • {calories} kcal",
+  "@templateFullBatch": {
+    "placeholders": {
+      "weight": { "type": "String" },
+      "calories": { "type": "String" }
+    }
+  },
+  "templatePortionLabel": "Your portion (g)",
+  "templateLogFull": "Log Full Template",
+  "templateLogPortion": "Log Portion"
 }
