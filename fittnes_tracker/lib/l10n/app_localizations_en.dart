@@ -2077,11 +2077,15 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get resetPasswordDescription =>
       'Enter and confirm your new password below.';
+  String get resetPasswordDescription =>
+      'Enter and confirm your new password below.';
 
   @override
   String get resetPasswordButton => 'Reset Password';
 
   @override
+  String get passwordResetSuccess =>
+      'Password updated successfully. You can now log in.';
   String get passwordResetSuccess =>
       'Password updated successfully. You can now log in.';
 

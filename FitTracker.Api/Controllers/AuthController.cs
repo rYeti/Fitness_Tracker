@@ -106,9 +106,35 @@ public class AuthController : ControllerBase
     [HttpPost("forgot-password")]
     public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequestDto request)
     {
-        var resetBaseUrl = _configuration["App:PasswordResetUrl"] ?? "https://yourapp.com/reset-password";
+        var baseUrl = $"{Request.Scheme}://{Request.Host}";
+        var resetBaseUrl = $"{baseUrl}/api/Auth/reset-password-redirect";
         await _authService.ForgotPasswordAsync(request.Email, resetBaseUrl);
         return Ok("If an account with that email exists, a reset link has been sent.");
+    }
+
+    /// <summary>
+    /// Opens in the Gmail/browser Chrome Custom Tab and immediately redirects to the
+    /// forgeform:// deep link so the app can handle the reset token.
+    /// </summary>
+    [HttpGet("reset-password-redirect")]
+    [AllowAnonymous]
+    public IActionResult ResetPasswordRedirect([FromQuery] string token)
+    {
+        var deepLink = $"forgeform://reset-password?token={Uri.EscapeDataString(token)}";
+        var html = $"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <meta charset="utf-8">
+              <title>Redirecting…</title>
+              <script>window.location.href = "{deepLink}";</script>
+            </head>
+            <body>
+              <p>Opening ForgeForm… <a href="{deepLink}">tap here if nothing happens</a></p>
+            </body>
+            </html>
+            """;
+        return Content(html, "text/html");
     }
 
     /// <summary>Resets the user's password using a valid reset token.</summary>
