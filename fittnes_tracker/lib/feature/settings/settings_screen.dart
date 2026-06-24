@@ -891,7 +891,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   child: GestureDetector(
                     onTap:
                         () => launchUrl(
-                          Uri.parse('https://forgefrom.netlify.app/'),
+                          Uri.parse('https://forgefrom.netlify.app/privacy-policy'),
+                          mode: LaunchMode.externalApplication,
                         ),
                     child: Text(
                       'Privacy Policy',
