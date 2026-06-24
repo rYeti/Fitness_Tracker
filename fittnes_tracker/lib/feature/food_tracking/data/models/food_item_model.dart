@@ -11,6 +11,7 @@ class FoodItemModel {
   final int fat;
   final int gramm;
   final ExtendedNutrients? extendedNutrients;
+  final String? openFoodFactsId;
 
   FoodItemModel({
     this.id,
@@ -21,6 +22,7 @@ class FoodItemModel {
     required this.fat,
     required this.gramm,
     this.extendedNutrients,
+    this.openFoodFactsId,
   });
 
   factory FoodItemModel.fromData(FoodItemData data) {
@@ -32,6 +34,7 @@ class FoodItemModel {
       carbs: data.carbs,
       fat: data.fat,
       gramm: data.gramm,
+      openFoodFactsId: data.openFoodFactsId,
       extendedNutrients: data.extendedNutrientsJson != null
           ? ExtendedNutrients.fromJsonString(data.extendedNutrientsJson!)
           : null,
@@ -47,6 +50,7 @@ class FoodItemModel {
       fat: Value(fat),
       gramm: Value(gramm),
       extendedNutrientsJson: Value(extendedNutrients?.toJsonString()),
+      openFoodFactsId: Value(openFoodFactsId),
     );
   }
 }

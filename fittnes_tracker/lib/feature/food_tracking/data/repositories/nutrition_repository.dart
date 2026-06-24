@@ -412,4 +412,27 @@ class NutritionRepository {
       await addFoodToMeal(category, foodItem);
     }
   }
+
+  /// Fetches a single product from OpenFoodFacts by its barcode/product code.
+  /// Returns the product map (same structure as search results) or null on failure.
+  Future<Map<String, dynamic>?> fetchProductById(String productId) async {
+    try {
+      final resp = await _dio.get(
+        'https://world.openfoodfacts.org/api/v0/product/$productId.json',
+        queryParameters: {
+          'fields':
+              'product_name,brands,nutriments,serving_size,serving_quantity,serving_quantity_unit',
+        },
+      );
+      if (resp.statusCode == 200) {
+        final data = resp.data;
+        if (data is Map && data['status'] == 1) {
+          return data['product'] as Map<String, dynamic>?;
+        }
+      }
+    } catch (e) {
+      AppLogger.e('fetchProductById($productId) error: $e');
+    }
+    return null;
+  }
 }

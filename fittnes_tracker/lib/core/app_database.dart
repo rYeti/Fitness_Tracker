@@ -81,7 +81,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 33;
+  int get schemaVersion => 34;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -270,6 +270,14 @@ class AppDatabase extends _$AppDatabase {
         try {
           await customStatement(
             'ALTER TABLE workout_plan_table ADD COLUMN duration_days INTEGER',
+          );
+        } catch (_) {}
+      }
+
+      if (from < 34) {
+        try {
+          await customStatement(
+            'ALTER TABLE food_item ADD COLUMN open_food_facts_id TEXT',
           );
         } catch (_) {}
       }
@@ -929,6 +937,9 @@ class FoodItem extends Table {
   IntColumn get syncStatus => integer().withDefault(const Constant(0))();
   /// UUID assigned by the remote API after first successful sync.
   TextColumn get serverId => text().nullable()();
+  /// OpenFoodFacts product code (barcode) — stored when a food is added from
+  /// the online database so serving sizes can be re-fetched on edit.
+  TextColumn get openFoodFactsId => text().nullable()();
 }
 
 class UserSettings extends Table {

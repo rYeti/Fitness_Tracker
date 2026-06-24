@@ -44,6 +44,10 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
   /// non-null → serving mode: actual grams = _portionInput * _selectedUnit!.grams
   PortionOption? _selectedUnit;
 
+  /// Portion options — starts from widget.portionOptions; may be extended
+  /// asynchronously when editing an API food (fetched from OpenFoodFacts).
+  late List<PortionOption> _portionOptions;
+
   /// Actual grams used for nutrition calculation.
   double get _actualGrams =>
       _selectedUnit == null ? _portionInput : _portionInput * _selectedUnit!.grams;
@@ -62,9 +66,11 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
     db = Provider.of<AppDatabase>(context, listen: false);
     _repository = NutritionRepository(db);
 
-    if (widget.portionOptions.isNotEmpty) {
+    _portionOptions = List.of(widget.portionOptions);
+
+    if (_portionOptions.isNotEmpty) {
       // Default to the first serving size, quantity = 1 serving
-      _selectedUnit = widget.portionOptions.first;
+      _selectedUnit = _portionOptions.first;
       _portionInput = 1.0;
     } else {
       // Grams mode — pre-fill with the item's stored gram value
@@ -72,9 +78,37 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
       _portionInput = widget.foodItem.gramm > 0 ? widget.foodItem.gramm.toDouble() : 100.0;
     }
 
+    // When editing an API food with no locally cached portion options,
+    // fetch them from OpenFoodFacts so the user can pick servings again.
+    if (widget.isEditing &&
+        widget.foodItem.openFoodFactsId != null &&
+        _portionOptions.isEmpty) {
+      _fetchPortionOptions();
+    }
+
     _quantityController = TextEditingController(text: _portionInput.toStringAsFixed(
       _portionInput == _portionInput.roundToDouble() ? 0 : 1,
     ));
+    _calculateNutrition();
+  }
+
+  Future<void> _fetchPortionOptions() async {
+    final product = await _repository.fetchProductById(
+      widget.foodItem.openFoodFactsId!,
+    );
+    if (!mounted || product == null) return;
+    final options = PortionOption.fromProductData(product);
+    if (options.isEmpty) return;
+    setState(() {
+      _portionOptions = options;
+      // Try to match the stored gram value to a fetched serving size.
+      final match = options.where((o) => o.grams == widget.foodItem.gramm).firstOrNull;
+      if (match != null) {
+        _selectedUnit = match;
+        _portionInput = 1.0;
+        _quantityController.text = '1';
+      }
+    });
     _calculateNutrition();
   }
 
@@ -345,7 +379,7 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
   }
 
   Widget _buildPortionMarcroCalc() {
-    final hasPortions = widget.portionOptions.isNotEmpty;
+    final hasPortions = _portionOptions.isNotEmpty;
 
     // Build dropdown items: always include "g" (null unit) first,
     // then each API serving size.
@@ -355,7 +389,7 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
         child: Text(AppLocalizations.of(context)!.quantityInGrams),
       ),
       if (hasPortions)
-        ...widget.portionOptions.map(
+        ..._portionOptions.map(
           (p) {
             // Avoid "30g (30g)" — only append gram info when not already in label
             final alreadyHasGrams = RegExp(r'\d+\s*g', caseSensitive: false).hasMatch(p.label);
@@ -518,6 +552,7 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
                           extendedNutrientsJson: Value(
                             widget.foodItem.extendedNutrients?.scaleTo(grams).toJsonString(),
                           ),
+                          openFoodFactsId: Value(widget.foodItem.openFoodFactsId),
                         ),
                       );
                       final newFood = await db.foodItemDao.getFoodItemById(newFoodId);

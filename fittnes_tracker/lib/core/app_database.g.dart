@@ -130,6 +130,17 @@ class $FoodItemTable extends FoodItem
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _openFoodFactsIdMeta = const VerificationMeta(
+    'openFoodFactsId',
+  );
+  @override
+  late final GeneratedColumn<String> openFoodFactsId = GeneratedColumn<String>(
+    'open_food_facts_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -143,6 +154,7 @@ class $FoodItemTable extends FoodItem
     extendedNutrientsJson,
     syncStatus,
     serverId,
+    openFoodFactsId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -235,6 +247,15 @@ class $FoodItemTable extends FoodItem
         serverId.isAcceptableOrUnknown(data['server_id']!, _serverIdMeta),
       );
     }
+    if (data.containsKey('open_food_facts_id')) {
+      context.handle(
+        _openFoodFactsIdMeta,
+        openFoodFactsId.isAcceptableOrUnknown(
+          data['open_food_facts_id']!,
+          _openFoodFactsIdMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -297,6 +318,10 @@ class $FoodItemTable extends FoodItem
         DriftSqlType.string,
         data['${effectivePrefix}server_id'],
       ),
+      openFoodFactsId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}open_food_facts_id'],
+      ),
     );
   }
 
@@ -325,6 +350,10 @@ class FoodItemData extends DataClass implements Insertable<FoodItemData> {
 
   /// UUID assigned by the remote API after first successful sync.
   final String? serverId;
+
+  /// OpenFoodFacts product code (barcode) — stored when a food is added from
+  /// the online database so serving sizes can be re-fetched on edit.
+  final String? openFoodFactsId;
   const FoodItemData({
     required this.id,
     required this.name,
@@ -337,6 +366,7 @@ class FoodItemData extends DataClass implements Insertable<FoodItemData> {
     this.extendedNutrientsJson,
     required this.syncStatus,
     this.serverId,
+    this.openFoodFactsId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -355,6 +385,9 @@ class FoodItemData extends DataClass implements Insertable<FoodItemData> {
     map['sync_status'] = Variable<int>(syncStatus);
     if (!nullToAbsent || serverId != null) {
       map['server_id'] = Variable<String>(serverId);
+    }
+    if (!nullToAbsent || openFoodFactsId != null) {
+      map['open_food_facts_id'] = Variable<String>(openFoodFactsId);
     }
     return map;
   }
@@ -378,6 +411,10 @@ class FoodItemData extends DataClass implements Insertable<FoodItemData> {
           serverId == null && nullToAbsent
               ? const Value.absent()
               : Value(serverId),
+      openFoodFactsId:
+          openFoodFactsId == null && nullToAbsent
+              ? const Value.absent()
+              : Value(openFoodFactsId),
     );
   }
 
@@ -400,6 +437,7 @@ class FoodItemData extends DataClass implements Insertable<FoodItemData> {
       ),
       syncStatus: serializer.fromJson<int>(json['syncStatus']),
       serverId: serializer.fromJson<String?>(json['serverId']),
+      openFoodFactsId: serializer.fromJson<String?>(json['openFoodFactsId']),
     );
   }
   @override
@@ -419,6 +457,7 @@ class FoodItemData extends DataClass implements Insertable<FoodItemData> {
       ),
       'syncStatus': serializer.toJson<int>(syncStatus),
       'serverId': serializer.toJson<String?>(serverId),
+      'openFoodFactsId': serializer.toJson<String?>(openFoodFactsId),
     };
   }
 
@@ -434,6 +473,7 @@ class FoodItemData extends DataClass implements Insertable<FoodItemData> {
     Value<String?> extendedNutrientsJson = const Value.absent(),
     int? syncStatus,
     Value<String?> serverId = const Value.absent(),
+    Value<String?> openFoodFactsId = const Value.absent(),
   }) => FoodItemData(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -449,6 +489,8 @@ class FoodItemData extends DataClass implements Insertable<FoodItemData> {
             : this.extendedNutrientsJson,
     syncStatus: syncStatus ?? this.syncStatus,
     serverId: serverId.present ? serverId.value : this.serverId,
+    openFoodFactsId:
+        openFoodFactsId.present ? openFoodFactsId.value : this.openFoodFactsId,
   );
   FoodItemData copyWithCompanion(FoodItemCompanion data) {
     return FoodItemData(
@@ -470,6 +512,10 @@ class FoodItemData extends DataClass implements Insertable<FoodItemData> {
       syncStatus:
           data.syncStatus.present ? data.syncStatus.value : this.syncStatus,
       serverId: data.serverId.present ? data.serverId.value : this.serverId,
+      openFoodFactsId:
+          data.openFoodFactsId.present
+              ? data.openFoodFactsId.value
+              : this.openFoodFactsId,
     );
   }
 
@@ -486,7 +532,8 @@ class FoodItemData extends DataClass implements Insertable<FoodItemData> {
           ..write('hiddenFromRecent: $hiddenFromRecent, ')
           ..write('extendedNutrientsJson: $extendedNutrientsJson, ')
           ..write('syncStatus: $syncStatus, ')
-          ..write('serverId: $serverId')
+          ..write('serverId: $serverId, ')
+          ..write('openFoodFactsId: $openFoodFactsId')
           ..write(')'))
         .toString();
   }
@@ -504,6 +551,7 @@ class FoodItemData extends DataClass implements Insertable<FoodItemData> {
     extendedNutrientsJson,
     syncStatus,
     serverId,
+    openFoodFactsId,
   );
   @override
   bool operator ==(Object other) =>
@@ -519,7 +567,8 @@ class FoodItemData extends DataClass implements Insertable<FoodItemData> {
           other.hiddenFromRecent == this.hiddenFromRecent &&
           other.extendedNutrientsJson == this.extendedNutrientsJson &&
           other.syncStatus == this.syncStatus &&
-          other.serverId == this.serverId);
+          other.serverId == this.serverId &&
+          other.openFoodFactsId == this.openFoodFactsId);
 }
 
 class FoodItemCompanion extends UpdateCompanion<FoodItemData> {
@@ -534,6 +583,7 @@ class FoodItemCompanion extends UpdateCompanion<FoodItemData> {
   final Value<String?> extendedNutrientsJson;
   final Value<int> syncStatus;
   final Value<String?> serverId;
+  final Value<String?> openFoodFactsId;
   const FoodItemCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
@@ -546,6 +596,7 @@ class FoodItemCompanion extends UpdateCompanion<FoodItemData> {
     this.extendedNutrientsJson = const Value.absent(),
     this.syncStatus = const Value.absent(),
     this.serverId = const Value.absent(),
+    this.openFoodFactsId = const Value.absent(),
   });
   FoodItemCompanion.insert({
     this.id = const Value.absent(),
@@ -559,6 +610,7 @@ class FoodItemCompanion extends UpdateCompanion<FoodItemData> {
     this.extendedNutrientsJson = const Value.absent(),
     this.syncStatus = const Value.absent(),
     this.serverId = const Value.absent(),
+    this.openFoodFactsId = const Value.absent(),
   }) : name = Value(name),
        calories = Value(calories),
        protein = Value(protein),
@@ -576,6 +628,7 @@ class FoodItemCompanion extends UpdateCompanion<FoodItemData> {
     Expression<String>? extendedNutrientsJson,
     Expression<int>? syncStatus,
     Expression<String>? serverId,
+    Expression<String>? openFoodFactsId,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -590,6 +643,7 @@ class FoodItemCompanion extends UpdateCompanion<FoodItemData> {
         'extended_nutrients_json': extendedNutrientsJson,
       if (syncStatus != null) 'sync_status': syncStatus,
       if (serverId != null) 'server_id': serverId,
+      if (openFoodFactsId != null) 'open_food_facts_id': openFoodFactsId,
     });
   }
 
@@ -605,6 +659,7 @@ class FoodItemCompanion extends UpdateCompanion<FoodItemData> {
     Value<String?>? extendedNutrientsJson,
     Value<int>? syncStatus,
     Value<String?>? serverId,
+    Value<String?>? openFoodFactsId,
   }) {
     return FoodItemCompanion(
       id: id ?? this.id,
@@ -619,6 +674,7 @@ class FoodItemCompanion extends UpdateCompanion<FoodItemData> {
           extendedNutrientsJson ?? this.extendedNutrientsJson,
       syncStatus: syncStatus ?? this.syncStatus,
       serverId: serverId ?? this.serverId,
+      openFoodFactsId: openFoodFactsId ?? this.openFoodFactsId,
     );
   }
 
@@ -660,6 +716,9 @@ class FoodItemCompanion extends UpdateCompanion<FoodItemData> {
     if (serverId.present) {
       map['server_id'] = Variable<String>(serverId.value);
     }
+    if (openFoodFactsId.present) {
+      map['open_food_facts_id'] = Variable<String>(openFoodFactsId.value);
+    }
     return map;
   }
 
@@ -676,7 +735,8 @@ class FoodItemCompanion extends UpdateCompanion<FoodItemData> {
           ..write('hiddenFromRecent: $hiddenFromRecent, ')
           ..write('extendedNutrientsJson: $extendedNutrientsJson, ')
           ..write('syncStatus: $syncStatus, ')
-          ..write('serverId: $serverId')
+          ..write('serverId: $serverId, ')
+          ..write('openFoodFactsId: $openFoodFactsId')
           ..write(')'))
         .toString();
   }
@@ -8252,6 +8312,7 @@ typedef $$FoodItemTableCreateCompanionBuilder =
       Value<String?> extendedNutrientsJson,
       Value<int> syncStatus,
       Value<String?> serverId,
+      Value<String?> openFoodFactsId,
     });
 typedef $$FoodItemTableUpdateCompanionBuilder =
     FoodItemCompanion Function({
@@ -8266,6 +8327,7 @@ typedef $$FoodItemTableUpdateCompanionBuilder =
       Value<String?> extendedNutrientsJson,
       Value<int> syncStatus,
       Value<String?> serverId,
+      Value<String?> openFoodFactsId,
     });
 
 final class $$FoodItemTableReferences
@@ -8358,6 +8420,11 @@ class $$FoodItemTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get openFoodFactsId => $composableBuilder(
+    column: $table.openFoodFactsId,
+    builder: (column) => ColumnFilters(column),
+  );
+
   Expression<bool> mealFoodTableRefs(
     Expression<bool> Function($$MealFoodTableTableFilterComposer f) f,
   ) {
@@ -8447,6 +8514,11 @@ class $$FoodItemTableOrderingComposer
     column: $table.serverId,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get openFoodFactsId => $composableBuilder(
+    column: $table.openFoodFactsId,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$FoodItemTableAnnotationComposer
@@ -8496,6 +8568,11 @@ class $$FoodItemTableAnnotationComposer
 
   GeneratedColumn<String> get serverId =>
       $composableBuilder(column: $table.serverId, builder: (column) => column);
+
+  GeneratedColumn<String> get openFoodFactsId => $composableBuilder(
+    column: $table.openFoodFactsId,
+    builder: (column) => column,
+  );
 
   Expression<T> mealFoodTableRefs<T extends Object>(
     Expression<T> Function($$MealFoodTableTableAnnotationComposer a) f,
@@ -8562,6 +8639,7 @@ class $$FoodItemTableTableManager
                 Value<String?> extendedNutrientsJson = const Value.absent(),
                 Value<int> syncStatus = const Value.absent(),
                 Value<String?> serverId = const Value.absent(),
+                Value<String?> openFoodFactsId = const Value.absent(),
               }) => FoodItemCompanion(
                 id: id,
                 name: name,
@@ -8574,6 +8652,7 @@ class $$FoodItemTableTableManager
                 extendedNutrientsJson: extendedNutrientsJson,
                 syncStatus: syncStatus,
                 serverId: serverId,
+                openFoodFactsId: openFoodFactsId,
               ),
           createCompanionCallback:
               ({
@@ -8588,6 +8667,7 @@ class $$FoodItemTableTableManager
                 Value<String?> extendedNutrientsJson = const Value.absent(),
                 Value<int> syncStatus = const Value.absent(),
                 Value<String?> serverId = const Value.absent(),
+                Value<String?> openFoodFactsId = const Value.absent(),
               }) => FoodItemCompanion.insert(
                 id: id,
                 name: name,
@@ -8600,6 +8680,7 @@ class $$FoodItemTableTableManager
                 extendedNutrientsJson: extendedNutrientsJson,
                 syncStatus: syncStatus,
                 serverId: serverId,
+                openFoodFactsId: openFoodFactsId,
               ),
           withReferenceMapper:
               (p0) =>
