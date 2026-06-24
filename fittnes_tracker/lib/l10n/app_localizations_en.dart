@@ -2069,6 +2069,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get syncSectionLabel => 'Sync';
 
   @override
+  String get showMore => 'Show more';
+
+  @override
+  String get showLess => 'Show less';
+
+  @override
   String get forgotPassword => 'Forgot password?';
 
   @override

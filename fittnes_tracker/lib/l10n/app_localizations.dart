@@ -3803,6 +3803,12 @@ abstract class AppLocalizations {
   /// No description provided for @forgotPassword.
   ///
   /// In en, this message translates to:
+  /// **'Show more'**
+  String get showMore;
+
+  /// **'Show less'**
+  String get showLess;
+
   /// **'Forgot password?'**
   String get forgotPassword;
 

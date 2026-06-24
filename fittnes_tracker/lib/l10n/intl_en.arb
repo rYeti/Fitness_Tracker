@@ -981,6 +981,8 @@
   },
   "addWorkoutsToPlanHint": "To add workouts to this plan:\n\n1. Import workout templates using the CSV import button\n2. Use the + button to add imported workouts to this plan\n3. Scheduled workouts are separate from plan templates",
   "syncSectionLabel": "Sync",
+  "showMore": "Show more",
+  "showLess": "Show less",
   "forgotPassword": "Forgot password?",
 
   "resetPasswordTitle": "Reset Password",

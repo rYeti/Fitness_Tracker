@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../widgets/exercise_selection_modal.dart';
+import '../../widgets/expandable_description.dart';
 import '../../widgets/reset_timer_widget.dart';
 
 // Keys used to persist an in-progress workout so the session can be resumed
@@ -1332,10 +1333,15 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                     ),
                     textAlign: TextAlign.center,
                   ),
-                  if (exerciseData.exercise.description != null) ...[
+                  if (exerciseData.exercise.localizedDescription(
+                        Localizations.localeOf(context).languageCode,
+                      ) !=
+                      null) ...[
                     const SizedBox(height: 8),
-                    Text(
-                      exerciseData.exercise.description!,
+                    ExpandableDescription(
+                      description: exerciseData.exercise.localizedDescription(
+                        Localizations.localeOf(context).languageCode,
+                      )!,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onPrimaryContainer,
                       ),

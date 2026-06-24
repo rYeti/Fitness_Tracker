@@ -34,7 +34,7 @@ Future<void> _insertAll(AppDatabase db) async {
 /// matched by English name. Custom exercises are never touched.
 Future<void> _backfillTranslations(AppDatabase db) async {
   final all = await db.exerciseDao.getAllExercises();
-  final needsUpdate = all.where((e) => e.nameDe == null && !e.isCustom);
+  final needsUpdate = all.where((e) => (e.nameDe == null || e.descriptionDe == null) && !e.isCustom);
   if (needsUpdate.isEmpty) return;
 
   final translationMap = {

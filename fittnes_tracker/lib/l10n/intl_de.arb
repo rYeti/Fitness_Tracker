@@ -977,6 +977,8 @@
   },
   "addWorkoutsToPlanHint": "Um Trainings zu diesem Plan hinzuzufügen:\n\n1. Importiere Trainingsvorlagen über den CSV-Import-Button\n2. Verwende den +-Button, um importierte Trainings zu diesem Plan hinzuzufügen\n3. Geplante Trainings sind getrennt von Plan-Vorlagen",
   "syncSectionLabel": "Synchronisierung",
+  "showMore": "Mehr anzeigen",
+  "showLess": "Weniger anzeigen",
   "forgotPassword": "Passwort vergessen?",
 
   "resetPasswordTitle": "Passwort zurücksetzen",

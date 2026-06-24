@@ -8,6 +8,7 @@ import 'package:ForgeForm/feature/premium/paywall_screen.dart';
 import 'package:ForgeForm/feature/workout_planning/data/models/workout.dart';
 import 'package:ForgeForm/feature/workout_planning/data/models/exercise.dart';
 import 'package:ForgeForm/feature/gym_tracking/presentation/widgets/exercise_selection_modal.dart';
+import 'package:ForgeForm/feature/gym_tracking/presentation/widgets/expandable_description.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -1721,8 +1722,8 @@ class _ExerciseCardState extends State<_ExerciseCard> {
                     // Exercise description
                     if (widget.exercise.description != null &&
                         widget.exercise.description!.isNotEmpty) ...[
-                      Text(
-                        widget.exercise.description!,
+                      ExpandableDescription(
+                        description: widget.exercise.description!,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
