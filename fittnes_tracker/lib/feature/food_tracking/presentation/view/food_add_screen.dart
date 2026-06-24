@@ -564,6 +564,7 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
         carbs: (item.carbs * ratio).round(),
         fat: (item.fat * ratio).round(),
         gramm: Value(newGramm),
+        openFoodFactsId: Value(item.openFoodFactsId),
       ),
     );
 
@@ -608,7 +609,9 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
     // For API items use the nutriments map (values are per-100g, gramm=100).
     final foodItem = FoodItemModel(
       id: int.tryParse(productData['id']?.toString() ?? '') ?? 0,
-      openFoodFactsId: isLocal ? null : productData['id']?.toString(),
+      openFoodFactsId: isLocal
+          ? null
+          : (productData['code'] ?? productData['id'])?.toString(),
       name: productData['product_name'] ?? productData['brands'] ?? 'Unknown',
       calories:
           isLocal

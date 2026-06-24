@@ -51,6 +51,7 @@ class FoodApi {
         final extended = ExtendedNutrients.fromNutriments(nutriments);
         final food = FoodItemModel(
           id: parseInt(product['id']),
+          openFoodFactsId: barcode,
           name: product['product_name'] ?? product['brands'] ?? 'Unknown',
           calories: parseInt(nutriments['energy-kcal']),
           protein: parseInt(nutriments['proteins_100g']),

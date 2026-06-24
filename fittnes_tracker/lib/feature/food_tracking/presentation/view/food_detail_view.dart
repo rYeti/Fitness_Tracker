@@ -47,6 +47,7 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
   /// Portion options — starts from widget.portionOptions; may be extended
   /// asynchronously when editing an API food (fetched from OpenFoodFacts).
   late List<PortionOption> _portionOptions;
+  bool _isFetchingPortions = false;
 
   /// Actual grams used for nutrition calculation.
   double get _actualGrams =>
@@ -93,23 +94,29 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
   }
 
   Future<void> _fetchPortionOptions() async {
-    final product = await _repository.fetchProductById(
-      widget.foodItem.openFoodFactsId!,
-    );
-    if (!mounted || product == null) return;
-    final options = PortionOption.fromProductData(product);
-    if (options.isEmpty) return;
-    setState(() {
-      _portionOptions = options;
-      // Try to match the stored gram value to a fetched serving size.
-      final match = options.where((o) => o.grams == widget.foodItem.gramm).firstOrNull;
-      if (match != null) {
-        _selectedUnit = match;
-        _portionInput = 1.0;
-        _quantityController.text = '1';
-      }
-    });
-    _calculateNutrition();
+    setState(() => _isFetchingPortions = true);
+    try {
+      final product = await _repository.fetchProductById(
+        widget.foodItem.openFoodFactsId!,
+      );
+      if (!mounted) return;
+      final options = product != null ? PortionOption.fromProductData(product) : <PortionOption>[];
+      setState(() {
+        _isFetchingPortions = false;
+        if (options.isNotEmpty) {
+          _portionOptions = options;
+          final match = options.where((o) => o.grams == widget.foodItem.gramm).firstOrNull;
+          if (match != null) {
+            _selectedUnit = match;
+            _portionInput = 1.0;
+            _quantityController.text = '1';
+          }
+        }
+      });
+      if (options.isNotEmpty) _calculateNutrition();
+    } catch (_) {
+      if (mounted) setState(() => _isFetchingPortions = false);
+    }
   }
 
   void _calculateNutrition() {
@@ -445,15 +452,34 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
                 // RIGHT: unit dropdown (always visible; only serving sizes when available)
                 Expanded(
                   flex: 3,
-                  child: DropdownButtonFormField<PortionOption?>(
-                    value: _selectedUnit,
-                    isExpanded: true,
-                    decoration: const InputDecoration(
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                    ),
-                    items: unitItems,
-                    onChanged: (unit) {
+                  child: _isFetchingPortions
+                      ? const InputDecorator(
+                          decoration: InputDecoration(
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                          ),
+                          child: Row(
+                            children: [
+                              SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                              SizedBox(width: 8),
+                              Text('Loading…', style: TextStyle(fontSize: 13)),
+                            ],
+                          ),
+                        )
+                      : DropdownButtonFormField<PortionOption?>(
+                          // ignore: deprecated_member_use
+                          value: _selectedUnit,
+                          isExpanded: true,
+                          decoration: const InputDecoration(
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                          ),
+                          items: unitItems,
+                          onChanged: (unit) {
                       final currentGrams = _actualGrams;
                       setState(() {
                         _selectedUnit = unit;

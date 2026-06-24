@@ -83,7 +83,7 @@ class NutritionRepository {
             'json': 1,
             'page_size': 25,
             'fields':
-                'id,product_name,brands,nutriments,serving_size,serving_quantity,serving_quantity_unit',
+                'id,code,product_name,brands,nutriments,serving_size,serving_quantity,serving_quantity_unit',
             'tagtype_0': 'product_name',
             'tag_contains_0': 'contains',
             'tag_0': q,
@@ -112,7 +112,7 @@ class NutritionRepository {
             'q': q,
             'page_size': 40,
             'fields':
-                'id,product_name,brands,nutriments,serving_size,serving_quantity,serving_quantity_unit',
+                'id,code,product_name,brands,nutriments,serving_size,serving_quantity,serving_quantity_unit',
             if (languageCode != null) 'langs': languageCode,
           },
         );
