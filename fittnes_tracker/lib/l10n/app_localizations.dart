@@ -3800,15 +3800,21 @@ abstract class AppLocalizations {
   /// **'Sync'**
   String get syncSectionLabel;
 
-  /// No description provided for @forgotPassword.
+  /// No description provided for @showMore.
   ///
   /// In en, this message translates to:
   /// **'Show more'**
   String get showMore;
 
+  /// No description provided for @showLess.
+  ///
+  /// In en, this message translates to:
   /// **'Show less'**
   String get showLess;
 
+  /// No description provided for @forgotPassword.
+  ///
+  /// In en, this message translates to:
   /// **'Forgot password?'**
   String get forgotPassword;
 

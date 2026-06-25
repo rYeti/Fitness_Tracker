@@ -28,8 +28,16 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     final email = _emailController.text.trim();
     if (email.isEmpty) return;
     setState(() => _isLoading = true);
-    await ref.read(authProvider.notifier).forgotPassword(email);
-    if (mounted) setState(() { _isLoading = false; _sent = true; });
+    final success = await ref.read(authProvider.notifier).forgotPassword(email);
+    if (!mounted) return;
+    if (success) {
+      setState(() { _isLoading = false; _sent = true; });
+    } else {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to send reset email. Please try again.')),
+      );
+    }
   }
 
   @override

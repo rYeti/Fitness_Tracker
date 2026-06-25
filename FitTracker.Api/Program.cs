@@ -95,7 +95,7 @@ builder.Services.AddScoped<IMealTemplateRepository, MealTemplateRepository>();
 builder.Services.AddScoped<IMealTemplateService, MealTemplateService>();
 builder.Services.AddScoped<ITrainerClientRepository, TrainerClientRepository>();
 builder.Services.AddScoped<ITrainerClientService, TrainerClientService>();
-builder.Services.AddTransient<IEmailService, SmtpEmailService>();
+builder.Services.AddTransient<IEmailService, GmailApiEmailService>();
 
 
 // ── Build ────────────────────────────────────────────────────
