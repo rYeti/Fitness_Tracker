@@ -121,20 +121,7 @@ public class AuthController : ControllerBase
     public IActionResult ResetPasswordRedirect([FromQuery] string token)
     {
         var deepLink = $"forgeform://reset-password?token={Uri.EscapeDataString(token)}";
-        var html = $"""
-            <!DOCTYPE html>
-            <html>
-            <head>
-              <meta charset="utf-8">
-              <title>Redirecting…</title>
-              <script>window.location.href = "{deepLink}";</script>
-            </head>
-            <body>
-              <p>Opening ForgeForm… <a href="{deepLink}">tap here if nothing happens</a></p>
-            </body>
-            </html>
-            """;
-        return Content(html, "text/html");
+        return Redirect(deepLink);
     }
 
     /// <summary>Resets the user's password using a valid reset token.</summary>

@@ -219,22 +219,40 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   final _navigatorKey = GlobalKey<NavigatorState>();
   StreamSubscription<Uri>? _linkSub;
+  String? _pendingResetToken;
 
   @override
   void initState() {
     super.initState();
-    _linkSub = AppLinks().uriLinkStream.listen((uri) {
-      if (uri.scheme == 'forgeform' && uri.host == 'reset-password') {
-        final token = uri.queryParameters['token'];
-        if (token != null && token.isNotEmpty) {
-          _navigatorKey.currentState?.push(
-            MaterialPageRoute(
-              builder: (_) => ResetPasswordScreen(token: token),
-            ),
-          );
-        }
-      }
-    });
+    _handleInitialLink();
+    _linkSub = AppLinks().uriLinkStream.listen(_handleDeepLink);
+  }
+
+  Future<void> _handleInitialLink() async {
+    final uri = await AppLinks().getInitialLink();
+    if (uri == null) return;
+    _handleDeepLink(uri);
+  }
+
+  void _handleDeepLink(Uri uri) {
+    if (uri.scheme != 'forgeform' || uri.host != 'reset-password') return;
+    final token = uri.queryParameters['token'];
+    if (token == null || token.isEmpty) return;
+
+    _pendingResetToken = token;
+    _tryNavigateToReset();
+  }
+
+  void _tryNavigateToReset() {
+    final token = _pendingResetToken;
+    if (token == null) return;
+    final nav = _navigatorKey.currentState;
+    if (nav == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _tryNavigateToReset());
+      return;
+    }
+    _pendingResetToken = null;
+    nav.push(MaterialPageRoute(builder: (_) => ResetPasswordScreen(token: token)));
   }
 
   @override
