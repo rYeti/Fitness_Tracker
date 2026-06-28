@@ -23,6 +23,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart' hide Consumer;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:ForgeForm/feature/premium/paywall_screen.dart';
 import 'package:ForgeForm/feature/premium/premium_gate.dart';
 
 extension SexLocalizations on Sex {
@@ -304,6 +305,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // ── Premium banner ────────────────────────────────────────
+                if (!hasPremium) ...[
+                  _GoPremiumBanner(),
+                  const SizedBox(height: 16),
+                ],
+
                 // ── Account ───────────────────────────────────────────────
                 _SectionLabel(l10n.accountSettings),
                 Card(
@@ -950,6 +957,77 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   fontSize: 14,
                 ),
               ),
+    );
+  }
+}
+
+class _GoPremiumBanner extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1E1E),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: const Color(0xFF2A2A2A),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.bolt, color: Color(0xFFFF6B35), size: 22),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Go Premium',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Unlimited plans, full history & analytics',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.55),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          ElevatedButton(
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const PaywallScreen()),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFF6B35),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              textStyle: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+              ),
+            ),
+            child: const Text('Upgrade'),
+          ),
+        ],
+      ),
     );
   }
 }
