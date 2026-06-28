@@ -38,15 +38,19 @@ class WeightProgressCard extends StatelessWidget {
     final changeSign = weightChange > 0 ? '+' : '';
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 52, 16),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            l10n.weightProgress,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
+          // Extra right padding only here — two icon buttons (≈96 px) sit above this row
+          Padding(
+            padding: const EdgeInsets.only(right: 96),
+            child: Text(
+              l10n.weightProgress,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
             ),
           ),
           const SizedBox(height: 12),
