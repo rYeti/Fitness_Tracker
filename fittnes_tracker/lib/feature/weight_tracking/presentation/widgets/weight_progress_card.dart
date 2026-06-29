@@ -53,7 +53,7 @@ class WeightProgressCard extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -64,7 +64,7 @@ class WeightProgressCard extends StatelessWidget {
                     TextSpan(
                       text: currentWeight.toStringAsFixed(1),
                       style: TextStyle(
-                        fontSize: 40,
+                        fontSize: 32,
                         fontWeight: FontWeight.bold,
                         color: theme.colorScheme.onSurface,
                       ),
@@ -104,7 +104,7 @@ class WeightProgressCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(

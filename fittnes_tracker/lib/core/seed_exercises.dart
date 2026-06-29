@@ -30,17 +30,24 @@ Future<void> _insertAll(AppDatabase db) async {
   }
 }
 
-/// Updates any pre-existing exercise that still has a null nameDe,
+/// Updates any pre-existing exercise that is missing translations or description,
 /// matched by English name. Custom exercises are never touched.
 Future<void> _backfillTranslations(AppDatabase db) async {
   final all = await db.exerciseDao.getAllExercises();
-  final needsUpdate = all.where((e) => (e.nameDe == null || e.descriptionDe == null) && !e.isCustom);
+  final needsUpdate = all.where(
+    (e) =>
+        (e.nameDe == null || e.descriptionDe == null || e.description == null) &&
+        !e.isCustom,
+  );
   if (needsUpdate.isEmpty) return;
 
   final translationMap = {
     for (final ex in _exercises)
-      if (ex.nameDe != null)
-        ex.name: (nameDe: ex.nameDe!, descriptionDe: ex.descriptionDe),
+      ex.name: (
+        nameDe: ex.nameDe,
+        descriptionDe: ex.descriptionDe,
+        description: ex.description,
+      ),
   };
 
   for (final row in needsUpdate) {
@@ -50,6 +57,7 @@ Future<void> _backfillTranslations(AppDatabase db) async {
         .write(ExerciseTableCompanion(
       nameDe: drift.Value(t.nameDe),
       descriptionDe: drift.Value(t.descriptionDe),
+      description: drift.Value(t.description),
     ));
   }
 }

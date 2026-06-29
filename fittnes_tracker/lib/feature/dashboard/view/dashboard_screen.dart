@@ -96,10 +96,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildStackGreeting(goalsProvider),
-                const SizedBox(height: 16),
+                const SizedBox(height: 10),
                 _todayWorkout(),
-                const SizedBox(height: 16),
+                const SizedBox(height: 10),
                 _buildWeightProgress(goalsProvider),
+                const SizedBox(height: 16),
               ],
             ),
           ),
@@ -180,15 +181,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final all = await db.scheduledWorkoutDao.getAll();
 
     final now = DateTime.now();
-    final weekStart = DateTime(now.year, now.month, now.day)
-        .subtract(Duration(days: now.weekday - 1));
+    final weekStart = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).subtract(Duration(days: now.weekday - 1));
     final weekEnd = weekStart.add(const Duration(days: 7));
 
-    final thisWeek = all
-        .where((sw) =>
-            !sw.scheduledDate.isBefore(weekStart) &&
-            sw.scheduledDate.isBefore(weekEnd))
-        .toList();
+    final thisWeek =
+        all
+            .where(
+              (sw) =>
+                  !sw.scheduledDate.isBefore(weekStart) &&
+                  sw.scheduledDate.isBefore(weekEnd),
+            )
+            .toList();
 
     if (mounted) {
       setState(() {
@@ -201,9 +208,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   String _greeting(AppLocalizations l10n, String name) {
     final hour = DateTime.now().hour;
-    final base = hour < 12
-        ? l10n.goodMorning
-        : (hour < 17 ? l10n.goodAfternoon : l10n.goodEvening);
+    final base =
+        hour < 12
+            ? l10n.goodMorning
+            : (hour < 17 ? l10n.goodAfternoon : l10n.goodEvening);
     if (name.trim().isEmpty) return base;
     return base.endsWith('!')
         ? '${base.substring(0, base.length - 1)}, ${name.trim()}!'
@@ -217,7 +225,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       children: [
         Container(
           margin: const EdgeInsets.only(top: 12),
-          padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
           decoration: BoxDecoration(
             color: colorScheme.surfaceContainerLow,
             borderRadius: BorderRadius.circular(12.0),
@@ -229,7 +237,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 20),
+              const SizedBox(height: 12),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -244,7 +252,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 10),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
@@ -268,7 +276,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 10),
               _buildCaloriesProgress(goalsProvider),
             ],
           ),
@@ -476,7 +484,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ],
                   ],
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 8),
                 if (snapshot.connectionState == ConnectionState.waiting)
                   Center(
                     child: CircularProgressIndicator(

@@ -48,10 +48,10 @@ class _ExpandableDescriptionState extends State<ExpandableDescription> {
                   ? AppLocalizations.of(context)!.showLess
                   : AppLocalizations.of(context)!.showMore,
               style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.primary,
+                color: widget.style?.color ?? theme.colorScheme.primary,
                 fontWeight: FontWeight.w600,
                 decoration: TextDecoration.underline,
-                decorationColor: theme.colorScheme.primary,
+                decorationColor: widget.style?.color ?? theme.colorScheme.primary,
               ),
             ),
           ),
