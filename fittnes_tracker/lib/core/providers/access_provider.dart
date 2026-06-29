@@ -5,7 +5,7 @@ import 'package:dio/dio.dart';
 
 // ── Configuration ────────────────────────────────────────────────────────────
 // Replace with your RevenueCat public SDK key from app.revenuecat.com
-const _revenueCatApiKey = '';
+const _revenueCatApiKey = 'goog_bngAaflqXhTyOmLFSRWpMQnOQnW';
 
 // The entitlement identifier set up in your RevenueCat dashboard.
 const _premiumEntitlementId = 'ForgeForm Pro';
