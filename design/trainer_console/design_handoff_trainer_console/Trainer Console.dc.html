@@ -1,0 +1,1385 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0">
+  <link rel="stylesheet" href="_ds/forgeform-design-system-03b27d08-e05f-4e48-b351-f471a6ee7206/tokens/fonts.css">
+  <link rel="stylesheet" href="_ds/forgeform-design-system-03b27d08-e05f-4e48-b351-f471a6ee7206/tokens/colors.css">
+  <link rel="stylesheet" href="_ds/forgeform-design-system-03b27d08-e05f-4e48-b351-f471a6ee7206/tokens/typography.css">
+  <link rel="stylesheet" href="_ds/forgeform-design-system-03b27d08-e05f-4e48-b351-f471a6ee7206/tokens/spacing.css">
+  <link rel="stylesheet" href="_ds/forgeform-design-system-03b27d08-e05f-4e48-b351-f471a6ee7206/styles.css">
+  <script src="_ds/forgeform-design-system-03b27d08-e05f-4e48-b351-f471a6ee7206/_ds_bundle.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    .material-symbols-rounded { font-family: 'Material Symbols Rounded'; font-variation-settings: 'opsz' 24, 'wght' 400, 'GRAD' 0, 'FILL' 0; }
+    .fill .material-symbols-rounded { font-variation-settings: 'opsz' 24, 'wght' 500, 'GRAD' 0, 'FILL' 1; }
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-thumb { background: rgba(128,128,128,0.35); border-radius: 999px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+  </style>
+</helmet>
+
+<div class="{{ themeClass }}" style="min-height:100vh;background:var(--surface-app);font-family:var(--font-body);color:var(--text-primary);transition:background .2s">
+
+  <!-- Preview controls -->
+  <div style="position:fixed;bottom:18px;right:18px;z-index:200;display:flex;gap:6px;align-items:center;background:rgba(20,20,20,0.82);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.14);border-radius:999px;padding:5px 6px;box-shadow:0 10px 30px rgba(0,0,0,0.35)">
+    <button onClick="{{ setDesktop }}" title="Desktop" style="display:flex;align-items:center;gap:6px;border:none;cursor:pointer;border-radius:999px;padding:6px 12px;font-family:var(--font-body);font-size:12px;font-weight:600;background:{{ segDeskBg }};color:{{ segDeskCol }}">
+      <span class="material-symbols-rounded" style="font-size:17px">desktop_windows</span>Desktop
+    </button>
+    <button onClick="{{ setMobile }}" title="Mobile" style="display:flex;align-items:center;gap:6px;border:none;cursor:pointer;border-radius:999px;padding:6px 12px;font-family:var(--font-body);font-size:12px;font-weight:600;background:{{ segMobBg }};color:{{ segMobCol }}">
+      <span class="material-symbols-rounded" style="font-size:17px">smartphone</span>Mobile
+    </button>
+    <div style="width:1px;height:20px;background:rgba(255,255,255,0.16)"></div>
+    <button onClick="{{ toggleTheme }}" title="Toggle theme" style="display:flex;align-items:center;justify-content:center;border:none;cursor:pointer;border-radius:999px;width:32px;height:32px;background:rgba(255,255,255,0.1);color:#fff">
+      <span class="material-symbols-rounded" style="font-size:18px">{{ themeIcon }}</span>
+    </button>
+  </div>
+
+  <!-- ===================== DESKTOP ===================== -->
+  <sc-if value="{{ isDesktop }}" hint-placeholder-val="{{ true }}">
+  <div style="display:flex;min-height:100vh">
+
+    <!-- Sidebar -->
+    <aside style="width:250px;flex-shrink:0;background:var(--surface-appbar);color:#fff;display:flex;flex-direction:column;padding:22px 14px;position:sticky;top:0;height:100vh">
+      <div style="display:flex;align-items:center;gap:10px;padding:0 8px 4px">
+        <div style="width:34px;height:34px;border-radius:10px;background:var(--ff-black);display:flex;align-items:center;justify-content:center">
+          <span class="material-symbols-rounded" style="font-size:20px;color:var(--ff-orange)">local_fire_department</span>
+        </div>
+        <div style="font-family:var(--font-display);font-weight:800;font-size:19px;letter-spacing:-0.01em;line-height:1">
+          <span style="color:var(--ff-orange)">Forge</span><span style="color:#fff">Form</span>
+        </div>
+      </div>
+      <div style="font-size:10px;font-weight:700;letter-spacing:0.14em;color:rgba(255,255,255,0.4);padding:14px 10px 8px">TRAINER CONSOLE</div>
+
+      <nav style="display:flex;flex-direction:column;gap:3px">
+        <button onClick="{{ goDash }}" style="display:flex;align-items:center;gap:13px;width:100%;border:none;text-align:left;cursor:pointer;padding:11px 12px;border-radius:10px;font-family:var(--font-body);font-size:14px;font-weight:600;background:{{ navDashBg }};color:{{ navDashCol }}">
+          <span class="material-symbols-rounded" style="font-size:22px">space_dashboard</span><span>Dashboard</span>
+        </button>
+        <button onClick="{{ goMessages }}" style="display:flex;align-items:center;gap:13px;width:100%;border:none;text-align:left;cursor:pointer;padding:11px 12px;border-radius:10px;font-family:var(--font-body);font-size:14px;font-weight:600;background:{{ navMsgBg }};color:{{ navMsgCol }}">
+          <span class="material-symbols-rounded" style="font-size:22px">forum</span><span>Messages</span>
+          <span style="margin-left:auto;background:var(--ff-orange);color:#fff;font-size:11px;font-weight:700;min-width:20px;height:20px;border-radius:999px;display:flex;align-items:center;justify-content:center;padding:0 6px">5</span>
+        </button>
+        <button onClick="{{ goBuilder }}" style="display:flex;align-items:center;gap:13px;width:100%;border:none;text-align:left;cursor:pointer;padding:11px 12px;border-radius:10px;font-family:var(--font-body);font-size:14px;font-weight:600;background:{{ navWkBg }};color:{{ navWkCol }}">
+          <span class="material-symbols-rounded" style="font-size:22px">fitness_center</span><span>Workout Builder</span>
+        </button>
+        <button onClick="{{ goNutrition }}" style="display:flex;align-items:center;gap:13px;width:100%;border:none;text-align:left;cursor:pointer;padding:11px 12px;border-radius:10px;font-family:var(--font-body);font-size:14px;font-weight:600;background:{{ navNutBg }};color:{{ navNutCol }}">
+          <span class="material-symbols-rounded" style="font-size:22px">nutrition</span><span>Nutrition</span>
+        </button>
+      </nav>
+
+      <div style="margin-top:auto;display:flex;flex-direction:column;gap:3px">
+        <button style="display:flex;align-items:center;gap:13px;width:100%;border:none;text-align:left;cursor:pointer;padding:11px 12px;border-radius:10px;font-family:var(--font-body);font-size:14px;font-weight:600;background:transparent;color:rgba(255,255,255,0.72)" style-hover="background:rgba(255,255,255,0.06)">
+          <span class="material-symbols-rounded" style="font-size:22px">calendar_month</span><span>Schedule</span>
+        </button>
+        <button style="display:flex;align-items:center;gap:13px;width:100%;border:none;text-align:left;cursor:pointer;padding:11px 12px;border-radius:10px;font-family:var(--font-body);font-size:14px;font-weight:600;background:transparent;color:rgba(255,255,255,0.72)" style-hover="background:rgba(255,255,255,0.06)">
+          <span class="material-symbols-rounded" style="font-size:22px">settings</span><span>Settings</span>
+        </button>
+        <div style="height:1px;background:rgba(255,255,255,0.1);margin:10px 4px"></div>
+        <div style="display:flex;align-items:center;gap:11px;padding:6px 8px">
+          <div style="width:38px;height:38px;border-radius:50%;background:var(--ff-orange);color:#fff;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:800;font-size:14px">MC</div>
+          <div style="min-width:0;flex:1">
+            <div style="font-size:13px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Maya Chen</div>
+            <div style="font-size:11px;color:rgba(255,255,255,0.5)">Head Coach</div>
+          </div>
+          <span class="material-symbols-rounded" style="font-size:18px;color:rgba(255,255,255,0.5)">expand_more</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main style="flex:1;min-width:0;padding:26px 34px 56px;max-width:1400px">
+
+      <!-- ===== DASHBOARD ===== -->
+      <sc-if value="{{ isDashboard }}" hint-placeholder-val="{{ true }}">
+      <div>
+        <!-- Header -->
+        <div style="display:flex;align-items:flex-end;gap:20px;flex-wrap:wrap;margin-bottom:24px">
+          <div style="flex:1;min-width:220px">
+            <div style="font-family:var(--font-display);font-weight:800;font-size:26px;letter-spacing:-0.01em">Good morning, Maya</div>
+            <div style="font-size:14px;color:var(--text-secondary);margin-top:3px">Wednesday, 1 July 2026 &middot; 24 active clients &middot; 6 sessions today</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="display:flex;align-items:center;gap:8px;background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:10px;padding:9px 12px;width:220px">
+              <span class="material-symbols-rounded" style="font-size:19px;color:var(--text-muted)">search</span>
+              <span style="font-size:13px;color:var(--text-muted)">Search clients</span>
+            </div>
+            <x-import component-from-global-scope="ForgeFormDesignSystem_03b27d.Button" icon="add" hint-size="150px,42px">New Client</x-import>
+          </div>
+        </div>
+
+        <!-- KPI row -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:22px">
+          <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-lg);padding:18px">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div style="width:42px;height:42px;border-radius:11px;background:rgba(255,107,62,0.14);color:var(--ff-orange);display:flex;align-items:center;justify-content:center"><span class="material-symbols-rounded" style="font-size:22px">groups</span></div>
+              <span style="font-size:12px;font-weight:700;color:var(--ff-fat)">+3</span>
+            </div>
+            <div style="font-family:var(--font-display);font-weight:800;font-size:30px;margin-top:14px;line-height:1">24</div>
+            <div style="font-size:12.5px;color:var(--text-secondary);margin-top:4px">Active clients</div>
+          </div>
+          <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-lg);padding:18px">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div style="width:42px;height:42px;border-radius:11px;background:rgba(30,136,229,0.14);color:var(--ff-carbs);display:flex;align-items:center;justify-content:center"><span class="material-symbols-rounded" style="font-size:22px">exercise</span></div>
+              <span style="font-size:12px;font-weight:700;color:var(--ff-fat)">+12%</span>
+            </div>
+            <div style="font-family:var(--font-display);font-weight:800;font-size:30px;margin-top:14px;line-height:1">68</div>
+            <div style="font-size:12.5px;color:var(--text-secondary);margin-top:4px">Sessions this week</div>
+          </div>
+          <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-lg);padding:18px">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div style="width:42px;height:42px;border-radius:11px;background:rgba(67,160,71,0.14);color:var(--ff-fat);display:flex;align-items:center;justify-content:center"><span class="material-symbols-rounded" style="font-size:22px">check_circle</span></div>
+              <span style="font-size:12px;font-weight:700;color:var(--ff-fat)">+4%</span>
+            </div>
+            <div style="font-family:var(--font-display);font-weight:800;font-size:30px;margin-top:14px;line-height:1">87%</div>
+            <div style="font-size:12.5px;color:var(--text-secondary);margin-top:4px">Avg. adherence</div>
+          </div>
+          <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-lg);padding:18px">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div style="width:42px;height:42px;border-radius:11px;background:rgba(255,107,62,0.14);color:var(--ff-orange);display:flex;align-items:center;justify-content:center"><span class="material-symbols-rounded" style="font-size:22px">forum</span></div>
+              <span style="font-size:12px;font-weight:700;color:var(--ff-orange)">5 new</span>
+            </div>
+            <div style="font-family:var(--font-display);font-weight:800;font-size:30px;margin-top:14px;line-height:1">5</div>
+            <div style="font-size:12.5px;color:var(--text-secondary);margin-top:4px">Unread messages</div>
+          </div>
+        </div>
+
+        <!-- Two column: roster + rail -->
+        <div style="display:grid;grid-template-columns:minmax(0,2.15fr) minmax(280px,1fr);gap:20px;align-items:start">
+
+          <!-- Roster -->
+          <div>
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+              <div style="font-family:var(--font-display);font-weight:700;font-size:18px">Your clients</div>
+              <span style="font-size:12px;color:var(--text-muted);background:var(--surface-sunken);padding:2px 9px;border-radius:999px;font-weight:600">24</span>
+              <div style="margin-left:auto;display:flex;background:var(--surface-sunken);border-radius:9px;padding:3px">
+                <button onClick="{{ setGrid }}" title="Grid" style="display:flex;align-items:center;gap:5px;border:none;cursor:pointer;border-radius:7px;padding:6px 11px;font-family:var(--font-body);font-size:12px;font-weight:600;background:{{ segGridBg }};color:{{ segGridCol }};box-shadow:{{ segGridSh }}"><span class="material-symbols-rounded" style="font-size:17px">grid_view</span>Cards</button>
+                <button onClick="{{ setTable }}" title="Table" style="display:flex;align-items:center;gap:5px;border:none;cursor:pointer;border-radius:7px;padding:6px 11px;font-family:var(--font-body);font-size:12px;font-weight:600;background:{{ segTableBg }};color:{{ segTableCol }};box-shadow:{{ segTableSh }}"><span class="material-symbols-rounded" style="font-size:17px">view_list</span>Table</button>
+              </div>
+            </div>
+
+            <!-- GRID layout -->
+            <sc-if value="{{ layoutGrid }}" hint-placeholder-val="{{ true }}">
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(268px,1fr));gap:14px">
+              <div onClick="{{ goClient }}" style="cursor:pointer;background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:15px" style-hover="box-shadow:var(--shadow-raised)">
+                <div style="display:flex;align-items:center;gap:11px">
+                  <div style="width:42px;height:42px;border-radius:50%;background:rgba(255,107,62,0.16);color:var(--ff-orange);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:800;font-size:14px">RS</div>
+                  <div style="min-width:0;flex:1"><div style="font-weight:700;font-size:14.5px">Robert Stertz</div><div style="font-size:11.5px;color:var(--text-secondary);margin-top:1px">Build muscle</div></div>
+                  <span style="width:9px;height:9px;border-radius:50%;background:var(--ff-fat)" title="On track"></span>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:11px;margin:15px 0 5px"><span style="color:var(--text-secondary);font-weight:600">Adherence</span><span style="font-weight:700">92%</span></div>
+                <x-import component-from-global-scope="ForgeFormDesignSystem_03b27d.ProgressBar" value="{{ p92 }}" hint-size="100%,6px"></x-import>
+                <div style="display:flex;gap:8px;margin-top:14px">
+                  <div style="flex:1;background:var(--surface-sunken);border-radius:8px;padding:8px 10px"><div style="font-size:10px;color:var(--text-muted);font-weight:600">This week</div><div style="font-family:var(--font-display);font-weight:700;font-size:15px;margin-top:2px">3/4</div></div>
+                  <div style="flex:1;background:var(--surface-sunken);border-radius:8px;padding:8px 10px"><div style="font-size:10px;color:var(--text-muted);font-weight:600">Weight</div><div style="display:flex;align-items:center;gap:3px;margin-top:2px"><span style="font-family:var(--font-display);font-weight:700;font-size:15px">78.4</span><span class="material-symbols-rounded" style="font-size:14px;color:var(--ff-fat)">trending_down</span></div></div>
+                </div>
+              </div>
+              <div onClick="{{ goClient }}" style="cursor:pointer;background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:15px" style-hover="box-shadow:var(--shadow-raised)">
+                <div style="display:flex;align-items:center;gap:11px">
+                  <div style="width:42px;height:42px;border-radius:50%;background:rgba(30,136,229,0.16);color:var(--ff-carbs);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:800;font-size:14px">JE</div>
+                  <div style="min-width:0;flex:1"><div style="font-weight:700;font-size:14.5px">Jordan Ellis</div><div style="font-size:11.5px;color:var(--text-secondary);margin-top:1px">Fat loss</div></div>
+                  <span style="width:9px;height:9px;border-radius:50%;background:var(--ff-warning)" title="Attention"></span>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:11px;margin:15px 0 5px"><span style="color:var(--text-secondary);font-weight:600">Adherence</span><span style="font-weight:700">64%</span></div>
+                <x-import component-from-global-scope="ForgeFormDesignSystem_03b27d.ProgressBar" value="{{ p64 }}" hint-size="100%,6px"></x-import>
+                <div style="display:flex;gap:8px;margin-top:14px">
+                  <div style="flex:1;background:var(--surface-sunken);border-radius:8px;padding:8px 10px"><div style="font-size:10px;color:var(--text-muted);font-weight:600">This week</div><div style="font-family:var(--font-display);font-weight:700;font-size:15px;margin-top:2px">1/4</div></div>
+                  <div style="flex:1;background:var(--surface-sunken);border-radius:8px;padding:8px 10px"><div style="font-size:10px;color:var(--text-muted);font-weight:600">Weight</div><div style="display:flex;align-items:center;gap:3px;margin-top:2px"><span style="font-family:var(--font-display);font-weight:700;font-size:15px">91.2</span><span class="material-symbols-rounded" style="font-size:14px;color:var(--ff-fat)">trending_down</span></div></div>
+                </div>
+              </div>
+              <div onClick="{{ goClient }}" style="cursor:pointer;background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:15px" style-hover="box-shadow:var(--shadow-raised)">
+                <div style="display:flex;align-items:center;gap:11px">
+                  <div style="width:42px;height:42px;border-radius:50%;background:rgba(67,160,71,0.16);color:var(--ff-fat);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:800;font-size:14px">PN</div>
+                  <div style="min-width:0;flex:1"><div style="font-weight:700;font-size:14.5px">Priya Nair</div><div style="font-size:11.5px;color:var(--text-secondary);margin-top:1px">Strength</div></div>
+                  <span style="width:9px;height:9px;border-radius:50%;background:var(--ff-fat)" title="On track"></span>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:11px;margin:15px 0 5px"><span style="color:var(--text-secondary);font-weight:600">Adherence</span><span style="font-weight:700">98%</span></div>
+                <x-import component-from-global-scope="ForgeFormDesignSystem_03b27d.ProgressBar" value="{{ p98 }}" hint-size="100%,6px"></x-import>
+                <div style="display:flex;gap:8px;margin-top:14px">
+                  <div style="flex:1;background:var(--surface-sunken);border-radius:8px;padding:8px 10px"><div style="font-size:10px;color:var(--text-muted);font-weight:600">This week</div><div style="font-family:var(--font-display);font-weight:700;font-size:15px;margin-top:2px">4/4</div></div>
+                  <div style="flex:1;background:var(--surface-sunken);border-radius:8px;padding:8px 10px"><div style="font-size:10px;color:var(--text-muted);font-weight:600">Weight</div><div style="display:flex;align-items:center;gap:3px;margin-top:2px"><span style="font-family:var(--font-display);font-weight:700;font-size:15px">61.0</span><span class="material-symbols-rounded" style="font-size:14px;color:var(--text-muted)">trending_flat</span></div></div>
+                </div>
+              </div>
+              <div onClick="{{ goClient }}" style="cursor:pointer;background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:15px" style-hover="box-shadow:var(--shadow-raised)">
+                <div style="display:flex;align-items:center;gap:11px">
+                  <div style="width:42px;height:42px;border-radius:50%;background:rgba(229,57,53,0.16);color:var(--ff-protein);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:800;font-size:14px">TB</div>
+                  <div style="min-width:0;flex:1"><div style="font-weight:700;font-size:14.5px">Tom Becker</div><div style="font-size:11.5px;color:var(--text-secondary);margin-top:1px">Hypertrophy</div></div>
+                  <span style="width:9px;height:9px;border-radius:50%;background:var(--ff-danger)" title="At risk"></span>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:11px;margin:15px 0 5px"><span style="color:var(--text-secondary);font-weight:600">Adherence</span><span style="font-weight:700">41%</span></div>
+                <x-import component-from-global-scope="ForgeFormDesignSystem_03b27d.ProgressBar" value="{{ p41 }}" hint-size="100%,6px"></x-import>
+                <div style="display:flex;gap:8px;margin-top:14px">
+                  <div style="flex:1;background:var(--surface-sunken);border-radius:8px;padding:8px 10px"><div style="font-size:10px;color:var(--text-muted);font-weight:600">This week</div><div style="font-family:var(--font-display);font-weight:700;font-size:15px;margin-top:2px">0/3</div></div>
+                  <div style="flex:1;background:var(--surface-sunken);border-radius:8px;padding:8px 10px"><div style="font-size:10px;color:var(--text-muted);font-weight:600">Weight</div><div style="display:flex;align-items:center;gap:3px;margin-top:2px"><span style="font-family:var(--font-display);font-weight:700;font-size:15px">84.7</span><span class="material-symbols-rounded" style="font-size:14px;color:var(--ff-danger)">trending_up</span></div></div>
+                </div>
+              </div>
+              <div onClick="{{ goClient }}" style="cursor:pointer;background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:15px" style-hover="box-shadow:var(--shadow-raised)">
+                <div style="display:flex;align-items:center;gap:11px">
+                  <div style="width:42px;height:42px;border-radius:50%;background:rgba(255,107,62,0.16);color:var(--ff-orange);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:800;font-size:14px">SM</div>
+                  <div style="min-width:0;flex:1"><div style="font-weight:700;font-size:14.5px">Sofia Marino</div><div style="font-size:11.5px;color:var(--text-secondary);margin-top:1px">General fitness</div></div>
+                  <span style="width:9px;height:9px;border-radius:50%;background:var(--ff-fat)" title="On track"></span>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:11px;margin:15px 0 5px"><span style="color:var(--text-secondary);font-weight:600">Adherence</span><span style="font-weight:700">83%</span></div>
+                <x-import component-from-global-scope="ForgeFormDesignSystem_03b27d.ProgressBar" value="{{ p83 }}" hint-size="100%,6px"></x-import>
+                <div style="display:flex;gap:8px;margin-top:14px">
+                  <div style="flex:1;background:var(--surface-sunken);border-radius:8px;padding:8px 10px"><div style="font-size:10px;color:var(--text-muted);font-weight:600">This week</div><div style="font-family:var(--font-display);font-weight:700;font-size:15px;margin-top:2px">2/3</div></div>
+                  <div style="flex:1;background:var(--surface-sunken);border-radius:8px;padding:8px 10px"><div style="font-size:10px;color:var(--text-muted);font-weight:600">Weight</div><div style="display:flex;align-items:center;gap:3px;margin-top:2px"><span style="font-family:var(--font-display);font-weight:700;font-size:15px">67.3</span><span class="material-symbols-rounded" style="font-size:14px;color:var(--ff-fat)">trending_down</span></div></div>
+                </div>
+              </div>
+              <div onClick="{{ goClient }}" style="cursor:pointer;background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:15px" style-hover="box-shadow:var(--shadow-raised)">
+                <div style="display:flex;align-items:center;gap:11px">
+                  <div style="width:42px;height:42px;border-radius:50%;background:rgba(30,136,229,0.16);color:var(--ff-carbs);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:800;font-size:14px">LO</div>
+                  <div style="min-width:0;flex:1"><div style="font-weight:700;font-size:14.5px">Liam O&rsquo;Brien</div><div style="font-size:11.5px;color:var(--text-secondary);margin-top:1px">Marathon prep</div></div>
+                  <span style="width:9px;height:9px;border-radius:50%;background:var(--ff-fat)" title="On track"></span>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:11px;margin:15px 0 5px"><span style="color:var(--text-secondary);font-weight:600">Adherence</span><span style="font-weight:700">89%</span></div>
+                <x-import component-from-global-scope="ForgeFormDesignSystem_03b27d.ProgressBar" value="{{ p89 }}" hint-size="100%,6px"></x-import>
+                <div style="display:flex;gap:8px;margin-top:14px">
+                  <div style="flex:1;background:var(--surface-sunken);border-radius:8px;padding:8px 10px"><div style="font-size:10px;color:var(--text-muted);font-weight:600">This week</div><div style="font-family:var(--font-display);font-weight:700;font-size:15px;margin-top:2px">5/5</div></div>
+                  <div style="flex:1;background:var(--surface-sunken);border-radius:8px;padding:8px 10px"><div style="font-size:10px;color:var(--text-muted);font-weight:600">Weight</div><div style="display:flex;align-items:center;gap:3px;margin-top:2px"><span style="font-family:var(--font-display);font-weight:700;font-size:15px">72.1</span><span class="material-symbols-rounded" style="font-size:14px;color:var(--text-muted)">trending_flat</span></div></div>
+                </div>
+              </div>
+            </div>
+            </sc-if>
+
+            <!-- TABLE layout -->
+            <sc-if value="{{ layoutTable }}" hint-placeholder-val="{{ false }}">
+            <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);overflow:hidden">
+              <div style="display:grid;grid-template-columns:2fr 1.4fr 1.3fr 0.9fr 1fr 0.8fr;gap:12px;padding:12px 16px;font-size:11px;font-weight:700;letter-spacing:0.03em;color:var(--text-muted);background:var(--surface-sunken)">
+                <div>CLIENT</div><div>PROGRAM</div><div>ADHERENCE</div><div>THIS WK</div><div>WEIGHT</div><div>STATUS</div>
+              </div>
+              <div onClick="{{ goClient }}" style="cursor:pointer;display:grid;grid-template-columns:2fr 1.4fr 1.3fr 0.9fr 1fr 0.8fr;gap:12px;padding:13px 16px;align-items:center;border-top:0.5px solid var(--border-subtle)" style-hover="background:var(--surface-sunken)">
+                <div style="display:flex;align-items:center;gap:10px"><div style="width:34px;height:34px;border-radius:50%;background:rgba(255,107,62,0.16);color:var(--ff-orange);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:800;font-size:12px">RS</div><div><div style="font-weight:700;font-size:13.5px">Robert Stertz</div><div style="font-size:11px;color:var(--text-secondary)">Build muscle</div></div></div>
+                <div style="font-size:13px;color:var(--text-secondary)">Push / Pull / Legs</div>
+                <div style="display:flex;align-items:center;gap:8px"><div style="flex:1;height:6px;border-radius:999px;background:var(--surface-sunken);overflow:hidden"><div style="width:92%;height:100%;background:var(--ff-orange)"></div></div><span style="font-size:12px;font-weight:700">92%</span></div>
+                <div style="font-family:var(--font-display);font-weight:700;font-size:14px">3/4</div>
+                <div style="display:flex;align-items:center;gap:3px;font-size:13px;font-weight:600"><span class="material-symbols-rounded" style="font-size:15px;color:var(--ff-fat)">trending_down</span>78.4</div>
+                <div><span style="font-size:11px;font-weight:700;color:var(--ff-fat);background:rgba(67,160,71,0.14);padding:3px 9px;border-radius:999px">On track</span></div>
+              </div>
+              <div onClick="{{ goClient }}" style="cursor:pointer;display:grid;grid-template-columns:2fr 1.4fr 1.3fr 0.9fr 1fr 0.8fr;gap:12px;padding:13px 16px;align-items:center;border-top:0.5px solid var(--border-subtle)" style-hover="background:var(--surface-sunken)">
+                <div style="display:flex;align-items:center;gap:10px"><div style="width:34px;height:34px;border-radius:50%;background:rgba(30,136,229,0.16);color:var(--ff-carbs);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:800;font-size:12px">JE</div><div><div style="font-weight:700;font-size:13.5px">Jordan Ellis</div><div style="font-size:11px;color:var(--text-secondary)">Fat loss</div></div></div>
+                <div style="font-size:13px;color:var(--text-secondary)">Upper / Lower</div>
+                <div style="display:flex;align-items:center;gap:8px"><div style="flex:1;height:6px;border-radius:999px;background:var(--surface-sunken);overflow:hidden"><div style="width:64%;height:100%;background:var(--ff-warning)"></div></div><span style="font-size:12px;font-weight:700">64%</span></div>
+                <div style="font-family:var(--font-display);font-weight:700;font-size:14px">1/4</div>
+                <div style="display:flex;align-items:center;gap:3px;font-size:13px;font-weight:600"><span class="material-symbols-rounded" style="font-size:15px;color:var(--ff-fat)">trending_down</span>91.2</div>
+                <div><span style="font-size:11px;font-weight:700;color:var(--ff-warning);background:rgba(249,168,37,0.16);padding:3px 9px;border-radius:999px">Attention</span></div>
+              </div>
+              <div onClick="{{ goClient }}" style="cursor:pointer;display:grid;grid-template-columns:2fr 1.4fr 1.3fr 0.9fr 1fr 0.8fr;gap:12px;padding:13px 16px;align-items:center;border-top:0.5px solid var(--border-subtle)" style-hover="background:var(--surface-sunken)">
+                <div style="display:flex;align-items:center;gap:10px"><div style="width:34px;height:34px;border-radius:50%;background:rgba(67,160,71,0.16);color:var(--ff-fat);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:800;font-size:12px">PN</div><div><div style="font-weight:700;font-size:13.5px">Priya Nair</div><div style="font-size:11px;color:var(--text-secondary)">Strength</div></div></div>
+                <div style="font-size:13px;color:var(--text-secondary)">5&times;5 Strength</div>
+                <div style="display:flex;align-items:center;gap:8px"><div style="flex:1;height:6px;border-radius:999px;background:var(--surface-sunken);overflow:hidden"><div style="width:98%;height:100%;background:var(--ff-orange)"></div></div><span style="font-size:12px;font-weight:700">98%</span></div>
+                <div style="font-family:var(--font-display);font-weight:700;font-size:14px">4/4</div>
+                <div style="display:flex;align-items:center;gap:3px;font-size:13px;font-weight:600"><span class="material-symbols-rounded" style="font-size:15px;color:var(--text-muted)">trending_flat</span>61.0</div>
+                <div><span style="font-size:11px;font-weight:700;color:var(--ff-fat);background:rgba(67,160,71,0.14);padding:3px 9px;border-radius:999px">On track</span></div>
+              </div>
+              <div onClick="{{ goClient }}" style="cursor:pointer;display:grid;grid-template-columns:2fr 1.4fr 1.3fr 0.9fr 1fr 0.8fr;gap:12px;padding:13px 16px;align-items:center;border-top:0.5px solid var(--border-subtle)" style-hover="background:var(--surface-sunken)">
+                <div style="display:flex;align-items:center;gap:10px"><div style="width:34px;height:34px;border-radius:50%;background:rgba(229,57,53,0.16);color:var(--ff-protein);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:800;font-size:12px">TB</div><div><div style="font-weight:700;font-size:13.5px">Tom Becker</div><div style="font-size:11px;color:var(--text-secondary)">Hypertrophy</div></div></div>
+                <div style="font-size:13px;color:var(--text-secondary)">Bro Split</div>
+                <div style="display:flex;align-items:center;gap:8px"><div style="flex:1;height:6px;border-radius:999px;background:var(--surface-sunken);overflow:hidden"><div style="width:41%;height:100%;background:var(--ff-danger)"></div></div><span style="font-size:12px;font-weight:700">41%</span></div>
+                <div style="font-family:var(--font-display);font-weight:700;font-size:14px">0/3</div>
+                <div style="display:flex;align-items:center;gap:3px;font-size:13px;font-weight:600"><span class="material-symbols-rounded" style="font-size:15px;color:var(--ff-danger)">trending_up</span>84.7</div>
+                <div><span style="font-size:11px;font-weight:700;color:var(--ff-danger);background:rgba(229,57,53,0.14);padding:3px 9px;border-radius:999px">At risk</span></div>
+              </div>
+              <div onClick="{{ goClient }}" style="cursor:pointer;display:grid;grid-template-columns:2fr 1.4fr 1.3fr 0.9fr 1fr 0.8fr;gap:12px;padding:13px 16px;align-items:center;border-top:0.5px solid var(--border-subtle)" style-hover="background:var(--surface-sunken)">
+                <div style="display:flex;align-items:center;gap:10px"><div style="width:34px;height:34px;border-radius:50%;background:rgba(255,107,62,0.16);color:var(--ff-orange);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:800;font-size:12px">SM</div><div><div style="font-weight:700;font-size:13.5px">Sofia Marino</div><div style="font-size:11px;color:var(--text-secondary)">General fitness</div></div></div>
+                <div style="font-size:13px;color:var(--text-secondary)">Full Body 3&times;</div>
+                <div style="display:flex;align-items:center;gap:8px"><div style="flex:1;height:6px;border-radius:999px;background:var(--surface-sunken);overflow:hidden"><div style="width:83%;height:100%;background:var(--ff-orange)"></div></div><span style="font-size:12px;font-weight:700">83%</span></div>
+                <div style="font-family:var(--font-display);font-weight:700;font-size:14px">2/3</div>
+                <div style="display:flex;align-items:center;gap:3px;font-size:13px;font-weight:600"><span class="material-symbols-rounded" style="font-size:15px;color:var(--ff-fat)">trending_down</span>67.3</div>
+                <div><span style="font-size:11px;font-weight:700;color:var(--ff-fat);background:rgba(67,160,71,0.14);padding:3px 9px;border-radius:999px">On track</span></div>
+              </div>
+              <div onClick="{{ goClient }}" style="cursor:pointer;display:grid;grid-template-columns:2fr 1.4fr 1.3fr 0.9fr 1fr 0.8fr;gap:12px;padding:13px 16px;align-items:center;border-top:0.5px solid var(--border-subtle)" style-hover="background:var(--surface-sunken)">
+                <div style="display:flex;align-items:center;gap:10px"><div style="width:34px;height:34px;border-radius:50%;background:rgba(30,136,229,0.16);color:var(--ff-carbs);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:800;font-size:12px">LO</div><div><div style="font-weight:700;font-size:13.5px">Liam O&rsquo;Brien</div><div style="font-size:11px;color:var(--text-secondary)">Marathon prep</div></div></div>
+                <div style="font-size:13px;color:var(--text-secondary)">Hybrid Run/Lift</div>
+                <div style="display:flex;align-items:center;gap:8px"><div style="flex:1;height:6px;border-radius:999px;background:var(--surface-sunken);overflow:hidden"><div style="width:89%;height:100%;background:var(--ff-orange)"></div></div><span style="font-size:12px;font-weight:700">89%</span></div>
+                <div style="font-family:var(--font-display);font-weight:700;font-size:14px">5/5</div>
+                <div style="display:flex;align-items:center;gap:3px;font-size:13px;font-weight:600"><span class="material-symbols-rounded" style="font-size:15px;color:var(--text-muted)">trending_flat</span>72.1</div>
+                <div><span style="font-size:11px;font-weight:700;color:var(--ff-fat);background:rgba(67,160,71,0.14);padding:3px 9px;border-radius:999px">On track</span></div>
+              </div>
+            </div>
+            </sc-if>
+          </div>
+
+          <!-- Right rail -->
+          <div style="display:flex;flex-direction:column;gap:18px">
+            <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:16px">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+                <span class="material-symbols-rounded" style="font-size:20px;color:var(--ff-warning)">notifications_active</span>
+                <span style="font-family:var(--font-display);font-weight:700;font-size:15px">Needs attention</span>
+                <span style="margin-left:auto;font-size:11px;font-weight:700;color:var(--ff-danger);background:rgba(229,57,53,0.14);padding:2px 8px;border-radius:999px">3</span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:10px">
+                <div onClick="{{ goClient }}" style="cursor:pointer;display:flex;align-items:center;gap:11px;padding:10px;border-radius:10px;background:var(--surface-sunken)" style-hover="background:var(--color-primary-tint)">
+                  <div style="width:34px;height:34px;border-radius:50%;background:rgba(229,57,53,0.16);color:var(--ff-protein);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:800;font-size:12px">TB</div>
+                  <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">Tom Becker</div><div style="font-size:11.5px;color:var(--ff-danger);font-weight:600">Missed 3 workouts</div></div>
+                  <span class="material-symbols-rounded" style="font-size:18px;color:var(--text-muted)">chevron_right</span>
+                </div>
+                <div onClick="{{ goClient }}" style="cursor:pointer;display:flex;align-items:center;gap:11px;padding:10px;border-radius:10px;background:var(--surface-sunken)" style-hover="background:var(--color-primary-tint)">
+                  <div style="width:34px;height:34px;border-radius:50%;background:rgba(30,136,229,0.16);color:var(--ff-carbs);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:800;font-size:12px">JE</div>
+                  <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">Jordan Ellis</div><div style="font-size:11.5px;color:var(--ff-warning);font-weight:600">Calories 40% over budget</div></div>
+                  <span class="material-symbols-rounded" style="font-size:18px;color:var(--text-muted)">chevron_right</span>
+                </div>
+                <div onClick="{{ goClient }}" style="cursor:pointer;display:flex;align-items:center;gap:11px;padding:10px;border-radius:10px;background:var(--surface-sunken)" style-hover="background:var(--color-primary-tint)">
+                  <div style="width:34px;height:34px;border-radius:50%;background:rgba(67,160,71,0.16);color:var(--ff-fat);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:800;font-size:12px">PN</div>
+                  <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">Priya Nair</div><div style="font-size:11.5px;color:var(--text-secondary);font-weight:600">Program ends in 2 days</div></div>
+                  <span class="material-symbols-rounded" style="font-size:18px;color:var(--text-muted)">chevron_right</span>
+                </div>
+              </div>
+            </div>
+
+            <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:16px">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+                <span class="material-symbols-rounded" style="font-size:20px;color:var(--ff-orange)">today</span>
+                <span style="font-family:var(--font-display);font-weight:700;font-size:15px">Today&rsquo;s sessions</span>
+                <span style="margin-left:auto;font-size:12px;color:var(--text-muted);font-weight:600">6</span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:2px">
+                <div style="display:flex;align-items:center;gap:12px;padding:9px 4px">
+                  <div style="font-family:var(--font-display);font-weight:700;font-size:13px;width:52px;color:var(--text-secondary)">07:00</div>
+                  <div style="width:8px;height:8px;border-radius:50%;background:var(--ff-fat)"></div>
+                  <div style="flex:1"><div style="font-weight:700;font-size:13px">Priya Nair</div><div style="font-size:11px;color:var(--text-muted)">5&times;5 Strength &middot; Day A</div></div>
+                </div>
+                <div style="height:1px;background:var(--divider)"></div>
+                <div style="display:flex;align-items:center;gap:12px;padding:9px 4px">
+                  <div style="font-family:var(--font-display);font-weight:700;font-size:13px;width:52px;color:var(--text-secondary)">09:30</div>
+                  <div style="width:8px;height:8px;border-radius:50%;background:var(--ff-orange)"></div>
+                  <div style="flex:1"><div style="font-weight:700;font-size:13px">Robert Stertz</div><div style="font-size:11px;color:var(--text-muted)">Push Day A</div></div>
+                </div>
+                <div style="height:1px;background:var(--divider)"></div>
+                <div style="display:flex;align-items:center;gap:12px;padding:9px 4px">
+                  <div style="font-family:var(--font-display);font-weight:700;font-size:13px;width:52px;color:var(--text-secondary)">12:00</div>
+                  <div style="width:8px;height:8px;border-radius:50%;background:var(--ff-carbs)"></div>
+                  <div style="flex:1"><div style="font-weight:700;font-size:13px">Liam O&rsquo;Brien</div><div style="font-size:11px;color:var(--text-muted)">Tempo run + core</div></div>
+                </div>
+                <div style="height:1px;background:var(--divider)"></div>
+                <div style="display:flex;align-items:center;gap:12px;padding:9px 4px;opacity:0.55">
+                  <div style="font-family:var(--font-display);font-weight:700;font-size:13px;width:52px;color:var(--text-secondary)">17:30</div>
+                  <div style="width:8px;height:8px;border-radius:50%;background:var(--text-muted)"></div>
+                  <div style="flex:1"><div style="font-weight:700;font-size:13px">Sofia Marino</div><div style="font-size:11px;color:var(--text-muted)">Full Body 3&times;</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- ===== CLIENT DETAIL ===== -->
+      <sc-if value="{{ isClient }}" hint-placeholder-val="{{ false }}">
+      <div data-screen-label="Client detail">
+        <!-- Header -->
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:18px">
+          <button onClick="{{ goDash }}" style="display:flex;align-items:center;gap:5px;border:none;background:transparent;cursor:pointer;color:var(--text-secondary);font-family:var(--font-body);font-size:13px;font-weight:600;padding:6px 8px;border-radius:8px" style-hover="background:var(--surface-sunken)"><span class="material-symbols-rounded" style="font-size:19px">arrow_back</span>All clients</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:22px">
+          <div style="width:64px;height:64px;border-radius:50%;background:rgba(255,107,62,0.16);color:var(--ff-orange);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:800;font-size:22px">RS</div>
+          <div style="flex:1;min-width:200px">
+            <div style="display:flex;align-items:center;gap:10px"><span style="font-family:var(--font-display);font-weight:800;font-size:24px;letter-spacing:-0.01em">Robert Stertz</span><span style="font-size:11px;font-weight:700;color:var(--ff-fat);background:rgba(67,160,71,0.14);padding:3px 10px;border-radius:999px">On track</span></div>
+            <div style="font-size:13.5px;color:var(--text-secondary);margin-top:3px">Build muscle &middot; Push / Pull / Legs &middot; Client since Jan 2026 &middot; 27 sessions logged</div>
+          </div>
+          <div style="display:flex;gap:10px">
+            <x-import component-from-global-scope="ForgeFormDesignSystem_03b27d.Button" variant="outlined" icon="forum" hint-size="120px,42px" dc-props="{{ msgBtn }}">Message</x-import>
+            <x-import component-from-global-scope="ForgeFormDesignSystem_03b27d.Button" icon="fitness_center" hint-size="150px,42px" dc-props="{{ editBtn }}">Edit Program</x-import>
+          </div>
+        </div>
+
+        <!-- Quick stats -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px">
+          <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:15px"><div style="font-size:12px;color:var(--text-secondary);font-weight:600">Adherence</div><div style="font-family:var(--font-display);font-weight:800;font-size:24px;margin-top:5px;color:var(--ff-orange)">92%</div></div>
+          <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:15px"><div style="font-size:12px;color:var(--text-secondary);font-weight:600">Current weight</div><div style="display:flex;align-items:baseline;gap:5px;margin-top:5px"><span style="font-family:var(--font-display);font-weight:800;font-size:24px">78.4</span><span style="font-size:12px;color:var(--text-secondary)">kg</span><span style="font-size:12px;font-weight:700;color:var(--ff-fat);margin-left:2px">-3.6</span></div></div>
+          <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:15px"><div style="font-size:12px;color:var(--text-secondary);font-weight:600">Weekly streak</div><div style="display:flex;align-items:baseline;gap:5px;margin-top:5px"><span style="font-family:var(--font-display);font-weight:800;font-size:24px">5</span><span style="font-size:12px;color:var(--text-secondary)">weeks</span></div></div>
+          <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:15px"><div style="font-size:12px;color:var(--text-secondary);font-weight:600">Avg. calories</div><div style="display:flex;align-items:baseline;gap:5px;margin-top:5px"><span style="font-family:var(--font-display);font-weight:800;font-size:24px">2,180</span><span style="font-size:12px;color:var(--text-secondary)">/ 2,200</span></div></div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:minmax(0,1.6fr) minmax(280px,1fr);gap:18px;align-items:start">
+          <!-- Left column -->
+          <div style="display:flex;flex-direction:column;gap:18px">
+            <!-- Weight chart -->
+            <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:18px">
+              <div style="display:flex;align-items:center;margin-bottom:6px"><span style="font-family:var(--font-display);font-weight:700;font-size:15px">Weight progress</span><span style="margin-left:auto;font-size:12px;color:var(--text-muted);font-weight:600">Last 12 weeks</span></div>
+              <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:12px"><span style="font-family:var(--font-display);font-weight:800;font-size:26px">78.4 kg</span><span style="font-size:12px;font-weight:700;color:var(--ff-fat);background:rgba(67,160,71,0.14);padding:2px 8px;border-radius:999px">-3.6 kg to goal 74</span></div>
+              <svg viewBox="0 0 600 210" style="width:100%;height:auto;display:block">
+                <line x1="40" y1="185" x2="575" y2="185" stroke="var(--divider)" stroke-width="1" stroke-dasharray="4 4"></line>
+                <text x="46" y="180" font-family="Exo 2" font-size="11" fill="var(--text-muted)">Goal 74</text>
+                <polyline points="40,58 88,66 136,74 184,84 232,92 280,100 328,106 376,116 424,122 472,132 520,140 568,146" fill="none" stroke="var(--ff-orange)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"></polyline>
+                <polygon points="40,58 88,66 136,74 184,84 232,92 280,100 328,106 376,116 424,122 472,132 520,140 568,146 568,195 40,195" fill="rgba(255,107,62,0.12)"></polygon>
+                <circle cx="40" cy="58" r="4" fill="var(--surface-card)" stroke="var(--ff-orange)" stroke-width="2.5"></circle>
+                <circle cx="568" cy="146" r="5" fill="var(--ff-orange)"></circle>
+              </svg>
+              <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted);margin-top:4px"><span>Apr</span><span>May</span><span>Jun</span><span>Now</span></div>
+            </div>
+
+            <!-- Strength progression -->
+            <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:18px">
+              <div style="font-family:var(--font-display);font-weight:700;font-size:15px;margin-bottom:16px">Strength progression</div>
+              <div style="display:flex;flex-direction:column;gap:15px">
+                <div>
+                  <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px"><span style="font-weight:600">Bench Press</span><span style="font-weight:700">82.5 kg <span style="color:var(--ff-fat);font-size:11px">+7.5</span></span></div>
+                  <div style="height:7px;border-radius:999px;background:var(--surface-sunken);overflow:hidden"><div style="width:82%;height:100%;background:var(--ff-orange)"></div></div>
+                </div>
+                <div>
+                  <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px"><span style="font-weight:600">Squat</span><span style="font-weight:700">120 kg <span style="color:var(--ff-fat);font-size:11px">+10</span></span></div>
+                  <div style="height:7px;border-radius:999px;background:var(--surface-sunken);overflow:hidden"><div style="width:95%;height:100%;background:var(--ff-orange)"></div></div>
+                </div>
+                <div>
+                  <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px"><span style="font-weight:600">Deadlift</span><span style="font-weight:700">140 kg <span style="color:var(--ff-fat);font-size:11px">+15</span></span></div>
+                  <div style="height:7px;border-radius:999px;background:var(--surface-sunken);overflow:hidden"><div style="width:100%;height:100%;background:var(--ff-orange)"></div></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Attendance -->
+            <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:18px">
+              <div style="display:flex;align-items:center;margin-bottom:4px"><span style="font-family:var(--font-display);font-weight:700;font-size:15px">Training attendance</span><span style="margin-left:auto;font-size:12px;color:var(--text-muted);font-weight:600">Sessions / week</span></div>
+              <div style="font-size:12.5px;color:var(--text-secondary);margin-bottom:16px">Trained <b style="color:var(--text-primary)">3 of 4</b> planned this week &middot; 92% show rate over 12 weeks</div>
+              <div style="display:flex;align-items:flex-end;gap:10px;height:96px">
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:100%;background:var(--surface-sunken);border-radius:6px;height:80%;display:flex;align-items:flex-end;overflow:hidden"><div style="width:100%;background:var(--ff-orange);height:75%"></div></div><span style="font-size:10px;color:var(--text-muted)">W1</span></div>
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:100%;background:var(--surface-sunken);border-radius:6px;height:80%;display:flex;align-items:flex-end;overflow:hidden"><div style="width:100%;background:var(--ff-orange);height:100%"></div></div><span style="font-size:10px;color:var(--text-muted)">W2</span></div>
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:100%;background:var(--surface-sunken);border-radius:6px;height:80%;display:flex;align-items:flex-end;overflow:hidden"><div style="width:100%;background:var(--ff-orange);height:50%"></div></div><span style="font-size:10px;color:var(--text-muted)">W3</span></div>
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:100%;background:var(--surface-sunken);border-radius:6px;height:80%;display:flex;align-items:flex-end;overflow:hidden"><div style="width:100%;background:var(--ff-orange);height:100%"></div></div><span style="font-size:10px;color:var(--text-muted)">W4</span></div>
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:100%;background:var(--surface-sunken);border-radius:6px;height:80%;display:flex;align-items:flex-end;overflow:hidden"><div style="width:100%;background:var(--ff-orange);height:100%"></div></div><span style="font-size:10px;color:var(--text-muted)">W5</span></div>
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:100%;background:var(--surface-sunken);border-radius:6px;height:80%;display:flex;align-items:flex-end;overflow:hidden"><div style="width:100%;background:var(--ff-orange);height:75%"></div></div><span style="font-size:10px;color:var(--text-muted)">W6</span></div>
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:100%;background:var(--surface-sunken);border-radius:6px;height:80%;display:flex;align-items:flex-end;overflow:hidden"><div style="width:100%;background:var(--ff-orange);height:100%"></div></div><span style="font-size:10px;color:var(--text-muted)">W7</span></div>
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:100%;background:var(--surface-sunken);border-radius:6px;height:80%;display:flex;align-items:flex-end;overflow:hidden"><div style="width:100%;background:var(--ff-danger);height:25%"></div></div><span style="font-size:10px;color:var(--text-muted)">W8</span></div>
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:100%;background:var(--surface-sunken);border-radius:6px;height:80%;display:flex;align-items:flex-end;overflow:hidden"><div style="width:100%;background:var(--ff-orange);height:75%"></div></div><span style="font-size:10px;color:var(--text-muted)">W9</span></div>
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:100%;background:var(--surface-sunken);border-radius:6px;height:80%;display:flex;align-items:flex-end;overflow:hidden"><div style="width:100%;background:var(--ff-orange);height:100%"></div></div><span style="font-size:10px;color:var(--text-muted)">W10</span></div>
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:100%;background:var(--surface-sunken);border-radius:6px;height:80%;display:flex;align-items:flex-end;overflow:hidden"><div style="width:100%;background:var(--ff-orange);height:100%"></div></div><span style="font-size:10px;color:var(--text-muted)">W11</span></div>
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:100%;background:var(--surface-sunken);border-radius:6px;height:80%;display:flex;align-items:flex-end;overflow:hidden"><div style="width:100%;background:var(--ff-orange);height:75%"></div></div><span style="font-size:10px;color:var(--text-muted)">W12</span></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right column -->
+          <div style="display:flex;flex-direction:column;gap:18px">
+            <!-- Nutrition -->
+            <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:18px">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px"><span class="material-symbols-rounded" style="font-size:19px;color:var(--ff-orange)">restaurant</span><span style="font-family:var(--font-display);font-weight:700;font-size:15px">Nutrition this week</span></div>
+              <div style="display:flex;align-items:flex-end;gap:7px;height:80px;margin-bottom:6px">
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px"><div style="width:100%;background:var(--surface-sunken);border-radius:5px;height:70px;display:flex;align-items:flex-end;overflow:hidden"><div style="width:100%;background:var(--ff-carbs);height:96%"></div></div><span style="font-size:10px;color:var(--text-muted)">M</span></div>
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px"><div style="width:100%;background:var(--surface-sunken);border-radius:5px;height:70px;display:flex;align-items:flex-end;overflow:hidden"><div style="width:100%;background:var(--ff-carbs);height:88%"></div></div><span style="font-size:10px;color:var(--text-muted)">T</span></div>
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px"><div style="width:100%;background:var(--surface-sunken);border-radius:5px;height:70px;display:flex;align-items:flex-end;overflow:hidden"><div style="width:100%;background:var(--ff-danger);height:112%"></div></div><span style="font-size:10px;color:var(--text-muted)">W</span></div>
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px"><div style="width:100%;background:var(--surface-sunken);border-radius:5px;height:70px;display:flex;align-items:flex-end;overflow:hidden"><div style="width:100%;background:var(--ff-carbs);height:92%"></div></div><span style="font-size:10px;color:var(--text-muted)">T</span></div>
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px"><div style="width:100%;background:var(--surface-sunken);border-radius:5px;height:70px;display:flex;align-items:flex-end;overflow:hidden"><div style="width:100%;background:var(--ff-carbs);height:80%"></div></div><span style="font-size:10px;color:var(--text-muted)">F</span></div>
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px"><div style="width:100%;background:var(--surface-sunken);border-radius:5px;height:70px;display:flex;align-items:flex-end;overflow:hidden"><div style="width:100%;background:var(--ff-carbs);height:98%"></div></div><span style="font-size:10px;color:var(--text-muted)">S</span></div>
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px"><div style="width:100%;background:var(--surface-sunken);border-radius:5px;height:70px;display:flex;align-items:flex-end;overflow:hidden"><div style="width:100%;background:var(--ff-carbs);height:84%"></div></div><span style="font-size:10px;color:var(--text-muted)">S</span></div>
+              </div>
+              <div style="font-size:11.5px;color:var(--text-muted);margin-bottom:14px">Avg 2,180 kcal &middot; target 2,200 &middot; 1 day over</div>
+              <div style="height:1px;background:var(--divider);margin-bottom:14px"></div>
+              <x-import component-from-global-scope="ForgeFormDesignSystem_03b27d.MacroSummary" protein="{{ mProtein }}" carbs="{{ mCarbs }}" fat="{{ mFat }}" calorie-goal="{{ mGoal }}" hint-size="100%,60px"></x-import>
+            </div>
+
+            <!-- Current program -->
+            <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:18px">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px"><span class="material-symbols-rounded" style="font-size:19px;color:var(--ff-orange)">assignment</span><span style="font-family:var(--font-display);font-weight:700;font-size:15px">Current program</span></div>
+              <div style="font-weight:700;font-size:14px;margin-bottom:2px">Push / Pull / Legs</div>
+              <div style="font-size:12px;color:var(--text-muted);margin-bottom:14px">Week 6 of 8 &middot; 4 days / week</div>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <div style="display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:9px;background:var(--surface-sunken)"><span class="material-symbols-rounded" style="font-size:17px;color:var(--ff-orange)">fitness_center</span><span style="font-weight:600;font-size:13px">Push Day A</span><span style="margin-left:auto;font-size:11px;color:var(--text-muted)">6 exercises</span></div>
+                <div style="display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:9px;background:var(--surface-sunken)"><span class="material-symbols-rounded" style="font-size:17px;color:var(--ff-orange)">fitness_center</span><span style="font-weight:600;font-size:13px">Pull Day A</span><span style="margin-left:auto;font-size:11px;color:var(--text-muted)">6 exercises</span></div>
+                <div style="display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:9px;background:var(--surface-sunken)"><span class="material-symbols-rounded" style="font-size:17px;color:var(--ff-orange)">fitness_center</span><span style="font-weight:600;font-size:13px">Leg Day</span><span style="margin-left:auto;font-size:11px;color:var(--text-muted)">5 exercises</span></div>
+              </div>
+              <button onClick="{{ goBuilder }}" style="margin-top:14px;width:100%;border:1px solid var(--border-default);background:transparent;cursor:pointer;border-radius:8px;padding:10px;font-family:var(--font-body);font-size:13px;font-weight:700;color:var(--ff-orange)" style-hover="background:var(--color-primary-tint)">Open in builder</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- ===== MESSAGES ===== -->
+      <sc-if value="{{ isMessages }}" hint-placeholder-val="{{ false }}">
+      <div data-screen-label="Messages">
+        <div style="font-family:var(--font-display);font-weight:800;font-size:24px;letter-spacing:-0.01em;margin-bottom:18px">Messages</div>
+        <div style="display:grid;grid-template-columns:300px minmax(0,1fr) 260px;gap:0;height:calc(100vh - 130px);min-height:520px;background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);overflow:hidden">
+
+          <!-- Conversation list -->
+          <div style="border-right:0.5px solid var(--border-subtle);display:flex;flex-direction:column;min-height:0">
+            <div style="padding:14px;border-bottom:0.5px solid var(--border-subtle)">
+              <div style="display:flex;align-items:center;gap:8px;background:var(--surface-sunken);border-radius:8px;padding:9px 11px"><span class="material-symbols-rounded" style="font-size:18px;color:var(--text-muted)">search</span><span style="font-size:13px;color:var(--text-muted)">Search conversations</span></div>
+            </div>
+            <div style="flex:1;overflow-y:auto;min-height:0">
+              <sc-for list="{{ convos }}" as="c" hint-placeholder-count="5">
+              <div onClick="{{ c.pick }}" style="{{ c.rowStyle }}">
+                <div style="{{ c.avatarStyle }}">{{ c.initials }}</div>
+                <div style="flex:1;min-width:0"><div style="display:flex;align-items:center"><span style="font-weight:700;font-size:13.5px">{{ c.name }}</span><span style="margin-left:auto;font-size:10.5px;color:{{ c.timeCol }};font-weight:{{ c.timeWeight }}">{{ c.time }}</span></div><div style="display:flex;align-items:center;gap:6px;margin-top:2px"><span style="font-size:12px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1">{{ c.preview }}</span><sc-if value="{{ c.unread }}" hint-placeholder-val="{{ false }}"><span style="width:8px;height:8px;border-radius:50%;background:var(--ff-orange);flex-shrink:0"></span></sc-if></div></div>
+              </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <!-- Thread -->
+          <div style="display:flex;flex-direction:column;min-height:0;min-width:0">
+            <div style="display:flex;align-items:center;gap:12px;padding:13px 18px;border-bottom:0.5px solid var(--border-subtle)">
+              <div style="{{ sel.avatarMd }}">{{ sel.initials }}</div>
+              <div><div style="font-weight:700;font-size:14px">{{ sel.name }}</div><div style="font-size:11.5px;color:{{ sel.statusCol }};font-weight:600;display:flex;align-items:center;gap:4px"><span style="width:7px;height:7px;border-radius:50%;background:{{ sel.statusCol }};display:inline-block"></span>{{ sel.status }}</div></div>
+              <div style="margin-left:auto;display:flex;gap:4px">
+                <button onClick="{{ goClient }}" title="View profile" style="width:36px;height:36px;border:none;background:var(--surface-sunken);border-radius:9px;cursor:pointer;color:var(--text-secondary);display:flex;align-items:center;justify-content:center" style-hover="color:var(--ff-orange)"><span class="material-symbols-rounded" style="font-size:20px">person</span></button>
+                <button onClick="{{ goBuilder }}" title="Assign workout" style="width:36px;height:36px;border:none;background:var(--surface-sunken);border-radius:9px;cursor:pointer;color:var(--text-secondary);display:flex;align-items:center;justify-content:center" style-hover="color:var(--ff-orange)"><span class="material-symbols-rounded" style="font-size:20px">fitness_center</span></button>
+              </div>
+            </div>
+            <div style="flex:1;overflow-y:auto;min-height:0;padding:20px 18px;display:flex;flex-direction:column;gap:12px;background:var(--surface-app)">
+              <div style="text-align:center;font-size:11px;color:var(--text-muted);font-weight:600;margin:2px 0">Today</div>
+              <sc-for list="{{ selThread }}" as="m" hint-placeholder-count="4">
+                <sc-if value="{{ m.card }}" hint-placeholder-val="{{ false }}">
+                  <div style="max-width:74%;align-self:flex-start;background:var(--surface-card);border:0.5px solid var(--border-subtle);border-radius:4px 14px 14px 14px;padding:8px 12px;display:flex;align-items:center;gap:10px"><span class="material-symbols-rounded" style="font-size:22px;color:var(--ff-orange)">fitness_center</span><div style="flex:1"><div style="font-size:12.5px;font-weight:700">{{ m.title }}</div><div style="font-size:11px;color:var(--text-muted)">{{ m.sub }}</div></div></div>
+                </sc-if>
+                <sc-if value="{{ m.notCard }}" hint-placeholder-val="{{ true }}">
+                  <div style="{{ m.wrapStyle }}"><div style="{{ m.bubbleStyle }}"><div style="font-size:13.5px;line-height:1.45">{{ m.text }}</div><div style="font-size:10px;color:{{ m.timeCol }};text-align:right;margin-top:4px">{{ m.time }}</div></div></div>
+                </sc-if>
+              </sc-for>
+            </div>
+            <div style="padding:12px 16px;border-top:0.5px solid var(--border-subtle);display:flex;align-items:center;gap:10px">
+              <button style="width:38px;height:38px;border:none;background:var(--surface-sunken);border-radius:9px;cursor:pointer;color:var(--text-secondary);display:flex;align-items:center;justify-content:center"><span class="material-symbols-rounded" style="font-size:20px">add</span></button>
+              <div style="flex:1;background:var(--surface-sunken);border-radius:999px;padding:11px 16px;font-size:13px;color:var(--text-muted)">Message {{ sel.first }}…</div>
+              <button style="width:40px;height:40px;border:none;background:var(--ff-orange);border-radius:50%;cursor:pointer;color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-fab)"><span class="material-symbols-rounded" style="font-size:20px">send</span></button>
+            </div>
+          </div>
+
+          <!-- Client context -->
+          <div style="border-left:0.5px solid var(--border-subtle);padding:20px 16px;display:flex;flex-direction:column;gap:16px;overflow-y:auto;min-height:0">
+            <div style="display:flex;flex-direction:column;align-items:center;text-align:center">
+              <div style="{{ sel.avatarLg }}">{{ sel.initials }}</div>
+              <div style="font-weight:700;font-size:15px;margin-top:9px">{{ sel.name }}</div>
+              <div style="font-size:12px;color:var(--text-secondary)">{{ sel.program }}</div>
+            </div>
+            <div style="display:flex;gap:8px">
+              <div style="flex:1;background:var(--surface-sunken);border-radius:10px;padding:10px;text-align:center"><div style="font-family:var(--font-display);font-weight:800;font-size:17px;color:var(--ff-orange)">{{ sel.adherence }}</div><div style="font-size:10px;color:var(--text-muted);font-weight:600;margin-top:2px">Adherence</div></div>
+              <div style="flex:1;background:var(--surface-sunken);border-radius:10px;padding:10px;text-align:center"><div style="font-family:var(--font-display);font-weight:800;font-size:17px">{{ sel.week }}</div><div style="font-size:10px;color:var(--text-muted);font-weight:600;margin-top:2px">This week</div></div>
+            </div>
+            <div>
+              <div style="font-size:11px;font-weight:700;letter-spacing:0.04em;color:var(--text-muted);margin-bottom:9px">QUICK ACTIONS</div>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <button onClick="{{ goBuilder }}" style="display:flex;align-items:center;gap:10px;border:1px solid var(--border-default);background:transparent;cursor:pointer;border-radius:9px;padding:10px 12px;font-family:var(--font-body);font-size:13px;font-weight:600;color:var(--text-primary)" style-hover="background:var(--surface-sunken)"><span class="material-symbols-rounded" style="font-size:19px;color:var(--ff-orange)">fitness_center</span>Assign workout</button>
+                <button onClick="{{ goClient }}" style="display:flex;align-items:center;gap:10px;border:1px solid var(--border-default);background:transparent;cursor:pointer;border-radius:9px;padding:10px 12px;font-family:var(--font-body);font-size:13px;font-weight:600;color:var(--text-primary)" style-hover="background:var(--surface-sunken)"><span class="material-symbols-rounded" style="font-size:19px;color:var(--ff-orange)">monitoring</span>View progress</button>
+                <button style="display:flex;align-items:center;gap:10px;border:1px solid var(--border-default);background:transparent;cursor:pointer;border-radius:9px;padding:10px 12px;font-family:var(--font-body);font-size:13px;font-weight:600;color:var(--text-primary)" style-hover="background:var(--surface-sunken)"><span class="material-symbols-rounded" style="font-size:19px;color:var(--ff-orange)">event</span>Schedule session</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- ===== BUILDER ===== -->
+      <sc-if value="{{ isBuilder }}" hint-placeholder-val="{{ false }}">
+      <div data-screen-label="Workout builder">
+        <!-- Create new workout -->
+        <sc-if value="{{ isBuilderNew }}" hint-placeholder-val="{{ false }}">
+        <div style="max-width:920px">
+          <div style="display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:22px">
+            <div style="flex:1;min-width:220px">
+              <div style="font-family:var(--font-display);font-weight:800;font-size:26px;letter-spacing:-0.01em">Create new workout</div>
+              <div style="font-size:13px;color:var(--text-secondary);margin-top:4px">Set up the plan, then build out days and exercises.</div>
+            </div>
+            <button onClick="{{ cancelNew }}" style="border:1px solid var(--border-default);background:transparent;cursor:pointer;border-radius:8px;padding:9px 16px;font-family:var(--font-body);font-size:13px;font-weight:700;color:var(--text-secondary)" style-hover="background:var(--surface-sunken)">Cancel</button>
+          </div>
+          <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-lg);padding:22px;margin-bottom:22px">
+            <div style="display:grid;grid-template-columns:1fr 230px;gap:18px;align-items:end">
+              <div>
+                <label style="display:block;font-size:11px;font-weight:700;letter-spacing:0.04em;color:var(--text-muted);margin-bottom:7px">WORKOUT NAME</label>
+                <input type="text" placeholder="e.g. Push / Pull / Legs" style="width:100%;background:var(--surface-sunken);border:1px solid var(--border-default);border-radius:8px;padding:11px 13px;font-family:var(--font-body);font-size:14px;color:var(--text-primary);outline:none" />
+              </div>
+              <div style="position:relative">
+                <label style="display:block;font-size:11px;font-weight:700;letter-spacing:0.04em;color:var(--text-muted);margin-bottom:7px">CLIENT</label>
+                <button onClick="{{ togglePicker }}" style="width:100%;display:flex;align-items:center;gap:8px;background:var(--surface-sunken);border:1px solid var(--border-default);border-radius:8px;padding:8px 11px;cursor:pointer;font-family:var(--font-body)">
+                  <div style="{{ sel.avatarSm }}">{{ sel.initials }}</div>
+                  <span style="flex:1;text-align:left;font-size:13px;font-weight:600;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sel.name }}</span>
+                  <span class="material-symbols-rounded" style="font-size:18px;color:var(--text-muted)">expand_more</span>
+                </button>
+                <sc-if value="{{ picker }}" hint-placeholder-val="{{ false }}">
+                <div style="position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:50;background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:0 12px 32px rgba(0,0,0,0.28);border-radius:12px;padding:6px;max-height:300px;overflow-y:auto">
+                  <sc-for list="{{ convos }}" as="c" hint-placeholder-count="5">
+                  <div onClick="{{ c.pick }}" style="{{ c.pickRowStyle }}"><div style="{{ c.pickAvatarStyle }}">{{ c.initials }}</div><div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">{{ c.name }}</div><div style="font-size:11px;color:var(--text-muted)">{{ c.program }}</div></div><sc-if value="{{ c.isSel }}" hint-placeholder-val="{{ false }}"><span class="material-symbols-rounded" style="font-size:19px;color:var(--ff-orange)">check</span></sc-if></div>
+                  </sc-for>
+                </div>
+                </sc-if>
+              </div>
+            </div>
+            <div style="margin-top:18px">
+              <label style="display:block;font-size:11px;font-weight:700;letter-spacing:0.04em;color:var(--text-muted);margin-bottom:9px">GOAL</label>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <span style="font-size:12.5px;font-weight:700;color:#fff;background:var(--ff-orange);padding:8px 15px;border-radius:999px;cursor:pointer">Build muscle</span>
+                <span style="font-size:12.5px;font-weight:600;color:var(--text-secondary);background:var(--surface-sunken);padding:8px 15px;border-radius:999px;cursor:pointer" style-hover="color:var(--text-primary)">Fat loss</span>
+                <span style="font-size:12.5px;font-weight:600;color:var(--text-secondary);background:var(--surface-sunken);padding:8px 15px;border-radius:999px;cursor:pointer" style-hover="color:var(--text-primary)">Strength</span>
+                <span style="font-size:12.5px;font-weight:600;color:var(--text-secondary);background:var(--surface-sunken);padding:8px 15px;border-radius:999px;cursor:pointer" style-hover="color:var(--text-primary)">Recomp</span>
+                <span style="font-size:12.5px;font-weight:600;color:var(--text-secondary);background:var(--surface-sunken);padding:8px 15px;border-radius:999px;cursor:pointer" style-hover="color:var(--text-primary)">Conditioning</span>
+              </div>
+            </div>
+          </div>
+          <div style="font-family:var(--font-display);font-weight:700;font-size:16px;margin-bottom:4px">Start from a template</div>
+          <div style="font-size:12.5px;color:var(--text-secondary);margin-bottom:14px">Prefill days and exercises from a common split — tweak everything after.</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px">
+            <sc-for list="{{ templates }}" as="tpl" hint-placeholder-count="6">
+            <div onClick="{{ tpl.onClick }}" style="{{ tpl.cardStyle }}" style-hover="border-color:var(--ff-orange)">
+              <div style="{{ tpl.iconStyle }}"><span class="material-symbols-rounded" style="font-size:22px">{{ tpl.icon }}</span></div>
+              <div style="font-family:var(--font-display);font-weight:700;font-size:15px;margin-top:12px">{{ tpl.name }}</div>
+              <div style="font-size:12px;color:var(--text-muted);margin-top:3px">{{ tpl.meta }}</div>
+            </div>
+            </sc-for>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- Edit existing plan -->
+        <sc-if value="{{ isBuilderEdit }}" hint-placeholder-val="{{ true }}">
+        <!-- Header -->
+        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:20px">
+          <div style="flex:1;min-width:220px">
+            <div style="display:flex;align-items:center;gap:9px"><span style="font-family:var(--font-display);font-weight:800;font-size:24px;letter-spacing:-0.01em">{{ sel.planName }}</span><span class="material-symbols-rounded" style="font-size:18px;color:var(--text-muted);cursor:pointer">edit</span></div>
+            <div style="font-size:13px;color:var(--text-secondary);margin-top:4px">{{ sel.days }} &middot; 8-week block &middot; Assigned to {{ sel.first }}</div>
+          </div>
+          <div style="position:relative">
+            <button onClick="{{ togglePicker }}" style="display:flex;align-items:center;gap:8px;background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:999px;padding:5px 12px 5px 6px;cursor:pointer;font-family:var(--font-body)">
+              <div style="{{ sel.avatarSm }}">{{ sel.initials }}</div>
+              <span style="font-size:13px;font-weight:600;color:var(--text-primary)">{{ sel.name }}</span>
+              <span class="material-symbols-rounded" style="font-size:18px;color:var(--text-muted)">expand_more</span>
+            </button>
+            <sc-if value="{{ picker }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;top:calc(100% + 6px);right:0;z-index:50;width:262px;background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:0 12px 32px rgba(0,0,0,0.28);border-radius:12px;padding:6px;max-height:360px;overflow-y:auto">
+              <div style="font-size:10px;font-weight:700;letter-spacing:0.08em;color:var(--text-muted);padding:8px 9px 6px">SWITCH CLIENT</div>
+              <sc-for list="{{ convos }}" as="c" hint-placeholder-count="5">
+              <div onClick="{{ c.pick }}" style="{{ c.pickRowStyle }}">
+                <div style="{{ c.pickAvatarStyle }}">{{ c.initials }}</div>
+                <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">{{ c.name }}</div><div style="font-size:11px;color:var(--text-muted)">{{ c.program }}</div></div>
+                <sc-if value="{{ c.isSel }}" hint-placeholder-val="{{ false }}"><span class="material-symbols-rounded" style="font-size:19px;color:var(--ff-orange)">check</span></sc-if>
+              </div>
+              </sc-for>
+            </div>
+            </sc-if>
+          </div>
+          <button onClick="{{ newWorkout }}" style="display:flex;align-items:center;gap:6px;border:1px solid var(--border-default);background:transparent;cursor:pointer;border-radius:8px;padding:10px 16px;font-family:var(--font-body);font-size:13px;font-weight:700;color:var(--text-secondary)" style-hover="border-color:var(--ff-orange);color:var(--ff-orange)"><span class="material-symbols-rounded" style="font-size:18px">add</span>New workout</button>
+          <x-import component-from-global-scope="ForgeFormDesignSystem_03b27d.Button" variant="outlined" hint-size="90px,42px">Save</x-import>
+          <x-import component-from-global-scope="ForgeFormDesignSystem_03b27d.Button" icon="send" hint-size="150px,42px">Assign to client</x-import>
+        </div>
+
+        <div style="display:grid;grid-template-columns:216px minmax(0,1fr) 250px;gap:18px;align-items:start">
+          <!-- Days rail -->
+          <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:14px">
+            <div style="font-size:11px;font-weight:700;letter-spacing:0.04em;color:var(--text-muted);margin-bottom:11px">TRAINING DAYS</div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <div style="display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:9px;background:var(--color-primary-tint);cursor:pointer"><span class="material-symbols-rounded" style="font-size:19px;color:var(--ff-orange)">fitness_center</span><div style="flex:1"><div style="font-weight:700;font-size:13px;color:var(--ff-orange)">Push Day A</div><div style="font-size:10.5px;color:var(--text-muted)">6 exercises</div></div></div>
+              <div style="display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:9px;cursor:pointer" style-hover="background:var(--surface-sunken)"><span class="material-symbols-rounded" style="font-size:19px;color:var(--text-muted)">fitness_center</span><div style="flex:1"><div style="font-weight:700;font-size:13px">Pull Day A</div><div style="font-size:10.5px;color:var(--text-muted)">6 exercises</div></div></div>
+              <div style="display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:9px;cursor:pointer" style-hover="background:var(--surface-sunken)"><span class="material-symbols-rounded" style="font-size:19px;color:var(--text-muted)">fitness_center</span><div style="flex:1"><div style="font-weight:700;font-size:13px">Leg Day</div><div style="font-size:10.5px;color:var(--text-muted)">5 exercises</div></div></div>
+              <div style="display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:9px;cursor:pointer;opacity:0.6" style-hover="background:var(--surface-sunken)"><span class="material-symbols-rounded" style="font-size:19px;color:var(--text-muted)">bedtime</span><div style="flex:1"><div style="font-weight:700;font-size:13px">Rest</div><div style="font-size:10.5px;color:var(--text-muted)">Recovery</div></div></div>
+            </div>
+            <button style="margin-top:10px;width:100%;border:1px dashed var(--border-default);background:transparent;cursor:pointer;border-radius:9px;padding:10px;font-family:var(--font-body);font-size:12.5px;font-weight:700;color:var(--text-secondary);display:flex;align-items:center;justify-content:center;gap:6px" style-hover="border-color:var(--ff-orange);color:var(--ff-orange)"><span class="material-symbols-rounded" style="font-size:17px">add</span>Add day</button>
+          </div>
+
+          <!-- Exercise editor -->
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="font-family:var(--font-display);font-weight:700;font-size:17px">Push Day A</span>
+              <span style="font-size:11px;font-weight:700;color:var(--ff-orange);background:var(--color-primary-tint);padding:3px 10px;border-radius:999px">Chest &middot; Shoulders &middot; Triceps</span>
+            </div>
+
+            <!-- Exercise 1 -->
+            <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:16px">
+              <div style="display:flex;align-items:center;gap:11px;margin-bottom:13px">
+                <span class="material-symbols-rounded" style="font-size:20px;color:var(--text-muted);cursor:grab">drag_indicator</span>
+                <div style="width:34px;height:34px;border-radius:8px;background:rgba(229,57,53,0.14);color:var(--ff-protein);display:flex;align-items:center;justify-content:center"><span class="material-symbols-rounded" style="font-size:19px">fitness_center</span></div>
+                <div style="flex:1"><div style="font-weight:700;font-size:14.5px">Barbell Bench Press</div><div style="font-size:11.5px;color:var(--text-secondary)">Chest &middot; 3 min rest</div></div>
+                <span class="material-symbols-rounded" style="font-size:20px;color:var(--text-muted);cursor:pointer">more_vert</span>
+              </div>
+              <div style="display:grid;grid-template-columns:44px 1fr 1fr 1fr 32px;gap:8px;font-size:10.5px;font-weight:700;color:var(--text-muted);padding:0 4px 6px"><div>SET</div><div>REPS</div><div>WEIGHT</div><div>RPE</div><div></div></div>
+              <div style="display:flex;flex-direction:column;gap:7px">
+                <div style="display:grid;grid-template-columns:44px 1fr 1fr 1fr 32px;gap:8px;align-items:center"><div style="width:28px;height:28px;border-radius:7px;background:var(--surface-sunken);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:700;font-size:12px">1</div><div style="background:var(--surface-sunken);border-radius:7px;padding:8px 11px;font-size:13px;font-weight:600">8</div><div style="background:var(--surface-sunken);border-radius:7px;padding:8px 11px;font-size:13px;font-weight:600">70 kg</div><div style="background:var(--surface-sunken);border-radius:7px;padding:8px 11px;font-size:13px;color:var(--text-secondary)">7</div><div style="text-align:center"><span class="material-symbols-rounded" style="font-size:17px;color:var(--text-muted);cursor:pointer">close</span></div></div>
+                <div style="display:grid;grid-template-columns:44px 1fr 1fr 1fr 32px;gap:8px;align-items:center"><div style="width:28px;height:28px;border-radius:7px;background:var(--surface-sunken);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:700;font-size:12px">2</div><div style="background:var(--surface-sunken);border-radius:7px;padding:8px 11px;font-size:13px;font-weight:600">6</div><div style="background:var(--surface-sunken);border-radius:7px;padding:8px 11px;font-size:13px;font-weight:600">77.5 kg</div><div style="background:var(--surface-sunken);border-radius:7px;padding:8px 11px;font-size:13px;color:var(--text-secondary)">8</div><div style="text-align:center"><span class="material-symbols-rounded" style="font-size:17px;color:var(--text-muted);cursor:pointer">close</span></div></div>
+                <div style="display:grid;grid-template-columns:44px 1fr 1fr 1fr 32px;gap:8px;align-items:center"><div style="width:28px;height:28px;border-radius:7px;background:var(--color-primary-tint);color:var(--ff-orange);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:700;font-size:12px">3</div><div style="background:var(--surface-sunken);border-radius:7px;padding:8px 11px;font-size:13px;font-weight:600">4</div><div style="background:var(--color-primary-tint);border:1px solid var(--ff-orange);border-radius:7px;padding:7px 10px;font-size:13px;font-weight:700;color:var(--ff-orange)">82.5 kg</div><div style="background:var(--surface-sunken);border-radius:7px;padding:8px 11px;font-size:13px;color:var(--text-secondary)">9</div><div style="text-align:center"><span class="material-symbols-rounded" style="font-size:17px;color:var(--text-muted);cursor:pointer">close</span></div></div>
+              </div>
+              <button style="margin-top:11px;border:none;background:transparent;cursor:pointer;color:var(--ff-orange);font-family:var(--font-body);font-size:12.5px;font-weight:700;display:flex;align-items:center;gap:5px;padding:4px"><span class="material-symbols-rounded" style="font-size:17px">add</span>Add set</button>
+            </div>
+
+            <!-- Exercise 2 -->
+            <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:16px">
+              <div style="display:flex;align-items:center;gap:11px;margin-bottom:13px">
+                <span class="material-symbols-rounded" style="font-size:20px;color:var(--text-muted);cursor:grab">drag_indicator</span>
+                <div style="width:34px;height:34px;border-radius:8px;background:rgba(255,107,62,0.14);color:var(--ff-orange);display:flex;align-items:center;justify-content:center"><span class="material-symbols-rounded" style="font-size:19px">fitness_center</span></div>
+                <div style="flex:1"><div style="font-weight:700;font-size:14.5px">Overhead Press</div><div style="font-size:11.5px;color:var(--text-secondary)">Shoulders &middot; 2.5 min rest</div></div>
+                <span class="material-symbols-rounded" style="font-size:20px;color:var(--text-muted);cursor:pointer">more_vert</span>
+              </div>
+              <div style="display:grid;grid-template-columns:44px 1fr 1fr 1fr 32px;gap:8px;font-size:10.5px;font-weight:700;color:var(--text-muted);padding:0 4px 6px"><div>SET</div><div>REPS</div><div>WEIGHT</div><div>RPE</div><div></div></div>
+              <div style="display:flex;flex-direction:column;gap:7px">
+                <div style="display:grid;grid-template-columns:44px 1fr 1fr 1fr 32px;gap:8px;align-items:center"><div style="width:28px;height:28px;border-radius:7px;background:var(--surface-sunken);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:700;font-size:12px">1</div><div style="background:var(--surface-sunken);border-radius:7px;padding:8px 11px;font-size:13px;font-weight:600">10</div><div style="background:var(--surface-sunken);border-radius:7px;padding:8px 11px;font-size:13px;font-weight:600">42.5 kg</div><div style="background:var(--surface-sunken);border-radius:7px;padding:8px 11px;font-size:13px;color:var(--text-secondary)">7</div><div style="text-align:center"><span class="material-symbols-rounded" style="font-size:17px;color:var(--text-muted);cursor:pointer">close</span></div></div>
+                <div style="display:grid;grid-template-columns:44px 1fr 1fr 1fr 32px;gap:8px;align-items:center"><div style="width:28px;height:28px;border-radius:7px;background:var(--surface-sunken);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:700;font-size:12px">2</div><div style="background:var(--surface-sunken);border-radius:7px;padding:8px 11px;font-size:13px;font-weight:600">8</div><div style="background:var(--surface-sunken);border-radius:7px;padding:8px 11px;font-size:13px;font-weight:600">45 kg</div><div style="background:var(--surface-sunken);border-radius:7px;padding:8px 11px;font-size:13px;color:var(--text-secondary)">8</div><div style="text-align:center"><span class="material-symbols-rounded" style="font-size:17px;color:var(--text-muted);cursor:pointer">close</span></div></div>
+              </div>
+              <button style="margin-top:11px;border:none;background:transparent;cursor:pointer;color:var(--ff-orange);font-family:var(--font-body);font-size:12.5px;font-weight:700;display:flex;align-items:center;gap:5px;padding:4px"><span class="material-symbols-rounded" style="font-size:17px">add</span>Add set</button>
+            </div>
+
+            <button style="border:1px dashed var(--border-default);background:transparent;cursor:pointer;border-radius:var(--radius-md);padding:15px;font-family:var(--font-body);font-size:13.5px;font-weight:700;color:var(--text-secondary);display:flex;align-items:center;justify-content:center;gap:7px" style-hover="border-color:var(--ff-orange);color:var(--ff-orange)"><span class="material-symbols-rounded" style="font-size:19px">add</span>Add exercise from library</button>
+          </div>
+
+          <!-- Exercise library -->
+          <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:14px;position:sticky;top:24px">
+            <div style="font-family:var(--font-display);font-weight:700;font-size:14px;margin-bottom:11px">Exercise library</div>
+            <div style="display:flex;align-items:center;gap:8px;background:var(--surface-sunken);border-radius:8px;padding:8px 11px;margin-bottom:12px"><span class="material-symbols-rounded" style="font-size:17px;color:var(--text-muted)">search</span><span style="font-size:12.5px;color:var(--text-muted)">Search exercises</span></div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:13px">
+              <span style="font-size:11px;font-weight:700;color:#fff;background:var(--ff-orange);padding:4px 10px;border-radius:999px;cursor:pointer">All</span>
+              <span style="font-size:11px;font-weight:600;color:var(--text-secondary);background:var(--surface-sunken);padding:4px 10px;border-radius:999px;cursor:pointer">Chest</span>
+              <span style="font-size:11px;font-weight:600;color:var(--text-secondary);background:var(--surface-sunken);padding:4px 10px;border-radius:999px;cursor:pointer">Back</span>
+              <span style="font-size:11px;font-weight:600;color:var(--text-secondary);background:var(--surface-sunken);padding:4px 10px;border-radius:999px;cursor:pointer">Legs</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:7px">
+              <div style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;background:var(--surface-sunken);cursor:pointer" style-hover="background:var(--color-primary-tint)"><div style="flex:1"><div style="font-weight:600;font-size:12.5px">Incline Dumbbell Press</div><div style="font-size:10.5px;color:var(--text-muted)">Chest</div></div><span class="material-symbols-rounded" style="font-size:20px;color:var(--ff-orange)">add_circle</span></div>
+              <div style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;background:var(--surface-sunken);cursor:pointer" style-hover="background:var(--color-primary-tint)"><div style="flex:1"><div style="font-weight:600;font-size:12.5px">Cable Fly</div><div style="font-size:10.5px;color:var(--text-muted)">Chest</div></div><span class="material-symbols-rounded" style="font-size:20px;color:var(--ff-orange)">add_circle</span></div>
+              <div style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;background:var(--surface-sunken);cursor:pointer" style-hover="background:var(--color-primary-tint)"><div style="flex:1"><div style="font-weight:600;font-size:12.5px">Lateral Raise</div><div style="font-size:10.5px;color:var(--text-muted)">Shoulders</div></div><span class="material-symbols-rounded" style="font-size:20px;color:var(--ff-orange)">add_circle</span></div>
+              <div style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;background:var(--surface-sunken);cursor:pointer" style-hover="background:var(--color-primary-tint)"><div style="flex:1"><div style="font-weight:600;font-size:12.5px">Triceps Pushdown</div><div style="font-size:10.5px;color:var(--text-muted)">Triceps</div></div><span class="material-symbols-rounded" style="font-size:20px;color:var(--ff-orange)">add_circle</span></div>
+              <div style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;background:var(--surface-sunken);cursor:pointer" style-hover="background:var(--color-primary-tint)"><div style="flex:1"><div style="font-weight:600;font-size:12.5px">Machine Chest Press</div><div style="font-size:10.5px;color:var(--text-muted)">Chest</div></div><span class="material-symbols-rounded" style="font-size:20px;color:var(--ff-orange)">add_circle</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- ===== NUTRITION ===== -->
+      <sc-if value="{{ isNutrition }}" hint-placeholder-val="{{ false }}">
+      <div data-screen-label="Nutrition">
+        <div style="display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:20px">
+          <div style="flex:1;min-width:220px">
+            <div style="font-family:var(--font-display);font-weight:800;font-size:24px;letter-spacing:-0.01em">Nutrition monitoring</div>
+            <div style="font-size:13px;color:var(--text-secondary);margin-top:4px">Tracking macros &amp; calorie adherence across 24 clients</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <div style="position:relative">
+              <button onClick="{{ togglePicker }}" style="display:flex;align-items:center;gap:8px;background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:999px;padding:5px 14px 5px 6px;cursor:pointer;font-family:var(--font-body)">
+                <div style="{{ sel.avatarSm }}">{{ sel.initials }}</div>
+                <span style="font-size:13px;font-weight:600;color:var(--text-primary)">{{ sel.name }}</span>
+                <span class="material-symbols-rounded" style="font-size:18px;color:var(--text-muted)">expand_more</span>
+              </button>
+              <sc-if value="{{ picker }}" hint-placeholder-val="{{ false }}">
+              <div style="position:absolute;top:calc(100% + 6px);right:0;z-index:50;width:262px;background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:0 12px 32px rgba(0,0,0,0.28);border-radius:12px;padding:6px;max-height:360px;overflow-y:auto">
+                <div style="font-size:10px;font-weight:700;letter-spacing:0.08em;color:var(--text-muted);padding:8px 9px 6px">SWITCH CLIENT</div>
+                <sc-for list="{{ convos }}" as="c" hint-placeholder-count="5">
+                <div onClick="{{ c.pick }}" style="{{ c.pickRowStyle }}">
+                  <div style="{{ c.pickAvatarStyle }}">{{ c.initials }}</div>
+                  <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">{{ c.name }}</div><div style="font-size:11px;color:var(--text-muted)">{{ c.program }}</div></div>
+                  <sc-if value="{{ c.isSel }}" hint-placeholder-val="{{ false }}"><span class="material-symbols-rounded" style="font-size:19px;color:var(--ff-orange)">check</span></sc-if>
+                </div>
+                </sc-for>
+              </div>
+              </sc-if>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:minmax(0,1.7fr) minmax(280px,1fr);gap:18px;align-items:start">
+          <!-- Selected client nutrition -->
+          <div style="display:flex;flex-direction:column;gap:18px">
+            <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-lg);padding:20px">
+              <div style="display:flex;align-items:center;gap:24px;flex-wrap:wrap">
+                <div style="position:relative;width:132px;height:132px;flex-shrink:0">
+                  <svg viewBox="0 0 120 120" style="width:132px;height:132px;transform:rotate(-90deg)">
+                    <circle cx="60" cy="60" r="52" fill="none" stroke="var(--surface-sunken)" stroke-width="12"></circle>
+                    <circle cx="60" cy="60" r="52" fill="none" stroke="{{ sel.ringCol }}" stroke-width="12" stroke-linecap="round" stroke-dasharray="326.7" stroke-dashoffset="{{ sel.ringOffset }}"></circle>
+                  </svg>
+                  <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center"><span style="font-family:var(--font-display);font-weight:800;font-size:24px">{{ sel.kcalStr }}</span><span style="font-size:11px;color:var(--text-muted)">{{ sel.goalStrShort }} kcal</span></div>
+                </div>
+                <div style="flex:1;min-width:200px">
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px"><span style="font-family:var(--font-display);font-weight:700;font-size:16px">Today</span><span style="font-size:11px;font-weight:700;color:{{ sel.remCol }};background:{{ sel.remBg }};padding:2px 9px;border-radius:999px">{{ sel.remStr }}</span></div>
+                  <x-import component-from-global-scope="ForgeFormDesignSystem_03b27d.MacroSummary" protein="{{ sel.protein }}" carbs="{{ sel.carbs }}" fat="{{ sel.fat }}" calorie-goal="{{ sel.goal }}" hint-size="100%,60px"></x-import>
+                </div>
+              </div>
+            </div>
+
+            <!-- Meals -->
+            <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:18px">
+              <div style="font-family:var(--font-display);font-weight:700;font-size:15px;margin-bottom:14px">Today&rsquo;s meals</div>
+              <div style="display:flex;flex-direction:column">
+                <div style="display:flex;align-items:center;gap:12px;padding:11px 0"><div style="width:36px;height:36px;border-radius:8px;background:rgba(255,107,62,0.12);color:var(--ff-orange);display:flex;align-items:center;justify-content:center"><span class="material-symbols-rounded" style="font-size:19px">wb_twilight</span></div><div style="flex:1"><div style="font-weight:700;font-size:13.5px">Breakfast</div><div style="font-size:11.5px;color:var(--text-muted)">Oats, whey, banana, peanut butter</div></div><div style="font-family:var(--font-display);font-weight:700;font-size:14px">620</div></div>
+                <div style="height:1px;background:var(--divider)"></div>
+                <div style="display:flex;align-items:center;gap:12px;padding:11px 0"><div style="width:36px;height:36px;border-radius:8px;background:rgba(255,107,62,0.12);color:var(--ff-orange);display:flex;align-items:center;justify-content:center"><span class="material-symbols-rounded" style="font-size:19px">lunch_dining</span></div><div style="flex:1"><div style="font-weight:700;font-size:13.5px">Lunch</div><div style="font-size:11.5px;color:var(--text-muted)">Chicken, rice, veg, olive oil</div></div><div style="font-family:var(--font-display);font-weight:700;font-size:14px">720</div></div>
+                <div style="height:1px;background:var(--divider)"></div>
+                <div style="display:flex;align-items:center;gap:12px;padding:11px 0"><div style="width:36px;height:36px;border-radius:8px;background:rgba(255,107,62,0.12);color:var(--ff-orange);display:flex;align-items:center;justify-content:center"><span class="material-symbols-rounded" style="font-size:19px">bakery_dining</span></div><div style="flex:1"><div style="font-weight:700;font-size:13.5px">Snack</div><div style="font-size:11.5px;color:var(--text-muted)">Greek yogurt, almonds</div></div><div style="font-family:var(--font-display);font-weight:700;font-size:14px">300</div></div>
+                <div style="height:1px;background:var(--divider)"></div>
+                <div style="display:flex;align-items:center;gap:12px;padding:11px 0;opacity:0.5"><div style="width:36px;height:36px;border-radius:8px;background:var(--surface-sunken);color:var(--text-muted);display:flex;align-items:center;justify-content:center"><span class="material-symbols-rounded" style="font-size:19px">dinner_dining</span></div><div style="flex:1"><div style="font-weight:700;font-size:13.5px">Dinner</div><div style="font-size:11.5px;color:var(--text-muted)">Not logged yet</div></div><div style="font-family:var(--font-display);font-weight:700;font-size:14px;color:var(--text-muted)">—</div></div>
+              </div>
+            </div>
+
+            <!-- 7-day trend -->
+            <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:18px">
+              <div style="display:flex;align-items:center;margin-bottom:4px"><span style="font-family:var(--font-display);font-weight:700;font-size:15px">Calories vs target</span><span style="margin-left:auto;font-size:12px;color:var(--text-muted);font-weight:600">Last 7 days</span></div>
+              <div style="font-size:12.5px;color:var(--text-secondary);margin-bottom:16px">Avg <b style="color:var(--text-primary)">{{ sel.avgStr }} kcal</b> &middot; target {{ sel.goalStr }} &middot; <span style="color:var(--ff-warning);font-weight:600">{{ sel.overNote }}</span></div>
+              <div style="position:relative;display:flex;align-items:flex-end;gap:12px;height:104px">
+                <div style="position:absolute;left:0;right:0;top:16px;height:2px;background:var(--divider);border-radius:2px"></div>
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:70%;background:var(--surface-sunken);border-radius:6px;height:88px;display:flex;align-items:flex-end;overflow:hidden"><div style="width:100%;background:var(--ff-carbs);height:92%"></div></div><span style="font-size:10px;color:var(--text-muted)">Mon</span></div>
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:70%;background:var(--surface-sunken);border-radius:6px;height:88px;display:flex;align-items:flex-end;overflow:hidden"><div style="width:100%;background:var(--ff-carbs);height:84%"></div></div><span style="font-size:10px;color:var(--text-muted)">Tue</span></div>
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:70%;background:var(--surface-sunken);border-radius:6px;height:88px;display:flex;align-items:flex-end;overflow:hidden"><div style="width:100%;background:var(--ff-danger);height:100%"></div></div><span style="font-size:10px;color:var(--text-muted)">Wed</span></div>
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:70%;background:var(--surface-sunken);border-radius:6px;height:88px;display:flex;align-items:flex-end;overflow:hidden"><div style="width:100%;background:var(--ff-carbs);height:88%"></div></div><span style="font-size:10px;color:var(--text-muted)">Thu</span></div>
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:70%;background:var(--surface-sunken);border-radius:6px;height:88px;display:flex;align-items:flex-end;overflow:hidden"><div style="width:100%;background:var(--ff-carbs);height:76%"></div></div><span style="font-size:10px;color:var(--text-muted)">Fri</span></div>
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:70%;background:var(--surface-sunken);border-radius:6px;height:88px;display:flex;align-items:flex-end;overflow:hidden"><div style="width:100%;background:var(--ff-carbs);height:94%"></div></div><span style="font-size:10px;color:var(--text-muted)">Sat</span></div>
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:70%;background:var(--surface-sunken);border-radius:6px;height:88px;display:flex;align-items:flex-end;overflow:hidden"><div style="width:100%;background:var(--ff-orange);height:84%"></div></div><span style="font-size:10px;color:var(--text-primary);font-weight:700">Sun</span></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right rail: flags + compliance -->
+          <div style="display:flex;flex-direction:column;gap:18px">
+            <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:16px">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px"><span class="material-symbols-rounded" style="font-size:19px;color:var(--ff-danger)">flag</span><span style="font-family:var(--font-display);font-weight:700;font-size:15px">Nutrition flags</span></div>
+              <div style="display:flex;flex-direction:column;gap:10px">
+                <div onClick="{{ goClient }}" style="cursor:pointer;display:flex;align-items:center;gap:11px;padding:10px;border-radius:10px;background:var(--surface-sunken)" style-hover="background:var(--color-primary-tint)"><div style="width:32px;height:32px;border-radius:50%;background:rgba(30,136,229,0.16);color:var(--ff-carbs);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:800;font-size:11px">JE</div><div style="flex:1;min-width:0"><div style="font-weight:700;font-size:12.5px">Jordan Ellis</div><div style="font-size:11px;color:var(--ff-danger);font-weight:600">+40% over budget · 3 days</div></div></div>
+                <div onClick="{{ goClient }}" style="cursor:pointer;display:flex;align-items:center;gap:11px;padding:10px;border-radius:10px;background:var(--surface-sunken)" style-hover="background:var(--color-primary-tint)"><div style="width:32px;height:32px;border-radius:50%;background:rgba(229,57,53,0.16);color:var(--ff-protein);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:800;font-size:11px">TB</div><div style="flex:1;min-width:0"><div style="font-weight:700;font-size:12.5px">Tom Becker</div><div style="font-size:11px;color:var(--ff-warning);font-weight:600">Under protein target</div></div></div>
+                <div onClick="{{ goClient }}" style="cursor:pointer;display:flex;align-items:center;gap:11px;padding:10px;border-radius:10px;background:var(--surface-sunken)" style-hover="background:var(--color-primary-tint)"><div style="width:32px;height:32px;border-radius:50%;background:rgba(255,107,62,0.16);color:var(--ff-orange);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:800;font-size:11px">SM</div><div style="flex:1;min-width:0"><div style="font-weight:700;font-size:12.5px">Sofia Marino</div><div style="font-size:11px;color:var(--text-secondary);font-weight:600">Not logged 2 days</div></div></div>
+              </div>
+            </div>
+
+            <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:16px">
+              <div style="font-family:var(--font-display);font-weight:700;font-size:15px;margin-bottom:14px">Weekly compliance</div>
+              <div style="display:flex;flex-direction:column;gap:13px">
+                <div><div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:6px"><span style="font-weight:600">Priya Nair</span><span style="font-weight:700;color:var(--ff-fat)">7/7</span></div><div style="height:6px;border-radius:999px;background:var(--surface-sunken);overflow:hidden"><div style="width:100%;height:100%;background:var(--ff-fat)"></div></div></div>
+                <div><div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:6px"><span style="font-weight:600">Robert Stertz</span><span style="font-weight:700">6/7</span></div><div style="height:6px;border-radius:999px;background:var(--surface-sunken);overflow:hidden"><div style="width:86%;height:100%;background:var(--ff-orange)"></div></div></div>
+                <div><div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:6px"><span style="font-weight:600">Liam O&rsquo;Brien</span><span style="font-weight:700">6/7</span></div><div style="height:6px;border-radius:999px;background:var(--surface-sunken);overflow:hidden"><div style="width:86%;height:100%;background:var(--ff-orange)"></div></div></div>
+                <div><div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:6px"><span style="font-weight:600">Jordan Ellis</span><span style="font-weight:700;color:var(--ff-warning)">3/7</span></div><div style="height:6px;border-radius:999px;background:var(--surface-sunken);overflow:hidden"><div style="width:43%;height:100%;background:var(--ff-warning)"></div></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+    </main>
+  </div>
+  </sc-if>
+
+  <!-- ===================== MOBILE ===================== -->
+  <sc-if value="{{ isMobile }}" hint-placeholder-val="{{ false }}">
+  <div style="min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:26px 24px">
+    <div style="width:378px;height:788px;border-radius:44px;overflow:hidden;background:var(--surface-app);box-shadow:0 40px 90px rgba(0,0,0,0.4);border:1px solid var(--border-subtle);display:flex;flex-direction:column;position:relative">
+
+      <!-- App bar -->
+      <div style="height:58px;flex-shrink:0;display:flex;align-items:center;gap:10px;padding:0 16px;background:var(--surface-appbar);color:#fff">
+        <sc-if value="{{ isDashboard }}" hint-placeholder-val="{{ true }}">
+        <div style="font-family:var(--font-display);font-weight:800;font-size:18px;letter-spacing:-0.01em;flex:1"><span style="color:var(--ff-orange)">Forge</span><span style="color:#fff">Form</span> <span style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.5);letter-spacing:0.02em">Coach</span></div>
+        <span class="material-symbols-rounded" style="font-size:22px">search</span>
+        </sc-if>
+        <sc-if value="{{ isClient }}" hint-placeholder-val="{{ false }}">
+        <span onClick="{{ goDash }}" class="material-symbols-rounded" style="font-size:24px;cursor:pointer">arrow_back</span>
+        <div style="font-family:var(--font-display);font-weight:700;font-size:16px;flex:1">Robert Stertz</div>
+        <span class="material-symbols-rounded" style="font-size:22px">more_vert</span>
+        </sc-if>
+        <sc-if value="{{ mobileChatList }}" hint-placeholder-val="{{ false }}">
+        <div style="font-family:var(--font-display);font-weight:700;font-size:16px;flex:1">Messages</div>
+        <span class="material-symbols-rounded" style="font-size:22px">search</span>
+        </sc-if>
+        <sc-if value="{{ mobileChatThread }}" hint-placeholder-val="{{ false }}">
+        <span onClick="{{ msgBack }}" class="material-symbols-rounded" style="font-size:24px;cursor:pointer">arrow_back</span>
+        <div style="width:32px;height:32px;border-radius:50%;background:{{ sel.tint }};color:{{ sel.col }};display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:800;font-size:11px">{{ sel.initials }}</div>
+        <div style="flex:1"><div style="font-weight:700;font-size:14px">{{ sel.name }}</div><div style="font-size:10.5px;color:rgba(255,255,255,0.55)">{{ sel.status }}</div></div>
+        <span class="material-symbols-rounded" style="font-size:22px">fitness_center</span>
+        </sc-if>
+        <sc-if value="{{ isBuilder }}" hint-placeholder-val="{{ false }}">
+        <span onClick="{{ goDash }}" class="material-symbols-rounded" style="font-size:24px;cursor:pointer">arrow_back</span>
+        <div style="flex:1"><div style="font-weight:700;font-size:15px;font-family:var(--font-display)">Workout Builder</div><div style="font-size:10.5px;color:rgba(255,255,255,0.55)">{{ sel.name }} · {{ sel.focusTag }}</div></div>
+        <span class="material-symbols-rounded" style="font-size:22px">check</span>
+        </sc-if>
+        <sc-if value="{{ isNutrition }}" hint-placeholder-val="{{ false }}">
+        <span onClick="{{ goDash }}" class="material-symbols-rounded" style="font-size:24px;cursor:pointer">arrow_back</span>
+        <div style="flex:1"><div style="font-weight:700;font-size:15px;font-family:var(--font-display)">Nutrition</div><div style="font-size:10.5px;color:rgba(255,255,255,0.55)">{{ sel.name }} · Today</div></div>
+        <span class="material-symbols-rounded" style="font-size:22px">calendar_month</span>
+        </sc-if>
+      </div>
+
+      <!-- Body -->
+      <div style="flex:1;overflow-y:auto;min-height:0">
+
+        <!-- MOBILE DASHBOARD -->
+        <sc-if value="{{ isDashboard }}" hint-placeholder-val="{{ true }}">
+        <div style="padding:16px 16px 20px">
+          <div style="font-family:var(--font-display);font-weight:800;font-size:21px;letter-spacing:-0.01em">Good morning, Maya</div>
+          <div style="font-size:12.5px;color:var(--text-secondary);margin-top:2px;margin-bottom:16px">6 sessions today &middot; 3 need attention</div>
+
+          <div style="display:flex;gap:10px;margin-bottom:20px">
+            <div style="flex:1;background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:13px"><div style="font-family:var(--font-display);font-weight:800;font-size:20px;color:var(--ff-orange)">24</div><div style="font-size:10.5px;color:var(--text-muted);font-weight:600;margin-top:2px">Active</div></div>
+            <div style="flex:1;background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:13px"><div style="font-family:var(--font-display);font-weight:800;font-size:20px">68</div><div style="font-size:10.5px;color:var(--text-muted);font-weight:600;margin-top:2px">Sessions</div></div>
+            <div style="flex:1;background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:13px"><div style="font-family:var(--font-display);font-weight:800;font-size:20px">87%</div><div style="font-size:10.5px;color:var(--text-muted);font-weight:600;margin-top:2px">Adherence</div></div>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:11px"><span class="material-symbols-rounded" style="font-size:19px;color:var(--ff-warning)">notifications_active</span><span style="font-family:var(--font-display);font-weight:700;font-size:15px">Needs attention</span></div>
+          <div style="display:flex;flex-direction:column;gap:9px;margin-bottom:22px">
+            <div onClick="{{ goClient }}" style="cursor:pointer;display:flex;align-items:center;gap:11px;padding:12px;border-radius:12px;background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card)"><div style="width:38px;height:38px;border-radius:50%;background:rgba(229,57,53,0.16);color:var(--ff-protein);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:800;font-size:12px">TB</div><div style="flex:1"><div style="font-weight:700;font-size:13.5px">Tom Becker</div><div style="font-size:11.5px;color:var(--ff-danger);font-weight:600">Missed 3 workouts</div></div><span class="material-symbols-rounded" style="font-size:20px;color:var(--text-muted)">chevron_right</span></div>
+            <div onClick="{{ goClient }}" style="cursor:pointer;display:flex;align-items:center;gap:11px;padding:12px;border-radius:12px;background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card)"><div style="width:38px;height:38px;border-radius:50%;background:rgba(30,136,229,0.16);color:var(--ff-carbs);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:800;font-size:12px">JE</div><div style="flex:1"><div style="font-weight:700;font-size:13.5px">Jordan Ellis</div><div style="font-size:11.5px;color:var(--ff-warning);font-weight:600">Calories 40% over</div></div><span class="material-symbols-rounded" style="font-size:20px;color:var(--text-muted)">chevron_right</span></div>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:11px"><span style="font-family:var(--font-display);font-weight:700;font-size:15px">Your clients</span><span style="font-size:11px;color:var(--text-muted);background:var(--surface-sunken);padding:2px 8px;border-radius:999px;font-weight:600">24</span></div>
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <div onClick="{{ goClient }}" style="cursor:pointer;display:flex;align-items:center;gap:11px;padding:12px;border-radius:12px;background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card)"><div style="width:40px;height:40px;border-radius:50%;background:rgba(255,107,62,0.16);color:var(--ff-orange);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:800;font-size:13px">RS</div><div style="flex:1"><div style="font-weight:700;font-size:13.5px">Robert Stertz</div><div style="font-size:11px;color:var(--text-muted)">Push/Pull/Legs &middot; 3/4 this wk</div></div><span style="font-size:12px;font-weight:700;color:var(--ff-fat)">92%</span></div>
+            <div onClick="{{ goClient }}" style="cursor:pointer;display:flex;align-items:center;gap:11px;padding:12px;border-radius:12px;background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card)"><div style="width:40px;height:40px;border-radius:50%;background:rgba(67,160,71,0.16);color:var(--ff-fat);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:800;font-size:13px">PN</div><div style="flex:1"><div style="font-weight:700;font-size:13.5px">Priya Nair</div><div style="font-size:11px;color:var(--text-muted)">5&times;5 Strength &middot; 4/4 this wk</div></div><span style="font-size:12px;font-weight:700;color:var(--ff-fat)">98%</span></div>
+            <div onClick="{{ goClient }}" style="cursor:pointer;display:flex;align-items:center;gap:11px;padding:12px;border-radius:12px;background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card)"><div style="width:40px;height:40px;border-radius:50%;background:rgba(30,136,229,0.16);color:var(--ff-carbs);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:800;font-size:13px">LO</div><div style="flex:1"><div style="font-weight:700;font-size:13.5px">Liam O&rsquo;Brien</div><div style="font-size:11px;color:var(--text-muted)">Hybrid &middot; 5/5 this wk</div></div><span style="font-size:12px;font-weight:700;color:var(--ff-fat)">89%</span></div>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- MOBILE CLIENT -->
+        <sc-if value="{{ isClient }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:16px 16px 20px">
+          <div style="display:flex;align-items:center;gap:13px;margin-bottom:16px">
+            <div style="width:56px;height:56px;border-radius:50%;background:rgba(255,107,62,0.16);color:var(--ff-orange);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:800;font-size:18px">RS</div>
+            <div style="flex:1"><div style="display:flex;align-items:center;gap:7px"><span style="font-family:var(--font-display);font-weight:800;font-size:18px">Robert Stertz</span><span style="font-size:10px;font-weight:700;color:var(--ff-fat);background:rgba(67,160,71,0.14);padding:2px 8px;border-radius:999px">On track</span></div><div style="font-size:12px;color:var(--text-secondary);margin-top:2px">Build muscle &middot; PPL</div></div>
+          </div>
+          <div style="display:flex;gap:9px;margin-bottom:16px">
+            <div style="flex:1;background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:12px;text-align:center"><div style="font-family:var(--font-display);font-weight:800;font-size:18px;color:var(--ff-orange)">92%</div><div style="font-size:10px;color:var(--text-muted);font-weight:600">Adherence</div></div>
+            <div style="flex:1;background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:12px;text-align:center"><div style="font-family:var(--font-display);font-weight:800;font-size:18px">3/4</div><div style="font-size:10px;color:var(--text-muted);font-weight:600">This week</div></div>
+            <div style="flex:1;background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:12px;text-align:center"><div style="font-family:var(--font-display);font-weight:800;font-size:18px">78.4</div><div style="font-size:10px;color:var(--text-muted);font-weight:600">kg</div></div>
+          </div>
+          <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:15px;margin-bottom:13px">
+            <div style="display:flex;align-items:center;margin-bottom:8px"><span style="font-family:var(--font-display);font-weight:700;font-size:14px">Weight progress</span><span style="margin-left:auto;font-size:11px;font-weight:700;color:var(--ff-fat)">-3.6 kg</span></div>
+            <svg viewBox="0 0 320 90" style="width:100%;height:auto;display:block">
+              <polyline points="8,20 40,26 72,32 104,38 136,42 168,48 200,52 232,58 264,62 296,68" fill="none" stroke="var(--ff-orange)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"></polyline>
+              <polygon points="8,20 40,26 72,32 104,38 136,42 168,48 200,52 232,58 264,62 296,68 296,82 8,82" fill="rgba(255,107,62,0.12)"></polygon>
+              <circle cx="296" cy="68" r="4" fill="var(--ff-orange)"></circle>
+            </svg>
+          </div>
+          <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:15px;margin-bottom:16px">
+            <div style="font-family:var(--font-display);font-weight:700;font-size:14px;margin-bottom:6px">Attendance</div>
+            <div style="font-size:11.5px;color:var(--text-secondary);margin-bottom:12px">3 of 4 planned this week</div>
+            <div style="display:flex;align-items:flex-end;gap:6px;height:52px">
+              <div style="flex:1;background:var(--surface-sunken);border-radius:4px;height:100%;display:flex;align-items:flex-end;overflow:hidden"><div style="width:100%;background:var(--ff-orange);height:75%"></div></div>
+              <div style="flex:1;background:var(--surface-sunken);border-radius:4px;height:100%;display:flex;align-items:flex-end;overflow:hidden"><div style="width:100%;background:var(--ff-orange);height:100%"></div></div>
+              <div style="flex:1;background:var(--surface-sunken);border-radius:4px;height:100%;display:flex;align-items:flex-end;overflow:hidden"><div style="width:100%;background:var(--ff-orange);height:50%"></div></div>
+              <div style="flex:1;background:var(--surface-sunken);border-radius:4px;height:100%;display:flex;align-items:flex-end;overflow:hidden"><div style="width:100%;background:var(--ff-orange);height:100%"></div></div>
+              <div style="flex:1;background:var(--surface-sunken);border-radius:4px;height:100%;display:flex;align-items:flex-end;overflow:hidden"><div style="width:100%;background:var(--ff-danger);height:25%"></div></div>
+              <div style="flex:1;background:var(--surface-sunken);border-radius:4px;height:100%;display:flex;align-items:flex-end;overflow:hidden"><div style="width:100%;background:var(--ff-orange);height:100%"></div></div>
+              <div style="flex:1;background:var(--surface-sunken);border-radius:4px;height:100%;display:flex;align-items:flex-end;overflow:hidden"><div style="width:100%;background:var(--ff-orange);height:75%"></div></div>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px">
+            <button onClick="{{ goMessages }}" style="flex:1;border:1px solid var(--border-default);background:transparent;cursor:pointer;border-radius:10px;padding:12px;font-family:var(--font-body);font-size:13px;font-weight:700;color:var(--ff-orange);display:flex;align-items:center;justify-content:center;gap:6px"><span class="material-symbols-rounded" style="font-size:19px">forum</span>Message</button>
+            <button style="flex:1;border:none;background:var(--ff-orange);cursor:pointer;border-radius:10px;padding:12px;font-family:var(--font-body);font-size:13px;font-weight:700;color:#fff;display:flex;align-items:center;justify-content:center;gap:6px"><span class="material-symbols-rounded" style="font-size:19px">fitness_center</span>New plan</button>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- MOBILE MESSAGES — conversation list -->
+        <sc-if value="{{ mobileChatList }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:6px 0">
+          <sc-for list="{{ convos }}" as="c" hint-placeholder-count="5">
+          <div onClick="{{ c.openThread }}" style="display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer" style-hover="background:var(--surface-sunken)">
+            <div style="{{ c.avatarStyle }}">{{ c.initials }}</div>
+            <div style="flex:1;min-width:0"><div style="display:flex;align-items:center"><span style="font-weight:700;font-size:14px">{{ c.name }}</span><span style="margin-left:auto;font-size:10.5px;color:{{ c.timeCol }};font-weight:{{ c.timeWeight }}">{{ c.time }}</span></div><div style="display:flex;align-items:center;gap:6px;margin-top:2px"><span style="font-size:12px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1">{{ c.preview }}</span><sc-if value="{{ c.unread }}" hint-placeholder-val="{{ false }}"><span style="width:8px;height:8px;border-radius:50%;background:var(--ff-orange);flex-shrink:0"></span></sc-if></div></div>
+          </div>
+          </sc-for>
+        </div>
+        </sc-if>
+
+        <!-- MOBILE MESSAGES — thread -->
+        <sc-if value="{{ mobileChatThread }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:16px;display:flex;flex-direction:column;gap:11px">
+          <div style="text-align:center;font-size:11px;color:var(--text-muted);font-weight:600">Today</div>
+          <sc-for list="{{ selThread }}" as="m" hint-placeholder-count="4">
+            <sc-if value="{{ m.card }}" hint-placeholder-val="{{ false }}">
+            <div style="max-width:82%;align-self:flex-start;background:var(--surface-card);border:0.5px solid var(--border-subtle);border-radius:4px 14px 14px 14px;padding:8px 12px;display:flex;align-items:center;gap:9px"><span class="material-symbols-rounded" style="font-size:20px;color:var(--ff-orange)">fitness_center</span><div><div style="font-size:12px;font-weight:700">{{ m.title }}</div><div style="font-size:10.5px;color:var(--text-muted)">{{ m.sub }}</div></div></div>
+            </sc-if>
+            <sc-if value="{{ m.notCard }}" hint-placeholder-val="{{ true }}">
+            <div style="{{ m.mWrapStyle }}"><div style="{{ m.bubbleStyle }}"><div style="font-size:13.5px;line-height:1.45">{{ m.text }}</div><div style="font-size:9.5px;color:{{ m.timeCol }};text-align:right;margin-top:4px">{{ m.time }}</div></div></div>
+            </sc-if>
+          </sc-for>
+        </div>
+        </sc-if>
+
+        <!-- MOBILE BUILDER -->
+        <sc-if value="{{ isBuilderNew }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:16px 16px 24px">
+          <div style="display:flex;align-items:center;margin-bottom:16px">
+            <span style="font-family:var(--font-display);font-weight:800;font-size:19px">Create workout</span>
+            <button onClick="{{ cancelNew }}" style="margin-left:auto;border:1px solid var(--border-default);background:transparent;cursor:pointer;border-radius:8px;padding:7px 13px;font-family:var(--font-body);font-size:12px;font-weight:700;color:var(--text-secondary)">Cancel</button>
+          </div>
+          <label style="display:block;font-size:11px;font-weight:700;letter-spacing:0.04em;color:var(--text-muted);margin-bottom:7px">WORKOUT NAME</label>
+          <input type="text" placeholder="e.g. Push / Pull / Legs" style="width:100%;background:var(--surface-sunken);border:1px solid var(--border-default);border-radius:8px;padding:11px 13px;font-family:var(--font-body);font-size:14px;color:var(--text-primary);outline:none;margin-bottom:16px" />
+          <label style="display:block;font-size:11px;font-weight:700;letter-spacing:0.04em;color:var(--text-muted);margin-bottom:7px">CLIENT</label>
+          <div style="position:relative;margin-bottom:20px">
+            <button onClick="{{ togglePicker }}" style="width:100%;display:flex;align-items:center;gap:9px;background:var(--surface-sunken);border:1px solid var(--border-default);border-radius:8px;padding:9px 12px;cursor:pointer;font-family:var(--font-body)">
+              <div style="{{ sel.avatarSm }}">{{ sel.initials }}</div>
+              <span style="flex:1;text-align:left;font-size:13px;font-weight:600">{{ sel.name }}</span>
+              <span class="material-symbols-rounded" style="font-size:18px;color:var(--text-muted)">expand_more</span>
+            </button>
+            <sc-if value="{{ picker }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:50;background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:0 12px 32px rgba(0,0,0,0.28);border-radius:12px;padding:6px;max-height:280px;overflow-y:auto">
+              <sc-for list="{{ convos }}" as="c" hint-placeholder-count="5">
+              <div onClick="{{ c.pick }}" style="{{ c.pickRowStyle }}"><div style="{{ c.pickAvatarStyle }}">{{ c.initials }}</div><div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">{{ c.name }}</div><div style="font-size:11px;color:var(--text-muted)">{{ c.program }}</div></div><sc-if value="{{ c.isSel }}" hint-placeholder-val="{{ false }}"><span class="material-symbols-rounded" style="font-size:19px;color:var(--ff-orange)">check</span></sc-if></div>
+              </sc-for>
+            </div>
+            </sc-if>
+          </div>
+          <div style="font-family:var(--font-display);font-weight:700;font-size:14px;margin-bottom:10px">Start from a template</div>
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <sc-for list="{{ templates }}" as="tpl" hint-placeholder-count="6">
+            <div onClick="{{ tpl.onClick }}" style="display:flex;align-items:center;gap:12px;background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:11px;padding:12px 14px;cursor:pointer">
+              <div style="{{ tpl.iconStyle }}"><span class="material-symbols-rounded" style="font-size:20px">{{ tpl.icon }}</span></div>
+              <div style="flex:1;min-width:0"><div style="font-family:var(--font-display);font-weight:700;font-size:13.5px">{{ tpl.name }}</div><div style="font-size:11px;color:var(--text-muted)">{{ tpl.meta }}</div></div>
+              <span class="material-symbols-rounded" style="font-size:19px;color:var(--text-muted)">chevron_right</span>
+            </div>
+            </sc-for>
+          </div>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ isBuilderEdit }}" hint-placeholder-val="{{ true }}">
+        <div style="padding:14px 16px 20px">
+          <div style="position:relative;margin-bottom:14px">
+            <button onClick="{{ togglePicker }}" style="width:100%;display:flex;align-items:center;gap:9px;background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:12px;padding:9px 12px;cursor:pointer;font-family:var(--font-body)">
+              <div style="{{ sel.avatarSm }}">{{ sel.initials }}</div>
+              <div style="flex:1;text-align:left;min-width:0"><div style="font-weight:700;font-size:13px">{{ sel.name }}</div><div style="font-size:10.5px;color:var(--text-muted)">{{ sel.program }}</div></div>
+              <span class="material-symbols-rounded" style="font-size:20px;color:var(--text-muted)">expand_more</span>
+            </button>
+            <sc-if value="{{ picker }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:50;background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:0 12px 32px rgba(0,0,0,0.28);border-radius:12px;padding:6px;max-height:300px;overflow-y:auto">
+              <sc-for list="{{ convos }}" as="c" hint-placeholder-count="5">
+              <div onClick="{{ c.pick }}" style="{{ c.pickRowStyle }}"><div style="{{ c.pickAvatarStyle }}">{{ c.initials }}</div><div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">{{ c.name }}</div><div style="font-size:11px;color:var(--text-muted)">{{ c.program }}</div></div><sc-if value="{{ c.isSel }}" hint-placeholder-val="{{ false }}"><span class="material-symbols-rounded" style="font-size:19px;color:var(--ff-orange)">check</span></sc-if></div>
+              </sc-for>
+            </div>
+            </sc-if>
+          </div>
+          <div style="display:flex;align-items:center;gap:9px;margin-bottom:14px">
+            <span style="font-family:var(--font-display);font-weight:800;font-size:19px;letter-spacing:-0.01em">{{ sel.planName }}</span>
+            <span class="material-symbols-rounded" style="font-size:17px;color:var(--text-muted)">edit</span>
+            <button onClick="{{ newWorkout }}" style="margin-left:auto;display:flex;align-items:center;gap:4px;border:1px solid var(--border-default);background:transparent;cursor:pointer;border-radius:999px;padding:5px 11px;font-family:var(--font-body);font-size:11px;font-weight:700;color:var(--text-secondary)"><span class="material-symbols-rounded" style="font-size:15px">add</span>New</button>
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);font-weight:600;margin:-9px 0 14px">{{ sel.days }}</div>
+          </div>
+
+          <!-- Day tabs -->
+          <div style="display:flex;gap:8px;overflow-x:auto;margin:0 -16px 16px;padding:0 16px 2px">
+            <div style="flex-shrink:0;display:flex;flex-direction:column;gap:2px;align-items:center;padding:9px 15px;border-radius:11px;background:var(--ff-orange);color:#fff;cursor:pointer"><span style="font-weight:700;font-size:12.5px">Push A</span><span style="font-size:9.5px;opacity:0.85">6 ex</span></div>
+            <div style="flex-shrink:0;display:flex;flex-direction:column;gap:2px;align-items:center;padding:9px 15px;border-radius:11px;background:var(--surface-card);border:0.5px solid var(--border-subtle);cursor:pointer"><span style="font-weight:700;font-size:12.5px">Pull A</span><span style="font-size:9.5px;color:var(--text-muted)">6 ex</span></div>
+            <div style="flex-shrink:0;display:flex;flex-direction:column;gap:2px;align-items:center;padding:9px 15px;border-radius:11px;background:var(--surface-card);border:0.5px solid var(--border-subtle);cursor:pointer"><span style="font-weight:700;font-size:12.5px">Legs</span><span style="font-size:9.5px;color:var(--text-muted)">5 ex</span></div>
+            <div style="flex-shrink:0;display:flex;flex-direction:column;gap:2px;align-items:center;padding:9px 15px;border-radius:11px;background:var(--surface-card);border:0.5px solid var(--border-subtle);cursor:pointer;opacity:0.6"><span style="font-weight:700;font-size:12.5px">Rest</span><span style="font-size:9.5px;color:var(--text-muted)">—</span></div>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+            <span style="font-family:var(--font-display);font-weight:700;font-size:15px">Push Day A</span>
+            <span style="font-size:10px;font-weight:700;color:var(--ff-orange);background:var(--color-primary-tint);padding:3px 9px;border-radius:999px">Chest · Sh · Tri</span>
+          </div>
+
+          <!-- Exercise 1 -->
+          <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:14px;margin-bottom:11px">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:11px">
+              <div style="width:32px;height:32px;border-radius:8px;background:rgba(229,57,53,0.14);color:var(--ff-protein);display:flex;align-items:center;justify-content:center"><span class="material-symbols-rounded" style="font-size:18px">fitness_center</span></div>
+              <div style="flex:1"><div style="font-weight:700;font-size:13.5px">Barbell Bench Press</div><div style="font-size:11px;color:var(--text-secondary)">Chest · 3 min rest</div></div>
+              <span class="material-symbols-rounded" style="font-size:19px;color:var(--text-muted)">more_vert</span>
+            </div>
+            <div style="display:grid;grid-template-columns:32px 1fr 1fr 1fr;gap:7px;font-size:10px;font-weight:700;color:var(--text-muted);padding:0 2px 5px"><div>SET</div><div>REPS</div><div>WEIGHT</div><div>RPE</div></div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <div style="display:grid;grid-template-columns:32px 1fr 1fr 1fr;gap:7px;align-items:center"><div style="width:26px;height:26px;border-radius:7px;background:var(--surface-sunken);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:700;font-size:11px">1</div><div style="background:var(--surface-sunken);border-radius:7px;padding:7px 10px;font-size:12.5px;font-weight:600">8</div><div style="background:var(--surface-sunken);border-radius:7px;padding:7px 10px;font-size:12.5px;font-weight:600">70 kg</div><div style="background:var(--surface-sunken);border-radius:7px;padding:7px 10px;font-size:12.5px;color:var(--text-secondary)">7</div></div>
+              <div style="display:grid;grid-template-columns:32px 1fr 1fr 1fr;gap:7px;align-items:center"><div style="width:26px;height:26px;border-radius:7px;background:var(--surface-sunken);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:700;font-size:11px">2</div><div style="background:var(--surface-sunken);border-radius:7px;padding:7px 10px;font-size:12.5px;font-weight:600">6</div><div style="background:var(--surface-sunken);border-radius:7px;padding:7px 10px;font-size:12.5px;font-weight:600">77.5 kg</div><div style="background:var(--surface-sunken);border-radius:7px;padding:7px 10px;font-size:12.5px;color:var(--text-secondary)">8</div></div>
+              <div style="display:grid;grid-template-columns:32px 1fr 1fr 1fr;gap:7px;align-items:center"><div style="width:26px;height:26px;border-radius:7px;background:var(--color-primary-tint);color:var(--ff-orange);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:700;font-size:11px">3</div><div style="background:var(--surface-sunken);border-radius:7px;padding:7px 10px;font-size:12.5px;font-weight:600">4</div><div style="background:var(--color-primary-tint);border:1px solid var(--ff-orange);border-radius:7px;padding:6px 9px;font-size:12.5px;font-weight:700;color:var(--ff-orange)">82.5 kg</div><div style="background:var(--surface-sunken);border-radius:7px;padding:7px 10px;font-size:12.5px;color:var(--text-secondary)">9</div></div>
+            </div>
+            <button style="margin-top:10px;border:none;background:transparent;cursor:pointer;color:var(--ff-orange);font-family:var(--font-body);font-size:12px;font-weight:700;display:flex;align-items:center;gap:5px;padding:2px"><span class="material-symbols-rounded" style="font-size:16px">add</span>Add set</button>
+          </div>
+
+          <!-- Exercise 2 -->
+          <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:14px;margin-bottom:13px">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:11px">
+              <div style="width:32px;height:32px;border-radius:8px;background:rgba(255,107,62,0.14);color:var(--ff-orange);display:flex;align-items:center;justify-content:center"><span class="material-symbols-rounded" style="font-size:18px">fitness_center</span></div>
+              <div style="flex:1"><div style="font-weight:700;font-size:13.5px">Overhead Press</div><div style="font-size:11px;color:var(--text-secondary)">Shoulders · 2.5 min rest</div></div>
+              <span class="material-symbols-rounded" style="font-size:19px;color:var(--text-muted)">more_vert</span>
+            </div>
+            <div style="display:grid;grid-template-columns:32px 1fr 1fr 1fr;gap:7px;font-size:10px;font-weight:700;color:var(--text-muted);padding:0 2px 5px"><div>SET</div><div>REPS</div><div>WEIGHT</div><div>RPE</div></div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <div style="display:grid;grid-template-columns:32px 1fr 1fr 1fr;gap:7px;align-items:center"><div style="width:26px;height:26px;border-radius:7px;background:var(--surface-sunken);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:700;font-size:11px">1</div><div style="background:var(--surface-sunken);border-radius:7px;padding:7px 10px;font-size:12.5px;font-weight:600">10</div><div style="background:var(--surface-sunken);border-radius:7px;padding:7px 10px;font-size:12.5px;font-weight:600">42.5 kg</div><div style="background:var(--surface-sunken);border-radius:7px;padding:7px 10px;font-size:12.5px;color:var(--text-secondary)">7</div></div>
+              <div style="display:grid;grid-template-columns:32px 1fr 1fr 1fr;gap:7px;align-items:center"><div style="width:26px;height:26px;border-radius:7px;background:var(--surface-sunken);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:700;font-size:11px">2</div><div style="background:var(--surface-sunken);border-radius:7px;padding:7px 10px;font-size:12.5px;font-weight:600">8</div><div style="background:var(--surface-sunken);border-radius:7px;padding:7px 10px;font-size:12.5px;font-weight:600">45 kg</div><div style="background:var(--surface-sunken);border-radius:7px;padding:7px 10px;font-size:12.5px;color:var(--text-secondary)">8</div></div>
+            </div>
+            <button style="margin-top:10px;border:none;background:transparent;cursor:pointer;color:var(--ff-orange);font-family:var(--font-body);font-size:12px;font-weight:700;display:flex;align-items:center;gap:5px;padding:2px"><span class="material-symbols-rounded" style="font-size:16px">add</span>Add set</button>
+          </div>
+
+          <button style="width:100%;border:1px dashed var(--border-default);background:transparent;cursor:pointer;border-radius:var(--radius-md);padding:13px;font-family:var(--font-body);font-size:13px;font-weight:700;color:var(--text-secondary);display:flex;align-items:center;justify-content:center;gap:7px;margin-bottom:13px"><span class="material-symbols-rounded" style="font-size:18px">add</span>Add exercise</button>
+          <button style="width:100%;border:none;background:var(--ff-orange);cursor:pointer;border-radius:10px;padding:13px;font-family:var(--font-body);font-size:13.5px;font-weight:700;color:#fff;display:flex;align-items:center;justify-content:center;gap:7px"><span class="material-symbols-rounded" style="font-size:19px">send</span>Assign to {{ sel.first }}</button>
+        </div>
+        </sc-if>
+
+        <!-- MOBILE NUTRITION -->
+        <sc-if value="{{ isNutrition }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:16px 16px 20px">
+          <div style="position:relative;margin-bottom:14px">
+            <button onClick="{{ togglePicker }}" style="width:100%;display:flex;align-items:center;gap:9px;background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:12px;padding:9px 12px;cursor:pointer;font-family:var(--font-body)">
+              <div style="{{ sel.avatarSm }}">{{ sel.initials }}</div>
+              <div style="flex:1;text-align:left;min-width:0"><div style="font-weight:700;font-size:13px">{{ sel.name }}</div><div style="font-size:10.5px;color:var(--text-muted)">{{ sel.program }}</div></div>
+              <span class="material-symbols-rounded" style="font-size:20px;color:var(--text-muted)">expand_more</span>
+            </button>
+            <sc-if value="{{ picker }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:50;background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:0 12px 32px rgba(0,0,0,0.28);border-radius:12px;padding:6px;max-height:300px;overflow-y:auto">
+              <sc-for list="{{ convos }}" as="c" hint-placeholder-count="5">
+              <div onClick="{{ c.pick }}" style="{{ c.pickRowStyle }}"><div style="{{ c.pickAvatarStyle }}">{{ c.initials }}</div><div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">{{ c.name }}</div><div style="font-size:11px;color:var(--text-muted)">{{ c.program }}</div></div><sc-if value="{{ c.isSel }}" hint-placeholder-val="{{ false }}"><span class="material-symbols-rounded" style="font-size:19px;color:var(--ff-orange)">check</span></sc-if></div>
+              </sc-for>
+            </div>
+            </sc-if>
+          </div>
+          <!-- Calorie ring -->
+          <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-lg);padding:18px;margin-bottom:14px;display:flex;align-items:center;gap:18px">
+            <div style="position:relative;width:104px;height:104px;flex-shrink:0">
+              <svg viewBox="0 0 120 120" style="width:104px;height:104px;transform:rotate(-90deg)">
+                <circle cx="60" cy="60" r="52" fill="none" stroke="var(--surface-sunken)" stroke-width="12"></circle>
+                <circle cx="60" cy="60" r="52" fill="none" stroke="{{ sel.ringCol }}" stroke-width="12" stroke-linecap="round" stroke-dasharray="326.7" stroke-dashoffset="{{ sel.ringOffset }}"></circle>
+              </svg>
+              <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center"><span style="font-family:var(--font-display);font-weight:800;font-size:20px">{{ sel.kcalStr }}</span><span style="font-size:9.5px;color:var(--text-muted)">{{ sel.goalStrShort }}</span></div>
+            </div>
+            <div style="flex:1;min-width:0">
+              <div style="display:flex;align-items:center;gap:7px;margin-bottom:10px"><span style="font-family:var(--font-display);font-weight:700;font-size:15px">Today</span></div>
+              <span style="font-size:10.5px;font-weight:700;color:{{ sel.remCol }};background:{{ sel.remBg }};padding:2px 9px;border-radius:999px">{{ sel.remStr }}</span>
+              <x-import component-from-global-scope="ForgeFormDesignSystem_03b27d.MacroSummary" protein="{{ sel.protein }}" carbs="{{ sel.carbs }}" fat="{{ sel.fat }}" calorie-goal="{{ sel.goal }}" hint-size="100%,54px"></x-import>
+            </div>
+          </div>
+
+          <!-- Meals -->
+          <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:16px;margin-bottom:14px">
+            <div style="font-family:var(--font-display);font-weight:700;font-size:14px;margin-bottom:10px">Today's meals</div>
+            <div style="display:flex;flex-direction:column">
+              <div style="display:flex;align-items:center;gap:11px;padding:10px 0"><div style="width:34px;height:34px;border-radius:8px;background:rgba(255,107,62,0.12);color:var(--ff-orange);display:flex;align-items:center;justify-content:center"><span class="material-symbols-rounded" style="font-size:18px">wb_twilight</span></div><div style="flex:1"><div style="font-weight:700;font-size:13px">Breakfast</div><div style="font-size:11px;color:var(--text-muted)">Oats, whey, banana</div></div><div style="font-family:var(--font-display);font-weight:700;font-size:13.5px">620</div></div>
+              <div style="height:1px;background:var(--divider)"></div>
+              <div style="display:flex;align-items:center;gap:11px;padding:10px 0"><div style="width:34px;height:34px;border-radius:8px;background:rgba(255,107,62,0.12);color:var(--ff-orange);display:flex;align-items:center;justify-content:center"><span class="material-symbols-rounded" style="font-size:18px">lunch_dining</span></div><div style="flex:1"><div style="font-weight:700;font-size:13px">Lunch</div><div style="font-size:11px;color:var(--text-muted)">Chicken, rice, veg</div></div><div style="font-family:var(--font-display);font-weight:700;font-size:13.5px">720</div></div>
+              <div style="height:1px;background:var(--divider)"></div>
+              <div style="display:flex;align-items:center;gap:11px;padding:10px 0"><div style="width:34px;height:34px;border-radius:8px;background:rgba(255,107,62,0.12);color:var(--ff-orange);display:flex;align-items:center;justify-content:center"><span class="material-symbols-rounded" style="font-size:18px">bakery_dining</span></div><div style="flex:1"><div style="font-weight:700;font-size:13px">Snack</div><div style="font-size:11px;color:var(--text-muted)">Greek yogurt, almonds</div></div><div style="font-family:var(--font-display);font-weight:700;font-size:13.5px">300</div></div>
+              <div style="height:1px;background:var(--divider)"></div>
+              <div style="display:flex;align-items:center;gap:11px;padding:10px 0;opacity:0.5"><div style="width:34px;height:34px;border-radius:8px;background:var(--surface-sunken);color:var(--text-muted);display:flex;align-items:center;justify-content:center"><span class="material-symbols-rounded" style="font-size:18px">dinner_dining</span></div><div style="flex:1"><div style="font-weight:700;font-size:13px">Dinner</div><div style="font-size:11px;color:var(--text-muted)">Not logged yet</div></div><div style="font-family:var(--font-display);font-weight:700;font-size:13.5px;color:var(--text-muted)">—</div></div>
+            </div>
+          </div>
+
+          <!-- 7-day trend -->
+          <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:16px">
+            <div style="display:flex;align-items:center;margin-bottom:3px"><span style="font-family:var(--font-display);font-weight:700;font-size:14px">Calories vs target</span><span style="margin-left:auto;font-size:11px;color:var(--text-muted);font-weight:600">7 days</span></div>
+            <div style="font-size:11.5px;color:var(--text-secondary);margin-bottom:14px">Avg <b style="color:var(--text-primary)">{{ sel.avgStr }}</b> · <span style="color:var(--ff-warning);font-weight:600">{{ sel.overNote }}</span></div>
+            <div style="display:flex;align-items:flex-end;gap:8px;height:80px">
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px"><div style="width:72%;background:var(--surface-sunken);border-radius:5px;height:66px;display:flex;align-items:flex-end;overflow:hidden"><div style="width:100%;background:var(--ff-carbs);height:92%"></div></div><span style="font-size:9.5px;color:var(--text-muted)">M</span></div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px"><div style="width:72%;background:var(--surface-sunken);border-radius:5px;height:66px;display:flex;align-items:flex-end;overflow:hidden"><div style="width:100%;background:var(--ff-carbs);height:84%"></div></div><span style="font-size:9.5px;color:var(--text-muted)">T</span></div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px"><div style="width:72%;background:var(--surface-sunken);border-radius:5px;height:66px;display:flex;align-items:flex-end;overflow:hidden"><div style="width:100%;background:var(--ff-danger);height:100%"></div></div><span style="font-size:9.5px;color:var(--text-muted)">W</span></div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px"><div style="width:72%;background:var(--surface-sunken);border-radius:5px;height:66px;display:flex;align-items:flex-end;overflow:hidden"><div style="width:100%;background:var(--ff-carbs);height:88%"></div></div><span style="font-size:9.5px;color:var(--text-muted)">T</span></div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px"><div style="width:72%;background:var(--surface-sunken);border-radius:5px;height:66px;display:flex;align-items:flex-end;overflow:hidden"><div style="width:100%;background:var(--ff-carbs);height:76%"></div></div><span style="font-size:9.5px;color:var(--text-muted)">F</span></div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px"><div style="width:72%;background:var(--surface-sunken);border-radius:5px;height:66px;display:flex;align-items:flex-end;overflow:hidden"><div style="width:100%;background:var(--ff-carbs);height:94%"></div></div><span style="font-size:9.5px;color:var(--text-muted)">S</span></div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px"><div style="width:72%;background:var(--surface-sunken);border-radius:5px;height:66px;display:flex;align-items:flex-end;overflow:hidden"><div style="width:100%;background:var(--ff-orange);height:84%"></div></div><span style="font-size:9.5px;color:var(--text-primary);font-weight:700">S</span></div>
+            </div>
+          </div>
+        </div>
+        </sc-if>
+      </div>
+
+      <!-- Composer (messages) -->
+      <sc-if value="{{ showMobileComposer }}" hint-placeholder-val="{{ false }}">
+      <div style="flex-shrink:0;padding:10px 14px;border-top:0.5px solid var(--border-subtle);display:flex;align-items:center;gap:9px;background:var(--surface-card)">
+        <div style="flex:1;background:var(--surface-sunken);border-radius:999px;padding:10px 15px;font-size:13px;color:var(--text-muted)">Message {{ sel.first }}…</div>
+        <button style="width:38px;height:38px;border:none;background:var(--ff-orange);border-radius:50%;cursor:pointer;color:#fff;display:flex;align-items:center;justify-content:center"><span class="material-symbols-rounded" style="font-size:19px">send</span></button>
+      </div>
+      </sc-if>
+
+      <!-- Bottom nav -->
+      <sc-if value="{{ mobileNav }}" hint-placeholder-val="{{ true }}">
+      <div style="flex-shrink:0;height:64px;display:flex;align-items:center;background:var(--surface-card);border-top:0.5px solid var(--border-subtle);padding-bottom:4px">
+        <button onClick="{{ goDash }}" class="{{ homeFill }}" style="flex:1;border:none;background:transparent;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;color:{{ mNavHomeCol }}"><span class="material-symbols-rounded" style="font-size:24px">space_dashboard</span><span style="font-size:10px;font-weight:600">Home</span></button>
+        <button onClick="{{ goBuilder }}" class="{{ wkFill }}" style="flex:1;border:none;background:transparent;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;color:{{ mNavWkCol }}"><span class="material-symbols-rounded" style="font-size:24px">fitness_center</span><span style="font-size:10px;font-weight:600">Workouts</span></button>
+        <button onClick="{{ goMessages }}" class="{{ msgFill }}" style="flex:1;border:none;background:transparent;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;color:{{ mNavMsgCol }};position:relative"><span class="material-symbols-rounded" style="font-size:24px">forum</span><span style="position:absolute;top:-2px;right:28px;background:var(--ff-orange);color:#fff;font-size:9px;font-weight:700;min-width:16px;height:16px;border-radius:999px;display:flex;align-items:center;justify-content:center;padding:0 4px">5</span><span style="font-size:10px;font-weight:600">Messages</span></button>
+        <button onClick="{{ goNutrition }}" class="{{ nutFill }}" style="flex:1;border:none;background:transparent;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;color:{{ mNavNutCol }}"><span class="material-symbols-rounded" style="font-size:24px">nutrition</span><span style="font-size:10px;font-weight:600">Nutrition</span></button>
+      </div>
+      </sc-if>
+    </div>
+  </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:860},&quot;startTheme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dark&quot;,&quot;light&quot;],&quot;default&quot;:&quot;dark&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Defaults&quot;},&quot;startSurface&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;desktop&quot;,&quot;mobile&quot;],&quot;default&quot;:&quot;desktop&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Defaults&quot;},&quot;rosterLayout&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;grid&quot;,&quot;table&quot;],&quot;default&quot;:&quot;grid&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Defaults&quot;}}">
+class Component extends DCLogic {
+  state = {
+    theme: this.props.startTheme || 'dark',
+    surface: this.props.startSurface || 'desktop',
+    route: 'dashboard',
+    layout: this.props.rosterLayout || 'grid',
+    client: 0,
+    picker: false,
+    chatView: 'list',
+  };
+  clients = [
+    { name:'Robert Stertz', first:'Robert', initials:'RS', tone:'orange', program:'Build muscle · PPL', planName:'Push / Pull / Legs', days:'4 days / week', focusTag:'Chest · Sh · Tri', adherence:'92%', week:'3/4', weight:'78.4', status:'On track', statusTone:'ok',
+      time:'2m', unread:false, active:true, preview:'Felt strong today, hit 82.5 on bench!',
+      kcal:1840, goal:2200, protein:168, carbs:232, fat:62, avg:'2,180', overNote:'1 day over budget',
+      thread:[
+        {who:'me', text:'Morning Robert — Push Day A is loaded for today. Bumped your bench to 82.5kg for the top set. Give it a shot.', time:'09:12'},
+        {who:'them', text:'Felt strong today, hit 82.5 on bench!', time:'10:47'},
+        {who:'them', text:'Dips felt a bit off on the left shoulder though', time:'10:48'},
+        {who:'me', text:'Great work on the PR! Let\u2019s swap dips for machine press next session — updating the plan now.', time:'10:52'},
+        {who:'card', title:'Push Day B — updated', sub:'Sent to Robert · tap to view'},
+      ] },
+    { name:'Tom Becker', first:'Tom', initials:'TB', tone:'protein', program:'Fat loss · Upper/Lower', planName:'Upper / Lower', days:'4 days / week', focusTag:'Full body', adherence:'61%', week:'1/4', weight:'94.2', status:'Behind', statusTone:'bad',
+      time:'1h', unread:true, active:false, preview:'Sorry coach, been swamped this week…',
+      kcal:2620, goal:2000, protein:90, carbs:300, fat:110, avg:'2,540', overNote:'3 days over budget',
+      thread:[
+        {who:'me', text:'Hey Tom, noticed you missed the last 3 sessions — everything ok?', time:'Mon'},
+        {who:'them', text:'Sorry coach, been swamped this week…', time:'11:20'},
+        {who:'me', text:'No stress. Let\u2019s scale back to 2 days this week so you can stay consistent.', time:'11:24'},
+        {who:'card', title:'Upper / Lower — 2-day', sub:'Sent to Tom · tap to view'},
+      ] },
+    { name:'Jordan Ellis', first:'Jordan', initials:'JE', tone:'carbs', program:'Recomp · Full body', planName:'Full Body A / B', days:'3 days / week', focusTag:'Full body', adherence:'74%', week:'2/3', weight:'71.0', status:'Attention', statusTone:'warn',
+      time:'3h', unread:true, active:false, preview:'Can we swap Thursday to Friday?',
+      kcal:3080, goal:2200, protein:120, carbs:360, fat:95, avg:'3,010', overNote:'4 days over budget',
+      thread:[
+        {who:'them', text:'Can we swap Thursday to Friday?', time:'08:05'},
+        {who:'me', text:'Sure, moved leg day to Friday. Your calories are running high though — let\u2019s tighten up portions this week.', time:'09:10'},
+        {who:'them', text:'Yeah the weekend got away from me', time:'09:12'},
+        {who:'me', text:'Happens to everyone. Back on it Monday.', time:'09:14'},
+      ] },
+    { name:'Priya Nair', first:'Priya', initials:'PN', tone:'fat', program:'Strength · 5×5', planName:'5×5 Strength', days:'3 days / week', focusTag:'Full body', adherence:'98%', week:'4/4', weight:'63.5', status:'On track', statusTone:'ok',
+      time:'1d', unread:false, active:false, preview:'Thank you! New PR on squats today',
+      kcal:1980, goal:2100, protein:150, carbs:210, fat:58, avg:'2,050', overNote:'On target',
+      thread:[
+        {who:'them', text:'Thank you! New PR on squats today', time:'Yesterday'},
+        {who:'me', text:'Amazing — the 5×5 is paying off. Add 2.5kg to squats next week.', time:'18:30'},
+        {who:'them', text:'Will do!', time:'18:32'},
+      ] },
+    { name:'Sofia Marino', first:'Sofia', initials:'SM', tone:'orange', program:'Hybrid · Conditioning', planName:'Hybrid Split', days:'5 days / week', focusTag:'Conditioning', adherence:'83%', week:'4/5', weight:'58.9', status:'On track', statusTone:'ok',
+      time:'2d', unread:false, active:false, preview:'See you Tuesday!',
+      kcal:1720, goal:1900, protein:130, carbs:190, fat:55, avg:'1,880', overNote:'On target',
+      thread:[
+        {who:'me', text:'Session moved to Tuesday 6pm — works for you?', time:'Sat'},
+        {who:'them', text:'See you Tuesday!', time:'14:02'},
+      ] },
+  ];
+  go(route) { this.setState({ route, picker: false }); }
+  renderVals() {
+    const r = this.state.route, t = this.state.theme, s = this.state.surface, l = this.state.layout;
+    const ci = this.state.client || 0, chatView = this.state.chatView || 'list', pickerOpen = !!this.state.picker;
+    const builderNew = !!this.state.builderNew;
+    const mkTpl = (icon, name, meta, blank) => ({
+      icon, name, meta,
+      onClick: () => this.setState({ builderNew: false }),
+      cardStyle: 'background:var(--surface-card);border:1px '+(blank?'dashed':'solid')+' var(--border-'+(blank?'default':'subtle')+');'+(blank?'':'box-shadow:var(--shadow-card);')+'border-radius:var(--radius-md);padding:16px;cursor:pointer',
+      iconStyle: 'width:40px;height:40px;border-radius:10px;background:'+(blank?'var(--surface-sunken)':'var(--color-primary-tint)')+';color:'+(blank?'var(--text-muted)':'var(--ff-orange)')+';display:flex;align-items:center;justify-content:center',
+    });
+    const navBg = (x) => r === x ? 'var(--color-primary-tint)' : 'transparent';
+    const navCol = (x) => r === x ? 'var(--ff-orange)' : 'rgba(255,255,255,0.72)';
+    const segBg = (on) => on ? 'var(--surface-card)' : 'transparent';
+    const segCol = (on) => on ? 'var(--text-primary)' : 'var(--text-muted)';
+    const TONE = {
+      orange:{ col:'var(--ff-orange)', tint:'rgba(255,107,62,0.16)' },
+      protein:{ col:'var(--ff-protein)', tint:'rgba(229,57,53,0.16)' },
+      carbs:{ col:'var(--ff-carbs)', tint:'rgba(30,136,229,0.16)' },
+      fat:{ col:'var(--ff-fat)', tint:'rgba(67,160,71,0.16)' },
+    };
+    const STATUS = {
+      ok:{ col:'var(--ff-fat)', bg:'rgba(67,160,71,0.14)' },
+      warn:{ col:'var(--ff-warning)', bg:'rgba(255,167,38,0.16)' },
+      bad:{ col:'var(--ff-danger)', bg:'rgba(229,57,53,0.14)' },
+    };
+    const fmt = (n) => n.toLocaleString('en-US');
+    const C = 2 * Math.PI * 52;
+    const pickClient = (i) => this.setState({ client: i, picker: false });
+    const openThread = (i) => this.setState({ client: i, chatView: 'thread' });
+
+    const convos = this.clients.map((c, i) => {
+      const tn = TONE[c.tone];
+      const isSel = i === ci;
+      return {
+        name: c.name, program: c.program, initials: c.initials, preview: c.preview, time: c.time,
+        unread: c.unread, isSel: isSel,
+        avatarStyle: 'width:40px;height:40px;border-radius:50%;background:'+tn.tint+';color:'+tn.col+';display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:800;font-size:13px;flex-shrink:0',
+        rowStyle: 'display:flex;align-items:center;gap:11px;padding:13px 14px;cursor:pointer;'+(isSel?'background:var(--color-primary-tint);border-left:3px solid var(--ff-orange)':'border-left:3px solid transparent'),
+        pickRowStyle: 'display:flex;align-items:center;gap:11px;padding:9px 11px;border-radius:9px;cursor:pointer;'+(isSel?'background:var(--color-primary-tint)':''),
+        pickAvatarStyle: 'width:32px;height:32px;border-radius:50%;background:'+tn.tint+';color:'+tn.col+';display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:800;font-size:11px;flex-shrink:0',
+        timeCol: c.unread ? 'var(--ff-orange)' : 'var(--text-muted)',
+        timeWeight: c.unread ? '700' : '400',
+        pick: () => pickClient(i),
+        openThread: () => openThread(i),
+      };
+    });
+
+    const c = this.clients[ci];
+    const tn = TONE[c.tone];
+    const st = STATUS[c.statusTone];
+    const rem = c.goal - c.kcal;
+    const over = rem < 0;
+    const ringPct = Math.min(c.kcal / c.goal, 1);
+    const sel = {
+      name: c.name, first: c.first, initials: c.initials, program: c.program,
+      planName: c.planName, days: c.days, focusTag: c.focusTag,
+      adherence: c.adherence, week: c.week, weight: c.weight, status: c.status,
+      statusCol: st.col, statusBg: st.bg, col: tn.col, tint: tn.tint,
+      avatarSm: 'width:32px;height:32px;border-radius:50%;background:'+tn.tint+';color:'+tn.col+';display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:800;font-size:11px;flex-shrink:0',
+      avatarMd: 'width:38px;height:38px;border-radius:50%;background:'+tn.tint+';color:'+tn.col+';display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:800;font-size:13px;flex-shrink:0',
+      avatarLg: 'width:56px;height:56px;border-radius:50%;background:'+tn.tint+';color:'+tn.col+';display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:800;font-size:19px;flex-shrink:0',
+      kcalStr: fmt(c.kcal), goalStr: fmt(c.goal), goalStrShort: '/ '+fmt(c.goal),
+      protein: c.protein, carbs: c.carbs, fat: c.fat, goal: c.goal,
+      ringOffset: (C * (1 - ringPct)).toFixed(1), ringCol: over ? 'var(--ff-danger)' : 'var(--ff-orange)',
+      remStr: over ? fmt(-rem)+' kcal over' : fmt(rem)+' kcal left',
+      remCol: over ? 'var(--ff-danger)' : 'var(--ff-carbs)',
+      remBg: over ? 'rgba(229,57,53,0.14)' : 'rgba(30,136,229,0.14)',
+      avgStr: c.avg, overNote: c.overNote,
+    };
+
+    const selThread = c.thread.map((m) => {
+      const me = m.who === 'me', them = m.who === 'them', card = m.who === 'card';
+      return {
+        me, them, card, notCard: !card, text: m.text, time: m.time, title: m.title, sub: m.sub,
+        wrapStyle: me ? 'max-width:74%;align-self:flex-end' : 'max-width:74%;align-self:flex-start',
+        bubbleStyle: me
+          ? 'background:var(--ff-orange);color:#fff;border-radius:14px 4px 14px 14px;padding:10px 13px'
+          : 'background:var(--surface-card);border:0.5px solid var(--border-subtle);border-radius:4px 14px 14px 14px;padding:10px 13px',
+        timeCol: me ? 'rgba(255,255,255,0.8)' : 'var(--text-muted)',
+        mWrapStyle: me ? 'max-width:82%;align-self:flex-end' : 'max-width:82%;align-self:flex-start',
+      };
+    });
+
+    return {
+      sel, convos, selThread,
+      picker: pickerOpen,
+      isBuilderNew: r === 'builder' && builderNew,
+      isBuilderEdit: r === 'builder' && !builderNew,
+      newWorkout: () => this.setState({ route: 'builder', builderNew: true, picker: false }),
+      cancelNew: () => this.setState({ builderNew: false }),
+      newWkBtn: { onClick: () => this.setState({ route: 'builder', builderNew: true, picker: false }) },
+      templates: [
+        mkTpl('fitness_center', 'Push / Pull / Legs', '4 days · Hypertrophy'),
+        mkTpl('splitscreen', 'Upper / Lower', '4 days · Balanced'),
+        mkTpl('exercise', 'Full Body', '3 days · Beginner'),
+        mkTpl('monitoring', '5×5 Strength', '3 days · Strength'),
+        mkTpl('directions_run', 'Hybrid Split', '5 days · Conditioning'),
+        mkTpl('add', 'Start from scratch', 'Blank plan', true),
+      ],
+      mobileChatList: r === 'messages' && chatView === 'list',
+      mobileChatThread: r === 'messages' && chatView === 'thread',
+      showMobileComposer: r === 'messages' && chatView === 'thread',
+      togglePicker: () => this.setState(x => ({ picker: !x.picker })),
+      msgBack: () => this.setState(x => (x.chatView === 'thread' ? { chatView: 'list' } : { route: 'dashboard' })),
+      themeClass: t === 'dark' ? 'theme-dark' : '',
+      themeIcon: t === 'dark' ? 'light_mode' : 'dark_mode',
+      isDesktop: s === 'desktop', isMobile: s === 'mobile',
+      isDashboard: r === 'dashboard', isClient: r === 'client',
+      isMessages: r === 'messages', isBuilder: r === 'builder', isNutrition: r === 'nutrition',
+      layoutGrid: l === 'grid', layoutTable: l === 'table',
+      navDashBg: navBg('dashboard'), navDashCol: navCol('dashboard'),
+      navMsgBg: navBg('messages'), navMsgCol: navCol('messages'),
+      navWkBg: navBg('builder'), navWkCol: navCol('builder'),
+      navNutBg: navBg('nutrition'), navNutCol: navCol('nutrition'),
+      segDeskBg: s === 'desktop' ? 'var(--ff-orange)' : 'transparent',
+      segDeskCol: s === 'desktop' ? '#fff' : 'rgba(255,255,255,0.7)',
+      segMobBg: s === 'mobile' ? 'var(--ff-orange)' : 'transparent',
+      segMobCol: s === 'mobile' ? '#fff' : 'rgba(255,255,255,0.7)',
+      segGridBg: segBg(l === 'grid'), segGridCol: segCol(l === 'grid'), segGridSh: l === 'grid' ? 'var(--shadow-sm)' : 'none',
+      segTableBg: segBg(l === 'table'), segTableCol: segCol(l === 'table'), segTableSh: l === 'table' ? 'var(--shadow-sm)' : 'none',
+      p92: 0.92, p64: 0.64, p98: 0.98, p41: 0.41, p83: 0.83, p89: 0.89,
+      mProtein: 168, mCarbs: 232, mFat: 62, mGoal: 2200,
+      msgBtn: { onClick: () => this.go('messages') },
+      editBtn: { onClick: () => this.go('builder') },
+      mobileNav: !(r === 'messages' && chatView === 'thread'),
+      homeFill: r === 'dashboard' ? 'fill' : '',
+      msgFill: r === 'messages' ? 'fill' : '',
+      wkFill: r === 'builder' ? 'fill' : '',
+      nutFill: r === 'nutrition' ? 'fill' : '',
+      mNavHomeCol: r === 'dashboard' ? 'var(--ff-orange)' : 'var(--text-muted)',
+      mNavMsgCol: r === 'messages' ? 'var(--ff-orange)' : 'var(--text-muted)',
+      mNavWkCol: r === 'builder' ? 'var(--ff-orange)' : 'var(--text-muted)',
+      mNavNutCol: r === 'nutrition' ? 'var(--ff-orange)' : 'var(--text-muted)',
+      goDash: () => this.go('dashboard'),
+      goClient: () => this.go('client'),
+      goMessages: () => this.setState({ route: 'messages', chatView: 'list', picker: false }),
+      goBuilder: () => this.setState({ route: 'builder', builderNew: false, picker: false }),
+      goNutrition: () => this.go('nutrition'),
+      toggleTheme: () => this.setState(st => ({ theme: st.theme === 'dark' ? 'light' : 'dark' })),
+      setDesktop: () => this.setState({ surface: 'desktop' }),
+      setMobile: () => this.setState({ surface: 'mobile' }),
+      setGrid: () => this.setState({ layout: 'grid' }),
+      setTable: () => this.setState({ layout: 'table' }),
+    };
+  }
+}
+</script>
+</body>
+</html>
