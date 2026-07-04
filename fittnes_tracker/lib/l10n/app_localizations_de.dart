@@ -57,6 +57,12 @@ class AppLocalizationsDe extends AppLocalizations {
   String get settings => 'Einstellungen';
 
   @override
+  String get appearance => 'Erscheinungsbild';
+
+  @override
+  String get refresh => 'Aktualisieren';
+
+  @override
   String get age => 'Alter';
 
   @override

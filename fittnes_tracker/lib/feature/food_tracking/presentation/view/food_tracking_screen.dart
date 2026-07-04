@@ -1,6 +1,5 @@
 // lib/feature/presentation/view/food_tracking_screen.dart
 import 'package:ForgeForm/core/app_database.dart';
-import 'package:ForgeForm/core/providers/theme_provider.dart';
 import 'package:ForgeForm/core/providers/user_goals_provider.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
@@ -218,20 +217,6 @@ class _FoodTrackingScreenState extends State<FoodTrackingScreen> {
         ),
         actions: [
           IconButton(
-            icon: Icon(
-              Provider.of<ThemeProvider>(context).themeMode == ThemeMode.light
-                  ? Icons.dark_mode
-                  : Icons.light_mode,
-              color: Colors.white,
-            ),
-            onPressed:
-                () =>
-                    Provider.of<ThemeProvider>(
-                      context,
-                      listen: false,
-                    ).toggleTheme(),
-          ),
-          IconButton(
             icon: const Icon(Icons.restaurant_menu, color: Colors.white),
             tooltip: AppLocalizations.of(context)!.mealTemplates,
             onPressed: () {
@@ -240,6 +225,7 @@ class _FoodTrackingScreenState extends State<FoodTrackingScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white),
+            tooltip: AppLocalizations.of(context)!.refresh,
             onPressed: loadNutritionData,
           ),
         ],
@@ -341,15 +327,15 @@ class _FoodTrackingScreenState extends State<FoodTrackingScreen> {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.blue.withOpacity(0.1),
+                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
                     '$totalCalories / $calorieGoal kcal',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: Colors.blue,
+                      color: Theme.of(context).colorScheme.primary,
                     ),
                   ),
                 ),
@@ -358,9 +344,9 @@ class _FoodTrackingScreenState extends State<FoodTrackingScreen> {
             const SizedBox(height: 16),
             LinearProgressIndicator(
               value: progress.clamp(0.0, 1.0),
-              backgroundColor: Colors.grey[200],
+              backgroundColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.08),
               valueColor: AlwaysStoppedAnimation<Color>(
-                progress > 1 ? Colors.red : Colors.blue,
+                progress > 1 ? Theme.of(context).colorScheme.error : Theme.of(context).colorScheme.primary,
               ),
             ),
             const SizedBox(height: 16),
@@ -370,7 +356,8 @@ class _FoodTrackingScreenState extends State<FoodTrackingScreen> {
                 _buildNutrientSummary(
                   AppLocalizations.of(context)!.proteinLabel,
                   '${totalProtein}g',
-                  Colors.red,
+                  Icons.egg_outlined,
+                  const Color(0xFFE57373),
                   calorieGoal > 0
                       ? '${(totalProtein * 4 / calorieGoal * 100).toStringAsFixed(1)}%'
                       : '0%',
@@ -378,7 +365,8 @@ class _FoodTrackingScreenState extends State<FoodTrackingScreen> {
                 _buildNutrientSummary(
                   AppLocalizations.of(context)!.carbsLabel,
                   '${totalCarbs}g',
-                  Colors.blue,
+                  Icons.grain,
+                  const Color(0xFF64B5F6),
                   calorieGoal > 0
                       ? '${(totalCarbs * 4 / calorieGoal * 100).toStringAsFixed(1)}%'
                       : '0%',
@@ -386,7 +374,8 @@ class _FoodTrackingScreenState extends State<FoodTrackingScreen> {
                 _buildNutrientSummary(
                   AppLocalizations.of(context)!.fatLabel,
                   '${totalFat}g',
-                  Colors.green,
+                  Icons.water_drop_outlined,
+                  const Color(0xFF81C784),
                   calorieGoal > 0
                       ? '${(totalFat * 9 / calorieGoal * 100).toStringAsFixed(1)}%'
                       : '0%',
@@ -402,11 +391,14 @@ class _FoodTrackingScreenState extends State<FoodTrackingScreen> {
   Widget _buildNutrientSummary(
     String label,
     String value,
+    IconData icon,
     Color color,
     String percentage,
   ) {
     return Column(
       children: [
+        Icon(icon, color: color, size: 18),
+        const SizedBox(height: 2),
         Text(
           value,
           style: TextStyle(
@@ -418,7 +410,10 @@ class _FoodTrackingScreenState extends State<FoodTrackingScreen> {
         Text(label, style: const TextStyle(fontSize: 14)),
         Text(
           percentage,
-          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+          style: TextStyle(
+            fontSize: 12,
+            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55),
+          ),
         ),
       ],
     );
@@ -555,12 +550,35 @@ class _FoodTrackingScreenState extends State<FoodTrackingScreen> {
                                   IconButton(
                                     icon: const Icon(Icons.delete_outline),
                                     onPressed: () async {
-                                      await _repository.removeFoodFromMeal(
-                                        category,
-                                        food,
-                                        date: _selectedDate,
+                                      final l10n = AppLocalizations.of(context)!;
+                                      final confirmed = await showDialog<bool>(
+                                        context: context,
+                                        builder: (ctx) => AlertDialog(
+                                          title: Text(l10n.delete),
+                                          content: Text(food.name),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () => Navigator.pop(ctx, false),
+                                              child: Text(l10n.cancel),
+                                            ),
+                                            TextButton(
+                                              onPressed: () => Navigator.pop(ctx, true),
+                                              style: TextButton.styleFrom(
+                                                foregroundColor: Theme.of(context).colorScheme.error,
+                                              ),
+                                              child: Text(l10n.delete),
+                                            ),
+                                          ],
+                                        ),
                                       );
-                                      loadNutritionData();
+                                      if (confirmed == true) {
+                                        await _repository.removeFoodFromMeal(
+                                          category,
+                                          food,
+                                          date: _selectedDate,
+                                        );
+                                        loadNutritionData();
+                                      }
                                     },
                                   ),
                                 ],
