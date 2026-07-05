@@ -27,6 +27,50 @@ ForgeForm is a Flutter fitness app with an ASP.NET Core backend (JWT/OAuth/RBAC 
 - Typography: Montserrat (Bold/ExtraBold) for headings/stat numbers; Exo 2 for UI labels/body
 - Icons: Material Symbols Rounded, outlined default, filled + orange when active
 
+## UI/UX Conventions
+
+These conventions apply to every screen built for the Trainer Console (and should be extended to the trainee-facing app where reasonable). They exist so multiple agents/sessions produce consistent, production-grade UI rather than each screen reinventing spacing, states, and interactions.
+
+### Layout & spacing
+- Base unit: **4px grid**, spacing scale `4 / 8 / 12 / 16 / 24 / 32 / 48px`. No arbitrary one-off values (e.g. `13px`, `21px`).
+- Card padding: 16px (compact) or 24px (hero/summary cards).
+- Section gaps: 24px between major blocks, 32px page-level padding on desktop, 16px on mobile.
+- Responsive breakpoints: mobile `<600px`, tablet `600–1024px`, desktop `>1024px`. Design for mobile and desktop explicitly; tablet inherits the nearer breakpoint rather than getting a bespoke layout unless a screen visibly breaks.
+
+### Component & naming conventions
+- Flutter widget names mirror the design-system component names in the handoff (`StatTile`, `ProgressBar`, `MacroSummary`, `Button`) — don't invent parallel names for the same concept.
+- One shared widget per repeated pattern (e.g. a single `ClientAvatar` widget for initials-in-colored-circle, reused in Roster, Chat, Client Detail) — never re-implement the same visual pattern inline in multiple screens.
+- Status badges (`ok` / `warn` / `bad`) are a single reusable widget with a tone enum, not per-screen colored containers.
+
+### States every screen must handle
+Every data-bound screen (Roster, Client Detail, Chat, Builder, Nutrition) needs explicit, designed handling for:
+- **Loading** — skeleton/shimmer placeholders matching the final layout's shape, not a bare spinner, for anything above ~300ms of expected latency.
+- **Empty** — a real empty state (icon + short message + action where applicable), e.g. "No clients yet — invite your first client" rather than a blank screen.
+- **Error** — inline, recoverable error messaging with a retry action; never a silent failure or a raw exception surfaced to the trainer.
+- **Populated** — the default/happy-path state shown in the mockup.
+
+### Interaction & motion
+- Press/hover feedback: subtle darken (~8–10%) or scale to `0.97`, consistent with the handoff — no bespoke transitions per screen.
+- Standard transition duration: **150–250ms, ease-out** for state changes (opening a sheet, switching tabs, expanding a card). Avoid anything longer than 300ms for UI chrome.
+- Respect the OS-level reduced-motion setting — fall back to instant/cross-fade transitions rather than skipping the state change entirely.
+- Hover states are desktop/web only; never rely on hover to reveal functionality that mobile users would then have no way to trigger (use always-visible affordances or long-press instead).
+
+### Accessibility (non-negotiable, not a later pass)
+- Minimum tap target: 44×44px on mobile, 32×32px acceptable for dense desktop tables.
+- Text contrast: WCAG AA minimum (4.5:1 body text, 3:1 large text/icons) in both light and dark themes — verify Forge Orange on white/charcoal combinations specifically, since brand orange on light backgrounds is a common contrast failure point.
+- Every interactive element needs a semantic label for screen readers (Flutter `Semantics`/`tooltip`), not just a visual icon.
+- Color is never the only signal — status badges/tones pair a color with a label or icon, since color-only status (ok/warn/bad) fails for colorblind users.
+- Focus states are visible and keyboard-navigable on desktop (tab order follows visual/logical order).
+
+### Forms & input
+- Inline validation on blur, not only on submit; error copy is specific ("Weight must be greater than 0", not "Invalid input").
+- Destructive actions (removing a client, deleting a workout) require a confirmation step — never a single tap with no undo path.
+- Numeric inputs relevant to training (reps/weight/RPE) use appropriate keyboard types and sane min/max/step constraints matching real-world values.
+
+### Copy & tone
+- UI copy is short, direct, and trainer-facing (not consumer-marketing tone) — e.g. "Assign to client" not "Share this awesome plan!"
+- Placeholder/example data in any new screen should look like realistic trainer data (real-sounding names, plausible adherence %, realistic set/rep/kcal numbers), not "Lorem ipsum" or "Test Client 1."
+
 ## Shared state — client-switcher
 A single **active client** selection must live at the app-shell level and be shared across Roster, Chat, Workout Builder, and Nutrition — not re-selected per screen. Switching the active client re-derives all client-specific data in already-visible panes; it should not trigger a full navigation reload. See the design handoff README's "State Management" section for the exact state shape to replicate (`route`, `client`, `chatView`, `picker`, `layout`, builder new/edit mode, per-client data shape).
 
