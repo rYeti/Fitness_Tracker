@@ -589,6 +589,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _SectionLabel(l10n.settings),
                 Card(
                   elevation: 0,
+                  clipBehavior: Clip.antiAlias,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                     side: BorderSide(color: colorScheme.outlineVariant),
