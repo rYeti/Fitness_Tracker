@@ -283,7 +283,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              AppLocalizations.of(context)!.errorLoadingWorkout as String,
+              AppLocalizations.of(context)!.errorLoadingWorkout(e),
             ),
           ),
         );
@@ -883,10 +883,10 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(
+                Icon(
                   Icons.warning_amber_rounded,
                   size: 64,
-                  color: Colors.orange,
+                  color: Theme.of(context).colorScheme.tertiary,
                 ),
                 const SizedBox(height: 16),
                 Text(
@@ -1033,7 +1033,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
               Text(widget.scheduledWorkout.workout?.name ?? 'Workout'),
               Text(
                 l10n.completedWorkout,
-                style: theme.textTheme.bodySmall?.copyWith(color: Colors.green),
+                style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.tertiary),
               ),
             ],
           ),
@@ -1124,7 +1124,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                               Localizations.localeOf(context).languageCode,
                             )!,
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color: Colors.grey,
+                              color: theme.colorScheme.onSurfaceVariant,
                             ),
                           ),
                         ],
@@ -1590,7 +1590,10 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                           '',
                     );
 
-                    return GestureDetector(
+                    return Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                      borderRadius: BorderRadius.circular(8),
                       onTap: () => setState(() => _currentSetIndex = index),
                       child: Padding(
                         padding: const EdgeInsets.only(bottom: 8.0),
@@ -1604,8 +1607,8 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                                     isCurrent
                                         ? theme.colorScheme.primary
                                         : isPast
-                                        ? Colors.green
-                                        : theme.colorScheme.surfaceVariant,
+                                        ? theme.colorScheme.tertiary
+                                        : theme.colorScheme.surfaceContainerHighest,
                                 shape: BoxShape.circle,
                               ),
                               child: Center(
@@ -1650,8 +1653,9 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                           ],
                         ),
                       ),
+                    ),
                     );
-                  }).toList(),
+                  }),
                 ],
               ),
             ),
@@ -1708,7 +1712,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                   padding: const EdgeInsets.symmetric(vertical: 18),
                   backgroundColor:
                       isLastSet && isLastExercise
-                          ? Colors.green
+                          ? theme.colorScheme.tertiary
                           : theme.colorScheme.primary,
                 ),
               ),
@@ -2245,7 +2249,7 @@ class WorkoutSummaryDialog extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.check_circle, color: Colors.green, size: 32),
+                  Icon(Icons.check_circle, color: Theme.of(context).colorScheme.tertiary, size: 32),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(

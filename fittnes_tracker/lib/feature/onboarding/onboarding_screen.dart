@@ -106,7 +106,31 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   void _nextPage() {
-    if (_currentPage == 2) _recalculate();
+    final l10n = AppLocalizations.of(context)!;
+    if (_currentPage == 1) {
+      if (_nameController.text.trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.pleaseEnterAName)),
+        );
+        return;
+      }
+      if (_ageController.text.trim().isEmpty ||
+          _heightController.text.trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.pleaseEnterValidAgeAndHeight)),
+        );
+        return;
+      }
+    }
+    if (_currentPage == 2) {
+      if (_currentWeightController.text.trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.pleaseEnterValidNumber)),
+        );
+        return;
+      }
+      _recalculate();
+    }
     _pageController.nextPage(
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
@@ -178,7 +202,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.failedToSaveProfile(e))));
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);

@@ -3,7 +3,6 @@ import 'package:ForgeForm/feature/food_tracking/data/repositories/nutrition_repo
 import 'package:ForgeForm/feature/gym_tracking/presentation/view/workouts/active_workout_view.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../core/providers/theme_provider.dart';
 import '../../../core/providers/user_goals_provider.dart';
 import 'package:flutter_speed_dial/flutter_speed_dial.dart';
 import '../widgets/dashboard_weight_card.dart';
@@ -20,6 +19,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _weekCompleted = 0;
   int _weekTotal = 0;
   int _allTimeCompleted = 0;
+  int _todayCalories = 0;
 
   @override
   void initState() {
@@ -68,22 +68,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
         ),
-        actions: [
-          IconButton(
-            icon: Icon(
-              Provider.of<ThemeProvider>(context).themeMode == ThemeMode.light
-                  ? Icons.dark_mode
-                  : Icons.light_mode,
-              color: Colors.white,
-            ),
-            onPressed:
-                () =>
-                    Provider.of<ThemeProvider>(
-                      context,
-                      listen: false,
-                    ).toggleTheme(),
-          ),
-        ],
+        actions: const [],
       ),
       body: RefreshIndicator(
         color: colorScheme.primary,
@@ -118,7 +103,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         foregroundColor: Colors.white,
         children: [
           SpeedDialChild(
-            child: const Icon(Icons.restaurant),
+            child: const Icon(Icons.free_breakfast),
             backgroundColor: colorScheme.primary,
             label: l10n.addBreakfast,
             onTap: () async {
@@ -130,7 +115,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             },
           ),
           SpeedDialChild(
-            child: const Icon(Icons.restaurant),
+            child: const Icon(Icons.lunch_dining),
             backgroundColor: colorScheme.primary,
             label: l10n.addLunch,
             onTap: () async {
@@ -142,7 +127,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             },
           ),
           SpeedDialChild(
-            child: const Icon(Icons.restaurant),
+            child: const Icon(Icons.dinner_dining),
             backgroundColor: colorScheme.primary,
             label: l10n.addDinner,
             onTap: () async {
@@ -154,7 +139,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             },
           ),
           SpeedDialChild(
-            child: const Icon(Icons.restaurant),
+            child: const Icon(Icons.cookie),
             backgroundColor: colorScheme.primary,
             label: l10n.addSnack,
             onTap: () async {
@@ -197,11 +182,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
             )
             .toList();
 
+    final repository = NutritionRepository(db);
+    final todayNutrition = await repository.getNutritionHistoryForToday();
+    final todayCalories = todayNutrition.firstOrNull?.totalCalories ?? 0;
+
     if (mounted) {
       setState(() {
         _weekCompleted = thisWeek.where((sw) => sw.isCompleted).length;
         _weekTotal = thisWeek.length;
         _allTimeCompleted = all.where((sw) => sw.isCompleted).length;
+        _todayCalories = todayCalories;
       });
     }
   }
@@ -258,7 +248,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 children: [
                   _buildQuickStat(
                     Icons.local_fire_department,
-                    '--',
+                    '$_todayCalories',
                     l10n.calories,
                     colorScheme.primary,
                   ),
@@ -417,7 +407,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final isRestDay = workoutName == 'Rest Day' || workoutName.isEmpty;
         final hasWorkout = item != null && !isRestDay;
 
-        return GestureDetector(
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
+          borderRadius: BorderRadius.circular(12.0),
           onTap:
               hasWorkout
                   ? () => Navigator.push(
@@ -472,7 +465,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                     if (isCompleted) ...[
                       const Spacer(),
-                      Icon(Icons.check_circle, color: Colors.green, size: 18),
+                      Icon(Icons.check_circle, color: colorScheme.tertiary, size: 18),
                     ],
                     if (hasWorkout && !isCompleted) ...[
                       const Spacer(),
@@ -512,6 +505,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ],
             ),
           ),
+        ),
         );
       },
     );

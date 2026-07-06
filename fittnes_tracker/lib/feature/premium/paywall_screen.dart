@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
-import 'package:ForgeForm/core/providers/access_provider.dart';
+import 'package:ForgeForm/core/providers/access_provider.dart'
+    show AccessProvider, revenueCatApiKey;
 import 'package:ForgeForm/feature/auth/presentation/providers/auth_provider.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -28,15 +29,19 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
   Future<void> _loadOfferings() async {
     try {
       if (!(await Purchases.isConfigured)) {
+        await Purchases.configure(PurchasesConfiguration(revenueCatApiKey));
+      }
+      final offerings = await Purchases.getOfferings();
+      final current = offerings.current;
+      if (current == null) {
         setState(() {
+          _error = 'No active offering found. Check RevenueCat dashboard.';
           _loading = false;
         });
         return;
       }
-      final offerings = await Purchases.getOfferings();
-      final current = offerings.current;
       setState(() {
-        _packages = current?.availablePackages ?? [];
+        _packages = current.availablePackages;
         _loading = false;
       });
     } catch (e) {

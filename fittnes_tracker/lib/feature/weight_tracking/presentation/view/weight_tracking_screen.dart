@@ -1,4 +1,3 @@
-import 'package:ForgeForm/core/providers/theme_provider.dart';
 import 'package:ForgeForm/feature/weight_tracking/presentation/providers/weight_provider.dart';
 import 'package:ForgeForm/feature/weight_tracking/presentation/widgets/weight_chart.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
@@ -43,20 +42,6 @@ class WeightTrackingScreen extends StatelessWidget {
           ),
           actions: [
             IconButton(
-              icon: Icon(
-                Provider.of<ThemeProvider>(context).themeMode == ThemeMode.light
-                    ? Icons.dark_mode
-                    : Icons.light_mode,
-                color: Colors.white,
-              ),
-              onPressed:
-                  () =>
-                      Provider.of<ThemeProvider>(
-                        context,
-                        listen: false,
-                      ).toggleTheme(),
-            ),
-            IconButton(
               icon: const Icon(Icons.flag, color: Colors.white),
               tooltip: l10n.weightGoals,
               onPressed: () => Navigator.pushNamed(context, '/weight-goals'),
@@ -65,7 +50,7 @@ class WeightTrackingScreen extends StatelessWidget {
               icon: const Icon(Icons.more_vert, color: Colors.white),
               itemBuilder:
                   (ctx) => [
-                    PopupMenuItem(child: Text(l10n.setWeightGoal)),
+                    PopupMenuItem(value: 'goals', child: Text(l10n.setWeightGoal)),
                     PopupMenuItem(value: 'bmi', child: Text(l10n.calculateBMI)),
                   ],
               onSelected: (value) {
@@ -473,7 +458,7 @@ class _AddEditWeightDialogState extends State<AddEditWeightDialog> {
             ),
             const SizedBox(height: 14),
             Text(
-              l10n.fatLabel,
+              l10n.startDateLabel,
               style: TextStyle(
                 fontFamily: 'Exo 2',
                 fontSize: 13,

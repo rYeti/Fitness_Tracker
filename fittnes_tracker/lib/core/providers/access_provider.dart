@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -5,7 +7,8 @@ import 'package:dio/dio.dart';
 
 // ── Configuration ────────────────────────────────────────────────────────────
 // Replace with your RevenueCat public SDK key from app.revenuecat.com
-const _revenueCatApiKey = 'goog_bngAaflqXhTyOmLFSRWpMQnOQnW';
+const revenueCatApiKey = 'goog_bngAaflqXhTyOmLFSRWpMQnOQnW';
+const _revenueCatApiKey = revenueCatApiKey;
 
 // The entitlement identifier set up in your RevenueCat dashboard.
 const _premiumEntitlementId = 'ForgeForm Pro';
@@ -13,6 +16,7 @@ const _premiumEntitlementId = 'ForgeForm Pro';
 // SharedPreferences keys used to cache access state across cold starts.
 const _prefIsPremium = 'access_is_premium';
 const _prefIsTrainerClient = 'access_is_trainer_client';
+const _prefIsTrainer = 'access_is_trainer';
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Aggregates premium status from RevenueCat purchases and the server-side
@@ -21,10 +25,12 @@ const _prefIsTrainerClient = 'access_is_trainer_client';
 class AccessProvider extends ChangeNotifier {
   bool _isPremium = false;
   bool _isTrainerClient = false;
+  bool _isTrainer = false;
   bool _initialized = false;
 
   bool get isPremium => _isPremium;
   bool get isTrainerClient => _isTrainerClient;
+  bool get isTrainer => _isTrainer;
 
   /// True if the user has access to premium features from ANY source.
   bool get hasPremiumAccess => _isPremium || _isTrainerClient;
@@ -43,6 +49,7 @@ class AccessProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     _isPremium = prefs.getBool(_prefIsPremium) ?? false;
     _isTrainerClient = prefs.getBool(_prefIsTrainerClient) ?? false;
+    _isTrainer = prefs.getBool(_prefIsTrainer) ?? false;
     _initialized = true;
     notifyListeners();
 
@@ -55,6 +62,7 @@ class AccessProvider extends ChangeNotifier {
     // Persist so the next cold start has correct values before the network check.
     await prefs.setBool(_prefIsPremium, _isPremium);
     await prefs.setBool(_prefIsTrainerClient, _isTrainerClient);
+    await prefs.setBool(_prefIsTrainer, _isTrainer);
     notifyListeners();
   }
 
@@ -70,6 +78,7 @@ class AccessProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_prefIsPremium, _isPremium);
     await prefs.setBool(_prefIsTrainerClient, _isTrainerClient);
+    await prefs.setBool(_prefIsTrainer, _isTrainer);
     notifyListeners();
   }
 
@@ -77,10 +86,12 @@ class AccessProvider extends ChangeNotifier {
   Future<void> reset() async {
     _isPremium = false;
     _isTrainerClient = false;
+    _isTrainer = false;
     _initialized = false;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_prefIsPremium);
     await prefs.remove(_prefIsTrainerClient);
+    await prefs.remove(_prefIsTrainer);
     try {
       await Purchases.logOut();
     } catch (_) {}
@@ -90,7 +101,7 @@ class AccessProvider extends ChangeNotifier {
   // ── Private helpers ────────────────────────────────────────────────────────
 
   Future<void> _checkRevenueCat(String? userId) async {
-    if (kIsWeb) return;
+    if (kIsWeb || (!Platform.isAndroid && !Platform.isIOS)) return;
     if (_revenueCatApiKey.isEmpty) return;
     try {
       if (!(await Purchases.isConfigured)) {
@@ -120,6 +131,9 @@ class AccessProvider extends ChangeNotifier {
       final response = await dio.get('api/TrainerClient/status');
       _isTrainerClient =
           (response.data as Map<String, dynamic>)['isTrainerClient'] as bool? ??
+          false;
+      _isTrainer =
+          (response.data as Map<String, dynamic>)['isTrainer'] as bool? ??
           false;
     } catch (_) {
       // Keep cached value on failure.

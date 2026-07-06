@@ -85,6 +85,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final TextEditingController _calorieGoalController = TextEditingController();
   bool _initialized = false;
   bool _isSaving = false;
+  bool _isCalculating = false;
   bool _restTimerEnabled = true;
   final TextEditingController _ageController = TextEditingController();
   final TextEditingController _heightController = TextEditingController();
@@ -477,6 +478,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 16),
                 _saveButton(
                   label: l10n.calculateAndSave,
+                  isLoading: _isCalculating,
                   onPressed: () async {
                     final age = int.tryParse(_ageController.text.trim());
                     final height = int.tryParse(_heightController.text.trim());
@@ -488,7 +490,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       );
                       return;
                     }
-                    setState(() => _isSaving = true);
+                    setState(() => _isCalculating = true);
                     final provider = Provider.of<UserGoalsProvider>(
                       context,
                       listen: false,
@@ -519,7 +521,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         );
                       }
                     } finally {
-                      if (mounted) setState(() => _isSaving = false);
+                      if (mounted) setState(() => _isCalculating = false);
                     }
                     if (!mounted) return;
                     _calorieGoalController.text = kcal.toString();
@@ -531,6 +533,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 10),
                 _saveButton(
                   label: l10n.save,
+                  isLoading: _isSaving,
                   onPressed: () async {
                     FocusScope.of(context).unfocus();
                     final text = _calorieGoalController.text.trim();
@@ -586,7 +589,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 24),
 
                 // ── Appearance ────────────────────────────────────────────
-                _SectionLabel(l10n.settings),
+                _SectionLabel(l10n.appearance),
                 Card(
                   elevation: 0,
                   clipBehavior: Clip.antiAlias,
@@ -927,11 +930,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _saveButton({
     required String label,
     required VoidCallback onPressed,
+    required bool isLoading,
     bool secondary = false,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
     return ElevatedButton(
-      onPressed: _isSaving ? null : onPressed,
+      onPressed: isLoading ? null : onPressed,
       style: ElevatedButton.styleFrom(
         padding: const EdgeInsets.symmetric(vertical: 14),
         backgroundColor:
@@ -941,7 +945,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
       ),
       child:
-          _isSaving
+          isLoading
               ? const SizedBox(
                 width: 18,
                 height: 18,
@@ -965,10 +969,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
 class _GoPremiumBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
+        color: colorScheme.inverseSurface,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -977,20 +982,20 @@ class _GoPremiumBanner extends StatelessWidget {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: const Color(0xFF2A2A2A),
+              color: colorScheme.onInverseSurface,
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Icon(Icons.bolt, color: Color(0xFFFF6B35), size: 22),
+            child: Icon(Icons.bolt, color: colorScheme.primary, size: 22),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Go Premium',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: colorScheme.onInverseSurface,
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
                   ),
@@ -999,7 +1004,7 @@ class _GoPremiumBanner extends StatelessWidget {
                 Text(
                   'Unlimited plans, full history & analytics',
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.55),
+                    color: colorScheme.onInverseSurface.withValues(alpha: 0.70),
                     fontSize: 12,
                   ),
                 ),

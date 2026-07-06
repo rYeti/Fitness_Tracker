@@ -21,6 +21,8 @@
   "progress": "Progress",
 
   "settings": "Settings",
+  "appearance": "Appearance",
+  "refresh": "Refresh",
   "age": "Age",
   "heightCm": "Height (cm)",
   "dailyCalorieGoal": "Daily Calorie Goal",
