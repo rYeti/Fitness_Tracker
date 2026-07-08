@@ -2,7 +2,7 @@
 
 Patch notes for Google Play Store releases. Newest first.
 
-## Unreleased (pending next version bump from 1.0.1+2)
+## 1.0.2+3
 
 ### Fixed
 

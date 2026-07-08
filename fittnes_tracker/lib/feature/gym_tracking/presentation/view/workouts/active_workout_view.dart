@@ -1719,7 +1719,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                   padding: const EdgeInsets.symmetric(vertical: 18),
                   backgroundColor:
                       isLastSet && isLastExercise
-                          ? theme.colorScheme.tertiary
+                          ? ThemeProvider.kSuccessColor
                           : theme.colorScheme.primary,
                 ),
               ),
@@ -2256,7 +2256,11 @@ class WorkoutSummaryDialog extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.check_circle, color: kSuccessColor, size: 32),
+                  Icon(
+                    Icons.check_circle,
+                    color: ThemeProvider.kSuccessColor,
+                    size: 32,
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
