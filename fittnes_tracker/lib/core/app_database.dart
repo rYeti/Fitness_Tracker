@@ -1987,7 +1987,10 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
     // 2️⃣ Load exercise instances for this workout
     final exerciseInstances =
         await (select(workoutExerciseTable)
-              ..where((we) => we.workoutId.equals(id))
+              ..where(
+                (we) =>
+                    we.workoutId.equals(id) & we.syncStatus.isNotValue(3),
+              )
               ..orderBy([(we) => OrderingTerm(expression: we.orderPosition)]))
             .get();
 
@@ -2061,7 +2064,11 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
   getWorkoutExercisesWithTemplates(int workoutId) async {
     final workoutExercises =
         await (select(workoutExerciseTable)
-              ..where((we) => we.workoutId.equals(workoutId))
+              ..where(
+                (we) =>
+                    we.workoutId.equals(workoutId) &
+                    we.syncStatus.isNotValue(3),
+              )
               ..orderBy([(we) => OrderingTerm.asc(we.orderPosition)]))
             .get();
     final results =
@@ -2122,30 +2129,50 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
       }
 
       // 🔹 2️⃣ If updating, diff old vs new exercises.
-      // Update in-place when the same exerciseId is still present so that
+      // Match by the existing workoutExercise row id (which callers already
+      // carry over for exercises they didn't remove) rather than exerciseId —
+      // a workout can contain the same exercise more than once (e.g. a
+      // superset pairing the same move), and matching by exerciseId can't
+      // tell those instances apart: a Set<exerciseId>.contains() check stays
+      // true as long as ANY instance of that exercise remains, so removing
+      // one of several duplicates was silently ignored and the wrong row
+      // could get updated in its place.
+      // Update in-place when the row id is still present so that
       // workoutExercise.id stays stable — historical scheduledWorkoutExercise
       // rows (and the progress-screen JOIN) depend on these IDs not changing.
       // Only hard-delete rows for exercises that were actually removed.
-      Map<int, WorkoutExerciseTableData> existingByExerciseId = {};
+      Map<int, WorkoutExerciseTableData> existingById = {};
       if (workout.id != null) {
         final existingExercises =
             await (select(workoutExerciseTable)
               ..where((we) => we.workoutId.equals(workoutId))).get();
 
-        existingByExerciseId = {
-          for (final e in existingExercises) e.exerciseId: e,
-        };
+        existingById = {for (final e in existingExercises) e.id: e};
 
-        final newExerciseIds =
-            workout.exercises.map((e) => e.exerciseId).toSet();
+        final keptIds =
+            workout.exercises.map((e) => e.id).whereType<int>().toSet();
 
-        // Delete only the exercises that are no longer in the workout.
+        // Remove only the exercises that are no longer in the workout.
+        // If the exercise was already pushed to the server (has a serverId),
+        // don't hard-delete it yet — mark it pendingDelete so SyncService can
+        // issue the DELETE call first. Hard-deleting here would drop the
+        // serverId before sync ever runs, so the exercise would never be
+        // removed server-side and would reappear on the next pull/reconcile.
         for (final ex in existingExercises) {
-          if (!newExerciseIds.contains(ex.exerciseId)) {
-            await (delete(workoutSetTemplateTable)
-              ..where((t) => t.workoutExerciseId.equals(ex.id))).go();
-            await (delete(workoutExerciseTable)
-              ..where((we) => we.id.equals(ex.id))).go();
+          if (!keptIds.contains(ex.id)) {
+            if (ex.serverId != null) {
+              await (update(workoutExerciseTable)
+                ..where((we) => we.id.equals(ex.id))).write(
+                const WorkoutExerciseTableCompanion(
+                  syncStatus: Value(3), // pendingDelete
+                ),
+              );
+            } else {
+              await (delete(workoutSetTemplateTable)
+                ..where((t) => t.workoutExerciseId.equals(ex.id))).go();
+              await (delete(workoutExerciseTable)
+                ..where((we) => we.id.equals(ex.id))).go();
+            }
           }
         }
       }
@@ -2154,7 +2181,8 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
       for (final exercise in workout.exercises) {
         int exerciseInstanceId;
 
-        final existing = existingByExerciseId[exercise.exerciseId];
+        final existing =
+            exercise.id != null ? existingById[exercise.id] : null;
         if (existing != null) {
           // Update in-place — preserve the ID so historical data stays linked.
           exerciseInstanceId = existing.id;
@@ -2283,6 +2311,14 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
 
   Future<List<WorkoutExerciseTableData>> getExercisesForWorkoutRaw(int workoutId) =>
       (select(workoutExerciseTable)..where((we) => we.workoutId.equals(workoutId))).get();
+
+  /// Hard-deletes a workout exercise (and its set templates) after it has
+  /// been removed on the server, or immediately if it was never synced.
+  Future<void> deleteWorkoutExercise(int id) => transaction(() async {
+    await (delete(workoutSetTemplateTable)
+      ..where((t) => t.workoutExerciseId.equals(id))).go();
+    await (delete(workoutExerciseTable)..where((we) => we.id.equals(id))).go();
+  });
 
   // WorkoutSetTemplates
   Future<List<WorkoutSetTemplateData>> getUnsyncedSetTemplates() =>

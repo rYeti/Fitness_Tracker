@@ -201,14 +201,17 @@ class SyncService {
     final exercises = await _db.workoutDao.getExercisesForWorkoutRaw(w.id);
     final newExercises =
         exercises
-            .where((e) => e.syncStatus != 1 && e.serverId == null)
+            .where((e) => e.syncStatus == 0 && e.serverId == null)
             .toList();
     if (newExercises.isNotEmpty)
       await _syncNewWorkoutExercisesBatch(newExercises, w.serverId!);
     for (final we in exercises.where(
-      (e) => e.syncStatus != 1 && e.serverId != null,
+      (e) => e.syncStatus == 2 && e.serverId != null,
     )) {
       await _syncUpdateWorkoutExercise(we);
+    }
+    for (final we in exercises.where((e) => e.syncStatus == 3)) {
+      await _syncDeleteWorkoutExercise(we);
     }
     _logger.i('Updated workout ${w.id} on server ${w.serverId}');
   }
@@ -291,6 +294,16 @@ class SyncService {
       },
     );
     await _db.workoutDao.markWorkoutExerciseSynced(we.id, we.serverId!);
+  }
+
+  Future<void> _syncDeleteWorkoutExercise(WorkoutExerciseTableData we) async {
+    if (we.serverId == null) {
+      await _db.workoutDao.deleteWorkoutExercise(we.id);
+      return;
+    }
+    await _apiClient.delete('api/Workout/exercises/${we.serverId}');
+    await _db.workoutDao.deleteWorkoutExercise(we.id);
+    _logger.i('Deleted workout exercise ${we.id} from server ${we.serverId}');
   }
 
   Future<void> _syncNewSetTemplatesBatch(
