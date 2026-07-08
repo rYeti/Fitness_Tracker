@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../widgets/exercise_selection_modal.dart';
 import '../../widgets/expandable_description.dart';
 import '../../widgets/reset_timer_widget.dart';
+import '../../../../../core/providers/theme_provider.dart';
 
 // Keys used to persist an in-progress workout so the session can be resumed
 // if the OS kills the app while it is minimised.
@@ -282,9 +283,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              AppLocalizations.of(context)!.errorLoadingWorkout(e),
-            ),
+            content: Text(AppLocalizations.of(context)!.errorLoadingWorkout(e)),
           ),
         );
       }
@@ -1033,7 +1032,9 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
               Text(widget.scheduledWorkout.workout?.name ?? 'Workout'),
               Text(
                 l10n.completedWorkout,
-                style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.tertiary),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.tertiary,
+                ),
               ),
             ],
           ),
@@ -1339,9 +1340,10 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                       null) ...[
                     const SizedBox(height: 8),
                     ExpandableDescription(
-                      description: exerciseData.exercise.localizedDescription(
-                        Localizations.localeOf(context).languageCode,
-                      )!,
+                      description:
+                          exerciseData.exercise.localizedDescription(
+                            Localizations.localeOf(context).languageCode,
+                          )!,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onPrimaryContainer,
                       ),
@@ -1593,67 +1595,72 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                     return Material(
                       color: Colors.transparent,
                       child: InkWell(
-                      borderRadius: BorderRadius.circular(8),
-                      onTap: () => setState(() => _currentSetIndex = index),
-                      child: Padding(
-                        padding: const EdgeInsets.only(bottom: 8.0),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 32,
-                              height: 32,
-                              decoration: BoxDecoration(
-                                color:
-                                    isCurrent
-                                        ? theme.colorScheme.primary
-                                        : isPast
-                                        ? theme.colorScheme.tertiary
-                                        : theme.colorScheme.surfaceContainerHighest,
-                                shape: BoxShape.circle,
-                              ),
-                              child: Center(
-                                child: Text(
-                                  '${template.setNumber}',
-                                  style: TextStyle(
-                                    color:
-                                        isCurrent || isPast
-                                            ? Colors.white
-                                            : theme
-                                                .colorScheme
-                                                .onSurfaceVariant,
-                                    fontWeight: FontWeight.bold,
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: () => setState(() => _currentSetIndex = index),
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 8.0),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 32,
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  color:
+                                      isCurrent
+                                          ? theme.colorScheme.primary
+                                          : isPast
+                                          ? theme.colorScheme.tertiary
+                                          : theme
+                                              .colorScheme
+                                              .surfaceContainerHighest,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    '${template.setNumber}',
+                                    style: TextStyle(
+                                      color:
+                                          isCurrent || isPast
+                                              ? Colors.white
+                                              : theme
+                                                  .colorScheme
+                                                  .onSurfaceVariant,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                isPast &&
-                                        weightController.text.isNotEmpty &&
-                                        repsController.text.isNotEmpty
-                                    ? '${weightController.text} kg × ${repsController.text} reps'
-                                    : isCurrent
-                                    ? l10n.currentSetLabel
-                                    : l10n.upcoming,
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color:
-                                      isPast && weightController.text.isNotEmpty
-                                          ? null
-                                          : theme.colorScheme.onSurfaceVariant,
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  isPast &&
+                                          weightController.text.isNotEmpty &&
+                                          repsController.text.isNotEmpty
+                                      ? '${weightController.text} kg × ${repsController.text} reps'
+                                      : isCurrent
+                                      ? l10n.currentSetLabel
+                                      : l10n.upcoming,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color:
+                                        isPast &&
+                                                weightController.text.isNotEmpty
+                                            ? null
+                                            : theme
+                                                .colorScheme
+                                                .onSurfaceVariant,
+                                  ),
                                 ),
                               ),
-                            ),
-                            if (!isCurrent)
-                              Icon(
-                                Icons.arrow_forward_ios,
-                                size: 14,
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                          ],
+                              if (!isCurrent)
+                                Icon(
+                                  Icons.arrow_forward_ios,
+                                  size: 14,
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
                     );
                   }),
                 ],
@@ -2249,7 +2256,7 @@ class WorkoutSummaryDialog extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.check_circle, color: Theme.of(context).colorScheme.tertiary, size: 32),
+                  Icon(Icons.check_circle, color: kSuccessColor, size: 32),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(

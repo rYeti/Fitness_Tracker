@@ -7,7 +7,7 @@ class ThemeProvider with ChangeNotifier {
   final AppDatabase db;
 
   ThemeProvider(this.db, {ThemeMode initialTheme = ThemeMode.light})
-      : _themeMode = initialTheme;
+    : _themeMode = initialTheme;
 
   ThemeMode get themeMode => _themeMode;
 
@@ -19,6 +19,8 @@ class ThemeProvider with ChangeNotifier {
     );
     notifyListeners();
   }
+
+  static const Color kSuccessColor = Color(0xFF4CAF50);
 
   // Light theme - ForgeForm branding
   ThemeData get lightTheme {
