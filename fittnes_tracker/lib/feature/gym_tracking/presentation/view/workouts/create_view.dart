@@ -4,7 +4,7 @@ import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/di/service_locator.dart';
 import 'package:ForgeForm/core/providers/access_provider.dart';
 import 'package:ForgeForm/core/services/notification_service.dart';
-import 'package:ForgeForm/feature/premium/paywall_screen.dart';
+import 'package:ForgeForm/feature/premium/paywall_launcher.dart';
 import 'package:ForgeForm/feature/workout_planning/data/models/workout.dart';
 import 'package:ForgeForm/feature/workout_planning/data/models/exercise.dart';
 import 'package:ForgeForm/feature/gym_tracking/presentation/widgets/exercise_selection_modal.dart';
@@ -590,11 +590,7 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
                               !context
                                   .read<AccessProvider>()
                                   .hasPremiumAccess) {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => const PaywallScreen(),
-                              ),
-                            );
+                            openPaywall(context);
                             return;
                           }
                           setState(() => _isFreeChoice = wantFree);
@@ -732,9 +728,7 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
                 selected: isSelected,
                 onSelected: (_) {
                   if (isLocked) {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const PaywallScreen()),
-                    );
+                    openPaywall(context);
                     return;
                   }
                   setState(() => _durationWeeks = weeks);

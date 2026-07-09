@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:ForgeForm/core/providers/access_provider.dart';
-import 'paywall_screen.dart';
+import 'paywall_launcher.dart';
 
 /// Wraps [child] and shows nothing / a lock indicator while access is unknown.
 /// When the user does NOT have premium access, tapping the area opens the paywall.
@@ -81,11 +81,7 @@ class PremiumGate extends StatelessWidget {
     );
   }
 
-  void _openPaywall(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const PaywallScreen()),
-    );
-  }
+  void _openPaywall(BuildContext context) => openPaywall(context);
 }
 
 /// Thin wrapper that makes a single tab / menu item appear locked.
@@ -108,9 +104,7 @@ class PremiumBadge extends StatelessWidget {
           top: -4,
           right: -4,
           child: GestureDetector(
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const PaywallScreen()),
-            ),
+            onTap: () => openPaywall(context),
             child: Container(
               padding: const EdgeInsets.all(3),
               decoration: const BoxDecoration(

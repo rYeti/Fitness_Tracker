@@ -3524,6 +3524,24 @@ abstract class AppLocalizations {
   /// **'Upgrade to Premium'**
   String get upgradeToPremium;
 
+  /// No description provided for @goPremiumBannerTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Go Premium'**
+  String get goPremiumBannerTitle;
+
+  /// No description provided for @goPremiumBannerSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlimited plans, full history & analytics'**
+  String get goPremiumBannerSubtitle;
+
+  /// No description provided for @goPremiumBannerButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Upgrade'**
+  String get goPremiumBannerButton;
+
   /// No description provided for @paywallUnlockPotential.
   ///
   /// In en, this message translates to:

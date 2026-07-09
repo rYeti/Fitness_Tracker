@@ -8,7 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/providers/user_goals_provider.dart';
 import 'package:ForgeForm/core/providers/access_provider.dart';
-import 'package:ForgeForm/feature/premium/paywall_screen.dart';
+import 'package:ForgeForm/feature/premium/paywall_launcher.dart';
 import 'package:ForgeForm/feature/premium/premium_gate.dart';
 
 enum TimeRange { week, month, threeMonths, allTime, custom }
@@ -1211,9 +1211,7 @@ class _ProgressScreenState extends State<ProgressScreen>
           selected: selectedRange == range,
           onSelected: (_) {
             if (!hasPremium) {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const PaywallScreen()),
-              );
+              openPaywall(context);
             } else {
               onChanged(range);
             }
@@ -1259,9 +1257,7 @@ class _ProgressScreenState extends State<ProgressScreen>
                   selected: selectedRange == TimeRange.custom,
                   onSelected: (_) async {
                     if (!hasPremium) {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const PaywallScreen()),
-                      );
+                      openPaywall(context);
                       return;
                     }
                     final picked = await showDateRangePicker(

@@ -23,7 +23,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart' hide Consumer;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:ForgeForm/feature/premium/paywall_screen.dart';
+import 'package:ForgeForm/feature/premium/paywall_launcher.dart';
 import 'package:ForgeForm/feature/premium/premium_gate.dart';
 
 extension SexLocalizations on Sex {
@@ -993,7 +993,7 @@ class _GoPremiumBanner extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Go Premium',
+                  AppLocalizations.of(context)!.goPremiumBannerTitle,
                   style: TextStyle(
                     color: colorScheme.onInverseSurface,
                     fontWeight: FontWeight.bold,
@@ -1002,7 +1002,7 @@ class _GoPremiumBanner extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'Unlimited plans, full history & analytics',
+                  AppLocalizations.of(context)!.goPremiumBannerSubtitle,
                   style: TextStyle(
                     color: colorScheme.onInverseSurface.withValues(alpha: 0.70),
                     fontSize: 12,
@@ -1013,10 +1013,7 @@ class _GoPremiumBanner extends StatelessWidget {
           ),
           const SizedBox(width: 10),
           ElevatedButton(
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const PaywallScreen()),
-            ),
+            onPressed: () => openPaywall(context),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFFF6B35),
               foregroundColor: Colors.white,
@@ -1030,7 +1027,7 @@ class _GoPremiumBanner extends StatelessWidget {
                 fontSize: 13,
               ),
             ),
-            child: const Text('Upgrade'),
+            child: Text(AppLocalizations.of(context)!.goPremiumBannerButton),
           ),
         ],
       ),

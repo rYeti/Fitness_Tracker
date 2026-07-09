@@ -2,7 +2,7 @@
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/providers/access_provider.dart';
 import 'package:ForgeForm/core/utils/app_logger.dart';
-import 'package:ForgeForm/feature/premium/paywall_screen.dart';
+import 'package:ForgeForm/feature/premium/paywall_launcher.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:dio/dio.dart' show CancelToken;
 import 'package:drift/drift.dart' show Value;
@@ -822,9 +822,7 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
       final count = await db.foodItemDao.countCustomFoodItems();
       if (!mounted) return;
       if (count >= 10) {
-        Navigator.of(
-          context,
-        ).push(MaterialPageRoute(builder: (_) => const PaywallScreen()));
+        openPaywall(context);
         return;
       }
     }

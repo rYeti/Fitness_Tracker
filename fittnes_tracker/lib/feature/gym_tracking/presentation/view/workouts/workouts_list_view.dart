@@ -2,7 +2,7 @@ import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/di/service_locator.dart';
 import 'package:ForgeForm/core/providers/access_provider.dart';
 import 'package:ForgeForm/feature/gym_tracking/presentation/providers/workout_provider.dart';
-import 'package:ForgeForm/feature/premium/paywall_screen.dart';
+import 'package:ForgeForm/feature/premium/paywall_launcher.dart';
 import 'package:ForgeForm/feature/gym_tracking/presentation/view/workouts/create_view.dart';
 import 'package:ForgeForm/feature/gym_tracking/presentation/view/workouts/edit_view.dart';
 import 'package:ForgeForm/feature/gym_tracking/presentation/view/workouts/importer/csv_import_screen.dart';
@@ -85,9 +85,7 @@ class WorkoutsListViewState extends State<WorkoutsListView> {
               onTap: () async {
                 Navigator.pop(ctx);
                 if (!hasPremium && planCount >= 1) {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const PaywallScreen()),
-                  );
+                  openPaywall(context);
                   return;
                 }
                 await Navigator.of(context).push(

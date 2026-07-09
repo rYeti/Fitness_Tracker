@@ -1,7 +1,7 @@
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/providers/access_provider.dart';
 import 'package:ForgeForm/core/utils/app_logger.dart';
-import 'package:ForgeForm/feature/premium/paywall_screen.dart';
+import 'package:ForgeForm/feature/premium/paywall_launcher.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -73,9 +73,7 @@ class _MealTemplatesScreenState extends State<MealTemplatesScreen> {
               final all = await repo.getAllTemplates();
               if (!context.mounted) return;
               if (all.length >= 3) {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const PaywallScreen()),
-                );
+                openPaywall(context);
                 return;
               }
             }
@@ -157,9 +155,7 @@ class _TemplateListTabState extends State<TemplateListTab>
                         final all = await repo.getAllTemplates();
                         if (!context.mounted) return;
                         if (all.length >= 3) {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => const PaywallScreen()),
-                          );
+                          openPaywall(context);
                           return;
                         }
                       }

@@ -11,7 +11,8 @@ const revenueCatApiKey = 'goog_bngAaflqXhTyOmLFSRWpMQnOQnW';
 const _revenueCatApiKey = revenueCatApiKey;
 
 // The entitlement identifier set up in your RevenueCat dashboard.
-const _premiumEntitlementId = 'ForgeForm Pro';
+const premiumEntitlementId = 'ForgeForm Pro';
+const _premiumEntitlementId = premiumEntitlementId;
 
 // SharedPreferences keys used to cache access state across cold starts.
 const _prefIsPremium = 'access_is_premium';

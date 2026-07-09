@@ -1915,6 +1915,16 @@ class AppLocalizationsDe extends AppLocalizations {
   String get upgradeToPremium => 'Auf Premium upgraden';
 
   @override
+  String get goPremiumBannerTitle => 'Premium freischalten';
+
+  @override
+  String get goPremiumBannerSubtitle =>
+      'Unbegrenzte Pläne, vollständiger Verlauf & Analysen';
+
+  @override
+  String get goPremiumBannerButton => 'Upgraden';
+
+  @override
   String get paywallUnlockPotential => 'Entfalte dein volles Potenzial';
 
   @override
