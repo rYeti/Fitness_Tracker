@@ -1,6 +1,7 @@
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/dao/meal_template_dao.dart';
 import 'package:ForgeForm/core/network/api_client.dart';
+import 'package:ForgeForm/core/network/secure_token_storage.dart';
 import 'package:ForgeForm/core/network/services/sync_service.dart';
 import 'package:ForgeForm/core/network/token_refresh_service.dart';
 import 'package:ForgeForm/core/seed_exercises.dart';
@@ -52,10 +53,10 @@ void _backgroundSyncDispatcher() {
   Workmanager().executeTask((taskName, inputData) async {
     if (taskName != _backgroundSyncTask) return true;
 
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
+    final token = await SecureTokenStorage.getToken();
     if (token == null) return true; // not logged in, nothing to sync
 
+    final prefs = await SharedPreferences.getInstance();
     final serverUrl = prefs.getString(serverUrlPrefsKey) ?? serverUrlDefault;
 
     // Background isolate has its own memory — re-initialise the locator and db.
@@ -454,7 +455,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       }
     }
 
-    final token = prefs.getString('token');
+    final token = await SecureTokenStorage.getToken();
     if (token == null) return; // not logged in
 
     final serverUrl = prefs.getString(serverUrlPrefsKey) ?? serverUrlDefault;

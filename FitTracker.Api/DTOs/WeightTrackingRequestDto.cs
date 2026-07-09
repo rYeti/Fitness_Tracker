@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace FitTracker.Api.DTOs;
 
 /// <summary>Request payload for logging or updating a weight entry.</summary>
@@ -7,8 +9,10 @@ public class WeightTrackingRequestDto
     public DateTime Date { get; set; }
 
     /// <summary>The recorded weight value.</summary>
+    [Range(1, 1000)]
     public double Weight { get; set; }
 
     /// <summary>An optional note to attach to the weight entry.</summary>
+    [MaxLength(1000)]
     public string? Note { get; set; }
 }

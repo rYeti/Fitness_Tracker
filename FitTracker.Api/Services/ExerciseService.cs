@@ -47,7 +47,7 @@ public class ExerciseService : IExerciseService
     /// <inheritdoc/>
     public async Task<List<ExerciseResponseDto>> GetAllExercisesAsync(Guid userId)
     {
-        var exercises = await _exerciseRepository.GetAllExercisesAsync();
+        var exercises = await _exerciseRepository.GetAllExercisesAsync(userId);
         return [.. exercises.Select(ToResponseDto)];
     }
 

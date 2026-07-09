@@ -34,37 +34,41 @@ public interface IWorkoutService
     /// <returns><c>true</c> if deleted; <c>false</c> if not found.</returns>
     Task<bool> DeleteWorkoutAsync(Guid id, Guid userId);
 
-    /// <summary>Adds an exercise entry to a workout.</summary>
-    Task<WorkoutExerciseResponseDto> AddExerciseToWorkoutAsync(Guid workoutId, WorkoutExerciseRequestDto dto);
+    /// <summary>Adds an exercise entry to a workout owned by the specified user.</summary>
+    Task<WorkoutExerciseResponseDto?> AddExerciseToWorkoutAsync(Guid workoutId, Guid userId, WorkoutExerciseRequestDto dto);
 
-    /// <summary>Adds multiple exercise entries to a workout in one call.</summary>
-    Task<List<WorkoutExerciseResponseDto>> AddExercisesToWorkoutBatchAsync(Guid workoutId, List<WorkoutExerciseRequestDto> dtos);
+    /// <summary>Adds multiple exercise entries to a workout owned by the specified user in one call.</summary>
+    Task<List<WorkoutExerciseResponseDto>> AddExercisesToWorkoutBatchAsync(Guid workoutId, Guid userId, List<WorkoutExerciseRequestDto> dtos);
 
-    /// <summary>Updates an existing workout exercise entry.</summary>
+    /// <summary>Updates an existing workout exercise entry owned by the specified user.</summary>
     /// <param name="weId">The ID of the workout exercise to update.</param>
+    /// <param name="userId">The ID of the user who must own the parent workout.</param>
     /// <param name="dto">The updated exercise data.</param>
-    /// <returns>The updated workout exercise DTO, or <c>null</c> if not found.</returns>
-    Task<WorkoutExerciseResponseDto?> UpdateWorkoutExerciseAsync(Guid weId, WorkoutExerciseRequestDto dto);
+    /// <returns>The updated workout exercise DTO, or <c>null</c> if not found or not owned.</returns>
+    Task<WorkoutExerciseResponseDto?> UpdateWorkoutExerciseAsync(Guid weId, Guid userId, WorkoutExerciseRequestDto dto);
 
-    /// <summary>Deletes a workout exercise entry.</summary>
+    /// <summary>Deletes a workout exercise entry owned by the specified user.</summary>
     /// <param name="weId">The ID of the workout exercise to delete.</param>
-    /// <returns><c>true</c> if deleted; <c>false</c> if not found.</returns>
-    Task<bool> DeleteWorkoutExerciseAsync(Guid weId);
+    /// <param name="userId">The ID of the user who must own the parent workout.</param>
+    /// <returns><c>true</c> if deleted; <c>false</c> if not found or not owned.</returns>
+    Task<bool> DeleteWorkoutExerciseAsync(Guid weId, Guid userId);
 
-    /// <summary>Adds a set template to a workout exercise.</summary>
-    Task<WorkoutSetTemplateResponseDto> AddSetTemplateAsync(Guid workoutExerciseId, WorkoutSetTemplateRequestDto dto);
+    /// <summary>Adds a set template to a workout exercise owned by the specified user.</summary>
+    Task<WorkoutSetTemplateResponseDto?> AddSetTemplateAsync(Guid workoutExerciseId, Guid userId, WorkoutSetTemplateRequestDto dto);
 
-    /// <summary>Adds multiple set templates to a workout exercise in one call.</summary>
-    Task<List<WorkoutSetTemplateResponseDto>> AddSetTemplatesBatchAsync(Guid workoutExerciseId, List<WorkoutSetTemplateRequestDto> dtos);
+    /// <summary>Adds multiple set templates to a workout exercise owned by the specified user in one call.</summary>
+    Task<List<WorkoutSetTemplateResponseDto>> AddSetTemplatesBatchAsync(Guid workoutExerciseId, Guid userId, List<WorkoutSetTemplateRequestDto> dtos);
 
-    /// <summary>Updates an existing set template.</summary>
+    /// <summary>Updates an existing set template owned by the specified user.</summary>
     /// <param name="id">The ID of the set template to update.</param>
+    /// <param name="userId">The ID of the user who must own the parent workout.</param>
     /// <param name="dto">The updated set template data.</param>
-    /// <returns>The updated set template DTO, or <c>null</c> if not found.</returns>
-    Task<WorkoutSetTemplateResponseDto?> UpdateSetTemplateAsync(Guid id, WorkoutSetTemplateRequestDto dto);
+    /// <returns>The updated set template DTO, or <c>null</c> if not found or not owned.</returns>
+    Task<WorkoutSetTemplateResponseDto?> UpdateSetTemplateAsync(Guid id, Guid userId, WorkoutSetTemplateRequestDto dto);
 
-    /// <summary>Deletes a set template.</summary>
+    /// <summary>Deletes a set template owned by the specified user.</summary>
     /// <param name="id">The ID of the set template to delete.</param>
-    /// <returns><c>true</c> if deleted; <c>false</c> if not found.</returns>
-    Task<bool> DeleteSetTemplateAsync(Guid id);
+    /// <param name="userId">The ID of the user who must own the parent workout.</param>
+    /// <returns><c>true</c> if deleted; <c>false</c> if not found or not owned.</returns>
+    Task<bool> DeleteSetTemplateAsync(Guid id, Guid userId);
 }

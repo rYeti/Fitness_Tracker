@@ -29,17 +29,17 @@ public class ScheduledWorkoutRepository : IScheduledWorkoutRepository
     }
 
     /// <inheritdoc/>
-    public async Task<ScheduledWorkout?> GetScheduledWorkoutByIdAsync(Guid id)
+    public async Task<ScheduledWorkout?> GetScheduledWorkoutByIdAsync(Guid id, Guid userId)
     {
         return await _context.ScheduledWorkouts
-            .Where(sw => sw.Id == id)
+            .Where(sw => sw.Id == id && sw.Workout.UserId == userId)
             .Include(sw => sw.Exercises)
                 .ThenInclude(e => e.Sets)
             .FirstOrDefaultAsync();
     }
 
     /// <inheritdoc/>
-    public async Task<ScheduledWorkout> CreateScheduledWorkoutAsync(ScheduledWorkout sw)
+    public async Task<ScheduledWorkout?> CreateScheduledWorkoutAsync(ScheduledWorkout sw, Guid userId)
     {
         var existing = await _context.ScheduledWorkouts
             .Include(s => s.Exercises)
@@ -48,6 +48,15 @@ public class ScheduledWorkoutRepository : IScheduledWorkoutRepository
 
         if (existing != null)
             return existing;
+
+        var ownsWorkout = await _context.Workouts.AnyAsync(w => w.Id == sw.WorkoutId && w.UserId == userId);
+        if (!ownsWorkout) return null;
+
+        if (sw.WorkoutPlanId != null)
+        {
+            var ownsPlan = await _context.WorkoutPlans.AnyAsync(p => p.Id == sw.WorkoutPlanId && p.UserId == userId);
+            if (!ownsPlan) return null;
+        }
 
         var workoutExercises = await _context.WorkoutExercises
             .Where(we => we.WorkoutId == sw.WorkoutId)
@@ -71,13 +80,22 @@ public class ScheduledWorkoutRepository : IScheduledWorkoutRepository
     }
 
     /// <inheritdoc/>
-    public async Task<ScheduledWorkout?> UpdateScheduledWorkoutAsync(Guid id, ScheduledWorkoutRequestDto dto)
+    public async Task<ScheduledWorkout?> UpdateScheduledWorkoutAsync(Guid id, Guid userId, ScheduledWorkoutRequestDto dto)
     {
         var sw = await _context.ScheduledWorkouts
             .Include(s => s.Exercises)
                 .ThenInclude(e => e.Sets)
-            .FirstOrDefaultAsync(s => s.Id == id);
+            .FirstOrDefaultAsync(s => s.Id == id && s.Workout.UserId == userId);
         if (sw == null) return null;
+
+        var ownsWorkout = await _context.Workouts.AnyAsync(w => w.Id == dto.WorkoutId && w.UserId == userId);
+        if (!ownsWorkout) return null;
+
+        if (dto.WorkoutPlanId != null)
+        {
+            var ownsPlan = await _context.WorkoutPlans.AnyAsync(p => p.Id == dto.WorkoutPlanId && p.UserId == userId);
+            if (!ownsPlan) return null;
+        }
 
         sw.WorkoutId = dto.WorkoutId;
         sw.WorkoutPlanId = dto.WorkoutPlanId;
@@ -91,9 +109,9 @@ public class ScheduledWorkoutRepository : IScheduledWorkoutRepository
     }
 
     /// <inheritdoc/>
-    public async Task<bool> DeleteScheduledWorkoutAsync(Guid id)
+    public async Task<bool> DeleteScheduledWorkoutAsync(Guid id, Guid userId)
     {
-        var sw = await _context.ScheduledWorkouts.FirstOrDefaultAsync(s => s.Id == id);
+        var sw = await _context.ScheduledWorkouts.FirstOrDefaultAsync(s => s.Id == id && s.Workout.UserId == userId);
         if (sw == null) return false;
 
         _context.ScheduledWorkouts.Remove(sw);
@@ -102,14 +120,12 @@ public class ScheduledWorkoutRepository : IScheduledWorkoutRepository
     }
 
     /// <inheritdoc/>
-    public async Task<ScheduledWorkoutExercise?> GetScheduledExerciseAsync(Guid id)
+    public async Task<List<ScheduledWorkoutExercise>?> CreateExercisesBatchAsync(Guid scheduledWorkoutId, Guid userId, List<Guid> workoutExerciseIds)
     {
-        return await _context.ScheduledWorkoutExercises.FirstOrDefaultAsync(e => e.Id == id);
-    }
+        var ownsScheduledWorkout = await _context.ScheduledWorkouts
+            .AnyAsync(s => s.Id == scheduledWorkoutId && s.Workout.UserId == userId);
+        if (!ownsScheduledWorkout) return null;
 
-    /// <inheritdoc/>
-    public async Task<List<ScheduledWorkoutExercise>> CreateExercisesBatchAsync(Guid scheduledWorkoutId, List<Guid> workoutExerciseIds)
-    {
         var existingWeIds = await _context.ScheduledWorkoutExercises
             .Where(e => e.ScheduledWorkoutId == scheduledWorkoutId)
             .Select(e => e.WorkoutExerciseId)
@@ -137,17 +153,22 @@ public class ScheduledWorkoutRepository : IScheduledWorkoutRepository
     }
 
     /// <inheritdoc/>
-    public async Task<WorkoutSet> AddSetAsync(WorkoutSet set)
+    public async Task<WorkoutSet?> AddSetAsync(WorkoutSet set, Guid userId)
     {
+        var ownsExercise = await _context.ScheduledWorkoutExercises
+            .AnyAsync(e => e.Id == set.ScheduledWorkoutExerciseId && e.ScheduledWorkout.Workout.UserId == userId);
+        if (!ownsExercise) return null;
+
         _context.WorkoutSets.Add(set);
         await _context.SaveChangesAsync();
         return set;
     }
 
     /// <inheritdoc/>
-    public async Task<WorkoutSet?> UpdateSetAsync(Guid setId, WorkoutSetRequestDto dto)
+    public async Task<WorkoutSet?> UpdateSetAsync(Guid setId, Guid userId, WorkoutSetRequestDto dto)
     {
-        var set = await _context.WorkoutSets.FirstOrDefaultAsync(s => s.Id == setId);
+        var set = await _context.WorkoutSets
+            .FirstOrDefaultAsync(s => s.Id == setId && s.ScheduledWorkoutExercise.ScheduledWorkout.Workout.UserId == userId);
         if (set == null) return null;
 
         set.SetNumber = dto.SetNumber;
@@ -163,9 +184,10 @@ public class ScheduledWorkoutRepository : IScheduledWorkoutRepository
     }
 
     /// <inheritdoc/>
-    public async Task<bool> DeleteSetAsync(Guid setId)
+    public async Task<bool> DeleteSetAsync(Guid setId, Guid userId)
     {
-        var set = await _context.WorkoutSets.FirstOrDefaultAsync(s => s.Id == setId);
+        var set = await _context.WorkoutSets
+            .FirstOrDefaultAsync(s => s.Id == setId && s.ScheduledWorkoutExercise.ScheduledWorkout.Workout.UserId == userId);
         if (set == null) return false;
 
         _context.WorkoutSets.Remove(set);
@@ -174,9 +196,10 @@ public class ScheduledWorkoutRepository : IScheduledWorkoutRepository
     }
 
     /// <inheritdoc/>
-    public async Task<bool> CompleteExerciseAsync(Guid scheduledExerciseId)
+    public async Task<bool> CompleteExerciseAsync(Guid scheduledExerciseId, Guid userId)
     {
-        var exercise = await _context.ScheduledWorkoutExercises.FirstOrDefaultAsync(e => e.Id == scheduledExerciseId);
+        var exercise = await _context.ScheduledWorkoutExercises
+            .FirstOrDefaultAsync(e => e.Id == scheduledExerciseId && e.ScheduledWorkout.Workout.UserId == userId);
         if (exercise == null) return false;
 
         exercise.IsCompleted = true;
@@ -185,9 +208,10 @@ public class ScheduledWorkoutRepository : IScheduledWorkoutRepository
     }
 
     /// <inheritdoc/>
-    public async Task<bool> CompleteWorkoutAsync(Guid scheduledWorkoutId)
+    public async Task<bool> CompleteWorkoutAsync(Guid scheduledWorkoutId, Guid userId)
     {
-        var sw = await _context.ScheduledWorkouts.FirstOrDefaultAsync(s => s.Id == scheduledWorkoutId);
+        var sw = await _context.ScheduledWorkouts
+            .FirstOrDefaultAsync(s => s.Id == scheduledWorkoutId && s.Workout.UserId == userId);
         if (sw == null) return false;
 
         sw.IsCompleted = true;

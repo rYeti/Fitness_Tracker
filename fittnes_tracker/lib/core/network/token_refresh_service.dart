@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:ForgeForm/core/network/api_client.dart';
+import 'package:ForgeForm/core/network/secure_token_storage.dart';
 import 'package:ForgeForm/feature/auth/data/repositories/auth_repository.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 /// Coordinates silent access-token renewal across every [ApiClient] instance.
 ///
@@ -37,21 +37,20 @@ class TokenRefreshService {
   }
 
   Future<bool> _doRefresh(String baseUrl) async {
-    final prefs = await SharedPreferences.getInstance();
-    final refreshToken = prefs.getString('refresh_token');
+    final refreshToken = await SecureTokenStorage.getRefreshToken();
     if (refreshToken == null || refreshToken.isEmpty) return false;
 
     try {
       final repo = AuthRepository(ApiClient(baseUrl: baseUrl));
       final user = await repo.refresh(refreshToken);
-      await prefs.setString('token', user.token);
-      await prefs.setString('refresh_token', user.refreshToken);
-      await prefs.setString('user', jsonEncode(user.toJson()));
+      await SecureTokenStorage.saveSession(
+        token: user.token,
+        refreshToken: user.refreshToken,
+        userJson: jsonEncode(user.toJson()),
+      );
       return true;
     } catch (_) {
-      await prefs.remove('token');
-      await prefs.remove('refresh_token');
-      await prefs.remove('user');
+      await SecureTokenStorage.clear();
       _authExpiredController.add(null);
       return false;
     }

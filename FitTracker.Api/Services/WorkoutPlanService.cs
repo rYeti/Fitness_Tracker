@@ -66,7 +66,7 @@ public class WorkoutPlanService : IWorkoutPlanService
     }
 
     /// <inheritdoc/>
-    public async Task AddWorkoutToPlanAsync(Guid planId, Guid workoutId)
+    public async Task<bool> AddWorkoutToPlanAsync(Guid planId, Guid workoutId, Guid userId)
     {
         var link = new WorkoutPlanWorkout
         {
@@ -75,20 +75,20 @@ public class WorkoutPlanService : IWorkoutPlanService
             WorkoutId = workoutId,
         };
 
-        await _planRepository.AddWorkoutToPlanAsync(link);
+        return await _planRepository.AddWorkoutToPlanAsync(link, userId);
     }
 
     /// <inheritdoc/>
-    public async Task AddWorkoutsToPlanBatchAsync(Guid planId, List<Guid> workoutIds)
+    public async Task AddWorkoutsToPlanBatchAsync(Guid planId, List<Guid> workoutIds, Guid userId)
     {
         foreach (var workoutId in workoutIds)
-            await AddWorkoutToPlanAsync(planId, workoutId);
+            await AddWorkoutToPlanAsync(planId, workoutId, userId);
     }
 
     /// <inheritdoc/>
-    public async Task<bool> RemoveWorkoutFromPlanAsync(Guid planId, Guid workoutId)
+    public async Task<bool> RemoveWorkoutFromPlanAsync(Guid planId, Guid workoutId, Guid userId)
     {
-        return await _planRepository.RemoveWorkoutFromPlanAsync(planId, workoutId);
+        return await _planRepository.RemoveWorkoutFromPlanAsync(planId, workoutId, userId);
     }
 
     private static WorkoutPlanResponseDto ToDto(WorkoutPlan p) => new()

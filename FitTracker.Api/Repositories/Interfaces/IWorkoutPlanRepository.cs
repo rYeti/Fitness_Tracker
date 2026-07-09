@@ -34,13 +34,16 @@ public interface IWorkoutPlanRepository
     /// <returns><c>true</c> if deleted; <c>false</c> if not found.</returns>
     Task<bool> DeletePlanAsync(Guid id, Guid userId);
 
-    /// <summary>Adds a workout to a plan by persisting the join record.</summary>
+    /// <summary>Adds a workout to a plan by persisting the join record, if both are owned by the specified user.</summary>
     /// <param name="link">The plan-workout join entity to persist.</param>
-    Task AddWorkoutToPlanAsync(WorkoutPlanWorkout link);
+    /// <param name="userId">The ID of the user who must own both the plan and the workout.</param>
+    /// <returns><c>true</c> if the link was created; <c>false</c> if the plan or workout isn't found/owned.</returns>
+    Task<bool> AddWorkoutToPlanAsync(WorkoutPlanWorkout link, Guid userId);
 
-    /// <summary>Removes a workout from a plan by deleting the join record.</summary>
+    /// <summary>Removes a workout from a plan owned by the specified user by deleting the join record.</summary>
     /// <param name="planId">The ID of the plan.</param>
     /// <param name="workoutId">The ID of the workout to remove.</param>
-    /// <returns><c>true</c> if the link was deleted; <c>false</c> if not found.</returns>
-    Task<bool> RemoveWorkoutFromPlanAsync(Guid planId, Guid workoutId);
+    /// <param name="userId">The ID of the user who must own the plan.</param>
+    /// <returns><c>true</c> if the link was deleted; <c>false</c> if not found or not owned.</returns>
+    Task<bool> RemoveWorkoutFromPlanAsync(Guid planId, Guid workoutId, Guid userId);
 }

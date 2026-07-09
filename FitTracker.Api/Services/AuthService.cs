@@ -20,13 +20,15 @@ public class AuthService : IAuthService
     private readonly IConfiguration _configuration;
     private readonly AppDbContext _db;
     private readonly IEmailService _emailService;
+    private readonly ILogger<AuthService> _logger;
 
-    public AuthService(IUserRepository userRepository, IConfiguration configuration, AppDbContext db, IEmailService emailService)
+    public AuthService(IUserRepository userRepository, IConfiguration configuration, AppDbContext db, IEmailService emailService, ILogger<AuthService> logger)
     {
         _userRepository = userRepository;
         _configuration = configuration;
         _db = db;
         _emailService = emailService;
+        _logger = logger;
     }
 
     /// <inheritdoc/>
@@ -152,7 +154,17 @@ public class AuthService : IAuthService
         await _db.SaveChangesAsync();
 
         var resetLink = $"{resetBaseUrl}?token={Uri.EscapeDataString(rawToken)}";
-        await _emailService.SendPasswordResetEmailAsync(user.Email, resetLink);
+        try
+        {
+            await _emailService.SendPasswordResetEmailAsync(user.Email, resetLink);
+        }
+        catch (Exception ex)
+        {
+            // Don't let a transient email-provider failure surface as a 500 to the
+            // caller — that would also leak account-existence via response status.
+            _logger.LogError(ex, "Failed to send password reset email to {UserId}", user.Id);
+        }
+
         return true;
     }
 

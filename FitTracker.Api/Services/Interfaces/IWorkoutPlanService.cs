@@ -34,15 +34,17 @@ public interface IWorkoutPlanService
     /// <returns><c>true</c> if deleted; <c>false</c> if not found.</returns>
     Task<bool> DeletePlanAsync(Guid id, Guid userId);
 
-    /// <summary>Adds a workout to a plan.</summary>
-    Task AddWorkoutToPlanAsync(Guid planId, Guid workoutId);
+    /// <summary>Adds a workout to a plan owned by the specified user.</summary>
+    /// <returns><c>true</c> if the link was created; <c>false</c> if the plan or workout isn't found/owned.</returns>
+    Task<bool> AddWorkoutToPlanAsync(Guid planId, Guid workoutId, Guid userId);
 
-    /// <summary>Adds multiple workouts to a plan in one call.</summary>
-    Task AddWorkoutsToPlanBatchAsync(Guid planId, List<Guid> workoutIds);
+    /// <summary>Adds multiple workouts to a plan owned by the specified user in one call.</summary>
+    Task AddWorkoutsToPlanBatchAsync(Guid planId, List<Guid> workoutIds, Guid userId);
 
-    /// <summary>Removes a workout from a plan.</summary>
+    /// <summary>Removes a workout from a plan owned by the specified user.</summary>
     /// <param name="planId">The ID of the plan.</param>
     /// <param name="workoutId">The ID of the workout to remove.</param>
-    /// <returns><c>true</c> if the link was removed; <c>false</c> if not found.</returns>
-    Task<bool> RemoveWorkoutFromPlanAsync(Guid planId, Guid workoutId);
+    /// <param name="userId">The ID of the user who must own the plan.</param>
+    /// <returns><c>true</c> if the link was removed; <c>false</c> if not found or not owned.</returns>
+    Task<bool> RemoveWorkoutFromPlanAsync(Guid planId, Guid workoutId, Guid userId);
 }

@@ -762,6 +762,7 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
               l10n.noWorkoutsAddedYet,
               style: theme.textTheme.titleMedium
                   ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             Text(
@@ -842,6 +843,7 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
             style: theme.textTheme.titleMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
+            textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
           Text(

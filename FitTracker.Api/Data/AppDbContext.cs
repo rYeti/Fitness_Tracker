@@ -248,6 +248,7 @@ public class AppDbContext : DbContext
             entity.HasOne(t => t.Client)
                   .WithMany()
                   .HasForeignKey(t => t.ClientId)
+                  .IsRequired(false)
                   .OnDelete(DeleteBehavior.Restrict);
             entity.HasIndex(t => t.InviteCode).IsUnique();
         });

@@ -65,7 +65,7 @@ public class WorkoutService : IWorkoutService
     }
 
     /// <inheritdoc/>
-    public async Task<WorkoutExerciseResponseDto> AddExerciseToWorkoutAsync(Guid workoutId, WorkoutExerciseRequestDto dto)
+    public async Task<WorkoutExerciseResponseDto?> AddExerciseToWorkoutAsync(Guid workoutId, Guid userId, WorkoutExerciseRequestDto dto)
     {
         var we = new WorkoutExercise
         {
@@ -77,34 +77,37 @@ public class WorkoutService : IWorkoutService
             SupersetGroupId = dto.SupersetGroupId,
         };
 
-        var created = await _workoutRepository.AddExerciseToWorkoutAsync(we);
-        return ToExerciseDto(created);
+        var created = await _workoutRepository.AddExerciseToWorkoutAsync(we, userId);
+        return created == null ? null : ToExerciseDto(created);
     }
 
     /// <inheritdoc/>
-    public async Task<List<WorkoutExerciseResponseDto>> AddExercisesToWorkoutBatchAsync(Guid workoutId, List<WorkoutExerciseRequestDto> dtos)
+    public async Task<List<WorkoutExerciseResponseDto>> AddExercisesToWorkoutBatchAsync(Guid workoutId, Guid userId, List<WorkoutExerciseRequestDto> dtos)
     {
         var results = new List<WorkoutExerciseResponseDto>();
         foreach (var dto in dtos)
-            results.Add(await AddExerciseToWorkoutAsync(workoutId, dto));
+        {
+            var created = await AddExerciseToWorkoutAsync(workoutId, userId, dto);
+            if (created != null) results.Add(created);
+        }
         return results;
     }
 
     /// <inheritdoc/>
-    public async Task<WorkoutExerciseResponseDto?> UpdateWorkoutExerciseAsync(Guid weId, WorkoutExerciseRequestDto dto)
+    public async Task<WorkoutExerciseResponseDto?> UpdateWorkoutExerciseAsync(Guid weId, Guid userId, WorkoutExerciseRequestDto dto)
     {
-        var updated = await _workoutRepository.UpdateWorkoutExerciseAsync(weId, dto);
+        var updated = await _workoutRepository.UpdateWorkoutExerciseAsync(weId, userId, dto);
         return updated == null ? null : ToExerciseDto(updated);
     }
 
     /// <inheritdoc/>
-    public async Task<bool> DeleteWorkoutExerciseAsync(Guid weId)
+    public async Task<bool> DeleteWorkoutExerciseAsync(Guid weId, Guid userId)
     {
-        return await _workoutRepository.DeleteWorkoutExerciseAsync(weId);
+        return await _workoutRepository.DeleteWorkoutExerciseAsync(weId, userId);
     }
 
     /// <inheritdoc/>
-    public async Task<WorkoutSetTemplateResponseDto> AddSetTemplateAsync(Guid workoutExerciseId, WorkoutSetTemplateRequestDto dto)
+    public async Task<WorkoutSetTemplateResponseDto?> AddSetTemplateAsync(Guid workoutExerciseId, Guid userId, WorkoutSetTemplateRequestDto dto)
     {
         var template = new WorkoutSetTemplate
         {
@@ -115,30 +118,33 @@ public class WorkoutService : IWorkoutService
             OrderPosition = dto.OrderPosition,
         };
 
-        var created = await _workoutRepository.AddSetTemplateAsync(template);
-        return ToSetTemplateDto(created);
+        var created = await _workoutRepository.AddSetTemplateAsync(template, userId);
+        return created == null ? null : ToSetTemplateDto(created);
     }
 
     /// <inheritdoc/>
-    public async Task<List<WorkoutSetTemplateResponseDto>> AddSetTemplatesBatchAsync(Guid workoutExerciseId, List<WorkoutSetTemplateRequestDto> dtos)
+    public async Task<List<WorkoutSetTemplateResponseDto>> AddSetTemplatesBatchAsync(Guid workoutExerciseId, Guid userId, List<WorkoutSetTemplateRequestDto> dtos)
     {
         var results = new List<WorkoutSetTemplateResponseDto>();
         foreach (var dto in dtos)
-            results.Add(await AddSetTemplateAsync(workoutExerciseId, dto));
+        {
+            var created = await AddSetTemplateAsync(workoutExerciseId, userId, dto);
+            if (created != null) results.Add(created);
+        }
         return results;
     }
 
     /// <inheritdoc/>
-    public async Task<WorkoutSetTemplateResponseDto?> UpdateSetTemplateAsync(Guid id, WorkoutSetTemplateRequestDto dto)
+    public async Task<WorkoutSetTemplateResponseDto?> UpdateSetTemplateAsync(Guid id, Guid userId, WorkoutSetTemplateRequestDto dto)
     {
-        var updated = await _workoutRepository.UpdateSetTemplateAsync(id, dto);
+        var updated = await _workoutRepository.UpdateSetTemplateAsync(id, userId, dto);
         return updated == null ? null : ToSetTemplateDto(updated);
     }
 
     /// <inheritdoc/>
-    public async Task<bool> DeleteSetTemplateAsync(Guid id)
+    public async Task<bool> DeleteSetTemplateAsync(Guid id, Guid userId)
     {
-        return await _workoutRepository.DeleteSetTemplateAsync(id);
+        return await _workoutRepository.DeleteSetTemplateAsync(id, userId);
     }
 
     private static WorkoutResponseDto ToDto(Workout w) => new()

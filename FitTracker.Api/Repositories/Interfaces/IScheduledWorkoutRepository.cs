@@ -10,61 +10,66 @@ public interface IScheduledWorkoutRepository
     /// <param name="userId">The user's ID.</param>
     Task<List<ScheduledWorkout>> GetUserScheduledWorkoutsAsync(Guid userId);
 
-    /// <summary>Returns a single scheduled workout by ID, including its exercises and sets.</summary>
+    /// <summary>Returns a single scheduled workout owned by the specified user, including its exercises and sets.</summary>
     /// <param name="id">The ID of the scheduled workout to retrieve.</param>
-    /// <returns>The matching scheduled workout, or <c>null</c> if not found.</returns>
-    Task<ScheduledWorkout?> GetScheduledWorkoutByIdAsync(Guid id);
+    /// <param name="userId">The ID of the user who must own the underlying workout.</param>
+    /// <returns>The matching scheduled workout, or <c>null</c> if not found or not owned.</returns>
+    Task<ScheduledWorkout?> GetScheduledWorkoutByIdAsync(Guid id, Guid userId);
 
-    /// <summary>Creates and persists a new scheduled workout.</summary>
+    /// <summary>Creates and persists a new scheduled workout, if the referenced workout (and plan, if any) belong to the specified user.</summary>
     /// <param name="sw">The scheduled workout entity to persist.</param>
-    /// <returns>The newly created scheduled workout.</returns>
-    Task<ScheduledWorkout> CreateScheduledWorkoutAsync(ScheduledWorkout sw);
+    /// <param name="userId">The ID of the user who must own the referenced workout/plan.</param>
+    /// <returns>The newly created scheduled workout, or <c>null</c> if the referenced workout/plan isn't owned by <paramref name="userId"/>.</returns>
+    Task<ScheduledWorkout?> CreateScheduledWorkoutAsync(ScheduledWorkout sw, Guid userId);
 
-    /// <summary>Updates an existing scheduled workout.</summary>
+    /// <summary>Updates an existing scheduled workout owned by the specified user.</summary>
     /// <param name="id">The ID of the scheduled workout to update.</param>
+    /// <param name="userId">The ID of the user who must own the scheduled workout and any newly-referenced workout.</param>
     /// <param name="dto">The updated scheduled workout data.</param>
-    /// <returns>The updated scheduled workout, or <c>null</c> if not found.</returns>
-    Task<ScheduledWorkout?> UpdateScheduledWorkoutAsync(Guid id, ScheduledWorkoutRequestDto dto);
+    /// <returns>The updated scheduled workout, or <c>null</c> if not found, not owned, or the new workout reference isn't owned.</returns>
+    Task<ScheduledWorkout?> UpdateScheduledWorkoutAsync(Guid id, Guid userId, ScheduledWorkoutRequestDto dto);
 
-    /// <summary>Deletes a scheduled workout by ID.</summary>
+    /// <summary>Deletes a scheduled workout owned by the specified user.</summary>
     /// <param name="id">The ID of the scheduled workout to delete.</param>
-    /// <returns><c>true</c> if deleted; <c>false</c> if not found.</returns>
-    Task<bool> DeleteScheduledWorkoutAsync(Guid id);
+    /// <param name="userId">The ID of the user who must own the scheduled workout.</param>
+    /// <returns><c>true</c> if deleted; <c>false</c> if not found or not owned.</returns>
+    Task<bool> DeleteScheduledWorkoutAsync(Guid id, Guid userId);
 
-    /// <summary>Returns a single scheduled workout exercise by ID.</summary>
-    /// <param name="id">The ID of the scheduled exercise to retrieve.</param>
-    /// <returns>The matching scheduled exercise, or <c>null</c> if not found.</returns>
-    Task<ScheduledWorkoutExercise?> GetScheduledExerciseAsync(Guid id);
-
-    /// <summary>Creates scheduled workout exercise records for a set of workout exercise IDs.</summary>
+    /// <summary>Creates scheduled workout exercise records for a set of workout exercise IDs, if the scheduled workout is owned by the specified user.</summary>
     /// <param name="scheduledWorkoutId">The scheduled workout to attach exercises to.</param>
+    /// <param name="userId">The ID of the user who must own the scheduled workout.</param>
     /// <param name="workoutExerciseIds">The workout exercise template IDs to link.</param>
-    /// <returns>The newly created scheduled workout exercises.</returns>
-    Task<List<ScheduledWorkoutExercise>> CreateExercisesBatchAsync(Guid scheduledWorkoutId, List<Guid> workoutExerciseIds);
+    /// <returns>The newly created scheduled workout exercises, or <c>null</c> if the scheduled workout isn't found/owned.</returns>
+    Task<List<ScheduledWorkoutExercise>?> CreateExercisesBatchAsync(Guid scheduledWorkoutId, Guid userId, List<Guid> workoutExerciseIds);
 
-    /// <summary>Adds a performed set to a scheduled workout exercise.</summary>
+    /// <summary>Adds a performed set to a scheduled workout exercise owned by the specified user.</summary>
     /// <param name="set">The workout set entity to persist.</param>
-    /// <returns>The newly created workout set.</returns>
-    Task<WorkoutSet> AddSetAsync(WorkoutSet set);
+    /// <param name="userId">The ID of the user who must own the parent scheduled workout.</param>
+    /// <returns>The newly created workout set, or <c>null</c> if the scheduled workout exercise isn't found/owned.</returns>
+    Task<WorkoutSet?> AddSetAsync(WorkoutSet set, Guid userId);
 
-    /// <summary>Updates an existing performed set.</summary>
+    /// <summary>Updates an existing performed set owned by the specified user.</summary>
     /// <param name="setId">The ID of the set to update.</param>
+    /// <param name="userId">The ID of the user who must own the parent scheduled workout.</param>
     /// <param name="dto">The updated set data.</param>
-    /// <returns>The updated workout set, or <c>null</c> if not found.</returns>
-    Task<WorkoutSet?> UpdateSetAsync(Guid setId, WorkoutSetRequestDto dto);
+    /// <returns>The updated workout set, or <c>null</c> if not found or not owned.</returns>
+    Task<WorkoutSet?> UpdateSetAsync(Guid setId, Guid userId, WorkoutSetRequestDto dto);
 
-    /// <summary>Deletes a performed set by ID.</summary>
+    /// <summary>Deletes a performed set owned by the specified user.</summary>
     /// <param name="setId">The ID of the set to delete.</param>
-    /// <returns><c>true</c> if deleted; <c>false</c> if not found.</returns>
-    Task<bool> DeleteSetAsync(Guid setId);
+    /// <param name="userId">The ID of the user who must own the parent scheduled workout.</param>
+    /// <returns><c>true</c> if deleted; <c>false</c> if not found or not owned.</returns>
+    Task<bool> DeleteSetAsync(Guid setId, Guid userId);
 
-    /// <summary>Marks a scheduled exercise as completed.</summary>
+    /// <summary>Marks a scheduled exercise as completed, if owned by the specified user.</summary>
     /// <param name="scheduledExerciseId">The ID of the scheduled exercise to complete.</param>
-    /// <returns><c>true</c> if updated; <c>false</c> if not found.</returns>
-    Task<bool> CompleteExerciseAsync(Guid scheduledExerciseId);
+    /// <param name="userId">The ID of the user who must own the parent scheduled workout.</param>
+    /// <returns><c>true</c> if updated; <c>false</c> if not found or not owned.</returns>
+    Task<bool> CompleteExerciseAsync(Guid scheduledExerciseId, Guid userId);
 
-    /// <summary>Marks a scheduled workout as completed.</summary>
+    /// <summary>Marks a scheduled workout as completed, if owned by the specified user.</summary>
     /// <param name="scheduledWorkoutId">The ID of the scheduled workout to complete.</param>
-    /// <returns><c>true</c> if updated; <c>false</c> if not found.</returns>
-    Task<bool> CompleteWorkoutAsync(Guid scheduledWorkoutId);
+    /// <param name="userId">The ID of the user who must own the scheduled workout.</param>
+    /// <returns><c>true</c> if updated; <c>false</c> if not found or not owned.</returns>
+    Task<bool> CompleteWorkoutAsync(Guid scheduledWorkoutId, Guid userId);
 }

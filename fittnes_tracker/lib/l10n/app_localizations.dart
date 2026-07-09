@@ -443,7 +443,7 @@ abstract class AppLocalizations {
   /// No description provided for @mealCategory.
   ///
   /// In en, this message translates to:
-  /// **'Meal category'**
+  /// **'Category'**
   String get mealCategory;
 
   /// No description provided for @addToLog.
@@ -2749,6 +2749,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Please select a date of birth'**
   String get pleaseSelectDateOfBirth;
+
+  /// No description provided for @fieldRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'This field is required'**
+  String get fieldRequired;
+
+  /// No description provided for @invalidEmailFormat.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a valid email address'**
+  String get invalidEmailFormat;
+
+  /// No description provided for @passwordTooShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Password must be at least 8 characters'**
+  String get passwordTooShort;
+
+  /// No description provided for @minimumAgeRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'You must be at least 13 years old'**
+  String get minimumAgeRequired;
 
   /// No description provided for @freeChoiceMode.
   ///

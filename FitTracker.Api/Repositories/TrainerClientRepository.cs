@@ -14,7 +14,7 @@ public class TrainerClientRepository(AppDbContext context) : ITrainerClientRepos
         var invite = new TrainerClient
         {
             TrainerId = trainerId,
-            ClientId = Guid.Empty, // filled when accepted
+            ClientId = null, // filled when accepted
             Status = TrainerClientStatus.Pending,
             InviteCode = GenerateCode(),
         };

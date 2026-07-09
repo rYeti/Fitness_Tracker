@@ -192,7 +192,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get addToTodayLog => 'Zum heutigen Protokoll hinzufügen';
 
   @override
-  String get mealCategory => 'Mahlzeitenkategorie';
+  String get mealCategory => 'Kategorie';
 
   @override
   String get addToLog => 'Zum Protokoll hinzufügen';
@@ -1468,6 +1468,19 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get pleaseSelectDateOfBirth => 'Bitte Geburtsdatum auswählen';
+
+  @override
+  String get fieldRequired => 'Dieses Feld ist erforderlich';
+
+  @override
+  String get invalidEmailFormat => 'Bitte eine gültige E-Mail-Adresse eingeben';
+
+  @override
+  String get passwordTooShort =>
+      'Das Passwort muss mindestens 8 Zeichen lang sein';
+
+  @override
+  String get minimumAgeRequired => 'Du musst mindestens 13 Jahre alt sein';
 
   @override
   String get freeChoiceMode => 'Freie Auswahl';

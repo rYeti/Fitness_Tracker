@@ -110,7 +110,7 @@
   "portionSize": "Portion size",
   "quantityInGrams": "Quantity in grams",
   "addToTodayLog": "Add to today's log",
-  "mealCategory": "Meal category",
+  "mealCategory": "Category",
   "addToLog": "Add to log",
 
   "mealBreakfast": "Breakfast",
@@ -721,6 +721,10 @@
   "alreadyHaveAccount": "Already have an account?",
   "passwordsDoNotMatch": "Passwords do not match",
   "pleaseSelectDateOfBirth": "Please select a date of birth",
+  "fieldRequired": "This field is required",
+  "invalidEmailFormat": "Enter a valid email address",
+  "passwordTooShort": "Password must be at least 8 characters",
+  "minimumAgeRequired": "You must be at least 13 years old",
 
   "freeChoiceMode": "Free Choice Mode",
   "freeChoiceModeSubtitle": "Pick workouts manually for each day",

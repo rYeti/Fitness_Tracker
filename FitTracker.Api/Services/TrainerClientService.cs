@@ -53,7 +53,7 @@ public class TrainerClientService(ITrainerClientRepository repo) : ITrainerClien
         TrainerName = t.Trainer != null
             ? $"{t.Trainer.FirstName} {t.Trainer.LastName}".Trim()
             : string.Empty,
-        ClientId = t.ClientId,
+        ClientId = t.ClientId ?? Guid.Empty,
         ClientName = t.Client != null
             ? $"{t.Client.FirstName} {t.Client.LastName}".Trim()
             : string.Empty,

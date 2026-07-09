@@ -10,8 +10,9 @@ public class TrainerClient
     public Guid TrainerId { get; set; }
     public User Trainer { get; set; } = null!;
 
-    public Guid ClientId { get; set; }
-    public User Client { get; set; } = null!;
+    /// <summary>Null until a client accepts the invite.</summary>
+    public Guid? ClientId { get; set; }
+    public User? Client { get; set; }
 
     public TrainerClientStatus Status { get; set; } = TrainerClientStatus.Pending;
 

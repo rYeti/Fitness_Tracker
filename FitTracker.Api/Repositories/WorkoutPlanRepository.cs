@@ -73,17 +73,24 @@ public class WorkoutPlanRepository : IWorkoutPlanRepository
     }
 
     /// <inheritdoc/>
-    public async Task AddWorkoutToPlanAsync(WorkoutPlanWorkout link)
+    public async Task<bool> AddWorkoutToPlanAsync(WorkoutPlanWorkout link, Guid userId)
     {
+        var ownsPlan = await _context.WorkoutPlans.AnyAsync(p => p.Id == link.PlanId && p.UserId == userId);
+        if (!ownsPlan) return false;
+
+        var ownsWorkout = await _context.Workouts.AnyAsync(w => w.Id == link.WorkoutId && w.UserId == userId);
+        if (!ownsWorkout) return false;
+
         _context.WorkoutPlanWorkouts.Add(link);
         await _context.SaveChangesAsync();
+        return true;
     }
 
     /// <inheritdoc/>
-    public async Task<bool> RemoveWorkoutFromPlanAsync(Guid planId, Guid workoutId)
+    public async Task<bool> RemoveWorkoutFromPlanAsync(Guid planId, Guid workoutId, Guid userId)
     {
         var link = await _context.WorkoutPlanWorkouts
-            .FirstOrDefaultAsync(l => l.PlanId == planId && l.WorkoutId == workoutId);
+            .FirstOrDefaultAsync(l => l.PlanId == planId && l.WorkoutId == workoutId && l.WorkoutPlan.UserId == userId);
         if (link == null) return false;
 
         _context.WorkoutPlanWorkouts.Remove(link);

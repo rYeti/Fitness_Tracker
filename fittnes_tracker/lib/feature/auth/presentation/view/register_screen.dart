@@ -21,6 +21,7 @@ class RegisterScreen extends ConsumerStatefulWidget {
 }
 
 class _RegisterScreenState extends ConsumerState<RegisterScreen> {
+  final _formKey = GlobalKey<FormState>();
   final _usernameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -65,6 +66,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   }
 
   void _submit(AppLocalizations l10n) {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+
     if (_passwordController.text != _confirmPasswordController.text) {
       ScaffoldMessenger.of(
         context,
@@ -75,6 +78,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(l10n.pleaseSelectDateOfBirth)));
+      return;
+    }
+    final minDob = DateTime.now().subtract(const Duration(days: 365 * 13));
+    if (_selectedDate!.isAfter(minDob)) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.minimumAgeRequired)));
       return;
     }
     ref
@@ -134,7 +144,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 28),
-          child: Column(
+          child: Form(
+            key: _formKey,
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: 48),
@@ -171,7 +183,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               Row(
                 children: [
                   Expanded(
-                    child: TextField(
+                    child: TextFormField(
                       controller: _firstNameController,
                       decoration: onboardingFieldDecoration(
                         context,
@@ -179,11 +191,16 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       ),
                       textInputAction: TextInputAction.next,
                       textCapitalization: TextCapitalization.words,
+                      maxLength: 100,
+                      validator: (value) =>
+                          (value == null || value.trim().isEmpty)
+                              ? l10n.fieldRequired
+                              : null,
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: TextField(
+                    child: TextFormField(
                       controller: _lastNameController,
                       decoration: onboardingFieldDecoration(
                         context,
@@ -191,28 +208,48 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       ),
                       textInputAction: TextInputAction.next,
                       textCapitalization: TextCapitalization.words,
+                      maxLength: 100,
+                      validator: (value) =>
+                          (value == null || value.trim().isEmpty)
+                              ? l10n.fieldRequired
+                              : null,
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 16),
 
-              TextField(
+              TextFormField(
                 controller: _usernameController,
                 decoration: onboardingFieldDecoration(context, l10n.username),
                 textInputAction: TextInputAction.next,
+                maxLength: 100,
+                validator: (value) =>
+                    (value == null || value.trim().isEmpty)
+                        ? l10n.fieldRequired
+                        : null,
               ),
               const SizedBox(height: 16),
 
-              TextField(
+              TextFormField(
                 controller: _emailController,
                 decoration: onboardingFieldDecoration(context, l10n.email),
                 textInputAction: TextInputAction.next,
                 keyboardType: TextInputType.emailAddress,
+                maxLength: 254,
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return l10n.fieldRequired;
+                  }
+                  if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(value.trim())) {
+                    return l10n.invalidEmailFormat;
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 16),
 
-              TextField(
+              TextFormField(
                 controller: _passwordController,
                 decoration: onboardingFieldDecoration(
                   context,
@@ -233,10 +270,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 ),
                 obscureText: _obscurePassword,
                 textInputAction: TextInputAction.next,
+                validator: (value) =>
+                    (value == null || value.length < 8)
+                        ? l10n.passwordTooShort
+                        : null,
               ),
               const SizedBox(height: 16),
 
-              TextField(
+              TextFormField(
                 controller: _confirmPasswordController,
                 decoration: onboardingFieldDecoration(
                   context,
@@ -255,6 +296,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   ),
                 ),
                 obscureText: _obscureConfirm,
+                validator: (value) =>
+                    (value == null || value.isEmpty)
+                        ? l10n.fieldRequired
+                        : null,
                 textInputAction: TextInputAction.done,
               ),
               const SizedBox(height: 16),
@@ -342,6 +387,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
               const SizedBox(height: 24),
             ],
+          ),
           ),
         ),
       ),

@@ -1,7 +1,8 @@
+import 'package:ForgeForm/core/network/secure_token_storage.dart';
 import 'package:ForgeForm/core/network/token_refresh_service.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:logger/logger.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiClient {
   final Dio _dio;
@@ -22,19 +23,18 @@ class ApiClient {
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
-          final prefs = await SharedPreferences.getInstance();
-          final token = prefs.getString('token');
+          final token = await SecureTokenStorage.getToken();
           if (token != null) {
             options.headers['Authorization'] = 'Bearer $token';
           }
-          if (options.data != null) {
-            _logger.d('${options.method} ${options.path} body: ${options.data}');
+          if (options.data != null && kDebugMode) {
+            _logger.d('${options.method} ${options.path}');
           }
           handler.next(options);
         },
         onError: (error, handler) async {
           if (error.response != null) {
-            _logger.e('${error.requestOptions.method} ${error.requestOptions.path} → ${error.response?.statusCode} body: ${error.response?.data}');
+            _logger.e('${error.requestOptions.method} ${error.requestOptions.path} → ${error.response?.statusCode}');
           }
 
           final isAuthEndpoint = error.requestOptions.path.contains('api/auth/');
@@ -44,8 +44,7 @@ class ApiClient {
               _dio.options.baseUrl,
             );
             if (refreshed) {
-              final prefs = await SharedPreferences.getInstance();
-              final newToken = prefs.getString('token');
+              final newToken = await SecureTokenStorage.getToken();
               final opts = error.requestOptions;
               opts.headers['Authorization'] = 'Bearer $newToken';
               opts.extra['retried'] = true;

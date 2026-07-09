@@ -192,7 +192,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get addToTodayLog => 'Add to today\'s log';
 
   @override
-  String get mealCategory => 'Meal category';
+  String get mealCategory => 'Category';
 
   @override
   String get addToLog => 'Add to log';
@@ -1462,6 +1462,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get pleaseSelectDateOfBirth => 'Please select a date of birth';
+
+  @override
+  String get fieldRequired => 'This field is required';
+
+  @override
+  String get invalidEmailFormat => 'Enter a valid email address';
+
+  @override
+  String get passwordTooShort => 'Password must be at least 8 characters';
+
+  @override
+  String get minimumAgeRequired => 'You must be at least 13 years old';
 
   @override
   String get freeChoiceMode => 'Free Choice Mode';

@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace FitTracker.Api.DTOs;
 
 /// <summary>Payload for creating or updating a scheduled workout occurrence.</summary>
@@ -13,6 +15,7 @@ public class ScheduledWorkoutRequestDto
     public DateTime ScheduledDate { get; set; }
 
     /// <summary>Optional notes for this scheduled occurrence.</summary>
+    [MaxLength(2000)]
     public string? Notes { get; set; }
 
     /// <summary>Whether this scheduled workout has been completed.</summary>

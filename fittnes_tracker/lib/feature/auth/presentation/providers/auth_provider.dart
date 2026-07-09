@@ -2,10 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:ForgeForm/core/network/api_client.dart';
+import 'package:ForgeForm/core/network/secure_token_storage.dart';
 import 'package:ForgeForm/feature/auth/data/Models/auth_response_model.dart';
 import 'package:ForgeForm/feature/auth/data/repositories/auth_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthState {
   final bool isLoading;
@@ -27,8 +27,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   AuthNotifier(this._authRepository) : super(const AuthState());
 
   Future<void> restoreSession() async {
-    final prefs = await SharedPreferences.getInstance();
-    final userJson = prefs.getString('user');
+    final userJson = await SecureTokenStorage.getUser();
     if (userJson == null) return;
     try {
       final user = AuthResponseModel.fromJson(
@@ -41,13 +40,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       // Access token looks expired (by the device's own clock, which may be
       // wrong) — try a silent refresh before giving up on the session.
-      final refreshToken = prefs.getString('refresh_token');
+      final refreshToken = await SecureTokenStorage.getRefreshToken();
       if (refreshToken != null && refreshToken.isNotEmpty) {
         try {
           final refreshed = await _authRepository.refresh(refreshToken);
-          await prefs.setString('token', refreshed.token);
-          await prefs.setString('refresh_token', refreshed.refreshToken);
-          await prefs.setString('user', jsonEncode(refreshed.toJson()));
+          await SecureTokenStorage.saveSession(
+            token: refreshed.token,
+            refreshToken: refreshed.refreshToken,
+            userJson: jsonEncode(refreshed.toJson()),
+          );
           state = AuthState(user: refreshed);
           return;
         } catch (_) {
@@ -55,24 +56,21 @@ class AuthNotifier extends StateNotifier<AuthState> {
         }
       }
 
-      await prefs.remove('user');
-      await prefs.remove('token');
-      await prefs.remove('refresh_token');
+      await SecureTokenStorage.clear();
     } catch (_) {
-      await prefs.remove('user');
-      await prefs.remove('token');
-      await prefs.remove('refresh_token');
+      await SecureTokenStorage.clear();
     }
   }
 
   Future<void> login(String username, String password) async {
     state = const AuthState(isLoading: true);
     try {
-      final prefs = await SharedPreferences.getInstance();
       final user = await _authRepository.login(username, password);
-      await prefs.setString('token', user.token);
-      await prefs.setString('refresh_token', user.refreshToken);
-      await prefs.setString('user', jsonEncode(user.toJson()));
+      await SecureTokenStorage.saveSession(
+        token: user.token,
+        refreshToken: user.refreshToken,
+        userJson: jsonEncode(user.toJson()),
+      );
       state = AuthState(user: user);
     } catch (e) {
       state = AuthState(error: _friendlyError(e));
@@ -88,7 +86,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
     DateTime dateOfBirth,
   ) async {
     state = const AuthState(isLoading: true);
-    final prefs = await SharedPreferences.getInstance();
 
     try {
       final user = await _authRepository.register(
@@ -99,9 +96,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
         lastName,
         dateOfBirth,
       );
-      await prefs.setString('token', user.token);
-      await prefs.setString('refresh_token', user.refreshToken);
-      await prefs.setString('user', jsonEncode(user.toJson()));
+      await SecureTokenStorage.saveSession(
+        token: user.token,
+        refreshToken: user.refreshToken,
+        userJson: jsonEncode(user.toJson()),
+      );
       state = AuthState(user: user);
     } catch (e) {
       state = AuthState(error: _friendlyError(e));
@@ -135,10 +134,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
         email: email,
         dateOfBirth: dateOfBirth,
       );
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('token', updated.token);
-      await prefs.setString('refresh_token', updated.refreshToken);
-      await prefs.setString('user', jsonEncode(updated.toJson()));
+      await SecureTokenStorage.saveSession(
+        token: updated.token,
+        refreshToken: updated.refreshToken,
+        userJson: jsonEncode(updated.toJson()),
+      );
       state = AuthState(user: updated);
     } catch (e) {
       state = AuthState(user: state.user, error: e.toString());
@@ -188,14 +188,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<void> logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    final refreshToken = prefs.getString('refresh_token');
+    final refreshToken = await SecureTokenStorage.getRefreshToken();
     if (refreshToken != null && refreshToken.isNotEmpty) {
       unawaited(_authRepository.logout(refreshToken));
     }
-    await prefs.remove('token');
-    await prefs.remove('refresh_token');
-    await prefs.remove('user');
+    await SecureTokenStorage.clear();
     state = const AuthState();
   }
 }

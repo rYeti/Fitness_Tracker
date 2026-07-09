@@ -1,3 +1,6 @@
+using System.ComponentModel.DataAnnotations;
+using FitTracker.Api.DTOs.Validation;
+
 namespace FitTracker.Api.DTOs;
 
 /// <summary>Request payload for creating or updating an exercise.</summary>
@@ -16,6 +19,7 @@ public class ExerciseRequestDto
     public string TargetMuscleGroups { get; set; } = "";
 
     /// <summary>URL of the exercise's preview image.</summary>
+    [MaxLength(2048), HttpsUrl]
     public string ImageUrl { get; set; } = "";
 
     /// <summary>Whether this is a user-created custom exercise rather than a system exercise.</summary>

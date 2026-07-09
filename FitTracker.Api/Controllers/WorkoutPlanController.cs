@@ -101,7 +101,9 @@ public class WorkoutPlanController : ControllerBase
         var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
         if (userId == Guid.Empty) return NotFound("User not found");
 
-        await _planService.AddWorkoutToPlanAsync(planId, workoutId);
+        var added = await _planService.AddWorkoutToPlanAsync(planId, workoutId, userId);
+        if (!added) return NotFound("Plan or workout not found");
+
         return Ok();
     }
 
@@ -109,7 +111,10 @@ public class WorkoutPlanController : ControllerBase
     [HttpPost("{planId}/workouts/batch")]
     public async Task<IActionResult> AddWorkoutsBatch([FromRoute] Guid planId, [FromBody] List<Guid> workoutIds)
     {
-        await _planService.AddWorkoutsToPlanBatchAsync(planId, workoutIds);
+        var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
+        if (userId == Guid.Empty) return NotFound("User not found");
+
+        await _planService.AddWorkoutsToPlanBatchAsync(planId, workoutIds, userId);
         return Ok();
     }
 
@@ -123,7 +128,7 @@ public class WorkoutPlanController : ControllerBase
         var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
         if (userId == Guid.Empty) return NotFound("User not found");
 
-        var result = await _planService.RemoveWorkoutFromPlanAsync(planId, workoutId);
+        var result = await _planService.RemoveWorkoutFromPlanAsync(planId, workoutId, userId);
         if (!result) return NotFound("Plan-workout link not found");
 
         return NoContent();

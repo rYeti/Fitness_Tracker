@@ -514,6 +514,21 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
     );
   }
 
+  // Map stored category keys to AppLocalizations getters so we can present
+  // translated labels without changing storage or DB values.
+  final Map<String, String Function(AppLocalizations)> _mealLabelGetters = {
+    'Breakfast': (loc) => loc.mealBreakfast,
+    'Lunch': (loc) => loc.mealLunch,
+    'Dinner': (loc) => loc.mealDinner,
+    'Snacks': (loc) => loc.mealSnacks,
+  };
+
+  String _localizedMealLabel(String category, BuildContext ctx) {
+    final loc = AppLocalizations.of(ctx)!;
+    final getter = _mealLabelGetters[category];
+    return getter?.call(loc) ?? category;
+  }
+
   Widget _buildAddToMealSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -527,7 +542,7 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
         const SizedBox(height: 12),
         // Show the selected category
         Text(
-          '${AppLocalizations.of(context)!.mealCategory}: ${widget.category}',
+          '${AppLocalizations.of(context)!.mealCategory}: ${_localizedMealLabel(widget.category, context)}',
           style: const TextStyle(fontSize: 16),
         ),
         const SizedBox(height: 16),

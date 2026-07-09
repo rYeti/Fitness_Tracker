@@ -101,7 +101,9 @@ public class WorkoutController : ControllerBase
         var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
         if (userId == Guid.Empty) return NotFound("User not found");
 
-        var result = await _workoutService.AddExerciseToWorkoutAsync(workoutId, dto);
+        var result = await _workoutService.AddExerciseToWorkoutAsync(workoutId, userId, dto);
+        if (result == null) return NotFound("Workout not found");
+
         return Ok(result);
     }
 
@@ -109,7 +111,10 @@ public class WorkoutController : ControllerBase
     [HttpPost("{workoutId}/exercises/batch")]
     public async Task<IActionResult> AddExercisesBatch([FromRoute] Guid workoutId, [FromBody] List<WorkoutExerciseRequestDto> dtos)
     {
-        var result = await _workoutService.AddExercisesToWorkoutBatchAsync(workoutId, dtos);
+        var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
+        if (userId == Guid.Empty) return NotFound("User not found");
+
+        var result = await _workoutService.AddExercisesToWorkoutBatchAsync(workoutId, userId, dtos);
         return Ok(result);
     }
 
@@ -117,7 +122,10 @@ public class WorkoutController : ControllerBase
     [HttpPost("exercises/{workoutExerciseId}/sets/batch")]
     public async Task<IActionResult> AddSetTemplatesBatch([FromRoute] Guid workoutExerciseId, [FromBody] List<WorkoutSetTemplateRequestDto> dtos)
     {
-        var result = await _workoutService.AddSetTemplatesBatchAsync(workoutExerciseId, dtos);
+        var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
+        if (userId == Guid.Empty) return NotFound("User not found");
+
+        var result = await _workoutService.AddSetTemplatesBatchAsync(workoutExerciseId, userId, dtos);
         return Ok(result);
     }
 
@@ -131,7 +139,7 @@ public class WorkoutController : ControllerBase
         var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
         if (userId == Guid.Empty) return NotFound("User not found");
 
-        var result = await _workoutService.UpdateWorkoutExerciseAsync(exerciseId, dto);
+        var result = await _workoutService.UpdateWorkoutExerciseAsync(exerciseId, userId, dto);
         if (result == null) return NotFound("Workout exercise not found");
 
         return Ok(result);
@@ -146,7 +154,7 @@ public class WorkoutController : ControllerBase
         var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
         if (userId == Guid.Empty) return NotFound("User not found");
 
-        var result = await _workoutService.DeleteWorkoutExerciseAsync(exerciseId);
+        var result = await _workoutService.DeleteWorkoutExerciseAsync(exerciseId, userId);
         if (!result) return NotFound("Workout exercise not found");
 
         return NoContent();
@@ -162,7 +170,9 @@ public class WorkoutController : ControllerBase
         var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
         if (userId == Guid.Empty) return NotFound("User not found");
 
-        var result = await _workoutService.AddSetTemplateAsync(workoutExerciseId, dto);
+        var result = await _workoutService.AddSetTemplateAsync(workoutExerciseId, userId, dto);
+        if (result == null) return NotFound("Workout exercise not found");
+
         return Ok(result);
     }
 
@@ -176,7 +186,7 @@ public class WorkoutController : ControllerBase
         var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
         if (userId == Guid.Empty) return NotFound("User not found");
 
-        var result = await _workoutService.UpdateSetTemplateAsync(setId, dto);
+        var result = await _workoutService.UpdateSetTemplateAsync(setId, userId, dto);
         if (result == null) return NotFound("Set template not found");
 
         return Ok(result);
@@ -191,7 +201,7 @@ public class WorkoutController : ControllerBase
         var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
         if (userId == Guid.Empty) return NotFound("User not found");
 
-        var result = await _workoutService.DeleteSetTemplateAsync(setId);
+        var result = await _workoutService.DeleteSetTemplateAsync(setId, userId);
         if (!result) return NotFound("Set template not found");
 
         return NoContent();

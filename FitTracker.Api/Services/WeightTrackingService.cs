@@ -73,6 +73,11 @@ public class WeightTrackingService : IWeightTrackingService
 
         var weightLog = await _weightRepository.UpdateWeightAsync(id, userId, weightTrackingRequestDto);
 
+        if (weightLog == null)
+        {
+            return null!;
+        }
+
         return new WeightTrackingResponseDto
         {
             Id = weightLog.Id,

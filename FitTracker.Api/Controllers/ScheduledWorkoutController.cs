@@ -42,6 +42,8 @@ public class ScheduledWorkoutController : ControllerBase
         if (userId == Guid.Empty) return NotFound("User not found");
 
         var result = await _scheduledService.CreateScheduledWorkoutAsync(dto, userId);
+        if (result == null) return NotFound("Referenced workout or plan not found");
+
         return Ok(result);
     }
 
@@ -54,7 +56,7 @@ public class ScheduledWorkoutController : ControllerBase
         var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
         if (userId == Guid.Empty) return NotFound("User not found");
 
-        var result = await _scheduledService.GetScheduledWorkoutByIdAsync(id);
+        var result = await _scheduledService.GetScheduledWorkoutByIdAsync(id, userId);
         if (result == null) return NotFound("Scheduled workout not found");
 
         return Ok(result);
@@ -70,7 +72,7 @@ public class ScheduledWorkoutController : ControllerBase
         var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
         if (userId == Guid.Empty) return NotFound("User not found");
 
-        var result = await _scheduledService.UpdateScheduledWorkoutAsync(id, dto);
+        var result = await _scheduledService.UpdateScheduledWorkoutAsync(id, userId, dto);
         if (result == null) return NotFound("Scheduled workout not found");
 
         return Ok(result);
@@ -85,7 +87,7 @@ public class ScheduledWorkoutController : ControllerBase
         var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
         if (userId == Guid.Empty) return NotFound("User not found");
 
-        var result = await _scheduledService.DeleteScheduledWorkoutAsync(id);
+        var result = await _scheduledService.DeleteScheduledWorkoutAsync(id, userId);
         if (!result) return NotFound("Scheduled workout not found");
 
         return NoContent();
@@ -98,7 +100,12 @@ public class ScheduledWorkoutController : ControllerBase
     [HttpPost("{scheduledWorkoutId}/exercises/batch")]
     public async Task<IActionResult> CreateExercisesBatch([FromRoute] Guid scheduledWorkoutId, [FromBody] List<Guid> workoutExerciseIds)
     {
-        var result = await _scheduledService.CreateExercisesBatchAsync(scheduledWorkoutId, workoutExerciseIds);
+        var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
+        if (userId == Guid.Empty) return NotFound("User not found");
+
+        var result = await _scheduledService.CreateExercisesBatchAsync(scheduledWorkoutId, userId, workoutExerciseIds);
+        if (result == null) return NotFound("Scheduled workout not found");
+
         return Ok(result);
     }
 
@@ -113,7 +120,9 @@ public class ScheduledWorkoutController : ControllerBase
         var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
         if (userId == Guid.Empty) return NotFound("User not found");
 
-        var result = await _scheduledService.AddSetAsync(workoutExerciseId, dto);
+        var result = await _scheduledService.AddSetAsync(workoutExerciseId, userId, dto);
+        if (result == null) return NotFound("Scheduled workout exercise not found");
+
         return Ok(result);
     }
 
@@ -124,7 +133,7 @@ public class ScheduledWorkoutController : ControllerBase
         var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
         if (userId == Guid.Empty) return NotFound("User not found");
 
-        var result = await _scheduledService.AddSetsBatchAsync(workoutExerciseId, dtos);
+        var result = await _scheduledService.AddSetsBatchAsync(workoutExerciseId, userId, dtos);
         return Ok(result);
     }
 
@@ -138,7 +147,7 @@ public class ScheduledWorkoutController : ControllerBase
         var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
         if (userId == Guid.Empty) return NotFound("User not found");
 
-        var result = await _scheduledService.UpdateSetAsync(setId, dto);
+        var result = await _scheduledService.UpdateSetAsync(setId, userId, dto);
         if (result == null) return NotFound("Set not found");
 
         return Ok(result);
@@ -153,7 +162,7 @@ public class ScheduledWorkoutController : ControllerBase
         var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
         if (userId == Guid.Empty) return NotFound("User not found");
 
-        var result = await _scheduledService.DeleteSetAsync(setId);
+        var result = await _scheduledService.DeleteSetAsync(setId, userId);
         if (!result) return NotFound("Set not found");
 
         return NoContent();
@@ -168,7 +177,7 @@ public class ScheduledWorkoutController : ControllerBase
         var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
         if (userId == Guid.Empty) return NotFound("User not found");
 
-        var result = await _scheduledService.CompleteExerciseAsync(scheduledExerciseId);
+        var result = await _scheduledService.CompleteExerciseAsync(scheduledExerciseId, userId);
         if (!result) return NotFound("Scheduled exercise not found");
 
         return Ok();
@@ -183,7 +192,7 @@ public class ScheduledWorkoutController : ControllerBase
         var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
         if (userId == Guid.Empty) return NotFound("User not found");
 
-        var result = await _scheduledService.CompleteWorkoutAsync(id);
+        var result = await _scheduledService.CompleteWorkoutAsync(id, userId);
         if (!result) return NotFound("Scheduled workout not found");
 
         return Ok();

@@ -66,9 +66,11 @@ public class ExerciseRepository : IExerciseRepository
     }
 
     /// <inheritdoc/>
-    public async Task<List<Exercise>> GetAllExercisesAsync()
+    public async Task<List<Exercise>> GetAllExercisesAsync(Guid userId)
     {
-        return await _context.Exercise.ToListAsync();
+        return await _context.Exercise
+            .Where(e => e.UserId == null || e.UserId == userId)
+            .ToListAsync();
     }
 
 }

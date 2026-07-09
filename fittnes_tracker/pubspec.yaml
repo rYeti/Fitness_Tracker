@@ -2,7 +2,7 @@ name: ForgeForm
 description: "A new Flutter project."
 publish_to: "none"
 
-version: 1.0.2+4
+version: 1.0.2+5
 
 environment:
   sdk: ^3.7.0
@@ -43,6 +43,7 @@ dependencies:
   flutter_speed_dial: ^7.0.0
   path_provider: ^2.1.5
   shared_preferences: ^2.5.3
+  flutter_secure_storage: ^9.2.4
   file_picker: ^10.3.7
   csv: ^6.0.0
   flutter_svg: ^2.0.7

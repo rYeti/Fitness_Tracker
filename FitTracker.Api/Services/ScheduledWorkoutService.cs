@@ -25,14 +25,14 @@ public class ScheduledWorkoutService : IScheduledWorkoutService
     }
 
     /// <inheritdoc/>
-    public async Task<ScheduledWorkoutResponseDto?> GetScheduledWorkoutByIdAsync(Guid id)
+    public async Task<ScheduledWorkoutResponseDto?> GetScheduledWorkoutByIdAsync(Guid id, Guid userId)
     {
-        var sw = await _scheduledRepository.GetScheduledWorkoutByIdAsync(id);
+        var sw = await _scheduledRepository.GetScheduledWorkoutByIdAsync(id, userId);
         return sw == null ? null : ToDto(sw);
     }
 
     /// <inheritdoc/>
-    public async Task<ScheduledWorkoutResponseDto> CreateScheduledWorkoutAsync(ScheduledWorkoutRequestDto dto, Guid userId)
+    public async Task<ScheduledWorkoutResponseDto?> CreateScheduledWorkoutAsync(ScheduledWorkoutRequestDto dto, Guid userId)
     {
         var sw = new ScheduledWorkout
         {
@@ -46,25 +46,25 @@ public class ScheduledWorkoutService : IScheduledWorkoutService
             IsSkipped = dto.IsSkipped,
         };
 
-        var created = await _scheduledRepository.CreateScheduledWorkoutAsync(sw);
-        return ToDto(created);
+        var created = await _scheduledRepository.CreateScheduledWorkoutAsync(sw, userId);
+        return created == null ? null : ToDto(created);
     }
 
     /// <inheritdoc/>
-    public async Task<ScheduledWorkoutResponseDto?> UpdateScheduledWorkoutAsync(Guid id, ScheduledWorkoutRequestDto dto)
+    public async Task<ScheduledWorkoutResponseDto?> UpdateScheduledWorkoutAsync(Guid id, Guid userId, ScheduledWorkoutRequestDto dto)
     {
-        var updated = await _scheduledRepository.UpdateScheduledWorkoutAsync(id, dto);
+        var updated = await _scheduledRepository.UpdateScheduledWorkoutAsync(id, userId, dto);
         return updated == null ? null : ToDto(updated);
     }
 
     /// <inheritdoc/>
-    public async Task<bool> DeleteScheduledWorkoutAsync(Guid id)
+    public async Task<bool> DeleteScheduledWorkoutAsync(Guid id, Guid userId)
     {
-        return await _scheduledRepository.DeleteScheduledWorkoutAsync(id);
+        return await _scheduledRepository.DeleteScheduledWorkoutAsync(id, userId);
     }
 
     /// <inheritdoc/>
-    public async Task<WorkoutSetResponseDto> AddSetAsync(Guid scheduledWorkoutExerciseId, WorkoutSetRequestDto dto)
+    public async Task<WorkoutSetResponseDto?> AddSetAsync(Guid scheduledWorkoutExerciseId, Guid userId, WorkoutSetRequestDto dto)
     {
         var set = new WorkoutSet
         {
@@ -79,49 +79,52 @@ public class ScheduledWorkoutService : IScheduledWorkoutService
             IsCompleted = dto.IsCompleted,
         };
 
-        var created = await _scheduledRepository.AddSetAsync(set);
-        return ToSetDto(created);
+        var created = await _scheduledRepository.AddSetAsync(set, userId);
+        return created == null ? null : ToSetDto(created);
     }
 
     /// <inheritdoc/>
-    public async Task<List<WorkoutSetResponseDto>> AddSetsBatchAsync(Guid scheduledWorkoutExerciseId, List<WorkoutSetRequestDto> dtos)
+    public async Task<List<WorkoutSetResponseDto>> AddSetsBatchAsync(Guid scheduledWorkoutExerciseId, Guid userId, List<WorkoutSetRequestDto> dtos)
     {
         var results = new List<WorkoutSetResponseDto>();
         foreach (var dto in dtos)
-            results.Add(await AddSetAsync(scheduledWorkoutExerciseId, dto));
+        {
+            var created = await AddSetAsync(scheduledWorkoutExerciseId, userId, dto);
+            if (created != null) results.Add(created);
+        }
         return results;
     }
 
     /// <inheritdoc/>
-    public async Task<WorkoutSetResponseDto?> UpdateSetAsync(Guid setId, WorkoutSetRequestDto dto)
+    public async Task<WorkoutSetResponseDto?> UpdateSetAsync(Guid setId, Guid userId, WorkoutSetRequestDto dto)
     {
-        var updated = await _scheduledRepository.UpdateSetAsync(setId, dto);
+        var updated = await _scheduledRepository.UpdateSetAsync(setId, userId, dto);
         return updated == null ? null : ToSetDto(updated);
     }
 
     /// <inheritdoc/>
-    public async Task<bool> DeleteSetAsync(Guid setId)
+    public async Task<bool> DeleteSetAsync(Guid setId, Guid userId)
     {
-        return await _scheduledRepository.DeleteSetAsync(setId);
+        return await _scheduledRepository.DeleteSetAsync(setId, userId);
     }
 
     /// <inheritdoc/>
-    public async Task<bool> CompleteExerciseAsync(Guid scheduledExerciseId)
+    public async Task<bool> CompleteExerciseAsync(Guid scheduledExerciseId, Guid userId)
     {
-        return await _scheduledRepository.CompleteExerciseAsync(scheduledExerciseId);
+        return await _scheduledRepository.CompleteExerciseAsync(scheduledExerciseId, userId);
     }
 
     /// <inheritdoc/>
-    public async Task<bool> CompleteWorkoutAsync(Guid scheduledWorkoutId)
+    public async Task<bool> CompleteWorkoutAsync(Guid scheduledWorkoutId, Guid userId)
     {
-        return await _scheduledRepository.CompleteWorkoutAsync(scheduledWorkoutId);
+        return await _scheduledRepository.CompleteWorkoutAsync(scheduledWorkoutId, userId);
     }
 
     /// <inheritdoc/>
-    public async Task<List<ScheduledWorkoutExerciseResponseDto>> CreateExercisesBatchAsync(Guid scheduledWorkoutId, List<Guid> workoutExerciseIds)
+    public async Task<List<ScheduledWorkoutExerciseResponseDto>?> CreateExercisesBatchAsync(Guid scheduledWorkoutId, Guid userId, List<Guid> workoutExerciseIds)
     {
-        var created = await _scheduledRepository.CreateExercisesBatchAsync(scheduledWorkoutId, workoutExerciseIds);
-        return [.. created.Select(ToExerciseDto)];
+        var created = await _scheduledRepository.CreateExercisesBatchAsync(scheduledWorkoutId, userId, workoutExerciseIds);
+        return created == null ? null : [.. created.Select(ToExerciseDto)];
     }
 
     private static ScheduledWorkoutResponseDto ToDto(ScheduledWorkout sw) => new()

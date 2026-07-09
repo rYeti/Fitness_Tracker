@@ -28,6 +28,7 @@ public interface IExerciseRepository
     /// <returns>The newly created exercise.</returns>
     Task<Exercise> CreateExercisesAsync(Exercise exercise);
 
-    /// <summary>Returns all exercises — both system-provided and user-created.</summary>
-    Task<List<Exercise>> GetAllExercisesAsync();
+    /// <summary>Returns all exercises visible to the given user — system-provided exercises plus that user's own custom ones.</summary>
+    /// <param name="userId">The ID of the requesting user.</param>
+    Task<List<Exercise>> GetAllExercisesAsync(Guid userId);
 }

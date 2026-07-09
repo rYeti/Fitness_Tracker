@@ -76,17 +76,22 @@ public class WorkoutRepository : IWorkoutRepository
     }
 
     /// <inheritdoc/>
-    public async Task<WorkoutExercise> AddExerciseToWorkoutAsync(WorkoutExercise we)
+    public async Task<WorkoutExercise?> AddExerciseToWorkoutAsync(WorkoutExercise we, Guid userId)
     {
+        var ownsWorkout = await _context.Workouts.AnyAsync(w => w.Id == we.WorkoutId && w.UserId == userId);
+        if (!ownsWorkout) return null;
+
         _context.WorkoutExercises.Add(we);
         await _context.SaveChangesAsync();
         return we;
     }
 
     /// <inheritdoc/>
-    public async Task<WorkoutExercise?> UpdateWorkoutExerciseAsync(Guid weId, WorkoutExerciseRequestDto dto)
+    public async Task<WorkoutExercise?> UpdateWorkoutExerciseAsync(Guid weId, Guid userId, WorkoutExerciseRequestDto dto)
     {
-        var we = await _context.WorkoutExercises.FirstOrDefaultAsync(e => e.Id == weId);
+        var we = await _context.WorkoutExercises
+            .Include(e => e.Workout)
+            .FirstOrDefaultAsync(e => e.Id == weId && e.Workout.UserId == userId);
         if (we == null) return null;
 
         we.ExerciseId = dto.ExerciseId;
@@ -99,9 +104,11 @@ public class WorkoutRepository : IWorkoutRepository
     }
 
     /// <inheritdoc/>
-    public async Task<bool> DeleteWorkoutExerciseAsync(Guid weId)
+    public async Task<bool> DeleteWorkoutExerciseAsync(Guid weId, Guid userId)
     {
-        var we = await _context.WorkoutExercises.FirstOrDefaultAsync(e => e.Id == weId);
+        var we = await _context.WorkoutExercises
+            .Include(e => e.Workout)
+            .FirstOrDefaultAsync(e => e.Id == weId && e.Workout.UserId == userId);
         if (we == null) return false;
 
         _context.WorkoutExercises.Remove(we);
@@ -110,17 +117,24 @@ public class WorkoutRepository : IWorkoutRepository
     }
 
     /// <inheritdoc/>
-    public async Task<WorkoutSetTemplate> AddSetTemplateAsync(WorkoutSetTemplate t)
+    public async Task<WorkoutSetTemplate?> AddSetTemplateAsync(WorkoutSetTemplate t, Guid userId)
     {
+        var ownsExercise = await _context.WorkoutExercises
+            .AnyAsync(e => e.Id == t.WorkoutExerciseId && e.Workout.UserId == userId);
+        if (!ownsExercise) return null;
+
         _context.WorkoutSetTemplates.Add(t);
         await _context.SaveChangesAsync();
         return t;
     }
 
     /// <inheritdoc/>
-    public async Task<WorkoutSetTemplate?> UpdateSetTemplateAsync(Guid id, WorkoutSetTemplateRequestDto dto)
+    public async Task<WorkoutSetTemplate?> UpdateSetTemplateAsync(Guid id, Guid userId, WorkoutSetTemplateRequestDto dto)
     {
-        var template = await _context.WorkoutSetTemplates.FirstOrDefaultAsync(t => t.Id == id);
+        var template = await _context.WorkoutSetTemplates
+            .Include(t => t.WorkoutExercise)
+                .ThenInclude(e => e.Workout)
+            .FirstOrDefaultAsync(t => t.Id == id && t.WorkoutExercise.Workout.UserId == userId);
         if (template == null) return null;
 
         template.SetNumber = dto.SetNumber;
@@ -132,9 +146,12 @@ public class WorkoutRepository : IWorkoutRepository
     }
 
     /// <inheritdoc/>
-    public async Task<bool> DeleteSetTemplateAsync(Guid id)
+    public async Task<bool> DeleteSetTemplateAsync(Guid id, Guid userId)
     {
-        var template = await _context.WorkoutSetTemplates.FirstOrDefaultAsync(t => t.Id == id);
+        var template = await _context.WorkoutSetTemplates
+            .Include(t => t.WorkoutExercise)
+                .ThenInclude(e => e.Workout)
+            .FirstOrDefaultAsync(t => t.Id == id && t.WorkoutExercise.Workout.UserId == userId);
         if (template == null) return false;
 
         _context.WorkoutSetTemplates.Remove(template);

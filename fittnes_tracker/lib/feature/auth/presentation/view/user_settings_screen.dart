@@ -69,8 +69,25 @@ class _UserSettingsScreenState extends ConsumerState<UserSettingsScreen> {
     if (date != null) setState(() { _dateOfBirth = date; _profileDirty = true; });
   }
 
+  static final _emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+
   Future<void> _saveProfile(AppLocalizations l10n) async {
     if (_dateOfBirth == null) return;
+    final firstName = _firstNameController.text.trim();
+    final lastName = _lastNameController.text.trim();
+    final email = _emailController.text.trim();
+    if (firstName.isEmpty || lastName.isEmpty || email.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.fieldRequired)),
+      );
+      return;
+    }
+    if (!_emailRegex.hasMatch(email)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.invalidEmailFormat)),
+      );
+      return;
+    }
     await ref.read(authProvider.notifier).updateProfile(
           firstName: _firstNameController.text.trim(),
           lastName: _lastNameController.text.trim(),
@@ -88,6 +105,18 @@ class _UserSettingsScreenState extends ConsumerState<UserSettingsScreen> {
   }
 
   Future<void> _changePassword(AppLocalizations l10n) async {
+    if (_currentPasswordController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.fieldRequired)),
+      );
+      return;
+    }
+    if (_newPasswordController.text.length < 8) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.passwordTooShort)),
+      );
+      return;
+    }
     if (_newPasswordController.text != _confirmNewPasswordController.text) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(l10n.passwordsDoNotMatch)),
