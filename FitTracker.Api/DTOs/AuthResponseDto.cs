@@ -13,7 +13,12 @@ public class AuthResponseDto
     /// </summary>
     public DateTime Expiration { get; set; }
 
-    /// <summary>   
+    /// <summary>
+    /// Opaque token used to obtain a new access token via <c>POST api/Auth/refresh</c> without re-authenticating.
+    /// </summary>
+    public string RefreshToken { get; set; } = string.Empty;
+
+    /// <summary>
     /// The username of the authenticated user.
     /// </summary>
     public string Username { get; set; } = string.Empty;

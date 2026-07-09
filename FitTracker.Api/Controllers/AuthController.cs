@@ -132,4 +132,25 @@ public class AuthController : ControllerBase
         if (!success) return BadRequest("The reset link is invalid or has expired.");
         return Ok("Password updated successfully.");
     }
+
+    /// <summary>Exchanges a valid refresh token for a new access token + refresh token pair.</summary>
+    /// <param name="request">The refresh token to redeem.</param>
+    /// <returns>An <see cref="AuthResponseDto"/> on success, or 401 Unauthorized if the refresh token is invalid, expired, or revoked.</returns>
+    [HttpPost("refresh")]
+    public async Task<IActionResult> Refresh([FromBody] RefreshRequestDto request)
+    {
+        var result = await _authService.RefreshAsync(request.RefreshToken);
+        if (result == null) return Unauthorized("The refresh token is invalid or has expired.");
+        return Ok(result);
+    }
+
+    /// <summary>Revokes a refresh token so it can no longer be used to obtain new access tokens.</summary>
+    /// <param name="request">The refresh token to revoke.</param>
+    /// <returns>204 No Content — always succeeds even if the token was already invalid/revoked.</returns>
+    [HttpPost("logout")]
+    public async Task<IActionResult> Logout([FromBody] RefreshRequestDto request)
+    {
+        await _authService.LogoutAsync(request.RefreshToken);
+        return NoContent();
+    }
 }

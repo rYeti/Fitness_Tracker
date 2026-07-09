@@ -18,6 +18,25 @@ class AuthRepository {
     return AuthResponseModel.fromJson(response.data);
   }
 
+  Future<AuthResponseModel> refresh(String refreshToken) async {
+    final response = await _apiClient.post(
+      'api/auth/refresh',
+      data: {'refreshToken': refreshToken},
+    );
+    return AuthResponseModel.fromJson(response.data);
+  }
+
+  /// Best-effort — revokes the refresh token server-side. Swallows errors so
+  /// a network failure never blocks the local logout flow.
+  Future<void> logout(String refreshToken) async {
+    try {
+      await _apiClient.post(
+        'api/auth/logout',
+        data: {'refreshToken': refreshToken},
+      );
+    } catch (_) {}
+  }
+
   Future<AuthResponseModel> updateProfile({
     required String token,
     required String firstName,

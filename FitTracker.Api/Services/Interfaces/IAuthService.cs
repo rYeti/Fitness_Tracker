@@ -50,4 +50,18 @@ public interface IAuthService
     /// Returns true on success, false if the token is invalid, expired, or already used.
     /// </summary>
     Task<bool> ResetPasswordAsync(string token, string newPassword);
+
+    /// <summary>
+    /// Exchanges a valid, unexpired refresh token for a new access token + refresh token pair
+    /// (rotation — the presented refresh token is revoked). Returns null if the token is
+    /// invalid, expired, or already revoked (reuse of a revoked token also revokes the
+    /// user's entire refresh-token chain as a compromise signal).
+    /// </summary>
+    Task<AuthResponseDto?> RefreshAsync(string refreshToken);
+
+    /// <summary>
+    /// Revokes the given refresh token so it can no longer be used to obtain new access tokens.
+    /// Best-effort — a no-op if the token doesn't exist or is already revoked.
+    /// </summary>
+    Task LogoutAsync(string refreshToken);
 }

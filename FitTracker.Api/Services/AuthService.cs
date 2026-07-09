@@ -44,20 +44,7 @@ public class AuthService : IAuthService
             return null; // Return null if password is invalid
         }
 
-        var expireDays = 7;
-        var tokenString = GenerateJwtToken(user, expireDays);
-
-        return new AuthResponseDto
-        {
-            Token = tokenString,
-            Expiration = DateTime.UtcNow.AddDays(expireDays),
-            Username = user.UserName,
-            Email = user.Email,
-            FirstName = user.FirstName,
-            LastName = user.LastName,
-            DateOfBirth = user.DateOfBirth,
-            ProfileImageUrl = user.ProfileImageUrl,
-        };
+        return await IssueTokensAsync(user);
     }
 
     /// <inheritdoc/>
@@ -94,20 +81,8 @@ public class AuthService : IAuthService
         };
 
         await _userRepository.CreateUserAsync(newUser);
-        var expireDays = 7;
-        var tokenString = GenerateJwtToken(newUser, expireDays);
 
-        return new AuthResponseDto
-        {
-            Token = tokenString,
-            Expiration = DateTime.UtcNow.AddDays(expireDays),
-            Username = newUser.UserName,
-            Email = newUser.Email,
-            FirstName = newUser.FirstName,
-            LastName = newUser.LastName,
-            DateOfBirth = newUser.DateOfBirth,
-            ProfileImageUrl = newUser.ProfileImageUrl,
-        };
+        return await IssueTokensAsync(newUser);
     }
 
     /// <inheritdoc/>
@@ -124,18 +99,7 @@ public class AuthService : IAuthService
 
         await _userRepository.UpdateUserAsync(user);
 
-        var tokenString = GenerateJwtToken(user);
-        return new AuthResponseDto
-        {
-            Token = tokenString,
-            Expiration = DateTime.UtcNow.AddDays(7),
-            Username = user.UserName,
-            Email = user.Email,
-            FirstName = user.FirstName,
-            LastName = user.LastName,
-            DateOfBirth = user.DateOfBirth,
-            ProfileImageUrl = user.ProfileImageUrl,
-        };
+        return await IssueTokensAsync(user);
     }
 
     /// <inheritdoc/>
@@ -209,7 +173,100 @@ public class AuthService : IAuthService
         return true;
     }
 
-    private string GenerateJwtToken(User user, int expireDays = 7)
+    /// <inheritdoc/>
+    public async Task<AuthResponseDto?> RefreshAsync(string refreshToken)
+    {
+        if (string.IsNullOrEmpty(refreshToken)) return null;
+
+        var tokenHash = HashToken(refreshToken);
+        var existing = await _db.RefreshTokens
+            .Include(t => t.User)
+            .FirstOrDefaultAsync(t => t.TokenHash == tokenHash);
+
+        if (existing == null) return null;
+
+        if (existing.RevokedAt != null)
+        {
+            // A previously-rotated-out token was presented again — treat as a
+            // compromise signal and revoke the whole chain for this user.
+            var active = await _db.RefreshTokens
+                .Where(t => t.UserId == existing.UserId && t.RevokedAt == null)
+                .ToListAsync();
+            foreach (var t in active) t.RevokedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+            return null;
+        }
+
+        if (existing.ExpiresAt <= DateTime.UtcNow) return null;
+
+        var (response, newToken) = await IssueTokensInternalAsync(existing.User);
+
+        existing.RevokedAt = DateTime.UtcNow;
+        existing.ReplacedByTokenId = newToken.Id;
+        await _db.SaveChangesAsync();
+
+        return response;
+    }
+
+    /// <inheritdoc/>
+    public async Task LogoutAsync(string refreshToken)
+    {
+        if (string.IsNullOrEmpty(refreshToken)) return;
+
+        var tokenHash = HashToken(refreshToken);
+        var existing = await _db.RefreshTokens.FirstOrDefaultAsync(t => t.TokenHash == tokenHash);
+        if (existing == null || existing.RevokedAt != null) return;
+
+        existing.RevokedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+    }
+
+    /// <summary>Mints a fresh access token + refresh token pair for the given user and persists the refresh token.</summary>
+    private async Task<AuthResponseDto> IssueTokensAsync(User user)
+    {
+        var (response, _) = await IssueTokensInternalAsync(user);
+        return response;
+    }
+
+    /// <summary>Same as <see cref="IssueTokensAsync"/> but also returns the persisted <see cref="RefreshToken"/> entity, needed by <see cref="RefreshAsync"/> to link the rotation chain.</summary>
+    private async Task<(AuthResponseDto Response, RefreshToken Token)> IssueTokensInternalAsync(User user)
+    {
+        var accessMinutes = int.TryParse(_configuration["Jwt:AccessTokenMinutes"], out var m) ? m : 60;
+        var refreshDays = int.TryParse(_configuration["Jwt:RefreshTokenDays"], out var d) ? d : 30;
+
+        var accessToken = GenerateJwtToken(user, accessMinutes);
+        var rawRefreshToken = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+
+        var newToken = new RefreshToken
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            TokenHash = HashToken(rawRefreshToken),
+            ExpiresAt = DateTime.UtcNow.AddDays(refreshDays),
+        };
+        _db.RefreshTokens.Add(newToken);
+        await _db.SaveChangesAsync();
+
+        var response = new AuthResponseDto
+        {
+            Token = accessToken,
+            Expiration = DateTime.UtcNow.AddMinutes(accessMinutes),
+            RefreshToken = rawRefreshToken,
+            Username = user.UserName,
+            Email = user.Email,
+            FirstName = user.FirstName,
+            LastName = user.LastName,
+            DateOfBirth = user.DateOfBirth,
+            ProfileImageUrl = user.ProfileImageUrl,
+        };
+
+        return (response, newToken);
+    }
+
+    private static string HashToken(string raw) =>
+        Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(raw)));
+
+    private string GenerateJwtToken(User user, int expireMinutes = 60)
     {
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
         var credentials = new SigningCredentials(key!, SecurityAlgorithms.HmacSha256);
@@ -225,7 +282,7 @@ public class AuthService : IAuthService
             issuer: _configuration["Jwt:Issuer"],
             audience: _configuration["Jwt:Audience"],
             claims: claims,
-            expires: DateTime.UtcNow.AddDays(expireDays),
+            expires: DateTime.UtcNow.AddMinutes(expireMinutes),
             signingCredentials: credentials
         );
 

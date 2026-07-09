@@ -43,4 +43,4 @@ jobs:
             --region=${{ env.REGION }} \
             --platform=managed \
             --allow-unauthenticated \
-            --set-env-vars="ConnectionStrings__DefaultConnection=${{ secrets.DATABASE_URL }},Jwt__Key=${{ secrets.JWT_KEY }},Jwt__Issuer=${{ secrets.JWT_ISSUER }},Jwt__Audience=${{ secrets.JWT_AUDIENCE }}"
+            --set-env-vars="ConnectionStrings__DefaultConnection=${{ secrets.DATABASE_URL }},Jwt__Key=${{ secrets.JWT_KEY }},Jwt__Issuer=${{ secrets.JWT_ISSUER }},Jwt__Audience=${{ secrets.JWT_AUDIENCE }},Jwt__AccessTokenMinutes=60,Jwt__RefreshTokenDays=30,Gmail__ClientId=${{ secrets.GMAIL_CLIENT_ID }},Gmail__ClientSecret=${{ secrets.GMAIL_CLIENT_SECRET }},Gmail__RefreshToken=${{ secrets.GMAIL_REFRESH_TOKEN }},Gmail__From=${{ secrets.GMAIL_FROM }},Gmail__FromName=ForgeForm"

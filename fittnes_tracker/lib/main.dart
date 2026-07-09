@@ -2,6 +2,7 @@ import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/dao/meal_template_dao.dart';
 import 'package:ForgeForm/core/network/api_client.dart';
 import 'package:ForgeForm/core/network/services/sync_service.dart';
+import 'package:ForgeForm/core/network/token_refresh_service.dart';
 import 'package:ForgeForm/core/seed_exercises.dart';
 import 'package:ForgeForm/feature/auth/presentation/providers/auth_provider.dart';
 import 'package:ForgeForm/feature/auth/presentation/view/login_screen.dart';
@@ -40,6 +41,10 @@ import 'core/providers/access_provider.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 
 const _backgroundSyncTask = 'com.forgeform.dailySync';
+
+/// Top-level so both [MyApp]'s [MaterialApp] and the auth-expired listener
+/// registered in [main] can reach the active [NavigatorState].
+final navigatorKey = GlobalKey<NavigatorState>();
 
 /// Top-level callback required by workmanager — runs in a separate isolate.
 @pragma('vm:entry-point')
@@ -96,7 +101,6 @@ void main() async {
   registerDatabase(db);
 
   final prefs = await SharedPreferences.getInstance();
-  final hasToken = prefs.getString('token') != null;
   final showOnboarding = !(prefs.getBool('onboarding_complete') ?? false);
 
   // Load settings and latest weight before runApp so providers start with correct values.
@@ -116,6 +120,17 @@ void main() async {
     overrides: [serverUrlProvider.overrideWith((ref) => serverUrlDefault)],
   );
   await container.read(authProvider.notifier).restoreSession();
+
+  // If a silent token refresh later fails mid-session (refresh token expired
+  // or revoked), reset auth state and drop back to the login screen from
+  // wherever the user currently is.
+  TokenRefreshService.instance.onAuthExpired.listen((_) {
+    container.read(authProvider.notifier).logout();
+    navigatorKey.currentState?.pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (route) => false,
+    );
+  });
 
   // Initialize premium / trainer-client access for already-logged-in users.
   final accessProvider = AccessProvider();
@@ -196,7 +211,14 @@ void main() async {
             value: accessProvider,
           ),
         ],
-        child: MyApp(showOnboarding: showOnboarding, hasToken: hasToken),
+        child: MyApp(
+          showOnboarding: showOnboarding,
+          // Use the post-restoreSession() state, not the raw pre-check
+          // snapshot — restoreSession() may have cleared an expired token
+          // (or refreshed it), so this must reflect the outcome, not the
+          // token's mere presence before that ran.
+          hasToken: restoredAuth.user != null,
+        ),
       ),
     ),
   );
@@ -217,7 +239,6 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  final _navigatorKey = GlobalKey<NavigatorState>();
   StreamSubscription<Uri>? _linkSub;
   String? _pendingResetToken;
 
@@ -246,7 +267,7 @@ class _MyAppState extends State<MyApp> {
   void _tryNavigateToReset() {
     final token = _pendingResetToken;
     if (token == null) return;
-    final nav = _navigatorKey.currentState;
+    final nav = navigatorKey.currentState;
     if (nav == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _tryNavigateToReset());
       return;
@@ -267,7 +288,7 @@ class _MyAppState extends State<MyApp> {
     final localeProvider = provider.Provider.of<LocaleProvider>(context);
 
     return MaterialApp(
-      navigatorKey: _navigatorKey,
+      navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
       locale: localeProvider.locale,
       localizationsDelegates: [

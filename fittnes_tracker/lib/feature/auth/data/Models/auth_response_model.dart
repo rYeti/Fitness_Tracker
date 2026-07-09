@@ -3,6 +3,8 @@ class AuthResponseModel {
 
   final DateTime expiration;
 
+  final String refreshToken;
+
   final String username;
 
   final String email;
@@ -16,6 +18,7 @@ class AuthResponseModel {
   AuthResponseModel({
     required this.token,
     required this.expiration,
+    required this.refreshToken,
     required this.username,
     required this.email,
     required this.firstName,
@@ -27,6 +30,7 @@ class AuthResponseModel {
     return AuthResponseModel(
       token: json['token'],
       expiration: DateTime.parse(json['expiration']),
+      refreshToken: json['refreshToken'] ?? '',
       username: json['username'],
       email: json['email'],
       firstName: json['firstName'],
@@ -38,6 +42,7 @@ class AuthResponseModel {
   Map<String, dynamic> toJson() => {
         'token': token,
         'expiration': expiration.toIso8601String(),
+        'refreshToken': refreshToken,
         'username': username,
         'email': email,
         'firstName': firstName,

@@ -1,3 +1,4 @@
+import 'package:ForgeForm/core/network/token_refresh_service.dart';
 import 'package:dio/dio.dart';
 import 'package:logger/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -31,9 +32,30 @@ class ApiClient {
           }
           handler.next(options);
         },
-        onError: (error, handler) {
+        onError: (error, handler) async {
           if (error.response != null) {
             _logger.e('${error.requestOptions.method} ${error.requestOptions.path} → ${error.response?.statusCode} body: ${error.response?.data}');
+          }
+
+          final isAuthEndpoint = error.requestOptions.path.contains('api/auth/');
+          final alreadyRetried = error.requestOptions.extra['retried'] == true;
+          if (error.response?.statusCode == 401 && !isAuthEndpoint && !alreadyRetried) {
+            final refreshed = await TokenRefreshService.instance.refreshIfNeeded(
+              _dio.options.baseUrl,
+            );
+            if (refreshed) {
+              final prefs = await SharedPreferences.getInstance();
+              final newToken = prefs.getString('token');
+              final opts = error.requestOptions;
+              opts.headers['Authorization'] = 'Bearer $newToken';
+              opts.extra['retried'] = true;
+              try {
+                final response = await _dio.fetch(opts);
+                return handler.resolve(response);
+              } catch (_) {
+                return handler.next(error);
+              }
+            }
           }
           handler.next(error);
         },

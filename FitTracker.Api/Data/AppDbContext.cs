@@ -67,6 +67,9 @@ public class AppDbContext : DbContext
     /// <summary>Password reset tokens table.</summary>
     public DbSet<PasswordResetToken> PasswordResetTokens { get; set; }
 
+    /// <summary>Refresh tokens table.</summary>
+    public DbSet<RefreshToken> RefreshTokens { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<User>(entity =>
@@ -257,6 +260,16 @@ public class AppDbContext : DbContext
                   .HasForeignKey(t => t.UserId)
                   .OnDelete(DeleteBehavior.Cascade);
             entity.HasIndex(t => t.Token).IsUnique();
+        });
+
+        modelBuilder.Entity<RefreshToken>(entity =>
+        {
+            entity.HasKey(t => t.Id);
+            entity.HasOne(t => t.User)
+                  .WithMany()
+                  .HasForeignKey(t => t.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(t => t.TokenHash).IsUnique();
         });
     }
 }
