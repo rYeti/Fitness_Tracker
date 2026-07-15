@@ -31,6 +31,7 @@ import 'feature/settings/settings_screen.dart';
 import 'feature/weight_tracking/presentation/view/weight_tracking_screen.dart';
 import 'feature/weight_tracking/presentation/view/weight_goal_screen.dart';
 import 'feature/food_tracking/presentation/view/meal_templates_screen.dart';
+import 'feature/trainer_console/presentation/view/trainer_dashboard_screen.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -345,6 +346,15 @@ class _MyAppState extends State<MyApp> {
 
         if (settings.name == '/meal-templates') {
           return MaterialPageRoute(builder: (_) => const MealTemplatesScreen());
+        }
+
+        // TODO: gate behind AccessProvider.isTrainer once there's a real
+        // nav entry point (e.g. a "Trainer Console" item in Settings for
+        // users where isTrainer is true) instead of a bare route.
+        if (settings.name == '/trainer-console') {
+          return MaterialPageRoute(
+            builder: (_) => const TrainerDashboardScreen(),
+          );
         }
 
         return MaterialPageRoute(builder: (_) => const HomeScreen());

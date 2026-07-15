@@ -61,6 +61,10 @@ public class AppDbContext : DbContext
     /// <summary>The meal template items table.</summary>
     public DbSet<MealTemplateItem> MealTemplateItems { get; set; }
 
+    // TODO: needs an EF migration + seed data (5 rows matching the design's
+    // template list) before this is usable.
+    public DbSet<WorkoutPlanTemplate> WorkoutPlanTemplates { get; set; }
+
     /// <summary>Trainer–client relationships.</summary>
     public DbSet<TrainerClient> TrainerClients { get; set; }
 

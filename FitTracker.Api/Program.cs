@@ -1,4 +1,5 @@
 using System.Text;
+using System.Threading.RateLimiting;
 using FitTracker.Api.Data;
 using FitTracker.Api.Repositories;
 using FitTracker.Api.Repositories.Interfaces;
@@ -53,6 +54,34 @@ builder.Services.AddCors(options =>
     });
 });
 
+// Throttles brute-force-able endpoints (login/register/password-reset/invite-join)
+// by client IP. Fixed-window is sufficient here — these are abuse guards, not
+// precision traffic shaping.
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    options.AddPolicy("auth", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
+
+    options.AddPolicy("invite", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
+});
+
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -95,6 +124,8 @@ builder.Services.AddScoped<IMealTemplateRepository, MealTemplateRepository>();
 builder.Services.AddScoped<IMealTemplateService, MealTemplateService>();
 builder.Services.AddScoped<ITrainerClientRepository, TrainerClientRepository>();
 builder.Services.AddScoped<ITrainerClientService, TrainerClientService>();
+builder.Services.AddScoped<ITrainerConsoleService, TrainerConsoleService>();
+builder.Services.AddScoped<IWorkoutPlanTemplateService, WorkoutPlanTemplateService>();
 builder.Services.AddTransient<IEmailService, GmailApiEmailService>();
 
 
@@ -119,6 +150,7 @@ app.UseRouting();
 app.UseCors("AllowFlutter");
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 app.MapControllers();
 
 

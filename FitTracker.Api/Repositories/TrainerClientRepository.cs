@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using FitTracker.Api.Data;
 using FitTracker.Api.Models;
 using FitTracker.Api.Repositories.Interfaces;
@@ -17,6 +18,7 @@ public class TrainerClientRepository(AppDbContext context) : ITrainerClientRepos
             ClientId = null, // filled when accepted
             Status = TrainerClientStatus.Pending,
             InviteCode = GenerateCode(),
+            ExpiresAt = DateTime.UtcNow.AddDays(7),
         };
         _context.TrainerClients.Add(invite);
         await _context.SaveChangesAsync();
@@ -29,7 +31,8 @@ public class TrainerClientRepository(AppDbContext context) : ITrainerClientRepos
             .Include(t => t.Trainer)
             .FirstOrDefaultAsync(t =>
                 t.InviteCode == inviteCode &&
-                t.Status == TrainerClientStatus.Pending);
+                t.Status == TrainerClientStatus.Pending &&
+                t.ExpiresAt > DateTime.UtcNow);
 
         if (invite == null) return null;
         if (invite.TrainerId == clientId) return null; // can't be your own client
@@ -58,6 +61,13 @@ public class TrainerClientRepository(AppDbContext context) : ITrainerClientRepos
             .Include(t => t.Trainer)
             .FirstOrDefaultAsync(t => t.ClientId == clientId && t.Status == TrainerClientStatus.Active);
 
+    public async Task<bool> IsActiveTrainerOfAsync(Guid trainerId, Guid clientId)
+    {
+        // TODO: query TrainerClients for TrainerId == trainerId && ClientId == clientId
+        // && Status == TrainerClientStatus.Active.
+        return await _context.TrainerClients.AnyAsync(t => t.Id == trainerId && t.ClientId == clientId && t.Status == TrainerClientStatus.Active);
+    }
+
     public async Task<bool> RemoveRelationshipAsync(Guid relationshipId, Guid requestingUserId)
     {
         var rel = await _context.TrainerClients.FindAsync(relationshipId);
@@ -69,6 +79,9 @@ public class TrainerClientRepository(AppDbContext context) : ITrainerClientRepos
         return true;
     }
 
+    // 12 hex chars from a CSPRNG (48 bits of entropy) — long enough that
+    // combined with rate limiting and the 7-day expiry, brute-forcing a
+    // pending invite is infeasible. e.g. "A3F2B891C7E4"
     private static string GenerateCode() =>
-        Guid.NewGuid().ToString("N")[..8].ToUpper(); // e.g. "A3F2B891"
+        Convert.ToHexString(RandomNumberGenerator.GetBytes(6));
 }

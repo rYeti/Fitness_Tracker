@@ -19,6 +19,9 @@ public class TrainerClient
     /// <summary>Short code the client uses to accept the invite.</summary>
     public string InviteCode { get; set; } = string.Empty;
 
+    /// <summary>Invite codes are only valid until this time — unused pending invites expire.</summary>
+    public DateTime ExpiresAt { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? AcceptedAt { get; set; }
 }

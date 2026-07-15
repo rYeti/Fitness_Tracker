@@ -9,4 +9,5 @@ public interface ITrainerClientRepository
     Task<List<TrainerClient>> GetClientsAsync(Guid trainerId);
     Task<TrainerClient?> GetActiveRelationshipForClientAsync(Guid clientId);
     Task<bool> RemoveRelationshipAsync(Guid relationshipId, Guid requestingUserId);
+    Task<bool> IsActiveTrainerOfAsync(Guid trainerId, Guid clientId);
 }

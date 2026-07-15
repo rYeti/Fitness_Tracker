@@ -9,4 +9,8 @@ public interface ITrainerClientService
     Task<List<TrainerClientResponseDto>> GetClientsAsync(Guid trainerId);
     Task<TrainerClientStatusDto> GetStatusAsync(Guid userId);
     Task<bool> RemoveRelationshipAsync(Guid relationshipId, Guid requestingUserId);
+
+    /// <summary>Gates every Trainer Console read/write — a trainer may only
+    /// access a client's data while that relationship is Active.</summary>
+    Task<bool> IsActiveTrainerOfAsync(Guid trainerId, Guid clientId);
 }

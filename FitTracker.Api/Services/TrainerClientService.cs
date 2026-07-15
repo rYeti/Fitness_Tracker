@@ -43,6 +43,9 @@ public class TrainerClientService(ITrainerClientRepository repo) : ITrainerClien
         };
     }
 
+    public async Task<bool> IsActiveTrainerOfAsync(Guid trainerId, Guid clientId) =>
+        await _repo.IsActiveTrainerOfAsync(trainerId, clientId);
+
     public async Task<bool> RemoveRelationshipAsync(Guid relationshipId, Guid requestingUserId) =>
         await _repo.RemoveRelationshipAsync(relationshipId, requestingUserId);
 

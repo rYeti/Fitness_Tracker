@@ -12,6 +12,11 @@ class WorkoutSet {
   final bool isCompleted; // Whether this set has been completed
   final String? notes; // Any notes for this specific set
   final String? targetReps;
+  // TODO: Rate of Perceived Exertion (1-10) — needed by the Trainer Console's
+  // Workout Builder SET/REPS/WEIGHT/RPE table. Also needs: a schema-version
+  // bump/migration in app_database.dart, and wiring into toMap/fromMap/
+  // copyWith below, plus the matching backend field (see WorkoutSet.cs).
+  final int? rpe;
 
   WorkoutSet({
     this.id,
@@ -24,6 +29,7 @@ class WorkoutSet {
     this.isCompleted = false,
     this.notes,
     this.targetReps,
+    this.rpe,
   });
 
   // Convert to Map for database operations

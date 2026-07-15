@@ -3,6 +3,7 @@ using FitTracker.Api.DTOs;
 using FitTracker.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace FitTracker.Api.Controllers;
 
@@ -23,6 +24,7 @@ public class AuthController : ControllerBase
     /// <summary>Authenticates a user and returns a JWT token.</summary>
     /// <param name="request">The login credentials.</param>
     /// <returns>An <see cref="AuthResponseDto"/> on success, or 401 Unauthorized if credentials are invalid.</returns>
+    [EnableRateLimiting("auth")]
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequestDto request)
     {
@@ -39,6 +41,7 @@ public class AuthController : ControllerBase
     /// <summary>Registers a new user account.</summary>
     /// <param name="request">The registration details.</param>
     /// <returns>An <see cref="AuthResponseDto"/> on success, or 400 Bad Request if registration fails.</returns>
+    [EnableRateLimiting("auth")]
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] RegisterRequestDto request)
     {
@@ -103,6 +106,7 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>Requests a password reset email for the given address.</summary>
+    [EnableRateLimiting("auth")]
     [HttpPost("forgot-password")]
     public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequestDto request)
     {
@@ -125,6 +129,7 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>Resets the user's password using a valid reset token.</summary>
+    [EnableRateLimiting("auth")]
     [HttpPost("reset-password")]
     public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequestDto request)
     {

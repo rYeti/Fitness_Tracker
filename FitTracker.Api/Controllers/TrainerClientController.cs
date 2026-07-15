@@ -2,6 +2,7 @@ using System.Security.Claims;
 using FitTracker.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace FitTracker.Api.Controllers;
 
@@ -32,6 +33,7 @@ public class TrainerClientController(ITrainerClientService service) : Controller
     }
 
     /// <summary>Client joins a trainer using the invite code.</summary>
+    [EnableRateLimiting("invite")]
     [HttpPost("join/{inviteCode}")]
     public async Task<IActionResult> JoinTrainer(string inviteCode)
     {
