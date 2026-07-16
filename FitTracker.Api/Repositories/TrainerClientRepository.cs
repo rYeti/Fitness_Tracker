@@ -6,10 +6,12 @@ using Microsoft.EntityFrameworkCore;
 
 namespace FitTracker.Api.Repositories;
 
+/// <summary>Data access for trainer-client invite/accept/removal and roster queries.</summary>
 public class TrainerClientRepository(AppDbContext context) : ITrainerClientRepository
 {
     private readonly AppDbContext _context = context;
 
+    /// <summary>Creates a pending invite for the given trainer, valid for 7 days.</summary>
     public async Task<TrainerClient> CreateInviteAsync(Guid trainerId)
     {
         var invite = new TrainerClient
@@ -25,6 +27,9 @@ public class TrainerClientRepository(AppDbContext context) : ITrainerClientRepos
         return invite;
     }
 
+    /// <summary>Accepts a pending invite for the given client, revoking any existing
+    /// active trainer relationship the client has. Returns null if the code is
+    /// invalid, expired, or belongs to the client's own account.</summary>
     public async Task<TrainerClient?> AcceptInviteAsync(string inviteCode, Guid clientId)
     {
         var invite = await _context.TrainerClients
@@ -50,24 +55,28 @@ public class TrainerClientRepository(AppDbContext context) : ITrainerClientRepos
         return invite;
     }
 
+    /// <summary>Returns the trainer's active clients.</summary>
     public async Task<List<TrainerClient>> GetClientsAsync(Guid trainerId) =>
         await _context.TrainerClients
             .Include(t => t.Client)
             .Where(t => t.TrainerId == trainerId && t.Status == TrainerClientStatus.Active)
             .ToListAsync();
 
+    /// <summary>Returns the client's active trainer relationship, if any.</summary>
     public async Task<TrainerClient?> GetActiveRelationshipForClientAsync(Guid clientId) =>
         await _context.TrainerClients
             .Include(t => t.Trainer)
             .FirstOrDefaultAsync(t => t.ClientId == clientId && t.Status == TrainerClientStatus.Active);
 
+    /// <summary>Checks whether an active trainer-client relationship exists between the two.</summary>
     public async Task<bool> IsActiveTrainerOfAsync(Guid trainerId, Guid clientId)
     {
-        // TODO: query TrainerClients for TrainerId == trainerId && ClientId == clientId
-        // && Status == TrainerClientStatus.Active.
         return await _context.TrainerClients.AnyAsync(t => t.Id == trainerId && t.ClientId == clientId && t.Status == TrainerClientStatus.Active);
     }
 
+    /// <summary>Revokes a relationship. Only the trainer or client in that relationship
+    /// may do this; returns false if the relationship doesn't exist or the requester
+    /// isn't a party to it.</summary>
     public async Task<bool> RemoveRelationshipAsync(Guid relationshipId, Guid requestingUserId)
     {
         var rel = await _context.TrainerClients.FindAsync(relationshipId);

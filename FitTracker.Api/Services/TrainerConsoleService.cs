@@ -17,29 +17,92 @@ public class TrainerConsoleService(
     private readonly IScheduledWorkoutService _scheduledWorkoutService = scheduledWorkoutService;
     private readonly IMealService _mealService = mealService;
 
-    public Task<TrainerDashboardKpisDto> GetDashboardKpisAsync(Guid trainerId)
+    public async Task<TrainerDashboardKpisDto> GetDashboardKpisAsync(Guid trainerId)
     {
-        // TODO: aggregate over _trainerClientService.GetClientsAsync(trainerId) —
-        // active count, avg adherence, sessions this week, alert count.
-        throw new NotImplementedException();
+        var clients = await _trainerClientService.GetClientsAsync(trainerId);
+        var weekStart = DateTime.UtcNow.Date.AddDays(-(int)DateTime.UtcNow.DayOfWeek + 1); // Monday
+        int totalCompletedThisWeek = 0;
+        double adherenceSum = 0;
+        int clientsWithPlannedSessions = 0;
+
+        foreach (var client in clients)
+        {
+            var scheduled = await _scheduledWorkoutService.GetUserScheduledWorkoutsAsync(client.ClientId);
+            var thisWeek = scheduled.Where(w => w.ScheduledDate >= weekStart && w.ScheduledDate < weekStart.AddDays(7)).ToList();
+            var planned = thisWeek.Count;
+            var completed = thisWeek.Count(w => w.IsCompleted);
+
+            totalCompletedThisWeek += completed;
+            if (planned > 0)
+            {
+                adherenceSum += (double)completed / planned;
+                clientsWithPlannedSessions++;
+            }
+        }
+
+        var kpis = new TrainerDashboardKpisDto()
+        {
+            ActiveClientCount = clients.Count,
+            SessionsThisWeek = totalCompletedThisWeek,
+            AvgAdherencePercent = clientsWithPlannedSessions > 0 ? (adherenceSum / clientsWithPlannedSessions) * 100 : 0,
+        };
+
+        return kpis;
     }
 
     public async Task<List<WeightTrackingResponseDto>?> GetClientWeightHistoryAsync(Guid trainerId, Guid clientId)
     {
-        // TODO: gate on _trainerClientService.IsActiveTrainerOfAsync(trainerId, clientId),
-        // then _weightTrackingService.GetWeightLogs(clientId).
         var isTrainer = await _trainerClientService.IsActiveTrainerOfAsync(trainerId, clientId);
         if (!isTrainer) return null;
         return await _weightTrackingService.GetWeightLogs(clientId);
 
     }
 
-    public Task<ClientWorkoutSummaryDto?> GetClientWorkoutSummaryAsync(Guid trainerId, Guid clientId)
+    public async Task<ClientWorkoutSummaryDto?> GetClientWorkoutSummaryAsync(Guid trainerId, Guid clientId)
     {
-        // TODO: gate, then build current plan (via _workoutPlanService), attendance
-        // (planned vs completed ScheduledWorkouts per week), and strength progression
-        // (best WorkoutSet.weight per key Exercise) for clientId.
-        throw new NotImplementedException();
+        var isTrainer = await _trainerClientService.IsActiveTrainerOfAsync(trainerId, clientId);
+        if (!isTrainer) return null;
+        var weekStart = DateTime.UtcNow.Date.AddDays(-(int)DateTime.UtcNow.DayOfWeek + 1);
+        var attendanceWeek = new List<AttendanceWeekDto>();
+        var scheduled = await _scheduledWorkoutService.GetUserScheduledWorkoutsAsync(clientId);
+        for (var i = 0; i < 12; i++)
+        {
+            // Each iteration gets its own week window, shifted `i` weeks back from
+            // the current week — i=0 is this week, i=1 is last week, etc. — instead
+            // of one window that keeps growing (or, as it did briefly, has its end
+            // fall before its start, making it always empty).
+            var windowStart = weekStart.AddDays(-7 * i);
+            var windowEnd = windowStart.AddDays(7);
+            var thisWeek = scheduled.Where(w => w.ScheduledDate >= windowStart && w.ScheduledDate < windowEnd).ToList();
+            var planned = thisWeek.Count;
+            var completed = thisWeek.Count(w => w.IsCompleted);
+            var attendance = new AttendanceWeekDto
+            {
+                CompletedSessions = completed,
+                PlannedSessions = planned,
+                WeekStart = windowStart
+            };
+            attendanceWeek.Add(attendance);
+        }
+        var currentClientPlan = await _workoutPlanService.GetUserPlansAsync(clientId);
+        var activePlan = currentClientPlan.FirstOrDefault(p => p.IsActive == true);
+
+        // TODO: StrengthProgression — for each key lift (design mock uses Bench
+        // Press/Squat/Deadlift), find the client's most recent best WorkoutSet.Weight.
+        // `scheduled` (already fetched above) has each ScheduledWorkoutResponseDto's
+        // .Exercises, which in turn have their sets — filter down to the exercises
+        // matching those key lifts, then take the max Weight per exercise. For
+        // DeltaFromPrevious you need a second, earlier "best" to diff against (e.g.
+        // best from before the most recent session vs. the most recent session's
+        // best) — there's no single query for this, it has to be derived from the
+        // scheduled workouts' sets directly.
+
+        return new ClientWorkoutSummaryDto
+        {
+            CurrentPlan = activePlan,
+            Attendance = attendanceWeek,
+            StrengthProgression = [],
+        };
     }
 
     public Task<ClientWorkoutHistoryDto?> GetClientWorkoutHistoryAsync(Guid trainerId, Guid clientId, DateTime date)

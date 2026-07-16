@@ -6,6 +6,8 @@ using Microsoft.AspNetCore.RateLimiting;
 
 namespace FitTracker.Api.Controllers;
 
+/// <summary>Manages the trainer-client relationship lifecycle: invites, joining,
+/// roster listing, and removal.</summary>
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]

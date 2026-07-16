@@ -29,7 +29,9 @@ public class TrainerConsoleController(ITrainerConsoleService service) : Controll
     {
         var trainerId = GetUserId();
         if (trainerId == null) return Unauthorized();
-        return Ok(await _service.GetClientWeightHistoryAsync(trainerId.Value, clientId));
+        var result = await _service.GetClientWeightHistoryAsync(trainerId.Value, clientId);
+        if (result == null) return NotFound();
+        return Ok(result);
     }
 
     [HttpGet("{clientId}/workout-summary")]
