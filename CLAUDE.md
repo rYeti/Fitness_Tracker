@@ -87,3 +87,4 @@ The Trainer Console must run natively on desktop via Flutter's desktop targets, 
 - Owner prefers to write implementation code himself — act as reviewer/guide, not code-provider, unless a skeleton is explicitly requested.
 - Auth stack (JWT/OAuth/RBAC) already exists — reuse it for SignalR hub auth (token passed as `?access_token=` query param for the hub path, since WebSocket transport can't set headers).
 - Tie SignalR group membership and any trainer-facing data access to `TrainerTraineeRelationship.Status == Active`, not role membership alone.
+- Follow YAGNI principles — build for the current requirement, not speculative future needs; no unused abstractions, config hooks, or generalized layers "just in case."

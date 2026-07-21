@@ -28,7 +28,7 @@ public class StrengthProgressionDto
 {
     public Guid ExerciseId { get; set; }
     public string ExerciseName { get; set; } = string.Empty;
-    public double BestWeight { get; set; }
+    public double CurrentWeight { get; set; }
     public double DeltaFromPrevious { get; set; }
 }
 
