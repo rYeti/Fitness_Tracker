@@ -9,12 +9,14 @@ public class TrainerClientService(ITrainerClientRepository repo) : ITrainerClien
 {
     private readonly ITrainerClientRepository _repo = repo;
 
+    /// <inheritdoc/>
     public async Task<TrainerClientResponseDto> CreateInviteAsync(Guid trainerId)
     {
         var invite = await _repo.CreateInviteAsync(trainerId);
         return ToDto(invite);
     }
 
+    /// <inheritdoc/>
     public async Task<TrainerClientResponseDto?> AcceptInviteAsync(string inviteCode, Guid clientId)
     {
         var rel = await _repo.AcceptInviteAsync(inviteCode, clientId);
@@ -27,6 +29,7 @@ public class TrainerClientService(ITrainerClientRepository repo) : ITrainerClien
         return [.. clients.Select(ToDto)];
     }
 
+    /// <inheritdoc/>
     public async Task<TrainerClientStatusDto> GetStatusAsync(Guid userId)
     {
         var asClient = await _repo.GetActiveRelationshipForClientAsync(userId);
@@ -43,12 +46,15 @@ public class TrainerClientService(ITrainerClientRepository repo) : ITrainerClien
         };
     }
 
+    /// <inheritdoc/>
     public async Task<bool> IsActiveTrainerOfAsync(Guid trainerId, Guid clientId) =>
         await _repo.IsActiveTrainerOfAsync(trainerId, clientId);
 
+    /// <inheritdoc/>
     public async Task<bool> RemoveRelationshipAsync(Guid relationshipId, Guid requestingUserId) =>
         await _repo.RemoveRelationshipAsync(relationshipId, requestingUserId);
 
+    /// <inheritdoc/>
     private static TrainerClientResponseDto ToDto(TrainerClient t) => new()
     {
         Id = t.Id,

@@ -125,6 +125,7 @@ builder.Services.AddScoped<IMealTemplateService, MealTemplateService>();
 builder.Services.AddScoped<ITrainerClientRepository, TrainerClientRepository>();
 builder.Services.AddScoped<ITrainerClientService, TrainerClientService>();
 builder.Services.AddScoped<ITrainerConsoleService, TrainerConsoleService>();
+builder.Services.AddScoped<IWorkoutPlanTemplateRepository, WorkoutPlanTemplateRepository>();
 builder.Services.AddScoped<IWorkoutPlanTemplateService, WorkoutPlanTemplateService>();
 builder.Services.AddTransient<IEmailService, GmailApiEmailService>();
 

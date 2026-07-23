@@ -1,13 +1,24 @@
 using FitTracker.Api.DTOs;
+using FitTracker.Api.Repositories.Interfaces;
 using FitTracker.Api.Services.Interfaces;
 
 namespace FitTracker.Api.Services;
 
-public class WorkoutPlanTemplateService : IWorkoutPlanTemplateService
+public class WorkoutPlanTemplateService(IWorkoutPlanTemplateRepository repo) : IWorkoutPlanTemplateService
 {
-    public Task<List<WorkoutPlanTemplateResponseDto>> GetAllAsync()
+    private readonly IWorkoutPlanTemplateRepository _repo = repo;
+
+    /// <inheritdoc/>
+    public async Task<List<WorkoutPlanTemplateResponseDto>> GetAllAsync()
     {
-        // TODO: query AppDbContext.WorkoutPlanTemplates and map to DTOs.
-        throw new NotImplementedException();
+        var templates = await _repo.GetAllAsync();
+        return [.. templates.Select(t => new WorkoutPlanTemplateResponseDto
+        {
+            Id = t.Id,
+            Name = t.Name,
+            Description = t.Description,
+            Icon = t.Icon,
+            DaysPerWeek = t.DaysPerWeek,
+        })];
     }
 }

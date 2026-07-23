@@ -10,12 +10,14 @@ public class SmtpEmailService : IEmailService
     private readonly IConfiguration _config;
     private readonly ILogger<SmtpEmailService> _logger;
 
+    /// <inheritdoc/>
     public SmtpEmailService(IConfiguration config, ILogger<SmtpEmailService> logger)
     {
         _config = config;
         _logger = logger;
     }
 
+    /// <inheritdoc/>
     public async Task SendPasswordResetEmailAsync(string toEmail, string resetLink)
     {
         var host     = _config["Smtp:Host"]     ?? throw new InvalidOperationException("Smtp:Host is not configured.");

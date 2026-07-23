@@ -1,8 +1,5 @@
 using FitTracker.Api.DTOs;
-using FitTracker.Api.Models;
 using FitTracker.Api.Services.Interfaces;
-using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.VisualBasic;
 
 namespace FitTracker.Api.Services;
 
@@ -13,6 +10,7 @@ public class TrainerConsoleService(
     IScheduledWorkoutService scheduledWorkoutService,
     IMealService mealService,
     IUserSettingsService userSettingsService,
+    IExerciseService exerciseService,
     IFoodItemService foodItemService) : ITrainerConsoleService
 {
     private readonly ITrainerClientService _trainerClientService = trainerClientService;
@@ -23,6 +21,9 @@ public class TrainerConsoleService(
     private readonly IUserSettingsService _userSettingsService = userSettingsService;
     private readonly IFoodItemService _foodItemService = foodItemService;
 
+    private readonly IExerciseService _exerciseService = exerciseService;
+
+    /// <inheritdoc/>
     public async Task<TrainerDashboardKpisDto> GetDashboardKpisAsync(Guid trainerId)
     {
         var clients = await _trainerClientService.GetClientsAsync(trainerId);
@@ -56,6 +57,7 @@ public class TrainerConsoleService(
         return kpis;
     }
 
+    /// <inheritdoc/>
     public async Task<List<WeightTrackingResponseDto>?> GetClientWeightHistoryAsync(Guid trainerId, Guid clientId)
     {
         var isTrainer = await _trainerClientService.IsActiveTrainerOfAsync(trainerId, clientId);
@@ -64,6 +66,7 @@ public class TrainerConsoleService(
 
     }
 
+    /// <inheritdoc/>
     public async Task<ClientWorkoutSummaryDto?> GetClientWorkoutSummaryAsync(Guid trainerId, Guid clientId)
     {
         var isTrainer = await _trainerClientService.IsActiveTrainerOfAsync(trainerId, clientId);
@@ -109,6 +112,7 @@ public class TrainerConsoleService(
         var groupedByExercise = exerciseSetPairs.GroupBy(p => p.ExerciseId);
         var maxWeights = new List<(Guid ExerciseId, double? Weight)>();
         var strengthProgression = new List<StrengthProgressionDto>();
+        var exerciseNamesById = (await _exerciseService.GetAllExercisesAsync(clientId)).ToDictionary(e => e.id, e => e.Name);
 
         foreach (var exercise in groupedByExercise)
         {
@@ -123,6 +127,8 @@ public class TrainerConsoleService(
             .Select(e => e.Set.Weight)
             .Skip(1)
             .FirstOrDefault();
+            var exerciseName = exerciseNamesById.GetValueOrDefault(exerciseId, "");
+
 
             maxWeights.Add((exerciseId, lastWeight));
             var strenght = new StrengthProgressionDto()
@@ -130,7 +136,7 @@ public class TrainerConsoleService(
                 ExerciseId = exerciseId,
                 CurrentWeight = lastWeight ?? 0,
                 DeltaFromPrevious = (lastWeight - preWeight) ?? 0,
-                ExerciseName = exerciseId.ToString(),
+                ExerciseName = exerciseName ,
             };
             strengthProgression.Add(strenght);
         }
@@ -143,6 +149,7 @@ public class TrainerConsoleService(
         };
     }
 
+    /// <inheritdoc/>
     public async Task<ClientWorkoutHistoryDto?> GetClientWorkoutHistoryAsync(Guid trainerId, Guid clientId, DateTime date)
     {
         var isTrainer = await _trainerClientService.IsActiveTrainerOfAsync(trainerId, clientId);
@@ -156,6 +163,7 @@ public class TrainerConsoleService(
         };
     }
 
+    /// <inheritdoc/>
     public async Task<ClientNutritionSummaryDto?> GetClientNutritionSummaryAsync(Guid trainerId, Guid clientId, DateTime date)
     {
         var isTrainer = await _trainerClientService.IsActiveTrainerOfAsync(trainerId, clientId);
@@ -201,18 +209,17 @@ public class TrainerConsoleService(
         };
     }
 
+    /// <inheritdoc/>
     public async Task<WorkoutPlanResponseDto?> CreateClientWorkoutPlanAsync(Guid trainerId, Guid clientId, WorkoutPlanRequestDto dto)
     {
-        // TODO: gate, then _workoutPlanService.CreatePlanAsync(dto, clientId) —
-        // plan is owned by clientId, not trainerId.
         var isTrainer = await _trainerClientService.IsActiveTrainerOfAsync(trainerId, clientId);
         if (!isTrainer) return null;
         return await _workoutPlanService.CreatePlanAsync(dto, clientId);
     }
 
+    /// <inheritdoc/>
     public async Task<WorkoutPlanResponseDto?> UpdateClientWorkoutPlanAsync(Guid trainerId, Guid clientId, Guid planId, WorkoutPlanRequestDto dto)
     {
-        // TODO: gate, then _workoutPlanService.UpdatePlanAsync(planId, clientId, dto).
         var isTrainer = await _trainerClientService.IsActiveTrainerOfAsync(trainerId, clientId);
         if (!isTrainer) return null;
         return await _workoutPlanService.UpdatePlanAsync(planId, clientId, dto);

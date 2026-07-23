@@ -11,6 +11,7 @@ Patch notes for Google Play Store releases. Newest first.
 - The "forgot password" flow no longer fails if the confirmation email can't be sent — you'll still get a clean response either way.
 - Added stricter validation on workout, meal, and profile data submitted to the server (realistic ranges for reps, weight, calories, macros, etc.).
 - Fixed the "forgot password" email failing intermittently — the CI deploy workflow was overwriting the Gmail API credentials on every push to `main` because `gcloud run deploy --set-env-vars` replaces the whole env var set rather than merging. Gmail credentials are now passed through CI as secrets so they survive every deploy.
+- Added trainer console endpoints for client workout history, nutrition summaries, and workout plan management (backend only — no client app changes yet).
 
 ## 1.0.2+6
 
