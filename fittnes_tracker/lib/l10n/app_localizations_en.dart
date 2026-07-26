@@ -1923,6 +1923,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get paywallRestorePurchases => 'Restore purchases';
 
   @override
+  String get paywallError =>
+      'Something went wrong loading the paywall. Please try again.';
+
+  @override
+  String get noActivePurchasesFound =>
+      'No active purchases found for this account.';
+
+  @override
+  String get paywallFinePrint =>
+      'Cancel anytime. Subscription auto-renews until cancelled.';
+
+  @override
   String get paywallFeatureProgress =>
       'Full progress dashboard — 7, 30, 90 days & all-time view';
 

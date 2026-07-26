@@ -111,6 +111,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   bool _isSyncing = false;
   bool _isPulling = false;
+  bool _isRestoringPurchases = false;
+
+  Future<void> _runRestorePurchases() async {
+    setState(() => _isRestoringPurchases = true);
+    await restorePurchases(context);
+    if (mounted) setState(() => _isRestoringPurchases = false);
+  }
 
   Future<void> _runSync() async {
     final l10n = AppLocalizations.of(context)!;
@@ -713,6 +720,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     title: Text(l10n.restoreFromServer),
                     subtitle: Text(l10n.restoreFromServerSubtitle),
                     onTap: _isPulling ? null : _runPull,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Card(
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: colorScheme.outlineVariant),
+                  ),
+                  child: ListTile(
+                    leading:
+                        _isRestoringPurchases
+                            ? SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: colorScheme.primary,
+                              ),
+                            )
+                            : Icon(
+                              Icons.shopping_bag_outlined,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                    title: Text(l10n.paywallRestorePurchases),
+                    onTap: _isRestoringPurchases ? null : _runRestorePurchases,
                   ),
                 ),
 

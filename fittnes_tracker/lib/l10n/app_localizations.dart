@@ -3560,6 +3560,24 @@ abstract class AppLocalizations {
   /// **'Restore purchases'**
   String get paywallRestorePurchases;
 
+  /// No description provided for @paywallError.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong loading the paywall. Please try again.'**
+  String get paywallError;
+
+  /// No description provided for @noActivePurchasesFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No active purchases found for this account.'**
+  String get noActivePurchasesFound;
+
+  /// No description provided for @paywallFinePrint.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel anytime. Subscription auto-renews until cancelled.'**
+  String get paywallFinePrint;
+
   /// No description provided for @paywallFeatureProgress.
   ///
   /// In en, this message translates to:

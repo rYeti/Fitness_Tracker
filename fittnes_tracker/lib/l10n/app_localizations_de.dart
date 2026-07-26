@@ -1934,6 +1934,18 @@ class AppLocalizationsDe extends AppLocalizations {
   String get paywallRestorePurchases => 'Käufe wiederherstellen';
 
   @override
+  String get paywallError =>
+      'Der Kauf-Bildschirm konnte nicht geladen werden. Bitte versuche es erneut.';
+
+  @override
+  String get noActivePurchasesFound =>
+      'Für dieses Konto wurden keine aktiven Käufe gefunden.';
+
+  @override
+  String get paywallFinePrint =>
+      'Jederzeit kündbar. Das Abo verlängert sich automatisch bis zur Kündigung.';
+
+  @override
   String get paywallFeatureProgress =>
       'Vollständiges Fortschritts-Dashboard — 7, 30, 90 Tage & Gesamtansicht';
 

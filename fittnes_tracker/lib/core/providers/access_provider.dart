@@ -6,9 +6,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:dio/dio.dart';
 
 // ── Configuration ────────────────────────────────────────────────────────────
-// Replace with your RevenueCat public SDK key from app.revenuecat.com
+// Replace with your RevenueCat public SDK keys from app.revenuecat.com
+// (one per store — Android keys start with "goog_", iOS keys with "appl_").
 const revenueCatApiKey = 'goog_bngAaflqXhTyOmLFSRWpMQnOQnW';
-const _revenueCatApiKey = revenueCatApiKey;
+const revenueCatApiKeyIOS = '';
 
 // The entitlement identifier set up in your RevenueCat dashboard.
 const premiumEntitlementId = 'ForgeForm Pro';
@@ -103,10 +104,11 @@ class AccessProvider extends ChangeNotifier {
 
   Future<void> _checkRevenueCat(String? userId) async {
     if (kIsWeb || (!Platform.isAndroid && !Platform.isIOS)) return;
-    if (_revenueCatApiKey.isEmpty) return;
+    final apiKey = Platform.isIOS ? revenueCatApiKeyIOS : revenueCatApiKey;
+    if (apiKey.isEmpty) return;
     try {
       if (!(await Purchases.isConfigured)) {
-        final config = PurchasesConfiguration(_revenueCatApiKey);
+        final config = PurchasesConfiguration(apiKey);
         if (userId != null) config.appUserID = userId;
         await Purchases.configure(config);
       } else if (userId != null) {
@@ -117,6 +119,33 @@ class AccessProvider extends ChangeNotifier {
     } catch (_) {
       // Keep cached value on failure — network may be unavailable.
     }
+  }
+
+  /// Fetches the current RevenueCat offering, or `null` if none is configured
+  /// (e.g. no products set up yet in the dashboard) or the SDK isn't
+  /// configured for this platform. Used to validate before presenting a
+  /// paywall so callers can show a friendly message instead of a broken UI.
+  Future<Offering?> getCurrentOffering() async {
+    if (kIsWeb || (!Platform.isAndroid && !Platform.isIOS)) return null;
+    try {
+      final offerings = await Purchases.getOfferings();
+      return offerings.current;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Restores previously purchased entitlements onto this account (e.g. the
+  /// user reinstalled the app or is signing in on a new device). Returns the
+  /// resulting premium status. Throws on failure so the caller can surface
+  /// an error to the user.
+  Future<bool> restorePurchases() async {
+    final info = await Purchases.restorePurchases();
+    _isPremium = info.entitlements.active.containsKey(_premiumEntitlementId);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_prefIsPremium, _isPremium);
+    notifyListeners();
+    return _isPremium;
   }
 
   Future<void> _checkTrainerClient(String baseUrl, String token) async {
