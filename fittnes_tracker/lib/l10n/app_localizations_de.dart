@@ -1946,6 +1946,40 @@ class AppLocalizationsDe extends AppLocalizations {
       'Jederzeit kündbar. Das Abo verlängert sich automatisch bis zur Kündigung.';
 
   @override
+  String paywallFreeTrial(String duration) {
+    return '$duration kostenlos testen';
+  }
+
+  @override
+  String paywallIntroPrice(String price, String duration) {
+    return '$price für $duration';
+  }
+
+  @override
+  String get paywallPeriodDay => 'Tag';
+
+  @override
+  String get paywallPeriodDays => 'Tage';
+
+  @override
+  String get paywallPeriodWeek => 'Woche';
+
+  @override
+  String get paywallPeriodWeeks => 'Wochen';
+
+  @override
+  String get paywallPeriodMonth => 'Monat';
+
+  @override
+  String get paywallPeriodMonths => 'Monate';
+
+  @override
+  String get paywallPeriodYear => 'Jahr';
+
+  @override
+  String get paywallPeriodYears => 'Jahre';
+
+  @override
   String get paywallFeatureProgress =>
       'Vollständiges Fortschritts-Dashboard — 7, 30, 90 Tage & Gesamtansicht';
 

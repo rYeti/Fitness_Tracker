@@ -913,6 +913,33 @@
   "paywallError": "Something went wrong loading the paywall. Please try again.",
   "noActivePurchasesFound": "No active purchases found for this account.",
   "paywallFinePrint": "Cancel anytime. Subscription auto-renews until cancelled.",
+  "paywallFreeTrial": "{duration} free trial",
+  "@paywallFreeTrial": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "paywallIntroPrice": "{price} for {duration}",
+  "@paywallIntroPrice": {
+    "placeholders": {
+      "price": {
+        "type": "String"
+      },
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "paywallPeriodDay": "day",
+  "paywallPeriodDays": "days",
+  "paywallPeriodWeek": "week",
+  "paywallPeriodWeeks": "weeks",
+  "paywallPeriodMonth": "month",
+  "paywallPeriodMonths": "months",
+  "paywallPeriodYear": "year",
+  "paywallPeriodYears": "years",
   "paywallFeatureProgress": "Full progress dashboard — 7, 30, 90 days & all-time view",
   "paywallFeaturePlans": "Unlimited workout plans",
   "paywallFeatureTemplates": "Unlimited meal templates",

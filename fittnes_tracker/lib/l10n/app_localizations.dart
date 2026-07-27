@@ -3578,6 +3578,66 @@ abstract class AppLocalizations {
   /// **'Cancel anytime. Subscription auto-renews until cancelled.'**
   String get paywallFinePrint;
 
+  /// No description provided for @paywallFreeTrial.
+  ///
+  /// In en, this message translates to:
+  /// **'{duration} free trial'**
+  String paywallFreeTrial(String duration);
+
+  /// No description provided for @paywallIntroPrice.
+  ///
+  /// In en, this message translates to:
+  /// **'{price} for {duration}'**
+  String paywallIntroPrice(String price, String duration);
+
+  /// No description provided for @paywallPeriodDay.
+  ///
+  /// In en, this message translates to:
+  /// **'day'**
+  String get paywallPeriodDay;
+
+  /// No description provided for @paywallPeriodDays.
+  ///
+  /// In en, this message translates to:
+  /// **'days'**
+  String get paywallPeriodDays;
+
+  /// No description provided for @paywallPeriodWeek.
+  ///
+  /// In en, this message translates to:
+  /// **'week'**
+  String get paywallPeriodWeek;
+
+  /// No description provided for @paywallPeriodWeeks.
+  ///
+  /// In en, this message translates to:
+  /// **'weeks'**
+  String get paywallPeriodWeeks;
+
+  /// No description provided for @paywallPeriodMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'month'**
+  String get paywallPeriodMonth;
+
+  /// No description provided for @paywallPeriodMonths.
+  ///
+  /// In en, this message translates to:
+  /// **'months'**
+  String get paywallPeriodMonths;
+
+  /// No description provided for @paywallPeriodYear.
+  ///
+  /// In en, this message translates to:
+  /// **'year'**
+  String get paywallPeriodYear;
+
+  /// No description provided for @paywallPeriodYears.
+  ///
+  /// In en, this message translates to:
+  /// **'years'**
+  String get paywallPeriodYears;
+
   /// No description provided for @paywallFeatureProgress.
   ///
   /// In en, this message translates to:

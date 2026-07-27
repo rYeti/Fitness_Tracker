@@ -909,6 +909,33 @@
   "paywallError": "Der Kauf-Bildschirm konnte nicht geladen werden. Bitte versuche es erneut.",
   "noActivePurchasesFound": "Für dieses Konto wurden keine aktiven Käufe gefunden.",
   "paywallFinePrint": "Jederzeit kündbar. Das Abo verlängert sich automatisch bis zur Kündigung.",
+  "paywallFreeTrial": "{duration} kostenlos testen",
+  "@paywallFreeTrial": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "paywallIntroPrice": "{price} für {duration}",
+  "@paywallIntroPrice": {
+    "placeholders": {
+      "price": {
+        "type": "String"
+      },
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "paywallPeriodDay": "Tag",
+  "paywallPeriodDays": "Tage",
+  "paywallPeriodWeek": "Woche",
+  "paywallPeriodWeeks": "Wochen",
+  "paywallPeriodMonth": "Monat",
+  "paywallPeriodMonths": "Monate",
+  "paywallPeriodYear": "Jahr",
+  "paywallPeriodYears": "Jahre",
   "paywallFeatureProgress": "Vollständiges Fortschritts-Dashboard — 7, 30, 90 Tage & Gesamtansicht",
   "paywallFeaturePlans": "Unbegrenzte Trainingspläne",
   "paywallFeatureTemplates": "Unbegrenzte Mahlzeiten-Vorlagen",

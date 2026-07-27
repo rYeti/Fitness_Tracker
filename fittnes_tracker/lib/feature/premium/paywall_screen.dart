@@ -330,8 +330,38 @@ class _PackageCard extends StatelessWidget {
     }
   }
 
+  String _periodUnitLabel(AppLocalizations l10n, PeriodUnit unit, int count) {
+    switch (unit) {
+      case PeriodUnit.day:
+        return count == 1 ? l10n.paywallPeriodDay : l10n.paywallPeriodDays;
+      case PeriodUnit.week:
+        return count == 1 ? l10n.paywallPeriodWeek : l10n.paywallPeriodWeeks;
+      case PeriodUnit.month:
+        return count == 1 ? l10n.paywallPeriodMonth : l10n.paywallPeriodMonths;
+      case PeriodUnit.year:
+        return count == 1 ? l10n.paywallPeriodYear : l10n.paywallPeriodYears;
+      case PeriodUnit.unknown:
+        return '';
+    }
+  }
+
+  /// Returns the free-trial or discounted-intro-price label for this
+  /// package, or null if it has no introductory offer.
+  String? _introOfferLabel(AppLocalizations l10n) {
+    final intro = package.storeProduct.introductoryPrice;
+    if (intro == null) return null;
+    final totalUnits = intro.periodNumberOfUnits * intro.cycles;
+    final duration = '$totalUnits ${_periodUnitLabel(l10n, intro.periodUnit, totalUnits)}';
+    if (intro.price == 0) {
+      return l10n.paywallFreeTrial(duration);
+    }
+    return l10n.paywallIntroPrice(intro.priceString, duration);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final introOfferLabel = _introOfferLabel(l10n);
     final cardColor = isDark ? const Color(0xFF2C2C2C) : Colors.white;
     return InkWell(
       onTap: onTap,
@@ -366,7 +396,16 @@ class _PackageCard extends StatelessWidget {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  if (package.packageType == PackageType.annual)
+                  if (introOfferLabel != null)
+                    Text(
+                      introOfferLabel,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: _forgeOrange,
+                      ),
+                    )
+                  else if (package.packageType == PackageType.annual)
                     Text(
                       package.storeProduct.description,
                       style: TextStyle(

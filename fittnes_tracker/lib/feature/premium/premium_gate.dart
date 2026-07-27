@@ -36,47 +36,45 @@ class PremiumGate extends StatelessWidget {
 
     return GestureDetector(
       onTap: () => _openPaywall(context),
-      child: RepaintBoundary(
-        child: Stack(
-          children: [
-            // Show a visually dimmed placeholder so the user sees what they're missing.
-            IgnorePointer(
-              child: ColorFiltered(
-                colorFilter: const ColorFilter.mode(
-                  Colors.black38,
-                  BlendMode.darken,
-                ),
-                child: placeholder ?? child,
-              ),
+      child: Stack(
+        children: [
+          // Show a visually dimmed placeholder so the user sees what they're missing.
+          IgnorePointer(child: placeholder ?? child),
+          Positioned.fill(
+            child: IgnorePointer(
+              child: Container(color: Colors.black.withValues(alpha: 0.38)),
             ),
-            if (showLockBadge)
-              Positioned.fill(
-                child: Center(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.7),
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.lock, color: Colors.white, size: 18),
-                        SizedBox(width: 6),
-                        Text(
-                          'Premium',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                          ),
+          ),
+          if (showLockBadge)
+            Positioned.fill(
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.7),
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.lock, color: Colors.white, size: 18),
+                      SizedBox(width: 6),
+                      Text(
+                        'Premium',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }

@@ -1935,6 +1935,40 @@ class AppLocalizationsEn extends AppLocalizations {
       'Cancel anytime. Subscription auto-renews until cancelled.';
 
   @override
+  String paywallFreeTrial(String duration) {
+    return '$duration free trial';
+  }
+
+  @override
+  String paywallIntroPrice(String price, String duration) {
+    return '$price for $duration';
+  }
+
+  @override
+  String get paywallPeriodDay => 'day';
+
+  @override
+  String get paywallPeriodDays => 'days';
+
+  @override
+  String get paywallPeriodWeek => 'week';
+
+  @override
+  String get paywallPeriodWeeks => 'weeks';
+
+  @override
+  String get paywallPeriodMonth => 'month';
+
+  @override
+  String get paywallPeriodMonths => 'months';
+
+  @override
+  String get paywallPeriodYear => 'year';
+
+  @override
+  String get paywallPeriodYears => 'years';
+
+  @override
   String get paywallFeatureProgress =>
       'Full progress dashboard — 7, 30, 90 days & all-time view';
 
