@@ -74,6 +74,8 @@ public class AppDbContext : DbContext
     /// <summary>Refresh tokens table.</summary>
     public DbSet<RefreshToken> RefreshTokens { get; set; }
 
+    public DbSet<ChatMessage> ChatMessages { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<User>(entity =>

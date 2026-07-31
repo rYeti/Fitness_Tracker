@@ -14,6 +14,8 @@ Patch notes for Google Play Store releases. Newest first.
 
 ## Backend (no client update required)
 
+- Fixed a bug where trainer-side authorization checks (`IsActiveTrainerOfAsync`) were comparing the wrong ID, potentially letting the check silently fail across the app.
+- Started backend groundwork for Trainer Console chat (SignalR hub, message model/repository, JWT auth over the hub's WebSocket connection) — not yet exposed to the client app.
 - Fixed a privacy bug where custom exercises created by one user could show up in other users' exercise lists.
 - Fixed several account-security gaps where a user could potentially view or modify another user's workouts, scheduled workouts, or workout plans.
 - Fixed a bug where trying to update someone else's weight entry returned a server error instead of being cleanly blocked.

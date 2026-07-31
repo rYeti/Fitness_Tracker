@@ -71,7 +71,13 @@ public class TrainerClientRepository(AppDbContext context) : ITrainerClientRepos
     /// <summary>Checks whether an active trainer-client relationship exists between the two.</summary>
     public async Task<bool> IsActiveTrainerOfAsync(Guid trainerId, Guid clientId)
     {
-        return await _context.TrainerClients.AnyAsync(t => t.Id == trainerId && t.ClientId == clientId && t.Status == TrainerClientStatus.Active);
+        return await _context.TrainerClients.AnyAsync(t => t.TrainerId == trainerId && t.ClientId == clientId && t.Status == TrainerClientStatus.Active);
+    }
+
+    public async Task<TrainerClient?> GetActiveRelationshipAsync(Guid trainerId, Guid clientId)
+    {
+        return await _context.TrainerClients.FirstOrDefaultAsync(t => t.TrainerId == trainerId && t.ClientId == clientId && t.Status == TrainerClientStatus.Active);
+
     }
 
     /// <summary>Revokes a relationship. Only the trainer or client in that relationship

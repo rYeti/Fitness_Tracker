@@ -54,6 +54,11 @@ public class TrainerClientService(ITrainerClientRepository repo) : ITrainerClien
     public async Task<bool> RemoveRelationshipAsync(Guid relationshipId, Guid requestingUserId) =>
         await _repo.RemoveRelationshipAsync(relationshipId, requestingUserId);
 
+    public async Task<TrainerClient?> GetActiveRelationshipAsync(Guid trainerId, Guid clientId)
+    {
+        return await _repo.GetActiveRelationshipAsync(trainerId, clientId);
+    }
+
     /// <inheritdoc/>
     private static TrainerClientResponseDto ToDto(TrainerClient t) => new()
     {
@@ -71,4 +76,5 @@ public class TrainerClientService(ITrainerClientRepository repo) : ITrainerClien
         CreatedAt = t.CreatedAt,
         AcceptedAt = t.AcceptedAt,
     };
+
 }

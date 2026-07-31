@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using FitTracker.Api.Hubs;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -100,7 +101,24 @@ builder.Services.AddAuthentication(options =>
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!)),
         ClockSkew = TimeSpan.Zero
     };
+
+    option.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs/chat"))
+            {
+                context.Token = accessToken;
+            }
+            return Task.CompletedTask;
+        }
+    };
 });
+
+// Signal R
+builder.Services.AddSignalR();
 
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -128,6 +146,7 @@ builder.Services.AddScoped<ITrainerConsoleService, TrainerConsoleService>();
 builder.Services.AddScoped<IWorkoutPlanTemplateRepository, WorkoutPlanTemplateRepository>();
 builder.Services.AddScoped<IWorkoutPlanTemplateService, WorkoutPlanTemplateService>();
 builder.Services.AddTransient<IEmailService, GmailApiEmailService>();
+builder.Services.AddScoped<IChatService, ChatService>();
 
 
 // ── Build ────────────────────────────────────────────────────
@@ -153,6 +172,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.UseRateLimiter();
 app.MapControllers();
+app.MapHub<ChatHub>("/hubs/chat").RequireAuthorization();
 
 
 app.Run();
