@@ -1,7 +1,9 @@
 // lib/feature/presentation/view/food_tracking_screen.dart
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/providers/user_goals_provider.dart';
+import 'package:ForgeForm/feature/dashboard/view/dashboard_screen.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
+import 'package:ForgeForm/feature/progress_dashboard_view.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -147,6 +149,17 @@ class _FoodTrackingScreenState extends State<FoodTrackingScreen> {
       gramm: newGramm,
     );
     loadNutritionData();
+    _refreshDashboard();
+  }
+
+  // Nutrition mutations (add/edit/delete) only update this screen's own
+  // state via loadNutritionData(). DashboardScreen shows a separate daily
+  // calorie total that isn't recomputed just by switching tabs (it lives in
+  // an IndexedStack), so it must be nudged explicitly whenever food data
+  // actually changes.
+  void _refreshDashboard() {
+    globalDashboardKey.currentState?.refresh();
+    globalProgressKey.currentState?.reloadNutritionData();
   }
 
   // Making this method public so it can be called from outside
@@ -490,6 +503,7 @@ class _FoodTrackingScreenState extends State<FoodTrackingScreen> {
                               ),
                             );
                             loadNutritionData();
+                            _refreshDashboard();
                           },
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
@@ -539,6 +553,7 @@ class _FoodTrackingScreenState extends State<FoodTrackingScreen> {
                                   ),
                                 );
                                 loadNutritionData();
+                                _refreshDashboard();
                               },
                               trailing: Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -578,6 +593,7 @@ class _FoodTrackingScreenState extends State<FoodTrackingScreen> {
                                           date: _selectedDate,
                                         );
                                         loadNutritionData();
+                                        _refreshDashboard();
                                       }
                                     },
                                   ),

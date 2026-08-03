@@ -8,6 +8,11 @@ import 'package:flutter_speed_dial/flutter_speed_dial.dart';
 import '../widgets/dashboard_weight_card.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 
+// Global key so other tabs (e.g. Food) can trigger a refresh after mutating
+// nutrition data — DashboardScreen is kept alive inside an IndexedStack, so
+// switching to its tab does not by itself rebuild it or re-run its queries.
+final globalDashboardKey = GlobalKey<_DashboardScreenState>();
+
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
@@ -26,6 +31,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     super.initState();
     _loadDashboardData();
   }
+
+  /// Public so callers outside this widget (via [globalDashboardKey]) can
+  /// force a reload, e.g. after a food entry is added/edited/deleted on the
+  /// Food tab.
+  Future<void> refresh() => _loadDashboardData();
 
   Future<ScheduledWorkoutWithDetails?> getTodayScheduledWorkout() async {
     final db = context.read<AppDatabase>();
@@ -296,54 +306,46 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildCaloriesProgress(UserGoalsProvider goalsProvider) {
     final colorScheme = Theme.of(context).colorScheme;
     final l10n = AppLocalizations.of(context)!;
-    final repository = NutritionRepository(context.read<AppDatabase>());
+    final progress = _todayCalories / goalsProvider.dailyCalorieGoal;
 
-    return FutureBuilder(
-      future: repository.getNutritionHistoryForToday(),
-      builder: (context, snapshot) {
-        final currentCalories = snapshot.data?.firstOrNull?.totalCalories ?? 0;
-        final progress = currentCalories / goalsProvider.dailyCalorieGoal;
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  l10n.dailyCalories,
-                  style: TextStyle(
-                    fontFamily: 'Exo 2',
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                    color: colorScheme.onSurface,
-                  ),
-                ),
-                Text(
-                  '$currentCalories / ${goalsProvider.dailyCalorieGoal.toInt()}',
-                  style: TextStyle(
-                    fontFamily: 'Exo 2',
-                    fontSize: 12,
-                    color: colorScheme.onSurface.withValues(alpha: 0.55),
-                  ),
-                ),
-              ],
+            Text(
+              l10n.dailyCalories,
+              style: TextStyle(
+                fontFamily: 'Exo 2',
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+                color: colorScheme.onSurface,
+              ),
             ),
-            const SizedBox(height: 8),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(99),
-              child: LinearProgressIndicator(
-                value: progress.clamp(0.0, 1.0),
-                minHeight: 6,
-                backgroundColor: colorScheme.onSurface.withValues(alpha: 0.07),
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  progress > 1.0 ? Colors.red : colorScheme.primary,
-                ),
+            Text(
+              '$_todayCalories / ${goalsProvider.dailyCalorieGoal.toInt()}',
+              style: TextStyle(
+                fontFamily: 'Exo 2',
+                fontSize: 12,
+                color: colorScheme.onSurface.withValues(alpha: 0.55),
               ),
             ),
           ],
-        );
-      },
+        ),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(99),
+          child: LinearProgressIndicator(
+            value: progress.clamp(0.0, 1.0),
+            minHeight: 6,
+            backgroundColor: colorScheme.onSurface.withValues(alpha: 0.07),
+            valueColor: AlwaysStoppedAnimation<Color>(
+              progress > 1.0 ? Colors.red : colorScheme.primary,
+            ),
+          ),
+        ),
+      ],
     );
   }
 

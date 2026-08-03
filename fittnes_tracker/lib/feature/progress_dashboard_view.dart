@@ -91,6 +91,12 @@ class _ProgressScreenState extends State<ProgressScreen>
 
   void reloadGymData() => _loadGymData();
 
+  /// Public so callers outside this widget (e.g. the Food tab, via
+  /// [globalProgressKey]) can force the calorie-trend chart to reload after
+  /// a food entry is added/edited/deleted — this screen is kept alive inside
+  /// an IndexedStack, so switching to its tab does not by itself rebuild it.
+  void reloadNutritionData() => _loadNutritionData();
+
   Future<void> _loadGymData() async {
     setState(() => _gymLoading = true);
     try {

@@ -384,7 +384,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int _selectedIndex = 0;
 
   final List<Widget> _screens = [
-    const DashboardScreen(),
+    DashboardScreen(key: globalDashboardKey),
     FoodTrackingScreen(key: globalFoodTrackingKey),
     const GymTrackingScreen(),
     ProgressScreen(key: globalProgressKey),
@@ -425,6 +425,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   void _onTabTapped(int index) {
     setState(() => _selectedIndex = index);
+    // DashboardScreen lives inside an IndexedStack and isn't rebuilt just by
+    // switching tabs, so nutrition/workout edits made on other tabs would
+    // otherwise never be reflected here — force a reload on every visit.
+    if (index == 0) {
+      globalDashboardKey.currentState?.refresh();
+    } else if (index == 3) {
+      globalProgressKey.currentState?.reloadNutritionData();
+    }
   }
 
   @override

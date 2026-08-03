@@ -2,7 +2,11 @@
 
 Patch notes for Google Play Store releases. Newest first.
 
-## Unreleased
+## 1.0.2+10
+
+- Fixed the dashboard's daily calorie total and the progress screen's calorie-trend chart not updating after editing or deleting a food entry — both were only ever refreshed on cold start, not when returning from the Food tab.
+
+## 1.0.2+9
 
 - Added a curated database of verified foods (sourced from the German BLS 4.0 nutrient database) — these now appear above crowdsourced search results with a "Verified ✓" badge when adding food. Stored locally only: never synced, never in recents, survives logout.
 - Added an adaptive calorie target on the progress dashboard: after at least 2 weeks of weight and food logs, the app estimates your actual daily energy expenditure and lets you apply it as your daily calorie goal with one tap.
@@ -10,9 +14,6 @@ Patch notes for Google Play Store releases. Newest first.
 - Added optional RPE tracking (6–10) per set, with a toggle in Settings.
 - Added set types (normal, warm-up, drop set, failure) and per-side logging (left/right/both) for sets in the active workout screen.
 - Trimmed the Premium feature list on the paywall: data export and custom foods are free — data ownership is never gated behind Premium.
-
-## 1.0.2+9
-
 - The paywall now shows free trial and introductory pricing on eligible plans, instead of just the regular price.
 - Fixed a display bug where the "Premium" lock could visually cover more of the Appearance settings section than intended when scrolled to certain positions.
 
