@@ -989,6 +989,43 @@ class AppLocalizationsEn extends AppLocalizations {
   String get restTimerSettingSubtitle => 'Auto-start after completing a set';
 
   @override
+  String get setTypeLabel => 'Set type';
+
+  @override
+  String get setTypeNormal => 'Normal';
+
+  @override
+  String get setTypeWarmup => 'Warm-up';
+
+  @override
+  String get setTypeDropset => 'Drop set';
+
+  @override
+  String get setTypeFailure => 'Failure';
+
+  @override
+  String get sideLabel => 'Side';
+
+  @override
+  String get sideBoth => 'Both';
+
+  @override
+  String get sideLeft => 'Left';
+
+  @override
+  String get sideRight => 'Right';
+
+  @override
+  String get rpeTrackingSetting => 'Track RPE';
+
+  @override
+  String get rpeTrackingSettingSubtitle =>
+      'Log Rate of Perceived Exertion (6–10) for each set';
+
+  @override
+  String get rpeLabel => 'RPE';
+
+  @override
   String get lastTime => 'Last Time';
 
   @override
@@ -1080,6 +1117,63 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get importFitNotesHint => 'Import from FitNotes CSV export';
+
+  @override
+  String get verifiedFoodBadge => 'Verified ✓';
+
+  @override
+  String get adaptiveTdeeTitle => 'Adaptive calorie target';
+
+  @override
+  String get adaptiveTdeeEstimate => 'Estimated daily expenditure';
+
+  @override
+  String get adaptiveTdeeRecommended => 'Recommended daily target';
+
+  @override
+  String adaptiveTdeeBasis(int days) {
+    return 'Based on $days days of weight and food logs';
+  }
+
+  @override
+  String get adaptiveTdeeInsufficient =>
+      'Log your weight and food for at least 2 weeks to unlock an adaptive calorie target.';
+
+  @override
+  String get adaptiveTdeeUncertainty =>
+      'Estimate quality depends on logging consistency — under-logging inflates it.';
+
+  @override
+  String get adaptiveTdeeApply => 'Apply as daily goal';
+
+  @override
+  String adaptiveTdeeApplied(int kcal) {
+    return 'Daily calorie goal updated to $kcal kcal';
+  }
+
+  @override
+  String get exportSectionLabel => 'Data export';
+
+  @override
+  String get exportWorkoutsCsv => 'Export workouts (CSV)';
+
+  @override
+  String get exportWeightCsv => 'Export weight history (CSV)';
+
+  @override
+  String get exportNutritionCsv => 'Export nutrition (CSV)';
+
+  @override
+  String get exportFullJson => 'Export all data (JSON)';
+
+  @override
+  String get exportFullJsonHint => 'Complete backup of your local data';
+
+  @override
+  String get exportSaved => 'Export saved';
+
+  @override
+  String get exportFailed => 'Export failed';
 
   @override
   String get importingWorkoutHistory => 'Importing workout history...';
@@ -1969,8 +2063,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get paywallPeriodYears => 'years';
 
   @override
-  String get paywallFeatureProgress =>
-      'Full progress dashboard — 7, 30, 90 days & all-time view';
+  String get paywallFeatureProgress => 'All-time history & custom date ranges';
 
   @override
   String get paywallFeaturePlans => 'Unlimited workout plans';

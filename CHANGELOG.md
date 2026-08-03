@@ -2,6 +2,15 @@
 
 Patch notes for Google Play Store releases. Newest first.
 
+## Unreleased
+
+- Added a curated database of verified foods (sourced from the German BLS 4.0 nutrient database) — these now appear above crowdsourced search results with a "Verified ✓" badge when adding food. Stored locally only: never synced, never in recents, survives logout.
+- Added an adaptive calorie target on the progress dashboard: after at least 2 weeks of weight and food logs, the app estimates your actual daily energy expenditure and lets you apply it as your daily calorie goal with one tap.
+- Added data export in Settings: workouts, weight history, and nutrition as CSV, plus a full JSON backup of all local data.
+- Added optional RPE tracking (6–10) per set, with a toggle in Settings.
+- Added set types (normal, warm-up, drop set, failure) and per-side logging (left/right/both) for sets in the active workout screen.
+- Trimmed the Premium feature list on the paywall: data export and custom foods are free — data ownership is never gated behind Premium.
+
 ## 1.0.2+9
 
 - The paywall now shows free trial and introductory pricing on eligible plans, instead of just the regular price.

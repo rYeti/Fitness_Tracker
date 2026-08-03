@@ -992,6 +992,43 @@ class AppLocalizationsDe extends AppLocalizations {
   String get restTimerSettingSubtitle => 'Automatisch nach einem Satz starten';
 
   @override
+  String get setTypeLabel => 'Satzart';
+
+  @override
+  String get setTypeNormal => 'Normal';
+
+  @override
+  String get setTypeWarmup => 'Aufwärmsatz';
+
+  @override
+  String get setTypeDropset => 'Dropset';
+
+  @override
+  String get setTypeFailure => 'Bis Muskelversagen';
+
+  @override
+  String get sideLabel => 'Seite';
+
+  @override
+  String get sideBoth => 'Beidseitig';
+
+  @override
+  String get sideLeft => 'Links';
+
+  @override
+  String get sideRight => 'Rechts';
+
+  @override
+  String get rpeTrackingSetting => 'RPE erfassen';
+
+  @override
+  String get rpeTrackingSettingSubtitle =>
+      'Gefühlte Anstrengung (RPE, 6–10) pro Satz erfassen';
+
+  @override
+  String get rpeLabel => 'RPE';
+
+  @override
   String get lastTime => 'Letztes Mal';
 
   @override
@@ -1083,6 +1120,64 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get importFitNotesHint => 'Aus FitNotes CSV-Export importieren';
+
+  @override
+  String get verifiedFoodBadge => 'Verifiziert ✓';
+
+  @override
+  String get adaptiveTdeeTitle => 'Adaptives Kalorienziel';
+
+  @override
+  String get adaptiveTdeeEstimate => 'Geschätzter Tagesverbrauch';
+
+  @override
+  String get adaptiveTdeeRecommended => 'Empfohlenes Tagesziel';
+
+  @override
+  String adaptiveTdeeBasis(int days) {
+    return 'Basierend auf $days Tagen Gewichts- und Ernährungsdaten';
+  }
+
+  @override
+  String get adaptiveTdeeInsufficient =>
+      'Erfasse mindestens 2 Wochen lang Gewicht und Ernährung, um ein adaptives Kalorienziel zu erhalten.';
+
+  @override
+  String get adaptiveTdeeUncertainty =>
+      'Die Genauigkeit hängt von der Konsistenz des Trackings ab — unvollständiges Logging erhöht die Schätzung.';
+
+  @override
+  String get adaptiveTdeeApply => 'Als Tagesziel übernehmen';
+
+  @override
+  String adaptiveTdeeApplied(int kcal) {
+    return 'Tägliches Kalorienziel auf $kcal kcal aktualisiert';
+  }
+
+  @override
+  String get exportSectionLabel => 'Datenexport';
+
+  @override
+  String get exportWorkoutsCsv => 'Trainings exportieren (CSV)';
+
+  @override
+  String get exportWeightCsv => 'Gewichtsverlauf exportieren (CSV)';
+
+  @override
+  String get exportNutritionCsv => 'Ernährung exportieren (CSV)';
+
+  @override
+  String get exportFullJson => 'Alle Daten exportieren (JSON)';
+
+  @override
+  String get exportFullJsonHint =>
+      'Vollständige Sicherung deiner lokalen Daten';
+
+  @override
+  String get exportSaved => 'Export gespeichert';
+
+  @override
+  String get exportFailed => 'Export fehlgeschlagen';
 
   @override
   String get importingWorkoutHistory => 'Trainingshistorie wird importiert...';
@@ -1980,8 +2075,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get paywallPeriodYears => 'Jahre';
 
   @override
-  String get paywallFeatureProgress =>
-      'Vollständiges Fortschritts-Dashboard — 7, 30, 90 Tage & Gesamtansicht';
+  String get paywallFeatureProgress => 'Gesamter Verlauf & eigene Zeiträume';
 
   @override
   String get paywallFeaturePlans => 'Unbegrenzte Trainingspläne';

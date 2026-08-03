@@ -1904,6 +1904,78 @@ abstract class AppLocalizations {
   /// **'Auto-start after completing a set'**
   String get restTimerSettingSubtitle;
 
+  /// No description provided for @setTypeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Set type'**
+  String get setTypeLabel;
+
+  /// No description provided for @setTypeNormal.
+  ///
+  /// In en, this message translates to:
+  /// **'Normal'**
+  String get setTypeNormal;
+
+  /// No description provided for @setTypeWarmup.
+  ///
+  /// In en, this message translates to:
+  /// **'Warm-up'**
+  String get setTypeWarmup;
+
+  /// No description provided for @setTypeDropset.
+  ///
+  /// In en, this message translates to:
+  /// **'Drop set'**
+  String get setTypeDropset;
+
+  /// No description provided for @setTypeFailure.
+  ///
+  /// In en, this message translates to:
+  /// **'Failure'**
+  String get setTypeFailure;
+
+  /// No description provided for @sideLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Side'**
+  String get sideLabel;
+
+  /// No description provided for @sideBoth.
+  ///
+  /// In en, this message translates to:
+  /// **'Both'**
+  String get sideBoth;
+
+  /// No description provided for @sideLeft.
+  ///
+  /// In en, this message translates to:
+  /// **'Left'**
+  String get sideLeft;
+
+  /// No description provided for @sideRight.
+  ///
+  /// In en, this message translates to:
+  /// **'Right'**
+  String get sideRight;
+
+  /// No description provided for @rpeTrackingSetting.
+  ///
+  /// In en, this message translates to:
+  /// **'Track RPE'**
+  String get rpeTrackingSetting;
+
+  /// No description provided for @rpeTrackingSettingSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Log Rate of Perceived Exertion (6–10) for each set'**
+  String get rpeTrackingSettingSubtitle;
+
+  /// No description provided for @rpeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'RPE'**
+  String get rpeLabel;
+
   /// No description provided for @lastTime.
   ///
   /// In en, this message translates to:
@@ -2089,6 +2161,108 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Import from FitNotes CSV export'**
   String get importFitNotesHint;
+
+  /// No description provided for @verifiedFoodBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'Verified ✓'**
+  String get verifiedFoodBadge;
+
+  /// No description provided for @adaptiveTdeeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Adaptive calorie target'**
+  String get adaptiveTdeeTitle;
+
+  /// No description provided for @adaptiveTdeeEstimate.
+  ///
+  /// In en, this message translates to:
+  /// **'Estimated daily expenditure'**
+  String get adaptiveTdeeEstimate;
+
+  /// No description provided for @adaptiveTdeeRecommended.
+  ///
+  /// In en, this message translates to:
+  /// **'Recommended daily target'**
+  String get adaptiveTdeeRecommended;
+
+  /// No description provided for @adaptiveTdeeBasis.
+  ///
+  /// In en, this message translates to:
+  /// **'Based on {days} days of weight and food logs'**
+  String adaptiveTdeeBasis(int days);
+
+  /// No description provided for @adaptiveTdeeInsufficient.
+  ///
+  /// In en, this message translates to:
+  /// **'Log your weight and food for at least 2 weeks to unlock an adaptive calorie target.'**
+  String get adaptiveTdeeInsufficient;
+
+  /// No description provided for @adaptiveTdeeUncertainty.
+  ///
+  /// In en, this message translates to:
+  /// **'Estimate quality depends on logging consistency — under-logging inflates it.'**
+  String get adaptiveTdeeUncertainty;
+
+  /// No description provided for @adaptiveTdeeApply.
+  ///
+  /// In en, this message translates to:
+  /// **'Apply as daily goal'**
+  String get adaptiveTdeeApply;
+
+  /// No description provided for @adaptiveTdeeApplied.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily calorie goal updated to {kcal} kcal'**
+  String adaptiveTdeeApplied(int kcal);
+
+  /// No description provided for @exportSectionLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Data export'**
+  String get exportSectionLabel;
+
+  /// No description provided for @exportWorkoutsCsv.
+  ///
+  /// In en, this message translates to:
+  /// **'Export workouts (CSV)'**
+  String get exportWorkoutsCsv;
+
+  /// No description provided for @exportWeightCsv.
+  ///
+  /// In en, this message translates to:
+  /// **'Export weight history (CSV)'**
+  String get exportWeightCsv;
+
+  /// No description provided for @exportNutritionCsv.
+  ///
+  /// In en, this message translates to:
+  /// **'Export nutrition (CSV)'**
+  String get exportNutritionCsv;
+
+  /// No description provided for @exportFullJson.
+  ///
+  /// In en, this message translates to:
+  /// **'Export all data (JSON)'**
+  String get exportFullJson;
+
+  /// No description provided for @exportFullJsonHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Complete backup of your local data'**
+  String get exportFullJsonHint;
+
+  /// No description provided for @exportSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Export saved'**
+  String get exportSaved;
+
+  /// No description provided for @exportFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Export failed'**
+  String get exportFailed;
 
   /// No description provided for @importingWorkoutHistory.
   ///
@@ -3641,7 +3815,7 @@ abstract class AppLocalizations {
   /// No description provided for @paywallFeatureProgress.
   ///
   /// In en, this message translates to:
-  /// **'Full progress dashboard — 7, 30, 90 days & all-time view'**
+  /// **'All-time history & custom date ranges'**
   String get paywallFeatureProgress;
 
   /// No description provided for @paywallFeaturePlans.

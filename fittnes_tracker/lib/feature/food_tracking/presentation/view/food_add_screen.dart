@@ -1,11 +1,9 @@
 // lib/feature/presentation/view/food_add_screen.dart
 import 'package:ForgeForm/core/app_database.dart';
-import 'package:ForgeForm/core/providers/access_provider.dart';
 import 'package:ForgeForm/core/utils/app_logger.dart';
-import 'package:ForgeForm/feature/premium/paywall_launcher.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:dio/dio.dart' show CancelToken;
-import 'package:drift/drift.dart' show Value;
+import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -199,7 +197,10 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
     }
 
     if (queryTerm.length >= 3) {
-      final tokensToCheck = nTokens.take(3);
+      // BLS names are long and comma-qualified (e.g. "Fettsäure C22:6 n-3
+      // all-cis (Docosahexaensäure)"), so fuzzy matching needs more than the
+      // first 3 tokens to find a hit anywhere in the name.
+      final tokensToCheck = nTokens.take(6);
       for (int idx = 0; idx < tokensToCheck.length; idx++) {
         final token = tokensToCheck.elementAt(idx);
         final lenDiff = (token.length - queryTerm.length).abs();
@@ -213,8 +214,9 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
     }
 
     if (queryTerm.length >= 4) {
-      for (int idx = 0; idx < nTokens.take(3).length; idx++) {
-        final token = nTokens[idx];
+      final tokensToCheck = nTokens.take(6);
+      for (int idx = 0; idx < tokensToCheck.length; idx++) {
+        final token = tokensToCheck.elementAt(idx);
         if (token.contains(queryTerm)) {
           return 200 + (token.length - queryTerm.length) + idx * 20;
         }
@@ -222,6 +224,26 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
     }
 
     return 1000000;
+  }
+
+  /// Scores a result against whichever name field the query actually
+  /// matches best. Verified items carry both `_name_en` and `_name_de`
+  /// (the display name alone is locale-pinned via `product_name`, so a
+  /// German query that only matches `nameDe` would otherwise score against
+  /// the English name when the app locale is English, and vice versa).
+  int _bestNameScore(String query, Map<String, dynamic> item) {
+    final candidates = <String>{
+      _itemName(item),
+      if (item['_name_en'] is String) item['_name_en'] as String,
+      if (item['_name_de'] is String) item['_name_de'] as String,
+    }..removeWhere((s) => s.isEmpty);
+    if (candidates.isEmpty) return 1000000;
+    var best = 1000000;
+    for (final name in candidates) {
+      final score = _nameScore(query, name);
+      if (score < best) best = score;
+    }
+    return best;
   }
 
   /// Extract the display name from a search result item
@@ -324,8 +346,36 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
               })
               .toList();
 
-      if (localAsMaps.isNotEmpty) {
-        _updateResults(searchQuery, localAsMaps, [], stillLoading: true);
+      // Verified staples (seeded, BLS-style) rank above crowdsourced OFF
+      // results — the fix for conflicting user-submitted entries.
+      final verifiedRows = await (db.select(db.verifiedFoodTable)..where(
+        (t) =>
+            t.name.lower().contains(qLower) |
+            t.nameDe.lower().contains(qLower),
+      )).get();
+      final isGerman = !mounted
+          ? false
+          : Localizations.localeOf(context).languageCode == 'de';
+      final verifiedMaps = verifiedRows.map((v) {
+        return <String, dynamic>{
+          'product_name': isGerman ? (v.nameDe ?? v.name) : v.name,
+          '_name_en': v.name,
+          '_name_de': v.nameDe,
+          'brands': 'BLS 4.0',
+          'nutriments': {
+            'energy-kcal_100g': v.calories,
+            'proteins_100g': v.protein,
+            'carbohydrates_100g': v.carbs,
+            'fat_100g': v.fat,
+          },
+          'id': 'verified-${v.id}',
+          '_source': 'verified',
+        };
+      }).toList();
+
+      if (localAsMaps.isNotEmpty || verifiedMaps.isNotEmpty) {
+        _updateResults(searchQuery, localAsMaps, verifiedMaps,
+            stillLoading: true);
       }
 
       final locale = Localizations.localeOf(context);
@@ -341,7 +391,7 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
         return;
       }
 
-      _updateResults(searchQuery, localAsMaps, fetchedApi);
+      _updateResults(searchQuery, localAsMaps, [...verifiedMaps, ...fetchedApi]);
     } catch (e) {
       if (mounted && _searchController.text.trim() == searchQuery) {
         setState(() {
@@ -366,16 +416,24 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
     if (!mounted || _searchController.text.trim() != searchQuery) return;
 
     List<Map<String, dynamic>> _score(List<Map<String, dynamic>> items) {
-      final scored = items.take(100).toList();
-      scored.sort((a, b) {
-        final sa = _nameScore(searchQuery, _itemName(a));
-        final sb = _nameScore(searchQuery, _itemName(b));
-        if (sa != sb) return sa.compareTo(sb);
-        return _itemName(a).length.compareTo(_itemName(b).length);
+      // Score once per item, filter, THEN sort+take — scoring every item
+      // before truncating means a match doesn't get discarded just because
+      // it wasn't among the first 100 by insertion order (the verified
+      // table alone can return hundreds of substring matches).
+      final withScore =
+          items
+              .map((item) => (item: item, score: _bestNameScore(searchQuery, item)))
+              .where((e) => e.score < 400)
+              .toList();
+      withScore.sort((a, b) {
+        // Verified entries always rank above crowdsourced ones.
+        final va = a.item['_source'] == 'verified' ? 0 : 1;
+        final vb = b.item['_source'] == 'verified' ? 0 : 1;
+        if (va != vb) return va.compareTo(vb);
+        if (a.score != b.score) return a.score.compareTo(b.score);
+        return _itemName(a.item).length.compareTo(_itemName(b.item).length);
       });
-      return scored
-          .where((r) => _nameScore(searchQuery, _itemName(r)) < 400)
-          .toList();
+      return withScore.take(100).map((e) => e.item).toList();
     }
 
     bool _hasNutrition(Map<String, dynamic> r) {
@@ -609,7 +667,9 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
     // For API items use the nutriments map (values are per-100g, gramm=100).
     final foodItem = FoodItemModel(
       id: int.tryParse(productData['id']?.toString() ?? '') ?? 0,
-      openFoodFactsId: isLocal
+      // Verified (seeded) entries are not OFF products — storing their ids
+      // here would make the edit flow try to re-fetch them from OFF.
+      openFoodFactsId: (isLocal || productData['_source'] == 'verified')
           ? null
           : (productData['code'] ?? productData['id'])?.toString(),
       name: productData['product_name'] ?? productData['brands'] ?? 'Unknown',
@@ -689,6 +749,33 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
       return result['brands']?.toString() ?? 'Generic';
     }
     return '$kcal kcal | P: ${pro}g | C: ${carbs}g | F: ${fat}g';
+  }
+
+  Widget _verifiedBadge(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: colorScheme.primary.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.verified, size: 14, color: colorScheme.primary),
+          const SizedBox(width: 4),
+          Text(
+            AppLocalizations.of(context)!.verifiedFoodBadge,
+            style: TextStyle(
+              fontFamily: 'Exo 2',
+              fontWeight: FontWeight.w600,
+              fontSize: 11,
+              color: colorScheme.primary,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   List<FoodItemData> _sortFoodItemData(List<FoodItemData> items) {
@@ -816,16 +903,9 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
     }
   }
 
+  // Basic custom food creation is free for everyone — logging your own food
+  // is data ownership, not a premium feature (see paywall policy).
   Future<void> _addCustomFood() async {
-    final hasPremium = context.read<AccessProvider>().hasPremiumAccess;
-    if (!hasPremium) {
-      final count = await db.foodItemDao.countCustomFoodItems();
-      if (!mounted) return;
-      if (count >= 10) {
-        openPaywall(context);
-        return;
-      }
-    }
     final formKey = GlobalKey<FormState>();
     final nameController = TextEditingController();
     final caloriesController = TextEditingController();
@@ -1388,6 +1468,10 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
                                     ? _itemName(result)
                                     : 'Unknown',
                             subtitle: _macroSubtitle(result),
+                            trailing:
+                                result['_source'] == 'verified'
+                                    ? _verifiedBadge(context)
+                                    : null,
                             onTap: () => _selectFoodItem(result),
                           ),
                         ),
@@ -1476,7 +1560,11 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
               ),
             ),
           ),
-          if (trailing != null) trailing,
+          if (trailing != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 14),
+              child: trailing,
+            ),
         ],
       ),
     );

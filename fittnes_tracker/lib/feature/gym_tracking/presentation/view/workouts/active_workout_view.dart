@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/utils/app_logger.dart';
+import 'package:ForgeForm/feature/workout_planning/data/models/workout_set.dart'
+    show SetType, SetSide;
 import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
@@ -15,6 +17,8 @@ import '../../../../../core/providers/theme_provider.dart';
 // if the OS kills the app while it is minimised.
 const _kActiveWorkoutIdKey = 'active_workout_scheduled_id';
 const _kActiveWorkoutDateKey = 'active_workout_scheduled_date';
+const _kActiveWorkoutExerciseIndexKey = 'active_workout_exercise_index';
+const _kActiveWorkoutSetIndexKey = 'active_workout_set_index';
 
 /// Final fixed version with proper controller isolation and workout overview
 class ActiveWorkoutScreen extends StatefulWidget {
@@ -38,9 +42,15 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
   bool _isLoading = true;
   bool _isSaving = false;
   bool _restTimerEnabled = true;
+  // Mirrors the settings toggle; RPE input stays hidden until opted in.
+  bool _rpeEnabled = false;
   final TextEditingController _workoutNoteController = TextEditingController();
   final Map<String, TextEditingController> _exerciseNoteControllers = {};
   final Map<String, TextEditingController> _setControllers = {};
+  // Per-set type (normal/warmup/dropset/failure) and side (both/left/right),
+  // keyed like _setControllers. Absent key = normal / both.
+  final Map<String, SetType> _setTypes = {};
+  final Map<String, SetSide> _setSides = {};
   List<_ExerciseWithSets> _exercises = [];
   Timer? _saveDebounce;
   Future<void>? _pendingExerciseSave;
@@ -72,6 +82,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     if (mounted) {
       setState(() {
         _restTimerEnabled = prefs.getBool('rest_timer_enabled') ?? true;
+        _rpeEnabled = prefs.getBool('rpe_tracking_enabled') ?? false;
       });
     }
   }
@@ -92,6 +103,18 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_kActiveWorkoutIdKey);
     await prefs.remove(_kActiveWorkoutDateKey);
+    await prefs.remove(_kActiveWorkoutExerciseIndexKey);
+    await prefs.remove(_kActiveWorkoutSetIndexKey);
+  }
+
+  /// Persists which exercise/set the user is currently on, so re-entering an
+  /// in-progress workout resumes at the same spot instead of restarting at
+  /// exercise 0 / set 0.
+  Future<void> _savePosition() async {
+    if (widget.isReadOnly) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_kActiveWorkoutExerciseIndexKey, _currentExerciseIndex);
+    await prefs.setInt(_kActiveWorkoutSetIndexKey, _currentSetIndex);
   }
 
   void _scheduleSave() {
@@ -267,15 +290,68 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
             'reps',
             existing?.reps?.toString() ?? '',
           );
+          _getOrCreateSetController(
+            ex.workoutExercise.id,
+            template.setNumber,
+            'rpe',
+            existing?.rpe?.toString() ?? '',
+          );
+          if (existing != null) {
+            final typeKey = _getSetControllerKey(
+              ex.workoutExercise.id,
+              template.setNumber,
+              'setType',
+            );
+            final sideKey = _getSetControllerKey(
+              ex.workoutExercise.id,
+              template.setNumber,
+              'side',
+            );
+            _setTypes[typeKey] = SetType.values[existing.setType];
+            _setSides[sideKey] = SetSide.values[existing.side];
+          }
         }
       }
 
       final maxGroupId = exercises
           .map((e) => e.supersetGroupId ?? 0)
           .fold(0, (a, b) => a > b ? a : b);
+
+      var restoredExerciseIndex = 0;
+      var restoredSetIndex = 0;
+      if (!widget.isReadOnly) {
+        final prefs = await SharedPreferences.getInstance();
+        final savedId = prefs.getInt(_kActiveWorkoutIdKey);
+        final savedDate = prefs.getString(_kActiveWorkoutDateKey);
+        // Only resume position if it belongs to this exact scheduled workout —
+        // otherwise a leftover position from a different session could jump
+        // the user to an out-of-range exercise here.
+        if (savedId == widget.scheduledWorkout.scheduled.id &&
+            savedDate == widget.scheduledDate.toIso8601String()) {
+          final savedExerciseIndex = prefs.getInt(
+            _kActiveWorkoutExerciseIndexKey,
+          );
+          final savedSetIndex = prefs.getInt(_kActiveWorkoutSetIndexKey);
+          if (savedExerciseIndex != null &&
+              savedExerciseIndex >= 0 &&
+              savedExerciseIndex < exercises.length) {
+            restoredExerciseIndex = savedExerciseIndex;
+            final setCount =
+                exercises[restoredExerciseIndex].templates.length;
+            if (savedSetIndex != null &&
+                savedSetIndex >= 0 &&
+                savedSetIndex < setCount) {
+              restoredSetIndex = savedSetIndex;
+            }
+          }
+        }
+      }
+
       setState(() {
         _exercises = exercises;
         _nextSupersetGroupId = maxGroupId + 1;
+        _currentExerciseIndex = restoredExerciseIndex;
+        _currentSetIndex = restoredSetIndex;
         _isLoading = false;
       });
     } catch (e, stackTrace) {
@@ -552,14 +628,38 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
           template.setNumber,
           'reps',
         );
+        final rpeKey = _getSetControllerKey(
+          exerciseData.workoutExercise.id,
+          template.setNumber,
+          'rpe',
+        );
+        final typeKey = _getSetControllerKey(
+          exerciseData.workoutExercise.id,
+          template.setNumber,
+          'setType',
+        );
+        final sideKey = _getSetControllerKey(
+          exerciseData.workoutExercise.id,
+          template.setNumber,
+          'side',
+        );
         final weightController = _setControllers[weightKey];
         final repsController = _setControllers[repsKey];
+        final rpeController = _setControllers[rpeKey];
+        final setType = _setTypes[typeKey] ?? SetType.normal;
+        final side = _setSides[sideKey] ?? SetSide.both;
 
         if (weightController != null && repsController != null) {
           final weight = double.tryParse(
             weightController.text.replaceAll(',', '.'),
           );
           final reps = int.tryParse(repsController.text);
+          // RPE is only stored when it's a plausible value (6-10); anything
+          // else is treated as "not logged" rather than saved as bad data.
+          final rpeInput = int.tryParse(rpeController?.text ?? '');
+          final rpe = (rpeInput != null && rpeInput >= 6 && rpeInput <= 10)
+              ? rpeInput
+              : null;
           if (weight != null || reps != null) {
             await db
                 .into(db.workoutSetTable)
@@ -569,6 +669,9 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                     setNumber: template.setNumber,
                     weight: Value(weight),
                     reps: Value(reps),
+                    rpe: Value(rpe),
+                    setType: Value(setType.index),
+                    side: Value(side.index),
                     isCompleted: const Value(true),
                   ),
                 );
@@ -690,6 +793,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
           _currentExerciseIndex = partnerIndex;
           _currentSetIndex = partnerSetIndex;
         });
+        _savePosition();
         if (_restTimerEnabled) showRestTimer(context);
       } else {
         // Back on second exercise — advance set or leave superset
@@ -703,6 +807,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
             _currentExerciseIndex = firstIndex;
             _currentSetIndex = firstSetIndex;
           });
+          _savePosition();
           if (_restTimerEnabled) showRestTimer(context);
         } else {
           _pendingExerciseSave = _saveCurrentExercise(flushIme: true);
@@ -717,6 +822,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
               _currentExerciseIndex = afterSuperset;
               _currentSetIndex = 0;
             });
+            _savePosition();
           }
         }
       }
@@ -728,6 +834,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
       setState(() {
         _currentSetIndex++;
       });
+      _savePosition();
       if (_restTimerEnabled) showRestTimer(context);
     } else {
       _nextExercise();
@@ -763,6 +870,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
         _currentSetIndex = exercise.templates.length - 1;
       }
     });
+    _savePosition();
     _scheduleSave();
   }
 
@@ -844,6 +952,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
         _currentExerciseIndex++;
         _currentSetIndex = 0;
       });
+      _savePosition();
     }
   }
 
@@ -856,6 +965,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
         _currentExerciseIndex--;
         _currentSetIndex = 0;
       });
+      _savePosition();
     }
   }
 
@@ -1517,6 +1627,42 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
           ),
           const SizedBox(height: 16),
 
+          if (_rpeEnabled) ...[
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(l10n.rpeLabel, style: theme.textTheme.titleMedium),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _getOrCreateSetController(
+                        exerciseData.workoutExercise.id,
+                        currentTemplate.setNumber,
+                        'rpe',
+                        exerciseData
+                                .existingSets[currentTemplate.setNumber]
+                                ?.rpe
+                                ?.toString() ??
+                            '',
+                      ),
+                      keyboardType: TextInputType.number,
+                      style: theme.textTheme.headlineMedium,
+                      textAlign: TextAlign.center,
+                      decoration: const InputDecoration(
+                        hintText: '6-10',
+                        border: OutlineInputBorder(),
+                      ),
+                      onChanged: (_) => _scheduleSave(),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+
           Card(
             elevation: 2,
             child: Padding(
@@ -1591,41 +1737,78 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                               ?.toString() ??
                           '',
                     );
+                    final typeKey = _getSetControllerKey(
+                      exerciseData.workoutExercise.id,
+                      template.setNumber,
+                      'setType',
+                    );
+                    final sideKey = _getSetControllerKey(
+                      exerciseData.workoutExercise.id,
+                      template.setNumber,
+                      'side',
+                    );
+                    final setType = _setTypes[typeKey] ?? SetType.normal;
+                    final side = _setSides[sideKey] ?? SetSide.both;
+                    final sideSuffix = switch (side) {
+                      SetSide.both => '',
+                      SetSide.left => ' (L)',
+                      SetSide.right => ' (R)',
+                    };
 
                     return Material(
                       color: Colors.transparent,
                       child: InkWell(
                         borderRadius: BorderRadius.circular(8),
-                        onTap: () => setState(() => _currentSetIndex = index),
+                        onTap: () {
+                          setState(() => _currentSetIndex = index);
+                          _savePosition();
+                        },
                         child: Padding(
                           padding: const EdgeInsets.only(bottom: 8.0),
                           child: Row(
                             children: [
-                              Container(
-                                width: 32,
-                                height: 32,
-                                decoration: BoxDecoration(
-                                  color:
-                                      isCurrent
-                                          ? theme.colorScheme.primary
-                                          : isPast
-                                          ? theme.colorScheme.tertiary
-                                          : theme
-                                              .colorScheme
-                                              .surfaceContainerHighest,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    '${template.setNumber}',
-                                    style: TextStyle(
-                                      color:
-                                          isCurrent || isPast
-                                              ? Colors.white
-                                              : theme
-                                                  .colorScheme
-                                                  .onSurfaceVariant,
-                                      fontWeight: FontWeight.bold,
+                              // Tapping the set number opens the set-type/side
+                              // menu (Hevy pattern); tapping the row selects it.
+                              GestureDetector(
+                                onTap:
+                                    widget.isReadOnly
+                                        ? null
+                                        : () => _showSetOptionsSheet(
+                                          typeKey,
+                                          sideKey,
+                                        ),
+                                child: Container(
+                                  width: 32,
+                                  height: 32,
+                                  decoration: BoxDecoration(
+                                    color:
+                                        isCurrent
+                                            ? theme.colorScheme.primary
+                                            : isPast
+                                            ? theme.colorScheme.tertiary
+                                            : theme
+                                                .colorScheme
+                                                .surfaceContainerHighest,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      switch (setType) {
+                                        SetType.normal =>
+                                          '${template.setNumber}',
+                                        SetType.warmup => 'W',
+                                        SetType.dropset => 'D',
+                                        SetType.failure => 'F',
+                                      },
+                                      style: TextStyle(
+                                        color:
+                                            isCurrent || isPast
+                                                ? Colors.white
+                                                : theme
+                                                    .colorScheme
+                                                    .onSurfaceVariant,
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -1636,7 +1819,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                                   isPast &&
                                           weightController.text.isNotEmpty &&
                                           repsController.text.isNotEmpty
-                                      ? '${weightController.text} kg × ${repsController.text} reps'
+                                      ? '${weightController.text} kg × ${repsController.text} reps$sideSuffix'
                                       : isCurrent
                                       ? l10n.currentSetLabel
                                       : l10n.upcoming,
@@ -1669,6 +1852,83 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
           ),
         ],
       ),
+    );
+  }
+
+  /// Bottom sheet for marking a set as warmup/dropset/failure and flagging
+  /// unilateral (left/right) sets. Opened by tapping the set-number circle.
+  void _showSetOptionsSheet(String typeKey, String sideKey) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+
+    String typeLabel(SetType t) => switch (t) {
+      SetType.normal => l10n.setTypeNormal,
+      SetType.warmup => l10n.setTypeWarmup,
+      SetType.dropset => l10n.setTypeDropset,
+      SetType.failure => l10n.setTypeFailure,
+    };
+    String sideLabel(SetSide s) => switch (s) {
+      SetSide.both => l10n.sideBoth,
+      SetSide.left => l10n.sideLeft,
+      SetSide.right => l10n.sideRight,
+    };
+
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (sheetContext, setSheetState) {
+            final currentType = _setTypes[typeKey] ?? SetType.normal;
+            final currentSide = _setSides[sideKey] ?? SetSide.both;
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(l10n.setTypeLabel, style: theme.textTheme.titleMedium),
+                    ...SetType.values.map(
+                      (t) => ListTile(
+                        dense: true,
+                        title: Text(typeLabel(t)),
+                        trailing:
+                            t == currentType
+                                ? Icon(
+                                  Icons.check,
+                                  color: theme.colorScheme.primary,
+                                )
+                                : null,
+                        onTap: () {
+                          setState(() => _setTypes[typeKey] = t);
+                          setSheetState(() {});
+                          _scheduleSave();
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(l10n.sideLabel, style: theme.textTheme.titleMedium),
+                    const SizedBox(height: 8),
+                    SegmentedButton<SetSide>(
+                      segments: [
+                        for (final s in SetSide.values)
+                          ButtonSegment(value: s, label: Text(sideLabel(s))),
+                      ],
+                      selected: {currentSide},
+                      onSelectionChanged: (selection) {
+                        setState(() => _setSides[sideKey] = selection.first);
+                        setSheetState(() {});
+                        _scheduleSave();
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -2029,6 +2289,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                                       _currentExerciseIndex = index;
                                       _currentSetIndex = 0;
                                     });
+                                    _savePosition();
                                     Navigator.pop(sheetContext);
                                   }
                                 },

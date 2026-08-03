@@ -1,3 +1,12 @@
+/// The kind of set being performed. Warmup sets are excluded from volume and
+/// PR calculations by default; dropset/failure exist for accurate history.
+enum SetType { normal, warmup, dropset, failure }
+
+/// Which side a unilateral set was performed with. [both] for normal bilateral
+/// sets; left/right sets show separately in progression charts so strength
+/// imbalances stay visible.
+enum SetSide { both, left, right }
+
 /// Represents a single set within a workout exercise
 /// For example: "12 reps at 50kg" or "60 seconds of jumping jacks"
 class WorkoutSet {
@@ -12,11 +21,9 @@ class WorkoutSet {
   final bool isCompleted; // Whether this set has been completed
   final String? notes; // Any notes for this specific set
   final String? targetReps;
-  // TODO: Rate of Perceived Exertion (1-10) — needed by the Trainer Console's
-  // Workout Builder SET/REPS/WEIGHT/RPE table. Also needs: a schema-version
-  // bump/migration in app_database.dart, and wiring into toMap/fromMap/
-  // copyWith below, plus the matching backend field (see WorkoutSet.cs).
-  final int? rpe;
+  final int? rpe; // Rate of Perceived Exertion (6-10), null when not logged
+  final SetType setType;
+  final SetSide side;
 
   WorkoutSet({
     this.id,
@@ -30,6 +37,8 @@ class WorkoutSet {
     this.notes,
     this.targetReps,
     this.rpe,
+    this.setType = SetType.normal,
+    this.side = SetSide.both,
   });
 
   // Convert to Map for database operations
@@ -45,6 +54,9 @@ class WorkoutSet {
       'isCompleted': isCompleted ? 1 : 0,
       'notes': notes,
       'targetReps': targetReps,
+      'rpe': rpe,
+      'setType': setType.index,
+      'side': side.index,
     };
   }
 
@@ -61,6 +73,9 @@ class WorkoutSet {
       isCompleted: map['isCompleted'] == 1,
       notes: map['notes'],
       targetReps: map['targetReps'],
+      rpe: map['rpe'],
+      setType: SetType.values[map['setType'] ?? 0],
+      side: SetSide.values[map['side'] ?? 0],
     );
   }
 
@@ -76,6 +91,9 @@ class WorkoutSet {
     bool? isCompleted,
     String? notes,
     String? targetReps,
+    int? rpe,
+    SetType? setType,
+    SetSide? side,
   }) {
     return WorkoutSet(
       id: id ?? this.id,
@@ -88,6 +106,9 @@ class WorkoutSet {
       isCompleted: isCompleted ?? this.isCompleted,
       notes: notes ?? this.notes,
       targetReps: targetReps ?? this.targetReps,
+      rpe: rpe ?? this.rpe,
+      setType: setType ?? this.setType,
+      side: side ?? this.side,
     );
   }
 }

@@ -1,4 +1,8 @@
+import 'dart:convert';
+
+import 'package:ForgeForm/core/data_export/data_exporter.dart';
 import 'package:ForgeForm/feature/auth/data/repositories/auth_repository.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:ForgeForm/feature/auth/presentation/view/login_screen.dart'
     as auth_login;
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
@@ -25,6 +29,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:ForgeForm/feature/premium/paywall_launcher.dart';
 import 'package:ForgeForm/feature/premium/premium_gate.dart';
+import 'package:ForgeForm/core/design_tokens.dart';
 
 extension SexLocalizations on Sex {
   String localized(BuildContext ctx) {
@@ -87,6 +92,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _isSaving = false;
   bool _isCalculating = false;
   bool _restTimerEnabled = true;
+  // RPE logging is off by default and free for everyone (Hevy pattern:
+  // hidden until the user opts in, never premium-gated).
+  bool _rpeTrackingEnabled = false;
   final TextEditingController _ageController = TextEditingController();
   final TextEditingController _heightController = TextEditingController();
   Sex _sex = Sex.male;
@@ -112,6 +120,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _isSyncing = false;
   bool _isPulling = false;
   bool _isRestoringPurchases = false;
+  bool _isExporting = false;
+
+  /// Builds an export via [build] and lets the user pick where to save it.
+  /// Free for all users — data ownership is never behind the paywall.
+  Future<void> _runExport(
+    Future<String> Function(DataExporter exporter) build,
+    String fileName,
+  ) async {
+    final l10n = AppLocalizations.of(context)!;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _isExporting = true);
+    try {
+      final content = await build(DataExporter(sl<AppDatabase>()));
+      final savedPath = await FilePicker.platform.saveFile(
+        fileName: fileName,
+        bytes: Uint8List.fromList(utf8.encode(content)),
+      );
+      // null means the user cancelled the save dialog — not an error.
+      if (savedPath != null) {
+        messenger.showSnackBar(SnackBar(content: Text(l10n.exportSaved)));
+      }
+    } catch (_) {
+      messenger.showSnackBar(SnackBar(content: Text(l10n.exportFailed)));
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
+  }
+
+  String get _exportDateSuffix =>
+      DateTime.now().toIso8601String().substring(0, 10);
 
   Future<void> _runRestorePurchases() async {
     setState(() => _isRestoringPurchases = true);
@@ -188,6 +226,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (mounted) {
       setState(() {
         _restTimerEnabled = prefs.getBool('rest_timer_enabled') ?? true;
+        _rpeTrackingEnabled = prefs.getBool('rpe_tracking_enabled') ?? false;
       });
     }
   }
@@ -195,6 +234,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _saveRestTimerPreference(bool value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('rest_timer_enabled', value);
+  }
+
+  Future<void> _saveRpeTrackingPreference(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('rpe_tracking_enabled', value);
   }
 
   Future<void> _loadProfileFromDb() async {
@@ -661,6 +705,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           },
                         ),
                       ),
+                      Divider(height: 1, indent: 16, endIndent: 16),
+                      SwitchListTile(
+                        secondary: Icon(
+                          Icons.speed,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                        title: Text(l10n.rpeTrackingSetting),
+                        subtitle: Text(l10n.rpeTrackingSettingSubtitle),
+                        value: _rpeTrackingEnabled,
+                        onChanged: (value) {
+                          setState(() => _rpeTrackingEnabled = value);
+                          _saveRpeTrackingPreference(value);
+                        },
+                      ),
                     ],
                   ),
                 ),
@@ -746,6 +804,84 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             ),
                     title: Text(l10n.paywallRestorePurchases),
                     onTap: _isRestoringPurchases ? null : _runRestorePurchases,
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // ── Data export (free for everyone) ───────────────────────
+                _SectionLabel(l10n.exportSectionLabel),
+                Card(
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: colorScheme.outlineVariant),
+                  ),
+                  child: Column(
+                    children: [
+                      ListTile(
+                        leading: Icon(
+                          Icons.fitness_center,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                        title: Text(l10n.exportWorkoutsCsv),
+                        onTap: _isExporting
+                            ? null
+                            : () => _runExport(
+                                  (e) => e.exportWorkoutsCsv(),
+                                  'forgeform_workouts_$_exportDateSuffix.csv',
+                                ),
+                      ),
+                      ListTile(
+                        leading: Icon(
+                          Icons.monitor_weight_outlined,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                        title: Text(l10n.exportWeightCsv),
+                        onTap: _isExporting
+                            ? null
+                            : () => _runExport(
+                                  (e) => e.exportWeightCsv(),
+                                  'forgeform_weight_$_exportDateSuffix.csv',
+                                ),
+                      ),
+                      ListTile(
+                        leading: Icon(
+                          Icons.restaurant_outlined,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                        title: Text(l10n.exportNutritionCsv),
+                        onTap: _isExporting
+                            ? null
+                            : () => _runExport(
+                                  (e) => e.exportNutritionCsv(),
+                                  'forgeform_nutrition_$_exportDateSuffix.csv',
+                                ),
+                      ),
+                      ListTile(
+                        leading: _isExporting
+                            ? SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: colorScheme.primary,
+                                ),
+                              )
+                            : Icon(
+                                Icons.data_object,
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                        title: Text(l10n.exportFullJson),
+                        subtitle: Text(l10n.exportFullJsonHint),
+                        onTap: _isExporting
+                            ? null
+                            : () => _runExport(
+                                  (e) => e.exportFullJson(),
+                                  'forgeform_backup_$_exportDateSuffix.json',
+                                ),
+                      ),
+                    ],
                   ),
                 ),
 
@@ -1048,7 +1184,7 @@ class _GoPremiumBanner extends StatelessWidget {
           ElevatedButton(
             onPressed: () => openPaywall(context),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFFF6B35),
+              backgroundColor: ForgeColors.forgeOrange,
               foregroundColor: Colors.white,
               elevation: 0,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),

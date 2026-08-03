@@ -6,8 +6,10 @@ import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:ForgeForm/core/app_database.dart';
+import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/core/providers/user_goals_provider.dart';
 import 'package:ForgeForm/core/providers/access_provider.dart';
+import 'package:ForgeForm/feature/food_tracking/data/adaptive_tdee_service.dart';
 import 'package:ForgeForm/feature/premium/paywall_launcher.dart';
 import 'package:ForgeForm/feature/premium/premium_gate.dart';
 
@@ -66,7 +68,12 @@ class _ProgressScreenState extends State<ProgressScreen>
 
   DateTime _rangeStart(TimeRange range, DateTime? customStart) {
     final hasPremium = context.read<AccessProvider>().hasPremiumAccess;
-    if (!hasPremium) return DateTime.now().subtract(const Duration(days: 7));
+    // Free tier gets up to 90 days of history; all-time and custom ranges
+    // are premium (depth gate — the range chips enforce the same split).
+    if (!hasPremium &&
+        (range == TimeRange.allTime || range == TimeRange.custom)) {
+      return DateTime.now().subtract(const Duration(days: 90));
+    }
     if (range == TimeRange.custom && customStart != null) return customStart;
     final now = DateTime.now();
     switch (range) {
@@ -162,6 +169,7 @@ class _ProgressScreenState extends State<ProgressScreen>
     JOIN workout_set_table                ws  ON ws.scheduled_workout_exercise_id = swe.id
     WHERE sw.is_completed = 1
       AND (ws.reps IS NOT NULL OR ws.weight IS NOT NULL)
+      AND ws.set_type != 1  -- exclude warmup sets from volume/PR stats
       AND sw.scheduled_date >= ?
       AND sw.scheduled_date <= ?
     GROUP BY we.exercise_id, sw.scheduled_date
@@ -440,12 +448,12 @@ class _ProgressScreenState extends State<ProgressScreen>
                 AppLocalizations.of(context)!.completeWorkoutsProgress,
               )
             else
-              PremiumGate(
-                child: Column(
-                  children: _exerciseProgress
-                      .map((data) => _buildExerciseCard(data, theme))
-                      .toList(),
-                ),
+              // Basic exercise graphs are free — only correlation analytics
+              // and extended time ranges stay premium (depth, not access).
+              Column(
+                children: _exerciseProgress
+                    .map((data) => _buildExerciseCard(data, theme))
+                    .toList(),
               ),
           ],
         ),
@@ -733,6 +741,8 @@ class _ProgressScreenState extends State<ProgressScreen>
             ],
 
             if (_weightRecords.isNotEmpty && _dailyData.isNotEmpty) ...[
+              PremiumGate(child: _buildAdaptiveTdeeCard(theme)),
+              const SizedBox(height: 24),
               PremiumGate(child: _buildWeightCorrelationChart(theme)),
               const SizedBox(height: 24),
             ],
@@ -823,7 +833,7 @@ class _ProgressScreenState extends State<ProgressScreen>
                   child: _buildMacroStat(
                     AppLocalizations.of(context)!.proteinLabel,
                     avgProtein.toStringAsFixed(0),
-                    Colors.red,
+                    ForgeColors.proteinColor,
                     theme,
                   ),
                 ),
@@ -831,7 +841,7 @@ class _ProgressScreenState extends State<ProgressScreen>
                   child: _buildMacroStat(
                     AppLocalizations.of(context)!.carbsLabel,
                     avgCarbs.toStringAsFixed(0),
-                    Colors.blue,
+                    ForgeColors.carbsColor,
                     theme,
                   ),
                 ),
@@ -839,7 +849,7 @@ class _ProgressScreenState extends State<ProgressScreen>
                   child: _buildMacroStat(
                     AppLocalizations.of(context)!.fatLabel,
                     avgFat.toStringAsFixed(0),
-                    Colors.green,
+                    ForgeColors.fatColor,
                     theme,
                   ),
                 ),
@@ -956,6 +966,107 @@ class _ProgressScreenState extends State<ProgressScreen>
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Future<AdaptiveTdeeResult>? _tdeeFuture;
+
+  /// Adaptive TDEE (premium): expenditure reverse-calculated from logged
+  /// intake vs. trend weight, with an honest insufficient-data state.
+  Widget _buildAdaptiveTdeeCard(ThemeData theme) {
+    final l10n = AppLocalizations.of(context)!;
+    _tdeeFuture ??= AdaptiveTdeeService(context.read<AppDatabase>()).compute();
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: FutureBuilder<AdaptiveTdeeResult>(
+          future: _tdeeFuture,
+          builder: (context, snapshot) {
+            final result = snapshot.data;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.adaptiveTdeeTitle,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                if (result == null)
+                  const Center(child: CircularProgressIndicator())
+                else if (!result.sufficientData)
+                  Text(
+                    l10n.adaptiveTdeeInsufficient,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  )
+                else ...[
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(l10n.adaptiveTdeeEstimate),
+                      Text(
+                        '${result.tdee!.round()} kcal',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(l10n.adaptiveTdeeRecommended),
+                      Text(
+                        '${result.recommendedTarget!.round()} kcal',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    l10n.adaptiveTdeeBasis(result.daysUsed),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    l10n.adaptiveTdeeUncertainty,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: () async {
+                        final kcal = result.recommendedTarget!.round();
+                        final goals = context.read<UserGoalsProvider>();
+                        final messenger = ScaffoldMessenger.of(context);
+                        final appliedMsg = l10n.adaptiveTdeeApplied(kcal);
+                        await goals.saveCalorieGoal(kcal);
+                        messenger.showSnackBar(
+                          SnackBar(content: Text(appliedMsg)),
+                        );
+                      },
+                      child: Text(l10n.adaptiveTdeeApply),
+                    ),
+                  ),
+                ],
+              ],
+            );
+          },
         ),
       ),
     );
@@ -1240,8 +1351,16 @@ class _ProgressScreenState extends State<ProgressScreen>
                   selected: selectedRange == TimeRange.week,
                   onSelected: (_) => onChanged(TimeRange.week),
                 ),
-                premiumChip(AppLocalizations.of(context)!.thirtyDays, TimeRange.month),
-                premiumChip(AppLocalizations.of(context)!.ninetyDays, TimeRange.threeMonths),
+                ChoiceChip(
+                  label: Text(AppLocalizations.of(context)!.thirtyDays),
+                  selected: selectedRange == TimeRange.month,
+                  onSelected: (_) => onChanged(TimeRange.month),
+                ),
+                ChoiceChip(
+                  label: Text(AppLocalizations.of(context)!.ninetyDays),
+                  selected: selectedRange == TimeRange.threeMonths,
+                  onSelected: (_) => onChanged(TimeRange.threeMonths),
+                ),
                 premiumChip(AppLocalizations.of(context)!.allTime, TimeRange.allTime),
                 ChoiceChip(
                   label: Row(

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:ForgeForm/core/utils/app_logger.dart';
 import 'package:ForgeForm/feature/workout_planning/data/models/workout_template_models.dart';
 import 'package:csv/csv.dart';
 import 'package:drift/drift.dart';
@@ -19,6 +18,7 @@ part 'app_database.g.dart';
 @DriftDatabase(
   tables: [
     FoodItem,
+    VerifiedFoodTable,
     UserSettings,
     MealTable,
     MealFoodTable,
@@ -81,7 +81,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 34;
+  int get schemaVersion => 36;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -280,6 +280,19 @@ class AppDatabase extends _$AppDatabase {
             'ALTER TABLE food_item ADD COLUMN open_food_facts_id TEXT',
           );
         } catch (_) {}
+      }
+
+      if (from < 35) {
+        // RPE + set type + unilateral side on logged sets, in one migration.
+        for (final stmt in [
+          'ALTER TABLE workout_set_table ADD COLUMN rpe INTEGER',
+          'ALTER TABLE workout_set_table ADD COLUMN set_type INTEGER NOT NULL DEFAULT 0',
+          'ALTER TABLE workout_set_table ADD COLUMN side INTEGER NOT NULL DEFAULT 0',
+        ]) {
+          try {
+            await customStatement(stmt);
+          } catch (_) {}
+        }
       }
 
       // Migration from version 1 to 2
@@ -981,6 +994,24 @@ class MealFoodTable extends Table {
   TextColumn get serverId => text().nullable()();
 }
 
+/// Curated verified foods (per-100g values) shown above crowdsourced search
+/// results. Seeded from a bundled JSON asset; designed so a BLS 4.0 export
+/// (blsdb.de) can be dropped in as the seed source without code changes.
+/// Deliberately separate from [FoodItem]: never synced to the server, never
+/// in the recent-foods list, and survives logout wipes.
+class VerifiedFoodTable extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get name => text()();
+  TextColumn get nameDe => text().nullable()();
+  IntColumn get calories => integer()();
+  RealColumn get protein => real()();
+  RealColumn get carbs => real()();
+  RealColumn get fat => real()();
+
+  /// Source key, e.g. the BLS SBLS code — kept for attribution/versioning.
+  TextColumn get sourceCode => text().nullable()();
+}
+
 // Persistent search cache table
 class SearchCacheTable extends Table {
   TextColumn get query => text()();
@@ -1501,6 +1532,15 @@ class WorkoutSetTable extends Table {
   TextColumn get notes => text().nullable()();
   TextColumn get serverId => text().nullable()();
   IntColumn get syncStatus => integer().withDefault(const Constant(0))();
+
+  /// Rate of Perceived Exertion (6-10). Null when the user didn't log one.
+  IntColumn get rpe => integer().nullable()();
+
+  /// Maps to [SetType] by index. Warmups are excluded from volume/PR stats.
+  IntColumn get setType => integer().withDefault(const Constant(0))();
+
+  /// Maps to [SetSide] by index. Left/right for unilateral tracking.
+  IntColumn get side => integer().withDefault(const Constant(0))();
 }
 
 /// Table for workout plans/schedules
@@ -2219,6 +2259,9 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
               durationSeconds: Value(set.durationSeconds),
               isCompleted: Value(set.isCompleted),
               notes: Value(set.notes),
+              rpe: Value(set.rpe),
+              setType: Value(set.setType.index),
+              side: Value(set.side.index),
             );
 
             await into(workoutSetTable).insert(setCompanion);

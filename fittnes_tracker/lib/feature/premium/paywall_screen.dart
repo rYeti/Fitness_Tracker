@@ -3,13 +3,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:provider/provider.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
+import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/core/providers/access_provider.dart';
 import 'package:ForgeForm/feature/auth/presentation/providers/auth_provider.dart';
 import 'package:ForgeForm/feature/premium/paywall_launcher.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 
-const _forgeOrange = Color(0xFFFF6B3E);
-const _charcoal = Color(0xFF333333);
+const _forgeOrange = ForgeColors.forgeOrange;
+const _charcoal = ForgeColors.charcoal;
 
 /// A custom-built paywall screen styled to match ForgeForm's own design
 /// system, as an alternative to RevenueCat's hosted paywall template.
@@ -281,15 +282,14 @@ class _PaywallScreenState extends State<PaywallScreen> {
     );
   }
 
+  // Export and basic custom foods are free (data ownership is never gated),
+  // so they are deliberately absent from this list.
   List<String> _features(AppLocalizations l10n) => [
     l10n.paywallFeatureProgress,
     l10n.paywallFeaturePlans,
     l10n.paywallFeatureTemplates,
     l10n.paywallFeatureCorrelation,
-    l10n.paywallFeatureGraphs,
-    l10n.paywallFeatureExport,
     l10n.paywallFeatureNutrition,
-    l10n.paywallFeatureCustomFoods,
     l10n.paywallFeatureLongPlans,
     l10n.paywallFeatureFreeChoice,
   ];

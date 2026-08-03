@@ -5,6 +5,7 @@ import 'package:ForgeForm/core/network/secure_token_storage.dart';
 import 'package:ForgeForm/core/network/services/sync_service.dart';
 import 'package:ForgeForm/core/network/token_refresh_service.dart';
 import 'package:ForgeForm/core/seed_exercises.dart';
+import 'package:ForgeForm/core/seed_verified_foods.dart';
 import 'package:ForgeForm/feature/auth/presentation/providers/auth_provider.dart';
 import 'package:ForgeForm/feature/auth/presentation/view/login_screen.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
@@ -113,8 +114,11 @@ void main() async {
   final initialLocale = localeCode != null ? Locale(localeCode) : null;
   final latestWeight = await db.weightRecordDao.getLatestWeightRecord();
 
-  // Run seeding in the background — no need to block the UI.
-  seedExercisesIfEmpty(db);
+  // Awaited so the verified-food table is fully seeded before the UI (and
+  // any search) can run against it. The version gate makes this a no-op
+  // after the first launch on a given seed version.
+  await seedExercisesIfEmpty(db);
+  await seedVerifiedFoodsIfNeeded(db);
 
   // Always apply the compile-time default so changing the IP in code takes effect immediately.
   await prefs.setString(serverUrlPrefsKey, serverUrlDefault);

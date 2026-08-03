@@ -1,4 +1,5 @@
 import '../app_database.dart';
+import '../design_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -29,64 +30,64 @@ class ThemeProvider with ChangeNotifier {
       useMaterial3: true,
       fontFamily: 'Exo 2',
       colorScheme: ColorScheme.light(
-        primary: Color(0xFFFF6B3E), // ForgeForm orange
-        secondary: Color(0xFFFF6B3E),
-        tertiary: Color(0xFF333333), // Dark charcoal
+        primary: ForgeColors.forgeOrange,
+        secondary: ForgeColors.forgeOrange,
+        tertiary: ForgeColors.charcoal,
         surface: Colors.white,
         background: Color(0xFFF5F5F5), // Light gray background
         onPrimary: Colors.white,
         onSecondary: Colors.white,
-        onSurface: Color(0xFF333333),
-        onBackground: Color(0xFF333333),
+        onSurface: ForgeColors.charcoal,
+        onBackground: ForgeColors.charcoal,
       ),
       textTheme: TextTheme(
         displayLarge: TextStyle(
           fontFamily: 'Montserrat',
           fontWeight: FontWeight.bold,
-          color: Color(0xFF333333),
+          color: ForgeColors.charcoal,
         ),
         displayMedium: TextStyle(
           fontFamily: 'Montserrat',
           fontWeight: FontWeight.bold,
-          color: Color(0xFF333333),
+          color: ForgeColors.charcoal,
         ),
         displaySmall: TextStyle(
           fontFamily: 'Montserrat',
           fontWeight: FontWeight.bold,
-          color: Color(0xFF333333),
+          color: ForgeColors.charcoal,
         ),
         headlineLarge: TextStyle(
           fontFamily: 'Montserrat',
           fontWeight: FontWeight.bold,
-          color: Color(0xFF333333),
+          color: ForgeColors.charcoal,
         ),
         headlineMedium: TextStyle(
           fontFamily: 'Montserrat',
           fontWeight: FontWeight.w600,
-          color: Color(0xFF333333),
+          color: ForgeColors.charcoal,
         ),
         headlineSmall: TextStyle(
           fontFamily: 'Montserrat',
           fontWeight: FontWeight.w600,
-          color: Color(0xFF333333),
+          color: ForgeColors.charcoal,
         ),
         titleLarge: TextStyle(
           fontFamily: 'Montserrat',
           fontWeight: FontWeight.w600,
-          color: Color(0xFF333333),
+          color: ForgeColors.charcoal,
         ),
         titleMedium: TextStyle(
           fontFamily: 'Exo 2',
           fontWeight: FontWeight.w500,
-          color: Color(0xFF333333),
+          color: ForgeColors.charcoal,
         ),
         titleSmall: TextStyle(
           fontFamily: 'Exo 2',
           fontWeight: FontWeight.w500,
-          color: Color(0xFF333333),
+          color: ForgeColors.charcoal,
         ),
-        bodyLarge: TextStyle(fontFamily: 'Exo 2', color: Color(0xFF333333)),
-        bodyMedium: TextStyle(fontFamily: 'Exo 2', color: Color(0xFF333333)),
+        bodyLarge: TextStyle(fontFamily: 'Exo 2', color: ForgeColors.charcoal),
+        bodyMedium: TextStyle(fontFamily: 'Exo 2', color: ForgeColors.charcoal),
         bodySmall: TextStyle(fontFamily: 'Exo 2', color: Color(0xFF666666)),
         labelLarge: TextStyle(
           fontFamily: 'Exo 2',
@@ -101,7 +102,7 @@ class ThemeProvider with ChangeNotifier {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: Color(0xFFFF6B3E),
+          backgroundColor: ForgeColors.forgeOrange,
           foregroundColor: Colors.white,
           elevation: 0,
           padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
@@ -115,7 +116,7 @@ class ThemeProvider with ChangeNotifier {
       ),
       appBarTheme: AppBarTheme(
         elevation: 0,
-        backgroundColor: Color(0xFF333333),
+        backgroundColor: ForgeColors.charcoal,
         foregroundColor: Colors.white,
         iconTheme: IconThemeData(color: Colors.white),
         systemOverlayStyle: SystemUiOverlayStyle(
@@ -132,7 +133,7 @@ class ThemeProvider with ChangeNotifier {
         ),
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: Color(0xFFFF6B3E),
+        backgroundColor: ForgeColors.forgeOrange,
         foregroundColor: Colors.white,
         elevation: 4,
       ),
@@ -149,7 +150,7 @@ class ThemeProvider with ChangeNotifier {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: Color(0xFFFF6B3E), width: 2),
+          borderSide: BorderSide(color: ForgeColors.forgeOrange, width: 2),
         ),
         labelStyle: TextStyle(fontFamily: 'Exo 2', color: Color(0xFF666666)),
       ),
@@ -163,9 +164,9 @@ class ThemeProvider with ChangeNotifier {
       useMaterial3: true,
       fontFamily: 'Exo 2',
       colorScheme: ColorScheme.dark(
-        primary: Color(0xFFFF6B3E), // ForgeForm orange
-        secondary: Color(0xFFFF6B3E),
-        tertiary: Color(0xFF333333),
+        primary: ForgeColors.forgeOrange,
+        secondary: ForgeColors.forgeOrange,
+        tertiary: ForgeColors.charcoal,
         surface: Color(0xFF1E1E1E),
         background: Color(0xFF121212),
         onPrimary: Colors.white,
@@ -235,7 +236,7 @@ class ThemeProvider with ChangeNotifier {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: Color(0xFFFF6B3E),
+          backgroundColor: ForgeColors.forgeOrange,
           foregroundColor: Colors.white,
           elevation: 0,
           padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
@@ -249,7 +250,7 @@ class ThemeProvider with ChangeNotifier {
       ),
       appBarTheme: AppBarTheme(
         elevation: 0,
-        backgroundColor: Color(0xFF333333),
+        backgroundColor: ForgeColors.charcoal,
         foregroundColor: Colors.white,
         iconTheme: IconThemeData(color: Colors.white),
         systemOverlayStyle: SystemUiOverlayStyle(
@@ -266,7 +267,7 @@ class ThemeProvider with ChangeNotifier {
         ),
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: Color(0xFFFF6B3E),
+        backgroundColor: ForgeColors.forgeOrange,
         foregroundColor: Colors.white,
         elevation: 4,
       ),
@@ -283,7 +284,7 @@ class ThemeProvider with ChangeNotifier {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: Color(0xFFFF6B3E), width: 2),
+          borderSide: BorderSide(color: ForgeColors.forgeOrange, width: 2),
         ),
         labelStyle: TextStyle(fontFamily: 'Exo 2', color: Color(0xFFB0B0B0)),
       ),
