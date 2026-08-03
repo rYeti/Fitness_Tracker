@@ -146,6 +146,7 @@ builder.Services.AddScoped<ITrainerConsoleService, TrainerConsoleService>();
 builder.Services.AddScoped<IWorkoutPlanTemplateRepository, WorkoutPlanTemplateRepository>();
 builder.Services.AddScoped<IWorkoutPlanTemplateService, WorkoutPlanTemplateService>();
 builder.Services.AddTransient<IEmailService, GmailApiEmailService>();
+builder.Services.AddScoped<IChatRepository, ChatRepository>();
 builder.Services.AddScoped<IChatService, ChatService>();
 
 
