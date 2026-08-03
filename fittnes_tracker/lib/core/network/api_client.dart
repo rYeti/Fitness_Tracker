@@ -8,8 +8,23 @@ class ApiClient {
   final Dio _dio;
   final Logger _logger;
 
-  ApiClient({required String baseUrl, Map<String, String>? headers})
-    : _dio = Dio(
+  /// Whether a 401 should trigger a silent token refresh + retry.
+  ///
+  /// Must be false for [ApiClient]s used from the background sync isolate
+  /// (see main.dart's Workmanager dispatcher): that isolate has its own
+  /// [TokenRefreshService] instance, so a refresh triggered from there can
+  /// race the foreground app's refresh. The server treats a reused
+  /// already-rotated refresh token as a compromise signal and revokes the
+  /// whole token chain, forcing a real logout for what was actually a
+  /// harmless race. Background sync just lets a 401 fail the sync silently
+  /// instead — the foreground app will refresh normally on its own.
+  final bool allowTokenRefresh;
+
+  ApiClient({
+    required String baseUrl,
+    Map<String, String>? headers,
+    this.allowTokenRefresh = true,
+  }) : _dio = Dio(
         BaseOptions(
           baseUrl: baseUrl,
           headers: headers,
@@ -39,7 +54,10 @@ class ApiClient {
 
           final isAuthEndpoint = error.requestOptions.path.contains('api/auth/');
           final alreadyRetried = error.requestOptions.extra['retried'] == true;
-          if (error.response?.statusCode == 401 && !isAuthEndpoint && !alreadyRetried) {
+          if (error.response?.statusCode == 401 &&
+              !isAuthEndpoint &&
+              !alreadyRetried &&
+              allowTokenRefresh) {
             final refreshed = await TokenRefreshService.instance.refreshIfNeeded(
               _dio.options.baseUrl,
             );

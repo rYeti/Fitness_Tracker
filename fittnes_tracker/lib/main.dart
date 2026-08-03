@@ -68,7 +68,13 @@ void _backgroundSyncDispatcher() {
 
     final syncService = SyncService(
       db: db,
-      apiClient: ApiClient(baseUrl: serverUrl),
+      // allowTokenRefresh: false — this isolate has its own TokenRefreshService
+      // instance, isolated from the foreground app's. Letting it refresh
+      // independently can race the foreground refresh and trip the server's
+      // token-reuse detection, which revokes the whole session. If the access
+      // token is stale, just let this sync fail silently; the foreground app
+      // refreshes normally on its own next launch/request.
+      apiClient: ApiClient(baseUrl: serverUrl, allowTokenRefresh: false),
       mealTemplateDao: MealTemplateDao(db),
     );
 

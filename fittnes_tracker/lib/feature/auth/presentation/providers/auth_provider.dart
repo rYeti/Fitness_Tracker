@@ -5,6 +5,7 @@ import 'package:ForgeForm/core/network/api_client.dart';
 import 'package:ForgeForm/core/network/secure_token_storage.dart';
 import 'package:ForgeForm/feature/auth/data/Models/auth_response_model.dart';
 import 'package:ForgeForm/feature/auth/data/repositories/auth_repository.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class AuthState {
@@ -51,8 +52,19 @@ class AuthNotifier extends StateNotifier<AuthState> {
           );
           state = AuthState(user: refreshed);
           return;
-        } catch (_) {
-          // fall through to clear below
+        } on DioException catch (e) {
+          // Only a real 401 from the server means the refresh token is
+          // actually invalid/expired/revoked — clear and fall through to
+          // login. A network/timeout/5xx error at cold start (e.g. no
+          // connectivity yet, or the API mid-deploy) doesn't mean that: keep
+          // the stale local session so the user isn't kicked to the login
+          // screen just because they launched the app before Wi-Fi came up.
+          if (e.response?.statusCode == 401) {
+            await SecureTokenStorage.clear();
+          } else {
+            state = AuthState(user: user);
+          }
+          return;
         }
       }
 
