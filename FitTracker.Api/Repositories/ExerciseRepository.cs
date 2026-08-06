@@ -44,7 +44,7 @@ public class ExerciseRepository : IExerciseRepository
     }
 
     /// <inheritdoc/>
-    public async Task<Exercise> UpdateExerciseAsync(ExerciseRequestDto exercise, Guid userId, Guid id)
+    public async Task<Exercise?> UpdateExerciseAsync(ExerciseRequestDto exercise, Guid userId, Guid id)
     {
         var exerciseDb = await _context.Exercise.SingleOrDefaultAsync(e => e.Id == id && e.UserId == userId);
 

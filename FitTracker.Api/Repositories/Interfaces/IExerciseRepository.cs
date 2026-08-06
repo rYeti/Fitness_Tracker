@@ -15,7 +15,7 @@ public interface IExerciseRepository
     /// <param name="userId">The ID of the user who owns the exercise.</param>
     /// <param name="id">The ID of the exercise to update.</param>
     /// <returns>The updated exercise, or <c>null</c> if not found.</returns>
-    Task<Exercise> UpdateExerciseAsync(ExerciseRequestDto exercise, Guid userId, Guid id);
+    Task<Exercise?> UpdateExerciseAsync(ExerciseRequestDto exercise, Guid userId, Guid id);
 
     /// <summary>Deletes an exercise owned by the specified user.</summary>
     /// <param name="id">The ID of the exercise to delete.</param>

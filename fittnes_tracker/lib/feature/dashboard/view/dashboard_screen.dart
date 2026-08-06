@@ -1,6 +1,8 @@
 import 'package:ForgeForm/core/app_database.dart';
+import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/feature/food_tracking/data/repositories/nutrition_repository.dart';
 import 'package:ForgeForm/feature/gym_tracking/presentation/view/workouts/active_workout_view.dart';
+import 'package:ForgeForm/feature/trainer_console/presentation/widgets/stat_tile.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/providers/user_goals_provider.dart';
@@ -63,7 +65,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   fontFamily: 'Montserrat',
                   fontWeight: FontWeight.w800,
                   fontSize: 20,
-                  color: Color(0xFFFF6B3E),
+                  color: ForgeColors.forgeOrange,
                 ),
               ),
               TextSpan(
@@ -91,9 +93,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildStackGreeting(goalsProvider),
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
                 _todayWorkout(),
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
                 _buildWeightProgress(goalsProvider),
                 const SizedBox(height: 16),
               ],
@@ -156,7 +158,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               await Navigator.pushNamed(
                 context,
                 '/add-food',
-                arguments: {'category': 'Snack'},
+                arguments: {'category': 'Snacks'},
               );
             },
           ),
@@ -252,31 +254,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _buildQuickStat(
-                    Icons.local_fire_department,
-                    '$_todayCalories',
-                    l10n.calories,
-                    colorScheme.primary,
+                  StatTile(
+                    icon: Icons.local_fire_department,
+                    value: '$_todayCalories',
+                    label: l10n.calories,
+                    accentColor: colorScheme.primary,
                   ),
-                  _buildQuickStat(
-                    Icons.fitness_center,
-                    _weekTotal > 0 ? '$_weekCompleted/$_weekTotal' : '--',
-                    l10n.workouts,
-                    colorScheme.onSurface,
+                  StatTile(
+                    icon: Icons.fitness_center,
+                    value: _weekTotal > 0 ? '$_weekCompleted/$_weekTotal' : '--',
+                    label: l10n.workouts,
+                    accentColor: colorScheme.onSurface,
                   ),
-                  _buildQuickStat(
-                    Icons.emoji_events,
-                    '$_allTimeCompleted',
-                    l10n.allTime,
-                    colorScheme.onSurface,
+                  StatTile(
+                    icon: Icons.emoji_events,
+                    value: '$_allTimeCompleted',
+                    label: l10n.allTime,
+                    accentColor: colorScheme.onSurface,
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               _buildCaloriesProgress(goalsProvider),
             ],
           ),
@@ -341,7 +343,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             minHeight: 6,
             backgroundColor: colorScheme.onSurface.withValues(alpha: 0.07),
             valueColor: AlwaysStoppedAnimation<Color>(
-              progress > 1.0 ? Colors.red : colorScheme.primary,
+              progress > 1.0 ? ForgeColors.statusBad : colorScheme.primary,
             ),
           ),
         ),
@@ -354,45 +356,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       goalsProvider: goalsProvider,
       onNavigateToWeightTracking:
           () => Navigator.pushNamed(context, '/weight-tracking'),
-    );
-  }
-
-  Widget _buildQuickStat(
-    IconData icon,
-    String value,
-    String label,
-    Color color,
-  ) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(8.0),
-          ),
-          child: Icon(icon, color: color, size: 22),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          value,
-          style: TextStyle(
-            fontFamily: 'Montserrat',
-            fontWeight: FontWeight.w700,
-            fontSize: 15,
-            color: colorScheme.onSurface,
-          ),
-        ),
-        Text(
-          label,
-          style: TextStyle(
-            fontFamily: 'Exo 2',
-            fontSize: 11,
-            color: colorScheme.onSurface.withValues(alpha: 0.55),
-          ),
-        ),
-      ],
     );
   }
 
@@ -489,7 +452,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 else if (snapshot.hasError)
                   Text(
                     l10n.errorLoadingWorkout(snapshot.error ?? ''),
-                    style: TextStyle(color: Colors.red[400]),
+                    style: const TextStyle(color: ForgeColors.statusBad),
                   )
                 else
                   Text(

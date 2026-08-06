@@ -12,21 +12,11 @@ public class ChatRepository(AppDbContext context) : IChatRepository
     /// <summary>Persists a new chat message.</summary>
     async Task<ChatMessage> IChatRepository.AddMessageAsync(ChatMessage chatMessage)
     {
-        var chat = new ChatMessage
-        {
-            Id = chatMessage.Id,
-            Body = chatMessage.Body,
-            MediaType = chatMessage.MediaType,
-            SenderId = chatMessage.SenderId,
-            SentAt = chatMessage.SentAt,
-            ThumbnailUrl = chatMessage.ThumbnailUrl,
-            TrainerClient = chatMessage.TrainerClient,
-            Url = chatMessage.Url,
-        };
-
-        _context.ChatMessages.Add(chat);
+        var dupeMessage = await _context.ChatMessages.FirstOrDefaultAsync(x => x.Id == chatMessage.Id);
+        if (dupeMessage != null) return dupeMessage;
+        _context.ChatMessages.Add(chatMessage);
         await _context.SaveChangesAsync();
-        return chat;
+        return chatMessage;
     }
 
     /// <summary>Fetches the most recent <paramref name="range"/> messages for the trainer/client pair, then reverses them into oldest-first order for display.</summary>

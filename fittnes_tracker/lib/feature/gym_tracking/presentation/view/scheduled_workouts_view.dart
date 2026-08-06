@@ -27,7 +27,8 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
 
   // Calendar state
   late DateTime _calendarMonth;
-  Map<DateTime, ({int? color, bool isCompleted, bool isSkipped})> _calendarData = {};
+  Map<DateTime, ({int? color, bool isCompleted, bool isSkipped})>
+  _calendarData = {};
   bool _isCalendarExpanded = false;
 
   @override
@@ -45,12 +46,16 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
 
   Future<void> _loadCalendarData() async {
     final db = context.read<AppDatabase>();
-    final data = await db.scheduledWorkoutDao
-        .getWorkoutColorSummariesForMonth(_calendarMonth);
+    final data = await db.scheduledWorkoutDao.getWorkoutColorSummariesForMonth(
+      _calendarMonth,
+    );
     if (mounted) setState(() => _calendarData = data);
   }
 
-  Future<void> _selectDate(DateTime date, ScheduleWorkoutProvider provider) async {
+  Future<void> _selectDate(
+    DateTime date,
+    ScheduleWorkoutProvider provider,
+  ) async {
     final newMonth = DateTime(date.year, date.month);
     setState(() => selectedDate = date);
     await provider.loadForDate(date);
@@ -72,8 +77,7 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
 
     final scheduledData =
         await (db.select(db.scheduledWorkoutTable)
-              ..where((t) => t.id.equals(savedId)))
-            .getSingleOrNull();
+          ..where((t) => t.id.equals(savedId))).getSingleOrNull();
 
     // Clear stale marker if the workout no longer exists or was already done.
     if (scheduledData == null || scheduledData.isCompleted) {
@@ -83,9 +87,9 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
     }
 
     final workoutData =
-        await (db.select(db.workoutTable)
-              ..where((t) => t.id.equals(scheduledData.workoutId)))
-            .getSingleOrNull();
+        await (db.select(db.workoutTable)..where(
+          (t) => t.id.equals(scheduledData.workoutId),
+        )).getSingleOrNull();
 
     if (!mounted) return;
 
@@ -189,12 +193,13 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
               IconButton(
                 tooltip: l10n.manageExercises,
                 icon: const Icon(Icons.sports_gymnastics),
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const ExerciseManagementScreen(),
-                  ),
-                ),
+                onPressed:
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ExerciseManagementScreen(),
+                      ),
+                    ),
               ),
               IconButton(
                 tooltip: l10n.manageWorkouts,
@@ -218,9 +223,10 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
                 children: [
                   // Header row — always visible, tap to expand/collapse
                   InkWell(
-                    onTap: () => setState(
-                      () => _isCalendarExpanded = !_isCalendarExpanded,
-                    ),
+                    onTap:
+                        () => setState(
+                          () => _isCalendarExpanded = !_isCalendarExpanded,
+                        ),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 16,
@@ -241,36 +247,41 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
                           IconButton(
                             icon: const Icon(Icons.arrow_back, size: 18),
                             visualDensity: VisualDensity.compact,
-                            onPressed: () => _selectDate(
-                              selectedDate.subtract(const Duration(days: 1)),
-                              provider,
-                            ),
+                            onPressed:
+                                () => _selectDate(
+                                  selectedDate.subtract(
+                                    const Duration(days: 1),
+                                  ),
+                                  provider,
+                                ),
                           ),
                           TextButton(
-                            onPressed: () =>
-                                _selectDate(DateTime.now(), provider),
+                            onPressed:
+                                () => _selectDate(DateTime.now(), provider),
                             style: TextButton.styleFrom(
                               visualDensity: VisualDensity.compact,
-                              padding: const EdgeInsets.symmetric(horizontal: 6),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                              ),
                             ),
                             child: Text(l10n.today),
                           ),
                           IconButton(
                             icon: const Icon(Icons.arrow_forward, size: 18),
                             visualDensity: VisualDensity.compact,
-                            onPressed: () => _selectDate(
-                              selectedDate.add(const Duration(days: 1)),
-                              provider,
-                            ),
+                            onPressed:
+                                () => _selectDate(
+                                  selectedDate.add(const Duration(days: 1)),
+                                  provider,
+                                ),
                           ),
                           Icon(
                             _isCalendarExpanded
                                 ? Icons.expand_less
                                 : Icons.expand_more,
                             size: 20,
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurfaceVariant,
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                         ],
                       ),
@@ -280,30 +291,28 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
                   AnimatedSize(
                     duration: const Duration(milliseconds: 250),
                     curve: Curves.easeInOut,
-                    child: _isCalendarExpanded
-                        ? _WorkoutCalendar(
-                            month: _calendarMonth,
-                            selectedDate: selectedDate,
-                            calendarData: _calendarData,
-                            onDayTapped: (date) {
-                              _selectDate(date, provider);
-                              setState(() => _isCalendarExpanded = false);
-                            },
-                            onMonthChanged: (month) async {
-                              setState(() => _calendarMonth = month);
-                              await _loadCalendarData();
-                            },
-                            onRefreshTapped: () async {
-                              provider.refresh();
-                              await _loadCalendarData();
-                            },
-                          )
-                        : const SizedBox.shrink(),
+                    child:
+                        _isCalendarExpanded
+                            ? _WorkoutCalendar(
+                              month: _calendarMonth,
+                              selectedDate: selectedDate,
+                              calendarData: _calendarData,
+                              onDayTapped: (date) {
+                                _selectDate(date, provider);
+                                setState(() => _isCalendarExpanded = false);
+                              },
+                              onMonthChanged: (month) async {
+                                setState(() => _calendarMonth = month);
+                                await _loadCalendarData();
+                              },
+                              onRefreshTapped: () async {
+                                provider.refresh();
+                                await _loadCalendarData();
+                              },
+                            )
+                            : const SizedBox.shrink(),
                   ),
-                  Divider(
-                    height: 1,
-                    color: Theme.of(context).dividerColor,
-                  ),
+                  Divider(height: 1, color: Theme.of(context).dividerColor),
                 ],
               ),
               // Workout list
@@ -393,7 +402,9 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
                               return ListTile(
                                 leading: const Icon(Icons.add_task),
                                 title: Text(
-                                  l10n.addWorkoutForDate(DateFormat.MMMd().format(selectedDate)),
+                                  l10n.addWorkoutForDate(
+                                    DateFormat.MMMd().format(selectedDate),
+                                  ),
                                 ),
                                 onTap: () async {
                                   Navigator.of(bottomSheetContext).pop();
@@ -425,15 +436,19 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
 
     Color cardColor;
     if (isSkipped) {
-      cardColor = theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3);
+      cardColor = theme.colorScheme.surfaceContainerHighest.withValues(
+        alpha: 0.3,
+      );
     } else if (isCompleted) {
-      cardColor = theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5);
+      cardColor = theme.colorScheme.surfaceContainerHighest.withValues(
+        alpha: 0.5,
+      );
     } else {
       cardColor = theme.colorScheme.surface;
     }
 
     return FutureBuilder<Workout?>(
-      future: _fetchTemplateWorkout(item.workout!.id!),
+      future: _fetchTemplateWorkout(item.workout!.id),
       builder: (context, snapshot) {
         final workout = snapshot.data;
         return Card(
@@ -461,13 +476,14 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
                             : isRestDay
                             ? Icons.hotel
                             : Icons.fitness_center,
-                        color: isSkipped
-                            ? Colors.grey
-                            : isRestDay
-                            ? Colors.blue
-                            : isCompleted
-                            ? Colors.green
-                            : Colors.orange,
+                        color:
+                            isSkipped
+                                ? Colors.grey
+                                : isRestDay
+                                ? Colors.blue
+                                : isCompleted
+                                ? Colors.green
+                                : Colors.orange,
                         size: 32,
                       ),
                       const SizedBox(width: 12),
@@ -479,9 +495,10 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
                               workout?.name ?? l10n.unknownWorkout,
                               style: theme.textTheme.titleLarge?.copyWith(
                                 color: isSkipped ? Colors.grey : null,
-                                decoration: isCompleted || isSkipped
-                                    ? TextDecoration.lineThrough
-                                    : null,
+                                decoration:
+                                    isCompleted || isSkipped
+                                        ? TextDecoration.lineThrough
+                                        : null,
                               ),
                             ),
                             if (isSkipped)
@@ -505,7 +522,11 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
                         ),
                       ),
                       if (isCompleted)
-                        const Icon(Icons.check_circle, color: Colors.green, size: 32)
+                        const Icon(
+                          Icons.check_circle,
+                          color: Colors.green,
+                          size: 32,
+                        )
                       else
                         PopupMenuButton<String>(
                           icon: const Icon(Icons.more_vert),
@@ -520,62 +541,78 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
                               _deleteScheduledWorkout(item);
                             }
                           },
-                          itemBuilder: (context) => [
-                            if (isRestDay) ...[
-                              PopupMenuItem(
-                                value: 'postpone',
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.calendar_today, size: 18),
-                                    const SizedBox(width: 8),
-                                    Text(l10n.move),
-                                  ],
-                                ),
-                              ),
-                            ] else if (isSkipped)
-                              PopupMenuItem(
-                                value: 'unskip',
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.undo, size: 18),
-                                    const SizedBox(width: 8),
-                                    Text(l10n.undoSkip),
-                                  ],
-                                ),
-                              )
-                            else ...[
-                              PopupMenuItem(
-                                value: 'skip',
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.block, size: 18),
-                                    const SizedBox(width: 8),
-                                    Text(l10n.skipWorkout),
-                                  ],
-                                ),
-                              ),
-                              PopupMenuItem(
-                                value: 'postpone',
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.calendar_today, size: 18),
-                                    const SizedBox(width: 8),
-                                    Text(l10n.postponeWorkout),
-                                  ],
-                                ),
-                              ),
-                            ],
-                            PopupMenuItem(
-                              value: 'delete',
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.delete_outline, size: 18, color: Colors.red),
-                                  const SizedBox(width: 8),
-                                  Text(l10n.delete, style: const TextStyle(color: Colors.red)),
+                          itemBuilder:
+                              (context) => [
+                                if (isRestDay) ...[
+                                  PopupMenuItem(
+                                    value: 'postpone',
+                                    child: Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.calendar_today,
+                                          size: 18,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(l10n.move),
+                                      ],
+                                    ),
+                                  ),
+                                ] else if (isSkipped)
+                                  PopupMenuItem(
+                                    value: 'unskip',
+                                    child: Row(
+                                      children: [
+                                        const Icon(Icons.undo, size: 18),
+                                        const SizedBox(width: 8),
+                                        Text(l10n.undoSkip),
+                                      ],
+                                    ),
+                                  )
+                                else ...[
+                                  PopupMenuItem(
+                                    value: 'skip',
+                                    child: Row(
+                                      children: [
+                                        const Icon(Icons.block, size: 18),
+                                        const SizedBox(width: 8),
+                                        Text(l10n.skipWorkout),
+                                      ],
+                                    ),
+                                  ),
+                                  PopupMenuItem(
+                                    value: 'postpone',
+                                    child: Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.calendar_today,
+                                          size: 18,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(l10n.postponeWorkout),
+                                      ],
+                                    ),
+                                  ),
                                 ],
-                              ),
-                            ),
-                          ],
+                                PopupMenuItem(
+                                  value: 'delete',
+                                  child: Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.delete_outline,
+                                        size: 18,
+                                        color: Colors.red,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        l10n.delete,
+                                        style: const TextStyle(
+                                          color: Colors.red,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                         ),
                     ],
                   ),
@@ -607,36 +644,36 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
                     const SizedBox(height: 12),
                     isCompleted
                         ? Row(
-                            children: [
-                              Expanded(
-                                child: OutlinedButton.icon(
-                                  onPressed: () => _viewCompletedWorkout(item),
-                                  icon: const Icon(Icons.visibility),
-                                  label: Text(l10n.viewLabel),
-                                ),
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () => _viewCompletedWorkout(item),
+                                icon: const Icon(Icons.visibility),
+                                label: Text(l10n.viewLabel),
                               ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: ElevatedButton.icon(
-                                  onPressed: () => _editCompletedWorkout(item),
-                                  icon: const Icon(Icons.edit),
-                                  label: Text(l10n.edit),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: theme.colorScheme.primary,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          )
-                        : ElevatedButton.icon(
-                            onPressed: () => _startWorkout(item),
-                            icon: const Icon(Icons.play_arrow),
-                            label: Text(l10n.startWorkout),
-                            style: ElevatedButton.styleFrom(
-                              minimumSize: const Size(double.infinity, 48),
-                              backgroundColor: theme.colorScheme.primary,
                             ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: () => _editCompletedWorkout(item),
+                                icon: const Icon(Icons.edit),
+                                label: Text(l10n.edit),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: theme.colorScheme.primary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        )
+                        : ElevatedButton.icon(
+                          onPressed: () => _startWorkout(item),
+                          icon: const Icon(Icons.play_arrow),
+                          label: Text(l10n.startWorkout),
+                          style: ElevatedButton.styleFrom(
+                            minimumSize: const Size(double.infinity, 48),
+                            backgroundColor: theme.colorScheme.primary,
                           ),
+                        ),
                   ],
                 ],
               ),
@@ -661,20 +698,26 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
     final l10n = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l10n.deleteWorkout),
-        content: Text(l10n.deleteWorkoutConfirmation(item.workout?.name ?? '')),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(l10n.cancel),
+      builder:
+          (ctx) => AlertDialog(
+            title: Text(l10n.deleteWorkout),
+            content: Text(
+              l10n.deleteWorkoutConfirmation(item.workout?.name ?? ''),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: Text(l10n.cancel),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: Text(
+                  l10n.delete,
+                  style: const TextStyle(color: Colors.red),
+                ),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(l10n.delete, style: const TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
     );
     if (confirmed != true || !mounted) return;
     final provider = context.read<ScheduleWorkoutProvider>();
@@ -697,9 +740,11 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(l10n.workoutPostponedTo(
-          '${newDate.year}-${newDate.month.toString().padLeft(2, '0')}-${newDate.day.toString().padLeft(2, '0')}',
-        )),
+        content: Text(
+          l10n.workoutPostponedTo(
+            '${newDate.year}-${newDate.month.toString().padLeft(2, '0')}-${newDate.day.toString().padLeft(2, '0')}',
+          ),
+        ),
         backgroundColor: Colors.blue,
       ),
     );
@@ -733,19 +778,21 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
     final l10n = AppLocalizations.of(context)!;
     final selected = await showDialog<Workout>(
       context: context,
-      builder: (ctx) => SimpleDialog(
-        title: Text(
-          l10n.pickWorkoutForDate(DateFormat.MMMd().format(selectedDate)),
-        ),
-        children: templates
-            .map(
-              (w) => SimpleDialogOption(
-                onPressed: () => Navigator.pop(ctx, w),
-                child: Text(w.name),
-              ),
-            )
-            .toList(),
-      ),
+      builder:
+          (ctx) => SimpleDialog(
+            title: Text(
+              l10n.pickWorkoutForDate(DateFormat.MMMd().format(selectedDate)),
+            ),
+            children:
+                templates
+                    .map(
+                      (w) => SimpleDialogOption(
+                        onPressed: () => Navigator.pop(ctx, w),
+                        child: Text(w.name),
+                      ),
+                    )
+                    .toList(),
+          ),
     );
     if (selected == null || !mounted) return;
 
@@ -791,11 +838,12 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => ActiveWorkoutScreen(
-          scheduledWorkout: item,
-          scheduledDate: selectedDate,
-          isReadOnly: false,
-        ),
+        builder:
+            (context) => ActiveWorkoutScreen(
+              scheduledWorkout: item,
+              scheduledDate: selectedDate,
+              isReadOnly: false,
+            ),
       ),
     );
     if (result == true) {
@@ -826,7 +874,8 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
 class _WorkoutCalendar extends StatelessWidget {
   final DateTime month;
   final DateTime selectedDate;
-  final Map<DateTime, ({int? color, bool isCompleted, bool isSkipped})> calendarData;
+  final Map<DateTime, ({int? color, bool isCompleted, bool isSkipped})>
+  calendarData;
   final ValueChanged<DateTime> onDayTapped;
   final ValueChanged<DateTime> onMonthChanged;
   final VoidCallback onRefreshTapped;
@@ -868,24 +917,23 @@ class _WorkoutCalendar extends StatelessWidget {
               IconButton(
                 icon: const Icon(Icons.chevron_left),
                 visualDensity: VisualDensity.compact,
-                onPressed: () => onMonthChanged(
-                  DateTime(month.year, month.month - 1),
-                ),
+                onPressed:
+                    () => onMonthChanged(DateTime(month.year, month.month - 1)),
               ),
               Expanded(
                 child: Text(
                   _monthLabel(month),
                   textAlign: TextAlign.center,
-                  style: theme.textTheme.titleSmall
-                      ?.copyWith(fontWeight: FontWeight.bold),
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
               IconButton(
                 icon: const Icon(Icons.chevron_right),
                 visualDensity: VisualDensity.compact,
-                onPressed: () => onMonthChanged(
-                  DateTime(month.year, month.month + 1),
-                ),
+                onPressed:
+                    () => onMonthChanged(DateTime(month.year, month.month + 1)),
               ),
               IconButton(
                 icon: const Icon(Icons.refresh),
@@ -900,16 +948,22 @@ class _WorkoutCalendar extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8),
           child: Row(
-            children: _weekdays.map((d) => Expanded(
-              child: Center(
-                child: Text(d,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            )).toList(),
+            children:
+                _weekdays
+                    .map(
+                      (d) => Expanded(
+                        child: Center(
+                          child: Text(
+                            d,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    )
+                    .toList(),
           ),
         ),
 
@@ -932,14 +986,20 @@ class _WorkoutCalendar extends StatelessWidget {
               final day = cells[i];
               final dayNorm = DateTime(day.year, day.month, day.day);
               final inMonth = day.month == month.month;
-              final isSelected = dayNorm == DateTime(
-                selectedDate.year, selectedDate.month, selectedDate.day);
+              final isSelected =
+                  dayNorm ==
+                  DateTime(
+                    selectedDate.year,
+                    selectedDate.month,
+                    selectedDate.day,
+                  );
               final isToday = dayNorm == todayNorm;
               final info = calendarData[dayNorm];
               // Only show a dot for completed workouts.
-              final dotColor = (info != null && info.isCompleted && info.color != null)
-                  ? Color(info.color!)
-                  : null;
+              final dotColor =
+                  (info != null && info.isCompleted && info.color != null)
+                      ? Color(info.color!)
+                      : null;
 
               return GestureDetector(
                 onTap: inMonth ? () => onDayTapped(dayNorm) : null,
@@ -947,17 +1007,19 @@ class _WorkoutCalendar extends StatelessWidget {
                   duration: const Duration(milliseconds: 150),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: isSelected
-                        ? theme.colorScheme.primary
-                        : isToday
+                    color:
+                        isSelected
+                            ? theme.colorScheme.primary
+                            : isToday
                             ? theme.colorScheme.primary.withValues(alpha: 0.15)
                             : Colors.transparent,
-                    border: isToday && !isSelected
-                        ? Border.all(
-                            color: theme.colorScheme.primary,
-                            width: 1.5,
-                          )
-                        : null,
+                    border:
+                        isToday && !isSelected
+                            ? Border.all(
+                              color: theme.colorScheme.primary,
+                              width: 1.5,
+                            )
+                            : null,
                   ),
                   child: Stack(
                     alignment: Alignment.center,
@@ -965,15 +1027,18 @@ class _WorkoutCalendar extends StatelessWidget {
                       Text(
                         '${day.day}',
                         style: theme.textTheme.bodySmall?.copyWith(
-                          fontWeight: isSelected || isToday
-                              ? FontWeight.bold
-                              : FontWeight.normal,
-                          color: isSelected
-                              ? theme.colorScheme.onPrimary
-                              : inMonth
+                          fontWeight:
+                              isSelected || isToday
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                          color:
+                              isSelected
+                                  ? theme.colorScheme.onPrimary
+                                  : inMonth
                                   ? theme.colorScheme.onSurface
-                                  : theme.colorScheme.onSurface
-                                      .withValues(alpha: 0.3),
+                                  : theme.colorScheme.onSurface.withValues(
+                                    alpha: 0.3,
+                                  ),
                         ),
                       ),
                       if (dotColor != null && !isSelected)
@@ -1021,8 +1086,18 @@ class _WorkoutCalendar extends StatelessWidget {
 
   String _monthLabel(DateTime m) {
     const months = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December',
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
     ];
     return '${months[m.month - 1]} ${m.year}';
   }

@@ -2,6 +2,12 @@
 
 Patch notes for Google Play Store releases. Newest first.
 
+## 1.0.2+11
+
+- Fixed a crash opening Meal Templates ("type 'Null' is not a subtype of type 'int'") caused by templates pulled from the server missing an internal field. Already-affected templates on your device are repaired automatically the next time they load.
+- Fixed Snack meal templates silently failing to appear in the Food tab after being logged — Snack templates used a different internal category than the rest of the app, so logged food was saved but never shown. Existing Snack templates are migrated automatically.
+- Fixed a synced meal template's "total batch weight" being dropped when synced to or from the server, which silently disabled the gram-portion picker (falling back to "log full template only") for any template that had gone through a sync.
+
 ## 1.0.2+10
 
 - Fixed the dashboard's daily calorie total and the progress screen's calorie-trend chart not updating after editing or deleting a food entry — both were only ever refreshed on cold start, not when returning from the Food tab.
@@ -26,6 +32,7 @@ Patch notes for Google Play Store releases. Newest first.
 
 - Fixed a bug where trainer-side authorization checks (`IsActiveTrainerOfAsync`) were comparing the wrong ID, potentially letting the check silently fail across the app.
 - Started backend groundwork for Trainer Console chat (SignalR hub, message model/repository, JWT auth over the hub's WebSocket connection) — not yet exposed to the client app.
+- Continued Trainer Console chat backend: added a chat history endpoint, fixed messages losing their trainer/client link when persisted, and made sends idempotent by deduping on a client-generated message ID (so a dropped ack and retry can't create a duplicate message) — still not exposed to the client app.
 - Fixed a privacy bug where custom exercises created by one user could show up in other users' exercise lists.
 - Fixed several account-security gaps where a user could potentially view or modify another user's workouts, scheduled workouts, or workout plans.
 - Fixed a bug where trying to update someone else's weight entry returned a server error instead of being cleanly blocked.

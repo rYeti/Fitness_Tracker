@@ -1574,6 +1574,8 @@ class SyncService {
         'name': template['name'],
         'description': template['description'] ?? '',
         'category': template['category'],
+        'totalWeightGrams':
+            (template['total_weight_grams'] as num?)?.toDouble(),
         'items':
             items
                 .map(
@@ -2441,6 +2443,7 @@ class SyncService {
               .cast<Map<String, dynamic>>()
               .map(
                 (i) => {
+                  'foodId': 0, // items aren't tied to a live food-catalog row
                   'foodName': i['foodName'] ?? '',
                   'quantity': (i['quantity'] as num?)?.toDouble() ?? 0.0,
                   'unit': i['unit'] ?? 'g',
@@ -2456,6 +2459,8 @@ class SyncService {
         'name': t['name'],
         'description': t['description'] ?? '',
         'category': t['category'] ?? '',
+        if (t['totalWeightGrams'] != null)
+          'total_weight_grams': (t['totalWeightGrams'] as num).toDouble(),
         'items': items,
         'serverId': serverId,
       });

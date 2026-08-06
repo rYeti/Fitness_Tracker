@@ -11,19 +11,29 @@ public class ChatService(ITrainerClientRepository trainerClientRepo, IChatReposi
     private readonly IChatRepository _chatRepo = chatRepo;
 
     /// <inheritdoc/>
-    public async Task<ChatMessageDto> SendMessageAsync(Guid trainerId, Guid clientId, Guid senderId, string message)
+    public async Task<ChatMessageDto> SendMessageAsync(Guid trainerId, Guid clientId, Guid senderId, Guid messageId, string message)
     {
-        var relationship = await _trainerClientRepo.GetActiveRelationshipAsync(trainerId, clientId)
-            ?? throw new InvalidOperationException("Not authorized for this chat.");
-
         var chatMessage = await _chatRepo.AddMessageAsync(new ChatMessage
         {
+            Id = messageId,
             Body = message,
             SenderId = senderId,
-            TrainerClient = relationship,
         });
 
         return ToDto(chatMessage, trainerId, clientId);
+    }
+
+    /// <inheritdoc/>
+    public async Task<List<ChatMessageDto>> GetChatHistoryAsync(Guid trainerId, Guid clientId, int range)
+    {
+        var messageHistory = await _chatRepo.GetChatHistoryAsync(trainerId, clientId, range);
+        if (messageHistory == null) return new List<ChatMessageDto>();
+        var chatHistoryDto = new List<ChatMessageDto>();
+        foreach (var chatHistory in messageHistory)
+        {
+            chatHistoryDto.Add(ToDto(chatHistory, trainerId, clientId));
+        }
+        return chatHistoryDto;
     }
 
     private static ChatMessageDto ToDto(ChatMessage m, Guid trainerId, Guid clientId) => new()

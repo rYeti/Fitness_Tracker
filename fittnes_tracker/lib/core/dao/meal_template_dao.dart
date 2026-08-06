@@ -39,7 +39,14 @@ class MealTemplateDao {
       }
 
       final List<dynamic> decoded = jsonDecode(jsonString);
-      return decoded.map((item) => Map<String, dynamic>.from(item)).toList();
+      return decoded.map((item) {
+        final map = Map<String, dynamic>.from(item);
+        // Templates saved before the meal-category naming was unified with
+        // the food tracker ('Snack' vs 'Snacks') would otherwise disappear
+        // from the Snacks tab and fail to match logged meals when applied.
+        if (map['category'] == 'Snack') map['category'] = 'Snacks';
+        return map;
+      }).toList();
     } catch (e, stackTrace) {
       dev.log('Error loading templates: $e', name: 'MealTemplateDao');
       dev.log('Stack trace: $stackTrace', name: 'MealTemplateDao');

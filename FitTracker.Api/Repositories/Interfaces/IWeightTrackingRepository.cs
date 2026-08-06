@@ -18,7 +18,7 @@ public interface IWeightTrackingRepository
     /// <summary>Persists a new weight tracking entry.</summary>
     /// <param name="weightTracking">The entry to create.</param>
     /// <returns>The newly created entry.</returns>
-    Task<WeightTracking?> CreateWeightTrackingAsync(WeightTracking weightTracking);
+    Task<WeightTracking> CreateWeightTrackingAsync(WeightTracking weightTracking);
 
     /// <summary>Updates the date, weight, and note of an existing entry.</summary>
     /// <param name="id">The ID of the entry to update.</param>

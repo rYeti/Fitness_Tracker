@@ -59,10 +59,10 @@ public class ExerciseService : IExerciseService
     }
 
     /// <inheritdoc/>
-    public async Task<ExerciseResponseDto> UpdateExercise(Guid id, Guid userId, ExerciseRequestDto exercise)
+    public async Task<ExerciseResponseDto?> UpdateExercise(Guid id, Guid userId, ExerciseRequestDto exercise)
     {
         var updated = await _exerciseRepository.UpdateExerciseAsync(exercise, userId, id);
-        return updated == null ? null! : ToResponseDto(updated);
+        return updated == null ? null : ToResponseDto(updated);
     }
 
     private static ExerciseResponseDto ToResponseDto(Exercise e) => new()

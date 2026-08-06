@@ -108,7 +108,7 @@ class _CreateMealTemplateScreenState extends State<CreateMealTemplateScreen> {
                 DropdownMenuItem(value: 'Breakfast', child: Text(loc.mealBreakfast)),
                 DropdownMenuItem(value: 'Lunch', child: Text(loc.mealLunch)),
                 DropdownMenuItem(value: 'Dinner', child: Text(loc.mealDinner)),
-                DropdownMenuItem(value: 'Snack', child: Text(loc.mealSnacks)),
+                DropdownMenuItem(value: 'Snacks', child: Text(loc.mealSnacks)),
               ],
               onChanged: (value) {
                 setState(() {

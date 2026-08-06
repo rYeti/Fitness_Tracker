@@ -259,6 +259,16 @@ public class AppDbContext : DbContext
             entity.HasIndex(t => t.InviteCode).IsUnique();
         });
 
+        modelBuilder.Entity<ChatMessage>(entity =>
+        {
+            entity.HasKey(m => m.Id);
+            entity.HasOne(m => m.TrainerClient)
+                  .WithMany()
+                  .HasForeignKey(m => m.TrainerClientId)
+                  .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(m => new { m.TrainerClientId, m.SentAt });
+        });
+
         modelBuilder.Entity<PasswordResetToken>(entity =>
         {
             entity.HasKey(t => t.Id);

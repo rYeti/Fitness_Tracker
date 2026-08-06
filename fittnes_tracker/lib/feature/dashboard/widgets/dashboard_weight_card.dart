@@ -220,6 +220,7 @@ class _DashboardWeightCardState extends State<DashboardWeightCard> {
                     color: colorScheme.primary,
                     size: 20,
                   ),
+                  tooltip: _isEditing ? l10n.cancel : l10n.edit,
                   onPressed: () => setState(() => _isEditing = !_isEditing),
                 ),
                 if (!_isEditing)
@@ -229,6 +230,7 @@ class _DashboardWeightCardState extends State<DashboardWeightCard> {
                       color: colorScheme.primary,
                       size: 20,
                     ),
+                    tooltip: l10n.weightProgress,
                     onPressed: widget.onNavigateToWeightTracking,
                   ),
               ],

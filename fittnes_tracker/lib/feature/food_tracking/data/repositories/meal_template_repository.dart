@@ -91,14 +91,18 @@ class MealTemplateRepository {
                 (item) => MealTemplateItem(
                   id: item['id'],
                   templateId: map['id'],
-                  foodId: item['foodId'],
-                  foodName: item['foodName'],
-                  quantity: item['quantity'],
-                  unit: item['unit'],
-                  calories: item['calories'],
-                  protein: item['protein'],
-                  carbs: item['carbs'],
-                  fat: item['fat'],
+                  // Templates pulled from the server before the sync fix
+                  // never stored a foodId for their items — fall back to the
+                  // same "not tied to a food-catalog row" sentinel used when
+                  // creating templates locally.
+                  foodId: item['foodId'] ?? 0,
+                  foodName: item['foodName'] ?? '',
+                  quantity: (item['quantity'] as num?)?.toDouble() ?? 0.0,
+                  unit: item['unit'] ?? 'g',
+                  calories: (item['calories'] as num?)?.toDouble() ?? 0.0,
+                  protein: (item['protein'] as num?)?.toDouble() ?? 0.0,
+                  carbs: (item['carbs'] as num?)?.toDouble() ?? 0.0,
+                  fat: (item['fat'] as num?)?.toDouble() ?? 0.0,
                 ),
               )
               .toList();

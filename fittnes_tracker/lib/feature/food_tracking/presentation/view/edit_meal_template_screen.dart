@@ -115,7 +115,7 @@ class _EditMealTemplateScreenState extends State<EditMealTemplateScreen> {
                 DropdownMenuItem(value: 'Breakfast', child: Text(l10n.mealBreakfast)),
                 DropdownMenuItem(value: 'Lunch',     child: Text(l10n.mealLunch)),
                 DropdownMenuItem(value: 'Dinner',    child: Text(l10n.mealDinner)),
-                DropdownMenuItem(value: 'Snack',     child: Text(l10n.mealSnacks)),
+                DropdownMenuItem(value: 'Snacks',    child: Text(l10n.mealSnacks)),
               ],
               onChanged: (value) {
                 if (value != null) setState(() => _selectedCategory = value);

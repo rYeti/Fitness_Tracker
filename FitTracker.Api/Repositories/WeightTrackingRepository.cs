@@ -24,7 +24,7 @@ public class WeightTrackingRepository(AppDbContext context) : IWeightTrackingRep
     }
 
     /// <inheritdoc/>
-    public async Task<WeightTracking?> CreateWeightTrackingAsync(WeightTracking weightTracking)
+    public async Task<WeightTracking> CreateWeightTrackingAsync(WeightTracking weightTracking)
     {
         _context.WeightTrackings.Add(weightTracking);
         await _context.SaveChangesAsync();

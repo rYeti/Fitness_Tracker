@@ -20,7 +20,7 @@ public interface IExerciseService
     /// <param name="userId">The ID of the user who owns the exercise.</param>
     /// <param name="exercise">The updated exercise data.</param>
     /// <returns>The updated exercise.</returns>
-    Task<ExerciseResponseDto> UpdateExercise(Guid id, Guid userId, ExerciseRequestDto  exercise);
+    Task<ExerciseResponseDto?> UpdateExercise(Guid id, Guid userId, ExerciseRequestDto  exercise);
 
     /// <summary>Deletes an exercise owned by the specified user.</summary>
     /// <param name="id">The ID of the exercise to delete.</param>

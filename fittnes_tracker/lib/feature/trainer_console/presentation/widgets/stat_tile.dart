@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
-/// KPI card: icon tile (12%-tint color square + glyph) + Montserrat bold
-/// number + Exo 2 label. Used in the Dashboard KPI row.
+/// KPI tile: icon-in-tinted-square + Montserrat bold value + Exo 2 label.
+/// Shared across the trainee Dashboard and the Trainer Console Dashboard —
+/// don't reimplement this pattern inline in either screen.
 class StatTile extends StatelessWidget {
   final IconData icon;
   final Color accentColor;
@@ -18,8 +19,37 @@ class StatTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // TODO: card (12px radius, 0.5px hairline border, soft shadow), 16px
-    // padding, icon tile top-left, value + label below.
-    return const SizedBox.shrink();
+    final colorScheme = Theme.of(context).colorScheme;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: accentColor.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8.0),
+          ),
+          child: Icon(icon, color: accentColor, size: 22),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          value,
+          style: TextStyle(
+            fontFamily: 'Montserrat',
+            fontWeight: FontWeight.w700,
+            fontSize: 15,
+            color: colorScheme.onSurface,
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(
+            fontFamily: 'Exo 2',
+            fontSize: 11,
+            color: colorScheme.onSurface.withValues(alpha: 0.55),
+          ),
+        ),
+      ],
+    );
   }
 }

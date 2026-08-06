@@ -14,14 +14,14 @@ public interface IWeightTrackingService
 
     /// <summary>Returns all weight entries belonging to the specified user.</summary>
     /// <param name="userId">The user's ID.</param>
-    Task<List<WeightTrackingResponseDto>> GetWeightLogs(Guid userId);
+    Task<List<WeightTrackingResponseDto>?> GetWeightLogs(Guid userId);
 
     /// <summary>Updates an existing weight entry owned by the specified user.</summary>
     /// <param name="id">The ID of the entry to update.</param>
     /// <param name="userId">The ID of the user who owns the entry.</param>
     /// <param name="weightTrackingRequestDto">The updated weight data.</param>
     /// <returns>The updated entry, or <c>null</c> if not found.</returns>
-    Task<WeightTrackingResponseDto> UpdateWeightAsync(Guid id, Guid userId, WeightTrackingRequestDto weightTrackingRequestDto);
+    Task<WeightTrackingResponseDto?> UpdateWeightAsync(Guid id, Guid userId, WeightTrackingRequestDto weightTrackingRequestDto);
 
     /// <summary>Deletes a weight entry owned by the specified user.</summary>
     /// <param name="id">The ID of the entry to delete.</param>

@@ -62,7 +62,7 @@ class _MealTemplatesScreenState extends State<MealTemplatesScreen> {
             TemplateListTab(category: 'Breakfast'),
             TemplateListTab(category: 'Lunch'),
             TemplateListTab(category: 'Dinner'),
-            TemplateListTab(category: 'Snack'),
+            TemplateListTab(category: 'Snacks'),
           ],
         ),
         floatingActionButton: FloatingActionButton(
@@ -416,7 +416,7 @@ class _PortionBottomSheetState extends State<_PortionBottomSheet> {
   late String _category;
   double? _portionGrams;
 
-  static const _categories = ['Breakfast', 'Lunch', 'Dinner', 'Snack'];
+  static const _categories = ['Breakfast', 'Lunch', 'Dinner', 'Snacks'];
 
   @override
   void initState() {

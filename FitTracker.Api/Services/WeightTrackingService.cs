@@ -40,7 +40,7 @@ public class WeightTrackingService : IWeightTrackingService
     }
 
     /// <inheritdoc/>
-    public async Task<List<WeightTrackingResponseDto>> GetWeightLogs(Guid userId)
+    public async Task<List<WeightTrackingResponseDto>?> GetWeightLogs(Guid userId)
     {
         if (Guid.Empty == userId)
         {
@@ -59,7 +59,7 @@ public class WeightTrackingService : IWeightTrackingService
     }
 
     /// <inheritdoc/>
-    public async Task<WeightTrackingResponseDto> UpdateWeightAsync(Guid id, Guid userId, WeightTrackingRequestDto weightTrackingRequestDto)
+    public async Task<WeightTrackingResponseDto?> UpdateWeightAsync(Guid id, Guid userId, WeightTrackingRequestDto weightTrackingRequestDto)
     {
         if (Guid.Empty == id)
         {
@@ -75,7 +75,7 @@ public class WeightTrackingService : IWeightTrackingService
 
         if (weightLog == null)
         {
-            return null!;
+            return null;
         }
 
         return new WeightTrackingResponseDto

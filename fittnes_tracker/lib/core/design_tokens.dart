@@ -11,4 +11,10 @@ abstract final class ForgeColors {
   static const proteinColor = Color(0xFFE53935);
   static const carbsColor = Color(0xFF1E88E5);
   static const fatColor = Color(0xFF43A047);
+
+  /// Status tones (CLAUDE.md "Status tones: ok = green, warn = amber,
+  /// bad = red"). Always pair with a label/icon — never color alone.
+  static const statusOk = Color(0xFF43A047);
+  static const statusWarn = Color(0xFFFFA000);
+  static const statusBad = Color(0xFFE53935);
 }

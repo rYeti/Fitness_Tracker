@@ -4,7 +4,7 @@ namespace FitTracker.Api.Models;
 
 public class ChatMessage
 {
-    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid Id { get; set; }
 
     public string? Body { get; set; }
 
@@ -13,6 +13,8 @@ public class ChatMessage
     public DateTime SentAt { get; set; } = DateTime.UtcNow;
 
     public TrainerClient TrainerClient { get; set; } = null!;
+
+    public Guid TrainerClientId { get; set; }
 
     public Media? MediaType { get; set; }
 
