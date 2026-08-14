@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "8iqR9nUQNo8Va3O0KS3+6EDQpCoPI4exupnT6o11psCxXbwaWeQ7KAHUAX3LLgGQjPQh4v9AnbtPpGy5U1ft1A==",
+  "dgSpecHash": "CPtj0Qn8jWqVzOP7G4CslIxDZlsLPIne7ULBBsS7/hafNphTgG6aHU2lggXoOjxZHCaqwFa11iMRYo/8WsQn1Q==",
   "success": true,
   "projectFilePath": "F:\\VisualStudioRepo\\Fitness_Tracker\\FitTracker.Api\\FitTracker.Api.csproj",
   "expectedPackageFiles": [
@@ -77,16 +77,5 @@
     "C:\\Users\\Lifebook E536\\.nuget\\packages\\system.text.json\\10.0.5\\system.text.json.10.0.5.nupkg.sha512",
     "C:\\Users\\Lifebook E536\\.nuget\\packages\\system.threading.channels\\6.0.0\\system.threading.channels.6.0.0.nupkg.sha512"
   ],
-  "logs": [
-    {
-      "code": "NU1603",
-      "level": "Warning",
-      "warningLevel": 1,
-      "message": "FitTracker.Api depends on Google.Apis.Gmail.v1 (>= 1.68.0.3694) but Google.Apis.Gmail.v1 1.68.0.3694 was not found. An approximate best match of Google.Apis.Gmail.v1 1.69.0.3742 was resolved.",
-      "libraryId": "Google.Apis.Gmail.v1",
-      "targetGraphs": [
-        "net8.0"
-      ]
-    }
-  ]
+  "logs": []
 }

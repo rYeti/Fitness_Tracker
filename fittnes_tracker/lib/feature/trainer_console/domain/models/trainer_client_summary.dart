@@ -31,6 +31,5 @@ class TrainerClientSummary {
     );
   }
 
-  // TODO: replace with proper 1-2 letter initials (e.g. "Jane Doe" -> "JD").
   String get initials => clientName.isNotEmpty ? clientName[0].toUpperCase() : '?';
 }

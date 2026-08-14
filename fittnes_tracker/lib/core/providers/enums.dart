@@ -9,3 +9,8 @@ enum ActivityLevel {
   veryActive,
   extremelyActive,
 }
+
+enum MediaType {
+  picture,
+  video
+}

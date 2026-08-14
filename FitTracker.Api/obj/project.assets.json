@@ -3856,7 +3856,7 @@
   "projectFileDependencyGroups": {
     "net8.0": [
       "BCrypt.Net-Next >= 4.1.0",
-      "Google.Apis.Gmail.v1 >= 1.68.0.3694",
+      "Google.Apis.Gmail.v1 >= 1.69.0.3742",
       "MailKit >= 4.17.0",
       "Microsoft.AspNetCore.Authentication.JwtBearer >= 8.0.10",
       "Microsoft.EntityFrameworkCore.Design >= 8.0.10",
@@ -3921,7 +3921,7 @@
           },
           "Google.Apis.Gmail.v1": {
             "target": "Package",
-            "version": "[1.68.0.3694, )"
+            "version": "[1.69.0.3742, )"
           },
           "MailKit": {
             "target": "Package",
@@ -3972,17 +3972,5 @@
         "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.202/PortableRuntimeIdentifierGraph.json"
       }
     }
-  },
-  "logs": [
-    {
-      "code": "NU1603",
-      "level": "Warning",
-      "warningLevel": 1,
-      "message": "FitTracker.Api depends on Google.Apis.Gmail.v1 (>= 1.68.0.3694) but Google.Apis.Gmail.v1 1.68.0.3694 was not found. An approximate best match of Google.Apis.Gmail.v1 1.69.0.3742 was resolved.",
-      "libraryId": "Google.Apis.Gmail.v1",
-      "targetGraphs": [
-        "net8.0"
-      ]
-    }
-  ]
+  }
 }

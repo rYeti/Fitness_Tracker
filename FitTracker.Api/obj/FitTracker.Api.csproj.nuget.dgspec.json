@@ -56,7 +56,7 @@
             },
             "Google.Apis.Gmail.v1": {
               "target": "Package",
-              "version": "[1.68.0.3694, )"
+              "version": "[1.69.0.3742, )"
             },
             "MailKit": {
               "target": "Package",

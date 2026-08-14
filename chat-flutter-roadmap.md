@@ -23,7 +23,7 @@ The foundation everything else depends on. Follows the existing `AppDatabase` pa
 
 **Columns (concept, not final Drift syntax):**
 - `messageId` (UUID, primary key) — generated client-side at compose time, never server-side. This is the identity that makes replay idempotent on the backend (`ChatRepository.AddMessageAsync` already dedupes on it).
-- `clientId` (UUID) — which chat thread this belongs to (the *other party*, not necessarily literally "the client role" — same ambiguity the hub/controller resolve server-side; the outbox only needs "who is this thread with").
+- `otherPartyId` (UUID) — the id of whoever is on the other side of this conversation, from this device's point of view. No role resolution needed here: unlike the hub/controller, which store one canonical row per relationship and so have to work out "is the caller the trainer or the client side," the outbox is one device's local view of one thread — it just copies whatever id the chat screen is already showing (the active-client selection on the trainer console side, or the trainer's id on the trainee app side).
 - `body` (text)
 - `createdAt` (timestamp) — for ordering resends.
 - `status` (enum: `pending`, `sent`, `failed`) — `pending` until an ack arrives, `sent` once acked, `failed` after retry limit is exhausted (see §3's open question from the concept discussion).
@@ -31,6 +31,7 @@ The foundation everything else depends on. Follows the existing `AppDatabase` pa
 **Why this layer first:** it's pure data, no network, no UI — fully unit-testable (write a row, assert it's still there, assert querying `pending` rows returns it) before anything else in this roadmap exists. It's also the layer most likely to have subtle bugs (see the walkthrough on ordering/idempotency), so it's worth getting right in isolation.
 
 A DAO (`ChatOutboxDao`, matching `MealTemplateDao`'s pattern) exposes: insert a pending row, mark a row sent, query all pending rows ordered by `createdAt`.
+DONE
 
 ---
 
@@ -39,6 +40,7 @@ A DAO (`ChatOutboxDao`, matching `MealTemplateDao`'s pattern) exposes: insert a 
 Mirror `ChatMessageDto` (`FitTracker.Api/DTOs/ChatMessageDto.cs`) as a Dart model: `id`, `body`, `sentAt`, `senderId`, `trainerId`, `clientId`, `mediaType`, `url`, `thumbnailUrl`. This is what both the REST history response and the SignalR `ReceiveMessage` payload deserialize into — one shape, two arrival paths.
 
 Keep the outbox row (§1) and this DTO **separate types**. They represent different things: the outbox row is "a send attempt I'm tracking," the DTO is "a message that exists on the server." A message the user is currently typing has no `sentAt` yet and might never get one (if it fails permanently) — collapsing them into one model invites nullable-field confusion.
+DONE
 
 ---
 
@@ -75,6 +77,34 @@ This is the layer that answers "what happens when a message is lost and then rec
 **Loading history:** on chat open, call the REST history endpoint (`GET /api/chat/{clientId}/history`), merge with any still-`pending` outbox rows for that thread (a message the user just sent but hasn't gotten an ack for yet should still show in the list, just visually marked as sending).
 
 **Receiving live messages:** subscribe to the SignalR client's incoming-message stream, append to the visible thread. Watch for one subtlety: your own sent message arrives twice from two different paths — once as the direct ack return value from `send(...)`, once via the `ReceiveMessage` broadcast (the hub broadcasts to the whole group, including the sender). Dedupe on `messageId`/`id` before appending, or the sender sees their own message double up.
+
+---
+
+## 4a. Walkthrough — one message, sent while the connection drops mid-flight
+
+§4 describes the rules in the abstract. Here's the same logic traced through a single concrete message, state by state, so it's clear *why* each rule exists rather than just *what* it says.
+
+**Setup:** trainer is chatting with a client. Trainer types "great set today" and hits send. `messageId = m1` is generated locally — this UUID is the thread that ties every step below together, on both client and server.
+
+| Step | Outbox row (`m1`) | Wire | Server (`ChatRepository`) | UI |
+| --- | --- | --- | --- | --- |
+| 1. User hits send | insert `{id: m1, status: pending, body: "great set today"}` | — | — | bubble appears immediately, dimmed/clock icon (§6) |
+| 2. Repository calls `send(clientId, m1, body)` | `pending` | `SendMessage` invocation in flight | — | still dimmed |
+| 3. **Connection drops right here** — before the server responds, or after it responds but the ack never arrives | `pending` (unchanged — no ack means no state change) | dead | *unknown to the client which of these happened* — maybe the insert already happened, maybe it didn't | still dimmed, no error yet |
+
+This is the crux of why the whole outbox exists: **the client cannot tell the difference between "server never got it" and "server got it but the ack was lost."** Both look identical from here — a `send()` call that never resolved. Guessing wrong in either direction is bad: assume "never got it" and don't resend → message silently vanishes. Assume "got it" and don't resend → message silently vanishes a different way. So the design doesn't guess; it always resends, and pushes the "was this already inserted?" question onto the server, which is the one party that actually knows the answer.
+
+| Step | Outbox row (`m1`) | Wire | Server | UI |
+| --- | --- | --- | --- | --- |
+| 4. SignalR reconnects; §3's `onReconnected` fires | still `pending` | connection restored | — | connection-status banner clears |
+| 5. Repository's reconnect handler (§4) queries pending rows for this thread, finds `m1`, resends it — **same `messageId`** | `pending` | `SendMessage(clientId, m1, body)` again | `ChatRepository.AddMessageAsync` looks up `Id == m1`: if step 3's insert *did* land, finds it and returns the existing row (no second insert); if it *didn't* land, inserts fresh | still dimmed |
+| 6. Ack returns this time | mark `sent` | — | — | clock icon → sent (checkmark, or whatever §6 designs) |
+
+Either branch in step 5 converges on the same outcome: exactly one `ChatMessage` row with `Id == m1`, and the client outbox marked `sent`. That convergence — regardless of which branch actually happened — is the entire point of making `messageId` client-generated and deduping on it server-side. Without it, step 5 would either risk a duplicate message (if step 3's insert *did* land) or the client would need some other way to ask "did my last send actually work?" before deciding to resend, which SignalR doesn't give you.
+
+**The other subtlety this walkthrough surfaces (§4's last paragraph):** notice the ack in step 6 and the group broadcast are *two separate deliveries* of the same message, both arriving at the sender's own client. If the trainer has the chat screen open, they'll receive `m1` back via `ReceiveMessage` too (the hub broadcasts to the whole group, sender included) — *in addition to* the direct ack return value in step 5/6. If the UI naively appends every incoming `ReceiveMessage`, the trainer sees "great set today" twice in their own thread. This is why §4's repository layer must dedupe on `messageId` before appending to the visible list — checking "do I already have a message with this id (from the outbox merge, or from the ack) before adding one from the broadcast stream."
+
+**What "failed" actually means, concretely:** if step 4 never happens — reconnect keeps failing, or reconnects succeed but the resend in step 5 keeps timing out — the repository's bounded-retry counter (§4, "after some bounded retry count fails permanently") eventually flips `m1` from `pending` to `failed`. That's a purely client-side bookkeeping decision (how many attempts, what backoff) with no server involvement — the server never sees a "failed" message, because from its point of view nothing ever arrived to fail. This is the one state (§6) that needs a manual "tap to retry" affordance, because the automatic reconnect-replay loop has already given up on it.
 
 ---
 

@@ -11,10 +11,13 @@ class ActiveClientProvider extends ChangeNotifier {
   bool get pickerOpen => _pickerOpen;
 
   void setActiveClient(String clientId) {
-    // TODO: set _activeClientId, close the picker, notifyListeners().
+    _activeClientId = clientId;
+    _pickerOpen = false;
+    notifyListeners();
   }
 
   void togglePicker() {
-    // TODO: flip _pickerOpen, notifyListeners().
+    _pickerOpen = !_pickerOpen;
+    notifyListeners();
   }
 }

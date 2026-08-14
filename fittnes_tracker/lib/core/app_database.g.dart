@@ -8802,6 +8802,390 @@ class WorkoutSetTemplateTableCompanion
   }
 }
 
+class $ChatOutBoxTableTable extends ChatOutBoxTable
+    with TableInfo<$ChatOutBoxTableTable, ChatOutBoxTableData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ChatOutBoxTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _messageIdMeta = const VerificationMeta(
+    'messageId',
+  );
+  @override
+  late final GeneratedColumn<String> messageId = GeneratedColumn<String>(
+    'message_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _otherPartyIdMeta = const VerificationMeta(
+    'otherPartyId',
+  );
+  @override
+  late final GeneratedColumn<String> otherPartyId = GeneratedColumn<String>(
+    'other_party_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _bodyMeta = const VerificationMeta('body');
+  @override
+  late final GeneratedColumn<String> body = GeneratedColumn<String>(
+    'body',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _chatMessageStatusMeta = const VerificationMeta(
+    'chatMessageStatus',
+  );
+  @override
+  late final GeneratedColumn<int> chatMessageStatus = GeneratedColumn<int>(
+    'chat_message_status',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    messageId,
+    otherPartyId,
+    body,
+    createdAt,
+    chatMessageStatus,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'chat_out_box_table';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ChatOutBoxTableData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('message_id')) {
+      context.handle(
+        _messageIdMeta,
+        messageId.isAcceptableOrUnknown(data['message_id']!, _messageIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_messageIdMeta);
+    }
+    if (data.containsKey('other_party_id')) {
+      context.handle(
+        _otherPartyIdMeta,
+        otherPartyId.isAcceptableOrUnknown(
+          data['other_party_id']!,
+          _otherPartyIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_otherPartyIdMeta);
+    }
+    if (data.containsKey('body')) {
+      context.handle(
+        _bodyMeta,
+        body.isAcceptableOrUnknown(data['body']!, _bodyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_bodyMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('chat_message_status')) {
+      context.handle(
+        _chatMessageStatusMeta,
+        chatMessageStatus.isAcceptableOrUnknown(
+          data['chat_message_status']!,
+          _chatMessageStatusMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {messageId};
+  @override
+  ChatOutBoxTableData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ChatOutBoxTableData(
+      messageId:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.string,
+            data['${effectivePrefix}message_id'],
+          )!,
+      otherPartyId:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.string,
+            data['${effectivePrefix}other_party_id'],
+          )!,
+      body:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.string,
+            data['${effectivePrefix}body'],
+          )!,
+      createdAt:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.dateTime,
+            data['${effectivePrefix}created_at'],
+          )!,
+      chatMessageStatus:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.int,
+            data['${effectivePrefix}chat_message_status'],
+          )!,
+    );
+  }
+
+  @override
+  $ChatOutBoxTableTable createAlias(String alias) {
+    return $ChatOutBoxTableTable(attachedDatabase, alias);
+  }
+}
+
+class ChatOutBoxTableData extends DataClass
+    implements Insertable<ChatOutBoxTableData> {
+  final String messageId;
+  final String otherPartyId;
+  final String body;
+  final DateTime createdAt;
+
+  /// Maps to [ChatMessageStatus] by index.
+  final int chatMessageStatus;
+  const ChatOutBoxTableData({
+    required this.messageId,
+    required this.otherPartyId,
+    required this.body,
+    required this.createdAt,
+    required this.chatMessageStatus,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['message_id'] = Variable<String>(messageId);
+    map['other_party_id'] = Variable<String>(otherPartyId);
+    map['body'] = Variable<String>(body);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['chat_message_status'] = Variable<int>(chatMessageStatus);
+    return map;
+  }
+
+  ChatOutBoxTableCompanion toCompanion(bool nullToAbsent) {
+    return ChatOutBoxTableCompanion(
+      messageId: Value(messageId),
+      otherPartyId: Value(otherPartyId),
+      body: Value(body),
+      createdAt: Value(createdAt),
+      chatMessageStatus: Value(chatMessageStatus),
+    );
+  }
+
+  factory ChatOutBoxTableData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ChatOutBoxTableData(
+      messageId: serializer.fromJson<String>(json['messageId']),
+      otherPartyId: serializer.fromJson<String>(json['otherPartyId']),
+      body: serializer.fromJson<String>(json['body']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      chatMessageStatus: serializer.fromJson<int>(json['chatMessageStatus']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'messageId': serializer.toJson<String>(messageId),
+      'otherPartyId': serializer.toJson<String>(otherPartyId),
+      'body': serializer.toJson<String>(body),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'chatMessageStatus': serializer.toJson<int>(chatMessageStatus),
+    };
+  }
+
+  ChatOutBoxTableData copyWith({
+    String? messageId,
+    String? otherPartyId,
+    String? body,
+    DateTime? createdAt,
+    int? chatMessageStatus,
+  }) => ChatOutBoxTableData(
+    messageId: messageId ?? this.messageId,
+    otherPartyId: otherPartyId ?? this.otherPartyId,
+    body: body ?? this.body,
+    createdAt: createdAt ?? this.createdAt,
+    chatMessageStatus: chatMessageStatus ?? this.chatMessageStatus,
+  );
+  ChatOutBoxTableData copyWithCompanion(ChatOutBoxTableCompanion data) {
+    return ChatOutBoxTableData(
+      messageId: data.messageId.present ? data.messageId.value : this.messageId,
+      otherPartyId:
+          data.otherPartyId.present
+              ? data.otherPartyId.value
+              : this.otherPartyId,
+      body: data.body.present ? data.body.value : this.body,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      chatMessageStatus:
+          data.chatMessageStatus.present
+              ? data.chatMessageStatus.value
+              : this.chatMessageStatus,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ChatOutBoxTableData(')
+          ..write('messageId: $messageId, ')
+          ..write('otherPartyId: $otherPartyId, ')
+          ..write('body: $body, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('chatMessageStatus: $chatMessageStatus')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(messageId, otherPartyId, body, createdAt, chatMessageStatus);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ChatOutBoxTableData &&
+          other.messageId == this.messageId &&
+          other.otherPartyId == this.otherPartyId &&
+          other.body == this.body &&
+          other.createdAt == this.createdAt &&
+          other.chatMessageStatus == this.chatMessageStatus);
+}
+
+class ChatOutBoxTableCompanion extends UpdateCompanion<ChatOutBoxTableData> {
+  final Value<String> messageId;
+  final Value<String> otherPartyId;
+  final Value<String> body;
+  final Value<DateTime> createdAt;
+  final Value<int> chatMessageStatus;
+  final Value<int> rowid;
+  const ChatOutBoxTableCompanion({
+    this.messageId = const Value.absent(),
+    this.otherPartyId = const Value.absent(),
+    this.body = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.chatMessageStatus = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ChatOutBoxTableCompanion.insert({
+    required String messageId,
+    required String otherPartyId,
+    required String body,
+    required DateTime createdAt,
+    this.chatMessageStatus = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : messageId = Value(messageId),
+       otherPartyId = Value(otherPartyId),
+       body = Value(body),
+       createdAt = Value(createdAt);
+  static Insertable<ChatOutBoxTableData> custom({
+    Expression<String>? messageId,
+    Expression<String>? otherPartyId,
+    Expression<String>? body,
+    Expression<DateTime>? createdAt,
+    Expression<int>? chatMessageStatus,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (messageId != null) 'message_id': messageId,
+      if (otherPartyId != null) 'other_party_id': otherPartyId,
+      if (body != null) 'body': body,
+      if (createdAt != null) 'created_at': createdAt,
+      if (chatMessageStatus != null) 'chat_message_status': chatMessageStatus,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ChatOutBoxTableCompanion copyWith({
+    Value<String>? messageId,
+    Value<String>? otherPartyId,
+    Value<String>? body,
+    Value<DateTime>? createdAt,
+    Value<int>? chatMessageStatus,
+    Value<int>? rowid,
+  }) {
+    return ChatOutBoxTableCompanion(
+      messageId: messageId ?? this.messageId,
+      otherPartyId: otherPartyId ?? this.otherPartyId,
+      body: body ?? this.body,
+      createdAt: createdAt ?? this.createdAt,
+      chatMessageStatus: chatMessageStatus ?? this.chatMessageStatus,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (messageId.present) {
+      map['message_id'] = Variable<String>(messageId.value);
+    }
+    if (otherPartyId.present) {
+      map['other_party_id'] = Variable<String>(otherPartyId.value);
+    }
+    if (body.present) {
+      map['body'] = Variable<String>(body.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (chatMessageStatus.present) {
+      map['chat_message_status'] = Variable<int>(chatMessageStatus.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ChatOutBoxTableCompanion(')
+          ..write('messageId: $messageId, ')
+          ..write('otherPartyId: $otherPartyId, ')
+          ..write('body: $body, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('chatMessageStatus: $chatMessageStatus, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -8833,6 +9217,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $WorkoutPlanWorkoutTableTable(this);
   late final $WorkoutSetTemplateTableTable workoutSetTemplateTable =
       $WorkoutSetTemplateTableTable(this);
+  late final $ChatOutBoxTableTable chatOutBoxTable = $ChatOutBoxTableTable(
+    this,
+  );
   late final FoodItemDao foodItemDao = FoodItemDao(this as AppDatabase);
   late final UserSettingsDao userSettingsDao = UserSettingsDao(
     this as AppDatabase,
@@ -8856,6 +9243,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       ScheduledWorkoutExerciseDao(this as AppDatabase);
   late final WorkoutSetTemplateTableDao workoutSetTemplateTableDao =
       WorkoutSetTemplateTableDao(this as AppDatabase);
+  late final ChatoutboxDao chatoutboxDao = ChatoutboxDao(this as AppDatabase);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -8877,6 +9265,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     workoutSetTable,
     workoutPlanWorkoutTable,
     workoutSetTemplateTable,
+    chatOutBoxTable,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -16380,6 +16769,234 @@ typedef $$WorkoutSetTemplateTableTableProcessedTableManager =
       WorkoutSetTemplateData,
       PrefetchHooks Function({bool workoutExerciseId})
     >;
+typedef $$ChatOutBoxTableTableCreateCompanionBuilder =
+    ChatOutBoxTableCompanion Function({
+      required String messageId,
+      required String otherPartyId,
+      required String body,
+      required DateTime createdAt,
+      Value<int> chatMessageStatus,
+      Value<int> rowid,
+    });
+typedef $$ChatOutBoxTableTableUpdateCompanionBuilder =
+    ChatOutBoxTableCompanion Function({
+      Value<String> messageId,
+      Value<String> otherPartyId,
+      Value<String> body,
+      Value<DateTime> createdAt,
+      Value<int> chatMessageStatus,
+      Value<int> rowid,
+    });
+
+class $$ChatOutBoxTableTableFilterComposer
+    extends Composer<_$AppDatabase, $ChatOutBoxTableTable> {
+  $$ChatOutBoxTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get messageId => $composableBuilder(
+    column: $table.messageId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get otherPartyId => $composableBuilder(
+    column: $table.otherPartyId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get body => $composableBuilder(
+    column: $table.body,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get chatMessageStatus => $composableBuilder(
+    column: $table.chatMessageStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ChatOutBoxTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $ChatOutBoxTableTable> {
+  $$ChatOutBoxTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get messageId => $composableBuilder(
+    column: $table.messageId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get otherPartyId => $composableBuilder(
+    column: $table.otherPartyId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get body => $composableBuilder(
+    column: $table.body,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get chatMessageStatus => $composableBuilder(
+    column: $table.chatMessageStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ChatOutBoxTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ChatOutBoxTableTable> {
+  $$ChatOutBoxTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get messageId =>
+      $composableBuilder(column: $table.messageId, builder: (column) => column);
+
+  GeneratedColumn<String> get otherPartyId => $composableBuilder(
+    column: $table.otherPartyId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get body =>
+      $composableBuilder(column: $table.body, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<int> get chatMessageStatus => $composableBuilder(
+    column: $table.chatMessageStatus,
+    builder: (column) => column,
+  );
+}
+
+class $$ChatOutBoxTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ChatOutBoxTableTable,
+          ChatOutBoxTableData,
+          $$ChatOutBoxTableTableFilterComposer,
+          $$ChatOutBoxTableTableOrderingComposer,
+          $$ChatOutBoxTableTableAnnotationComposer,
+          $$ChatOutBoxTableTableCreateCompanionBuilder,
+          $$ChatOutBoxTableTableUpdateCompanionBuilder,
+          (
+            ChatOutBoxTableData,
+            BaseReferences<
+              _$AppDatabase,
+              $ChatOutBoxTableTable,
+              ChatOutBoxTableData
+            >,
+          ),
+          ChatOutBoxTableData,
+          PrefetchHooks Function()
+        > {
+  $$ChatOutBoxTableTableTableManager(
+    _$AppDatabase db,
+    $ChatOutBoxTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer:
+              () =>
+                  $$ChatOutBoxTableTableFilterComposer($db: db, $table: table),
+          createOrderingComposer:
+              () => $$ChatOutBoxTableTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer:
+              () => $$ChatOutBoxTableTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> messageId = const Value.absent(),
+                Value<String> otherPartyId = const Value.absent(),
+                Value<String> body = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> chatMessageStatus = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ChatOutBoxTableCompanion(
+                messageId: messageId,
+                otherPartyId: otherPartyId,
+                body: body,
+                createdAt: createdAt,
+                chatMessageStatus: chatMessageStatus,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String messageId,
+                required String otherPartyId,
+                required String body,
+                required DateTime createdAt,
+                Value<int> chatMessageStatus = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ChatOutBoxTableCompanion.insert(
+                messageId: messageId,
+                otherPartyId: otherPartyId,
+                body: body,
+                createdAt: createdAt,
+                chatMessageStatus: chatMessageStatus,
+                rowid: rowid,
+              ),
+          withReferenceMapper:
+              (p0) =>
+                  p0
+                      .map(
+                        (e) => (
+                          e.readTable(table),
+                          BaseReferences(db, table, e),
+                        ),
+                      )
+                      .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ChatOutBoxTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ChatOutBoxTableTable,
+      ChatOutBoxTableData,
+      $$ChatOutBoxTableTableFilterComposer,
+      $$ChatOutBoxTableTableOrderingComposer,
+      $$ChatOutBoxTableTableAnnotationComposer,
+      $$ChatOutBoxTableTableCreateCompanionBuilder,
+      $$ChatOutBoxTableTableUpdateCompanionBuilder,
+      (
+        ChatOutBoxTableData,
+        BaseReferences<
+          _$AppDatabase,
+          $ChatOutBoxTableTable,
+          ChatOutBoxTableData
+        >,
+      ),
+      ChatOutBoxTableData,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -16426,77 +17043,6 @@ class $AppDatabaseManager {
         _db,
         _db.workoutSetTemplateTable,
       );
-}
-
-mixin _$FoodItemDaoMixin on DatabaseAccessor<AppDatabase> {
-  $FoodItemTable get foodItem => attachedDatabase.foodItem;
-}
-mixin _$UserSettingsDaoMixin on DatabaseAccessor<AppDatabase> {
-  $UserSettingsTable get userSettings => attachedDatabase.userSettings;
-}
-mixin _$MealDaoMixin on DatabaseAccessor<AppDatabase> {
-  $MealTableTable get mealTable => attachedDatabase.mealTable;
-  $FoodItemTable get foodItem => attachedDatabase.foodItem;
-  $MealFoodTableTable get mealFoodTable => attachedDatabase.mealFoodTable;
-}
-mixin _$SearchCacheDaoMixin on DatabaseAccessor<AppDatabase> {
-  $SearchCacheTableTable get searchCacheTable =>
-      attachedDatabase.searchCacheTable;
-}
-mixin _$WeightRecordDaoMixin on DatabaseAccessor<AppDatabase> {
-  $WeightRecordTable get weightRecord => attachedDatabase.weightRecord;
-}
-mixin _$ExerciseDaoMixin on DatabaseAccessor<AppDatabase> {
-  $ExerciseTableTable get exerciseTable => attachedDatabase.exerciseTable;
-}
-mixin _$WorkoutDaoMixin on DatabaseAccessor<AppDatabase> {
-  $WorkoutTableTable get workoutTable => attachedDatabase.workoutTable;
-  $ExerciseTableTable get exerciseTable => attachedDatabase.exerciseTable;
-  $WorkoutExerciseTableTable get workoutExerciseTable =>
-      attachedDatabase.workoutExerciseTable;
-  $WorkoutPlanTableTable get workoutPlanTable =>
-      attachedDatabase.workoutPlanTable;
-  $ScheduledWorkoutTableTable get scheduledWorkoutTable =>
-      attachedDatabase.scheduledWorkoutTable;
-  $ScheduledWorkoutExerciseTableTable get scheduledWorkoutExerciseTable =>
-      attachedDatabase.scheduledWorkoutExerciseTable;
-  $WorkoutSetTableTable get workoutSetTable => attachedDatabase.workoutSetTable;
-  $WorkoutSetTemplateTableTable get workoutSetTemplateTable =>
-      attachedDatabase.workoutSetTemplateTable;
-  $WorkoutPlanWorkoutTableTable get workoutPlanWorkoutTable =>
-      attachedDatabase.workoutPlanWorkoutTable;
-}
-mixin _$WorkoutPlanDaoMixin on DatabaseAccessor<AppDatabase> {
-  $WorkoutPlanTableTable get workoutPlanTable =>
-      attachedDatabase.workoutPlanTable;
-  $WorkoutTableTable get workoutTable => attachedDatabase.workoutTable;
-  $WorkoutPlanWorkoutTableTable get workoutPlanWorkoutTable =>
-      attachedDatabase.workoutPlanWorkoutTable;
-}
-mixin _$ScheduledWorkoutDaoMixin on DatabaseAccessor<AppDatabase> {
-  $WorkoutTableTable get workoutTable => attachedDatabase.workoutTable;
-  $WorkoutPlanTableTable get workoutPlanTable =>
-      attachedDatabase.workoutPlanTable;
-  $ScheduledWorkoutTableTable get scheduledWorkoutTable =>
-      attachedDatabase.scheduledWorkoutTable;
-}
-mixin _$ScheduledWorkoutExerciseDaoMixin on DatabaseAccessor<AppDatabase> {
-  $WorkoutTableTable get workoutTable => attachedDatabase.workoutTable;
-  $WorkoutPlanTableTable get workoutPlanTable =>
-      attachedDatabase.workoutPlanTable;
-  $ScheduledWorkoutTableTable get scheduledWorkoutTable =>
-      attachedDatabase.scheduledWorkoutTable;
-  $ExerciseTableTable get exerciseTable => attachedDatabase.exerciseTable;
-  $WorkoutExerciseTableTable get workoutExerciseTable =>
-      attachedDatabase.workoutExerciseTable;
-  $ScheduledWorkoutExerciseTableTable get scheduledWorkoutExerciseTable =>
-      attachedDatabase.scheduledWorkoutExerciseTable;
-}
-mixin _$WorkoutSetTemplateTableDaoMixin on DatabaseAccessor<AppDatabase> {
-  $WorkoutTableTable get workoutTable => attachedDatabase.workoutTable;
-  $ExerciseTableTable get exerciseTable => attachedDatabase.exerciseTable;
-  $WorkoutExerciseTableTable get workoutExerciseTable =>
-      attachedDatabase.workoutExerciseTable;
-  $WorkoutSetTemplateTableTable get workoutSetTemplateTable =>
-      attachedDatabase.workoutSetTemplateTable;
+  $$ChatOutBoxTableTableTableManager get chatOutBoxTable =>
+      $$ChatOutBoxTableTableTableManager(_db, _db.chatOutBoxTable);
 }
