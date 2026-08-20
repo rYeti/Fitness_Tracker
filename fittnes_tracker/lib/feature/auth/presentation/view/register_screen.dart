@@ -126,8 +126,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           await context.read<UserGoalsProvider>().reload();
         }
         await prefs.setString('last_logged_in_user', newUserId);
-        // They have an account now; onboarding must not reappear on relaunch.
-        await prefs.setBool('onboarding_complete', true);
 
         if (!context.mounted) return;
         context.read<AccessProvider>().initialize(

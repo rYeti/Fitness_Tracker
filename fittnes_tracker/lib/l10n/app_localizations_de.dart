@@ -1351,6 +1351,12 @@ class AppLocalizationsDe extends AppLocalizations {
   String get onboardingWelcomeSubtitle => 'Dein persönlicher Fitness-Begleiter';
 
   @override
+  String get onboardingCreateAccount => 'Konto erstellen';
+
+  @override
+  String get profileSetupSkip => 'Später einrichten';
+
+  @override
   String get onboardingAlreadyHaveAccount =>
       'Du hast schon ein Konto? Anmelden';
 

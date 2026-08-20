@@ -2,72 +2,63 @@
 
 ## Where it stands
 
-Onboarding is a four-page personal-fitness intake — profile (name, age,
+Profile setup is a three-page personal-fitness intake — profile (name, age,
 height, sex), goals (activity level, cutting/bulking, current and goal weight)
-and a daily calorie target. It writes a local profile, a calorie goal and a
-starting weight record.
+and a daily calorie target.
 
-It runs **before authentication**, gated only on the local
-`onboarding_complete` pref.
+It used to run **before** authentication, gated on a device-wide
+`onboarding_complete` pref, with no way past it. That meant the app asked for a
+goal weight and a daily calorie target before it had any idea who it was talking
+to — and a trainer, who has no such goals, had to invent them just to reach the
+login screen. The role could not be consulted, because it comes from
+`api/TrainerClient/status`, which needs a token, which needs login.
 
-Two fixes have landed:
+It now runs **after** authentication, and only for trainees.
 
-- **"Already have an account? Sign in"** on the welcome page. Previously the
-  only way to reach the login screen was to complete the whole questionnaire,
-  so anyone reinstalling, moving to a new phone, or holding a gym-created
-  trainer account had to invent a goal weight first. The flag is set on
-  successful auth rather than on tapping the link, so backing out of login
-  leaves onboarding intact for a genuinely new user.
-- **Web skips onboarding entirely.** The browser is the Trainer Console's
-  surface; a phone-shaped fitness intake in front of the login screen was
-  simply wrong there. A trainee who registers on web sets goals in Settings
-  instead.
+## How it works now
 
-`PostAuthHome` is now the single place deciding where an authenticated user
-lands. Cold start, login and register each used to push `HomeScreen` directly,
-which meant a trainer signing in on web got the trainee app — the landing
-logic only ran on a cold start with an existing token.
+**Pre-auth** (`WelcomeScreen`) is what ForgeForm is, plus Sign in / Create
+account. It collects nothing. On web it's skipped in favour of the login screen
+directly — that surface is the Trainer Console, and a consumer pitch for calorie
+tracking has no place in front of it.
 
-## The part still outstanding
+**Post-auth**, `PostAuthHome` → `ProfileSetupGate` decides. Setup is shown only
+when both hold:
 
-**A trainer still sees a trainee's onboarding on mobile.** The "Sign in" link
-routes around it, but a trainer who genuinely is new — no account yet — still
-gets asked for their cutting goal.
+* **The role is resolved.** `AccessProvider.roleResolved` is separate from
+  `initialized`, which flips as soon as *cached* flags load — and on a first
+  sign-in there is no cache, so gating on that alone would flash the trainee
+  questionnaire at a trainer.
+* **The user is not a trainer.** If the role can't be resolved at all (offline,
+  no cache) setup is skipped rather than risked. Asking a trainer for their goal
+  weight is worse than a trainee setting goals later in Settings, and they get
+  prompted on the next launch with network.
 
-This cannot be fixed by branching inside onboarding. `isTrainer` comes from
-`api/TrainerClient/status`, which needs a token, which needs login. **At the
-moment onboarding runs, the role is not knowable.** Any attempt to special-case
-trainers earlier in the flow is guessing.
+"Set up later" records completion so the app doesn't nag; goals stay editable in
+Settings.
 
-### The shape of the real fix
+Completion is per account (`ProfileSetupPrefs`), so onboarding on a phone isn't
+re-asked on the web, and two people sharing a device are each asked once. The
+old device-wide `onboarding_complete` is still honoured as "this account is
+done", so nobody who already finished gets asked again after updating — but it
+is never written, because writing it would mark every other account on the
+device complete too.
 
-Move profile setup to *after* authentication, where the role is known:
+Because there is a real account behind it, the starting weight record is queued
+for sync (`WeightSyncStatus.pending`) instead of being marked already-synced to
+keep it local, which is what the pre-auth version had to do.
 
-1. App opens → welcome/value screen → Login or Register. No data collection.
-2. After auth, `AccessProvider` resolves the role.
-3. Trainee → the goals flow, now able to write server-side rather than only
-   into local Drift tables for an account that may not exist yet.
-4. Trainer → straight to the console. Never asked for a goal weight.
+`PostAuthHome` is the single place deciding where an authenticated user lands.
+Cold start, login and register each used to push `HomeScreen` directly, which
+meant a trainer signing in on web got the trainee app.
 
-### Why it's more than moving widgets
+## Still open
 
-- **Onboarding currently writes local-only state.** It saves a profile, a
-  calorie goal and a weight record marked `synced` so it is never pushed. Once
-  it runs post-auth, that data belongs to a real account and the "never sync"
-  shortcut stops being correct.
-- **`onboarding_complete` is device-local.** It should become per-account, or
-  a user who onboards on their phone gets asked again on the web.
-- **Existing users must not be re-onboarded.** Anyone with `onboarding_complete`
-  already set needs to be treated as done, whatever the new flow decides.
-- **A trainer may also train.** "Is a trainer" shouldn't permanently forfeit
-  the ability to set personal goals later from Settings.
-
-### Suggested sequencing
-
-1. Make `onboarding_complete` per-account, keyed on user id, honouring the
-   existing device-level flag as already-complete for current installs.
-2. Move the goals flow behind auth, reached only when the signed-in user is a
-   trainee and hasn't completed it.
-3. Reduce the pre-auth screen to welcome + Login/Register.
-4. Let the goals flow write through to the server, and drop the
-   `synced`-on-insert workaround for the starting weight record.
+- **Server-side profile push is only as good as the existing sync.**
+  `syncUserSettings()` and `syncWeightLogs()` run from `HomeScreen`'s initial
+  sync, so setup data reaches the server on the next sync rather than
+  immediately. Fine today; worth making explicit if setup ever needs to be
+  authoritative at that moment.
+- **A trainer has no way to set personal goals.** Being a trainer skips setup
+  entirely, and nothing offers it later. Settings can edit goals, but there's no
+  prompt. If trainers train too, that's a gap worth closing.

@@ -1347,6 +1347,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get onboardingWelcomeSubtitle => 'Your personal fitness companion';
 
   @override
+  String get onboardingCreateAccount => 'Create account';
+
+  @override
+  String get profileSetupSkip => 'Set up later';
+
+  @override
   String get onboardingAlreadyHaveAccount => 'Already have an account? Sign in';
 
   @override
