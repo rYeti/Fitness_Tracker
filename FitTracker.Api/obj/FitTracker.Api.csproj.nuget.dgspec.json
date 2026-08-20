@@ -80,6 +80,10 @@
               "target": "Package",
               "version": "[8.0.10, )"
             },
+            "Stripe.net": {
+              "target": "Package",
+              "version": "[52.3.0, )"
+            },
             "Swashbuckle.AspNetCore": {
               "target": "Package",
               "version": "[6.6.2, )"

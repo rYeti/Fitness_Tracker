@@ -10,6 +10,17 @@
       "type": "dart",
       "deviceId": "8c884acc",
       "program": "lib/main.dart"
+    },
+    {
+      // Port pinned to match the Cors:AllowedOrigins entry configured for the
+      // deployed API (see docs/cors-and-signalr.md) — flutter run picks a
+      // random port otherwise, which breaks CORS against the Cloud Run API.
+      "name": "Flutter (Web)",
+      "request": "launch",
+      "type": "dart",
+      "deviceId": "chrome",
+      "program": "lib/main.dart",
+      "args": ["--web-port=5000"]
     }
   ]
 }
