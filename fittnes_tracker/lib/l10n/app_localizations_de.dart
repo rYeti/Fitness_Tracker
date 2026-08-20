@@ -1351,6 +1351,10 @@ class AppLocalizationsDe extends AppLocalizations {
   String get onboardingWelcomeSubtitle => 'Dein persönlicher Fitness-Begleiter';
 
   @override
+  String get onboardingAlreadyHaveAccount =>
+      'Du hast schon ein Konto? Anmelden';
+
+  @override
   String get onboardingWelcomeBody =>
       'Verfolge Ernährung, Training und Gewicht — alles an einem Ort.';
 

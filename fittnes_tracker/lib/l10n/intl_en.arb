@@ -675,6 +675,7 @@
   "goodEvening": "Good evening!",
 
   "onboardingWelcomeSubtitle": "Your personal fitness companion",
+  "onboardingAlreadyHaveAccount": "Already have an account? Sign in",
   "onboardingWelcomeBody": "Track your nutrition, workouts and weight all in one place.",
   "onboardingFeatureWeight": "Weight Tracking",
   "onboardingProfileTitle": "About You",

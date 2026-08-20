@@ -2522,6 +2522,12 @@ abstract class AppLocalizations {
   /// **'Your personal fitness companion'**
   String get onboardingWelcomeSubtitle;
 
+  /// No description provided for @onboardingAlreadyHaveAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Already have an account? Sign in'**
+  String get onboardingAlreadyHaveAccount;
+
   /// No description provided for @onboardingWelcomeBody.
   ///
   /// In en, this message translates to:

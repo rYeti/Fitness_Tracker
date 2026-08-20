@@ -110,7 +110,13 @@ void main() async {
   registerDatabase(db);
 
   final prefs = await SharedPreferences.getInstance();
-  final showOnboarding = !(prefs.getBool('onboarding_complete') ?? false);
+  // Never on web: the browser is the Trainer Console's surface, and onboarding
+  // is a personal-fitness intake (goal weight, daily calories) that a trainer
+  // has no reason to fill in — least of all before they can reach a login
+  // screen. Web goes straight to login; a trainee who registers there sets
+  // their goals in Settings instead.
+  final showOnboarding =
+      !kIsWeb && !(prefs.getBool('onboarding_complete') ?? false);
 
   // Load settings and latest weight before runApp so providers start with correct values.
   final userSettings = await db.userSettingsDao.getSettings();
@@ -321,17 +327,13 @@ class _MyAppState extends State<MyApp> {
           child: child!,
         );
       },
+      // Order matters: a signed-in user never sees onboarding, so someone who
+      // skipped it to sign in doesn't get asked again on the next launch.
       home:
-          widget.showOnboarding
+          widget.hasToken
+              ? const PostAuthHome()
+              : widget.showOnboarding
               ? const OnboardingScreen()
-              : widget.hasToken
-              // On web the browser is the trainer's workstation, so a signed-in
-              // trainer lands straight in the console. Everyone else — and
-              // every other platform — gets the trainee app, reaching the
-              // console from Settings instead.
-              ? (kIsWeb
-                  ? const _WebLanding()
-                  : const HomeScreen())
               : const LoginScreen(),
 
       onGenerateRoute: (settings) {
@@ -378,23 +380,34 @@ class _MyAppState extends State<MyApp> {
   }
 }
 
-/// Web entry point: trainers get the console, everyone else the trainee app.
+/// Where an authenticated user lands: on web a trainer gets the console,
+/// everyone else the trainee app.
+///
+/// This is deliberately the *only* place that decision is made. Cold start,
+/// login and register each used to push [HomeScreen] directly, which meant a
+/// trainer signing in on the web was dropped into the trainee app instead of
+/// the console — the landing logic only ever ran on a cold start with an
+/// existing token.
 ///
 /// Stateful only to hold the "I chose to look at my own training" flag — a
-/// trainer is also a ForgeForm user, so leaving the console has to be
-/// possible without signing out.
-class _WebLanding extends StatefulWidget {
-  const _WebLanding();
+/// trainer is also a ForgeForm user, so leaving the console has to be possible
+/// without signing out.
+class PostAuthHome extends StatefulWidget {
+  const PostAuthHome({super.key});
 
   @override
-  State<_WebLanding> createState() => _WebLandingState();
+  State<PostAuthHome> createState() => _PostAuthHomeState();
 }
 
-class _WebLandingState extends State<_WebLanding> {
+class _PostAuthHomeState extends State<PostAuthHome> {
   bool _showTraineeApp = false;
 
   @override
   Widget build(BuildContext context) {
+    // Off the web the console is reached from Settings, so nothing here has to
+    // wait on the role check.
+    if (!kIsWeb) return const HomeScreen();
+
     if (_showTraineeApp) return const HomeScreen();
     return TrainerConsoleGate(
       // A client signing in on the web gets the normal app rather than a

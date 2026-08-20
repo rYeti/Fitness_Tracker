@@ -504,7 +504,46 @@ class _WelcomePage extends StatelessWidget {
               ),
             ),
           ),
+          const SizedBox(height: 28),
+          // The rest of onboarding is a personal-fitness intake, which only
+          // makes sense for a brand-new trainee. Anyone who already has an
+          // account — someone reinstalling, on a new phone, or a trainer whose
+          // gym created their account — needs a way past it. Without this the
+          // only route to the login screen is inventing a goal weight.
+          const _AlreadyHaveAccountLink(),
         ],
+      ),
+    );
+  }
+}
+
+class _AlreadyHaveAccountLink extends StatelessWidget {
+  const _AlreadyHaveAccountLink();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
+
+    return Center(
+      child: TextButton(
+        // Replaces onboarding rather than stacking on it: coming "back" to a
+        // half-filled questionnaire after signing in would make no sense.
+        // `onboarding_complete` is set on successful auth, not here, so
+        // backing out of login still leaves onboarding intact for a genuinely
+        // new user.
+        onPressed: () => Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+        ),
+        child: Text(
+          l10n.onboardingAlreadyHaveAccount,
+          style: TextStyle(
+            fontFamily: 'Exo 2',
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: cs.primary,
+          ),
+        ),
       ),
     );
   }

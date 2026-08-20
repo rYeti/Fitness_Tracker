@@ -67,6 +67,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           await context.read<UserGoalsProvider>().reload();
         }
         await prefs.setString('last_logged_in_user', newUserId);
+        // Someone who reached this screen via "Sign in" on the welcome page
+        // skipped onboarding on purpose. Without this they'd be asked again
+        // after a logout, having already got an account.
+        await prefs.setBool('onboarding_complete', true);
 
         if (!context.mounted) return;
         context.read<AccessProvider>().initialize(
@@ -74,9 +78,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           serverBaseUrl: serverUrl,
           bearerToken: next.user!.token,
         );
+        // PostAuthHome, not HomeScreen: on web a trainer belongs in the
+        // console, and that decision lives in one place.
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => HomeScreen()),
+          MaterialPageRoute(builder: (_) => const PostAuthHome()),
         );
       }
     });
