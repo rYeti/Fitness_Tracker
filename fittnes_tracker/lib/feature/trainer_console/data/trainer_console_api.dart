@@ -6,7 +6,8 @@ import 'package:ForgeForm/core/network/api_client.dart';
 class TrainerConsoleApi {
   final ApiClient _client;
 
-  TrainerConsoleApi({ApiClient? client}) : _client = client ?? sl<ApiClient>();
+  TrainerConsoleApi({ApiClient? client})
+    : _client = client ?? sl<ApiClient>(instanceName: backendApiClient);
 
   Future<List<Map<String, dynamic>>> fetchMyClients() async {
     final response = await _client.get('api/TrainerClient/my-clients');

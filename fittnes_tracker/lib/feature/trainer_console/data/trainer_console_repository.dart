@@ -42,7 +42,11 @@ class TrainerConsoleRepository {
   /// full exercise/set detail — status/volume/avgRpe/PR are derived
   /// server-side (see trainer_console_models.dart), so this is a straight
   /// `ClientSessionSummary.fromJson` map with no computation.
-  Future<List<ClientSessionSummary>> getClientSessionHistory(String clientId, {int count = 10}) {
-    throw UnimplementedError();
+  Future<List<ClientSessionSummary>> getClientSessionHistory(
+    String clientId, {
+    int count = 10,
+  }) async {
+    final raw = await _api.fetchClientSessionHistory(clientId, count: count);
+    return raw.map(ClientSessionSummary.fromJson).toList();
   }
 }

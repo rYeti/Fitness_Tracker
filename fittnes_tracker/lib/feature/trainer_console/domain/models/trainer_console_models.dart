@@ -163,7 +163,15 @@ class SessionSetLog {
   });
 
   factory SessionSetLog.fromJson(Map<String, dynamic> json) {
-    throw UnimplementedError();
+    return SessionSetLog(
+      setNumber: json['setNumber'] as int,
+      reps: json['reps'] as int?,
+      // Whole numbers can arrive as int from System.Text.Json, so go via num.
+      weight: (json['weight'] as num?)?.toDouble(),
+      weightUnit: json['weightUnit'] as String?,
+      rpe: json['rpe'] as int?,
+      hitTarget: json['hitTarget'] as bool? ?? true,
+    );
   }
 }
 
@@ -177,7 +185,23 @@ class PrescribedSets {
   const PrescribedSets({required this.setCount, required this.targetRepsPerSet});
 
   factory PrescribedSets.fromJson(Map<String, dynamic> json) {
-    throw UnimplementedError();
+    return PrescribedSets(
+      setCount: json['setCount'] as int? ?? 0,
+      targetRepsPerSet:
+          (json['targetRepsPerSet'] as List?)?.cast<String>() ?? const [],
+    );
+  }
+
+  /// "3 × 8" when every set shares a target, "12/10/8" when they differ, and
+  /// null when there's nothing to show. Formatting lives here rather than
+  /// server-side so it stays localisable.
+  String? get summary {
+    if (targetRepsPerSet.isEmpty) return null;
+    final first = targetRepsPerSet.first;
+    final uniform = targetRepsPerSet.every((t) => t == first);
+    return uniform
+        ? '${targetRepsPerSet.length} × $first'
+        : targetRepsPerSet.join('/');
   }
 }
 
@@ -202,7 +226,17 @@ class SessionExerciseLog {
   });
 
   factory SessionExerciseLog.fromJson(Map<String, dynamic> json) {
-    throw UnimplementedError();
+    final prescribed = json['prescribed'] as Map<String, dynamic>?;
+    return SessionExerciseLog(
+      workoutExerciseId: json['workoutExerciseId'] as String,
+      exerciseName: json['exerciseName'] as String? ?? '',
+      prescribed: prescribed == null ? null : PrescribedSets.fromJson(prescribed),
+      skipped: json['skipped'] as bool? ?? false,
+      isPr: json['isPr'] as bool? ?? false,
+      sets: ((json['sets'] as List?) ?? const [])
+          .map((s) => SessionSetLog.fromJson(s as Map<String, dynamic>))
+          .toList(),
+    );
   }
 }
 
@@ -234,7 +268,24 @@ class ClientSessionSummary {
   });
 
   factory ClientSessionSummary.fromJson(Map<String, dynamic> json) {
-    throw UnimplementedError();
+    final statusIndex = json['status'] as int? ?? 0;
+    return ClientSessionSummary(
+      scheduledWorkoutId: json['scheduledWorkoutId'] as String,
+      date: DateTime.parse(json['date'] as String),
+      workoutName: json['workoutName'] as String? ?? '',
+      // Guard the index: a server-side enum addition shouldn't crash an older
+      // client, it should degrade to "partial".
+      status: statusIndex >= 0 && statusIndex < SessionStatus.values.length
+          ? SessionStatus.values[statusIndex]
+          : SessionStatus.partial,
+      isPr: json['isPr'] as bool? ?? false,
+      totalVolume: (json['totalVolume'] as num?)?.toDouble() ?? 0,
+      avgRpe: (json['avgRpe'] as num?)?.toDouble(),
+      clientNote: json['clientNote'] as String?,
+      exercises: ((json['exercises'] as List?) ?? const [])
+          .map((e) => SessionExerciseLog.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
   }
 
   /// A session with nothing logged — drives the "No workout logged" empty

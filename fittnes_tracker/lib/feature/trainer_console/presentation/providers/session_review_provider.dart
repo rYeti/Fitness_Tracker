@@ -33,14 +33,39 @@ class SessionReviewProvider extends ChangeNotifier {
     return _sessions.where((s) => s.scheduledWorkoutId == id).firstOrNull ?? _sessions.first;
   }
 
+  /// The client currently loaded, so the screen can tell an active-client
+  /// switch apart from a first load without tracking it itself.
+  String? _loadedClientId;
+  String? get loadedClientId => _loadedClientId;
+
   /// Loads the client's sessions (newest first). One request covers both the
   /// list and every entry's detail, so there's no per-selection fetch.
   Future<void> load(String clientId) async {
-    // TODO: _isLoading = true; _error = null; notifyListeners(); fetch via
-    // _repository.getClientSessionHistory(clientId); set _sessions and reset
-    // _selectedSessionId to null (so `selected` falls back to the newest);
-    // on failure set _error. Standard loading/error/empty states per
-    // CLAUDE.md — empty history is "No sessions logged yet", not a bare list.
+    _isLoading = true;
+    _error = null;
+    // Drop the previous client's sessions immediately — showing one client's
+    // history under another's name while the request is in flight would be
+    // worse than showing the skeleton.
+    _sessions = const [];
+    _selectedSessionId = null;
+    _loadedClientId = clientId;
+    notifyListeners();
+
+    try {
+      final sessions = await _repository.getClientSessionHistory(clientId);
+      // A slow response for a client the trainer has already switched away
+      // from must not overwrite the newer one's data.
+      if (_loadedClientId != clientId) return;
+      _sessions = sessions;
+    } catch (_) {
+      if (_loadedClientId != clientId) return;
+      _error = 'Could not load this client’s sessions.';
+    } finally {
+      if (_loadedClientId == clientId) {
+        _isLoading = false;
+        notifyListeners();
+      }
+    }
   }
 
   /// Selects a session. Pure local state — the detail is already loaded.
