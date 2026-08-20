@@ -5,6 +5,11 @@ import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/feature/trainer_console/data/trainer_console_repository.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_console_models.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/trainer_console_provider.dart';
+import 'package:ForgeForm/feature/trainer_console/presentation/providers/trainer_licence_provider.dart';
+import 'package:ForgeForm/feature/trainer_console/presentation/view/invite_client_sheet.dart';
+import 'package:ForgeForm/feature/trainer_console/presentation/view/licence_screen.dart';
+import 'package:ForgeForm/feature/trainer_console/presentation/widgets/licence_banner.dart';
+import 'package:ForgeForm/feature/trainer_console/presentation/widgets/seat_meter.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/client_avatar.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/console_widgets.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/stat_tile.dart';
@@ -15,6 +20,10 @@ class TrainerDashboardScreen extends StatefulWidget {
   /// Injection seam for tests.
   final TrainerConsoleRepository? repository;
 
+  /// Injection seam for tests. The Dashboard owns a licence provider because
+  /// the seat chip, the invite action and the plan banners all read from it.
+  final TrainerLicenceProvider? licenceProvider;
+
   /// Opening a roster row is the shell's job — the Dashboard doesn't own
   /// navigation.
   final ValueChanged<TrainerRosterEntry>? onClientSelected;
@@ -22,6 +31,7 @@ class TrainerDashboardScreen extends StatefulWidget {
   const TrainerDashboardScreen({
     super.key,
     this.repository,
+    this.licenceProvider,
     this.onClientSelected,
   });
 
@@ -31,26 +41,36 @@ class TrainerDashboardScreen extends StatefulWidget {
 
 class _TrainerDashboardScreenState extends State<TrainerDashboardScreen> {
   late final TrainerConsoleProvider _provider;
+  late final TrainerLicenceProvider _licence;
+  late final bool _ownsLicenceProvider;
 
   @override
   void initState() {
     super.initState();
     _provider = TrainerConsoleProvider(repository: widget.repository);
     _provider.load();
+
+    _ownsLicenceProvider = widget.licenceProvider == null;
+    _licence = widget.licenceProvider ?? TrainerLicenceProvider();
+    _licence.load();
   }
 
   @override
   void dispose() {
     _provider.dispose();
+    if (_ownsLicenceProvider) _licence.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider<TrainerConsoleProvider>.value(
-      value: _provider,
-      child: Consumer<TrainerConsoleProvider>(
-        builder: (context, provider, _) {
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider<TrainerConsoleProvider>.value(value: _provider),
+        ChangeNotifierProvider<TrainerLicenceProvider>.value(value: _licence),
+      ],
+      child: Consumer2<TrainerConsoleProvider, TrainerLicenceProvider>(
+        builder: (context, provider, licence, _) {
           final isDesktop = MediaQuery.of(context).size.width > 1024;
           final padding = isDesktop ? 32.0 : 16.0;
 
@@ -62,6 +82,7 @@ class _TrainerDashboardScreenState extends State<TrainerDashboardScreen> {
                 padding: EdgeInsets.all(padding),
                 child: _Body(
                   provider: provider,
+                  licence: licence,
                   isDesktop: isDesktop,
                   onClientSelected: widget.onClientSelected,
                 ),
@@ -76,11 +97,13 @@ class _TrainerDashboardScreenState extends State<TrainerDashboardScreen> {
 
 class _Body extends StatelessWidget {
   final TrainerConsoleProvider provider;
+  final TrainerLicenceProvider licence;
   final bool isDesktop;
   final ValueChanged<TrainerRosterEntry>? onClientSelected;
 
   const _Body({
     required this.provider,
+    required this.licence,
     required this.isDesktop,
     required this.onClientSelected,
   });
@@ -96,19 +119,47 @@ class _Body extends StatelessWidget {
       return ConsoleErrorState(message: provider.error!, onRetry: provider.load);
     }
 
+    final plan = licence.licence;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Dashboard',
-          style: TextStyle(
-            fontFamily: 'Montserrat',
-            fontWeight: FontWeight.w800,
-            fontSize: isDesktop ? 26 : 20,
-            letterSpacing: -0.3,
-            color: colors.onSurface,
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Dashboard',
+                style: TextStyle(
+                  fontFamily: 'Montserrat',
+                  fontWeight: FontWeight.w800,
+                  fontSize: isDesktop ? 26 : 20,
+                  letterSpacing: -0.3,
+                  color: colors.onSurface,
+                ),
+              ),
+            ),
+            if (plan != null)
+              SeatChip(
+                licence: plan,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => LicenceScreen(provider: licence),
+                  ),
+                ),
+              ),
+          ],
         ),
+        if (plan != null && LicenceBanner.isWarranted(plan)) ...[
+          const SizedBox(height: 16),
+          LicenceBanner(
+            licence: plan,
+            onManage: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => LicenceScreen(provider: licence),
+              ),
+            ),
+          ),
+        ],
         const SizedBox(height: 20),
         if (provider.kpis != null) _KpiRow(kpis: provider.kpis!),
         const SizedBox(height: 24),
@@ -125,20 +176,26 @@ class _Body extends StatelessWidget {
                 ),
               ),
             ),
-            if (provider.roster.isNotEmpty)
+            _InviteButton(licence: licence),
+            if (provider.roster.isNotEmpty) ...[
+              const SizedBox(width: 8),
               _LayoutToggle(
                 layout: provider.layout,
                 onChanged: provider.setLayout,
               ),
+            ],
           ],
         ),
         const SizedBox(height: 12),
         Expanded(
           child: provider.roster.isEmpty
-              ? const ConsoleEmptyState(
+              ? ConsoleEmptyState(
                   icon: Icons.group_outlined,
                   title: 'No clients yet',
-                  message: 'Invite your first client to get started.',
+                  message:
+                      'Create an invite code and share it with your first '
+                      'client. They enter it under "Join a trainer".',
+                  action: _InviteButton(licence: licence, prominent: true),
                 )
               // The table is dense and needs horizontal room; below the
               // desktop breakpoint it always falls back to cards.
@@ -154,6 +211,51 @@ class _Body extends StatelessWidget {
                     ),
         ),
       ],
+    );
+  }
+}
+
+/// Opens the invite sheet, or explains why it can't be opened.
+///
+/// Disabled-with-a-reason rather than hidden: a trainer who has run out of
+/// seats needs to find out *why* the invite action isn't working, not wonder
+/// where it went.
+class _InviteButton extends StatelessWidget {
+  final TrainerLicenceProvider licence;
+  final bool prominent;
+
+  const _InviteButton({required this.licence, this.prominent = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final plan = licence.licence;
+    final reason = switch (plan) {
+      null => 'Loading your plan…',
+      final l when l.isReadOnly => 'Renew your licence to invite clients.',
+      final l when l.isFull =>
+        'All ${l.seatLimit} seats are in use. Withdraw an invite or upgrade.',
+      _ => null,
+    };
+    final onPressed = licence.canInvite
+        ? () => InviteClientSheet.show(context)
+        : null;
+
+    return Tooltip(
+      message: reason ?? 'Invite a client',
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 44),
+        child: prominent
+            ? FilledButton.icon(
+                onPressed: onPressed,
+                icon: const Icon(Icons.person_add_outlined, size: 18),
+                label: const Text('Invite a client'),
+              )
+            : OutlinedButton.icon(
+                onPressed: onPressed,
+                icon: const Icon(Icons.person_add_outlined, size: 18),
+                label: const Text('Invite'),
+              ),
+      ),
     );
   }
 }

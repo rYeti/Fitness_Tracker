@@ -442,6 +442,58 @@ namespace FitTracker.Api.Migrations
                     b.ToTable("TrainerClients");
                 });
 
+            modelBuilder.Entity("FitTracker.Api.Models.TrainerLicence", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("CurrentPeriodEnd")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("GraceEndsAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("HasUsedTrial")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("LastStripeEventAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("SeatLimit")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("StripeCustomerId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("StripeSubscriptionId")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Tier")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TrainerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StripeSubscriptionId");
+
+                    b.HasIndex("TrainerId")
+                        .IsUnique();
+
+                    b.ToTable("TrainerLicences");
+                });
+
             modelBuilder.Entity("FitTracker.Api.Models.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -936,6 +988,17 @@ namespace FitTracker.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("Client");
+
+                    b.Navigation("Trainer");
+                });
+
+            modelBuilder.Entity("FitTracker.Api.Models.TrainerLicence", b =>
+                {
+                    b.HasOne("FitTracker.Api.Models.User", "Trainer")
+                        .WithMany()
+                        .HasForeignKey("TrainerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Trainer");
                 });

@@ -11,9 +11,42 @@ public class TrainerClientRepository(AppDbContext context) : ITrainerClientRepos
 {
     private readonly AppDbContext _context = context;
 
-    /// <summary>Creates a pending invite for the given trainer, valid for 7 days.</summary>
-    public async Task<TrainerClient> CreateInviteAsync(Guid trainerId)
+    /// <summary>Counts the seats a trainer is currently occupying: active
+    /// clients plus invites that are still redeemable.
+    ///
+    /// Outstanding invites count because otherwise a trainer could mint any
+    /// number of codes while under the limit and blow straight past it when
+    /// they were all redeemed.</summary>
+    public async Task<int> CountSeatsUsedAsync(Guid trainerId) =>
+        await _context.TrainerClients.CountAsync(t =>
+            t.TrainerId == trainerId &&
+            (t.Status == TrainerClientStatus.Active ||
+             (t.Status == TrainerClientStatus.Pending && t.ExpiresAt > DateTime.UtcNow)));
+
+    /// <summary>Creates a pending invite for the given trainer, valid for 7 days,
+    /// provided they have a free seat.</summary>
+    public async Task<CreateInviteResult> CreateInviteAsync(Guid trainerId)
     {
+        var licence = await _context.TrainerLicences
+            .FirstOrDefaultAsync(l => l.TrainerId == trainerId);
+        if (licence == null)
+        {
+            return new CreateInviteResult(CreateInviteStatus.NoLicence, null, 0, 0);
+        }
+
+        if (!licence.IsEntitled)
+        {
+            return new CreateInviteResult(
+                CreateInviteStatus.NotEntitled, null, 0, licence.SeatLimit);
+        }
+
+        var seatsUsed = await CountSeatsUsedAsync(trainerId);
+        if (seatsUsed >= licence.SeatLimit)
+        {
+            return new CreateInviteResult(
+                CreateInviteStatus.SeatLimitReached, null, seatsUsed, licence.SeatLimit);
+        }
+
         var invite = new TrainerClient
         {
             TrainerId = trainerId,
@@ -24,23 +57,55 @@ public class TrainerClientRepository(AppDbContext context) : ITrainerClientRepos
         };
         _context.TrainerClients.Add(invite);
         await _context.SaveChangesAsync();
-        return invite;
+
+        return new CreateInviteResult(
+            CreateInviteStatus.Ok, invite, seatsUsed + 1, licence.SeatLimit);
     }
 
     /// <summary>Accepts a pending invite for the given client, revoking any existing
-    /// active trainer relationship the client has. Returns null if the code is
-    /// invalid, expired, or belongs to the client's own account.</summary>
-    public async Task<TrainerClient?> AcceptInviteAsync(string inviteCode, Guid clientId)
+    /// active trainer relationship the client has.
+    ///
+    /// The seat check is repeated here rather than trusted from mint time: a code
+    /// can be redeemed days later, by which point the trainer may have filled up
+    /// or downgraded. Checking only when the code is issued makes the limit
+    /// advisory.</summary>
+    public async Task<AcceptInviteResult> AcceptInviteAsync(string inviteCode, Guid clientId)
     {
+        // Deliberately *not* filtering on expiry in the query — an expired code
+        // and an unknown one need to produce different messages.
         var invite = await _context.TrainerClients
             .Include(t => t.Trainer)
             .FirstOrDefaultAsync(t =>
                 t.InviteCode == inviteCode &&
-                t.Status == TrainerClientStatus.Pending &&
-                t.ExpiresAt > DateTime.UtcNow);
+                t.Status == TrainerClientStatus.Pending);
 
-        if (invite == null) return null;
-        if (invite.TrainerId == clientId) return null; // can't be your own client
+        if (invite == null)
+        {
+            return new AcceptInviteResult(AcceptInviteStatus.NotFound, null);
+        }
+        if (invite.ExpiresAt <= DateTime.UtcNow)
+        {
+            return new AcceptInviteResult(AcceptInviteStatus.Expired, null);
+        }
+        if (invite.TrainerId == clientId)
+        {
+            return new AcceptInviteResult(AcceptInviteStatus.SelfInvite, null);
+        }
+
+        var licence = await _context.TrainerLicences
+            .FirstOrDefaultAsync(l => l.TrainerId == invite.TrainerId);
+        if (licence == null || !licence.IsEntitled)
+        {
+            return new AcceptInviteResult(AcceptInviteStatus.TrainerNotEntitled, null);
+        }
+
+        // This invite already holds one of the seats it's being counted against,
+        // so compare against the limit exclusive of itself.
+        var seatsUsed = await CountSeatsUsedAsync(invite.TrainerId);
+        if (seatsUsed - 1 >= licence.SeatLimit)
+        {
+            return new AcceptInviteResult(AcceptInviteStatus.TrainerAtSeatLimit, null);
+        }
 
         // One active trainer per client — revoke any existing relationship.
         var existing = await _context.TrainerClients
@@ -52,8 +117,33 @@ public class TrainerClientRepository(AppDbContext context) : ITrainerClientRepos
         invite.Status = TrainerClientStatus.Active;
         invite.AcceptedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
-        return invite;
+        return new AcceptInviteResult(AcceptInviteStatus.Ok, invite);
     }
+
+    /// <summary>Withdraws an unredeemed invite, freeing its seat. Only the trainer
+    /// who issued it may do this.</summary>
+    public async Task<bool> RevokeInviteAsync(Guid inviteId, Guid trainerId)
+    {
+        var invite = await _context.TrainerClients.FirstOrDefaultAsync(t =>
+            t.Id == inviteId &&
+            t.TrainerId == trainerId &&
+            t.Status == TrainerClientStatus.Pending);
+        if (invite == null) return false;
+
+        invite.Status = TrainerClientStatus.Revoked;
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    /// <summary>Returns the trainer's outstanding, still-redeemable invites.</summary>
+    public async Task<List<TrainerClient>> GetPendingInvitesAsync(Guid trainerId) =>
+        await _context.TrainerClients
+            .Where(t =>
+                t.TrainerId == trainerId &&
+                t.Status == TrainerClientStatus.Pending &&
+                t.ExpiresAt > DateTime.UtcNow)
+            .OrderByDescending(t => t.CreatedAt)
+            .ToListAsync();
 
     /// <summary>Returns the trainer's active clients.</summary>
     public async Task<List<TrainerClient>> GetClientsAsync(Guid trainerId) =>

@@ -31,6 +31,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:ForgeForm/feature/premium/paywall_launcher.dart';
 import 'package:ForgeForm/feature/premium/premium_gate.dart';
 import 'package:ForgeForm/core/design_tokens.dart';
+import 'package:ForgeForm/feature/trainer/presentation/view/join_trainer_screen.dart';
+import 'package:ForgeForm/feature/trainer_console/presentation/view/licence_screen.dart';
 
 extension SexLocalizations on Sex {
   String localized(BuildContext ctx) {
@@ -451,6 +453,94 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () =>
                           Navigator.pushNamed(context, '/trainer-console'),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Card(
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(color: colorScheme.outlineVariant),
+                    ),
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: colorScheme.primaryContainer,
+                        child: Icon(
+                          Icons.workspace_premium_outlined,
+                          color: colorScheme.onPrimaryContainer,
+                        ),
+                      ),
+                      title: const Text('Your plan'),
+                      subtitle: const Text('Seats, billing and invites'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (_) => const LicenceScreen(),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+
+                // ── Becoming a trainer / joining one ──────────────────────
+                // Both are self-serve: there's no admin step behind either.
+                if (!isTrainer) ...[
+                  const SizedBox(height: 12),
+                  Card(
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(color: colorScheme.outlineVariant),
+                    ),
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: colorScheme.primaryContainer,
+                        child: Icon(
+                          Icons.badge_outlined,
+                          color: colorScheme.onPrimaryContainer,
+                        ),
+                      ),
+                      title: const Text('Set up Trainer Console'),
+                      subtitle: const Text(
+                        'Coach up to 3 clients free',
+                      ),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (_) => const LicenceScreen(),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+
+                if (!isTrainerClient) ...[
+                  const SizedBox(height: 12),
+                  Card(
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(color: colorScheme.outlineVariant),
+                    ),
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: colorScheme.primaryContainer,
+                        child: Icon(
+                          Icons.link,
+                          color: colorScheme.onPrimaryContainer,
+                        ),
+                      ),
+                      title: const Text('Join a trainer'),
+                      subtitle: const Text('Enter the code your trainer gave you'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (_) => const JoinTrainerScreen(),
+                        ),
+                      ),
                     ),
                   ),
                 ],

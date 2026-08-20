@@ -18,12 +18,15 @@ namespace FitTracker.Api.Tests;
 /// </summary>
 public class ChatControllerTests
 {
-    private static ChatController NewController(ChatTestContext ctx, Guid callerId)
+    private static ChatController NewController(ChatScenario ctx, Guid callerId)
     {
         var trainerClientRepo = new TrainerClientRepository(ctx.Db);
         var controller = new ChatController(
             new ChatService(trainerClientRepo, new ChatRepository(ctx.Db)),
-            new TrainerClientService(trainerClientRepo))
+            // Licensing gates invites and seats, not chat; the real repository is
+            // passed rather than a stub so this stays honest if that changes.
+            new TrainerClientService(
+                trainerClientRepo, new TrainerLicenceRepository(ctx.Db)))
         {
             ControllerContext = new ControllerContext
             {
@@ -47,7 +50,7 @@ public class ChatControllerTests
     [Fact]
     public async Task A_trainer_reading_history_gets_the_threads_messages()
     {
-        using var ctx = new ChatTestContext();
+        using var ctx = new ChatScenario();
         var start = new DateTime(2026, 8, 1, 9, 0, 0, DateTimeKind.Utc);
         ctx.AddMessage(ctx.Relationship.Id, ctx.TrainerId, "hello robert", start);
         var controller = NewController(ctx, ctx.TrainerId);
@@ -60,7 +63,7 @@ public class ChatControllerTests
     [Fact]
     public async Task A_client_reading_history_passes_their_trainers_id_and_gets_the_same_thread()
     {
-        using var ctx = new ChatTestContext();
+        using var ctx = new ChatScenario();
         var start = new DateTime(2026, 8, 1, 9, 0, 0, DateTimeKind.Utc);
         ctx.AddMessage(ctx.Relationship.Id, ctx.TrainerId, "hello robert", start);
         var controller = NewController(ctx, ctx.ClientId);
@@ -75,7 +78,7 @@ public class ChatControllerTests
     [Fact]
     public async Task History_without_an_explicit_range_still_returns_messages()
     {
-        using var ctx = new ChatTestContext();
+        using var ctx = new ChatScenario();
         ctx.AddMessage(ctx.Relationship.Id, ctx.TrainerId, "hello robert",
             new DateTime(2026, 8, 1, 9, 0, 0, DateTimeKind.Utc));
         var controller = NewController(ctx, ctx.TrainerId);
@@ -90,7 +93,7 @@ public class ChatControllerTests
     [Fact]
     public async Task History_for_a_pair_the_caller_is_not_part_of_is_unauthorized()
     {
-        using var ctx = new ChatTestContext();
+        using var ctx = new ChatScenario();
         var stranger = ctx.AddUser("Ivy", "Stone");
         var controller = NewController(ctx, ctx.TrainerId);
 
@@ -100,7 +103,7 @@ public class ChatControllerTests
     [Fact]
     public async Task Conversations_returns_the_callers_threads()
     {
-        using var ctx = new ChatTestContext();
+        using var ctx = new ChatScenario();
         ctx.AddMessage(ctx.Relationship.Id, ctx.ClientId, "morning!",
             new DateTime(2026, 8, 1, 9, 0, 0, DateTimeKind.Utc));
         var controller = NewController(ctx, ctx.TrainerId);
@@ -116,7 +119,7 @@ public class ChatControllerTests
     [Fact]
     public async Task Marking_a_thread_read_zeroes_its_unread_count()
     {
-        using var ctx = new ChatTestContext();
+        using var ctx = new ChatScenario();
         ctx.AddMessage(ctx.Relationship.Id, ctx.ClientId, "morning!",
             new DateTime(2026, 8, 1, 9, 0, 0, DateTimeKind.Utc));
         var controller = NewController(ctx, ctx.TrainerId);
@@ -130,7 +133,7 @@ public class ChatControllerTests
     [Fact]
     public async Task Marking_a_thread_the_caller_is_not_part_of_is_unauthorized()
     {
-        using var ctx = new ChatTestContext();
+        using var ctx = new ChatScenario();
         var stranger = ctx.AddUser("Ivy", "Stone");
         var controller = NewController(ctx, ctx.TrainerId);
 

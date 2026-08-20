@@ -21,6 +21,7 @@ const _prefIsTrainerClient = 'access_is_trainer_client';
 const _prefIsTrainer = 'access_is_trainer';
 const _prefTrainerId = 'access_trainer_id';
 const _prefTrainerName = 'access_trainer_name';
+const _prefProFromLicence = 'access_pro_from_licence';
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Aggregates premium status from RevenueCat purchases and the server-side
@@ -36,6 +37,8 @@ class AccessProvider extends ChangeNotifier {
     bool isPremium = false,
     bool isTrainerClient = false,
     bool isTrainer = false,
+    bool proFromLicence = false,
+    DateTime? proEndsAt,
     bool initialized = true,
     bool roleResolved = true,
     String? trainerId,
@@ -43,6 +46,8 @@ class AccessProvider extends ChangeNotifier {
   }) : _isPremium = isPremium,
        _isTrainerClient = isTrainerClient,
        _isTrainer = isTrainer,
+       _proFromLicence = proFromLicence,
+       _proEndsAt = proEndsAt,
        _initialized = initialized,
        _roleResolved = roleResolved,
        _trainerId = trainerId,
@@ -51,6 +56,8 @@ class AccessProvider extends ChangeNotifier {
   bool _isPremium = false;
   bool _isTrainerClient = false;
   bool _isTrainer = false;
+  bool _proFromLicence = false;
+  DateTime? _proEndsAt;
   bool _initialized = false;
   bool _roleResolved = false;
   String? _trainerId;
@@ -67,6 +74,19 @@ class AccessProvider extends ChangeNotifier {
   /// endpoint has always returned it — it just wasn't being read.
   String? get trainerId => _trainerId;
   String? get trainerName => _trainerName;
+  /// Whether the server says this user's Pro comes from a licence — their
+  /// trainer's paid, current one, or their own.
+  ///
+  /// Computed server-side and never inferred here. See [hasPremiumAccess].
+  bool get proFromLicence => _proFromLicence;
+
+  /// When licence-derived Pro runs out, set only while the licence granting it
+  /// is inside its post-lapse grace window. The trainee gets warned before a
+  /// feature locks rather than discovering it the hard way.
+  DateTime? get proEndsAt => _proEndsAt;
+
+  /// True when Pro is about to lapse because someone else stopped paying.
+  bool get proIsLapsing => _proFromLicence && _proEndsAt != null;
 
   /// Whether the server has been asked about this user's role since launch.
   ///
@@ -79,8 +99,15 @@ class AccessProvider extends ChangeNotifier {
   /// available and callers shouldn't hang forever waiting for better.
   bool get roleResolved => _roleResolved;
 
-  /// True if the user has access to premium features from ANY source.
-  bool get hasPremiumAccess => _isPremium || _isTrainerClient;
+  /// True if the user has access to premium features from ANY source: their own
+  /// purchase, or a licence that grants it.
+  ///
+  /// Deliberately *not* `|| _isTrainerClient`. Being someone's client used to
+  /// grant Pro outright, which made premium free to anyone willing to register a
+  /// second account and invite themselves — invite codes cost nothing to mint.
+  /// Pro now derives only from [proFromLicence], which the server computes from
+  /// a paid, current licence. Do not reintroduce a relationship-based grant.
+  bool get hasPremiumAccess => _isPremium || _proFromLicence;
 
   bool get initialized => _initialized;
 
@@ -101,6 +128,7 @@ class AccessProvider extends ChangeNotifier {
     // trainee's chat entry point should be right before the network answers.
     _trainerId = prefs.getString(_prefTrainerId);
     _trainerName = prefs.getString(_prefTrainerName);
+    _proFromLicence = prefs.getBool(_prefProFromLicence) ?? false;
     _initialized = true;
     notifyListeners();
 
@@ -115,6 +143,7 @@ class AccessProvider extends ChangeNotifier {
     await prefs.setBool(_prefIsTrainerClient, _isTrainerClient);
     await prefs.setBool(_prefIsTrainer, _isTrainer);
     await _persistTrainer(prefs);
+    await prefs.setBool(_prefProFromLicence, _proFromLicence);
     notifyListeners();
   }
 
@@ -132,6 +161,7 @@ class AccessProvider extends ChangeNotifier {
     await prefs.setBool(_prefIsTrainerClient, _isTrainerClient);
     await prefs.setBool(_prefIsTrainer, _isTrainer);
     await _persistTrainer(prefs);
+    await prefs.setBool(_prefProFromLicence, _proFromLicence);
     notifyListeners();
   }
 
@@ -140,6 +170,8 @@ class AccessProvider extends ChangeNotifier {
     _isPremium = false;
     _isTrainerClient = false;
     _isTrainer = false;
+    _proFromLicence = false;
+    _proEndsAt = null;
     _initialized = false;
     _roleResolved = false;
     _trainerId = null;
@@ -150,6 +182,7 @@ class AccessProvider extends ChangeNotifier {
     await prefs.remove(_prefIsTrainer);
     await prefs.remove(_prefTrainerId);
     await prefs.remove(_prefTrainerName);
+    await prefs.remove(_prefProFromLicence);
     try {
       await Purchases.logOut();
     } catch (_) {}
@@ -232,6 +265,11 @@ class AccessProvider extends ChangeNotifier {
     _isTrainer = payload['isTrainer'] as bool? ?? false;
     _trainerId = payload['trainerId'] as String?;
     _trainerName = payload['trainerName'] as String?;
+    // Server-computed. The client must never derive premium from
+    // `isTrainerClient` — see hasPremiumAccess.
+    _proFromLicence = payload['proFromLicence'] as bool? ?? false;
+    final proEnds = payload['proEndsAt'];
+    _proEndsAt = proEnds is String ? DateTime.tryParse(proEnds)?.toLocal() : null;
     notifyListeners();
   }
 

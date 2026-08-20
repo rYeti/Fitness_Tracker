@@ -43,6 +43,8 @@ import 'feature/onboarding/profile_setup_prefs.dart';
 import 'feature/onboarding/profile_setup_screen.dart';
 import 'feature/onboarding/welcome_screen.dart';
 import 'core/providers/access_provider.dart';
+import 'feature/premium/paywall_launcher.dart';
+import 'feature/trainer_console/presentation/widgets/licence_banner.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 
 const _backgroundSyncTask = 'com.forgeform.dailySync';
@@ -555,7 +557,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     return Scaffold(
       resizeToAvoidBottomInset: false,
-      body: IndexedStack(index: _selectedIndex, children: _screens),
+      body: Column(
+        children: [
+          // A trainee's Pro can stop because their *trainer* stopped paying.
+          // They did nothing wrong, so they get told before a feature locks
+          // rather than discovering it when one refuses to open.
+          const _TraineeProNotice(),
+          Expanded(
+            child: IndexedStack(index: _selectedIndex, children: _screens),
+          ),
+        ],
+      ),
       bottomNavigationBar: BottomNavigationBar(
           currentIndex: _selectedIndex,
           onTap: _onTabTapped,
@@ -625,5 +637,48 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     } catch (_) {
       // silent — no network or server down, try again next time
     }
+  }
+}
+
+
+/// Warns a trainee that the Pro they get through their trainer is ending, and
+/// offers them a way to keep it. Dismissible, and silent whenever nothing is
+/// actually expiring.
+class _TraineeProNotice extends StatefulWidget {
+  const _TraineeProNotice();
+
+  @override
+  State<_TraineeProNotice> createState() => _TraineeProNoticeState();
+}
+
+class _TraineeProNoticeState extends State<_TraineeProNotice> {
+  bool _dismissed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final access = context.watch<AccessProvider>();
+    if (_dismissed || !access.proIsLapsing) return const SizedBox.shrink();
+
+    return SafeArea(
+      bottom: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+        child: Row(
+          children: [
+            Expanded(
+              child: TraineeProLapsingBanner(
+                endsAt: access.proEndsAt!,
+                onSeePlans: () => openPaywall(context),
+              ),
+            ),
+            IconButton(
+              tooltip: 'Dismiss',
+              onPressed: () => setState(() => _dismissed = true),
+              icon: const Icon(Icons.close, size: 18),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

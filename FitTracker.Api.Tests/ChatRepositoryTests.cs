@@ -14,12 +14,12 @@ namespace FitTracker.Api.Tests;
 /// </summary>
 public class ChatRepositoryTests
 {
-    private static IChatRepository NewRepository(ChatTestContext ctx) => new ChatRepository(ctx.Db);
+    private static IChatRepository NewRepository(ChatScenario ctx) => new ChatRepository(ctx.Db);
 
     [Fact]
     public async Task Adding_the_same_id_twice_returns_the_stored_message_without_inserting_again()
     {
-        using var ctx = new ChatTestContext();
+        using var ctx = new ChatScenario();
         var repo = NewRepository(ctx);
         var id = Guid.NewGuid();
 
@@ -48,7 +48,7 @@ public class ChatRepositoryTests
     [Fact]
     public async Task An_id_belonging_to_another_pair_is_never_returned()
     {
-        using var ctx = new ChatTestContext();
+        using var ctx = new ChatScenario();
         var otherClient = ctx.AddUser("Lena", "Fischer");
         var otherRelationship = ctx.AddRelationship(ctx.TrainerId, otherClient.Id);
         var repo = NewRepository(ctx);
@@ -79,7 +79,7 @@ public class ChatRepositoryTests
     [Fact]
     public async Task A_message_without_a_relationship_is_rejected_by_the_database()
     {
-        using var ctx = new ChatTestContext();
+        using var ctx = new ChatScenario();
         var repo = NewRepository(ctx);
 
         // Guards the exact defect this suite was written for: ChatMessage reaches
@@ -96,7 +96,7 @@ public class ChatRepositoryTests
     [Fact]
     public async Task History_is_scoped_to_the_pair_and_ordered_oldest_first()
     {
-        using var ctx = new ChatTestContext();
+        using var ctx = new ChatScenario();
         var otherClient = ctx.AddUser("Lena", "Fischer");
         var otherRelationship = ctx.AddRelationship(ctx.TrainerId, otherClient.Id);
         var start = new DateTime(2026, 8, 1, 9, 0, 0, DateTimeKind.Utc);
