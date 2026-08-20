@@ -4,7 +4,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/view/trainer_console_home.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/trainer_console_shell.dart';
 
+import 'package:ForgeForm/feature/trainer_console/presentation/providers/trainer_licence_provider.dart';
+
 import 'fakes.dart';
+import 'licence_fakes.dart';
 
 Future<void> _pump(
   WidgetTester tester,
@@ -16,7 +19,16 @@ Future<void> _pump(
   addTearDown(tester.view.reset);
 
   await tester.pumpWidget(
-    MaterialApp(home: TrainerConsoleHome(repository: repository)),
+    MaterialApp(
+      home: TrainerConsoleHome(
+        repository: repository,
+        // The console owns a licence provider for its seat affordances;
+        // injected here so the shell tests don't reach the network.
+        licenceProvider: TrainerLicenceProvider(
+          repository: FakeTrainerLicenceRepository(current: licence()),
+        ),
+      ),
+    ),
   );
 }
 

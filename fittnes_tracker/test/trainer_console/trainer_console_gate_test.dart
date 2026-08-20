@@ -6,7 +6,10 @@ import 'package:ForgeForm/core/di/service_locator.dart';
 import 'package:ForgeForm/core/providers/access_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/view/trainer_console_gate.dart';
 
+import 'package:ForgeForm/feature/trainer_console/presentation/providers/trainer_licence_provider.dart';
+
 import 'fakes.dart';
+import 'licence_fakes.dart';
 
 /// The gate decides who sees other people's training data, so each branch is
 /// pinned here. Note it's a UX guard, not the security boundary — the API
@@ -30,6 +33,9 @@ Future<void> _pump(
           fallback: fallback,
           onExitConsole: onExitConsole,
           repository: FakeTrainerConsoleRepository(),
+          licenceProvider: TrainerLicenceProvider(
+            repository: FakeTrainerLicenceRepository(current: licence()),
+          ),
         ),
       ),
     ),

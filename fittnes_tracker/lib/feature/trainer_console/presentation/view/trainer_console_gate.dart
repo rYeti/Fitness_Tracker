@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:ForgeForm/core/providers/access_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/data/trainer_console_repository.dart';
+import 'package:ForgeForm/feature/trainer_console/presentation/providers/trainer_licence_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/view/trainer_console_home.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/console_widgets.dart';
 
@@ -28,11 +29,16 @@ class TrainerConsoleGate extends StatelessWidget {
   /// Injection seam for tests, matching the console's own screens.
   final TrainerConsoleRepository? repository;
 
+  /// Injection seam for tests. Passed straight through to the console, which
+  /// owns the licence provider for its seat affordances.
+  final TrainerLicenceProvider? licenceProvider;
+
   const TrainerConsoleGate({
     super.key,
     this.fallback,
     this.onExitConsole,
     this.repository,
+    this.licenceProvider,
   });
 
   @override
@@ -52,6 +58,7 @@ class TrainerConsoleGate extends StatelessWidget {
       return TrainerConsoleHome(
         onExitConsole: onExitConsole,
         repository: repository,
+        licenceProvider: licenceProvider,
       );
     }
     if (fallback != null) return fallback!;

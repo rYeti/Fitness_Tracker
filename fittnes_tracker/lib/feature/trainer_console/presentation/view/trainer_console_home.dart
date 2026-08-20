@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:ForgeForm/feature/trainer_console/data/trainer_console_repository.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/active_client_provider.dart';
+import 'package:ForgeForm/feature/trainer_console/presentation/providers/trainer_licence_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/view/client_detail_screen.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/view/nutrition_screen.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/view/session_review_screen.dart';
@@ -12,10 +13,12 @@ import 'package:ForgeForm/feature/trainer_console/presentation/widgets/trainer_c
 
 /// Entry point for the Trainer Console.
 ///
-/// Owns the two things that must outlive any single screen: the shared
+/// Owns the things that must outlive any single screen: the shared
 /// [ActiveClientProvider] (CLAUDE.md — one active client across Chat, Builder,
-/// Nutrition and Session Review, switching without a navigation reload) and
-/// the current route.
+/// Nutrition and Session Review, switching without a navigation reload), the
+/// current route, and the [TrainerLicenceProvider] — seat usage is
+/// console-wide state, not the Dashboard's private business, and minting an
+/// invite from one screen has to move the seat meter on another.
 ///
 /// Screens are kept alive in an [IndexedStack] so switching sections doesn't
 /// re-fetch everything; a screen reloads only when the active client actually
@@ -23,6 +26,10 @@ import 'package:ForgeForm/feature/trainer_console/presentation/widgets/trainer_c
 class TrainerConsoleHome extends StatefulWidget {
   /// Injection seam for tests.
   final TrainerConsoleRepository? repository;
+
+  /// Injection seam for tests. Defaults to a live provider.
+  final TrainerLicenceProvider? licenceProvider;
+
   final TrainerConsoleRoute initialRoute;
 
   /// Leaves the console for the trainee app. Set on web, where the console is
@@ -32,6 +39,7 @@ class TrainerConsoleHome extends StatefulWidget {
   const TrainerConsoleHome({
     super.key,
     this.repository,
+    this.licenceProvider,
     this.initialRoute = TrainerConsoleRoute.dashboard,
     this.onExitConsole,
   });
@@ -42,6 +50,8 @@ class TrainerConsoleHome extends StatefulWidget {
 
 class _TrainerConsoleHomeState extends State<TrainerConsoleHome> {
   late final ActiveClientProvider _activeClient;
+  late final TrainerLicenceProvider _licence;
+  late final bool _ownsLicenceProvider;
   late TrainerConsoleRoute _route;
 
   @override
@@ -50,11 +60,15 @@ class _TrainerConsoleHomeState extends State<TrainerConsoleHome> {
     _route = widget.initialRoute;
     _activeClient = ActiveClientProvider(repository: widget.repository);
     _activeClient.loadClients();
+
+    _ownsLicenceProvider = widget.licenceProvider == null;
+    _licence = widget.licenceProvider ?? TrainerLicenceProvider();
   }
 
   @override
   void dispose() {
     _activeClient.dispose();
+    if (_ownsLicenceProvider) _licence.dispose();
     super.dispose();
   }
 
@@ -83,6 +97,7 @@ class _TrainerConsoleHomeState extends State<TrainerConsoleHome> {
           children: [
             TrainerDashboardScreen(
               repository: widget.repository,
+              licenceProvider: _licence,
               onClientSelected: (entry) =>
                   _openClientDetail(entry.clientId, entry.clientName),
             ),

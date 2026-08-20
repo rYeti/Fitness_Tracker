@@ -9,6 +9,7 @@ ForgeForm is a Flutter fitness app with an ASP.NET Core backend (JWT/OAuth/RBAC 
 
 ## Key reference docs (read before implementing related features)
 - `trainer-console-spec.md` — full Trainer Console feature spec, phasing, and competitive positioning.
+- `docs/trainer-licensing.md` — trainer plans, seat limits, and where premium comes from. **Read before touching anything premium, invite- or seat-related.**
 - `design/trainer_console/design_handoff_trainer_console/README.md` — design handoff for the Trainer Console mockup. **Read this before touching any Trainer Console UI.**
 
 ## Design mockup handling — IMPORTANT
@@ -99,6 +100,16 @@ The Trainer Console must run natively on desktop via Flutter's desktop targets, 
 - Responsive, breakpoint-driven layouts (e.g. a 3-pane desktop layout for Messages, collapsing to single-pane + bottom tabs on mobile).
 - Shared active-client state must update all *simultaneously visible* panes on wide viewports, not just the current screen.
 - Keyboard shortcuts and hover states are desktop-only affordances — gate behind platform checks, don't skip them.
+
+## Trainer licensing — where premium comes from
+Trainers hold a `TrainerLicence`: a tier, a seat limit, and a Stripe subscription. Full detail in `docs/trainer-licensing.md`; the load-bearing parts:
+- **Premium derives from a *paid, current* licence and nothing else.** `AccessProvider.hasPremiumAccess` is `_isPremium || _proFromLicence`, where `proFromLicence` is computed server-side. It is deliberately **not** `|| isTrainerClient` — invite codes are free to mint, so a relationship-based grant made Pro free to anyone with a spare email. `TrainerLicence.GrantsPro` requires a non-Free tier for the same reason. Three regression tests pin this; don't relax any of them without an equivalent replacement.
+- **Holding a licence is what makes someone a trainer**, not having clients. `IsTrainer = licence != null`. The old roster-based check locked a new trainer out of the console — the only place they could invite their first client from.
+- **A seat is an Active relationship *or* an unexpired Pending invite**, and the limit is enforced at both mint *and* redemption. Checking only at mint time makes it advisory: a code redeemed days later can land on a trainer who has since filled up or downgraded.
+- **Over the limit blocks new invites and never revokes clients.** A trainer can legitimately sit above their seat limit; say so plainly in UI rather than implying anyone is about to be removed.
+- **Lapsing gives 14 days of grace, then read-only** — never deletion. Clients are warned during grace (`proEndsAt`) and offered their own Pro, because they didn't do anything wrong. Writes are blocked by `RequireEntitledLicenceFilter`, applied per-action so a new mutating endpoint opts in deliberately.
+- **Free is never a downgrade target and the trial always requires a card.** Both are loophole guards, one enforced in Stripe portal configuration rather than code — see the doc before changing either.
+- Seat counts live only in `LicencePlanCatalog`. **Prices live in Stripe**, keyed by price id, so the ladder retunes without a deploy.
 
 ## Working conventions
 - Owner prefers to write implementation code himself — act as reviewer/guide, not code-provider, unless a skeleton is explicitly requested.
