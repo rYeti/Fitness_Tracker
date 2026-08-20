@@ -15,6 +15,9 @@ Nothing exists yet: no chat feature folder, no SignalR package in `pubspec.yaml`
 
 Build order: **§1 outbox schema → §2 chat models/DTOs → §3 SignalR client wiring → §4 repository (glue layer + reconnect/replay) → §5 state/providers → §6 screen UI → §7 shell wiring.**
 
+**Update:** §1/§2 are DONE (see their sections below). §3–§7 now have skeleton files (signatures + `TODO`s, no bodies, matching the rest of `trainer_console`'s established style) so the shape is in place to fill in:
+`data/chat_signalr_client.dart` (§3 — package choice still an open decision, not added to `pubspec.yaml`), `data/chat_api.dart` (REST history wrapper), `data/chat_repository.dart` (§4), `presentation/providers/chat_provider.dart` (§5), `presentation/view/messages_screen.dart` (§6), `domain/models/conversation_summary.dart`. §7 (shell wiring) is still open — `ChatProvider` needs to be registered at the shell/app level per its doc comment, and `TrainerConsoleShell`'s route enum/nav don't reference Messages yet.
+
 ---
 
 ## 1. Outbox table (Drift)

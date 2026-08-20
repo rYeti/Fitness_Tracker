@@ -54,6 +54,17 @@ public class TrainerConsoleController(ITrainerConsoleService service) : Controll
         return Ok(result);
     }
 
+    [HttpGet("{clientId}/session-history")]
+    public async Task<IActionResult> GetClientSessionHistory(Guid clientId, [FromQuery] int count = 10)
+    {
+        var trainerId = GetUserId();
+        if (trainerId == null) return Unauthorized();
+        if (count is < 1 or > 50) return BadRequest("count must be between 1 and 50.");
+        var result = await _service.GetClientSessionHistoryAsync(trainerId.Value, clientId, count);
+        if (result == null) return NotFound();
+        return Ok(result);
+    }
+
     [HttpGet("{clientId}/nutrition-summary")]
     public async Task<IActionResult> GetClientNutritionSummary(Guid clientId, [FromQuery] DateTime date)
     {
