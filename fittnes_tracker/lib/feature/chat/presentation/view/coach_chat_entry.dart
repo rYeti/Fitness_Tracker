@@ -9,6 +9,8 @@ import 'package:ForgeForm/feature/chat/data/chat_repository.dart';
 import 'package:ForgeForm/feature/chat/data/signalr_hub_chat_client.dart';
 import 'package:ForgeForm/feature/chat/presentation/providers/chat_provider.dart';
 import 'package:ForgeForm/feature/chat/presentation/view/coach_chat_screen.dart';
+import 'package:ForgeForm/feature/trainer_console/presentation/widgets/console_widgets.dart';
+import 'package:ForgeForm/l10n/app_localizations.dart';
 
 /// Owns the chat connection for the trainee app.
 ///
@@ -28,7 +30,10 @@ class CoachChatEntry extends StatefulWidget {
 }
 
 class _CoachChatEntryState extends State<CoachChatEntry> {
-  late final ChatProvider _chat;
+  /// Null when the chat stack could not be built — same reasoning as the
+  /// console's: the local outbox needs the database, and a missing one should
+  /// produce an explanation rather than a crash on push.
+  ChatProvider? _chat;
   SignalRHubChatClient? _signalR;
 
   @override
@@ -37,7 +42,7 @@ class _CoachChatEntryState extends State<CoachChatEntry> {
     final injected = widget.repository;
     if (injected != null) {
       _chat = ChatProvider(repository: injected);
-    } else {
+    } else if (sl.isRegistered<AppDatabase>()) {
       final signalR = SignalRHubChatClient();
       _signalR = signalR;
       _chat = ChatProvider(
@@ -49,15 +54,29 @@ class _CoachChatEntryState extends State<CoachChatEntry> {
 
   @override
   void dispose() {
-    _chat.dispose();
+    _chat?.dispose();
     unawaited(_signalR?.dispose() ?? Future<void>.value());
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final chat = _chat;
+    if (chat == null) {
+      final l10n = AppLocalizations.of(context)!;
+      return Scaffold(
+        appBar: AppBar(title: Text(l10n.coachChat)),
+        body: SafeArea(
+          child: ConsoleEmptyState(
+            icon: Icons.forum_outlined,
+            title: l10n.chatUnavailable,
+            message: l10n.chatUnavailableBody,
+          ),
+        ),
+      );
+    }
     return ChangeNotifierProvider<ChatProvider>.value(
-      value: _chat,
+      value: chat,
       child: const CoachChatScreen(),
     );
   }

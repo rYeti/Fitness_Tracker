@@ -2349,4 +2349,10 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get chatAttachmentsUnavailable => 'Anhänge sind noch nicht verfügbar';
+
+  @override
+  String get chatUnavailable => 'Nachrichten nicht verfügbar';
+
+  @override
+  String get chatUnavailableBody => 'Der Chat konnte auf diesem Gerät nicht starten. Starte die App neu und melde dich beim Support, falls es weiter auftritt.';
 }

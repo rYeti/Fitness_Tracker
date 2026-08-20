@@ -4325,4 +4325,16 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
   /// In en, this message translates to:
   /// **'Attachments are not available yet'**
   String get chatAttachmentsUnavailable;
+
+  /// No description provided for @chatUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Messaging is unavailable'**
+  String get chatUnavailable;
+
+  /// No description provided for @chatUnavailableBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Chat could not start on this device. Restart the app, and if it keeps happening let support know.'**
+  String get chatUnavailableBody;
 }

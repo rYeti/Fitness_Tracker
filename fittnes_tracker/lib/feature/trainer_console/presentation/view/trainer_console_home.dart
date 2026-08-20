@@ -16,6 +16,7 @@ import 'package:ForgeForm/feature/trainer_console/presentation/view/nutrition_sc
 import 'package:ForgeForm/feature/trainer_console/presentation/view/session_review_screen.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/view/trainer_dashboard_screen.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/view/workout_builder_screen.dart';
+import 'package:ForgeForm/feature/trainer_console/presentation/widgets/console_widgets.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/trainer_console_shell.dart';
 
 /// Entry point for the Trainer Console.
@@ -60,7 +61,9 @@ class TrainerConsoleHome extends StatefulWidget {
 
 class _TrainerConsoleHomeState extends State<TrainerConsoleHome> {
   late final ActiveClientProvider _activeClient;
-  late final ChatProvider _chat;
+  /// Null when chat could not be constructed — see [initState]. Everything else
+  /// in the console still works, so this is a missing tab, not a broken screen.
+  ChatProvider? _chat;
 
   /// Only set when this widget built the transport itself, so an injected one
   /// is never closed out from under its owner.
@@ -83,7 +86,7 @@ class _TrainerConsoleHomeState extends State<TrainerConsoleHome> {
     final injected = widget.chatRepository;
     if (injected != null) {
       _chat = ChatProvider(repository: injected);
-    } else {
+    } else if (sl.isRegistered<AppDatabase>()) {
       final signalR = SignalRHubChatClient();
       _signalR = signalR;
       _chat = ChatProvider(
@@ -93,6 +96,9 @@ class _TrainerConsoleHomeState extends State<TrainerConsoleHome> {
       // socket is still opening, and the connection banner covers the gap.
       unawaited(signalR.connect());
     }
+    // Otherwise chat stays null. The outbox needs the local database, and
+    // reaching for it unguarded meant a console that could not open *at all*
+    // when it was missing — four of five sections have nothing to do with chat.
     _ownsLicenceProvider = widget.licenceProvider == null;
     _licence = widget.licenceProvider ?? TrainerLicenceProvider();
   }
@@ -100,7 +106,7 @@ class _TrainerConsoleHomeState extends State<TrainerConsoleHome> {
   @override
   void dispose() {
     _activeClient.dispose();
-    _chat.dispose();
+    _chat?.dispose();
     unawaited(_signalR?.dispose() ?? Future<void>.value());
     if (_ownsLicenceProvider) _licence.dispose();
     super.dispose();
@@ -120,10 +126,12 @@ class _TrainerConsoleHomeState extends State<TrainerConsoleHome> {
 
   @override
   Widget build(BuildContext context) {
+    final chat = _chat;
     return MultiProvider(
       providers: [
         ChangeNotifierProvider<ActiveClientProvider>.value(value: _activeClient),
-        ChangeNotifierProvider<ChatProvider>.value(value: _chat),
+        if (chat != null)
+          ChangeNotifierProvider<ChatProvider>.value(value: chat),
       ],
       child: TrainerConsoleShell(
         currentRoute: _route,
@@ -138,11 +146,37 @@ class _TrainerConsoleHomeState extends State<TrainerConsoleHome> {
               onClientSelected: (entry) =>
                   _openClientDetail(entry.clientId, entry.clientName),
             ),
-            const MessagesScreen(),
+            if (chat != null)
+              const MessagesScreen()
+            else
+              const _ChatUnavailable(),
             WorkoutBuilderScreen(repository: widget.repository),
             NutritionScreen(repository: widget.repository),
             SessionReviewScreen(repository: widget.repository),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Shown in place of Messages when the chat stack could not be built.
+///
+/// Says so plainly rather than rendering an empty thread: a trainer who sees a
+/// blank inbox assumes nobody has written to them.
+class _ChatUnavailable extends StatelessWidget {
+  const _ChatUnavailable();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
+      body: const SafeArea(
+        child: ConsoleEmptyState(
+          icon: Icons.forum_outlined,
+          title: 'Messaging is unavailable',
+          message: 'Chat could not start on this device. Restart the app, and '
+              'if it keeps happening let support know.',
         ),
       ),
     );

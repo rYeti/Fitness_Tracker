@@ -1359,5 +1359,9 @@
   "chatOffline": "Offline",
   "@chatOffline": {},
   "chatAttachmentsUnavailable": "Attachments are not available yet",
-  "@chatAttachmentsUnavailable": {}
+  "@chatAttachmentsUnavailable": {},
+  "chatUnavailable": "Messaging is unavailable",
+  "@chatUnavailable": {},
+  "chatUnavailableBody": "Chat could not start on this device. Restart the app, and if it keeps happening let support know.",
+  "@chatUnavailableBody": {}
 }

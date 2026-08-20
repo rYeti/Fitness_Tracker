@@ -12,10 +12,13 @@ import 'package:ForgeForm/feature/chat/presentation/providers/chat_provider.dart
 import 'package:ForgeForm/feature/chat/presentation/widgets/chat_composer.dart';
 import 'package:ForgeForm/feature/chat/presentation/widgets/conversation_row.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/active_client_provider.dart';
+import 'package:ForgeForm/feature/trainer_console/presentation/providers/trainer_licence_provider.dart';
+import 'package:ForgeForm/feature/trainer_console/presentation/view/trainer_console_home.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/console_widgets.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/view/messages_screen.dart';
 
 import '../trainer_console/fakes.dart';
+import '../trainer_console/licence_fakes.dart';
 import 'fakes.dart';
 
 const otherParty = '22222222-2222-2222-2222-222222222222';
@@ -329,6 +332,36 @@ void main() {
 
       expect(find.byType(ConversationRow), findsOneWidget);
       expect(find.byType(ChatComposer), findsNothing);
+    });
+  });
+
+  group('chat unavailable', () {
+    testWidgets('the console still opens when the chat stack cannot be built',
+        (tester) async {
+      tester.view.physicalSize = desktopSize;
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      // No AppDatabase registered and no injected repository — exactly the
+      // situation that used to throw out of initState and take the whole
+      // console down with it, four sections of which have nothing to do with
+      // chat.
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: TrainerConsoleHome(
+            repository: FakeTrainerConsoleRepository(roster: [fakeClient()]),
+            licenceProvider: TrainerLicenceProvider(
+              repository: FakeTrainerLicenceRepository(current: licence()),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('ForgeForm'), findsOneWidget);
     });
   });
 }
