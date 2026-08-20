@@ -77,6 +77,11 @@ A single **active client** selection must live at the app-shell level and be sha
 ## Screens in scope
 Dashboard (roster + KPIs), Client Detail, Messages/Chat (SignalR-backed), Workout Builder (create/edit modes, templates, day tabs, per-set tables), Nutrition (macro tracking, calorie ring, 7-day trend).
 
+## Release pipelines
+- `.github/workflows/deploy.yml` — API to Cloud Run on every push to `main`.
+- `.github/workflows/web.yml` — builds/tests the Flutter web bundle on push and PR, uploads it as an artifact. No deploy step; host not chosen yet.
+- `.github/workflows/android-release.yml` — signed app bundle to Google Play, triggered by a `v*` tag or run manually. See `docs/android-release.md` for the required secrets. Two things to respect: the tag must match `pubspec.yaml`'s `version:`, and the `+N` build number must increase on every upload because Play burns `versionCode`s permanently. A tag publishes to the **internal** track only — nothing auto-ships to production.
+
 ## Web support — the Trainer Console ships as a web app
 The browser is the trainer's workstation, so **web is a supported target**, not just mobile + desktop:
 - Entry points: on web a signed-in trainer lands directly in the console (`_WebLanding` in `main.dart`); on every other platform it's reached from Settings → Trainer Console. Both go through `TrainerConsoleGate`, which checks `AccessProvider.isTrainer`.
