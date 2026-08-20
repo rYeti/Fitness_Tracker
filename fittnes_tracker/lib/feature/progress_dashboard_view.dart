@@ -72,16 +72,20 @@ class _ProgressScreenState extends State<ProgressScreen>
     // are premium (depth gate — the range chips enforce the same split).
     if (!hasPremium &&
         (range == TimeRange.allTime || range == TimeRange.custom)) {
-      return DateTime.now().subtract(const Duration(days: 90));
+      return DateTime.now().subtract(const Duration(days: 89));
     }
     if (range == TimeRange.custom && customStart != null) return customStart;
     final now = DateTime.now();
+    // n - 1, because the range is inclusive of both today and the start day.
+    // Subtracting the full period gave n + 1 days: "last 7 days" spanned 8,
+    // which is why day counters read 5/8 instead of 5/7 and why every average
+    // was taken over one day too many.
     switch (range) {
-      case TimeRange.week:        return now.subtract(const Duration(days: 7));
-      case TimeRange.month:       return now.subtract(const Duration(days: 30));
-      case TimeRange.threeMonths: return now.subtract(const Duration(days: 90));
+      case TimeRange.week:        return now.subtract(const Duration(days: 6));
+      case TimeRange.month:       return now.subtract(const Duration(days: 29));
+      case TimeRange.threeMonths: return now.subtract(const Duration(days: 89));
       case TimeRange.allTime:     return DateTime(2000);
-      case TimeRange.custom:      return now.subtract(const Duration(days: 30));
+      case TimeRange.custom:      return now.subtract(const Duration(days: 29));
     }
   }
 
@@ -278,58 +282,32 @@ class _ProgressScreenState extends State<ProgressScreen>
   // === NUTRITION DATA LOADING ===
 
   Future<List<DailyNutritionData>> _loadNutritionDataForRange(AppDatabase db, DateTime startDate, DateTime endDate) async {
-    final List<DailyNutritionData> dailyDataList = [];
+    // One grouped query instead of a per-day query plus a query per meal and
+    // per food entry — and, more importantly, the same query the rest of the
+    // app totals intake with, so the trend can't drift from what the Food tab
+    // shows.
+    final logged = await db.mealDao.getDailyIntake(startDate, endDate);
+    final byDay = {for (final d in logged) d.date: d};
 
-    DateTime currentDate = DateTime(
-      startDate.year,
-      startDate.month,
-      startDate.day,
-    );
+    final List<DailyNutritionData> dailyDataList = [];
+    var currentDate = DateTime(startDate.year, startDate.month, startDate.day);
     final end = DateTime(endDate.year, endDate.month, endDate.day);
 
-    while (currentDate.isBefore(end) ||
-        currentDate.isAtSameMomentAs(end)) {
-      final dayEnd = currentDate.add(const Duration(days: 1));
-      final meals =
-          await (db.select(db.mealTable)
-            ..where((t) =>
-                t.date.isBiggerOrEqualValue(currentDate) &
-                t.date.isSmallerThanValue(dayEnd))).get();
-
-      int totalCalories = 0;
-      int totalProtein = 0;
-      int totalCarbs = 0;
-      int totalFat = 0;
-
-      for (final meal in meals) {
-        final foodEntries =
-            await (db.select(db.mealFoodTable)
-              ..where((t) => t.mealId.equals(meal.id))).get();
-
-        for (final entry in foodEntries) {
-          final foodItem = await db.foodItemDao.getFoodItemById(
-            entry.foodEntryId,
-          );
-
-          if (foodItem != null) {
-            totalCalories += foodItem.calories;
-            totalProtein += foodItem.protein;
-            totalCarbs += foodItem.carbs;
-            totalFat += foodItem.fat;
-          }
-        }
-      }
-
+    while (!currentDate.isAfter(end)) {
+      final intake = byDay[currentDate];
       dailyDataList.add(
         DailyNutritionData(
           date: currentDate,
-          calories: totalCalories,
-          protein: totalProtein,
-          carbs: totalCarbs,
-          fat: totalFat,
+          calories: intake?.calories ?? 0,
+          protein: intake?.protein ?? 0,
+          carbs: intake?.carbs ?? 0,
+          fat: intake?.fat ?? 0,
+          // Days with nothing logged are kept so the chart still shows a gap
+          // in the timeline, but flagged so they don't drag averages down as
+          // if the user had eaten nothing.
+          logged: intake != null,
         ),
       );
-
       currentDate = currentDate.add(const Duration(days: 1));
     }
 
@@ -345,10 +323,18 @@ class _ProgressScreenState extends State<ProgressScreen>
     return records;
   }
 
+  /// A week key that is unique across years and sorts chronologically.
+  ///
+  /// This used to return the week index within its own year, so week 5 of two
+  /// different years landed in the same bucket — merging their calories into
+  /// one trend point, and inflating the workouts-per-week average by counting
+  /// two years' sessions as one week. Only reachable from the multi-year
+  /// ranges ("All time"), but wrong wherever it happened.
   int _getWeekNumber(DateTime date) {
     final startOfYear = DateTime(date.year, 1, 1);
     final days = date.difference(startOfYear).inDays;
-    return (days / 7).floor();
+    final weekOfYear = (days / 7).floor();
+    return date.year * 100 + weekOfYear;
   }
 
   @override
@@ -769,21 +755,26 @@ class _ProgressScreenState extends State<ProgressScreen>
   }
 
   Widget _buildNutritionSummaryStats(ThemeData theme, int calorieGoal) {
-    final avgCalories =
-        _dailyData.map((d) => d.calories).reduce((a, b) => a + b) /
-        _dailyData.length;
-    final avgProtein =
-        _dailyData.map((d) => d.protein).reduce((a, b) => a + b) /
-        _dailyData.length;
-    final avgCarbs =
-        _dailyData.map((d) => d.carbs).reduce((a, b) => a + b) /
-        _dailyData.length;
-    final avgFat =
-        _dailyData.map((d) => d.fat).reduce((a, b) => a + b) /
-        _dailyData.length;
+    // Averages are over days the user actually logged. Including untouched
+    // days as 0 kcal answered a question nobody asked ("what if you ate
+    // nothing on the days you forgot to log") and pulled every average well
+    // below real intake.
+    final loggedDays = _dailyData.where((d) => d.logged).toList();
+    double average(int Function(DailyNutritionData) field) =>
+        loggedDays.isEmpty
+            ? 0
+            : loggedDays.map(field).reduce((a, b) => a + b) / loggedDays.length;
 
+    final avgCalories = average((d) => d.calories);
+    final avgProtein = average((d) => d.protein);
+    final avgCarbs = average((d) => d.carbs);
+    final avgFat = average((d) => d.fat);
+
+    // Counted over the whole range, not just logged days: a day you didn't log
+    // genuinely wasn't a day on target, so it belongs in the denominator.
     final daysOnTarget =
         _dailyData.where((d) {
+          if (!d.logged) return false;
           final diff = (d.calories - calorieGoal).abs();
           return diff <= calorieGoal * 0.1;
         }).length;
@@ -880,7 +871,13 @@ class _ProgressScreenState extends State<ProgressScreen>
       final sortedKeys = byWeek.keys.toList()..sort();
       points = sortedKeys.map((k) {
         final days = byWeek[k]!;
-        final avg = days.map((d) => d.calories).reduce((a, b) => a + b) / days.length;
+        // Average the days that were logged; a week with three logged days
+        // averaged over seven reported less than half of what was eaten.
+        final logged = days.where((d) => d.logged).toList();
+        final avg = logged.isEmpty
+            ? 0.0
+            : logged.map((d) => d.calories).reduce((a, b) => a + b) /
+                logged.length;
         final label = DateFormat('d.M').format(days.first.date);
         return (label: label, calories: avg);
       }).toList();
@@ -1597,12 +1594,17 @@ class DailyNutritionData {
   final int carbs;
   final int fat;
 
+  /// Whether the user logged any food this day. A day with nothing logged is
+  /// not a zero-calorie day, and averaging it in as one understates intake.
+  final bool logged;
+
   DailyNutritionData({
     required this.date,
     required this.calories,
     required this.protein,
     required this.carbs,
     required this.fat,
+    this.logged = true,
   });
 }
 
