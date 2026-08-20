@@ -1,6 +1,7 @@
 using FitTracker.Api.Models;
 using FitTracker.Api.Repositories;
 using FitTracker.Api.Services;
+using Xunit;
 
 namespace FitTracker.Api.Tests;
 

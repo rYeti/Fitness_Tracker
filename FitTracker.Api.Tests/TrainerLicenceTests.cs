@@ -1,4 +1,5 @@
 using FitTracker.Api.Models;
+using Xunit;
 
 namespace FitTracker.Api.Tests;
 
