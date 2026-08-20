@@ -52,11 +52,17 @@ class TrainerConsoleShell extends StatelessWidget {
   final ValueChanged<TrainerConsoleRoute> onRouteSelected;
   final Widget child;
 
+  /// Leaves the console for the trainee-facing app. Null when the console was
+  /// pushed as a route (the back gesture already covers it); set on web, where
+  /// the console is the landing surface and there is nothing to pop.
+  final VoidCallback? onExitConsole;
+
   const TrainerConsoleShell({
     super.key,
     required this.currentRoute,
     required this.onRouteSelected,
     required this.child,
+    this.onExitConsole,
   });
 
   static const _routes = TrainerConsoleRoute.values;
@@ -72,6 +78,7 @@ class TrainerConsoleShell extends StatelessWidget {
             _Sidebar(
               currentRoute: currentRoute,
               onRouteSelected: onRouteSelected,
+              onExitConsole: onExitConsole,
             ),
             Expanded(child: child),
           ],
@@ -80,7 +87,14 @@ class TrainerConsoleShell extends StatelessWidget {
     }
 
     return Scaffold(
-      body: child,
+      body: Column(
+        children: [
+          // Narrow layouts have no sidebar to hold the exit, so it gets a slim
+          // bar of its own — but only when there's no back gesture to rely on.
+          if (onExitConsole != null) _ExitBar(onExitConsole: onExitConsole!),
+          Expanded(child: child),
+        ],
+      ),
       bottomNavigationBar: _BottomNav(
         currentRoute: currentRoute,
         onRouteSelected: onRouteSelected,
@@ -89,11 +103,57 @@ class TrainerConsoleShell extends StatelessWidget {
   }
 }
 
+class _ExitBar extends StatelessWidget {
+  final VoidCallback onExitConsole;
+
+  const _ExitBar({required this.onExitConsole});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: ForgeColors.charcoal,
+      child: SafeArea(
+        bottom: false,
+        child: SizedBox(
+          height: 44,
+          child: Row(
+            children: [
+              const SizedBox(width: 12),
+              const Text(
+                'Trainer Console',
+                style: TextStyle(
+                  fontFamily: 'Montserrat',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                  color: Colors.white,
+                ),
+              ),
+              const Spacer(),
+              TextButton.icon(
+                onPressed: onExitConsole,
+                icon: const Icon(Icons.swap_horiz_rounded, size: 17),
+                label: const Text('My training'),
+                style: TextButton.styleFrom(foregroundColor: Colors.white),
+              ),
+              const SizedBox(width: 4),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _Sidebar extends StatelessWidget {
   final TrainerConsoleRoute currentRoute;
   final ValueChanged<TrainerConsoleRoute> onRouteSelected;
+  final VoidCallback? onExitConsole;
 
-  const _Sidebar({required this.currentRoute, required this.onRouteSelected});
+  const _Sidebar({
+    required this.currentRoute,
+    required this.onRouteSelected,
+    this.onExitConsole,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -126,8 +186,50 @@ class _Sidebar extends StatelessWidget {
                 onTap: () => onRouteSelected(route),
               ),
             const Spacer(),
+            if (onExitConsole != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Semantics(
+                  button: true,
+                  label: 'Switch to my training',
+                  excludeSemantics: true,
+                  child: Material(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(10),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(10),
+                      onTap: onExitConsole,
+                      child: Container(
+                        constraints: const BoxConstraints(minHeight: 44),
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.swap_horiz_rounded,
+                              size: 20,
+                              color: Colors.white.withValues(alpha: 0.7),
+                            ),
+                            const SizedBox(width: 13),
+                            Expanded(
+                              child: Text(
+                                'My training',
+                                style: TextStyle(
+                                  fontFamily: 'Exo 2',
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white.withValues(alpha: 0.8),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
               child: Text(
                 'Trainer Console',
                 style: TextStyle(
@@ -163,6 +265,10 @@ class _SidebarItem extends StatelessWidget {
       child: Semantics(
         selected: selected,
         button: true,
+        // Explicit label: without it the icon and text announce as two loose
+        // nodes and the item has no accessible name of its own.
+        label: route.label,
+        excludeSemantics: true,
         child: Material(
           color: selected
               ? ForgeColors.forgeOrange.withValues(alpha: 0.14)
@@ -217,6 +323,11 @@ class _BottomNav extends StatelessWidget {
       selectedIndex: TrainerConsoleShell._routes.indexOf(currentRoute),
       onDestinationSelected: (index) =>
           onRouteSelected(TrainerConsoleShell._routes[index]),
+      // The default indicator derives from secondaryContainer, which with
+      // Forge Orange as `secondary` comes out solid orange — leaving the
+      // orange selected icon invisible on top of it. Use a tint instead so
+      // the filled orange glyph reads against it.
+      indicatorColor: ForgeColors.forgeOrange.withValues(alpha: 0.16),
       // Five destinations don't fit with labels always shown on narrow
       // phones; the selected one stays labelled.
       labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,

@@ -74,9 +74,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           serverBaseUrl: serverUrl,
           bearerToken: next.user!.token,
         );
+        // PostAuthHome, not HomeScreen: on web a trainer belongs in the
+        // console, and that decision lives in one place.
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => HomeScreen()),
+          MaterialPageRoute(builder: (_) => const PostAuthHome()),
         );
       }
     });

@@ -25,14 +25,43 @@ const _prefIsTrainer = 'access_is_trainer';
 /// trainer–client relationship. Any widget can read [hasPremiumAccess] to gate
 /// features — no knowledge of the source is needed.
 class AccessProvider extends ChangeNotifier {
+  AccessProvider();
+
+  /// Builds a provider in a known state, so role-gated UI can be tested
+  /// without RevenueCat or a live `api/TrainerClient/status`.
+  @visibleForTesting
+  AccessProvider.withState({
+    bool isPremium = false,
+    bool isTrainerClient = false,
+    bool isTrainer = false,
+    bool initialized = true,
+    bool roleResolved = true,
+  }) : _isPremium = isPremium,
+       _isTrainerClient = isTrainerClient,
+       _isTrainer = isTrainer,
+       _initialized = initialized,
+       _roleResolved = roleResolved;
+
   bool _isPremium = false;
   bool _isTrainerClient = false;
   bool _isTrainer = false;
   bool _initialized = false;
+  bool _roleResolved = false;
 
   bool get isPremium => _isPremium;
   bool get isTrainerClient => _isTrainerClient;
   bool get isTrainer => _isTrainer;
+
+  /// Whether the server has been asked about this user's role since launch.
+  ///
+  /// Distinct from [initialized], which flips as soon as the *cached* flags are
+  /// restored — on a first sign-in there is no cache, so [isTrainer] is false
+  /// until the network check lands. Anything that would treat a trainer as a
+  /// trainee must wait for this, or it will briefly do the wrong thing.
+  ///
+  /// Set even when the check fails: offline, the cached answer is the best
+  /// available and callers shouldn't hang forever waiting for better.
+  bool get roleResolved => _roleResolved;
 
   /// True if the user has access to premium features from ANY source.
   bool get hasPremiumAccess => _isPremium || _isTrainerClient;
@@ -90,6 +119,7 @@ class AccessProvider extends ChangeNotifier {
     _isTrainerClient = false;
     _isTrainer = false;
     _initialized = false;
+    _roleResolved = false;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_prefIsPremium);
     await prefs.remove(_prefIsTrainerClient);
@@ -167,6 +197,10 @@ class AccessProvider extends ChangeNotifier {
           false;
     } catch (_) {
       // Keep cached value on failure.
+    } finally {
+      // Resolved either way: offline, the cached answer is all there is, and
+      // callers gated on this would otherwise wait forever.
+      _roleResolved = true;
     }
   }
 }

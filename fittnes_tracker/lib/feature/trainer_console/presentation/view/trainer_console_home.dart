@@ -25,10 +25,15 @@ class TrainerConsoleHome extends StatefulWidget {
   final TrainerConsoleRepository? repository;
   final TrainerConsoleRoute initialRoute;
 
+  /// Leaves the console for the trainee app. Set on web, where the console is
+  /// the landing surface and there's no route to pop back to.
+  final VoidCallback? onExitConsole;
+
   const TrainerConsoleHome({
     super.key,
     this.repository,
     this.initialRoute = TrainerConsoleRoute.dashboard,
+    this.onExitConsole,
   });
 
   @override
@@ -72,6 +77,7 @@ class _TrainerConsoleHomeState extends State<TrainerConsoleHome> {
       child: TrainerConsoleShell(
         currentRoute: _route,
         onRouteSelected: (route) => setState(() => _route = route),
+        onExitConsole: widget.onExitConsole,
         child: IndexedStack(
           index: TrainerConsoleRoute.values.indexOf(_route),
           children: [

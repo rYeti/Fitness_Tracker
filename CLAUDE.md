@@ -5,7 +5,7 @@ ForgeForm is a Flutter fitness app with an ASP.NET Core backend (JWT/OAuth/RBAC 
 
 ## Stack
 - Backend: ASP.NET Core (C#), JWT/OAuth/RBAC, SignalR for real-time chat + notifications.
-- Client: Flutter, targeting mobile (iOS/Android) **and** desktop (Windows/macOS/Linux) from one codebase.
+- Client: Flutter, targeting mobile (iOS/Android), desktop (Windows/macOS/Linux) **and web** from one codebase. Web is how the Trainer Console is delivered — see "Web support" below.
 
 ## Key reference docs (read before implementing related features)
 - `trainer-console-spec.md` — full Trainer Console feature spec, phasing, and competitive positioning.
@@ -76,6 +76,23 @@ A single **active client** selection must live at the app-shell level and be sha
 
 ## Screens in scope
 Dashboard (roster + KPIs), Client Detail, Messages/Chat (SignalR-backed), Workout Builder (create/edit modes, templates, day tabs, per-set tables), Nutrition (macro tracking, calorie ring, 7-day trend).
+
+## Release pipelines
+- `.github/workflows/deploy.yml` — API to Cloud Run on every push to `main`.
+- `.github/workflows/web.yml` — builds/tests the Flutter web bundle on push and PR, uploads it as an artifact. No deploy step; host not chosen yet.
+- `.github/workflows/android-release.yml` — signed app bundle to Google Play, triggered by a `v*` tag or run manually. See `docs/android-release.md` for the required secrets. Two things to respect: the tag must match `pubspec.yaml`'s `version:`, and the `+N` build number must increase on every upload because Play burns `versionCode`s permanently. A tag publishes to the **internal** track only — nothing auto-ships to production.
+
+## Web support — the Trainer Console ships as a web app
+The browser is the trainer's workstation, so **web is a supported target**, not just mobile + desktop:
+- Entry points: `PostAuthHome` (`main.dart`) is the **single** place deciding where an authenticated user lands — on web a trainer gets the console, everyone else the trainee app; other platforms reach the console from Settings → Trainer Console. Both go through `TrainerConsoleGate`, which checks `AccessProvider.isTrainer`. Never push `HomeScreen` directly after auth; that bug dropped web trainers into the trainee app.
+- Profile setup runs **post-auth and trainees only**, via `ProfileSetupGate`. It must wait for `AccessProvider.roleResolved` — not `initialized`, which flips on cached flags and would flash the trainee questionnaire at a trainer on first sign-in. Completion is per account (`ProfileSetupPrefs`). Pre-auth collects nothing: `WelcomeScreen` on mobile, straight to login on web. See `docs/onboarding-and-roles.md`.
+- The gate is a **UX guard, not a security boundary** — every Trainer Console endpoint independently re-checks the caller against an Active TrainerClient relationship. Keep it that way; never let the client be the only thing standing between a user and someone else's data.
+- A trainer is also a ForgeForm user: leaving the console for the trainee app must stay possible without signing out (`onExitConsole`).
+- Build/CI: `.github/workflows/web.yml` builds and uploads the static bundle. No deploy step yet — the host hasn't been chosen. Whatever host is used must rewrite unknown paths to `/index.html`.
+- Known web constraints:
+  - **WASM compilation is unavailable** — `flutter_secure_storage_web` still uses legacy `dart:html`. Standard JS compilation is fine; don't add `--wasm` until that's resolved.
+  - **`purchases_flutter` fetches its JS mapping from a CDN at runtime** and errors on web. Non-fatal (the app boots), but premium/paywall paths shouldn't be relied on in a browser.
+  - **CORS is origin-explicit and credentialed**, driven by `Cors:AllowedOrigins` (production: the `WEB_ORIGIN` / `WEB_ORIGIN_ALT` repository variables). This is what SignalR requires — `AllowAnyOrigin` cannot be combined with `AllowCredentials`. With nothing configured it falls back to the old any-origin-without-credentials behaviour and logs a warning, so a missing setting degrades browser SignalR rather than taking the API down. See `docs/cors-and-signalr.md`.
 
 ## Desktop support
 The Trainer Console must run natively on desktop via Flutter's desktop targets, not just scale up from mobile:

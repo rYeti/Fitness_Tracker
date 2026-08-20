@@ -2522,6 +2522,24 @@ abstract class AppLocalizations {
   /// **'Your personal fitness companion'**
   String get onboardingWelcomeSubtitle;
 
+  /// No description provided for @onboardingCreateAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Create account'**
+  String get onboardingCreateAccount;
+
+  /// No description provided for @profileSetupSkip.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up later'**
+  String get profileSetupSkip;
+
+  /// No description provided for @onboardingAlreadyHaveAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Already have an account? Sign in'**
+  String get onboardingAlreadyHaveAccount;
+
   /// No description provided for @onboardingWelcomeBody.
   ///
   /// In en, this message translates to:

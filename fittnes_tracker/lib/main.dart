@@ -32,14 +32,16 @@ import 'feature/settings/settings_screen.dart';
 import 'feature/weight_tracking/presentation/view/weight_tracking_screen.dart';
 import 'feature/weight_tracking/presentation/view/weight_goal_screen.dart';
 import 'feature/food_tracking/presentation/view/meal_templates_screen.dart';
-import 'feature/trainer_console/presentation/view/trainer_dashboard_screen.dart';
+import 'feature/trainer_console/presentation/view/trainer_console_gate.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import 'package:app_links/app_links.dart';
 import 'feature/auth/presentation/view/reset_password_screen.dart';
-import 'feature/onboarding/onboarding_screen.dart';
+import 'feature/onboarding/profile_setup_prefs.dart';
+import 'feature/onboarding/profile_setup_screen.dart';
+import 'feature/onboarding/welcome_screen.dart';
 import 'core/providers/access_provider.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 
@@ -110,7 +112,6 @@ void main() async {
   registerDatabase(db);
 
   final prefs = await SharedPreferences.getInstance();
-  final showOnboarding = !(prefs.getBool('onboarding_complete') ?? false);
 
   // Load settings and latest weight before runApp so providers start with correct values.
   final userSettings = await db.userSettingsDao.getSettings();
@@ -224,7 +225,6 @@ void main() async {
           ),
         ],
         child: MyApp(
-          showOnboarding: showOnboarding,
           // Use the post-restoreSession() state, not the raw pre-check
           // snapshot — restoreSession() may have cleared an expired token
           // (or refreshed it), so this must reflect the outcome, not the
@@ -237,12 +237,10 @@ void main() async {
 }
 
 class MyApp extends StatefulWidget {
-  final bool showOnboarding;
   final bool hasToken;
 
   const MyApp({
     super.key,
-    required this.showOnboarding,
     required this.hasToken,
   });
 
@@ -321,12 +319,17 @@ class _MyAppState extends State<MyApp> {
           child: child!,
         );
       },
+      // Signed out, the welcome screen *is* the home — it carries both Sign in
+      // and Create account, so there's no flag deciding whether to show it.
+      // Web goes straight to login instead: that surface is the Trainer
+      // Console, and a consumer pitch for calorie tracking has no place in
+      // front of it.
       home:
-          widget.showOnboarding
-              ? const OnboardingScreen()
-              : widget.hasToken
-              ? const HomeScreen()
-              : const LoginScreen(),
+          widget.hasToken
+              ? const PostAuthHome()
+              : kIsWeb
+              ? const LoginScreen()
+              : const WelcomeScreen(),
 
       onGenerateRoute: (settings) {
         if (settings.name == '/add-food') {
@@ -358,13 +361,12 @@ class _MyAppState extends State<MyApp> {
           return MaterialPageRoute(builder: (_) => const MealTemplatesScreen());
         }
 
-        // TODO: gate behind AccessProvider.isTrainer once there's a real
-        // nav entry point (e.g. a "Trainer Console" item in Settings for
-        // users where isTrainer is true) instead of a bare route.
+        // Pushed from Settings (trainers only) — the gate re-checks the role
+        // itself so a deep link can't bypass the entry point. No
+        // onExitConsole: this is a pushed route, so back already returns to
+        // the trainee app.
         if (settings.name == '/trainer-console') {
-          return MaterialPageRoute(
-            builder: (_) => const TrainerDashboardScreen(),
-          );
+          return MaterialPageRoute(builder: (_) => const TrainerConsoleGate());
         }
 
         return MaterialPageRoute(builder: (_) => const HomeScreen());
@@ -372,6 +374,120 @@ class _MyAppState extends State<MyApp> {
     );
   }
 }
+
+/// Where an authenticated user lands: on web a trainer gets the console,
+/// everyone else the trainee app.
+///
+/// This is deliberately the *only* place that decision is made. Cold start,
+/// login and register each used to push [HomeScreen] directly, which meant a
+/// trainer signing in on the web was dropped into the trainee app instead of
+/// the console — the landing logic only ever ran on a cold start with an
+/// existing token.
+///
+/// Stateful only to hold the "I chose to look at my own training" flag — a
+/// trainer is also a ForgeForm user, so leaving the console has to be possible
+/// without signing out.
+class PostAuthHome extends StatefulWidget {
+  const PostAuthHome({super.key});
+
+  @override
+  State<PostAuthHome> createState() => _PostAuthHomeState();
+}
+
+class _PostAuthHomeState extends State<PostAuthHome> {
+  bool _showTraineeApp = false;
+
+  Widget _home() {
+    // Off the web the console is reached from Settings, so nothing here has to
+    // wait on the role check.
+    if (!kIsWeb || _showTraineeApp) return const HomeScreen();
+    return TrainerConsoleGate(
+      // A client signing in on the web gets the normal app rather than a
+      // "trainer access only" wall.
+      fallback: const HomeScreen(),
+      onExitConsole: () => setState(() => _showTraineeApp = true),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ProfileSetupGate(
+      userId: _currentUserId(context),
+      onDone: (_) => _home(),
+    );
+  }
+}
+
+/// Sends a trainee who hasn't set up their profile through it once, then hands
+/// over to [onDone].
+///
+/// Two conditions have to be met before showing it, and both matter:
+///
+/// * The role must actually be resolved. `AccessProvider.initialized` flips as
+///   soon as *cached* flags load, and on a first sign-in there is no cache — so
+///   gating on that alone would flash the trainee questionnaire at a trainer.
+/// * The user must not be a trainer. If the role can't be resolved at all
+///   (offline, no cache) the setup is skipped rather than risked: asking a
+///   trainer for their goal weight is worse than a trainee setting goals later
+///   in Settings, and they'll be prompted on the next launch that has network.
+class ProfileSetupGate extends StatefulWidget {
+  /// Account to check, or null when there's no signed-in user to key the
+  /// completion flag on. Passed in rather than read here so the gate has no
+  /// dependency on how auth is stored.
+  final String? userId;
+  final WidgetBuilder onDone;
+
+  const ProfileSetupGate({super.key, required this.userId, required this.onDone});
+
+  @override
+  State<ProfileSetupGate> createState() => _ProfileSetupGateState();
+}
+
+class _ProfileSetupGateState extends State<ProfileSetupGate> {
+  String? _checkedUserId;
+  bool? _needsSetup;
+
+  Future<void> _check(String userId, bool isTrainer) async {
+    final complete = await ProfileSetupPrefs.isComplete(userId);
+    if (!mounted) return;
+    setState(() => _needsSetup = !complete && !isTrainer);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final access = context.watch<AccessProvider>();
+    final userId = widget.userId;
+
+    // No signed-in user id to key completion on, or the role is still in
+    // flight: fall through rather than guess.
+    if (userId == null || !access.roleResolved) return widget.onDone(context);
+
+    if (_checkedUserId != userId) {
+      _checkedUserId = userId;
+      _needsSetup = null;
+      // Deferred: this runs during build.
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _check(userId, access.isTrainer),
+      );
+    }
+
+    if (_needsSetup == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if (!_needsSetup!) return widget.onDone(context);
+
+    return ProfileSetupScreen(userId: userId, onDone: widget.onDone);
+  }
+}
+
+/// The signed-in user's id, or null if there isn't one. Read rather than
+/// watched: the gate already rebuilds on AccessProvider changes, and auth
+/// state cannot change underneath a signed-in user without a full remount.
+String? _currentUserId(BuildContext context) =>
+    ProviderScope.containerOf(context, listen: false)
+        .read(authProvider)
+        .user
+        ?.username;
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});

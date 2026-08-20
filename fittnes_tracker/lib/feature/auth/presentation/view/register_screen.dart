@@ -133,9 +133,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           serverBaseUrl: serverUrl,
           bearerToken: next.user!.token,
         );
+        // PostAuthHome, not HomeScreen — see login_screen.
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => HomeScreen()),
+          MaterialPageRoute(builder: (_) => const PostAuthHome()),
         );
       }
     });

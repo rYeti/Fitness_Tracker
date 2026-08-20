@@ -37,10 +37,36 @@ jobs:
           docker push ${{ env.IMAGE }}:${{ github.sha }}
 
       - name: Deploy to Cloud Run
+        env:
+          # Browser origins allowed to call the API (the Flutter web build and
+          # SignalR). Repository *variables*, not secrets — they're public URLs,
+          # and variables can be edited without rotating anything.
+          # Settings -> Secrets and variables -> Actions -> Variables.
+          WEB_ORIGIN: ${{ vars.WEB_ORIGIN }}
+          WEB_ORIGIN_ALT: ${{ vars.WEB_ORIGIN_ALT }}
         run: |
+          set -euo pipefail
+
+          env_vars="ConnectionStrings__DefaultConnection=${{ secrets.DATABASE_URL }},Jwt__Key=${{ secrets.JWT_KEY }},Jwt__Issuer=${{ secrets.JWT_ISSUER }},Jwt__Audience=${{ secrets.JWT_AUDIENCE }},Jwt__AccessTokenMinutes=60,Jwt__RefreshTokenDays=30,Gmail__ClientId=${{ secrets.GMAIL_CLIENT_ID }},Gmail__ClientSecret=${{ secrets.GMAIL_CLIENT_SECRET }},Gmail__RefreshToken=${{ secrets.GMAIL_REFRESH_TOKEN }},Gmail__From=${{ secrets.GMAIL_FROM }},Gmail__FromName=ForgeForm"
+
+          # One indexed key per origin: gcloud splits --set-env-vars on commas,
+          # so a comma-separated list would be parsed as separate variables.
+          # Unset variables are skipped rather than passed empty, so the API
+          # doesn't have to reason about blank origins.
+          if [ -n "${WEB_ORIGIN:-}" ]; then
+            env_vars="$env_vars,Cors__AllowedOrigins__0=$WEB_ORIGIN"
+          fi
+          if [ -n "${WEB_ORIGIN_ALT:-}" ]; then
+            env_vars="$env_vars,Cors__AllowedOrigins__1=$WEB_ORIGIN_ALT"
+          fi
+
+          if [ -z "${WEB_ORIGIN:-}" ]; then
+            echo "::warning::WEB_ORIGIN is not set — the API will fall back to any-origin without credentials, and browser SignalR will fail. See docs/cors-and-signalr.md."
+          fi
+
           gcloud run deploy ${{ env.SERVICE }} \
             --image=${{ env.IMAGE }}:${{ github.sha }} \
             --region=${{ env.REGION }} \
             --platform=managed \
             --allow-unauthenticated \
-            --set-env-vars="ConnectionStrings__DefaultConnection=${{ secrets.DATABASE_URL }},Jwt__Key=${{ secrets.JWT_KEY }},Jwt__Issuer=${{ secrets.JWT_ISSUER }},Jwt__Audience=${{ secrets.JWT_AUDIENCE }},Jwt__AccessTokenMinutes=60,Jwt__RefreshTokenDays=30,Gmail__ClientId=${{ secrets.GMAIL_CLIENT_ID }},Gmail__ClientSecret=${{ secrets.GMAIL_CLIENT_SECRET }},Gmail__RefreshToken=${{ secrets.GMAIL_REFRESH_TOKEN }},Gmail__From=${{ secrets.GMAIL_FROM }},Gmail__FromName=ForgeForm"
+            --set-env-vars="$env_vars"
