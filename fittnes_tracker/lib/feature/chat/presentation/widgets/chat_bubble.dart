@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/feature/chat/domain/models/thread_message.dart';
+import 'package:ForgeForm/l10n/app_localizations.dart';
 
 /// One message in a thread.
 ///
@@ -90,7 +91,7 @@ class _SendingMarker extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(top: 3, right: 2),
       child: Tooltip(
-        message: 'Sending',
+        message: AppLocalizations.of(context)!.chatSending,
         child: Icon(
           Icons.schedule_rounded,
           size: 13,
@@ -112,11 +113,12 @@ class _FailedMarker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final label = AppLocalizations.of(context)!.chatFailedRetry;
     return Padding(
       padding: const EdgeInsets.only(top: 3),
       child: Semantics(
         button: true,
-        label: 'Failed to send. Tap to retry.',
+        label: label,
         excludeSemantics: true,
         child: InkWell(
           onTap: onTap,
@@ -135,9 +137,9 @@ class _FailedMarker extends StatelessWidget {
                 ),
                 const SizedBox(width: 4),
                 // Icon plus words, never colour alone.
-                const Text(
-                  'Failed to send — tap to retry',
-                  style: TextStyle(
+                Text(
+                  label,
+                  style: const TextStyle(
                     fontFamily: 'Exo 2',
                     fontSize: 11.5,
                     fontWeight: FontWeight.w600,

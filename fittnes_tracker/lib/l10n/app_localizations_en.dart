@@ -2291,4 +2291,46 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get templateLogPortion => 'Log Portion';
+
+  @override
+  String get coachChat => 'Your coach';
+
+  @override
+  String get coachChatSubtitle => 'Message your trainer';
+
+  @override
+  String get coachChatNoCoach => 'No coach yet';
+
+  @override
+  String get coachChatNoCoachBody => 'When a trainer adds you to their roster you can message them here.';
+
+  @override
+  String get coachChatEmpty => 'No messages yet';
+
+  @override
+  String get coachChatEmptyBody => 'Ask your coach anything — they will see it right away.';
+
+  @override
+  String get coachChatLoadError => 'Could not load this conversation.';
+
+  @override
+  String get chatComposerHint => 'Message';
+
+  @override
+  String get chatSendMessage => 'Send message';
+
+  @override
+  String get chatSending => 'Sending';
+
+  @override
+  String get chatFailedRetry => 'Failed to send — tap to retry';
+
+  @override
+  String get chatReconnecting => 'Reconnecting…';
+
+  @override
+  String get chatOffline => 'Offline';
+
+  @override
+  String get chatAttachmentsUnavailable => 'Attachments are not available yet';
 }

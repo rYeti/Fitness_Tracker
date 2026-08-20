@@ -4241,4 +4241,88 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
     'on GitHub with a reproducible sample app and the gen-l10n configuration '
     'that was used.',
   );
+
+  /// No description provided for @coachChat.
+  ///
+  /// In en, this message translates to:
+  /// **'Your coach'**
+  String get coachChat;
+
+  /// No description provided for @coachChatSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Message your trainer'**
+  String get coachChatSubtitle;
+
+  /// No description provided for @coachChatNoCoach.
+  ///
+  /// In en, this message translates to:
+  /// **'No coach yet'**
+  String get coachChatNoCoach;
+
+  /// No description provided for @coachChatNoCoachBody.
+  ///
+  /// In en, this message translates to:
+  /// **'When a trainer adds you to their roster you can message them here.'**
+  String get coachChatNoCoachBody;
+
+  /// No description provided for @coachChatEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No messages yet'**
+  String get coachChatEmpty;
+
+  /// No description provided for @coachChatEmptyBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask your coach anything — they will see it right away.'**
+  String get coachChatEmptyBody;
+
+  /// No description provided for @coachChatLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load this conversation.'**
+  String get coachChatLoadError;
+
+  /// No description provided for @chatComposerHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Message'**
+  String get chatComposerHint;
+
+  /// No description provided for @chatSendMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Send message'**
+  String get chatSendMessage;
+
+  /// No description provided for @chatSending.
+  ///
+  /// In en, this message translates to:
+  /// **'Sending'**
+  String get chatSending;
+
+  /// No description provided for @chatFailedRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to send — tap to retry'**
+  String get chatFailedRetry;
+
+  /// No description provided for @chatReconnecting.
+  ///
+  /// In en, this message translates to:
+  /// **'Reconnecting…'**
+  String get chatReconnecting;
+
+  /// No description provided for @chatOffline.
+  ///
+  /// In en, this message translates to:
+  /// **'Offline'**
+  String get chatOffline;
+
+  /// No description provided for @chatAttachmentsUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Attachments are not available yet'**
+  String get chatAttachmentsUnavailable;
 }

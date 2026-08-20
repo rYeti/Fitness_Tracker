@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/feature/chat/data/chat_signalr_client.dart';
+import 'package:ForgeForm/l10n/app_localizations.dart';
 
 /// A thin strip explaining why nothing is arriving.
 ///
@@ -18,9 +19,10 @@ class ChatConnectionBanner extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
+    final l10n = AppLocalizations.of(context)!;
     final reconnecting = status == ChatConnectionStatus.reconnecting;
     final tone = reconnecting ? ForgeColors.statusWarn : ForgeColors.statusBad;
-    final label = reconnecting ? 'Reconnecting…' : 'Offline';
+    final label = reconnecting ? l10n.chatReconnecting : l10n.chatOffline;
 
     return Semantics(
       liveRegion: true,

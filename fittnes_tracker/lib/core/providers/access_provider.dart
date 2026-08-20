@@ -19,6 +19,8 @@ const _premiumEntitlementId = premiumEntitlementId;
 const _prefIsPremium = 'access_is_premium';
 const _prefIsTrainerClient = 'access_is_trainer_client';
 const _prefIsTrainer = 'access_is_trainer';
+const _prefTrainerId = 'access_trainer_id';
+const _prefTrainerName = 'access_trainer_name';
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Aggregates premium status from RevenueCat purchases and the server-side
@@ -36,21 +38,35 @@ class AccessProvider extends ChangeNotifier {
     bool isTrainer = false,
     bool initialized = true,
     bool roleResolved = true,
+    String? trainerId,
+    String? trainerName,
   }) : _isPremium = isPremium,
        _isTrainerClient = isTrainerClient,
        _isTrainer = isTrainer,
        _initialized = initialized,
-       _roleResolved = roleResolved;
+       _roleResolved = roleResolved,
+       _trainerId = trainerId,
+       _trainerName = trainerName;
 
   bool _isPremium = false;
   bool _isTrainerClient = false;
   bool _isTrainer = false;
   bool _initialized = false;
   bool _roleResolved = false;
+  String? _trainerId;
+  String? _trainerName;
 
   bool get isPremium => _isPremium;
   bool get isTrainerClient => _isTrainerClient;
   bool get isTrainer => _isTrainer;
+
+  /// This user's trainer, when they have one.
+  ///
+  /// Chat needs it: from a trainee's seat the trainer is the "other party" that
+  /// identifies the thread, both on the hub and on the REST routes. The status
+  /// endpoint has always returned it — it just wasn't being read.
+  String? get trainerId => _trainerId;
+  String? get trainerName => _trainerName;
 
   /// Whether the server has been asked about this user's role since launch.
   ///
@@ -81,6 +97,10 @@ class AccessProvider extends ChangeNotifier {
     _isPremium = prefs.getBool(_prefIsPremium) ?? false;
     _isTrainerClient = prefs.getBool(_prefIsTrainerClient) ?? false;
     _isTrainer = prefs.getBool(_prefIsTrainer) ?? false;
+    // Cached alongside the role flags for the same reason: on a cold start the
+    // trainee's chat entry point should be right before the network answers.
+    _trainerId = prefs.getString(_prefTrainerId);
+    _trainerName = prefs.getString(_prefTrainerName);
     _initialized = true;
     notifyListeners();
 
@@ -94,6 +114,7 @@ class AccessProvider extends ChangeNotifier {
     await prefs.setBool(_prefIsPremium, _isPremium);
     await prefs.setBool(_prefIsTrainerClient, _isTrainerClient);
     await prefs.setBool(_prefIsTrainer, _isTrainer);
+    await _persistTrainer(prefs);
     notifyListeners();
   }
 
@@ -110,6 +131,7 @@ class AccessProvider extends ChangeNotifier {
     await prefs.setBool(_prefIsPremium, _isPremium);
     await prefs.setBool(_prefIsTrainerClient, _isTrainerClient);
     await prefs.setBool(_prefIsTrainer, _isTrainer);
+    await _persistTrainer(prefs);
     notifyListeners();
   }
 
@@ -120,10 +142,14 @@ class AccessProvider extends ChangeNotifier {
     _isTrainer = false;
     _initialized = false;
     _roleResolved = false;
+    _trainerId = null;
+    _trainerName = null;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_prefIsPremium);
     await prefs.remove(_prefIsTrainerClient);
     await prefs.remove(_prefIsTrainer);
+    await prefs.remove(_prefTrainerId);
+    await prefs.remove(_prefTrainerName);
     try {
       await Purchases.logOut();
     } catch (_) {}
@@ -131,6 +157,23 @@ class AccessProvider extends ChangeNotifier {
   }
 
   // ── Private helpers ────────────────────────────────────────────────────────
+
+  /// Writes the trainer fields, removing rather than storing nulls so a user who
+  /// left their trainer doesn't keep a stale coach on the next cold start.
+  Future<void> _persistTrainer(SharedPreferences prefs) async {
+    final id = _trainerId;
+    final name = _trainerName;
+    if (id == null) {
+      await prefs.remove(_prefTrainerId);
+    } else {
+      await prefs.setString(_prefTrainerId, id);
+    }
+    if (name == null) {
+      await prefs.remove(_prefTrainerName);
+    } else {
+      await prefs.setString(_prefTrainerName, name);
+    }
+  }
 
   Future<void> _checkRevenueCat(String? userId) async {
     if (kIsWeb || (!Platform.isAndroid && !Platform.isIOS)) return;
@@ -178,6 +221,20 @@ class AccessProvider extends ChangeNotifier {
     return _isPremium;
   }
 
+  /// Applies one `api/TrainerClient/status` response.
+  ///
+  /// Split out from the request so the parsing can be tested without standing up
+  /// an HTTP layer — this is the shape the rest of the app's role gating and the
+  /// trainee's chat surface both depend on.
+  @visibleForTesting
+  void applyStatusPayload(Map<String, dynamic> payload) {
+    _isTrainerClient = payload['isTrainerClient'] as bool? ?? false;
+    _isTrainer = payload['isTrainer'] as bool? ?? false;
+    _trainerId = payload['trainerId'] as String?;
+    _trainerName = payload['trainerName'] as String?;
+    notifyListeners();
+  }
+
   Future<void> _checkTrainerClient(String baseUrl, String token) async {
     try {
       final dio = Dio(
@@ -189,12 +246,7 @@ class AccessProvider extends ChangeNotifier {
         ),
       );
       final response = await dio.get('api/TrainerClient/status');
-      _isTrainerClient =
-          (response.data as Map<String, dynamic>)['isTrainerClient'] as bool? ??
-          false;
-      _isTrainer =
-          (response.data as Map<String, dynamic>)['isTrainer'] as bool? ??
-          false;
+      applyStatusPayload(response.data as Map<String, dynamic>);
     } catch (_) {
       // Keep cached value on failure.
     } finally {

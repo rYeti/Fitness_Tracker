@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:ForgeForm/core/design_tokens.dart';
+import 'package:ForgeForm/l10n/app_localizations.dart';
 
 /// The message input: attachment affordance, pill field, circular orange send.
 ///
@@ -40,6 +41,7 @@ class _ChatComposerState extends State<ChatComposer> {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
@@ -57,7 +59,7 @@ class _ChatComposerState extends State<ChatComposer> {
             // roadmap's out-of-scope list). Disabled rather than absent so the
             // layout doesn't shift when it starts working.
             Tooltip(
-              message: 'Attachments are not available yet',
+              message: l10n.chatAttachmentsUnavailable,
               child: IconButton(
                 onPressed: null,
                 icon: const Icon(Icons.add_rounded),
@@ -76,7 +78,7 @@ class _ChatComposerState extends State<ChatComposer> {
                 onSubmitted: (_) => _send(),
                 style: const TextStyle(fontFamily: 'Exo 2', fontSize: 13.5),
                 decoration: InputDecoration(
-                  hintText: 'Message',
+                  hintText: l10n.chatComposerHint,
                   isDense: true,
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -91,10 +93,10 @@ class _ChatComposerState extends State<ChatComposer> {
             ),
             const SizedBox(width: 8),
             Tooltip(
-              message: 'Send message',
+              message: l10n.chatSendMessage,
               child: Semantics(
                 button: true,
-                label: 'Send message',
+                label: l10n.chatSendMessage,
                 excludeSemantics: true,
                 child: Material(
                   color: ForgeColors.forgeOrange,

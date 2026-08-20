@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 
 import 'package:ForgeForm/core/app_database.dart';
@@ -77,7 +79,11 @@ void main() {
           ChangeNotifierProvider<ActiveClientProvider>.value(value: activeClient),
           ChangeNotifierProvider<ChatProvider>.value(value: chat),
         ],
-        child: const MaterialApp(home: MessagesScreen()),
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const MessagesScreen(),
+        ),
       ),
     );
     if (openThread) {
