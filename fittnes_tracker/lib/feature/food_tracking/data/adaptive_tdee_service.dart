@@ -1,6 +1,5 @@
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/providers/enums.dart';
-import 'package:drift/drift.dart';
 
 /// Result of the adaptive TDEE estimation. When [sufficientData] is false the
 /// numeric fields are null and the UI shows the "keep logging" state instead.
@@ -46,17 +45,17 @@ class AdaptiveTdeeService {
     final windowStart = now.subtract(const Duration(days: _windowDays));
 
     // Daily intake totals from logged meals.
-    final mealRows = await (db.select(db.mealTable).join([
-      innerJoin(db.foodItem, db.foodItem.id.equalsExp(db.mealTable.foodItemId)),
-    ])..where(db.mealTable.date.isBiggerOrEqualValue(windowStart))).get();
-
-    final intakeByDay = <DateTime, double>{};
-    for (final row in mealRows) {
-      final meal = row.readTable(db.mealTable);
-      final food = row.readTable(db.foodItem);
-      final day = DateTime(meal.date.year, meal.date.month, meal.date.day);
-      intakeByDay[day] = (intakeByDay[day] ?? 0) + food.calories;
-    }
+    //
+    // This used to join MealTable.foodItemId, which is set once when a meal
+    // row is created and then never updated — every food added after the first
+    // lives only in MealFoodTable. So a meal of oats + blueberries + whey
+    // counted as oats alone, intake came out far below what was actually
+    // eaten, and TDEE (intake − weight-change energy) was underestimated in
+    // turn, producing a recommended target that was too low.
+    final intake = await db.mealDao.getDailyIntake(windowStart, now);
+    final intakeByDay = {
+      for (final day in intake) day.date: day.calories.toDouble(),
+    };
 
     // Weigh-ins in the window, oldest first.
     final weights = (await db.weightRecordDao.getAllWeightRecords())

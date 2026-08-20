@@ -3,9 +3,74 @@ import '../../app_database.dart';
 
 part 'meal_dao.g.dart';
 
+/// One day's logged nutrition, totalled across every food in every meal.
+class DailyIntake {
+  final DateTime date;
+  final int calories;
+  final int protein;
+  final int carbs;
+  final int fat;
+
+  const DailyIntake({
+    required this.date,
+    required this.calories,
+    required this.protein,
+    required this.carbs,
+    required this.fat,
+  });
+}
+
 @DriftAccessor(tables: [MealTable, MealFoodTable, FoodItem])
 class MealDao extends DatabaseAccessor<AppDatabase> with _$MealDaoMixin {
   MealDao(super.db);
+
+  /// Daily intake totals between [start] and [end] (both inclusive, by day),
+  /// with days that have no logged food omitted rather than returned as zero.
+  ///
+  /// The single source of truth for "what did this user eat". It exists
+  /// because there were four separate implementations and they disagreed —
+  /// most damagingly AdaptiveTdeeService, which joined `MealTable.foodItemId`
+  /// and so counted only the *first* food of each meal, since that column is
+  /// set once at meal creation while every later food goes to
+  /// [MealFoodTable]. A three-item breakfast counted as one item.
+  ///
+  /// A meal contributes through its [MealFoodTable] rows only; `foodItemId` is
+  /// vestigial for totalling and must not be summed.
+  ///
+  /// Duplicate meal rows for the same (date, category) would double-count
+  /// here. The progress screen calls [deduplicateMeals] before reading; any
+  /// new caller that cares about exactness should do the same.
+  Future<List<DailyIntake>> getDailyIntake(DateTime start, DateTime end) async {
+    final from = DateTime(start.year, start.month, start.day);
+    final to = DateTime(end.year, end.month, end.day).add(const Duration(days: 1));
+
+    final rows = await (select(mealTable).join([
+      innerJoin(mealFoodTable, mealFoodTable.mealId.equalsExp(mealTable.id)),
+      innerJoin(foodItem, foodItem.id.equalsExp(mealFoodTable.foodEntryId)),
+    ])..where(
+        mealTable.date.isBiggerOrEqualValue(from) &
+            mealTable.date.isSmallerThanValue(to),
+      )).get();
+
+    final byDay = <DateTime, DailyIntake>{};
+    for (final row in rows) {
+      final meal = row.readTable(mealTable);
+      final food = row.readTable(foodItem);
+      final day = DateTime(meal.date.year, meal.date.month, meal.date.day);
+      final running = byDay[day];
+      byDay[day] = DailyIntake(
+        date: day,
+        calories: (running?.calories ?? 0) + food.calories,
+        protein: (running?.protein ?? 0) + food.protein,
+        carbs: (running?.carbs ?? 0) + food.carbs,
+        fat: (running?.fat ?? 0) + food.fat,
+      );
+    }
+
+    final days = byDay.values.toList()
+      ..sort((a, b) => a.date.compareTo(b.date));
+    return days;
+  }
 
   Future<List<MealTableData>> getMealsForDate(DateTime date) {
     final start = DateTime(date.year, date.month, date.day);
