@@ -37,4 +37,12 @@ class TrainerConsoleRepository {
   Future<List<WorkoutPlanTemplateSummary>> getWorkoutPlanTemplates() {
     throw UnimplementedError();
   }
+
+  /// The client's recent sessions, newest first, each already carrying its
+  /// full exercise/set detail — status/volume/avgRpe/PR are derived
+  /// server-side (see trainer_console_models.dart), so this is a straight
+  /// `ClientSessionSummary.fromJson` map with no computation.
+  Future<List<ClientSessionSummary>> getClientSessionHistory(String clientId, {int count = 10}) {
+    throw UnimplementedError();
+  }
 }

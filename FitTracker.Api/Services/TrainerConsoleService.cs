@@ -11,7 +11,8 @@ public class TrainerConsoleService(
     IMealService mealService,
     IUserSettingsService userSettingsService,
     IExerciseService exerciseService,
-    IFoodItemService foodItemService) : ITrainerConsoleService
+    IFoodItemService foodItemService,
+    IWorkoutService workoutService) : ITrainerConsoleService
 {
     private readonly ITrainerClientService _trainerClientService = trainerClientService;
     private readonly IWeightTrackingService _weightTrackingService = weightTrackingService;
@@ -20,6 +21,7 @@ public class TrainerConsoleService(
     private readonly IMealService _mealService = mealService;
     private readonly IUserSettingsService _userSettingsService = userSettingsService;
     private readonly IFoodItemService _foodItemService = foodItemService;
+    private readonly IWorkoutService _workoutService = workoutService;
 
     private readonly IExerciseService _exerciseService = exerciseService;
 
@@ -161,6 +163,170 @@ public class TrainerConsoleService(
             Date = date,
             ScheduledWorkout = scheduledDate,
         };
+    }
+
+    /// <inheritdoc/>
+    public async Task<List<ClientSessionSummaryDto>?> GetClientSessionHistoryAsync(Guid trainerId, Guid clientId, int count)
+    {
+        var isTrainer = await _trainerClientService.IsActiveTrainerOfAsync(trainerId, clientId);
+        if (!isTrainer) return null;
+
+        var scheduled = await _scheduledWorkoutService.GetUserScheduledWorkoutsAsync(clientId);
+        if (scheduled.Count == 0) return [];
+
+        // Name lookups, fetched once rather than per session/exercise.
+        // WorkoutExercise entries are keyed by their own Id, which is what
+        // ScheduledWorkoutExercise.WorkoutExerciseId points at.
+        var workouts = await _workoutService.GetUserWorkoutsAsync(clientId);
+        var workoutsById = workouts.ToDictionary(w => w.Id);
+        var workoutExercisesById = workouts
+            .SelectMany(w => w.Exercises)
+            .ToDictionary(e => e.Id);
+        var exerciseNamesById = (await _exerciseService.GetAllExercisesAsync(clientId))
+            .ToDictionary(e => e.id, e => e.Name);
+
+        // History means what's already happened — a workout scheduled for next week
+        // has nothing logged against it yet and would otherwise sort to the top of a
+        // newest-first list and read as an unlogged session.
+        var today = DateTime.UtcNow.Date;
+
+        // PR detection needs "best weight before this session", so walk oldest-first
+        // and carry a running max per exercise. Reversed to newest-first at the end.
+        var chronological = scheduled
+            .Where(w => w.ScheduledDate.Date <= today)
+            .OrderBy(w => w.ScheduledDate)
+            .ToList();
+        var bestWeightByExercise = new Dictionary<Guid, double>();
+        var sessions = new List<ClientSessionSummaryDto>();
+
+        foreach (var workout in chronological)
+        {
+            workoutsById.TryGetValue(workout.WorkoutId, out var template);
+
+            var exerciseLogs = new List<SessionExerciseLogDto>();
+            double totalVolume = 0;
+            var rpes = new List<int>();
+            var sessionHasPr = false;
+
+            foreach (var scheduledExercise in workout.Exercises)
+            {
+                workoutExercisesById.TryGetValue(scheduledExercise.WorkoutExerciseId, out var exerciseTemplate);
+
+                // A substituted exercise reports under what the client actually did,
+                // not what was originally programmed.
+                var exerciseId = scheduledExercise.OverrideExerciseId ?? exerciseTemplate?.ExerciseId;
+
+                // Targets are per set, not per exercise — a 12/10/8 pyramid must compare
+                // each logged set against its own target, not all of them against the first.
+                var targetsBySetNumber = exerciseTemplate?.SetTemplates
+                    .GroupBy(t => t.SetNumber)
+                    .ToDictionary(g => g.Key, g => g.First().TargetReps);
+
+                var prescribed = exerciseTemplate is null ? null : new PrescribedSetsDto
+                {
+                    SetCount = exerciseTemplate.SetTemplates.Count,
+                    TargetRepsPerSet = exerciseTemplate.SetTemplates
+                        .OrderBy(t => t.OrderPosition)
+                        .Select(t => t.TargetReps)
+                        .ToList(),
+                };
+
+                var loggedSets = scheduledExercise.Sets.OrderBy(s => s.SetNumber).ToList();
+
+                var setLogs = new List<SessionSetLogDto>();
+                var exerciseHasPr = false;
+
+                foreach (var set in loggedSets)
+                {
+                    var targetReps = ParseTargetRepsFloor(
+                        targetsBySetNumber?.GetValueOrDefault(set.SetNumber));
+
+                    setLogs.Add(new SessionSetLogDto
+                    {
+                        SetNumber = set.SetNumber,
+                        Reps = set.Reps,
+                        Weight = set.Weight,
+                        WeightUnit = set.WeightUnit,
+                        Rpe = set.Rpe,
+                        // No target, or an unparseable one, counts as hit — don't
+                        // flag an unprogrammed exercise as a miss.
+                        HitTarget = targetReps is null || set.Reps is null || set.Reps >= targetReps,
+                    });
+
+                    if (!set.IsCompleted) continue;
+
+                    totalVolume += (set.Reps ?? 0) * (set.Weight ?? 0);
+                    if (set.Rpe is int rpe) rpes.Add(rpe);
+
+                    if (exerciseId is Guid id && set.Weight is double weight)
+                    {
+                        var previousBest = bestWeightByExercise.GetValueOrDefault(id, 0);
+                        if (weight > previousBest)
+                        {
+                            // Only counts as a PR if there was a prior baseline —
+                            // the very first time an exercise is ever logged isn't one.
+                            if (bestWeightByExercise.ContainsKey(id)) exerciseHasPr = true;
+                            bestWeightByExercise[id] = weight;
+                        }
+                    }
+                }
+
+                if (exerciseHasPr) sessionHasPr = true;
+
+                exerciseLogs.Add(new SessionExerciseLogDto
+                {
+                    WorkoutExerciseId = scheduledExercise.WorkoutExerciseId,
+                    ExerciseName = exerciseId is Guid nameId
+                        ? exerciseNamesById.GetValueOrDefault(nameId, "")
+                        : "",
+                    Prescribed = prescribed,
+                    Skipped = loggedSets.Count == 0,
+                    IsPr = exerciseHasPr,
+                    Sets = setLogs,
+                });
+            }
+
+            sessions.Add(new ClientSessionSummaryDto
+            {
+                ScheduledWorkoutId = workout.Id,
+                Date = workout.ScheduledDate,
+                WorkoutName = template?.Name ?? "",
+                Status = DeriveStatus(workout),
+                IsPr = sessionHasPr,
+                TotalVolume = totalVolume,
+                AvgRpe = rpes.Count > 0 ? (double?)rpes.Average() : null,
+                ClientNote = workout.Notes,
+                Exercises = exerciseLogs,
+            });
+        }
+
+        sessions.Reverse();
+        return sessions.Take(count).ToList();
+    }
+
+    /// <summary>Classifies a session for Session Review: an explicit skip, or a session
+    /// with nothing logged at all, is <c>Missed</c>; one the client marked complete is
+    /// <c>Done</c>; sets logged without a completion flag is <c>Partial</c>.</summary>
+    /// <remarks>Callers must have already excluded future-dated workouts — this treats
+    /// "nothing logged" as Missed, which is only true for a session whose day has passed.</remarks>
+    private static SessionStatusDto DeriveStatus(ScheduledWorkoutResponseDto workout)
+    {
+        if (workout.IsSkipped) return SessionStatusDto.Missed;
+        if (workout.IsCompleted) return SessionStatusDto.Done;
+
+        var loggedAnything = workout.Exercises.Any(e => e.Sets.Count > 0);
+        return loggedAnything ? SessionStatusDto.Partial : SessionStatusDto.Missed;
+    }
+
+    /// <summary>Reads the low end of a target-reps string — "10" gives 10, "8-12" gives 8 —
+    /// so a logged set can be compared against it. Returns null when there's nothing
+    /// parseable, which callers treat as "no target to miss".</summary>
+    private static int? ParseTargetRepsFloor(string? targetReps)
+    {
+        if (string.IsNullOrWhiteSpace(targetReps)) return null;
+
+        var low = targetReps.Split('-', StringSplitOptions.TrimEntries)[0];
+        return int.TryParse(low, out var reps) ? (int?)reps : null;
     }
 
     /// <inheritdoc/>

@@ -15,6 +15,13 @@ public interface ITrainerConsoleService
 
     Task<ClientWorkoutHistoryDto?> GetClientWorkoutHistoryAsync(Guid trainerId, Guid clientId, DateTime date);
 
+    /// <summary>Returns the client's most recent sessions, newest first, each with its
+    /// prescribed-vs-logged detail — backs the Session Review screen.</summary>
+    /// <param name="count">Maximum sessions to return.</param>
+    /// <returns>The sessions, or <c>null</c> if <paramref name="trainerId"/> isn't an
+    /// active trainer of <paramref name="clientId"/>.</returns>
+    Task<List<ClientSessionSummaryDto>?> GetClientSessionHistoryAsync(Guid trainerId, Guid clientId, int count);
+
     Task<ClientNutritionSummaryDto?> GetClientNutritionSummaryAsync(Guid trainerId, Guid clientId, DateTime date);
 
     Task<WorkoutPlanResponseDto?> CreateClientWorkoutPlanAsync(Guid trainerId, Guid clientId, WorkoutPlanRequestDto dto);

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-enum TrainerConsoleRoute { dashboard, messages, builder, nutrition }
+enum TrainerConsoleRoute { dashboard, messages, builder, nutrition, sessionReview }
 
 /// App-shell for the Trainer Console: 240px charcoal sidebar + nav on
 /// desktop (>1024px), bottom tab bar on mobile (<600px). Tablet inherits
@@ -26,10 +26,13 @@ class TrainerConsoleShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDesktop = MediaQuery.of(context).size.width > 1024;
 
-    // TODO desktop: fixed 240px charcoal sidebar (logo, nav items, Schedule/
+    // TODO desktop: fixed 240px charcoal sidebar (logo, nav items —
+    // Dashboard/Messages/Workout Builder/Nutrition/Session Review, Schedule/
     // Settings pinned at bottom) + fluid content area, 32px padding.
     // TODO mobile: charcoal app bar + content (16px padding) + bottom tab
-    // bar (Dashboard / Workouts / Messages / Nutrition).
+    // bar (Dashboard / Workouts / Messages / Nutrition / Review — 5 tabs per
+    // design handoff's Session Review addition, "Review" label +
+    // assignment_turned_in icon).
     // Active nav item: tinted background + orange text/icon (sidebar);
     // filled orange icon (bottom tab).
     if (isDesktop) {
