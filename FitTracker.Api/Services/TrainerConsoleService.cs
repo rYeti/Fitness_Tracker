@@ -60,6 +60,46 @@ public class TrainerConsoleService(
     }
 
     /// <inheritdoc/>
+    public async Task<List<TrainerRosterEntryDto>> GetRosterAsync(Guid trainerId)
+    {
+        var clients = await _trainerClientService.GetClientsAsync(trainerId);
+        // Trailing 4 weeks rather than the current week alone: a Monday-morning
+        // roster would otherwise show every client at 0%.
+        var windowStart = DateTime.UtcNow.Date.AddDays(-28);
+
+        var roster = new List<TrainerRosterEntryDto>();
+        foreach (var client in clients)
+        {
+            var scheduled = await _scheduledWorkoutService.GetUserScheduledWorkoutsAsync(client.ClientId);
+            var window = scheduled
+                .Where(w => w.ScheduledDate >= windowStart && w.ScheduledDate.Date <= DateTime.UtcNow.Date)
+                .ToList();
+            var completed = window.Count(w => w.IsCompleted);
+
+            var plans = await _workoutPlanService.GetUserPlansAsync(client.ClientId);
+            var activePlan = plans.FirstOrDefault(p => p.IsActive);
+
+            roster.Add(new TrainerRosterEntryDto
+            {
+                ClientId = client.ClientId,
+                ClientName = client.ClientName,
+                ProgramLabel = activePlan?.Name,
+                // No scheduled sessions means "no data", not "0% adherent".
+                AdherencePercent = window.Count > 0
+                    ? (double)completed / window.Count * 100
+                    : null,
+                LastSessionDate = scheduled
+                    .Where(w => w.IsCompleted)
+                    .OrderByDescending(w => w.ScheduledDate)
+                    .Select(w => (DateTime?)w.ScheduledDate)
+                    .FirstOrDefault(),
+            });
+        }
+
+        return roster;
+    }
+
+    /// <inheritdoc/>
     public async Task<List<WeightTrackingResponseDto>?> GetClientWeightHistoryAsync(Guid trainerId, Guid clientId)
     {
         var isTrainer = await _trainerClientService.IsActiveTrainerOfAsync(trainerId, clientId);
@@ -338,18 +378,44 @@ public class TrainerConsoleService(
         var settings = await _userSettingsService.GetSettingsAsync(clientId);
         var calorieGoal = settings?.DailyCalorieGoal ?? 0;
 
-        // MealFoodEntryResponseDto only carries a FoodItemId, not the calorie
-        // value itself — build a lookup once so we're not re-fetching the
+        // MealFoodEntryResponseDto only carries a FoodItemId, not the nutrition
+        // values themselves — build a lookup once so we're not re-fetching the
         // client's whole food-item catalog for every meal we total up below.
         var foodItems = await _foodItemService.GetUserFoodItemsAsync(clientId);
-        var caloriesByFoodItemId = foodItems.ToDictionary(f => f.Id, f => f.Calories);
+        var foodItemsById = foodItems.ToDictionary(f => f.Id);
 
         int TotalCalories(List<MealResponseDto> meals) =>
             meals
                 .SelectMany(m => m.FoodEntries)
-                .Sum(entry => caloriesByFoodItemId.TryGetValue(entry.FoodItemId, out var cal) ? cal : 0);
+                .Sum(entry => foodItemsById.TryGetValue(entry.FoodItemId, out var food) ? food.Calories : 0);
 
         var todaysMeals = await _mealService.GetMealsForDateAsync(clientId, date);
+
+        // Resolve each meal against the catalogue here rather than shipping bare
+        // food-item ids: the trainer has no route to the client's food catalogue,
+        // so an unresolved id would be unrenderable on their side.
+        var loggedMeals = todaysMeals.Select(meal =>
+        {
+            var foods = meal.FoodEntries
+                .Select(entry => foodItemsById.GetValueOrDefault(entry.FoodItemId))
+                .Where(food => food is not null)
+                .Select(food => food!)
+                .ToList();
+
+            return new LoggedMealDto
+            {
+                MealId = meal.Id,
+                Category = meal.Category,
+                FoodNames = foods.Select(f => f.Name).ToList(),
+                Calories = foods.Sum(f => f.Calories),
+                Macros = new MacroTotalsDto
+                {
+                    Protein = foods.Sum(f => f.Protein),
+                    Carbs = foods.Sum(f => f.Carbs),
+                    Fat = foods.Sum(f => f.Fat),
+                },
+            };
+        }).ToList();
 
         var sevenDayTrend = new List<DailyCalorieTotalDto>();
         for (var i = 0; i < 7; i++)
@@ -366,10 +432,22 @@ public class TrainerConsoleService(
             });
         }
 
+        // Oldest-first reads naturally as a left-to-right bar chart; the loop
+        // above walks backwards from `date`.
+        sevenDayTrend.Reverse();
+
         return new ClientNutritionSummaryDto
         {
             Date = date,
             Meals = todaysMeals,
+            LoggedMeals = loggedMeals,
+            TotalCalories = loggedMeals.Sum(m => m.Calories),
+            Macros = new MacroTotalsDto
+            {
+                Protein = loggedMeals.Sum(m => m.Macros.Protein),
+                Carbs = loggedMeals.Sum(m => m.Macros.Carbs),
+                Fat = loggedMeals.Sum(m => m.Macros.Fat),
+            },
             CalorieGoal = calorieGoal,
             SevenDayTrend = sevenDayTrend,
         };

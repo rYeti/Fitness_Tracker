@@ -24,6 +24,14 @@ public class TrainerConsoleController(ITrainerConsoleService service) : Controll
         return Ok(await _service.GetDashboardKpisAsync(trainerId.Value));
     }
 
+    [HttpGet("roster")]
+    public async Task<IActionResult> GetRoster()
+    {
+        var trainerId = GetUserId();
+        if (trainerId == null) return Unauthorized();
+        return Ok(await _service.GetRosterAsync(trainerId.Value));
+    }
+
     [HttpGet("{clientId}/weight-history")]
     public async Task<IActionResult> GetClientWeightHistory(Guid clientId)
     {

@@ -101,7 +101,7 @@ class AppDatabase extends _$AppDatabase {
       await delete(weightRecord).go();
       await delete(userSettings).go();
       await delete(searchCacheTable).go();
-      await delete(chatoutBoxtable).go();
+      await delete(chatOutBoxTable).go();
       // Keep built-in exercises; remove only user-created ones
       await (delete(exerciseTable)..where((e) => e.isCustom.equals(true))).go();
     });

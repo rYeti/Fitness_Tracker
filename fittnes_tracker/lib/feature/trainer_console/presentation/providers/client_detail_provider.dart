@@ -12,27 +12,54 @@ class ClientDetailProvider extends ChangeNotifier {
   }) : _repository = repository ?? TrainerConsoleRepository();
 
   ClientWorkoutSummary? _workoutSummary;
-  ClientWorkoutHistory? _selectedDayHistory;
-  DateTime _selectedDate = DateTime.now();
+  List<ClientWeightEntry> _weightHistory = [];
+  ClientNutritionSummary? _nutrition;
   bool _isLoading = false;
   String? _error;
 
   ClientWorkoutSummary? get workoutSummary => _workoutSummary;
-  ClientWorkoutHistory? get selectedDayHistory => _selectedDayHistory;
-  DateTime get selectedDate => _selectedDate;
+  List<ClientWeightEntry> get weightHistory => _weightHistory;
+  ClientNutritionSummary? get nutrition => _nutrition;
   bool get isLoading => _isLoading;
   String? get error => _error;
 
+  /// Fetches the three sources this screen composes in parallel — they're
+  /// independent endpoints and the screen shows them together.
   Future<void> load() async {
-    // TODO: fetch workout summary + weight history + nutrition summary for
-    // clientId via _repository, set loading/error state.
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final results = await Future.wait([
+        _repository.getClientWorkoutSummary(clientId),
+        _repository.getClientWeightHistory(clientId),
+        _repository.getClientNutritionSummary(clientId, DateTime.now()),
+      ]);
+      _workoutSummary = results[0] as ClientWorkoutSummary;
+      _weightHistory = results[1] as List<ClientWeightEntry>;
+      _nutrition = results[2] as ClientNutritionSummary;
+    } catch (_) {
+      _error = 'Could not load this client’s details.';
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
-  void previousDay() {
-    // TODO: _selectedDate -= 1 day, reload that day's workout history.
+  /// Net weight change across the logged history, or null with fewer than two
+  /// entries (a single reading isn't a trend).
+  double? get weightDelta {
+    if (_weightHistory.length < 2) return null;
+    return _weightHistory.last.weight - _weightHistory.first.weight;
   }
 
-  void nextDay() {
-    // TODO: _selectedDate += 1 day, reload that day's workout history.
+  /// Completed / planned across every attendance week the summary returned.
+  double? get overallAdherence {
+    final weeks = _workoutSummary?.attendance ?? const [];
+    final planned = weeks.fold<int>(0, (sum, w) => sum + w.plannedSessions);
+    if (planned == 0) return null;
+    final completed = weeks.fold<int>(0, (sum, w) => sum + w.completedSessions);
+    return completed / planned * 100;
   }
 }

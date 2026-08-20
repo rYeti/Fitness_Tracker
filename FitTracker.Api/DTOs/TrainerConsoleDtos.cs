@@ -9,6 +9,28 @@ public class TrainerDashboardKpisDto
     public int AlertCount { get; set; }
 }
 
+/// <summary>One roster row for the Dashboard: the relationship plus the training
+/// stats the roster actually displays.</summary>
+/// <remarks>Separate from <see cref="TrainerClientResponseDto"/> (which is the bare
+/// relationship — invite code, timestamps, no training data) because the roster needs
+/// adherence and last-session, and computing those for every relationship lookup
+/// would be wasteful.</remarks>
+public class TrainerRosterEntryDto
+{
+    public Guid ClientId { get; set; }
+    public string ClientName { get; set; } = string.Empty;
+
+    /// <summary>Name of the client's active plan, or null if they have none.</summary>
+    public string? ProgramLabel { get; set; }
+
+    /// <summary>Completed / planned sessions over the trailing 4 weeks, 0-100.
+    /// Null when nothing was scheduled, which is different from 0% adherence.</summary>
+    public double? AdherencePercent { get; set; }
+
+    /// <summary>Date of their most recent completed session, or null if never.</summary>
+    public DateTime? LastSessionDate { get; set; }
+}
+
 /// <summary>One client's current plan + attendance + strength progression, for Client Detail.</summary>
 public class ClientWorkoutSummaryDto
 {
@@ -43,9 +65,47 @@ public class ClientWorkoutHistoryDto
 public class ClientNutritionSummaryDto
 {
     public DateTime Date { get; set; }
+
+    /// <summary>Raw meal entries. Note these carry only food-item <em>ids</em>
+    /// (<see cref="MealFoodEntryResponseDto"/>), not nutrition values — use
+    /// <see cref="LoggedMeals"/> for anything the trainer actually sees.</summary>
     public List<MealResponseDto> Meals { get; set; } = [];
+
+    /// <summary>Per-meal totals with the food-item lookup already resolved, so the
+    /// client doesn't need the client's whole food catalogue to render a meal list.</summary>
+    public List<LoggedMealDto> LoggedMeals { get; set; } = [];
+
+    /// <summary>Total kcal consumed on <see cref="Date"/>.</summary>
+    public int TotalCalories { get; set; }
+
+    /// <summary>Day totals for the macro bar, in grams.</summary>
+    public MacroTotalsDto Macros { get; set; } = new();
+
     public int CalorieGoal { get; set; }
     public List<DailyCalorieTotalDto> SevenDayTrend { get; set; } = [];
+}
+
+/// <summary>Protein/carbs/fat in grams.</summary>
+public class MacroTotalsDto
+{
+    public int Protein { get; set; }
+    public int Carbs { get; set; }
+    public int Fat { get; set; }
+}
+
+/// <summary>One meal the client logged, totalled across its food entries.</summary>
+public class LoggedMealDto
+{
+    public Guid MealId { get; set; }
+
+    /// <summary>"breakfast" | "lunch" | "dinner" | "snack", as authored by the client app.</summary>
+    public string Category { get; set; } = string.Empty;
+
+    /// <summary>Food names in this meal, for the meal row's subtitle.</summary>
+    public List<string> FoodNames { get; set; } = [];
+
+    public int Calories { get; set; }
+    public MacroTotalsDto Macros { get; set; } = new();
 }
 
 public class DailyCalorieTotalDto
