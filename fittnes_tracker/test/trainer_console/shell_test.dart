@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:ForgeForm/feature/chat/data/chat_repository.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/view/trainer_console_home.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/trainer_console_shell.dart';
 
+import '../chat/fakes.dart';
 import 'fakes.dart';
 
 Future<void> _pump(
@@ -15,8 +17,26 @@ Future<void> _pump(
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.reset);
 
+  // Chat is injected so the shell doesn't reach for the real SignalR socket or
+  // the registered AppDatabase, neither of which exists under test.
+  final db = newTestDatabase();
+  final signalR = FakeChatSignalRClient();
+  addTearDown(() async {
+    await signalR.dispose();
+    await db.close();
+  });
+
   await tester.pumpWidget(
-    MaterialApp(home: TrainerConsoleHome(repository: repository)),
+    MaterialApp(
+      home: TrainerConsoleHome(
+        repository: repository,
+        chatRepository: ChatRepository(
+          db: db,
+          api: FakeChatApi(),
+          signalR: signalR,
+        ),
+      ),
+    ),
   );
 }
 

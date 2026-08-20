@@ -1,13 +1,20 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:ForgeForm/core/app_database.dart';
+import 'package:ForgeForm/core/di/service_locator.dart';
+import 'package:ForgeForm/feature/chat/data/chat_repository.dart';
+import 'package:ForgeForm/feature/chat/data/signalr_hub_chat_client.dart';
+import 'package:ForgeForm/feature/chat/presentation/providers/chat_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/data/trainer_console_repository.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/active_client_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/view/client_detail_screen.dart';
+import 'package:ForgeForm/feature/trainer_console/presentation/view/messages_screen.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/view/nutrition_screen.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/view/session_review_screen.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/view/trainer_dashboard_screen.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/view/workout_builder_screen.dart';
-import 'package:ForgeForm/feature/trainer_console/presentation/widgets/console_widgets.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/trainer_console_shell.dart';
 
 /// Entry point for the Trainer Console.
@@ -23,6 +30,9 @@ import 'package:ForgeForm/feature/trainer_console/presentation/widgets/trainer_c
 class TrainerConsoleHome extends StatefulWidget {
   /// Injection seam for tests.
   final TrainerConsoleRepository? repository;
+
+  /// Injection seam for chat, so tests never open a socket or need a database.
+  final ChatRepository? chatRepository;
   final TrainerConsoleRoute initialRoute;
 
   /// Leaves the console for the trainee app. Set on web, where the console is
@@ -32,6 +42,7 @@ class TrainerConsoleHome extends StatefulWidget {
   const TrainerConsoleHome({
     super.key,
     this.repository,
+    this.chatRepository,
     this.initialRoute = TrainerConsoleRoute.dashboard,
     this.onExitConsole,
   });
@@ -42,6 +53,12 @@ class TrainerConsoleHome extends StatefulWidget {
 
 class _TrainerConsoleHomeState extends State<TrainerConsoleHome> {
   late final ActiveClientProvider _activeClient;
+  late final ChatProvider _chat;
+
+  /// Only set when this widget built the transport itself, so an injected one
+  /// is never closed out from under its owner.
+  SignalRHubChatClient? _signalR;
+
   late TrainerConsoleRoute _route;
 
   @override
@@ -50,11 +67,30 @@ class _TrainerConsoleHomeState extends State<TrainerConsoleHome> {
     _route = widget.initialRoute;
     _activeClient = ActiveClientProvider(repository: widget.repository);
     _activeClient.loadClients();
+
+    // Built here rather than inside MessagesScreen: it owns the SignalR
+    // connection, which has to survive switching to Nutrition and back. A
+    // provider created by the screen would drop the socket on every tab change.
+    final injected = widget.chatRepository;
+    if (injected != null) {
+      _chat = ChatProvider(repository: injected);
+    } else {
+      final signalR = SignalRHubChatClient();
+      _signalR = signalR;
+      _chat = ChatProvider(
+        repository: ChatRepository(db: sl<AppDatabase>(), signalR: signalR),
+      );
+      // Not awaited: the console renders its roster and KPIs fine while the
+      // socket is still opening, and the connection banner covers the gap.
+      unawaited(signalR.connect());
+    }
   }
 
   @override
   void dispose() {
     _activeClient.dispose();
+    _chat.dispose();
+    unawaited(_signalR?.dispose() ?? Future<void>.value());
     super.dispose();
   }
 
@@ -72,8 +108,11 @@ class _TrainerConsoleHomeState extends State<TrainerConsoleHome> {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider<ActiveClientProvider>.value(
-      value: _activeClient,
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider<ActiveClientProvider>.value(value: _activeClient),
+        ChangeNotifierProvider<ChatProvider>.value(value: _chat),
+      ],
       child: TrainerConsoleShell(
         currentRoute: _route,
         onRouteSelected: (route) => setState(() => _route = route),
@@ -86,36 +125,11 @@ class _TrainerConsoleHomeState extends State<TrainerConsoleHome> {
               onClientSelected: (entry) =>
                   _openClientDetail(entry.clientId, entry.clientName),
             ),
-            const _MessagesPlaceholder(),
+            const MessagesScreen(),
             WorkoutBuilderScreen(repository: widget.repository),
             NutritionScreen(repository: widget.repository),
             SessionReviewScreen(repository: widget.repository),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Messages is the one section with no implementation behind it yet: the
-/// SignalR client package is still an open decision (see
-/// chat_signalr_client.dart and chat-flutter-roadmap.md §3), so the repository
-/// and provider are signatures only. Saying so beats a tab that opens onto a
-/// blank screen.
-class _MessagesPlaceholder extends StatelessWidget {
-  const _MessagesPlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
-      body: const SafeArea(
-        child: ConsoleEmptyState(
-          icon: Icons.forum_outlined,
-          title: 'Messaging isn’t wired up yet',
-          message:
-              'The chat backend is ready, but the client needs a SignalR '
-              'package chosen before messages can be sent or received.',
         ),
       ),
     );
