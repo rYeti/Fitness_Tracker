@@ -25,7 +25,7 @@ dependencies:
 
   # API and Networking
   dio: ^5.8.0
-  get_it: ^8.0.0
+  get_it: ^9.2.1
   logger: ^2.0.2
 
   fl_chart: ^1.0.0
@@ -58,6 +58,12 @@ dependencies:
   timezone: ^0.9.4
   app_links: ^6.0.0
   uuid: ^3.0.7
+
+  # SignalR client for the Trainer Console chat. signalr_hub rather than the
+  # more popular signalr_netcore: the latter imports dart:io unconditionally
+  # in its WebSocket transport, so it cannot compile for web -- and web is how
+  # the Trainer Console ships.
+  signalr_hub: ^2.1.0
 
 dev_dependencies:
   flutter_test:

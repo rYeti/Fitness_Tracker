@@ -146,6 +146,10 @@ class FakeChatApi implements ChatApi {
   final bool throwOnHistory;
   final bool throwOnConversations;
 
+  /// Fails the first N conversation fetches, then succeeds — so a test can check
+  /// that a retry actually clears the error rather than only that it re-runs.
+  int failConversationsTimes = 0;
+
   /// Completes only when a test says so, to hold a screen in its loading state.
   final Completer<void>? gate;
 
@@ -173,6 +177,10 @@ class FakeChatApi implements ChatApi {
   @override
   Future<List<Map<String, dynamic>>> fetchConversations() async {
     if (gate != null) await gate!.future;
+    if (failConversationsTimes > 0) {
+      failConversationsTimes--;
+      throw Exception('boom');
+    }
     if (throwOnConversations) throw Exception('boom');
     return conversations;
   }

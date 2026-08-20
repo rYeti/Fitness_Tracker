@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/active_client_provider.dart';
-import 'package:ForgeForm/feature/trainer_console/presentation/providers/chat_provider.dart';
+import 'package:ForgeForm/feature/chat/presentation/providers/chat_provider.dart';
 
 /// Desktop: 3-column layout inside one card — conversation list (300px) |
 /// thread (fluid) | client context panel (260px). Mobile: conversation list
