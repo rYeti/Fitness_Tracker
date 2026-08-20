@@ -68,6 +68,9 @@ public class AppDbContext : DbContext
     /// <summary>Trainer–client relationships.</summary>
     public DbSet<TrainerClient> TrainerClients { get; set; }
 
+    /// <summary>Trainer plans: seat limits and Pro entitlement.</summary>
+    public DbSet<TrainerLicence> TrainerLicences { get; set; }
+
     /// <summary>Password reset tokens table.</summary>
     public DbSet<PasswordResetToken> PasswordResetTokens { get; set; }
 
@@ -257,6 +260,17 @@ public class AppDbContext : DbContext
                   .IsRequired(false)
                   .OnDelete(DeleteBehavior.Restrict);
             entity.HasIndex(t => t.InviteCode).IsUnique();
+        });
+
+        modelBuilder.Entity<TrainerLicence>(entity =>
+        {
+            entity.HasKey(l => l.Id);
+            entity.HasOne(l => l.Trainer)
+                  .WithMany()
+                  .HasForeignKey(l => l.TrainerId)
+                  .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(l => l.TrainerId).IsUnique(); // one licence row per trainer
+            entity.HasIndex(l => l.StripeSubscriptionId); // webhook lookup path
         });
 
         modelBuilder.Entity<ChatMessage>(entity =>

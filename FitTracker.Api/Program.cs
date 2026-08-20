@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using System.Threading.RateLimiting;
 using FitTracker.Api.Data;
 using FitTracker.Api.Repositories;
@@ -122,6 +122,20 @@ builder.Services.AddRateLimiter(options =>
                 Window = TimeSpan.FromMinutes(1),
                 QueueLimit = 0
             }));
+
+    // The Stripe webhook is anonymous, so it needs a ceiling — but a generous
+    // one, partitioned globally rather than by IP. Stripe retries in bursts
+    // from its own address range, and throttling a legitimate retry means a
+    // trainer's subscription change silently doesn't land.
+    options.AddPolicy("webhook", _ =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: "stripe-webhook",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 300,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
 });
 
 builder.Services.AddAuthentication(options =>
@@ -183,6 +197,11 @@ builder.Services.AddScoped<IMealTemplateRepository, MealTemplateRepository>();
 builder.Services.AddScoped<IMealTemplateService, MealTemplateService>();
 builder.Services.AddScoped<ITrainerClientRepository, TrainerClientRepository>();
 builder.Services.AddScoped<ITrainerClientService, TrainerClientService>();
+builder.Services.AddScoped<ITrainerLicenceRepository, TrainerLicenceRepository>();
+builder.Services.AddScoped<ITrainerLicenceService, TrainerLicenceService>();
+builder.Services.AddSingleton<LicencePlanCatalog>();
+builder.Services.AddSingleton<LicenceStateMachine>();
+builder.Services.AddScoped<FitTracker.Api.Filters.RequireEntitledLicenceFilter>();
 builder.Services.AddScoped<ITrainerConsoleService, TrainerConsoleService>();
 builder.Services.AddScoped<IWorkoutPlanTemplateRepository, WorkoutPlanTemplateRepository>();
 builder.Services.AddScoped<IWorkoutPlanTemplateService, WorkoutPlanTemplateService>();
@@ -214,6 +233,33 @@ else
         "CORS: no Cors:AllowedOrigins configured — falling back to any-origin without credentials. " +
         "SignalR browser clients will fail their negotiate request until origins are set. " +
         "See docs/cors-and-signalr.md.");
+}
+
+// Stripe. Configured once at startup rather than per request; the SDK reads
+// this static for every call it makes.
+var stripeKey = builder.Configuration["Stripe:SecretKey"];
+if (!string.IsNullOrWhiteSpace(stripeKey))
+{
+    Stripe.StripeConfiguration.ApiKey = stripeKey;
+
+    var unpricedTiers = LicencePlanCatalog.PurchasableTiers
+        .Where(tier => string.IsNullOrWhiteSpace(builder.Configuration[$"Stripe:Prices:{tier}"]))
+        .ToArray();
+    if (unpricedTiers.Length > 0)
+    {
+        // A tier with no price id can't be bought, and a webhook carrying that
+        // price can't be mapped back to a tier — so seats silently wouldn't
+        // update. Better to say so at boot than to debug it from a support ticket.
+        app.Logger.LogWarning(
+            "Stripe: no price configured for {Tiers} — those plans cannot be purchased. " +
+            "See docs/trainer-licensing.md.", string.Join(", ", unpricedTiers));
+    }
+}
+else
+{
+    app.Logger.LogWarning(
+        "Stripe: no Stripe:SecretKey configured — trainer licences will stay on the free tier " +
+        "and no checkout or webhook handling will work. See docs/trainer-licensing.md.");
 }
 
 // ── Middleware pipeline ──────────────────────────────────────

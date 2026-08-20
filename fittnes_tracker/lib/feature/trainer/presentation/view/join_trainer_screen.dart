@@ -1,24 +1,46 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class JoinTrainerScreen extends ConsumerStatefulWidget {
-  const JoinTrainerScreen({super.key});
+import 'package:ForgeForm/core/design_tokens.dart';
+import 'package:ForgeForm/core/network/secure_token_storage.dart';
+import 'package:ForgeForm/core/providers/access_provider.dart';
+import 'package:ForgeForm/feature/auth/presentation/providers/auth_provider.dart'
+    show serverUrlDefault;
+import 'package:ForgeForm/feature/trainer_console/data/trainer_licence_repository.dart';
+import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_licence.dart';
+
+/// Where a trainee redeems the code their trainer gave them.
+class JoinTrainerScreen extends StatefulWidget {
+  /// Injectable for tests; defaults to the real repository.
+  final TrainerLicenceRepository? repository;
+
+  /// Runs after a successful join, to re-check entitlements before leaving.
+  /// Overridable so widget tests don't reach the network.
+  final Future<void> Function(BuildContext context)? onJoined;
+
+  const JoinTrainerScreen({super.key, this.repository, this.onJoined});
 
   @override
-  ConsumerState<JoinTrainerScreen> createState() => _JoinTrainerScreenState();
+  State<JoinTrainerScreen> createState() => _JoinTrainerScreenState();
 }
 
-class _JoinTrainerScreenState extends ConsumerState<JoinTrainerScreen> {
+class _JoinTrainerScreenState extends State<JoinTrainerScreen> {
+  late final TrainerLicenceRepository _repository;
   late TextEditingController _code;
   late FocusNode _focusNode;
   bool _isLoading = false;
   String? _fieldError;
   String? _serverError;
 
+  /// Invite codes are 12 hex characters (48 bits from a CSPRNG). Checking the
+  /// shape locally saves a round trip on an obvious typo.
+  static final _codePattern = RegExp(r'^[0-9A-F]{12}$');
+
   @override
   void initState() {
     super.initState();
+    _repository = widget.repository ?? TrainerLicenceRepository();
     _code = TextEditingController();
     _focusNode = FocusNode();
     _focusNode.addListener(_validateCode);
@@ -34,9 +56,11 @@ class _JoinTrainerScreenState extends ConsumerState<JoinTrainerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+
     return Scaffold(
       appBar: AppBar(
-        title: Text('Join a Trainer'),
+        title: const Text('Join a Trainer'),
         titleTextStyle: const TextStyle(
           fontFamily: 'Montserrat',
           fontWeight: FontWeight.bold,
@@ -49,34 +73,96 @@ class _JoinTrainerScreenState extends ConsumerState<JoinTrainerScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            SizedBox(height: 24),
+            const SizedBox(height: 24),
+            Text(
+              'Enter the code your trainer gave you.',
+              style: TextStyle(
+                fontFamily: 'Exo 2',
+                fontSize: 14,
+                color: colors.onSurface.withValues(alpha: 0.7),
+              ),
+            ),
+            const SizedBox(height: 16),
             TextField(
               controller: _code,
               focusNode: _focusNode,
+              autocorrect: false,
+              enableSuggestions: false,
+              textCapitalization: TextCapitalization.characters,
+              maxLength: 12,
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp('[0-9a-fA-F]')),
+                _UpperCaseFormatter(),
+              ],
+              style: const TextStyle(
+                fontFamily: 'Montserrat',
+                fontWeight: FontWeight.w700,
+                fontSize: 20,
+                letterSpacing: 3,
+              ),
               decoration: InputDecoration(
                 labelText: 'Trainer Code',
+                hintText: 'A3F2B891C7E4',
                 errorText: _fieldError,
               ),
+              onSubmitted: (_) => _submit(),
             ),
             if (_serverError != null) ...[
-              SizedBox(height: 8),
-              Text(
-                _serverError!,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              const SizedBox(height: 8),
+              Semantics(
+                container: true,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.error_outline,
+                      size: 18,
+                      color: ForgeColors.statusBad,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _serverError!,
+                        style: TextStyle(
+                          fontFamily: 'Exo 2',
+                          fontSize: 13,
+                          color: colors.error,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
-            SizedBox(height: 24),
+            const SizedBox(height: 24),
             SizedBox(
               height: 48,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFF6B3E),
+                  backgroundColor: ForgeColors.forgeOrange,
                 ),
                 onPressed: _isLoading ? null : _submit,
-                child:
-                    _isLoading
-                        ? CircularProgressIndicator()
-                        : Text('Join Trainer'),
+                child: _isLoading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text('Join Trainer'),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Your trainer will be able to see your workouts, weight and '
+              'nutrition. If their plan includes Pro, you get it while you are '
+              'on their roster.',
+              style: TextStyle(
+                fontFamily: 'Exo 2',
+                fontSize: 12,
+                color: colors.onSurface.withValues(alpha: 0.7),
               ),
             ),
           ],
@@ -85,9 +171,93 @@ class _JoinTrainerScreenState extends ConsumerState<JoinTrainerScreen> {
     );
   }
 
+  /// Validates on blur as well as on submit, per CLAUDE.md — an error that only
+  /// appears after tapping the button wastes a round of attention.
   void _validateCode() {
-    if (!_focusNode.hasFocus) {}
+    if (_focusNode.hasFocus) return;
+    final error = _codeError();
+    if (error != _fieldError) setState(() => _fieldError = error);
   }
 
-  _submit() {}
+  String? _codeError() {
+    final value = _code.text.trim().toUpperCase();
+    if (value.isEmpty) return 'Enter the 12-character code from your trainer.';
+    if (!_codePattern.hasMatch(value)) {
+      return 'Codes are 12 characters, digits and letters A–F.';
+    }
+    return null;
+  }
+
+  Future<void> _submit() async {
+    final error = _codeError();
+    if (error != null) {
+      setState(() {
+        _fieldError = error;
+        _serverError = null;
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _fieldError = null;
+      _serverError = null;
+    });
+
+    try {
+      await _repository.joinTrainer(_code.text.trim().toUpperCase());
+
+      // Re-check access before leaving: joining a paying trainer grants Pro,
+      // and the app behind this screen has to know that immediately or the
+      // trainee sees a paywall on a feature they now have.
+      if (!mounted) return;
+      await (widget.onJoined ?? _refreshAccess)(context);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("You're connected to your trainer.")),
+      );
+      // maybePop: this screen can be the root route (reached straight from a
+      // trainee's empty state), and popping the last route asserts.
+      await Navigator.of(context).maybePop(true);
+    } on InviteException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        // A bad code is a field problem; anything about the *trainer's* plan
+        // isn't the trainee's input being wrong, so it reads as a notice
+        // rather than a validation error.
+        final isFieldProblem = e.failure == InviteFailure.invalidCode ||
+            e.failure == InviteFailure.expiredCode ||
+            e.failure == InviteFailure.selfInvite;
+        _fieldError = isFieldProblem ? e.message : null;
+        _serverError = isFieldProblem ? null : e.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _serverError = 'Something went wrong. Try again.');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _refreshAccess(BuildContext context) async {
+    final access = context.read<AccessProvider>();
+    try {
+      final token = await SecureTokenStorage.getToken();
+      if (token == null) return;
+      await access.refresh(serverBaseUrl: serverUrlDefault, bearerToken: token);
+    } catch (_) {
+      // The relationship was created regardless; the next launch re-checks.
+    }
+  }
+}
+
+class _UpperCaseFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    return newValue.copyWith(text: newValue.text.toUpperCase());
+  }
 }

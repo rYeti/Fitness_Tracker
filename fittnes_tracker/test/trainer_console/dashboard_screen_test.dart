@@ -4,15 +4,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_console_models.dart';
+import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_licence.dart';
+import 'package:ForgeForm/feature/trainer_console/presentation/providers/trainer_licence_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/view/trainer_dashboard_screen.dart';
 
 import 'fakes.dart';
+import 'licence_fakes.dart';
 
 Future<void> _pump(
   WidgetTester tester,
   FakeTrainerConsoleRepository repository, {
   Size size = const Size(1400, 1000),
   ValueChanged<TrainerRosterEntry>? onClientSelected,
+  // The Dashboard reads a licence for its seat chip and invite action. Always
+  // injected, or the widget would build a real repository and hit the network.
+  TrainerLicence? plan,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1.0;
@@ -22,6 +28,11 @@ Future<void> _pump(
     MaterialApp(
       home: TrainerDashboardScreen(
         repository: repository,
+        licenceProvider: TrainerLicenceProvider(
+          repository: FakeTrainerLicenceRepository(
+            current: plan ?? licence(seatsUsed: 1, seatLimit: 10),
+          ),
+        ),
         onClientSelected: onClientSelected,
       ),
     ),
@@ -29,6 +40,8 @@ Future<void> _pump(
 }
 
 void main() {
+  group('seats', _seatTests);
+
   testWidgets('loading shows a skeleton', (tester) async {
     final gate = Completer<void>();
     await _pump(tester, FakeTrainerConsoleRepository(gate: gate));
@@ -168,5 +181,116 @@ void main() {
     // The dense table needs desktop width; below it the grid stands in.
     expect(find.text('CLIENT'), findsNothing);
     expect(find.text('Robert Meyer'), findsOneWidget);
+  });
+}
+
+/// Seat affordances on the Dashboard: how full the plan is, and whether a new
+/// client can be taken on.
+void _seatTests() {
+  testWidgets('shows the seat chip', (tester) async {
+    await _pump(
+      tester,
+      FakeTrainerConsoleRepository(),
+      plan: licence(tier: LicenceTier.pro, seatsUsed: 7, seatLimit: 30),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('7 / 30'), findsOneWidget);
+    expect(
+      find.bySemanticsLabel(
+        '7 of 30 client seats used. Pro plan. Open plan settings.',
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('offers the invite action when there is room', (tester) async {
+    await _pump(
+      tester,
+      FakeTrainerConsoleRepository(),
+      plan: licence(seatsUsed: 2, seatLimit: 10),
+    );
+    await tester.pumpAndSettle();
+
+    final button = tester.widget<OutlinedButton>(
+      find.widgetWithText(OutlinedButton, 'Invite'),
+    );
+    expect(button.onPressed, isNotNull);
+  });
+
+  testWidgets('disables the invite action at the limit, with a reason',
+      (tester) async {
+    await _pump(
+      tester,
+      FakeTrainerConsoleRepository(),
+      plan: licence(seatsUsed: 10, seatLimit: 10),
+    );
+    await tester.pumpAndSettle();
+
+    final button = tester.widget<OutlinedButton>(
+      find.widgetWithText(OutlinedButton, 'Invite'),
+    );
+    expect(button.onPressed, isNull);
+    // Both the header action and the empty-state action carry the reason.
+    expect(
+      find.byTooltip(
+        'All 10 seats are in use. Withdraw an invite or upgrade.',
+      ),
+      findsWidgets,
+    );
+  });
+
+  testWidgets('disables the invite action once the licence has lapsed',
+      (tester) async {
+    await _pump(
+      tester,
+      FakeTrainerConsoleRepository(),
+      plan: licence(
+        status: LicenceStatus.canceled,
+        graceEndsAt: DateTime.now().subtract(const Duration(days: 1)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final button = tester.widget<OutlinedButton>(
+      find.widgetWithText(OutlinedButton, 'Invite'),
+    );
+    expect(button.onPressed, isNull);
+  });
+
+  testWidgets('banners a lapsed licence', (tester) async {
+    await _pump(
+      tester,
+      FakeTrainerConsoleRepository(),
+      plan: licence(
+        status: LicenceStatus.canceled,
+        graceEndsAt: DateTime.now().subtract(const Duration(days: 1)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Your licence has lapsed'), findsOneWidget);
+  });
+
+  testWidgets('shows no banner on a healthy plan with room', (tester) async {
+    await _pump(
+      tester,
+      FakeTrainerConsoleRepository(),
+      plan: licence(seatsUsed: 1, seatLimit: 10),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('lapsed'), findsNothing);
+    expect(find.textContaining('seats on your'), findsNothing);
+  });
+
+  testWidgets('the empty roster points at the invite flow', (tester) async {
+    // "No clients yet" with no way to get one was the old state of this
+    // screen — the invite endpoint had no caller anywhere in the app.
+    await _pump(tester, FakeTrainerConsoleRepository());
+    await tester.pumpAndSettle();
+
+    expect(find.text('No clients yet'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Invite a client'), findsOneWidget);
   });
 }

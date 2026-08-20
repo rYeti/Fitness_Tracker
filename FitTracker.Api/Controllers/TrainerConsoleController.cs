@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using FitTracker.Api.DTOs;
+using FitTracker.Api.Filters;
 using FitTracker.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -83,6 +84,7 @@ public class TrainerConsoleController(ITrainerConsoleService service) : Controll
         return Ok(result);
     }
 
+    [ServiceFilter(typeof(RequireEntitledLicenceFilter))]
     [HttpPost("{clientId}/workout-plans")]
     public async Task<IActionResult> CreateClientWorkoutPlan(Guid clientId, [FromBody] WorkoutPlanRequestDto dto)
     {
@@ -93,6 +95,7 @@ public class TrainerConsoleController(ITrainerConsoleService service) : Controll
         return Ok(result);
     }
 
+    [ServiceFilter(typeof(RequireEntitledLicenceFilter))]
     [HttpPut("{clientId}/workout-plans/{planId}")]
     public async Task<IActionResult> UpdateClientWorkoutPlan(Guid clientId, Guid planId, [FromBody] WorkoutPlanRequestDto dto)
     {
