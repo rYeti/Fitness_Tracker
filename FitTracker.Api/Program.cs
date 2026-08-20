@@ -45,13 +45,54 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
+// Browser origins allowed to call the API. Native mobile/desktop clients don't
+// send an Origin header, so none of this applies to them — this exists for the
+// Flutter web build (the Trainer Console) and SignalR.
+//
+// SignalR's browser clients send credentials on the negotiate request, and
+// AllowCredentials cannot be combined with AllowAnyOrigin — ASP.NET Core throws
+// at runtime if you try — so allowed origins have to be listed explicitly.
+//
+// Trailing slashes are trimmed because WithOrigins matches the serialised
+// origin exactly: "https://app.example.com/" never matches a real request.
+var corsOrigins = (builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [])
+    .Where(origin => !string.IsNullOrWhiteSpace(origin))
+    .Select(origin => origin.Trim().TrimEnd('/'))
+    .Distinct(StringComparer.OrdinalIgnoreCase)
+    .ToArray();
+
+// Dev defaults live here rather than in appsettings.json on purpose:
+// configuration providers override arrays *per index*, so a committed
+// two-entry list plus a one-entry environment override would leave the
+// second localhost entry trusted in production.
+// `flutter run -d chrome` picks a random port unless you pass --web-port.
+if (corsOrigins.Length == 0 && builder.Environment.IsDevelopment())
+{
+    corsOrigins = ["http://localhost:5000", "http://127.0.0.1:5000"];
+}
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFlutter", policy =>
     {
-        policy.AllowAnyOrigin()
-              .AllowAnyMethod()
-              .AllowAnyHeader();
+        if (corsOrigins.Length > 0)
+        {
+            policy.WithOrigins(corsOrigins)
+                  .AllowAnyMethod()
+                  .AllowAnyHeader()
+                  .AllowCredentials();
+        }
+        else
+        {
+            // No origins configured. Rather than take the API down over a
+            // missing setting, fall back to the previous behaviour — which is
+            // legal only without credentials. Browser SignalR will fail until
+            // Cors:AllowedOrigins is set; everything else keeps working.
+            // The warning is logged at startup below.
+            policy.AllowAnyOrigin()
+                  .AllowAnyMethod()
+                  .AllowAnyHeader();
+        }
     });
 });
 
@@ -157,6 +198,22 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.Migrate();
+}
+
+// Surface the CORS posture at startup — a missing origins list is otherwise
+// invisible until a browser fails a preflight, which is a confusing place to
+// discover it.
+if (corsOrigins.Length > 0)
+{
+    app.Logger.LogInformation(
+        "CORS: credentialed requests allowed from {Origins}", string.Join(", ", corsOrigins));
+}
+else
+{
+    app.Logger.LogWarning(
+        "CORS: no Cors:AllowedOrigins configured — falling back to any-origin without credentials. " +
+        "SignalR browser clients will fail their negotiate request until origins are set. " +
+        "See docs/cors-and-signalr.md.");
 }
 
 // ── Middleware pipeline ──────────────────────────────────────

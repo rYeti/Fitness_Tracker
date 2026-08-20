@@ -91,7 +91,7 @@ The browser is the trainer's workstation, so **web is a supported target**, not 
 - Known web constraints:
   - **WASM compilation is unavailable** — `flutter_secure_storage_web` still uses legacy `dart:html`. Standard JS compilation is fine; don't add `--wasm` until that's resolved.
   - **`purchases_flutter` fetches its JS mapping from a CDN at runtime** and errors on web. Non-fatal (the app boots), but premium/paywall paths shouldn't be relied on in a browser.
-  - **CORS is currently `AllowAnyOrigin`**, which works because auth is Bearer-token, not cookies. Note that SignalR needs `AllowCredentials` with explicit origins — the chat feature will require changing this policy.
+  - **CORS is origin-explicit and credentialed**, driven by `Cors:AllowedOrigins` (production: the `WEB_ORIGIN` / `WEB_ORIGIN_ALT` repository variables). This is what SignalR requires — `AllowAnyOrigin` cannot be combined with `AllowCredentials`. With nothing configured it falls back to the old any-origin-without-credentials behaviour and logs a warning, so a missing setting degrades browser SignalR rather than taking the API down. See `docs/cors-and-signalr.md`.
 
 ## Desktop support
 The Trainer Console must run natively on desktop via Flutter's desktop targets, not just scale up from mobile:
