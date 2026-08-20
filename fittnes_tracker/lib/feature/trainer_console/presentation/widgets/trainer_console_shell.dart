@@ -163,6 +163,10 @@ class _SidebarItem extends StatelessWidget {
       child: Semantics(
         selected: selected,
         button: true,
+        // Explicit label: without it the icon and text announce as two loose
+        // nodes and the item has no accessible name of its own.
+        label: route.label,
+        excludeSemantics: true,
         child: Material(
           color: selected
               ? ForgeColors.forgeOrange.withValues(alpha: 0.14)
@@ -217,6 +221,11 @@ class _BottomNav extends StatelessWidget {
       selectedIndex: TrainerConsoleShell._routes.indexOf(currentRoute),
       onDestinationSelected: (index) =>
           onRouteSelected(TrainerConsoleShell._routes[index]),
+      // The default indicator derives from secondaryContainer, which with
+      // Forge Orange as `secondary` comes out solid orange — leaving the
+      // orange selected icon invisible on top of it. Use a tint instead so
+      // the filled orange glyph reads against it.
+      indicatorColor: ForgeColors.forgeOrange.withValues(alpha: 0.16),
       // Five destinations don't fit with labels always shown on narrow
       // phones; the selected one stays labelled.
       labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
