@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
-import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/feature/chat/data/chat_repository.dart';
 import 'package:ForgeForm/feature/chat/data/chat_signalr_client.dart';
 import 'package:ForgeForm/feature/chat/domain/models/conversation_summary.dart';
@@ -164,13 +163,6 @@ class ChatProvider extends ChangeNotifier {
     );
     _conversations = next;
   }
-
-  /// True while a message is on its way out — drives the dimmed bubble.
-  static bool isSending(ThreadMessage message) =>
-      message.status == ChatMessageStatus.pending;
-
-  static bool hasFailed(ThreadMessage message) =>
-      message.status == ChatMessageStatus.failed;
 
   @override
   void dispose() {
