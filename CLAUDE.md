@@ -5,7 +5,7 @@ ForgeForm is a Flutter fitness app with an ASP.NET Core backend (JWT/OAuth/RBAC 
 
 ## Stack
 - Backend: ASP.NET Core (C#), JWT/OAuth/RBAC, SignalR for real-time chat + notifications.
-- Client: Flutter, targeting mobile (iOS/Android) **and** desktop (Windows/macOS/Linux) from one codebase.
+- Client: Flutter, targeting mobile (iOS/Android), desktop (Windows/macOS/Linux) **and web** from one codebase. Web is how the Trainer Console is delivered — see "Web support" below.
 
 ## Key reference docs (read before implementing related features)
 - `trainer-console-spec.md` — full Trainer Console feature spec, phasing, and competitive positioning.
@@ -76,6 +76,17 @@ A single **active client** selection must live at the app-shell level and be sha
 
 ## Screens in scope
 Dashboard (roster + KPIs), Client Detail, Messages/Chat (SignalR-backed), Workout Builder (create/edit modes, templates, day tabs, per-set tables), Nutrition (macro tracking, calorie ring, 7-day trend).
+
+## Web support — the Trainer Console ships as a web app
+The browser is the trainer's workstation, so **web is a supported target**, not just mobile + desktop:
+- Entry points: on web a signed-in trainer lands directly in the console (`_WebLanding` in `main.dart`); on every other platform it's reached from Settings → Trainer Console. Both go through `TrainerConsoleGate`, which checks `AccessProvider.isTrainer`.
+- The gate is a **UX guard, not a security boundary** — every Trainer Console endpoint independently re-checks the caller against an Active TrainerClient relationship. Keep it that way; never let the client be the only thing standing between a user and someone else's data.
+- A trainer is also a ForgeForm user: leaving the console for the trainee app must stay possible without signing out (`onExitConsole`).
+- Build/CI: `.github/workflows/web.yml` builds and uploads the static bundle. No deploy step yet — the host hasn't been chosen. Whatever host is used must rewrite unknown paths to `/index.html`.
+- Known web constraints:
+  - **WASM compilation is unavailable** — `flutter_secure_storage_web` still uses legacy `dart:html`. Standard JS compilation is fine; don't add `--wasm` until that's resolved.
+  - **`purchases_flutter` fetches its JS mapping from a CDN at runtime** and errors on web. Non-fatal (the app boots), but premium/paywall paths shouldn't be relied on in a browser.
+  - **CORS is currently `AllowAnyOrigin`**, which works because auth is Bearer-token, not cookies. Note that SignalR needs `AllowCredentials` with explicit origins — the chat feature will require changing this policy.
 
 ## Desktop support
 The Trainer Console must run natively on desktop via Flutter's desktop targets, not just scale up from mobile:

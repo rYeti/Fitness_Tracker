@@ -1,0 +1,44 @@
+name: Flutter Web
+
+# The Trainer Console is served from this build, so a change that breaks the
+# web target breaks the trainer dashboard — not just a nice-to-have platform.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: fittnes_tracker
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      # Errors fail the build; the repo still carries pre-existing warnings and
+      # infos, so those don't. Tighten once they're cleared.
+      - run: flutter analyze --no-fatal-warnings --no-fatal-infos
+
+      - run: flutter test
+
+      - run: flutter build web --release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: trainer-console-web
+          path: fittnes_tracker/build/web
+          retention-days: 14
+
+      # Deploy step intentionally omitted: the host isn't chosen yet. The
+      # artifact above is a complete static bundle — point Netlify, Firebase
+      # Hosting, a GCS bucket, or Cloud Run at it. Whatever host is used must
+      # rewrite unknown paths to /index.html, or a refresh on a deep link 404s.

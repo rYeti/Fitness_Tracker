@@ -32,7 +32,7 @@ import 'feature/settings/settings_screen.dart';
 import 'feature/weight_tracking/presentation/view/weight_tracking_screen.dart';
 import 'feature/weight_tracking/presentation/view/weight_goal_screen.dart';
 import 'feature/food_tracking/presentation/view/meal_templates_screen.dart';
-import 'feature/trainer_console/presentation/view/trainer_dashboard_screen.dart';
+import 'feature/trainer_console/presentation/view/trainer_console_gate.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -325,7 +325,13 @@ class _MyAppState extends State<MyApp> {
           widget.showOnboarding
               ? const OnboardingScreen()
               : widget.hasToken
-              ? const HomeScreen()
+              // On web the browser is the trainer's workstation, so a signed-in
+              // trainer lands straight in the console. Everyone else — and
+              // every other platform — gets the trainee app, reaching the
+              // console from Settings instead.
+              ? (kIsWeb
+                  ? const _WebLanding()
+                  : const HomeScreen())
               : const LoginScreen(),
 
       onGenerateRoute: (settings) {
@@ -358,17 +364,43 @@ class _MyAppState extends State<MyApp> {
           return MaterialPageRoute(builder: (_) => const MealTemplatesScreen());
         }
 
-        // TODO: gate behind AccessProvider.isTrainer once there's a real
-        // nav entry point (e.g. a "Trainer Console" item in Settings for
-        // users where isTrainer is true) instead of a bare route.
+        // Pushed from Settings (trainers only) — the gate re-checks the role
+        // itself so a deep link can't bypass the entry point. No
+        // onExitConsole: this is a pushed route, so back already returns to
+        // the trainee app.
         if (settings.name == '/trainer-console') {
-          return MaterialPageRoute(
-            builder: (_) => const TrainerDashboardScreen(),
-          );
+          return MaterialPageRoute(builder: (_) => const TrainerConsoleGate());
         }
 
         return MaterialPageRoute(builder: (_) => const HomeScreen());
       },
+    );
+  }
+}
+
+/// Web entry point: trainers get the console, everyone else the trainee app.
+///
+/// Stateful only to hold the "I chose to look at my own training" flag — a
+/// trainer is also a ForgeForm user, so leaving the console has to be
+/// possible without signing out.
+class _WebLanding extends StatefulWidget {
+  const _WebLanding();
+
+  @override
+  State<_WebLanding> createState() => _WebLandingState();
+}
+
+class _WebLandingState extends State<_WebLanding> {
+  bool _showTraineeApp = false;
+
+  @override
+  Widget build(BuildContext context) {
+    if (_showTraineeApp) return const HomeScreen();
+    return TrainerConsoleGate(
+      // A client signing in on the web gets the normal app rather than a
+      // "trainer access only" wall.
+      fallback: const HomeScreen(),
+      onExitConsole: () => setState(() => _showTraineeApp = true),
     );
   }
 }

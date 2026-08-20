@@ -25,6 +25,21 @@ const _prefIsTrainer = 'access_is_trainer';
 /// trainer–client relationship. Any widget can read [hasPremiumAccess] to gate
 /// features — no knowledge of the source is needed.
 class AccessProvider extends ChangeNotifier {
+  AccessProvider();
+
+  /// Builds a provider in a known state, so role-gated UI can be tested
+  /// without RevenueCat or a live `api/TrainerClient/status`.
+  @visibleForTesting
+  AccessProvider.withState({
+    bool isPremium = false,
+    bool isTrainerClient = false,
+    bool isTrainer = false,
+    bool initialized = true,
+  }) : _isPremium = isPremium,
+       _isTrainerClient = isTrainerClient,
+       _isTrainer = isTrainer,
+       _initialized = initialized;
+
   bool _isPremium = false;
   bool _isTrainerClient = false;
   bool _isTrainer = false;

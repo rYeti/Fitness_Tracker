@@ -308,6 +308,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final isDark = themeProvider.themeMode == ThemeMode.dark;
     final localeProvider = Provider.of<LocaleProvider>(context);
     final hasPremium = context.watch<AccessProvider>().hasPremiumAccess;
+    final isTrainer = context.watch<AccessProvider>().isTrainer;
 
     if (!calorieGoalProvider.isLoaded) {
       return SafeArea(
@@ -391,6 +392,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                   ),
                 ),
+
+                // ── Trainer Console ───────────────────────────────────────
+                // Only trainers see this; the route's gate re-checks the role
+                // anyway, so this is discovery rather than enforcement.
+                if (isTrainer) ...[
+                  const SizedBox(height: 12),
+                  Card(
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(color: colorScheme.outlineVariant),
+                    ),
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: colorScheme.primaryContainer,
+                        child: Icon(
+                          Icons.groups_outlined,
+                          color: colorScheme.onPrimaryContainer,
+                        ),
+                      ),
+                      title: const Text('Trainer Console'),
+                      subtitle: const Text('Manage your clients'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () =>
+                          Navigator.pushNamed(context, '/trainer-console'),
+                    ),
+                  ),
+                ],
 
                 const SizedBox(height: 12),
 
