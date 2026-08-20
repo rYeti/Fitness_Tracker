@@ -13,13 +13,27 @@ public interface IChatService
     /// <param name="senderId">The user id of whoever actually sent this message (trainer or client).</param>
     /// <param name="messageId">The client-generated id used to dedupe retries/echoes of the same message.</param>
     /// <param name="message">The message body.</param>
+    /// <exception cref="InvalidOperationException">No Active relationship joins the pair.</exception>
     Task<ChatMessageDto> SendMessageAsync(Guid trainerId, Guid clientId, Guid senderId, Guid messageId, string message);
 
     /// <summary>
-    /// Retrieves chat history for a trainer-client pair, most recent first.
+    /// Retrieves chat history for a trainer-client pair, oldest first.
     /// </summary>
     /// <param name="trainerId">The trainer id that identifies the chat pair.</param>
     /// <param name="clientId">The client id that identifies the chat pair.</param>
-    /// <param name="range">The number of days of history to retrieve.</param>
+    /// <param name="range">How many of the most recent messages to return — a message count, not a number of days.</param>
     Task<List<ChatMessageDto>> GetChatHistoryAsync(Guid trainerId, Guid clientId, int range);
+
+    /// <summary>
+    /// Every Active thread this user is a party to, newest activity first, with
+    /// a preview of the last message and the caller's own unread count.
+    /// </summary>
+    /// <param name="userId">The signed-in user — trainer or client; the "other party" is whoever they are not.</param>
+    Task<List<ChatConversationDto>> GetConversationsAsync(Guid userId);
+
+    /// <summary>
+    /// Marks this caller's side of a thread as read up to now.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">No Active relationship joins the pair.</exception>
+    Task MarkReadAsync(Guid userId, Guid otherPartyId);
 }

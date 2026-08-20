@@ -13,9 +13,18 @@ public class ChatService(ITrainerClientRepository trainerClientRepo, IChatReposi
     /// <inheritdoc/>
     public async Task<ChatMessageDto> SendMessageAsync(Guid trainerId, Guid clientId, Guid senderId, Guid messageId, string message)
     {
+        // A ChatMessage carries no trainer/client ids of its own — it reaches the
+        // pair through TrainerClientId, a required foreign key. So the loose pair
+        // of Guids this method is handed has to be turned back into the
+        // relationship row before anything can be stored.
+        var relationship = await _trainerClientRepo.GetActiveRelationshipAsync(trainerId, clientId)
+            ?? throw new InvalidOperationException(
+                "No active trainer-client relationship exists for this pair.");
+
         var chatMessage = await _chatRepo.AddMessageAsync(new ChatMessage
         {
             Id = messageId,
+            TrainerClientId = relationship.Id,
             Body = message,
             SenderId = senderId,
         });
@@ -36,6 +45,25 @@ public class ChatService(ITrainerClientRepository trainerClientRepo, IChatReposi
         return chatHistoryDto;
     }
 
+    /// <inheritdoc/>
+    public Task<List<ChatConversationDto>> GetConversationsAsync(Guid userId) =>
+        _chatRepo.GetConversationsAsync(userId);
+
+    /// <inheritdoc/>
+    public async Task MarkReadAsync(Guid userId, Guid otherPartyId)
+    {
+        var marked = await _chatRepo.MarkReadAsync(userId, otherPartyId, DateTime.UtcNow);
+        if (!marked)
+        {
+            throw new InvalidOperationException(
+                "No active trainer-client relationship exists for this pair.");
+        }
+    }
+
+    // The stored message knows who sent it; the pair it belongs to is supplied by
+    // the caller, which already had to resolve it to get here. Both ids travel on
+    // every message because the client uses them to decide which side of the
+    // thread a bubble sits on — it has no user id of its own to compare against.
     private static ChatMessageDto ToDto(ChatMessage m, Guid trainerId, Guid clientId) => new()
     {
         Id = m.Id,

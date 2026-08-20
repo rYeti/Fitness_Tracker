@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Sqlite, not EntityFrameworkCore.InMemory, on purpose: the InMemory
+         provider ignores foreign-key constraints, so a test asserting that a
+         chat message is persisted would pass even while ChatMessage.TrainerClientId
+         is left unset. Sqlite enforces the constraint, which is what makes that
+         bug visible from a test. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.10" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FitTracker.Api\FitTracker.Api.csproj" />
+  </ItemGroup>
+
+</Project>
