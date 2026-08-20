@@ -9,6 +9,10 @@ public interface ITrainerConsoleService
 {
     Task<TrainerDashboardKpisDto> GetDashboardKpisAsync(Guid trainerId);
 
+    /// <summary>The trainer's active clients with the training stats the Dashboard
+    /// roster shows (program, adherence, last session).</summary>
+    Task<List<TrainerRosterEntryDto>> GetRosterAsync(Guid trainerId);
+
     Task<List<WeightTrackingResponseDto>?> GetClientWeightHistoryAsync(Guid trainerId, Guid clientId);
 
     Task<ClientWorkoutSummaryDto?> GetClientWorkoutSummaryAsync(Guid trainerId, Guid clientId);

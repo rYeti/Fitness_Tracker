@@ -7,7 +7,8 @@ import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_client_s
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_console_models.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/active_client_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/session_review_provider.dart';
-import 'package:ForgeForm/feature/trainer_console/presentation/widgets/client_avatar.dart';
+import 'package:ForgeForm/feature/trainer_console/presentation/widgets/client_switcher.dart';
+import 'package:ForgeForm/feature/trainer_console/presentation/widgets/console_widgets.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/status_badge.dart';
 
 /// "What did this client actually log" — session history list + detail
@@ -176,7 +177,7 @@ class _Header extends StatelessWidget {
         children: [
           Expanded(child: title),
           const SizedBox(width: 16),
-          const _ClientSwitcher(fullWidth: false),
+          const ClientSwitcher(fullWidth: false),
         ],
       );
     }
@@ -185,182 +186,13 @@ class _Header extends StatelessWidget {
       children: [
         title,
         const SizedBox(height: 12),
-        const _ClientSwitcher(fullWidth: true),
+        const ClientSwitcher(fullWidth: true),
       ],
     );
   }
 }
 
-/// Chip (desktop) or full-width button (mobile) that opens the roster and
-/// switches `ActiveClientProvider`'s selection.
-class _ClientSwitcher extends StatelessWidget {
-  final bool fullWidth;
-
-  const _ClientSwitcher({required this.fullWidth});
-
-  Future<void> _pick(BuildContext context, ActiveClientProvider provider) async {
-    final chosen = await showModalBottomSheet<String>(
-      context: context,
-      showDragHandle: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (sheetContext) => _ClientPickerSheet(
-        clients: provider.clients,
-        activeClientId: provider.activeClient?.clientId,
-      ),
-    );
-    if (chosen != null) provider.setActiveClient(chosen);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final provider = context.watch<ActiveClientProvider>();
-    final client = provider.activeClient;
-
-    if (client == null) return const SizedBox.shrink();
-
-    final content = Row(
-      mainAxisSize: fullWidth ? MainAxisSize.max : MainAxisSize.min,
-      children: [
-        ClientAvatar(
-          initials: client.initials,
-          clientId: client.clientId,
-          size: 28,
-        ),
-        const SizedBox(width: 8),
-        Flexible(
-          child: Text(
-            client.clientName,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontFamily: 'Exo 2',
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: colors.onSurface,
-            ),
-          ),
-        ),
-        const SizedBox(width: 4),
-        Icon(
-          Icons.expand_more_rounded,
-          size: 20,
-          color: colors.onSurface.withValues(alpha: 0.55),
-        ),
-      ],
-    );
-
-    return Semantics(
-      button: true,
-      label: 'Switch client. Currently ${client.clientName}',
-      child: Material(
-        color: colors.surface,
-        borderRadius: BorderRadius.circular(999),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(999),
-          onTap: () => _pick(context, provider),
-          child: Container(
-            // 44px min height per CLAUDE.md's tap-target rule.
-            constraints: const BoxConstraints(minHeight: 44),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(
-                color: colors.onSurface.withValues(alpha: 0.1),
-              ),
-            ),
-            child: content,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ClientPickerSheet extends StatelessWidget {
-  final List<TrainerClientSummary> clients;
-  final String? activeClientId;
-
-  const _ClientPickerSheet({
-    required this.clients,
-    required this.activeClientId,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
-            child: Text(
-              'SWITCH CLIENT',
-              style: TextStyle(
-                fontFamily: 'Exo 2',
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.2,
-                color: colors.onSurface.withValues(alpha: 0.55),
-              ),
-            ),
-          ),
-          Flexible(
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: clients.length,
-              itemBuilder: (context, index) {
-                final client = clients[index];
-                final selected = client.clientId == activeClientId;
-                return ListTile(
-                  leading: ClientAvatar(
-                    initials: client.initials,
-                    clientId: client.clientId,
-                    size: 40,
-                  ),
-                  title: Text(
-                    client.clientName,
-                    style: const TextStyle(
-                      fontFamily: 'Exo 2',
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14,
-                    ),
-                  ),
-                  subtitle: client.programLabel == null
-                      ? null
-                      : Text(
-                          client.programLabel!,
-                          style: const TextStyle(
-                            fontFamily: 'Exo 2',
-                            fontSize: 12,
-                          ),
-                        ),
-                  trailing: selected
-                      ? const Icon(
-                          Icons.check_rounded,
-                          color: ForgeColors.forgeOrange,
-                        )
-                      : null,
-                  selected: selected,
-                  onTap: () => Navigator.of(context).pop(client.clientId),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Body — routes between the four required states
-// ---------------------------------------------------------------------------
-
+/// Routes between the four required states, then the desktop/mobile layouts.
 class _Body extends StatelessWidget {
   final TrainerClientSummary? client;
   final ActiveClientProvider activeClient;
@@ -377,30 +209,30 @@ class _Body extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (activeClient.isLoading && activeClient.clients.isEmpty) {
-      return const _HistorySkeleton();
+      return const ConsoleSkeleton(semanticsLabel: 'Loading sessions');
     }
     if (activeClient.error != null) {
-      return _ErrorState(
+      return ConsoleErrorState(
         message: activeClient.error!,
         onRetry: activeClient.loadClients,
       );
     }
     if (client == null) {
-      return const _EmptyState(
+      return const ConsoleEmptyState(
         icon: Icons.group_outlined,
         title: 'No clients yet',
         message: 'Invite your first client to start reviewing their sessions.',
       );
     }
-    if (review.isLoading) return const _HistorySkeleton();
+    if (review.isLoading) return const ConsoleSkeleton(semanticsLabel: 'Loading sessions');
     if (review.error != null) {
-      return _ErrorState(
+      return ConsoleErrorState(
         message: review.error!,
         onRetry: () => review.load(client!.clientId),
       );
     }
     if (review.sessions.isEmpty) {
-      return _EmptyState(
+      return ConsoleEmptyState(
         icon: Icons.event_note_outlined,
         title: 'No sessions logged yet',
         message: '${client!.firstName} hasn’t recorded a workout yet.',
@@ -474,7 +306,7 @@ class _HistoryList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    return _Card(
+    return ConsoleCard(
       padding: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -702,7 +534,7 @@ class _SessionDetail extends StatelessWidget {
         _SessionHeroCard(session: session),
         const SizedBox(height: 14),
         if (session.isEmpty)
-          _EmptyState(
+          ConsoleEmptyState(
             icon: Icons.event_busy_outlined,
             title: 'No workout logged',
             message: '${client.firstName} didn’t record this session.',
@@ -730,7 +562,7 @@ class _SessionHeroCard extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     final status = _statusDisplay(session.status);
 
-    return _Card(
+    return ConsoleCard(
       radius: 16,
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -866,7 +698,7 @@ class _ExerciseCard extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     final prescribed = exercise.prescribed?.summary;
 
-    return _Card(
+    return ConsoleCard(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1152,169 +984,3 @@ class _StatChip extends StatelessWidget {
 
 /// Card chrome from the handoff: 12px radius (16 for hero), hairline border,
 /// soft shadow.
-class _Card extends StatelessWidget {
-  final Widget child;
-  final EdgeInsets padding;
-  final double radius;
-
-  const _Card({
-    required this.child,
-    this.padding = const EdgeInsets.all(16),
-    this.radius = 12,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Container(
-      padding: padding,
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: BorderRadius.circular(radius),
-        border: Border.all(color: colors.onSurface.withValues(alpha: 0.1)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: child,
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// States
-// ---------------------------------------------------------------------------
-
-/// Skeleton shaped like the real list, per CLAUDE.md — not a bare spinner.
-class _HistorySkeleton extends StatelessWidget {
-  const _HistorySkeleton();
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    Widget bar(double width, double height) => Container(
-      width: width,
-      height: height,
-      decoration: BoxDecoration(
-        color: colors.onSurface.withValues(alpha: 0.07),
-        borderRadius: BorderRadius.circular(6),
-      ),
-    );
-
-    return Semantics(
-      label: 'Loading sessions',
-      child: ListView.builder(
-        itemCount: 5,
-        itemBuilder: (context, index) => Padding(
-          padding: const EdgeInsets.only(bottom: 11),
-          child: _Card(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                bar(140, 14),
-                const SizedBox(height: 8),
-                bar(90, 11),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ErrorState extends StatelessWidget {
-  final String message;
-  final VoidCallback onRetry;
-
-  const _ErrorState({required this.message, required this.onRetry});
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.error_outline_rounded,
-            size: 38,
-            color: colors.onSurface.withValues(alpha: 0.55),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontFamily: 'Exo 2',
-              fontSize: 13,
-              color: colors.onSurface.withValues(alpha: 0.65),
-            ),
-          ),
-          const SizedBox(height: 16),
-          OutlinedButton.icon(
-            onPressed: onRetry,
-            icon: const Icon(Icons.refresh_rounded, size: 18),
-            label: const Text('Retry'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _EmptyState extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String message;
-  final bool inCard;
-
-  const _EmptyState({
-    required this.icon,
-    required this.title,
-    required this.message,
-    this.inCard = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final content = Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 38, color: colors.onSurface.withValues(alpha: 0.55)),
-        const SizedBox(height: 10),
-        Text(
-          title,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontFamily: 'Montserrat',
-            fontWeight: FontWeight.w700,
-            fontSize: 15,
-            color: colors.onSurface,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          message,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontFamily: 'Exo 2',
-            fontSize: 12.5,
-            color: colors.onSurface.withValues(alpha: 0.65),
-          ),
-        ),
-      ],
-    );
-
-    if (!inCard) return Center(child: content);
-    return _Card(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 44),
-      child: Center(child: content),
-    );
-  }
-}

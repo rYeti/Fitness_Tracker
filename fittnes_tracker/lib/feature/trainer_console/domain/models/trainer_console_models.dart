@@ -7,6 +7,10 @@ class TrainerDashboardKpis {
   final int activeClientCount;
   final double avgAdherencePercent;
   final int sessionsThisWeek;
+
+  /// Always 0 today — TrainerConsoleService computes the other three but never
+  /// assigns this one. Don't surface an "Alerts" tile until it's populated;
+  /// a permanent zero reads as "nothing is wrong", which isn't known.
   final int alertCount;
 
   const TrainerDashboardKpis({
@@ -17,7 +21,52 @@ class TrainerDashboardKpis {
   });
 
   factory TrainerDashboardKpis.fromJson(Map<String, dynamic> json) {
-    throw UnimplementedError();
+    return TrainerDashboardKpis(
+      activeClientCount: json['activeClientCount'] as int? ?? 0,
+      avgAdherencePercent:
+          (json['avgAdherencePercent'] as num?)?.toDouble() ?? 0,
+      sessionsThisWeek: json['sessionsThisWeek'] as int? ?? 0,
+      alertCount: json['alertCount'] as int? ?? 0,
+    );
+  }
+}
+
+/// One Dashboard roster row — the relationship plus its training stats.
+class TrainerRosterEntry {
+  final String clientId;
+  final String clientName;
+  final String? programLabel;
+
+  /// 0-100, or null when nothing was scheduled in the window. Null is "no
+  /// data", which the UI must not render as 0%.
+  final double? adherencePercent;
+  final DateTime? lastSessionDate;
+
+  const TrainerRosterEntry({
+    required this.clientId,
+    required this.clientName,
+    this.programLabel,
+    this.adherencePercent,
+    this.lastSessionDate,
+  });
+
+  factory TrainerRosterEntry.fromJson(Map<String, dynamic> json) {
+    final last = json['lastSessionDate'] as String?;
+    return TrainerRosterEntry(
+      clientId: json['clientId'] as String,
+      clientName: json['clientName'] as String? ?? '',
+      programLabel: json['programLabel'] as String?,
+      adherencePercent: (json['adherencePercent'] as num?)?.toDouble(),
+      lastSessionDate: last == null ? null : DateTime.parse(last),
+    );
+  }
+
+  String get initials {
+    final parts =
+        clientName.split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+    if (parts.isEmpty) return '?';
+    if (parts.length == 1) return parts.first[0].toUpperCase();
+    return (parts.first[0] + parts.last[0]).toUpperCase();
   }
 }
 
@@ -31,6 +80,20 @@ class AttendanceWeek {
     required this.plannedSessions,
     required this.completedSessions,
   });
+
+  factory AttendanceWeek.fromJson(Map<String, dynamic> json) {
+    return AttendanceWeek(
+      weekStart: DateTime.parse(json['weekStart'] as String),
+      plannedSessions: json['plannedSessions'] as int? ?? 0,
+      completedSessions: json['completedSessions'] as int? ?? 0,
+    );
+  }
+
+  /// 0.0-1.0, clamped: a client can log more sessions than were scheduled,
+  /// which would otherwise overflow a progress bar.
+  double get ratio => plannedSessions <= 0
+      ? 0
+      : (completedSessions / plannedSessions).clamp(0.0, 1.0);
 }
 
 class StrengthProgression {
@@ -45,19 +108,67 @@ class StrengthProgression {
     required this.bestWeight,
     required this.deltaFromPrevious,
   });
+
+  /// Note the wire field is `currentWeight` (StrengthProgressionDto); the Dart
+  /// side has always called it bestWeight.
+  factory StrengthProgression.fromJson(Map<String, dynamic> json) {
+    return StrengthProgression(
+      exerciseId: json['exerciseId'] as String,
+      exerciseName: json['exerciseName'] as String? ?? '',
+      bestWeight: (json['currentWeight'] as num?)?.toDouble() ?? 0,
+      deltaFromPrevious: (json['deltaFromPrevious'] as num?)?.toDouble() ?? 0,
+    );
+  }
+}
+
+class WorkoutPlanSummary {
+  final String id;
+  final String name;
+  final String? description;
+  final bool isActive;
+  final DateTime startDate;
+
+  const WorkoutPlanSummary({
+    required this.id,
+    required this.name,
+    this.description,
+    required this.isActive,
+    required this.startDate,
+  });
+
+  factory WorkoutPlanSummary.fromJson(Map<String, dynamic> json) {
+    return WorkoutPlanSummary(
+      id: json['id'] as String,
+      name: json['name'] as String? ?? '',
+      description: json['description'] as String?,
+      isActive: json['isActive'] as bool? ?? false,
+      startDate: DateTime.parse(json['startDate'] as String),
+    );
+  }
 }
 
 class ClientWorkoutSummary {
+  final WorkoutPlanSummary? currentPlan;
   final List<AttendanceWeek> attendance;
   final List<StrengthProgression> strengthProgression;
 
   const ClientWorkoutSummary({
+    this.currentPlan,
     required this.attendance,
     required this.strengthProgression,
   });
 
   factory ClientWorkoutSummary.fromJson(Map<String, dynamic> json) {
-    throw UnimplementedError();
+    final plan = json['currentPlan'] as Map<String, dynamic>?;
+    return ClientWorkoutSummary(
+      currentPlan: plan == null ? null : WorkoutPlanSummary.fromJson(plan),
+      attendance: ((json['attendance'] as List?) ?? const [])
+          .map((a) => AttendanceWeek.fromJson(a as Map<String, dynamic>))
+          .toList(),
+      strengthProgression: ((json['strengthProgression'] as List?) ?? const [])
+          .map((s) => StrengthProgression.fromJson(s as Map<String, dynamic>))
+          .toList(),
+    );
   }
 }
 
@@ -83,23 +194,122 @@ class DailyCalorieTotal {
     required this.totalCalories,
     required this.goal,
   });
+
+  factory DailyCalorieTotal.fromJson(Map<String, dynamic> json) {
+    return DailyCalorieTotal(
+      date: DateTime.parse(json['date'] as String),
+      totalCalories: json['totalCalories'] as int? ?? 0,
+      goal: json['goal'] as int? ?? 0,
+    );
+  }
+
+  bool get isOverBudget => goal > 0 && totalCalories > goal;
+}
+
+/// Protein/carbs/fat in grams.
+class MacroTotals {
+  final int protein;
+  final int carbs;
+  final int fat;
+
+  const MacroTotals({this.protein = 0, this.carbs = 0, this.fat = 0});
+
+  factory MacroTotals.fromJson(Map<String, dynamic> json) {
+    return MacroTotals(
+      protein: json['protein'] as int? ?? 0,
+      carbs: json['carbs'] as int? ?? 0,
+      fat: json['fat'] as int? ?? 0,
+    );
+  }
+
+  int get totalGrams => protein + carbs + fat;
+}
+
+/// One meal the client logged, already totalled server-side.
+class LoggedMeal {
+  final String mealId;
+  final String category;
+  final List<String> foodNames;
+  final int calories;
+  final MacroTotals macros;
+
+  const LoggedMeal({
+    required this.mealId,
+    required this.category,
+    required this.foodNames,
+    required this.calories,
+    required this.macros,
+  });
+
+  factory LoggedMeal.fromJson(Map<String, dynamic> json) {
+    final macros = json['macros'] as Map<String, dynamic>?;
+    return LoggedMeal(
+      mealId: json['mealId'] as String,
+      category: json['category'] as String? ?? '',
+      foodNames: ((json['foodNames'] as List?) ?? const []).cast<String>(),
+      calories: json['calories'] as int? ?? 0,
+      macros: macros == null ? const MacroTotals() : MacroTotals.fromJson(macros),
+    );
+  }
 }
 
 class ClientNutritionSummary {
   final DateTime date;
   final int calorieGoal;
+  final int totalCalories;
+  final MacroTotals macros;
+  final List<LoggedMeal> loggedMeals;
+
+  /// Oldest-first, so it renders left-to-right as a bar chart.
   final List<DailyCalorieTotal> sevenDayTrend;
-  // TODO: today's meals list (breakfast/lunch/snack/dinner + kcal) — mirrors
-  // MealResponseDto once that's needed here.
 
   const ClientNutritionSummary({
     required this.date,
     required this.calorieGoal,
+    required this.totalCalories,
+    required this.macros,
+    required this.loggedMeals,
     required this.sevenDayTrend,
   });
 
   factory ClientNutritionSummary.fromJson(Map<String, dynamic> json) {
-    throw UnimplementedError();
+    final macros = json['macros'] as Map<String, dynamic>?;
+    return ClientNutritionSummary(
+      date: DateTime.parse(json['date'] as String),
+      calorieGoal: json['calorieGoal'] as int? ?? 0,
+      totalCalories: json['totalCalories'] as int? ?? 0,
+      macros: macros == null ? const MacroTotals() : MacroTotals.fromJson(macros),
+      loggedMeals: ((json['loggedMeals'] as List?) ?? const [])
+          .map((m) => LoggedMeal.fromJson(m as Map<String, dynamic>))
+          .toList(),
+      sevenDayTrend: ((json['sevenDayTrend'] as List?) ?? const [])
+          .map((d) => DailyCalorieTotal.fromJson(d as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+
+  /// Negative when over budget — the ring shows "over by" instead of
+  /// "remaining" in that case.
+  int get remaining => calorieGoal - totalCalories;
+}
+
+class ClientWeightEntry {
+  final DateTime date;
+  final double weight;
+  final String? note;
+
+  const ClientWeightEntry({
+    required this.date,
+    required this.weight,
+    this.note,
+  });
+
+  factory ClientWeightEntry.fromJson(Map<String, dynamic> json) {
+    return ClientWeightEntry(
+      date: DateTime.parse(json['date'] as String),
+      weight: (json['weight'] as num?)?.toDouble() ?? 0,
+      note: json['note'] as String?,
+    );
   }
 }
 
@@ -309,6 +519,12 @@ class WorkoutPlanTemplateSummary {
   });
 
   factory WorkoutPlanTemplateSummary.fromJson(Map<String, dynamic> json) {
-    throw UnimplementedError();
+    return WorkoutPlanTemplateSummary(
+      id: json['id'] as String,
+      name: json['name'] as String? ?? '',
+      description: json['description'] as String? ?? '',
+      icon: json['icon'] as String? ?? '',
+      daysPerWeek: json['daysPerWeek'] as int? ?? 0,
+    );
   }
 }

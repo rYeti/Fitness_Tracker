@@ -1,14 +1,34 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:ForgeForm/core/design_tokens.dart';
+import 'package:ForgeForm/feature/trainer_console/data/trainer_console_repository.dart';
+import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_console_models.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/client_detail_provider.dart';
+import 'package:ForgeForm/feature/trainer_console/presentation/widgets/client_avatar.dart';
+import 'package:ForgeForm/feature/trainer_console/presentation/widgets/console_widgets.dart';
+import 'package:ForgeForm/feature/trainer_console/presentation/widgets/macro_summary.dart';
+import 'package:ForgeForm/feature/trainer_console/presentation/widgets/stat_tile.dart';
 
-/// Deep dive on one client: quick stats, weight chart, strength progression,
-/// attendance, nutrition-this-week, current program, and a day-switchable
-/// workout history (see plan: "workout-history" endpoint).
+/// Deep dive on one client: adherence, weight trend, attendance, strength
+/// progression, and today's macros.
+///
+/// Takes an explicit [clientId] rather than reading ActiveClientProvider —
+/// this screen is reached by tapping a specific roster row, and shouldn't
+/// change under the trainer if they switch the active client elsewhere.
 class ClientDetailScreen extends StatefulWidget {
   final String clientId;
+  final String clientName;
 
-  const ClientDetailScreen({super.key, required this.clientId});
+  /// Injection seam for tests.
+  final TrainerConsoleRepository? repository;
+
+  const ClientDetailScreen({
+    super.key,
+    required this.clientId,
+    required this.clientName,
+    this.repository,
+  });
 
   @override
   State<ClientDetailScreen> createState() => _ClientDetailScreenState();
@@ -20,7 +40,10 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _provider = ClientDetailProvider(clientId: widget.clientId);
+    _provider = ClientDetailProvider(
+      clientId: widget.clientId,
+      repository: widget.repository,
+    );
     _provider.load();
   }
 
@@ -30,35 +53,580 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
     super.dispose();
   }
 
+  String get _initials {
+    final parts = widget.clientName
+        .split(RegExp(r'\s+'))
+        .where((p) => p.isNotEmpty)
+        .toList();
+    if (parts.isEmpty) return '?';
+    if (parts.length == 1) return parts.first[0].toUpperCase();
+    return (parts.first[0] + parts.last[0]).toUpperCase();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+
     return ChangeNotifierProvider<ClientDetailProvider>.value(
       value: _provider,
-      child: Scaffold(
-        appBar: AppBar(title: const Text('Client Detail')),
-        body: Consumer<ClientDetailProvider>(
-          builder: (context, provider, _) {
-            if (provider.isLoading) {
-              // TODO: skeleton matching header + stat tiles + charts layout.
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (provider.error != null) {
-              return Center(
-                child: TextButton(
-                  onPressed: provider.load,
-                  child: const Text('Retry'),
+      child: Consumer<ClientDetailProvider>(
+        builder: (context, provider, _) {
+          final isDesktop = MediaQuery.of(context).size.width > 1024;
+
+          return Scaffold(
+            backgroundColor: colors.surfaceContainerLowest,
+            appBar: AppBar(
+              title: Row(
+                children: [
+                  ClientAvatar(
+                    initials: _initials,
+                    clientId: widget.clientId,
+                    size: 32,
+                  ),
+                  const SizedBox(width: 10),
+                  Flexible(
+                    child: Text(
+                      widget.clientName,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontFamily: 'Montserrat',
+                        fontWeight: FontWeight.w700,
+                        fontSize: 17,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            body: SafeArea(
+              child: Padding(
+                padding: EdgeInsets.all(isDesktop ? 32 : 16),
+                child: _Body(provider: provider, isDesktop: isDesktop),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _Body extends StatelessWidget {
+  final ClientDetailProvider provider;
+  final bool isDesktop;
+
+  const _Body({required this.provider, required this.isDesktop});
+
+  @override
+  Widget build(BuildContext context) {
+    if (provider.isLoading) {
+      return const ConsoleSkeleton(semanticsLabel: 'Loading client details');
+    }
+    if (provider.error != null) {
+      return ConsoleErrorState(message: provider.error!, onRetry: provider.load);
+    }
+
+    final summary = provider.workoutSummary;
+    final cards = <Widget>[
+      _StatsRow(provider: provider),
+      if (summary?.currentPlan != null) _PlanCard(plan: summary!.currentPlan!),
+      _WeightCard(history: provider.weightHistory, delta: provider.weightDelta),
+      _AttendanceCard(weeks: summary?.attendance ?? const []),
+      _StrengthCard(progression: summary?.strengthProgression ?? const []),
+      if (provider.nutrition != null) _MacrosCard(nutrition: provider.nutrition!),
+    ];
+
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final card in cards) ...[
+            card,
+            if (card != cards.last) const SizedBox(height: 14),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _StatsRow extends StatelessWidget {
+  final ClientDetailProvider provider;
+
+  const _StatsRow({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    final adherence = provider.overallAdherence;
+    final delta = provider.weightDelta;
+    final latest = provider.weightHistory.isEmpty
+        ? null
+        : provider.weightHistory.last.weight;
+
+    final tiles = <Widget>[
+      StatTile(
+        icon: Icons.trending_up_rounded,
+        accentColor: ForgeColors.statusOk,
+        value: adherence == null ? '—' : '${adherence.round()}%',
+        label: 'Adherence',
+      ),
+      StatTile(
+        icon: Icons.monitor_weight_outlined,
+        accentColor: ForgeColors.carbsColor,
+        value: latest == null ? '—' : '${_trim(latest)} kg',
+        label: 'Current weight',
+      ),
+      StatTile(
+        icon: delta != null && delta < 0
+            ? Icons.south_rounded
+            : Icons.north_rounded,
+        accentColor: ForgeColors.forgeOrange,
+        value: delta == null ? '—' : '${delta > 0 ? '+' : ''}${_trim(delta)} kg',
+        label: 'Change',
+      ),
+    ];
+
+    return Row(
+      children: [
+        for (final tile in tiles) ...[
+          Expanded(child: ConsoleCard(child: tile)),
+          if (tile != tiles.last) const SizedBox(width: 12),
+        ],
+      ],
+    );
+  }
+
+  static String _trim(double value) => value == value.roundToDouble()
+      ? value.round().toString()
+      : value.toStringAsFixed(1);
+}
+
+class _PlanCard extends StatelessWidget {
+  final WorkoutPlanSummary plan;
+
+  const _PlanCard({required this.plan});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return ConsoleCard(
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: ForgeColors.forgeOrange.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(
+              Icons.assignment_outlined,
+              size: 20,
+              color: ForgeColors.forgeOrange,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  plan.name,
+                  style: TextStyle(
+                    fontFamily: 'Exo 2',
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                    color: colors.onSurface,
+                  ),
                 ),
-              );
-            }
-            // TODO: header (back arrow, ClientAvatar, name, StatusBadge), 4
-            // StatTiles, weight LineChart (mirror weight_chart.dart), strength
-            // progression bars, attendance bars, MacroSummary + nutrition
-            // bars, current-program card, and a day-switcher (prev/next +
-            // date picker, mirroring food_tracking_screen.dart) over the
-            // workout-history section.
-            return const SizedBox.shrink();
-          },
+                Text(
+                  'Started ${DateFormat('d MMM yyyy').format(plan.startDate)}',
+                  style: TextStyle(
+                    fontFamily: 'Exo 2',
+                    fontSize: 11.5,
+                    color: colors.onSurface.withValues(alpha: 0.55),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Weight trend as a simple polyline. Deliberately not fl_chart: this is a
+/// glanceable sparkline in a summary card, not an interactive chart.
+class _WeightCard extends StatelessWidget {
+  final List<ClientWeightEntry> history;
+  final double? delta;
+
+  const _WeightCard({required this.history, required this.delta});
+
+  @override
+  Widget build(BuildContext context) {
+    if (history.length < 2) {
+      return const ConsoleEmptyState(
+        icon: Icons.show_chart_rounded,
+        title: 'Not enough weight data',
+        message: 'Two or more logged weigh-ins are needed to show a trend.',
+        inCard: true,
+      );
+    }
+
+    return ConsoleCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ConsoleSectionTitle(
+            title: 'Weight trend',
+            trailing: Text(
+              '${history.length} entries',
+              style: TextStyle(
+                fontFamily: 'Exo 2',
+                fontSize: 11.5,
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withValues(alpha: 0.55),
+              ),
+            ),
+          ),
+          SizedBox(
+            height: 120,
+            child: Semantics(
+              label: 'Weight from ${history.first.weight} to '
+                  '${history.last.weight} kilograms',
+              child: CustomPaint(
+                painter: _SparklinePainter(
+                  values: history.map((e) => e.weight).toList(),
+                  color: ForgeColors.forgeOrange,
+                ),
+                child: const SizedBox.expand(),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _AxisLabel(DateFormat('d MMM').format(history.first.date)),
+              _AxisLabel(DateFormat('d MMM').format(history.last.date)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AxisLabel extends StatelessWidget {
+  final String text;
+
+  const _AxisLabel(this.text);
+
+  @override
+  Widget build(BuildContext context) => Text(
+    text,
+    style: TextStyle(
+      fontFamily: 'Exo 2',
+      fontSize: 10.5,
+      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55),
+    ),
+  );
+}
+
+class _SparklinePainter extends CustomPainter {
+  final List<double> values;
+  final Color color;
+
+  _SparklinePainter({required this.values, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (values.length < 2) return;
+
+    final min = values.reduce((a, b) => a < b ? a : b);
+    final max = values.reduce((a, b) => a > b ? a : b);
+    // A flat series would divide by zero; pin it to the middle instead.
+    final range = (max - min).abs() < 0.001 ? 1.0 : max - min;
+
+    final points = <Offset>[
+      for (var i = 0; i < values.length; i++)
+        Offset(
+          size.width * (i / (values.length - 1)),
+          size.height - ((values[i] - min) / range) * size.height,
         ),
+    ];
+
+    final line = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..color = color;
+
+    final path = Path()..moveTo(points.first.dx, points.first.dy);
+    for (final point in points.skip(1)) {
+      path.lineTo(point.dx, point.dy);
+    }
+    canvas.drawPath(path, line);
+
+    // Fade under the line so the direction reads at a glance.
+    final fill = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [color.withValues(alpha: 0.22), color.withValues(alpha: 0)],
+      ).createShader(Offset.zero & size);
+    final area = Path.from(path)
+      ..lineTo(points.last.dx, size.height)
+      ..lineTo(points.first.dx, size.height)
+      ..close();
+    canvas.drawPath(area, fill);
+  }
+
+  @override
+  bool shouldRepaint(_SparklinePainter old) =>
+      old.values != values || old.color != color;
+}
+
+class _AttendanceCard extends StatelessWidget {
+  final List<AttendanceWeek> weeks;
+
+  const _AttendanceCard({required this.weeks});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+
+    if (weeks.isEmpty) {
+      return const ConsoleEmptyState(
+        icon: Icons.calendar_month_outlined,
+        title: 'No attendance data',
+        message: 'Attendance appears once sessions are scheduled.',
+        inCard: true,
+      );
+    }
+
+    // The endpoint returns newest-first; a calendar reads oldest-to-newest.
+    final ordered = [...weeks]
+      ..sort((a, b) => a.weekStart.compareTo(b.weekStart));
+
+    return ConsoleCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const ConsoleSectionTitle(title: 'Attendance by week'),
+          SizedBox(
+            height: 110,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                for (final week in ordered)
+                  Expanded(
+                    child: Semantics(
+                      label:
+                          'Week of ${DateFormat('d MMM').format(week.weekStart)}: '
+                          '${week.completedSessions} of ${week.plannedSessions} sessions',
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 3),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            Expanded(
+                              child: LayoutBuilder(
+                                builder: (context, constraints) => Align(
+                                  alignment: Alignment.bottomCenter,
+                                  child: Container(
+                                    height: week.plannedSessions == 0
+                                        ? 2
+                                        : (constraints.maxHeight * week.ratio)
+                                              .clamp(2.0, constraints.maxHeight),
+                                    decoration: BoxDecoration(
+                                      color: week.plannedSessions == 0
+                                          ? colors.onSurface.withValues(
+                                              alpha: 0.12,
+                                            )
+                                          : ForgeColors.forgeOrange.withValues(
+                                              alpha: 0.35 + week.ratio * 0.65,
+                                            ),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              DateFormat('d/M').format(week.weekStart),
+                              style: TextStyle(
+                                fontFamily: 'Exo 2',
+                                fontSize: 8.5,
+                                color: colors.onSurface.withValues(alpha: 0.5),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StrengthCard extends StatelessWidget {
+  final List<StrengthProgression> progression;
+
+  const _StrengthCard({required this.progression});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+
+    if (progression.isEmpty) {
+      return const ConsoleEmptyState(
+        icon: Icons.fitness_center_outlined,
+        title: 'No strength data',
+        message: 'Progression appears once completed sets are logged.',
+        inCard: true,
+      );
+    }
+
+    // Biggest movers first — that's what a trainer scans for.
+    final ordered = [...progression]
+      ..sort((a, b) => b.deltaFromPrevious.abs().compareTo(
+            a.deltaFromPrevious.abs(),
+          ));
+
+    return ConsoleCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const ConsoleSectionTitle(title: 'Strength progression'),
+          for (final item in ordered.take(6))
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      item.exerciseName.isEmpty ? 'Exercise' : item.exerciseName,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: 'Exo 2',
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: colors.onSurface,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    '${_trim(item.bestWeight)} kg',
+                    style: TextStyle(
+                      fontFamily: 'Montserrat',
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      color: colors.onSurface,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  _DeltaChip(delta: item.deltaFromPrevious),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  static String _trim(double value) => value == value.roundToDouble()
+      ? value.round().toString()
+      : value.toStringAsFixed(1);
+}
+
+class _DeltaChip extends StatelessWidget {
+  final double delta;
+
+  const _DeltaChip({required this.delta});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final flat = delta.abs() < 0.001;
+    final color = flat
+        ? colors.onSurface.withValues(alpha: 0.45)
+        : delta > 0
+        ? ForgeColors.statusOk
+        : ForgeColors.statusBad;
+
+    return SizedBox(
+      width: 62,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          Icon(
+            flat
+                ? Icons.remove_rounded
+                : delta > 0
+                ? Icons.arrow_upward_rounded
+                : Icons.arrow_downward_rounded,
+            size: 13,
+            color: color,
+          ),
+          const SizedBox(width: 2),
+          Text(
+            flat ? '—' : delta.abs().toStringAsFixed(1),
+            style: TextStyle(
+              fontFamily: 'Exo 2',
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MacrosCard extends StatelessWidget {
+  final ClientNutritionSummary nutrition;
+
+  const _MacrosCard({required this.nutrition});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return ConsoleCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ConsoleSectionTitle(
+            title: 'Today’s macros',
+            trailing: Text(
+              '${nutrition.totalCalories} / ${nutrition.calorieGoal} kcal',
+              style: TextStyle(
+                fontFamily: 'Exo 2',
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                color: colors.onSurface.withValues(alpha: 0.65),
+              ),
+            ),
+          ),
+          MacroSummary(
+            protein: nutrition.macros.protein,
+            carbs: nutrition.macros.carbs,
+            fat: nutrition.macros.fat,
+            calorieGoal: nutrition.calorieGoal,
+          ),
+        ],
       ),
     );
   }
