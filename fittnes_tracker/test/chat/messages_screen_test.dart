@@ -208,7 +208,11 @@ void main() {
       );
 
       unawaited(chat.sendMessage(otherParty, 'great set today'));
-      await tester.pump();
+      // pumpAndSettle rather than a single pump: the outbox write is async, so
+      // whether the optimistic rebuild has landed after exactly one frame is a
+      // race. The send itself stays held, so this settles with the bubble
+      // still pending, which is the state under test.
+      await tester.pumpAndSettle();
 
       expect(find.text('great set today'), findsOneWidget);
       expect(find.byTooltip('Sending'), findsOneWidget);

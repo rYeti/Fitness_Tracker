@@ -106,7 +106,7 @@ void main() {
     expect(find.textContaining('Daily intake'), findsOneWidget);
   });
 
-  testWidgets('messages discloses that it is not wired up', (tester) async {
+  testWidgets('messages opens the real chat screen', (tester) async {
     await _pump(
       tester,
       FakeTrainerConsoleRepository(
@@ -120,7 +120,10 @@ void main() {
     await tester.tap(find.text('Messages').first);
     await tester.pumpAndSettle();
 
-    expect(find.text('Messaging isn’t wired up yet'), findsOneWidget);
+    // Messages used to be a placeholder saying it wasn't wired up. It is now
+    // the real screen, so what this pins is that the tab opens it and that an
+    // empty inbox says so rather than rendering nothing.
+    expect(find.text('No conversations yet'), findsOneWidget);
   });
 
   testWidgets('the active client is shared across sections', (tester) async {
