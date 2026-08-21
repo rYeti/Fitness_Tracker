@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:ForgeForm/feature/trainer_console/data/trainer_console_repository.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_console_models.dart';
+import 'package:ForgeForm/feature/trainer_console/domain/models/console_error.dart';
 
 /// Drives the Workout Builder's create/edit state machine (see design handoff).
 /// Deliberately separate from the trainee-facing `WorkoutProvider`
@@ -24,7 +25,7 @@ class WorkoutBuilderProvider extends ChangeNotifier {
   WorkoutPlanSummary? _currentPlan;
   bool _isLoading = false;
   bool _isSaving = false;
-  String? _error;
+  ConsoleError? _error;
   String? _loadedClientId;
 
   bool get isNew => _isNew;
@@ -32,7 +33,7 @@ class WorkoutBuilderProvider extends ChangeNotifier {
   WorkoutPlanSummary? get currentPlan => _currentPlan;
   bool get isLoading => _isLoading;
   bool get isSaving => _isSaving;
-  String? get error => _error;
+  ConsoleError? get error => _error;
   String? get loadedClientId => _loadedClientId;
 
   /// Loads the templates for the create flow plus the client's active plan for
@@ -57,7 +58,7 @@ class WorkoutBuilderProvider extends ChangeNotifier {
       _isNew = _currentPlan == null;
     } catch (_) {
       if (_loadedClientId != clientId) return;
-      _error = 'Could not load workout plans.';
+      _error = ConsoleError.loadWorkoutPlans;
     } finally {
       if (_loadedClientId == clientId) {
         _isLoading = false;
@@ -87,7 +88,7 @@ class WorkoutBuilderProvider extends ChangeNotifier {
     String? description,
   }) async {
     if (name.trim().isEmpty) {
-      _error = 'Give the plan a name.';
+      _error = ConsoleError.planNameRequired;
       notifyListeners();
       return false;
     }
@@ -106,7 +107,7 @@ class WorkoutBuilderProvider extends ChangeNotifier {
       _isNew = false;
       return true;
     } catch (_) {
-      _error = 'Could not create the plan.';
+      _error = ConsoleError.createPlan;
       return false;
     } finally {
       _isSaving = false;

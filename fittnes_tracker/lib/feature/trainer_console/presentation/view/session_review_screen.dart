@@ -10,6 +10,8 @@ import 'package:ForgeForm/feature/trainer_console/presentation/providers/session
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/client_switcher.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/console_widgets.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/status_badge.dart';
+import 'package:ForgeForm/feature/trainer_console/domain/models/console_error.dart';
+import 'package:ForgeForm/l10n/app_localizations.dart';
 
 /// "What did this client actually log" — session history list + detail
 /// (prescribed vs. logged per exercise/set), backed by
@@ -127,28 +129,35 @@ class _Header extends StatelessWidget {
     required this.isDesktop,
   });
 
-  String _subtitle() {
-    if (client == null) return 'Select a client to review their sessions';
+  String _subtitle(AppLocalizations l10n) {
+    if (client == null) return l10n.sessionReviewSubtitleNoClient;
     final sessions = review.sessions;
-    if (sessions.isEmpty) return 'What ${client!.firstName} actually logged';
+    if (sessions.isEmpty) {
+      return l10n.sessionReviewSubtitle(client!.firstName);
+    }
     final done =
         sessions.where((s) => s.status == SessionStatus.done).length;
     final missed =
         sessions.where((s) => s.status == SessionStatus.missed).length;
-    return 'What ${client!.firstName} actually logged — '
-        '${sessions.length} sessions, $done completed, $missed missed';
+    return l10n.sessionReviewSubtitleWithCounts(
+      client!.firstName,
+      sessions.length,
+      done,
+      missed,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
 
     final title = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          'Session Review',
+          l10n.consoleNavSessionReview,
           style: TextStyle(
             fontFamily: 'Montserrat',
             fontWeight: FontWeight.w800,
@@ -159,7 +168,7 @@ class _Header extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          _subtitle(),
+          _subtitle(l10n),
           style: TextStyle(
             fontFamily: 'Exo 2',
             fontSize: 13,
@@ -208,34 +217,37 @@ class _Body extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     if (activeClient.isLoading && activeClient.clients.isEmpty) {
-      return const ConsoleSkeleton(semanticsLabel: 'Loading sessions');
+      return ConsoleSkeleton(semanticsLabel: l10n.sessionsLoading);
     }
     if (activeClient.error != null) {
       return ConsoleErrorState(
-        message: activeClient.error!,
+        message: activeClient.error!.localizedMessage(l10n),
         onRetry: activeClient.loadClients,
       );
     }
     if (client == null) {
-      return const ConsoleEmptyState(
+      return ConsoleEmptyState(
         icon: Icons.group_outlined,
-        title: 'No clients yet',
-        message: 'Invite your first client to start reviewing their sessions.',
+        title: l10n.rosterEmptyTitle,
+        message: l10n.sessionReviewNoClientsBody,
       );
     }
-    if (review.isLoading) return const ConsoleSkeleton(semanticsLabel: 'Loading sessions');
+    if (review.isLoading) {
+      return ConsoleSkeleton(semanticsLabel: l10n.sessionsLoading);
+    }
     if (review.error != null) {
       return ConsoleErrorState(
-        message: review.error!,
+        message: review.error!.localizedMessage(l10n),
         onRetry: () => review.load(client!.clientId),
       );
     }
     if (review.sessions.isEmpty) {
       return ConsoleEmptyState(
         icon: Icons.event_note_outlined,
-        title: 'No sessions logged yet',
-        message: '${client!.firstName} hasn’t recorded a workout yet.',
+        title: l10n.noSessionsLoggedTitle,
+        message: l10n.noSessionsLoggedBody(client!.firstName),
       );
     }
 
@@ -280,20 +292,26 @@ class _Body extends StatelessWidget {
 
 /// Maps a session status onto the shared StatusBadge tones — a completed
 /// session is "ok", a partial one "warn", a missed one "bad".
-({StatusTone tone, String label}) _statusDisplay(SessionStatus status) =>
-    switch (status) {
-      SessionStatus.done => (tone: StatusTone.ok, label: 'Completed'),
-      SessionStatus.partial => (tone: StatusTone.warn, label: 'Partial'),
-      SessionStatus.missed => (tone: StatusTone.bad, label: 'Missed'),
-    };
+({StatusTone tone, String label}) _statusDisplay(
+  SessionStatus status,
+  AppLocalizations l10n,
+) => switch (status) {
+  SessionStatus.done => (tone: StatusTone.ok, label: l10n.sessionCompleted),
+  SessionStatus.partial => (tone: StatusTone.warn, label: l10n.sessionPartial),
+  SessionStatus.missed => (tone: StatusTone.bad, label: l10n.sessionMissed),
+};
 
-String _formatDate(DateTime date) {
+String _formatDate(BuildContext context, DateTime date) {
+  final l10n = AppLocalizations.of(context)!;
   final today = DateTime.now();
   final day = DateTime(date.year, date.month, date.day);
   final diff = DateTime(today.year, today.month, today.day).difference(day).inDays;
-  final formatted = DateFormat('EEE d MMM').format(date);
-  if (diff == 0) return 'Today · $formatted';
-  if (diff == 1) return 'Yesterday · $formatted';
+  final formatted = DateFormat(
+    'EEE d MMM',
+    Localizations.localeOf(context).toString(),
+  ).format(date);
+  if (diff == 0) return l10n.dateToday(formatted);
+  if (diff == 1) return l10n.dateYesterday(formatted);
   return formatted;
 }
 
@@ -315,7 +333,7 @@ class _HistoryList extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 11),
             child: Text(
-              'Session history',
+              AppLocalizations.of(context)!.sessionHistory,
               style: TextStyle(
                 fontFamily: 'Montserrat',
                 fontWeight: FontWeight.w700,
@@ -364,7 +382,8 @@ class _HistoryRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final status = _statusDisplay(session.status);
+    final l10n = AppLocalizations.of(context)!;
+    final status = _statusDisplay(session.status, l10n);
 
     return Semantics(
       selected: selected,
@@ -399,7 +418,7 @@ class _HistoryRow extends StatelessWidget {
                           Flexible(
                             child: Text(
                               session.workoutName.isEmpty
-                                  ? 'Workout'
+                                  ? l10n.workout
                                   : session.workoutName,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
@@ -418,7 +437,7 @@ class _HistoryRow extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        _formatDate(session.date),
+                        _formatDate(context, session.date),
                         style: TextStyle(
                           fontFamily: 'Exo 2',
                           fontSize: 11.5,
@@ -448,6 +467,7 @@ class _SessionTabs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
     return SizedBox(
       height: 56,
       child: ListView.separated(
@@ -484,7 +504,7 @@ class _SessionTabs extends StatelessWidget {
                     children: [
                       Text(
                         session.workoutName.isEmpty
-                            ? 'Workout'
+                            ? l10n.workout
                             : session.workoutName,
                         style: TextStyle(
                           fontFamily: 'Exo 2',
@@ -495,7 +515,10 @@ class _SessionTabs extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        DateFormat('EEE d MMM').format(session.date),
+                        DateFormat(
+                          'EEE d MMM',
+                          Localizations.localeOf(context).toString(),
+                        ).format(session.date),
                         style: TextStyle(
                           fontFamily: 'Exo 2',
                           fontSize: 9.5,
@@ -536,8 +559,10 @@ class _SessionDetail extends StatelessWidget {
         if (session.isEmpty)
           ConsoleEmptyState(
             icon: Icons.event_busy_outlined,
-            title: 'No workout logged',
-            message: '${client.firstName} didn’t record this session.',
+            title: AppLocalizations.of(context)!.noWorkoutLoggedTitle,
+            message: AppLocalizations.of(
+              context,
+            )!.noWorkoutLoggedBody(client.firstName),
             inCard: true,
           )
         else
@@ -560,7 +585,8 @@ class _SessionHeroCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final status = _statusDisplay(session.status);
+    final l10n = AppLocalizations.of(context)!;
+    final status = _statusDisplay(session.status, l10n);
 
     return ConsoleCard(
       radius: 16,
@@ -574,7 +600,9 @@ class _SessionHeroCard extends StatelessWidget {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Text(
-                session.workoutName.isEmpty ? 'Workout' : session.workoutName,
+                session.workoutName.isEmpty
+                    ? l10n.workout
+                    : session.workoutName,
                 style: TextStyle(
                   fontFamily: 'Montserrat',
                   fontWeight: FontWeight.w800,
@@ -583,12 +611,12 @@ class _SessionHeroCard extends StatelessWidget {
                 ),
               ),
               StatusBadge(tone: status.tone, label: status.label),
-              if (session.isPr) const _PrPill(label: 'NEW PR'),
+              if (session.isPr) _PrPill(label: l10n.newPr),
             ],
           ),
           const SizedBox(height: 5),
           Text(
-            _formatDate(session.date),
+            _formatDate(context, session.date),
             style: TextStyle(
               fontFamily: 'Exo 2',
               fontSize: 12.5,
@@ -605,14 +633,14 @@ class _SessionHeroCard extends StatelessWidget {
               // NOTE: no Duration tile — ScheduledWorkout has no start/end
               // timestamps. See trainer_console_models.dart.
               _StatChip(
-                value: _formatVolume(session.totalVolume),
-                label: 'Volume',
+                value: _formatVolume(session.totalVolume, context),
+                label: l10n.volume,
               ),
               _StatChip(
                 value: session.avgRpe == null
                     ? '—'
                     : session.avgRpe!.toStringAsFixed(1),
-                label: 'Avg RPE',
+                label: l10n.avgRpe,
                 accent: true,
               ),
             ],
@@ -626,9 +654,12 @@ class _SessionHeroCard extends StatelessWidget {
     );
   }
 
-  static String _formatVolume(double volume) {
+  static String _formatVolume(double volume, BuildContext context) {
     if (volume <= 0) return '—';
-    return '${NumberFormat.decimalPattern().format(volume.round())} kg';
+    // Locale-aware grouping: 12,500 kg for an English trainer, 12.500 kg for
+    // a German one.
+    final locale = Localizations.localeOf(context).toString();
+    return '${NumberFormat.decimalPattern(locale).format(volume.round())} kg';
   }
 }
 
@@ -660,7 +691,7 @@ class _ClientNote extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'CLIENT NOTE',
+                  AppLocalizations.of(context)!.clientNote,
                   style: TextStyle(
                     fontFamily: 'Exo 2',
                     fontSize: 10.5,
@@ -696,6 +727,7 @@ class _ExerciseCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
     final prescribed = exercise.prescribed?.summary;
 
     return ConsoleCard(
@@ -714,7 +746,7 @@ class _ExerciseCard extends StatelessWidget {
                         Flexible(
                           child: Text(
                             exercise.exerciseName.isEmpty
-                                ? 'Exercise'
+                                ? l10n.exercise
                                 : exercise.exerciseName,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -734,7 +766,7 @@ class _ExerciseCard extends StatelessWidget {
                     if (prescribed != null) ...[
                       const SizedBox(height: 2),
                       Text(
-                        'Prescribed $prescribed',
+                        l10n.prescribedSummary(prescribed),
                         style: TextStyle(
                           fontFamily: 'Exo 2',
                           fontSize: 11.5,
@@ -746,7 +778,7 @@ class _ExerciseCard extends StatelessWidget {
                 ),
               ),
               if (exercise.skipped)
-                const StatusBadge(tone: StatusTone.bad, label: 'Skipped'),
+                StatusBadge(tone: StatusTone.bad, label: l10n.sessionSkipped),
             ],
           ),
           if (exercise.sets.isNotEmpty) ...[
@@ -771,6 +803,7 @@ class _SetTableHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
     final style = TextStyle(
       fontFamily: 'Exo 2',
       fontSize: 10,
@@ -784,11 +817,11 @@ class _SetTableHeader extends StatelessWidget {
         children: [
           SizedBox(
             width: _setColumnFlex[0].toDouble(),
-            child: Text('SET', style: style),
+            child: Text(l10n.setColumn, style: style),
           ),
-          Expanded(child: Text('REPS', style: style)),
-          Expanded(child: Text('WEIGHT', style: style)),
-          Expanded(child: Text('RPE', style: style)),
+          Expanded(child: Text(l10n.repsColumn, style: style)),
+          Expanded(child: Text(l10n.weightColumn, style: style)),
+          Expanded(child: Text(l10n.rpeColumn, style: style)),
         ],
       ),
     );
@@ -803,6 +836,7 @@ class _SetRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
     final sunken = colors.onSurface.withValues(alpha: 0.05);
 
     // Under-target reps tint amber. Per the design chat's final round, there's
@@ -835,7 +869,7 @@ class _SetRow extends StatelessWidget {
     return Semantics(
       container: true,
       excludeSemantics: true,
-      label: _semanticsLabel(set, missedTarget),
+      label: _semanticsLabel(set, missedTarget, l10n),
       child: Padding(
         padding: const EdgeInsets.only(bottom: 6),
         child: Row(
@@ -879,13 +913,17 @@ class _SetRow extends StatelessWidget {
     );
   }
 
-  static String _semanticsLabel(SessionSetLog set, bool missedTarget) {
+  static String _semanticsLabel(
+    SessionSetLog set,
+    bool missedTarget,
+    AppLocalizations l10n,
+  ) {
     final parts = <String>[
-      'Set ${set.setNumber}',
-      if (set.reps != null) '${set.reps} reps',
-      _formatWeight(set) == 'BW' ? 'bodyweight' : _formatWeight(set),
-      if (set.rpe != null) 'RPE ${set.rpe}',
-      if (missedTarget) 'under target',
+      l10n.setNumber(set.setNumber),
+      if (set.reps != null) l10n.repsCount(set.reps!),
+      _formatWeight(set) == 'BW' ? l10n.bodyweight : _formatWeight(set),
+      if (set.rpe != null) l10n.rpeValue('${set.rpe}'),
+      if (missedTarget) l10n.underTarget,
     ];
     return parts.join(', ');
   }
@@ -907,9 +945,10 @@ class _SetRow extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _PrPill extends StatelessWidget {
-  final String label;
+  /// Null keeps the short "PR" badge; the hero card passes "NEW PR".
+  final String? label;
 
-  const _PrPill({this.label = 'PR'});
+  const _PrPill({this.label});
 
   @override
   Widget build(BuildContext context) {
@@ -920,7 +959,7 @@ class _PrPill extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
-        label,
+        label ?? AppLocalizations.of(context)!.pr,
         style: const TextStyle(
           fontFamily: 'Exo 2',
           fontSize: 9.5,

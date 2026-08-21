@@ -7,6 +7,7 @@ import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_licence.
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/trainer_licence_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/view/licence_screen.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/seat_meter.dart';
+import 'package:ForgeForm/l10n/app_localizations.dart';
 
 import 'licence_fakes.dart';
 
@@ -17,7 +18,11 @@ void main() {
   ) async {
     final provider = TrainerLicenceProvider(repository: repo);
     await tester.pumpWidget(
-      MaterialApp(home: LicenceScreen(provider: provider)),
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: LicenceScreen(provider: provider),
+      ),
     );
     return provider;
   }

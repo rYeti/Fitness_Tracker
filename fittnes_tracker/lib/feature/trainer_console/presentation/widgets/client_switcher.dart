@@ -4,6 +4,7 @@ import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_client_summary.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/active_client_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/client_avatar.dart';
+import 'package:ForgeForm/l10n/app_localizations.dart';
 
 /// The client-switcher chip shared by Session Review, Nutrition, and Workout
 /// Builder. Reads and writes the shared [ActiveClientProvider], so switching
@@ -45,7 +46,9 @@ class ClientSwitcher extends StatelessWidget {
 
     return Semantics(
       button: true,
-      label: 'Switch client. Currently ${client.clientName}',
+      label: AppLocalizations.of(context)!.switchClientSemantics(
+        client.clientName,
+      ),
       child: Material(
         color: colors.surface,
         borderRadius: BorderRadius.circular(fullWidth ? 12 : 999),
@@ -134,7 +137,7 @@ class _ClientPickerSheet extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
             child: Text(
-              'SWITCH CLIENT',
+              AppLocalizations.of(context)!.switchClientHeading,
               style: TextStyle(
                 fontFamily: 'Exo 2',
                 fontSize: 10,

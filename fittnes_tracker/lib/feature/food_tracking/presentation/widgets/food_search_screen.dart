@@ -397,7 +397,7 @@ class _FoodSearchScreenState extends State<FoodSearchScreen>
             padding: const EdgeInsets.all(8.0),
             child: ElevatedButton(
               onPressed: _performSearch,
-              child: const Text('Search Online'),
+              child: Text(AppLocalizations.of(context)!.searchOnline),
             ),
           ),
         Expanded(

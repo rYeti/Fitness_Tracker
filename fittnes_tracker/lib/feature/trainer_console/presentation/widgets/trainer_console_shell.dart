@@ -1,25 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:ForgeForm/core/design_tokens.dart';
+import 'package:ForgeForm/l10n/app_localizations.dart';
 
 enum TrainerConsoleRoute { dashboard, messages, builder, nutrition, sessionReview }
 
 /// Nav metadata in one place, so the sidebar and the bottom bar can't drift
 /// apart. `shortLabel` is what fits under a bottom-tab icon.
 extension TrainerConsoleRouteInfo on TrainerConsoleRoute {
-  String get label => switch (this) {
-    TrainerConsoleRoute.dashboard => 'Dashboard',
-    TrainerConsoleRoute.messages => 'Messages',
-    TrainerConsoleRoute.builder => 'Workout Builder',
-    TrainerConsoleRoute.nutrition => 'Nutrition',
-    TrainerConsoleRoute.sessionReview => 'Session Review',
+  String label(AppLocalizations l10n) => switch (this) {
+    TrainerConsoleRoute.dashboard => l10n.consoleNavDashboard,
+    TrainerConsoleRoute.messages => l10n.consoleNavMessages,
+    TrainerConsoleRoute.builder => l10n.consoleNavBuilder,
+    TrainerConsoleRoute.nutrition => l10n.consoleNavNutrition,
+    TrainerConsoleRoute.sessionReview => l10n.consoleNavSessionReview,
   };
 
-  String get shortLabel => switch (this) {
-    TrainerConsoleRoute.dashboard => 'Home',
-    TrainerConsoleRoute.messages => 'Chat',
-    TrainerConsoleRoute.builder => 'Workouts',
-    TrainerConsoleRoute.nutrition => 'Nutrition',
-    TrainerConsoleRoute.sessionReview => 'Review',
+  String shortLabel(AppLocalizations l10n) => switch (this) {
+    TrainerConsoleRoute.dashboard => l10n.consoleNavDashboardShort,
+    TrainerConsoleRoute.messages => l10n.consoleNavMessagesShort,
+    TrainerConsoleRoute.builder => l10n.consoleNavBuilderShort,
+    TrainerConsoleRoute.nutrition => l10n.consoleNavNutritionShort,
+    TrainerConsoleRoute.sessionReview => l10n.consoleNavSessionReviewShort,
   };
 
   /// Outlined by default, filled when active — per the handoff's icon rule.
@@ -110,6 +111,7 @@ class _ExitBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Material(
       color: ForgeColors.charcoal,
       child: SafeArea(
@@ -119,9 +121,9 @@ class _ExitBar extends StatelessWidget {
           child: Row(
             children: [
               const SizedBox(width: 12),
-              const Text(
-                'Trainer Console',
-                style: TextStyle(
+              Text(
+                l10n.trainerConsole,
+                style: const TextStyle(
                   fontFamily: 'Montserrat',
                   fontWeight: FontWeight.w700,
                   fontSize: 13,
@@ -132,7 +134,7 @@ class _ExitBar extends StatelessWidget {
               TextButton.icon(
                 onPressed: onExitConsole,
                 icon: const Icon(Icons.swap_horiz_rounded, size: 17),
-                label: const Text('My training'),
+                label: Text(l10n.consoleMyTraining),
                 style: TextButton.styleFrom(foregroundColor: Colors.white),
               ),
               const SizedBox(width: 4),
@@ -157,6 +159,7 @@ class _Sidebar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Container(
       width: 240,
       // Charcoal in both themes, per the handoff — the sidebar is brand
@@ -191,7 +194,7 @@ class _Sidebar extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Semantics(
                   button: true,
-                  label: 'Switch to my training',
+                  label: l10n.consoleSwitchToMyTraining,
                   excludeSemantics: true,
                   child: Material(
                     color: Colors.transparent,
@@ -212,7 +215,7 @@ class _Sidebar extends StatelessWidget {
                             const SizedBox(width: 13),
                             Expanded(
                               child: Text(
-                                'My training',
+                                l10n.consoleMyTraining,
                                 style: TextStyle(
                                   fontFamily: 'Exo 2',
                                   fontSize: 13.5,
@@ -231,7 +234,7 @@ class _Sidebar extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
               child: Text(
-                'Trainer Console',
+                l10n.trainerConsole,
                 style: TextStyle(
                   fontFamily: 'Exo 2',
                   fontSize: 11,
@@ -259,6 +262,7 @@ class _SidebarItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final color = selected ? ForgeColors.forgeOrange : Colors.white;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
@@ -267,7 +271,7 @@ class _SidebarItem extends StatelessWidget {
         button: true,
         // Explicit label: without it the icon and text announce as two loose
         // nodes and the item has no accessible name of its own.
-        label: route.label,
+        label: route.label(l10n),
         excludeSemantics: true,
         child: Material(
           color: selected
@@ -291,7 +295,7 @@ class _SidebarItem extends StatelessWidget {
                   const SizedBox(width: 13),
                   Expanded(
                     child: Text(
-                      route.label,
+                      route.label(l10n),
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontFamily: 'Exo 2',
@@ -319,6 +323,7 @@ class _BottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return NavigationBar(
       selectedIndex: TrainerConsoleShell._routes.indexOf(currentRoute),
       onDestinationSelected: (index) =>
@@ -339,8 +344,8 @@ class _BottomNav extends StatelessWidget {
               route.activeIcon,
               color: ForgeColors.forgeOrange,
             ),
-            label: route.shortLabel,
-            tooltip: route.label,
+            label: route.shortLabel(l10n),
+            tooltip: route.label(l10n),
           ),
       ],
     );

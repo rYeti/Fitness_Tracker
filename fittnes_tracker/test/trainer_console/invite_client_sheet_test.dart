@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_licence.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/trainer_licence_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/view/invite_client_sheet.dart';
+import 'package:ForgeForm/l10n/app_localizations.dart';
 
 import 'licence_fakes.dart';
 
@@ -20,6 +21,8 @@ void main() {
     await provider.load();
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: ChangeNotifierProvider<TrainerLicenceProvider>.value(
           value: provider,
           child: const Scaffold(body: InviteClientSheet()),

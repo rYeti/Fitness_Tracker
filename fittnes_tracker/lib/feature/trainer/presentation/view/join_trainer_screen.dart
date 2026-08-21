@@ -9,6 +9,7 @@ import 'package:ForgeForm/feature/auth/presentation/providers/auth_provider.dart
     show serverUrlDefault;
 import 'package:ForgeForm/feature/trainer_console/data/trainer_licence_repository.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_licence.dart';
+import 'package:ForgeForm/l10n/app_localizations.dart';
 
 /// Where a trainee redeems the code their trainer gave them.
 class JoinTrainerScreen extends StatefulWidget {
@@ -57,10 +58,11 @@ class _JoinTrainerScreenState extends State<JoinTrainerScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Join a Trainer'),
+        title: Text(l10n.joinTrainerTitle),
         titleTextStyle: const TextStyle(
           fontFamily: 'Montserrat',
           fontWeight: FontWeight.bold,
@@ -75,7 +77,7 @@ class _JoinTrainerScreenState extends State<JoinTrainerScreen> {
           children: [
             const SizedBox(height: 24),
             Text(
-              'Enter the code your trainer gave you.',
+              l10n.joinTrainerPrompt,
               style: TextStyle(
                 fontFamily: 'Exo 2',
                 fontSize: 14,
@@ -101,7 +103,7 @@ class _JoinTrainerScreenState extends State<JoinTrainerScreen> {
                 letterSpacing: 3,
               ),
               decoration: InputDecoration(
-                labelText: 'Trainer Code',
+                labelText: l10n.trainerCode,
                 hintText: 'A3F2B891C7E4',
                 errorText: _fieldError,
               ),
@@ -151,14 +153,12 @@ class _JoinTrainerScreenState extends State<JoinTrainerScreen> {
                           color: Colors.white,
                         ),
                       )
-                    : const Text('Join Trainer'),
+                    : Text(l10n.joinTrainerAction),
               ),
             ),
             const SizedBox(height: 16),
             Text(
-              'Your trainer will be able to see your workouts, weight and '
-              'nutrition. If their plan includes Pro, you get it while you are '
-              'on their roster.',
+              l10n.joinTrainerDisclosure,
               style: TextStyle(
                 fontFamily: 'Exo 2',
                 fontSize: 12,
@@ -175,21 +175,20 @@ class _JoinTrainerScreenState extends State<JoinTrainerScreen> {
   /// appears after tapping the button wastes a round of attention.
   void _validateCode() {
     if (_focusNode.hasFocus) return;
-    final error = _codeError();
+    final error = _codeError(AppLocalizations.of(context)!);
     if (error != _fieldError) setState(() => _fieldError = error);
   }
 
-  String? _codeError() {
+  String? _codeError(AppLocalizations l10n) {
     final value = _code.text.trim().toUpperCase();
-    if (value.isEmpty) return 'Enter the 12-character code from your trainer.';
-    if (!_codePattern.hasMatch(value)) {
-      return 'Codes are 12 characters, digits and letters A–F.';
-    }
+    if (value.isEmpty) return l10n.joinTrainerCodeMissing;
+    if (!_codePattern.hasMatch(value)) return l10n.joinTrainerCodeMalformed;
     return null;
   }
 
   Future<void> _submit() async {
-    final error = _codeError();
+    final l10n = AppLocalizations.of(context)!;
+    final error = _codeError(l10n);
     if (error != null) {
       setState(() {
         _fieldError = error;
@@ -215,7 +214,7 @@ class _JoinTrainerScreenState extends State<JoinTrainerScreen> {
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("You're connected to your trainer.")),
+        SnackBar(content: Text(l10n.joinTrainerConnected)),
       );
       // maybePop: this screen can be the root route (reached straight from a
       // trainee's empty state), and popping the last route asserts.
@@ -229,12 +228,12 @@ class _JoinTrainerScreenState extends State<JoinTrainerScreen> {
         final isFieldProblem = e.failure == InviteFailure.invalidCode ||
             e.failure == InviteFailure.expiredCode ||
             e.failure == InviteFailure.selfInvite;
-        _fieldError = isFieldProblem ? e.message : null;
-        _serverError = isFieldProblem ? null : e.message;
+        _fieldError = isFieldProblem ? e.message(l10n) : null;
+        _serverError = isFieldProblem ? null : e.message(l10n);
       });
     } catch (_) {
       if (!mounted) return;
-      setState(() => _serverError = 'Something went wrong. Try again.');
+      setState(() => _serverError = l10n.somethingWentWrongRetry);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

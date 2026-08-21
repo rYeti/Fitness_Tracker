@@ -2339,4 +2339,860 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get chatUnavailableBody => 'Chat could not start on this device. Restart the app, and if it keeps happening let support know.';
+
+  @override
+  String get trainerConsole => 'Trainer Console';
+
+  @override
+  String get trainerConsoleSubtitle => 'Manage your clients';
+
+  @override
+  String get consoleNavDashboard => 'Dashboard';
+
+  @override
+  String get consoleNavMessages => 'Messages';
+
+  @override
+  String get consoleNavBuilder => 'Workout Builder';
+
+  @override
+  String get consoleNavNutrition => 'Nutrition';
+
+  @override
+  String get consoleNavSessionReview => 'Session Review';
+
+  @override
+  String get consoleNavDashboardShort => 'Home';
+
+  @override
+  String get consoleNavMessagesShort => 'Chat';
+
+  @override
+  String get consoleNavBuilderShort => 'Workouts';
+
+  @override
+  String get consoleNavNutritionShort => 'Nutrition';
+
+  @override
+  String get consoleNavSessionReviewShort => 'Review';
+
+  @override
+  String get consoleMyTraining => 'My training';
+
+  @override
+  String get consoleSwitchToMyTraining => 'Switch to my training';
+
+  @override
+  String get consoleLoading => 'Loading';
+
+  @override
+  String get trainerAccessOnly => 'Trainer access only';
+
+  @override
+  String get trainerAccessOnlyBody => 'This area is for trainers managing clients. If you should have access, ask your gym to enable it on your account.';
+
+  @override
+  String get dashboardLoading => 'Loading dashboard';
+
+  @override
+  String get clientsHeading => 'Clients';
+
+  @override
+  String get kpiActiveClients => 'Active clients';
+
+  @override
+  String get kpiAvgAdherence => 'Avg adherence';
+
+  @override
+  String get kpiSessionsThisWeek => 'Sessions this week';
+
+  @override
+  String get rosterEmptyTitle => 'No clients yet';
+
+  @override
+  String get rosterEmptyBody => 'Create an invite code and share it with your first client. They enter it under "Join a trainer".';
+
+  @override
+  String get rosterGridView => 'Grid view';
+
+  @override
+  String get rosterTableView => 'Table view';
+
+  @override
+  String get rosterColumnClient => 'CLIENT';
+
+  @override
+  String get rosterColumnProgram => 'PROGRAM';
+
+  @override
+  String get rosterColumnAdherence => 'ADHERENCE';
+
+  @override
+  String get rosterColumnLastSession => 'LAST SESSION';
+
+  @override
+  String get noActivePlan => 'No active plan';
+
+  @override
+  String get noSessionsYet => 'No sessions yet';
+
+  @override
+  String lastSessionOn(String date) {
+    return 'Last: $date';
+  }
+
+  @override
+  String get noData => 'No data';
+
+  @override
+  String get invite => 'Invite';
+
+  @override
+  String get inviteAClient => 'Invite a client';
+
+  @override
+  String get inviteSheetBody => 'Share the code with your client. They enter it under "Join a trainer" in their app.';
+
+  @override
+  String get createInviteCode => 'Create invite code';
+
+  @override
+  String get createNewInviteCode => 'Create a new invite code';
+
+  @override
+  String get copyCode => 'Copy code';
+
+  @override
+  String get inviteCodeCopied => 'Invite code copied';
+
+  @override
+  String inviteCodeSemantics(String code) {
+    return 'Invite code $code';
+  }
+
+  @override
+  String get inviteExpiresInSevenDays => 'Expires in 7 days.';
+
+  @override
+  String copyInviteCode(String code) {
+    return 'Copy $code';
+  }
+
+  @override
+  String withdrawInviteCode(String code) {
+    return 'Withdraw $code';
+  }
+
+  @override
+  String get outstandingInvites => 'Outstanding invites';
+
+  @override
+  String get outstandingInvitesBody => 'Each of these holds a seat until it is used or withdrawn.';
+
+  @override
+  String get inviteExpired => 'Expired';
+
+  @override
+  String get inviteExpiresToday => 'Expires today';
+
+  @override
+  String inviteExpiresInDays(num days) {
+    final intl.NumberFormat daysNumberFormat = intl.NumberFormat.decimalPattern(
+      localeName,
+    );
+    final String daysString = daysNumberFormat.format(days);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      days,
+      locale: localeName,
+      one: 'Expires in 1 day',
+      other: 'Expires in ${daysString} days',
+    );
+    return _temp0;
+  }
+
+  @override
+  String get withdrawInviteTitle => 'Withdraw this invite?';
+
+  @override
+  String withdrawInviteBody(String code) {
+    return '$code will stop working and its seat is freed. Anyone you already sent it to will need a new code.';
+  }
+
+  @override
+  String get keep => 'Keep';
+
+  @override
+  String get withdraw => 'Withdraw';
+
+  @override
+  String get inviteBlockedLapsed => 'Renew your licence to invite clients.';
+
+  @override
+  String inviteBlockedFull(int seats) {
+    return 'All $seats seats are in use. Withdraw an invite or upgrade.';
+  }
+
+  @override
+  String seatMeterUsage(int used, int limit) {
+    return '$used of $limit clients';
+  }
+
+  @override
+  String get seatMeterOverLimit => 'Over your plan. Existing clients keep working; you can\'t add more.';
+
+  @override
+  String get seatMeterFull => 'Plan full. Free a seat or upgrade to add more.';
+
+  @override
+  String seatMeterRemaining(int seats) {
+    return '$seats seats left';
+  }
+
+  @override
+  String seatMeterSemantics(String usage, String caption) {
+    return '$usage. $caption';
+  }
+
+  @override
+  String seatChipSemantics(int used, int limit, String tier) {
+    return '$used of $limit client seats used. $tier plan. Open plan settings.';
+  }
+
+  @override
+  String seatChipTooltip(String tier, int used, int limit) {
+    return '$tier — $used/$limit clients';
+  }
+
+  @override
+  String get licenceTierFree => 'Free';
+
+  @override
+  String get licenceTierSolo => 'Solo';
+
+  @override
+  String get licenceTierPro => 'Pro';
+
+  @override
+  String get licenceTierStudio => 'Studio';
+
+  @override
+  String get licenceStatusActive => 'Active';
+
+  @override
+  String get licenceStatusTrialing => 'Trial';
+
+  @override
+  String get licenceStatusPastDue => 'Payment failed';
+
+  @override
+  String get licenceStatusCanceled => 'Cancelled';
+
+  @override
+  String get licenceLoading => 'Loading your plan…';
+
+  @override
+  String get licenceLoadingLabel => 'Loading your plan';
+
+  @override
+  String get yourPlan => 'Your plan';
+
+  @override
+  String get yourPlanSubtitle => 'Seats, billing and invites';
+
+  @override
+  String get noPlanYet => 'No plan yet';
+
+  @override
+  String get noPlanYetBody => 'Set up a trainer plan to start taking on clients.';
+
+  @override
+  String get setUp => 'Set up';
+
+  @override
+  String get setUpTrainerConsole => 'Set up Trainer Console';
+
+  @override
+  String get setUpTrainerConsoleSubtitle => 'Coach up to 3 clients free';
+
+  @override
+  String get changePlan => 'Change plan';
+
+  @override
+  String planLadderFootnote(int seats) {
+    return 'Paid plans include ForgeForm Pro for you and every client on your roster. The free plan covers $seats clients without Pro.';
+  }
+
+  @override
+  String tierPlanTitle(String tier) {
+    return '$tier plan';
+  }
+
+  @override
+  String get proIncluded => 'Pro included for you and every client';
+
+  @override
+  String get proNotIncluded => 'Pro not included — upgrade to cover your clients';
+
+  @override
+  String get manageBilling => 'Manage billing';
+
+  @override
+  String statusLabel(String status) {
+    return 'Status: $status';
+  }
+
+  @override
+  String tierSeatsAndPro(int seats) {
+    return 'Up to $seats clients, Pro included';
+  }
+
+  @override
+  String get planCurrent => 'Current';
+
+  @override
+  String get licenceLapsedBanner => 'Your licence has lapsed. Your clients are still here, but you can\'t change their plans and they\'ve lost Pro.';
+
+  @override
+  String get licenceRenew => 'Renew';
+
+  @override
+  String licenceGraceBanner(String date) {
+    return 'Payment failed. Everything keeps working until $date — after that your clients lose Pro.';
+  }
+
+  @override
+  String get licenceFixPayment => 'Fix payment';
+
+  @override
+  String licenceOverLimitBanner(int used, int limit) {
+    return 'You have $used clients on a $limit-seat plan. Nobody is removed, but you can\'t add more.';
+  }
+
+  @override
+  String get licenceUpgrade => 'Upgrade';
+
+  @override
+  String licenceFullBanner(int limit, String tier) {
+    return 'All $limit seats on your $tier plan are in use.';
+  }
+
+  @override
+  String traineeProLapsingBanner(String date) {
+    return 'Pro through your trainer ends $date. Your data stays put — Pro features just lock.';
+  }
+
+  @override
+  String get traineeKeepPro => 'Keep Pro';
+
+  @override
+  String get inviteFailureSeatLimitReached => 'Your plan is full. Upgrade or free up a seat to invite another client.';
+
+  @override
+  String get inviteFailureLicenceLapsed => 'Your licence has lapsed. Renew it to take on new clients.';
+
+  @override
+  String get inviteFailureNotATrainer => 'Set up a trainer plan before inviting clients.';
+
+  @override
+  String get inviteFailureInvalidCode => 'That code doesn\'t match an invite. Check it and try again.';
+
+  @override
+  String get inviteFailureExpiredCode => 'That invite has expired. Ask your trainer for a new code.';
+
+  @override
+  String get inviteFailureSelfInvite => 'That\'s your own invite code.';
+
+  @override
+  String get inviteFailureTrainerAtSeatLimit => 'Your trainer\'s plan is full. Ask them to free up a seat.';
+
+  @override
+  String get inviteFailureTrainerNotEntitled => 'Your trainer\'s plan isn\'t active. Ask them to renew it.';
+
+  @override
+  String get inviteFailureNetwork => 'Couldn\'t reach ForgeForm. Check your connection and try again.';
+
+  @override
+  String get errorLoadRoster => 'Could not load your clients.';
+
+  @override
+  String get errorLoadDashboard => 'Could not load your dashboard.';
+
+  @override
+  String get errorLoadClientDetail => 'Could not load this client’s details.';
+
+  @override
+  String get errorLoadNutrition => 'Could not load this client’s nutrition.';
+
+  @override
+  String get errorLoadSessions => 'Could not load this client’s sessions.';
+
+  @override
+  String get errorLoadLicence => 'Could not load your plan.';
+
+  @override
+  String get errorLoadWorkoutPlans => 'Could not load workout plans.';
+
+  @override
+  String get errorPlanNameRequired => 'Give the plan a name.';
+
+  @override
+  String get errorCreatePlan => 'Could not create the plan.';
+
+  @override
+  String get errorCreateInvite => 'Could not create an invite. Try again.';
+
+  @override
+  String get errorWithdrawInvite => 'Could not withdraw that invite. Try again.';
+
+  @override
+  String get errorOpenCheckout => 'Could not open checkout. Try again.';
+
+  @override
+  String get errorOpenBilling => 'Could not open billing. Try again.';
+
+  @override
+  String get clientDetailLoading => 'Loading client details';
+
+  @override
+  String get adherence => 'Adherence';
+
+  @override
+  String get clientCurrentWeight => 'Current weight';
+
+  @override
+  String get change => 'Change';
+
+  @override
+  String planStartedOn(String date) {
+    return 'Started $date';
+  }
+
+  @override
+  String get weightTrend => 'Weight trend';
+
+  @override
+  String get weightTrendEmptyTitle => 'Not enough weight data';
+
+  @override
+  String get weightTrendEmptyBody => 'Two or more logged weigh-ins are needed to show a trend.';
+
+  @override
+  String entryCount(num count) {
+    final intl.NumberFormat countNumberFormat = intl.NumberFormat.decimalPattern(
+      localeName,
+    );
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      one: '1 entry',
+      other: '${countString} entries',
+    );
+    return _temp0;
+  }
+
+  @override
+  String weightTrendSemantics(String from, String to) {
+    return 'Weight from $from to $to kilograms';
+  }
+
+  @override
+  String get attendanceEmptyTitle => 'No attendance data';
+
+  @override
+  String get attendanceEmptyBody => 'Attendance appears once sessions are scheduled.';
+
+  @override
+  String get attendanceByWeek => 'Attendance by week';
+
+  @override
+  String attendanceWeekSemantics(String date, int completed, int planned) {
+    return 'Week of $date: $completed of $planned sessions';
+  }
+
+  @override
+  String get strengthEmptyTitle => 'No strength data';
+
+  @override
+  String get strengthEmptyBody => 'Progression appears once completed sets are logged.';
+
+  @override
+  String get strengthProgression => 'Strength progression';
+
+  @override
+  String get exercise => 'Exercise';
+
+  @override
+  String get todaysMacros => 'Today’s macros';
+
+  @override
+  String caloriesOfGoal(int eaten, int goal) {
+    return '$eaten / $goal kcal';
+  }
+
+  @override
+  String get macroSummaryNone => 'No macros logged';
+
+  @override
+  String macroSummarySemantics(String protein, String carbs, String fat) {
+    return 'Protein ${protein}g, carbs ${carbs}g, fat ${fat}g';
+  }
+
+  @override
+  String switchClientSemantics(String name) {
+    return 'Switch client. Currently $name';
+  }
+
+  @override
+  String get switchClientHeading => 'SWITCH CLIENT';
+
+  @override
+  String get conversationsLoading => 'Loading conversations';
+
+  @override
+  String get conversationsLoadError => 'Could not load your conversations.';
+
+  @override
+  String get conversationsEmpty => 'No conversations yet';
+
+  @override
+  String get conversationsEmptyBody => 'Once a client accepts your invite you can message them here.';
+
+  @override
+  String get backToConversations => 'Back to conversations';
+
+  @override
+  String get pickAConversation => 'Pick a conversation';
+
+  @override
+  String get pickAConversationBody => 'Choose a client on the left to see your messages.';
+
+  @override
+  String get messagesLoading => 'Loading messages';
+
+  @override
+  String get trainerThreadEmptyBody => 'Say hello — this is the start of your conversation.';
+
+  @override
+  String get clientStatsElsewhere => 'Client stats appear on the dashboard and client detail screens.';
+
+  @override
+  String get nutritionSubtitle => 'Daily intake and 7-day trend';
+
+  @override
+  String get nutritionSubtitleNoClient => 'Select a client to review their intake';
+
+  @override
+  String get previousDay => 'Previous day';
+
+  @override
+  String get nextDay => 'Next day';
+
+  @override
+  String get nutritionLoading => 'Loading nutrition';
+
+  @override
+  String get nutritionNoClientsBody => 'Invite your first client to monitor their nutrition.';
+
+  @override
+  String get nothingLogged => 'Nothing logged';
+
+  @override
+  String nothingLoggedBody(String name) {
+    return '$name didn’t log any meals on this day.';
+  }
+
+  @override
+  String get mealsLogged => 'Meals logged';
+
+  @override
+  String get meal => 'Meal';
+
+  @override
+  String get noTrendYet => 'No trend yet';
+
+  @override
+  String get noTrendYetBody => 'Once meals are logged, the 7-day trend appears here.';
+
+  @override
+  String get caloriesVsTarget => 'Calories vs. target';
+
+  @override
+  String get withinTarget => 'Within target';
+
+  @override
+  String get overTarget => 'Over target';
+
+  @override
+  String targetCalories(int goal) {
+    return 'Target $goal kcal';
+  }
+
+  @override
+  String trendBarSemantics(String day, int calories) {
+    return '$day: $calories kcal';
+  }
+
+  @override
+  String trendBarSemanticsOver(String day, int calories) {
+    return '$day: $calories kcal, over target';
+  }
+
+  @override
+  String get builderSubtitle => 'Create and assign a plan';
+
+  @override
+  String get builderSubtitleNoClient => 'Select a client to build a plan';
+
+  @override
+  String get newPlan => 'New plan';
+
+  @override
+  String get builderLoading => 'Loading workout builder';
+
+  @override
+  String get builderNoClientsBody => 'Invite your first client to build them a plan.';
+
+  @override
+  String planAssignedTo(String name) {
+    return 'Plan assigned to $name';
+  }
+
+  @override
+  String get builderPlanName => 'Plan name';
+
+  @override
+  String get builderPlanNameHint => 'e.g. Push / Pull / Legs';
+
+  @override
+  String get planNameRequired => 'Give the plan a name';
+
+  @override
+  String get planDescriptionOptional => 'Description (optional)';
+
+  @override
+  String assignTo(String name) {
+    return 'Assign to $name';
+  }
+
+  @override
+  String get startFromTemplate => 'Start from a template';
+
+  @override
+  String templateDaysAndDescription(int days, String description) {
+    return '$days days · $description';
+  }
+
+  @override
+  String get noActivePlanTitle => 'No active plan';
+
+  @override
+  String noActivePlanBody(String name) {
+    return '$name isn’t on a plan yet.';
+  }
+
+  @override
+  String get createAPlan => 'Create a plan';
+
+  @override
+  String get planActive => 'Active';
+
+  @override
+  String get exerciseEditingUnavailable => 'Exercise editing isn’t available yet';
+
+  @override
+  String get exerciseEditingUnavailableBody => 'Plans can be created and assigned. Editing a plan’s exercises, sets and reps needs a trainer-facing API that doesn’t exist yet.';
+
+  @override
+  String get sessionReviewSubtitleNoClient => 'Select a client to review their sessions';
+
+  @override
+  String sessionReviewSubtitle(String name) {
+    return 'What $name actually logged';
+  }
+
+  @override
+  String sessionReviewSubtitleWithCounts(String name, int total, int done, int missed) {
+    return 'What $name actually logged — $total sessions, $done completed, $missed missed';
+  }
+
+  @override
+  String get sessionsLoading => 'Loading sessions';
+
+  @override
+  String get sessionReviewNoClientsBody => 'Invite your first client to start reviewing their sessions.';
+
+  @override
+  String get noSessionsLoggedTitle => 'No sessions logged yet';
+
+  @override
+  String noSessionsLoggedBody(String name) {
+    return '$name hasn’t recorded a workout yet.';
+  }
+
+  @override
+  String get sessionCompleted => 'Completed';
+
+  @override
+  String get sessionPartial => 'Partial';
+
+  @override
+  String get sessionMissed => 'Missed';
+
+  @override
+  String get sessionSkipped => 'Skipped';
+
+  @override
+  String dateToday(String date) {
+    return 'Today · $date';
+  }
+
+  @override
+  String dateYesterday(String date) {
+    return 'Yesterday · $date';
+  }
+
+  @override
+  String get sessionHistory => 'Session history';
+
+  @override
+  String get workout => 'Workout';
+
+  @override
+  String get noWorkoutLoggedTitle => 'No workout logged';
+
+  @override
+  String noWorkoutLoggedBody(String name) {
+    return '$name didn’t record this session.';
+  }
+
+  @override
+  String get newPr => 'NEW PR';
+
+  @override
+  String get pr => 'PR';
+
+  @override
+  String get volume => 'Volume';
+
+  @override
+  String get avgRpe => 'Avg RPE';
+
+  @override
+  String get clientNote => 'CLIENT NOTE';
+
+  @override
+  String prescribedSummary(String summary) {
+    return 'Prescribed $summary';
+  }
+
+  @override
+  String get setColumn => 'SET';
+
+  @override
+  String get repsColumn => 'REPS';
+
+  @override
+  String get weightColumn => 'WEIGHT';
+
+  @override
+  String get rpeColumn => 'RPE';
+
+  @override
+  String setNumber(int number) {
+    return 'Set $number';
+  }
+
+  @override
+  String repsCount(int reps) {
+    return '$reps reps';
+  }
+
+  @override
+  String get bodyweight => 'bodyweight';
+
+  @override
+  String rpeValue(String value) {
+    return 'RPE $value';
+  }
+
+  @override
+  String get underTarget => 'under target';
+
+  @override
+  String get joinATrainer => 'Join a trainer';
+
+  @override
+  String get joinATrainerSubtitle => 'Enter the code your trainer gave you';
+
+  @override
+  String get joinTrainerTitle => 'Join a Trainer';
+
+  @override
+  String get joinTrainerPrompt => 'Enter the code your trainer gave you.';
+
+  @override
+  String get trainerCode => 'Trainer Code';
+
+  @override
+  String get joinTrainerAction => 'Join Trainer';
+
+  @override
+  String get joinTrainerDisclosure => 'Your trainer will be able to see your workouts, weight and nutrition. If their plan includes Pro, you get it while you are on their roster.';
+
+  @override
+  String get joinTrainerCodeMissing => 'Enter the 12-character code from your trainer.';
+
+  @override
+  String get joinTrainerCodeMalformed => 'Codes are 12 characters, digits and letters A–F.';
+
+  @override
+  String get joinTrainerConnected => 'You\'re connected to your trainer.';
+
+  @override
+  String get somethingWentWrongRetry => 'Something went wrong. Try again.';
+
+  @override
+  String get dismiss => 'Dismiss';
+
+  @override
+  String get searchOnline => 'Search Online';
+
+  @override
+  String get resetEmailFailed => 'Failed to send reset email. Please try again.';
+
+  @override
+  String get kcal => 'kcal';
+
+  @override
+  String calorieRingNoGoal(int kcal) {
+    return '$kcal kcal logged, no goal set';
+  }
+
+  @override
+  String calorieRingOver(int eaten, int goal, int over) {
+    return '$eaten of $goal kcal, over by $over';
+  }
+
+  @override
+  String calorieRingRemaining(int eaten, int goal, int remaining) {
+    return '$eaten of $goal kcal, $remaining remaining';
+  }
+
+  @override
+  String calorieRingGoal(int goal) {
+    return '/ $goal kcal';
+  }
+
+  @override
+  String calorieRingOverBy(int over) {
+    return 'over by $over';
+  }
+
+  @override
+  String calorieRingLeft(int remaining) {
+    return '$remaining left';
+  }
 }

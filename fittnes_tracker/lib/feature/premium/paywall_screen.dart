@@ -191,7 +191,10 @@ class _PaywallScreenState extends State<PaywallScreen> {
             Text(message, textAlign: TextAlign.center),
             if (showRetry) ...[
               const SizedBox(height: 24),
-              ElevatedButton(onPressed: _loadOffering, child: const Text('Retry')),
+              ElevatedButton(
+                onPressed: _loadOffering,
+                child: Text(AppLocalizations.of(context)!.retry),
+              ),
             ],
           ],
         ),

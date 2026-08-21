@@ -1,3 +1,5 @@
+import 'package:ForgeForm/l10n/app_localizations.dart';
+
 /// The purchasable plans. Mirrors `LicenceTier` on the server.
 ///
 /// [free] is an entry state, never a downgrade target — moving a full roster
@@ -10,11 +12,14 @@ enum LicenceTier { free, solo, pro, studio }
 enum LicenceStatus { active, trialing, pastDue, canceled }
 
 extension LicenceTierLabel on LicenceTier {
-  String get label => switch (this) {
-    LicenceTier.free => 'Free',
-    LicenceTier.solo => 'Solo',
-    LicenceTier.pro => 'Pro',
-    LicenceTier.studio => 'Studio',
+  /// Plan names are product nouns, so they read the same in every locale —
+  /// but they still come from the catalogue so a translator can adapt one
+  /// without a code change.
+  String localizedLabel(AppLocalizations l10n) => switch (this) {
+    LicenceTier.free => l10n.licenceTierFree,
+    LicenceTier.solo => l10n.licenceTierSolo,
+    LicenceTier.pro => l10n.licenceTierPro,
+    LicenceTier.studio => l10n.licenceTierStudio,
   };
 
   /// The wire value the checkout endpoint expects.
@@ -22,11 +27,11 @@ extension LicenceTierLabel on LicenceTier {
 }
 
 extension LicenceStatusLabel on LicenceStatus {
-  String get label => switch (this) {
-    LicenceStatus.active => 'Active',
-    LicenceStatus.trialing => 'Trial',
-    LicenceStatus.pastDue => 'Payment failed',
-    LicenceStatus.canceled => 'Cancelled',
+  String localizedLabel(AppLocalizations l10n) => switch (this) {
+    LicenceStatus.active => l10n.licenceStatusActive,
+    LicenceStatus.trialing => l10n.licenceStatusTrialing,
+    LicenceStatus.pastDue => l10n.licenceStatusPastDue,
+    LicenceStatus.canceled => l10n.licenceStatusCanceled,
   };
 }
 
@@ -167,12 +172,41 @@ enum InviteFailure {
   network,
 }
 
+/// The wording for each refusal, in the reader's language.
+///
+/// Lives here rather than in the repository because a repository has no
+/// [BuildContext] and so no locale — it reports *which* refusal happened and
+/// the UI decides how to say it.
+extension InviteFailureMessage on InviteFailure {
+  String localizedMessage(AppLocalizations l10n) => switch (this) {
+    InviteFailure.seatLimitReached => l10n.inviteFailureSeatLimitReached,
+    InviteFailure.licenceLapsed => l10n.inviteFailureLicenceLapsed,
+    InviteFailure.notATrainer => l10n.inviteFailureNotATrainer,
+    InviteFailure.invalidCode => l10n.inviteFailureInvalidCode,
+    InviteFailure.expiredCode => l10n.inviteFailureExpiredCode,
+    InviteFailure.selfInvite => l10n.inviteFailureSelfInvite,
+    InviteFailure.trainerAtSeatLimit => l10n.inviteFailureTrainerAtSeatLimit,
+    InviteFailure.trainerNotEntitled => l10n.inviteFailureTrainerNotEntitled,
+    InviteFailure.network => l10n.inviteFailureNetwork,
+  };
+}
+
 class InviteException implements Exception {
   final InviteFailure failure;
-  final String message;
 
-  const InviteException(this.failure, this.message);
+  /// The server's own explanation, when it sent one. It can be more specific
+  /// than anything the client knows to say ("Your plan covers 10 clients and
+  /// all of them are in use"), so it wins over the local wording — but it
+  /// arrives in whatever language the API speaks, so it is optional and
+  /// [InviteFailureMessage.localizedMessage] covers its absence.
+  final String? serverMessage;
+
+  const InviteException(this.failure, [this.serverMessage]);
+
+  /// What to show the user: the server's words if it sent any, ours otherwise.
+  String message(AppLocalizations l10n) =>
+      serverMessage ?? failure.localizedMessage(l10n);
 
   @override
-  String toString() => message;
+  String toString() => serverMessage ?? failure.name;
 }

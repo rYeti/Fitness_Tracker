@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:ForgeForm/l10n/app_localizations.dart';
+
 /// Chrome and state widgets shared by every Trainer Console screen.
 ///
 /// These exist so the console reads as one surface: the same card treatment,
@@ -93,20 +95,25 @@ class ConsoleSectionTitle extends StatelessWidget {
 class ConsoleSkeleton extends StatelessWidget {
   final int rows;
   final double rowHeight;
-  final String semanticsLabel;
+
+  /// Overrides the generic "Loading" announcement with something screen
+  /// specific ("Loading roster"). Null keeps the generic one — resolved in
+  /// [build] because a localized default can't be a const constructor value.
+  final String? semanticsLabel;
 
   const ConsoleSkeleton({
     super.key,
     this.rows = 5,
     this.rowHeight = 64,
-    this.semanticsLabel = 'Loading',
+    this.semanticsLabel,
   });
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
     return Semantics(
-      label: semanticsLabel,
+      label: semanticsLabel ?? l10n.consoleLoading,
       child: ListView.builder(
         itemCount: rows,
         itemBuilder: (context, index) => Padding(
@@ -180,7 +187,7 @@ class ConsoleErrorState extends StatelessWidget {
             OutlinedButton.icon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh_rounded, size: 18),
-              label: const Text('Retry'),
+              label: Text(AppLocalizations.of(context)!.retry),
             ),
           ],
         ),

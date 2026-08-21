@@ -65,8 +65,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('ForgeForm'), findsOneWidget);
+    final l10n = await AppLocalizations.delegate.load(const Locale('en'));
     for (final route in TrainerConsoleRoute.values) {
-      expect(find.text(route.label), findsWidgets, reason: route.label);
+      final label = route.label(l10n);
+      expect(find.text(label), findsWidgets, reason: label);
     }
   });
 

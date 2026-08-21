@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_console_models.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/active_client_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/view/workout_builder_screen.dart';
+import 'package:ForgeForm/l10n/app_localizations.dart';
 
 import 'fakes.dart';
 
@@ -23,7 +24,11 @@ Future<void> _pump(
   await tester.pumpWidget(
     ChangeNotifierProvider<ActiveClientProvider>.value(
       value: activeClient,
-      child: MaterialApp(home: WorkoutBuilderScreen(repository: repository)),
+      child: MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: WorkoutBuilderScreen(repository: repository),
+      ),
     ),
   );
 }

@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:ForgeForm/core/providers/access_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_licence.dart';
 import 'package:ForgeForm/feature/trainer/presentation/view/join_trainer_screen.dart';
+import 'package:ForgeForm/l10n/app_localizations.dart';
 
 import 'licence_fakes.dart';
 
@@ -16,6 +17,8 @@ void main() {
       ChangeNotifierProvider<AccessProvider>(
         create: (_) => AccessProvider.withState(),
         child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: JoinTrainerScreen(
             repository: repo,
             // The real one re-checks entitlements over the network.

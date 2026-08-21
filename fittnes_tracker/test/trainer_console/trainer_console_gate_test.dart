@@ -7,6 +7,7 @@ import 'package:ForgeForm/core/providers/access_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/view/trainer_console_gate.dart';
 
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/trainer_licence_provider.dart';
+import 'package:ForgeForm/l10n/app_localizations.dart';
 
 import 'fakes.dart';
 import 'licence_fakes.dart';
@@ -29,6 +30,8 @@ Future<void> _pump(
     ChangeNotifierProvider<AccessProvider>.value(
       value: access,
       child: MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: TrainerConsoleGate(
           fallback: fallback,
           onExitConsole: onExitConsole,

@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:ForgeForm/feature/trainer_console/data/trainer_console_repository.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_client_summary.dart';
+import 'package:ForgeForm/feature/trainer_console/domain/models/console_error.dart';
 
 /// Shared "client-switcher" state used by Workout Builder, Nutrition, Session
 /// Review (and future Chat) — NOT Client Detail, which takes an explicit
@@ -22,13 +23,13 @@ class ActiveClientProvider extends ChangeNotifier {
   bool _pickerOpen = false;
   List<TrainerClientSummary> _clients = [];
   bool _isLoading = false;
-  String? _error;
+  ConsoleError? _error;
 
   String? get activeClientId => _activeClientId;
   bool get pickerOpen => _pickerOpen;
   List<TrainerClientSummary> get clients => _clients;
   bool get isLoading => _isLoading;
-  String? get error => _error;
+  ConsoleError? get error => _error;
 
   /// The selected client, or null when the roster is empty or still loading.
   TrainerClientSummary? get activeClient {
@@ -53,7 +54,7 @@ class ActiveClientProvider extends ChangeNotifier {
         _activeClientId = _clients.isEmpty ? null : _clients.first.clientId;
       }
     } catch (_) {
-      _error = 'Could not load your clients.';
+      _error = ConsoleError.loadRoster;
     } finally {
       _isLoading = false;
       notifyListeners();

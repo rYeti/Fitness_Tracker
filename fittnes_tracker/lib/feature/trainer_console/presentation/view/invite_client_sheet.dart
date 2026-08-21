@@ -3,10 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import 'package:ForgeForm/core/design_tokens.dart';
+import 'package:ForgeForm/feature/trainer_console/domain/models/console_error.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_licence.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/trainer_licence_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/console_widgets.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/seat_meter.dart';
+import 'package:ForgeForm/l10n/app_localizations.dart';
 
 /// How a trainer adds a client: mint a code, share it, and the client enters it
 /// in their own app.
@@ -40,6 +42,13 @@ class _InviteClientSheetState extends State<InviteClientSheet> {
     final provider = context.watch<TrainerLicenceProvider>();
     final licence = provider.licence;
     final colors = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
+
+    // The server's own refusal wins when it sent one — it can name the exact
+    // plan size — and the typed failure covers the rest.
+    final inviteError =
+        provider.inviteFailure?.message(l10n) ??
+        provider.inviteError?.localizedMessage(l10n);
 
     return Padding(
       padding: EdgeInsets.only(
@@ -54,7 +63,7 @@ class _InviteClientSheetState extends State<InviteClientSheet> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Invite a client',
+              l10n.inviteAClient,
               style: TextStyle(
                 fontFamily: 'Montserrat',
                 fontWeight: FontWeight.w700,
@@ -64,8 +73,7 @@ class _InviteClientSheetState extends State<InviteClientSheet> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Share the code with your client. They enter it under '
-              '"Join a trainer" in their app.',
+              l10n.inviteSheetBody,
               style: TextStyle(
                 fontFamily: 'Exo 2',
                 fontSize: 13,
@@ -84,7 +92,7 @@ class _InviteClientSheetState extends State<InviteClientSheet> {
             else
               _MintButton(provider: provider, licence: licence),
 
-            if (provider.inviteError != null) ...[
+            if (inviteError != null) ...[
               const SizedBox(height: 12),
               Semantics(
                 container: true,
@@ -99,7 +107,7 @@ class _InviteClientSheetState extends State<InviteClientSheet> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        provider.inviteError!,
+                        inviteError,
                         style: const TextStyle(
                           fontFamily: 'Exo 2',
                           fontSize: 13,
@@ -114,9 +122,9 @@ class _InviteClientSheetState extends State<InviteClientSheet> {
 
             if (provider.pendingInvites.isNotEmpty) ...[
               const SizedBox(height: 32),
-              const ConsoleSectionTitle(title: 'Outstanding invites'),
+              ConsoleSectionTitle(title: l10n.outstandingInvites),
               Text(
-                'Each of these holds a seat until it is used or withdrawn.',
+                l10n.outstandingInvitesBody,
                 style: TextStyle(
                   fontFamily: 'Exo 2',
                   fontSize: 12,
@@ -145,16 +153,16 @@ class _MintButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final canInvite = provider.canInvite;
 
     // Disabled with a reason rather than hidden: a trainer looking for the
     // invite button needs to find out *why* they can't, not wonder where it
     // went.
     final reason = switch (licence) {
-      null => 'Loading your plan…',
-      final l when l.isReadOnly => 'Renew your licence to invite clients.',
-      final l when l.isFull =>
-        'All ${l.seatLimit} seats are in use. Withdraw an invite or upgrade.',
+      null => l10n.licenceLoading,
+      final l when l.isReadOnly => l10n.inviteBlockedLapsed,
+      final l when l.isFull => l10n.inviteBlockedFull(l.seatLimit),
       _ => null,
     };
 
@@ -162,7 +170,7 @@ class _MintButton extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Tooltip(
-          message: reason ?? 'Create a new invite code',
+          message: reason ?? l10n.createNewInviteCode,
           child: SizedBox(
             height: 48,
             child: ElevatedButton.icon(
@@ -176,7 +184,7 @@ class _MintButton extends StatelessWidget {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.add),
-              label: const Text('Create invite code'),
+              label: Text(l10n.createInviteCode),
             ),
           ),
         ),
@@ -203,6 +211,7 @@ class _InviteCodeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return ConsoleCard(
       padding: const EdgeInsets.all(24),
       radius: 16,
@@ -211,7 +220,7 @@ class _InviteCodeCard extends StatelessWidget {
           Semantics(
             container: true,
             excludeSemantics: true,
-            label: 'Invite code ${code.split('').join(' ')}',
+            label: l10n.inviteCodeSemantics(code.split('').join(' ')),
             child: SelectableText(
               code,
               style: const TextStyle(
@@ -230,16 +239,16 @@ class _InviteCodeCard extends StatelessWidget {
                 await Clipboard.setData(ClipboardData(text: code));
                 if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Invite code copied')),
+                  SnackBar(content: Text(l10n.inviteCodeCopied)),
                 );
               },
               icon: const Icon(Icons.copy, size: 18),
-              label: const Text('Copy code'),
+              label: Text(l10n.copyCode),
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            'Expires in 7 days.',
+            l10n.inviteExpiresInSevenDays,
             style: TextStyle(
               fontFamily: 'Exo 2',
               fontSize: 12,
@@ -260,7 +269,8 @@ class _PendingInviteRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final expiry = _expiryLabel(invite.expiresAt);
+    final l10n = AppLocalizations.of(context)!;
+    final expiry = _expiryLabel(invite.expiresAt, l10n);
 
     return ConsoleCard(
       child: Row(
@@ -291,18 +301,18 @@ class _PendingInviteRow extends StatelessWidget {
             ),
           ),
           IconButton(
-            tooltip: 'Copy ${invite.inviteCode}',
+            tooltip: l10n.copyInviteCode(invite.inviteCode),
             onPressed: () async {
               await Clipboard.setData(ClipboardData(text: invite.inviteCode));
               if (!context.mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Invite code copied')),
+                SnackBar(content: Text(l10n.inviteCodeCopied)),
               );
             },
             icon: const Icon(Icons.copy, size: 18),
           ),
           IconButton(
-            tooltip: 'Withdraw ${invite.inviteCode}',
+            tooltip: l10n.withdrawInviteCode(invite.inviteCode),
             onPressed: () => _confirmWithdraw(context),
             icon: const Icon(Icons.close, size: 18),
           ),
@@ -314,35 +324,34 @@ class _PendingInviteRow extends StatelessWidget {
   /// Rounds *up*, because `inDays` truncates: an invite with six days and a few
   /// hours left would otherwise read "5 days" the instant it was created, which
   /// looks like the code is already stale.
-  static String _expiryLabel(DateTime expiresAt) {
+  static String _expiryLabel(DateTime expiresAt, AppLocalizations l10n) {
     final hoursLeft = expiresAt.difference(DateTime.now()).inHours;
-    if (hoursLeft <= 0) return 'Expired';
-    if (hoursLeft < 24) return 'Expires today';
-    final days = (hoursLeft / 24).ceil();
-    return 'Expires in $days ${days == 1 ? 'day' : 'days'}';
+    if (hoursLeft <= 0) return l10n.inviteExpired;
+    if (hoursLeft < 24) return l10n.inviteExpiresToday;
+    // Plural handled by the message catalogue, not string surgery: German
+    // needs no "1 day / 2 days" split here but other locales might.
+    return l10n.inviteExpiresInDays((hoursLeft / 24).ceil());
   }
 
   /// Withdrawing is destructive — the code stops working for whoever it was
   /// sent to — so it takes a confirmation, per CLAUDE.md.
   Future<void> _confirmWithdraw(BuildContext context) async {
     final provider = context.read<TrainerLicenceProvider>();
+    final l10n = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Withdraw this invite?'),
-        content: Text(
-          '${invite.inviteCode} will stop working and its seat is freed. '
-          'Anyone you already sent it to will need a new code.',
-        ),
+        title: Text(l10n.withdrawInviteTitle),
+        content: Text(l10n.withdrawInviteBody(invite.inviteCode)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Keep'),
+            child: Text(l10n.keep),
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
             style: TextButton.styleFrom(foregroundColor: ForgeColors.statusBad),
-            child: const Text('Withdraw'),
+            child: Text(l10n.withdraw),
           ),
         ],
       ),

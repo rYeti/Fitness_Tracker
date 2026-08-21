@@ -9,6 +9,8 @@ import 'package:ForgeForm/feature/trainer_console/presentation/widgets/client_av
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/console_widgets.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/macro_summary.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/stat_tile.dart';
+import 'package:ForgeForm/feature/trainer_console/domain/models/console_error.dart';
+import 'package:ForgeForm/l10n/app_localizations.dart';
 
 /// Deep dive on one client: adherence, weight trend, attendance, strength
 /// progression, and today's macros.
@@ -119,11 +121,15 @@ class _Body extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     if (provider.isLoading) {
-      return const ConsoleSkeleton(semanticsLabel: 'Loading client details');
+      return ConsoleSkeleton(semanticsLabel: l10n.clientDetailLoading);
     }
     if (provider.error != null) {
-      return ConsoleErrorState(message: provider.error!, onRetry: provider.load);
+      return ConsoleErrorState(
+        message: provider.error!.localizedMessage(l10n),
+        onRetry: provider.load,
+      );
     }
 
     final summary = provider.workoutSummary;
@@ -157,6 +163,7 @@ class _StatsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final adherence = provider.overallAdherence;
     final delta = provider.weightDelta;
     final latest = provider.weightHistory.isEmpty
@@ -168,13 +175,13 @@ class _StatsRow extends StatelessWidget {
         icon: Icons.trending_up_rounded,
         accentColor: ForgeColors.statusOk,
         value: adherence == null ? '—' : '${adherence.round()}%',
-        label: 'Adherence',
+        label: l10n.adherence,
       ),
       StatTile(
         icon: Icons.monitor_weight_outlined,
         accentColor: ForgeColors.carbsColor,
         value: latest == null ? '—' : '${_trim(latest)} kg',
-        label: 'Current weight',
+        label: l10n.clientCurrentWeight,
       ),
       StatTile(
         icon: delta != null && delta < 0
@@ -182,7 +189,7 @@ class _StatsRow extends StatelessWidget {
             : Icons.north_rounded,
         accentColor: ForgeColors.forgeOrange,
         value: delta == null ? '—' : '${delta > 0 ? '+' : ''}${_trim(delta)} kg',
-        label: 'Change',
+        label: l10n.change,
       ),
     ];
 
@@ -241,7 +248,12 @@ class _PlanCard extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  'Started ${DateFormat('d MMM yyyy').format(plan.startDate)}',
+                  AppLocalizations.of(context)!.planStartedOn(
+                    DateFormat(
+                      'd MMM yyyy',
+                      Localizations.localeOf(context).toString(),
+                    ).format(plan.startDate),
+                  ),
                   style: TextStyle(
                     fontFamily: 'Exo 2',
                     fontSize: 11.5,
@@ -267,11 +279,13 @@ class _WeightCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final locale = Localizations.localeOf(context).toString();
     if (history.length < 2) {
-      return const ConsoleEmptyState(
+      return ConsoleEmptyState(
         icon: Icons.show_chart_rounded,
-        title: 'Not enough weight data',
-        message: 'Two or more logged weigh-ins are needed to show a trend.',
+        title: l10n.weightTrendEmptyTitle,
+        message: l10n.weightTrendEmptyBody,
         inCard: true,
       );
     }
@@ -281,9 +295,9 @@ class _WeightCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           ConsoleSectionTitle(
-            title: 'Weight trend',
+            title: l10n.weightTrend,
             trailing: Text(
-              '${history.length} entries',
+              l10n.entryCount(history.length),
               style: TextStyle(
                 fontFamily: 'Exo 2',
                 fontSize: 11.5,
@@ -296,8 +310,10 @@ class _WeightCard extends StatelessWidget {
           SizedBox(
             height: 120,
             child: Semantics(
-              label: 'Weight from ${history.first.weight} to '
-                  '${history.last.weight} kilograms',
+              label: l10n.weightTrendSemantics(
+                '${history.first.weight}',
+                '${history.last.weight}',
+              ),
               child: CustomPaint(
                 painter: _SparklinePainter(
                   values: history.map((e) => e.weight).toList(),
@@ -311,8 +327,12 @@ class _WeightCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _AxisLabel(DateFormat('d MMM').format(history.first.date)),
-              _AxisLabel(DateFormat('d MMM').format(history.last.date)),
+              _AxisLabel(
+                DateFormat('d MMM', locale).format(history.first.date),
+              ),
+              _AxisLabel(
+                DateFormat('d MMM', locale).format(history.last.date),
+              ),
             ],
           ),
         ],
@@ -400,12 +420,14 @@ class _AttendanceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
+    final locale = Localizations.localeOf(context).toString();
 
     if (weeks.isEmpty) {
-      return const ConsoleEmptyState(
+      return ConsoleEmptyState(
         icon: Icons.calendar_month_outlined,
-        title: 'No attendance data',
-        message: 'Attendance appears once sessions are scheduled.',
+        title: l10n.attendanceEmptyTitle,
+        message: l10n.attendanceEmptyBody,
         inCard: true,
       );
     }
@@ -418,7 +440,7 @@ class _AttendanceCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const ConsoleSectionTitle(title: 'Attendance by week'),
+          ConsoleSectionTitle(title: l10n.attendanceByWeek),
           SizedBox(
             height: 110,
             child: Row(
@@ -427,9 +449,11 @@ class _AttendanceCard extends StatelessWidget {
                 for (final week in ordered)
                   Expanded(
                     child: Semantics(
-                      label:
-                          'Week of ${DateFormat('d MMM').format(week.weekStart)}: '
-                          '${week.completedSessions} of ${week.plannedSessions} sessions',
+                      label: l10n.attendanceWeekSemantics(
+                        DateFormat('d MMM', locale).format(week.weekStart),
+                        week.completedSessions,
+                        week.plannedSessions,
+                      ),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 3),
                         child: Column(
@@ -460,7 +484,7 @@ class _AttendanceCard extends StatelessWidget {
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              DateFormat('d/M').format(week.weekStart),
+                              DateFormat('d/M', locale).format(week.weekStart),
                               style: TextStyle(
                                 fontFamily: 'Exo 2',
                                 fontSize: 8.5,
@@ -489,12 +513,13 @@ class _StrengthCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
 
     if (progression.isEmpty) {
-      return const ConsoleEmptyState(
+      return ConsoleEmptyState(
         icon: Icons.fitness_center_outlined,
-        title: 'No strength data',
-        message: 'Progression appears once completed sets are logged.',
+        title: l10n.strengthEmptyTitle,
+        message: l10n.strengthEmptyBody,
         inCard: true,
       );
     }
@@ -509,7 +534,7 @@ class _StrengthCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const ConsoleSectionTitle(title: 'Strength progression'),
+          ConsoleSectionTitle(title: l10n.strengthProgression),
           for (final item in ordered.take(6))
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 6),
@@ -517,7 +542,9 @@ class _StrengthCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      item.exerciseName.isEmpty ? 'Exercise' : item.exerciseName,
+                      item.exerciseName.isEmpty
+                          ? l10n.exercise
+                          : item.exerciseName,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontFamily: 'Exo 2',
@@ -604,14 +631,18 @@ class _MacrosCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
     return ConsoleCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           ConsoleSectionTitle(
-            title: 'Today’s macros',
+            title: l10n.todaysMacros,
             trailing: Text(
-              '${nutrition.totalCalories} / ${nutrition.calorieGoal} kcal',
+              l10n.caloriesOfGoal(
+                nutrition.totalCalories,
+                nutrition.calorieGoal,
+              ),
               style: TextStyle(
                 fontFamily: 'Exo 2',
                 fontSize: 11.5,

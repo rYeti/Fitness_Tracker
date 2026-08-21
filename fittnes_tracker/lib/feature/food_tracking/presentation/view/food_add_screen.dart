@@ -888,7 +888,7 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
             ),
             TextButton(
               onPressed: () => Navigator.of(ctx).pop((currentField, currentAscending)),
-              child: const Text('Apply'),
+              child: Text(l10n.apply),
             ),
           ],
         ),

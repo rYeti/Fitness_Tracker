@@ -140,12 +140,12 @@ class _CoachThread extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (chat.isThreadLoading) {
-      return const Padding(
-        padding: EdgeInsets.all(16),
+      return Padding(
+        padding: const EdgeInsets.all(16),
         child: ConsoleSkeleton(
           rows: 4,
           rowHeight: 40,
-          semanticsLabel: 'Loading messages',
+          semanticsLabel: AppLocalizations.of(context)!.messagesLoading,
         ),
       );
     }

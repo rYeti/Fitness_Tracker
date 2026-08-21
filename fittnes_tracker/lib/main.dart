@@ -672,7 +672,7 @@ class _TraineeProNoticeState extends State<_TraineeProNotice> {
               ),
             ),
             IconButton(
-              tooltip: 'Dismiss',
+              tooltip: AppLocalizations.of(context)!.dismiss,
               onPressed: () => setState(() => _dismissed = true),
               icon: const Icon(Icons.close, size: 18),
             ),

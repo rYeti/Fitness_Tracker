@@ -4207,40 +4207,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Log Portion'**
   String get templateLogPortion;
-}
-
-class _AppLocalizationsDelegate
-    extends LocalizationsDelegate<AppLocalizations> {
-  const _AppLocalizationsDelegate();
-
-  @override
-  Future<AppLocalizations> load(Locale locale) {
-    return SynchronousFuture<AppLocalizations>(lookupAppLocalizations(locale));
-  }
-
-  @override
-  bool isSupported(Locale locale) =>
-      <String>['de', 'en'].contains(locale.languageCode);
-
-  @override
-  bool shouldReload(_AppLocalizationsDelegate old) => false;
-}
-
-AppLocalizations lookupAppLocalizations(Locale locale) {
-  // Lookup logic when only language code is specified.
-  switch (locale.languageCode) {
-    case 'de':
-      return AppLocalizationsDe();
-    case 'en':
-      return AppLocalizationsEn();
-  }
-
-  throw FlutterError(
-    'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
-    'an issue with the localizations generation tool. Please file an issue '
-    'on GitHub with a reproducible sample app and the gen-l10n configuration '
-    'that was used.',
-  );
 
   /// No description provided for @coachChat.
   ///
@@ -4337,4 +4303,1502 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
   /// In en, this message translates to:
   /// **'Chat could not start on this device. Restart the app, and if it keeps happening let support know.'**
   String get chatUnavailableBody;
+
+  /// No description provided for @trainerConsole.
+  ///
+  /// In en, this message translates to:
+  /// **'Trainer Console'**
+  String get trainerConsole;
+
+  /// No description provided for @trainerConsoleSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage your clients'**
+  String get trainerConsoleSubtitle;
+
+  /// No description provided for @consoleNavDashboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Dashboard'**
+  String get consoleNavDashboard;
+
+  /// No description provided for @consoleNavMessages.
+  ///
+  /// In en, this message translates to:
+  /// **'Messages'**
+  String get consoleNavMessages;
+
+  /// No description provided for @consoleNavBuilder.
+  ///
+  /// In en, this message translates to:
+  /// **'Workout Builder'**
+  String get consoleNavBuilder;
+
+  /// No description provided for @consoleNavNutrition.
+  ///
+  /// In en, this message translates to:
+  /// **'Nutrition'**
+  String get consoleNavNutrition;
+
+  /// No description provided for @consoleNavSessionReview.
+  ///
+  /// In en, this message translates to:
+  /// **'Session Review'**
+  String get consoleNavSessionReview;
+
+  /// No description provided for @consoleNavDashboardShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Home'**
+  String get consoleNavDashboardShort;
+
+  /// No description provided for @consoleNavMessagesShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Chat'**
+  String get consoleNavMessagesShort;
+
+  /// No description provided for @consoleNavBuilderShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Workouts'**
+  String get consoleNavBuilderShort;
+
+  /// No description provided for @consoleNavNutritionShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Nutrition'**
+  String get consoleNavNutritionShort;
+
+  /// No description provided for @consoleNavSessionReviewShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Review'**
+  String get consoleNavSessionReviewShort;
+
+  /// No description provided for @consoleMyTraining.
+  ///
+  /// In en, this message translates to:
+  /// **'My training'**
+  String get consoleMyTraining;
+
+  /// No description provided for @consoleSwitchToMyTraining.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch to my training'**
+  String get consoleSwitchToMyTraining;
+
+  /// No description provided for @consoleLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading'**
+  String get consoleLoading;
+
+  /// No description provided for @trainerAccessOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Trainer access only'**
+  String get trainerAccessOnly;
+
+  /// No description provided for @trainerAccessOnlyBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This area is for trainers managing clients. If you should have access, ask your gym to enable it on your account.'**
+  String get trainerAccessOnlyBody;
+
+  /// No description provided for @dashboardLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading dashboard'**
+  String get dashboardLoading;
+
+  /// No description provided for @clientsHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'Clients'**
+  String get clientsHeading;
+
+  /// No description provided for @kpiActiveClients.
+  ///
+  /// In en, this message translates to:
+  /// **'Active clients'**
+  String get kpiActiveClients;
+
+  /// No description provided for @kpiAvgAdherence.
+  ///
+  /// In en, this message translates to:
+  /// **'Avg adherence'**
+  String get kpiAvgAdherence;
+
+  /// No description provided for @kpiSessionsThisWeek.
+  ///
+  /// In en, this message translates to:
+  /// **'Sessions this week'**
+  String get kpiSessionsThisWeek;
+
+  /// No description provided for @rosterEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No clients yet'**
+  String get rosterEmptyTitle;
+
+  /// No description provided for @rosterEmptyBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Create an invite code and share it with your first client. They enter it under "Join a trainer".'**
+  String get rosterEmptyBody;
+
+  /// No description provided for @rosterGridView.
+  ///
+  /// In en, this message translates to:
+  /// **'Grid view'**
+  String get rosterGridView;
+
+  /// No description provided for @rosterTableView.
+  ///
+  /// In en, this message translates to:
+  /// **'Table view'**
+  String get rosterTableView;
+
+  /// No description provided for @rosterColumnClient.
+  ///
+  /// In en, this message translates to:
+  /// **'CLIENT'**
+  String get rosterColumnClient;
+
+  /// No description provided for @rosterColumnProgram.
+  ///
+  /// In en, this message translates to:
+  /// **'PROGRAM'**
+  String get rosterColumnProgram;
+
+  /// No description provided for @rosterColumnAdherence.
+  ///
+  /// In en, this message translates to:
+  /// **'ADHERENCE'**
+  String get rosterColumnAdherence;
+
+  /// No description provided for @rosterColumnLastSession.
+  ///
+  /// In en, this message translates to:
+  /// **'LAST SESSION'**
+  String get rosterColumnLastSession;
+
+  /// No description provided for @noActivePlan.
+  ///
+  /// In en, this message translates to:
+  /// **'No active plan'**
+  String get noActivePlan;
+
+  /// No description provided for @noSessionsYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No sessions yet'**
+  String get noSessionsYet;
+
+  /// No description provided for @lastSessionOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Last: {date}'**
+  String lastSessionOn(String date);
+
+  /// No description provided for @noData.
+  ///
+  /// In en, this message translates to:
+  /// **'No data'**
+  String get noData;
+
+  /// No description provided for @invite.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite'**
+  String get invite;
+
+  /// No description provided for @inviteAClient.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite a client'**
+  String get inviteAClient;
+
+  /// No description provided for @inviteSheetBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Share the code with your client. They enter it under "Join a trainer" in their app.'**
+  String get inviteSheetBody;
+
+  /// No description provided for @createInviteCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Create invite code'**
+  String get createInviteCode;
+
+  /// No description provided for @createNewInviteCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a new invite code'**
+  String get createNewInviteCode;
+
+  /// No description provided for @copyCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy code'**
+  String get copyCode;
+
+  /// No description provided for @inviteCodeCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite code copied'**
+  String get inviteCodeCopied;
+
+  /// No description provided for @inviteCodeSemantics.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite code {code}'**
+  String inviteCodeSemantics(String code);
+
+  /// No description provided for @inviteExpiresInSevenDays.
+  ///
+  /// In en, this message translates to:
+  /// **'Expires in 7 days.'**
+  String get inviteExpiresInSevenDays;
+
+  /// No description provided for @copyInviteCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy {code}'**
+  String copyInviteCode(String code);
+
+  /// No description provided for @withdrawInviteCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Withdraw {code}'**
+  String withdrawInviteCode(String code);
+
+  /// No description provided for @outstandingInvites.
+  ///
+  /// In en, this message translates to:
+  /// **'Outstanding invites'**
+  String get outstandingInvites;
+
+  /// No description provided for @outstandingInvitesBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Each of these holds a seat until it is used or withdrawn.'**
+  String get outstandingInvitesBody;
+
+  /// No description provided for @inviteExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'Expired'**
+  String get inviteExpired;
+
+  /// No description provided for @inviteExpiresToday.
+  ///
+  /// In en, this message translates to:
+  /// **'Expires today'**
+  String get inviteExpiresToday;
+
+  /// No description provided for @inviteExpiresInDays.
+  ///
+  /// In en, this message translates to:
+  /// **'{days, plural, =1{Expires in 1 day} other{Expires in {days} days}}'**
+  String inviteExpiresInDays(num days);
+
+  /// No description provided for @withdrawInviteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Withdraw this invite?'**
+  String get withdrawInviteTitle;
+
+  /// No description provided for @withdrawInviteBody.
+  ///
+  /// In en, this message translates to:
+  /// **'{code} will stop working and its seat is freed. Anyone you already sent it to will need a new code.'**
+  String withdrawInviteBody(String code);
+
+  /// No description provided for @keep.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep'**
+  String get keep;
+
+  /// No description provided for @withdraw.
+  ///
+  /// In en, this message translates to:
+  /// **'Withdraw'**
+  String get withdraw;
+
+  /// No description provided for @inviteBlockedLapsed.
+  ///
+  /// In en, this message translates to:
+  /// **'Renew your licence to invite clients.'**
+  String get inviteBlockedLapsed;
+
+  /// No description provided for @inviteBlockedFull.
+  ///
+  /// In en, this message translates to:
+  /// **'All {seats} seats are in use. Withdraw an invite or upgrade.'**
+  String inviteBlockedFull(int seats);
+
+  /// No description provided for @seatMeterUsage.
+  ///
+  /// In en, this message translates to:
+  /// **'{used} of {limit} clients'**
+  String seatMeterUsage(int used, int limit);
+
+  /// No description provided for @seatMeterOverLimit.
+  ///
+  /// In en, this message translates to:
+  /// **'Over your plan. Existing clients keep working; you can't add more.'**
+  String get seatMeterOverLimit;
+
+  /// No description provided for @seatMeterFull.
+  ///
+  /// In en, this message translates to:
+  /// **'Plan full. Free a seat or upgrade to add more.'**
+  String get seatMeterFull;
+
+  /// No description provided for @seatMeterRemaining.
+  ///
+  /// In en, this message translates to:
+  /// **'{seats} seats left'**
+  String seatMeterRemaining(int seats);
+
+  /// No description provided for @seatMeterSemantics.
+  ///
+  /// In en, this message translates to:
+  /// **'{usage}. {caption}'**
+  String seatMeterSemantics(String usage, String caption);
+
+  /// No description provided for @seatChipSemantics.
+  ///
+  /// In en, this message translates to:
+  /// **'{used} of {limit} client seats used. {tier} plan. Open plan settings.'**
+  String seatChipSemantics(int used, int limit, String tier);
+
+  /// No description provided for @seatChipTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'{tier} — {used}/{limit} clients'**
+  String seatChipTooltip(String tier, int used, int limit);
+
+  /// No description provided for @licenceTierFree.
+  ///
+  /// In en, this message translates to:
+  /// **'Free'**
+  String get licenceTierFree;
+
+  /// No description provided for @licenceTierSolo.
+  ///
+  /// In en, this message translates to:
+  /// **'Solo'**
+  String get licenceTierSolo;
+
+  /// No description provided for @licenceTierPro.
+  ///
+  /// In en, this message translates to:
+  /// **'Pro'**
+  String get licenceTierPro;
+
+  /// No description provided for @licenceTierStudio.
+  ///
+  /// In en, this message translates to:
+  /// **'Studio'**
+  String get licenceTierStudio;
+
+  /// No description provided for @licenceStatusActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get licenceStatusActive;
+
+  /// No description provided for @licenceStatusTrialing.
+  ///
+  /// In en, this message translates to:
+  /// **'Trial'**
+  String get licenceStatusTrialing;
+
+  /// No description provided for @licenceStatusPastDue.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment failed'**
+  String get licenceStatusPastDue;
+
+  /// No description provided for @licenceStatusCanceled.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancelled'**
+  String get licenceStatusCanceled;
+
+  /// No description provided for @licenceLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading your plan…'**
+  String get licenceLoading;
+
+  /// No description provided for @licenceLoadingLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading your plan'**
+  String get licenceLoadingLabel;
+
+  /// No description provided for @yourPlan.
+  ///
+  /// In en, this message translates to:
+  /// **'Your plan'**
+  String get yourPlan;
+
+  /// No description provided for @yourPlanSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Seats, billing and invites'**
+  String get yourPlanSubtitle;
+
+  /// No description provided for @noPlanYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No plan yet'**
+  String get noPlanYet;
+
+  /// No description provided for @noPlanYetBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up a trainer plan to start taking on clients.'**
+  String get noPlanYetBody;
+
+  /// No description provided for @setUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up'**
+  String get setUp;
+
+  /// No description provided for @setUpTrainerConsole.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up Trainer Console'**
+  String get setUpTrainerConsole;
+
+  /// No description provided for @setUpTrainerConsoleSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Coach up to 3 clients free'**
+  String get setUpTrainerConsoleSubtitle;
+
+  /// No description provided for @changePlan.
+  ///
+  /// In en, this message translates to:
+  /// **'Change plan'**
+  String get changePlan;
+
+  /// No description provided for @planLadderFootnote.
+  ///
+  /// In en, this message translates to:
+  /// **'Paid plans include ForgeForm Pro for you and every client on your roster. The free plan covers {seats} clients without Pro.'**
+  String planLadderFootnote(int seats);
+
+  /// No description provided for @tierPlanTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'{tier} plan'**
+  String tierPlanTitle(String tier);
+
+  /// No description provided for @proIncluded.
+  ///
+  /// In en, this message translates to:
+  /// **'Pro included for you and every client'**
+  String get proIncluded;
+
+  /// No description provided for @proNotIncluded.
+  ///
+  /// In en, this message translates to:
+  /// **'Pro not included — upgrade to cover your clients'**
+  String get proNotIncluded;
+
+  /// No description provided for @manageBilling.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage billing'**
+  String get manageBilling;
+
+  /// No description provided for @statusLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Status: {status}'**
+  String statusLabel(String status);
+
+  /// No description provided for @tierSeatsAndPro.
+  ///
+  /// In en, this message translates to:
+  /// **'Up to {seats} clients, Pro included'**
+  String tierSeatsAndPro(int seats);
+
+  /// No description provided for @planCurrent.
+  ///
+  /// In en, this message translates to:
+  /// **'Current'**
+  String get planCurrent;
+
+  /// No description provided for @licenceLapsedBanner.
+  ///
+  /// In en, this message translates to:
+  /// **'Your licence has lapsed. Your clients are still here, but you can't change their plans and they've lost Pro.'**
+  String get licenceLapsedBanner;
+
+  /// No description provided for @licenceRenew.
+  ///
+  /// In en, this message translates to:
+  /// **'Renew'**
+  String get licenceRenew;
+
+  /// No description provided for @licenceGraceBanner.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment failed. Everything keeps working until {date} — after that your clients lose Pro.'**
+  String licenceGraceBanner(String date);
+
+  /// No description provided for @licenceFixPayment.
+  ///
+  /// In en, this message translates to:
+  /// **'Fix payment'**
+  String get licenceFixPayment;
+
+  /// No description provided for @licenceOverLimitBanner.
+  ///
+  /// In en, this message translates to:
+  /// **'You have {used} clients on a {limit}-seat plan. Nobody is removed, but you can't add more.'**
+  String licenceOverLimitBanner(int used, int limit);
+
+  /// No description provided for @licenceUpgrade.
+  ///
+  /// In en, this message translates to:
+  /// **'Upgrade'**
+  String get licenceUpgrade;
+
+  /// No description provided for @licenceFullBanner.
+  ///
+  /// In en, this message translates to:
+  /// **'All {limit} seats on your {tier} plan are in use.'**
+  String licenceFullBanner(int limit, String tier);
+
+  /// No description provided for @traineeProLapsingBanner.
+  ///
+  /// In en, this message translates to:
+  /// **'Pro through your trainer ends {date}. Your data stays put — Pro features just lock.'**
+  String traineeProLapsingBanner(String date);
+
+  /// No description provided for @traineeKeepPro.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep Pro'**
+  String get traineeKeepPro;
+
+  /// No description provided for @inviteFailureSeatLimitReached.
+  ///
+  /// In en, this message translates to:
+  /// **'Your plan is full. Upgrade or free up a seat to invite another client.'**
+  String get inviteFailureSeatLimitReached;
+
+  /// No description provided for @inviteFailureLicenceLapsed.
+  ///
+  /// In en, this message translates to:
+  /// **'Your licence has lapsed. Renew it to take on new clients.'**
+  String get inviteFailureLicenceLapsed;
+
+  /// No description provided for @inviteFailureNotATrainer.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up a trainer plan before inviting clients.'**
+  String get inviteFailureNotATrainer;
+
+  /// No description provided for @inviteFailureInvalidCode.
+  ///
+  /// In en, this message translates to:
+  /// **'That code doesn't match an invite. Check it and try again.'**
+  String get inviteFailureInvalidCode;
+
+  /// No description provided for @inviteFailureExpiredCode.
+  ///
+  /// In en, this message translates to:
+  /// **'That invite has expired. Ask your trainer for a new code.'**
+  String get inviteFailureExpiredCode;
+
+  /// No description provided for @inviteFailureSelfInvite.
+  ///
+  /// In en, this message translates to:
+  /// **'That's your own invite code.'**
+  String get inviteFailureSelfInvite;
+
+  /// No description provided for @inviteFailureTrainerAtSeatLimit.
+  ///
+  /// In en, this message translates to:
+  /// **'Your trainer's plan is full. Ask them to free up a seat.'**
+  String get inviteFailureTrainerAtSeatLimit;
+
+  /// No description provided for @inviteFailureTrainerNotEntitled.
+  ///
+  /// In en, this message translates to:
+  /// **'Your trainer's plan isn't active. Ask them to renew it.'**
+  String get inviteFailureTrainerNotEntitled;
+
+  /// No description provided for @inviteFailureNetwork.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn't reach ForgeForm. Check your connection and try again.'**
+  String get inviteFailureNetwork;
+
+  /// No description provided for @errorLoadRoster.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load your clients.'**
+  String get errorLoadRoster;
+
+  /// No description provided for @errorLoadDashboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load your dashboard.'**
+  String get errorLoadDashboard;
+
+  /// No description provided for @errorLoadClientDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load this client’s details.'**
+  String get errorLoadClientDetail;
+
+  /// No description provided for @errorLoadNutrition.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load this client’s nutrition.'**
+  String get errorLoadNutrition;
+
+  /// No description provided for @errorLoadSessions.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load this client’s sessions.'**
+  String get errorLoadSessions;
+
+  /// No description provided for @errorLoadLicence.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load your plan.'**
+  String get errorLoadLicence;
+
+  /// No description provided for @errorLoadWorkoutPlans.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load workout plans.'**
+  String get errorLoadWorkoutPlans;
+
+  /// No description provided for @errorPlanNameRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Give the plan a name.'**
+  String get errorPlanNameRequired;
+
+  /// No description provided for @errorCreatePlan.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not create the plan.'**
+  String get errorCreatePlan;
+
+  /// No description provided for @errorCreateInvite.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not create an invite. Try again.'**
+  String get errorCreateInvite;
+
+  /// No description provided for @errorWithdrawInvite.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not withdraw that invite. Try again.'**
+  String get errorWithdrawInvite;
+
+  /// No description provided for @errorOpenCheckout.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not open checkout. Try again.'**
+  String get errorOpenCheckout;
+
+  /// No description provided for @errorOpenBilling.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not open billing. Try again.'**
+  String get errorOpenBilling;
+
+  /// No description provided for @clientDetailLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading client details'**
+  String get clientDetailLoading;
+
+  /// No description provided for @adherence.
+  ///
+  /// In en, this message translates to:
+  /// **'Adherence'**
+  String get adherence;
+
+  /// No description provided for @clientCurrentWeight.
+  ///
+  /// In en, this message translates to:
+  /// **'Current weight'**
+  String get clientCurrentWeight;
+
+  /// No description provided for @change.
+  ///
+  /// In en, this message translates to:
+  /// **'Change'**
+  String get change;
+
+  /// No description provided for @planStartedOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Started {date}'**
+  String planStartedOn(String date);
+
+  /// No description provided for @weightTrend.
+  ///
+  /// In en, this message translates to:
+  /// **'Weight trend'**
+  String get weightTrend;
+
+  /// No description provided for @weightTrendEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Not enough weight data'**
+  String get weightTrendEmptyTitle;
+
+  /// No description provided for @weightTrendEmptyBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Two or more logged weigh-ins are needed to show a trend.'**
+  String get weightTrendEmptyBody;
+
+  /// No description provided for @entryCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 entry} other{{count} entries}}'**
+  String entryCount(num count);
+
+  /// No description provided for @weightTrendSemantics.
+  ///
+  /// In en, this message translates to:
+  /// **'Weight from {from} to {to} kilograms'**
+  String weightTrendSemantics(String from, String to);
+
+  /// No description provided for @attendanceEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No attendance data'**
+  String get attendanceEmptyTitle;
+
+  /// No description provided for @attendanceEmptyBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Attendance appears once sessions are scheduled.'**
+  String get attendanceEmptyBody;
+
+  /// No description provided for @attendanceByWeek.
+  ///
+  /// In en, this message translates to:
+  /// **'Attendance by week'**
+  String get attendanceByWeek;
+
+  /// No description provided for @attendanceWeekSemantics.
+  ///
+  /// In en, this message translates to:
+  /// **'Week of {date}: {completed} of {planned} sessions'**
+  String attendanceWeekSemantics(String date, int completed, int planned);
+
+  /// No description provided for @strengthEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No strength data'**
+  String get strengthEmptyTitle;
+
+  /// No description provided for @strengthEmptyBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Progression appears once completed sets are logged.'**
+  String get strengthEmptyBody;
+
+  /// No description provided for @strengthProgression.
+  ///
+  /// In en, this message translates to:
+  /// **'Strength progression'**
+  String get strengthProgression;
+
+  /// No description provided for @exercise.
+  ///
+  /// In en, this message translates to:
+  /// **'Exercise'**
+  String get exercise;
+
+  /// No description provided for @todaysMacros.
+  ///
+  /// In en, this message translates to:
+  /// **'Today’s macros'**
+  String get todaysMacros;
+
+  /// No description provided for @caloriesOfGoal.
+  ///
+  /// In en, this message translates to:
+  /// **'{eaten} / {goal} kcal'**
+  String caloriesOfGoal(int eaten, int goal);
+
+  /// No description provided for @macroSummaryNone.
+  ///
+  /// In en, this message translates to:
+  /// **'No macros logged'**
+  String get macroSummaryNone;
+
+  /// No description provided for @macroSummarySemantics.
+  ///
+  /// In en, this message translates to:
+  /// **'Protein {protein}g, carbs {carbs}g, fat {fat}g'**
+  String macroSummarySemantics(String protein, String carbs, String fat);
+
+  /// No description provided for @switchClientSemantics.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch client. Currently {name}'**
+  String switchClientSemantics(String name);
+
+  /// No description provided for @switchClientHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'SWITCH CLIENT'**
+  String get switchClientHeading;
+
+  /// No description provided for @conversationsLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading conversations'**
+  String get conversationsLoading;
+
+  /// No description provided for @conversationsLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load your conversations.'**
+  String get conversationsLoadError;
+
+  /// No description provided for @conversationsEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No conversations yet'**
+  String get conversationsEmpty;
+
+  /// No description provided for @conversationsEmptyBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Once a client accepts your invite you can message them here.'**
+  String get conversationsEmptyBody;
+
+  /// No description provided for @backToConversations.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to conversations'**
+  String get backToConversations;
+
+  /// No description provided for @pickAConversation.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a conversation'**
+  String get pickAConversation;
+
+  /// No description provided for @pickAConversationBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a client on the left to see your messages.'**
+  String get pickAConversationBody;
+
+  /// No description provided for @messagesLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading messages'**
+  String get messagesLoading;
+
+  /// No description provided for @trainerThreadEmptyBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Say hello — this is the start of your conversation.'**
+  String get trainerThreadEmptyBody;
+
+  /// No description provided for @clientStatsElsewhere.
+  ///
+  /// In en, this message translates to:
+  /// **'Client stats appear on the dashboard and client detail screens.'**
+  String get clientStatsElsewhere;
+
+  /// No description provided for @nutritionSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily intake and 7-day trend'**
+  String get nutritionSubtitle;
+
+  /// No description provided for @nutritionSubtitleNoClient.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a client to review their intake'**
+  String get nutritionSubtitleNoClient;
+
+  /// No description provided for @previousDay.
+  ///
+  /// In en, this message translates to:
+  /// **'Previous day'**
+  String get previousDay;
+
+  /// No description provided for @nextDay.
+  ///
+  /// In en, this message translates to:
+  /// **'Next day'**
+  String get nextDay;
+
+  /// No description provided for @nutritionLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading nutrition'**
+  String get nutritionLoading;
+
+  /// No description provided for @nutritionNoClientsBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite your first client to monitor their nutrition.'**
+  String get nutritionNoClientsBody;
+
+  /// No description provided for @nothingLogged.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing logged'**
+  String get nothingLogged;
+
+  /// No description provided for @nothingLoggedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} didn’t log any meals on this day.'**
+  String nothingLoggedBody(String name);
+
+  /// No description provided for @mealsLogged.
+  ///
+  /// In en, this message translates to:
+  /// **'Meals logged'**
+  String get mealsLogged;
+
+  /// No description provided for @meal.
+  ///
+  /// In en, this message translates to:
+  /// **'Meal'**
+  String get meal;
+
+  /// No description provided for @noTrendYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No trend yet'**
+  String get noTrendYet;
+
+  /// No description provided for @noTrendYetBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Once meals are logged, the 7-day trend appears here.'**
+  String get noTrendYetBody;
+
+  /// No description provided for @caloriesVsTarget.
+  ///
+  /// In en, this message translates to:
+  /// **'Calories vs. target'**
+  String get caloriesVsTarget;
+
+  /// No description provided for @withinTarget.
+  ///
+  /// In en, this message translates to:
+  /// **'Within target'**
+  String get withinTarget;
+
+  /// No description provided for @overTarget.
+  ///
+  /// In en, this message translates to:
+  /// **'Over target'**
+  String get overTarget;
+
+  /// No description provided for @targetCalories.
+  ///
+  /// In en, this message translates to:
+  /// **'Target {goal} kcal'**
+  String targetCalories(int goal);
+
+  /// No description provided for @trendBarSemantics.
+  ///
+  /// In en, this message translates to:
+  /// **'{day}: {calories} kcal'**
+  String trendBarSemantics(String day, int calories);
+
+  /// No description provided for @trendBarSemanticsOver.
+  ///
+  /// In en, this message translates to:
+  /// **'{day}: {calories} kcal, over target'**
+  String trendBarSemanticsOver(String day, int calories);
+
+  /// No description provided for @builderSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Create and assign a plan'**
+  String get builderSubtitle;
+
+  /// No description provided for @builderSubtitleNoClient.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a client to build a plan'**
+  String get builderSubtitleNoClient;
+
+  /// No description provided for @newPlan.
+  ///
+  /// In en, this message translates to:
+  /// **'New plan'**
+  String get newPlan;
+
+  /// No description provided for @builderLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading workout builder'**
+  String get builderLoading;
+
+  /// No description provided for @builderNoClientsBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite your first client to build them a plan.'**
+  String get builderNoClientsBody;
+
+  /// No description provided for @planAssignedTo.
+  ///
+  /// In en, this message translates to:
+  /// **'Plan assigned to {name}'**
+  String planAssignedTo(String name);
+
+  /// No description provided for @builderPlanName.
+  ///
+  /// In en, this message translates to:
+  /// **'Plan name'**
+  String get builderPlanName;
+
+  /// No description provided for @builderPlanNameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. Push / Pull / Legs'**
+  String get builderPlanNameHint;
+
+  /// No description provided for @planNameRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Give the plan a name'**
+  String get planNameRequired;
+
+  /// No description provided for @planDescriptionOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Description (optional)'**
+  String get planDescriptionOptional;
+
+  /// No description provided for @assignTo.
+  ///
+  /// In en, this message translates to:
+  /// **'Assign to {name}'**
+  String assignTo(String name);
+
+  /// No description provided for @startFromTemplate.
+  ///
+  /// In en, this message translates to:
+  /// **'Start from a template'**
+  String get startFromTemplate;
+
+  /// No description provided for @templateDaysAndDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'{days} days · {description}'**
+  String templateDaysAndDescription(int days, String description);
+
+  /// No description provided for @noActivePlanTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No active plan'**
+  String get noActivePlanTitle;
+
+  /// No description provided for @noActivePlanBody.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} isn’t on a plan yet.'**
+  String noActivePlanBody(String name);
+
+  /// No description provided for @createAPlan.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a plan'**
+  String get createAPlan;
+
+  /// No description provided for @planActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get planActive;
+
+  /// No description provided for @exerciseEditingUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Exercise editing isn’t available yet'**
+  String get exerciseEditingUnavailable;
+
+  /// No description provided for @exerciseEditingUnavailableBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Plans can be created and assigned. Editing a plan’s exercises, sets and reps needs a trainer-facing API that doesn’t exist yet.'**
+  String get exerciseEditingUnavailableBody;
+
+  /// No description provided for @sessionReviewSubtitleNoClient.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a client to review their sessions'**
+  String get sessionReviewSubtitleNoClient;
+
+  /// No description provided for @sessionReviewSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'What {name} actually logged'**
+  String sessionReviewSubtitle(String name);
+
+  /// No description provided for @sessionReviewSubtitleWithCounts.
+  ///
+  /// In en, this message translates to:
+  /// **'What {name} actually logged — {total} sessions, {done} completed, {missed} missed'**
+  String sessionReviewSubtitleWithCounts(String name, int total, int done, int missed);
+
+  /// No description provided for @sessionsLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading sessions'**
+  String get sessionsLoading;
+
+  /// No description provided for @sessionReviewNoClientsBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite your first client to start reviewing their sessions.'**
+  String get sessionReviewNoClientsBody;
+
+  /// No description provided for @noSessionsLoggedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No sessions logged yet'**
+  String get noSessionsLoggedTitle;
+
+  /// No description provided for @noSessionsLoggedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} hasn’t recorded a workout yet.'**
+  String noSessionsLoggedBody(String name);
+
+  /// No description provided for @sessionCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed'**
+  String get sessionCompleted;
+
+  /// No description provided for @sessionPartial.
+  ///
+  /// In en, this message translates to:
+  /// **'Partial'**
+  String get sessionPartial;
+
+  /// No description provided for @sessionMissed.
+  ///
+  /// In en, this message translates to:
+  /// **'Missed'**
+  String get sessionMissed;
+
+  /// No description provided for @sessionSkipped.
+  ///
+  /// In en, this message translates to:
+  /// **'Skipped'**
+  String get sessionSkipped;
+
+  /// No description provided for @dateToday.
+  ///
+  /// In en, this message translates to:
+  /// **'Today · {date}'**
+  String dateToday(String date);
+
+  /// No description provided for @dateYesterday.
+  ///
+  /// In en, this message translates to:
+  /// **'Yesterday · {date}'**
+  String dateYesterday(String date);
+
+  /// No description provided for @sessionHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'Session history'**
+  String get sessionHistory;
+
+  /// No description provided for @workout.
+  ///
+  /// In en, this message translates to:
+  /// **'Workout'**
+  String get workout;
+
+  /// No description provided for @noWorkoutLoggedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No workout logged'**
+  String get noWorkoutLoggedTitle;
+
+  /// No description provided for @noWorkoutLoggedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} didn’t record this session.'**
+  String noWorkoutLoggedBody(String name);
+
+  /// No description provided for @newPr.
+  ///
+  /// In en, this message translates to:
+  /// **'NEW PR'**
+  String get newPr;
+
+  /// No description provided for @pr.
+  ///
+  /// In en, this message translates to:
+  /// **'PR'**
+  String get pr;
+
+  /// No description provided for @volume.
+  ///
+  /// In en, this message translates to:
+  /// **'Volume'**
+  String get volume;
+
+  /// No description provided for @avgRpe.
+  ///
+  /// In en, this message translates to:
+  /// **'Avg RPE'**
+  String get avgRpe;
+
+  /// No description provided for @clientNote.
+  ///
+  /// In en, this message translates to:
+  /// **'CLIENT NOTE'**
+  String get clientNote;
+
+  /// No description provided for @prescribedSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Prescribed {summary}'**
+  String prescribedSummary(String summary);
+
+  /// No description provided for @setColumn.
+  ///
+  /// In en, this message translates to:
+  /// **'SET'**
+  String get setColumn;
+
+  /// No description provided for @repsColumn.
+  ///
+  /// In en, this message translates to:
+  /// **'REPS'**
+  String get repsColumn;
+
+  /// No description provided for @weightColumn.
+  ///
+  /// In en, this message translates to:
+  /// **'WEIGHT'**
+  String get weightColumn;
+
+  /// No description provided for @rpeColumn.
+  ///
+  /// In en, this message translates to:
+  /// **'RPE'**
+  String get rpeColumn;
+
+  /// No description provided for @setNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Set {number}'**
+  String setNumber(int number);
+
+  /// No description provided for @repsCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{reps} reps'**
+  String repsCount(int reps);
+
+  /// No description provided for @bodyweight.
+  ///
+  /// In en, this message translates to:
+  /// **'bodyweight'**
+  String get bodyweight;
+
+  /// No description provided for @rpeValue.
+  ///
+  /// In en, this message translates to:
+  /// **'RPE {value}'**
+  String rpeValue(String value);
+
+  /// No description provided for @underTarget.
+  ///
+  /// In en, this message translates to:
+  /// **'under target'**
+  String get underTarget;
+
+  /// No description provided for @joinATrainer.
+  ///
+  /// In en, this message translates to:
+  /// **'Join a trainer'**
+  String get joinATrainer;
+
+  /// No description provided for @joinATrainerSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the code your trainer gave you'**
+  String get joinATrainerSubtitle;
+
+  /// No description provided for @joinTrainerTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Join a Trainer'**
+  String get joinTrainerTitle;
+
+  /// No description provided for @joinTrainerPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the code your trainer gave you.'**
+  String get joinTrainerPrompt;
+
+  /// No description provided for @trainerCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Trainer Code'**
+  String get trainerCode;
+
+  /// No description provided for @joinTrainerAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Join Trainer'**
+  String get joinTrainerAction;
+
+  /// No description provided for @joinTrainerDisclosure.
+  ///
+  /// In en, this message translates to:
+  /// **'Your trainer will be able to see your workouts, weight and nutrition. If their plan includes Pro, you get it while you are on their roster.'**
+  String get joinTrainerDisclosure;
+
+  /// No description provided for @joinTrainerCodeMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the 12-character code from your trainer.'**
+  String get joinTrainerCodeMissing;
+
+  /// No description provided for @joinTrainerCodeMalformed.
+  ///
+  /// In en, this message translates to:
+  /// **'Codes are 12 characters, digits and letters A–F.'**
+  String get joinTrainerCodeMalformed;
+
+  /// No description provided for @joinTrainerConnected.
+  ///
+  /// In en, this message translates to:
+  /// **'You're connected to your trainer.'**
+  String get joinTrainerConnected;
+
+  /// No description provided for @somethingWentWrongRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong. Try again.'**
+  String get somethingWentWrongRetry;
+
+  /// No description provided for @dismiss.
+  ///
+  /// In en, this message translates to:
+  /// **'Dismiss'**
+  String get dismiss;
+
+  /// No description provided for @searchOnline.
+  ///
+  /// In en, this message translates to:
+  /// **'Search Online'**
+  String get searchOnline;
+
+  /// No description provided for @resetEmailFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to send reset email. Please try again.'**
+  String get resetEmailFailed;
+
+  /// No description provided for @kcal.
+  ///
+  /// In en, this message translates to:
+  /// **'kcal'**
+  String get kcal;
+
+  /// No description provided for @calorieRingNoGoal.
+  ///
+  /// In en, this message translates to:
+  /// **'{kcal} kcal logged, no goal set'**
+  String calorieRingNoGoal(int kcal);
+
+  /// No description provided for @calorieRingOver.
+  ///
+  /// In en, this message translates to:
+  /// **'{eaten} of {goal} kcal, over by {over}'**
+  String calorieRingOver(int eaten, int goal, int over);
+
+  /// No description provided for @calorieRingRemaining.
+  ///
+  /// In en, this message translates to:
+  /// **'{eaten} of {goal} kcal, {remaining} remaining'**
+  String calorieRingRemaining(int eaten, int goal, int remaining);
+
+  /// No description provided for @calorieRingGoal.
+  ///
+  /// In en, this message translates to:
+  /// **'/ {goal} kcal'**
+  String calorieRingGoal(int goal);
+
+  /// No description provided for @calorieRingOverBy.
+  ///
+  /// In en, this message translates to:
+  /// **'over by {over}'**
+  String calorieRingOverBy(int over);
+
+  /// No description provided for @calorieRingLeft.
+  ///
+  /// In en, this message translates to:
+  /// **'{remaining} left'**
+  String calorieRingLeft(int remaining);
+}
+
+class _AppLocalizationsDelegate
+    extends LocalizationsDelegate<AppLocalizations> {
+  const _AppLocalizationsDelegate();
+
+  @override
+  Future<AppLocalizations> load(Locale locale) {
+    return SynchronousFuture<AppLocalizations>(lookupAppLocalizations(locale));
+  }
+
+  @override
+  bool isSupported(Locale locale) =>
+      <String>['de', 'en'].contains(locale.languageCode);
+
+  @override
+  bool shouldReload(_AppLocalizationsDelegate old) => false;
+}
+
+AppLocalizations lookupAppLocalizations(Locale locale) {
+  // Lookup logic when only language code is specified.
+  switch (locale.languageCode) {
+    case 'de':
+      return AppLocalizationsDe();
+    case 'en':
+      return AppLocalizationsEn();
+  }
+
+  throw FlutterError(
+    'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
+    'an issue with the localizations generation tool. Please file an issue '
+    'on GitHub with a reproducible sample app and the gen-l10n configuration '
+    'that was used.',
+  );
 }
