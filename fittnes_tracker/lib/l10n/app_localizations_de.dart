@@ -2318,13 +2318,15 @@ class AppLocalizationsDe extends AppLocalizations {
   String get coachChatNoCoach => 'Noch kein Coach';
 
   @override
-  String get coachChatNoCoachBody => 'Sobald dich ein Trainer aufnimmt, kannst du hier schreiben.';
+  String get coachChatNoCoachBody =>
+      'Sobald dich ein Trainer aufnimmt, kannst du hier schreiben.';
 
   @override
   String get coachChatEmpty => 'Noch keine Nachrichten';
 
   @override
-  String get coachChatEmptyBody => 'Frag deinen Coach alles — er sieht es sofort.';
+  String get coachChatEmptyBody =>
+      'Frag deinen Coach alles — er sieht es sofort.';
 
   @override
   String get coachChatLoadError => 'Unterhaltung konnte nicht geladen werden.';
@@ -2339,7 +2341,8 @@ class AppLocalizationsDe extends AppLocalizations {
   String get chatSending => 'Wird gesendet';
 
   @override
-  String get chatFailedRetry => 'Senden fehlgeschlagen — zum Wiederholen tippen';
+  String get chatFailedRetry =>
+      'Senden fehlgeschlagen — zum Wiederholen tippen';
 
   @override
   String get chatReconnecting => 'Verbindung wird wiederhergestellt…';
@@ -2354,7 +2357,8 @@ class AppLocalizationsDe extends AppLocalizations {
   String get chatUnavailable => 'Nachrichten nicht verfügbar';
 
   @override
-  String get chatUnavailableBody => 'Der Chat konnte auf diesem Gerät nicht starten. Starte die App neu und melde dich beim Support, falls es weiter auftritt.';
+  String get chatUnavailableBody =>
+      'Der Chat konnte auf diesem Gerät nicht starten. Starte die App neu und melde dich beim Support, falls es weiter auftritt.';
 
   @override
   String get trainerConsole => 'Trainer-Konsole';
@@ -2405,7 +2409,8 @@ class AppLocalizationsDe extends AppLocalizations {
   String get trainerAccessOnly => 'Nur für Trainer';
 
   @override
-  String get trainerAccessOnlyBody => 'Dieser Bereich ist für Trainer, die Kunden betreuen. Wenn du Zugriff haben solltest, lass ihn von deinem Studio für dein Konto freischalten.';
+  String get trainerAccessOnlyBody =>
+      'Dieser Bereich ist für Trainer, die Kunden betreuen. Wenn du Zugriff haben solltest, lass ihn von deinem Studio für dein Konto freischalten.';
 
   @override
   String get dashboardLoading => 'Dashboard wird geladen';
@@ -2426,7 +2431,8 @@ class AppLocalizationsDe extends AppLocalizations {
   String get rosterEmptyTitle => 'Noch keine Kunden';
 
   @override
-  String get rosterEmptyBody => 'Erstelle einen Einladungscode und gib ihn deinem ersten Kunden. Er trägt ihn unter „Trainer beitreten“ ein.';
+  String get rosterEmptyBody =>
+      'Erstelle einen Einladungscode und gib ihn deinem ersten Kunden. Er trägt ihn unter „Trainer beitreten“ ein.';
 
   @override
   String get rosterGridView => 'Kachelansicht';
@@ -2467,7 +2473,8 @@ class AppLocalizationsDe extends AppLocalizations {
   String get inviteAClient => 'Kunden einladen';
 
   @override
-  String get inviteSheetBody => 'Gib den Code an deinen Kunden weiter. Er trägt ihn in seiner App unter „Trainer beitreten“ ein.';
+  String get inviteSheetBody =>
+      'Gib den Code an deinen Kunden weiter. Er trägt ihn in seiner App unter „Trainer beitreten“ ein.';
 
   @override
   String get createInviteCode => 'Einladungscode erstellen';
@@ -2503,7 +2510,8 @@ class AppLocalizationsDe extends AppLocalizations {
   String get outstandingInvites => 'Offene Einladungen';
 
   @override
-  String get outstandingInvitesBody => 'Jede davon belegt einen Platz, bis sie eingelöst oder zurückgezogen wird.';
+  String get outstandingInvitesBody =>
+      'Jede davon belegt einen Platz, bis sie eingelöst oder zurückgezogen wird.';
 
   @override
   String get inviteExpired => 'Abgelaufen';
@@ -2513,18 +2521,13 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String inviteExpiresInDays(num days) {
-    final intl.NumberFormat daysNumberFormat = intl.NumberFormat.decimalPattern(
-      localeName,
-    );
-    final String daysString = daysNumberFormat.format(days);
-
     String _temp0 = intl.Intl.pluralLogic(
       days,
       locale: localeName,
+      other: 'Läuft in $days Tagen ab',
       one: 'Läuft in 1 Tag ab',
-      other: 'Läuft in ${daysString} Tagen ab',
     );
-    return _temp0;
+    return '$_temp0';
   }
 
   @override
@@ -2542,7 +2545,8 @@ class AppLocalizationsDe extends AppLocalizations {
   String get withdraw => 'Zurückziehen';
 
   @override
-  String get inviteBlockedLapsed => 'Erneuere deine Lizenz, um Kunden einzuladen.';
+  String get inviteBlockedLapsed =>
+      'Erneuere deine Lizenz, um Kunden einzuladen.';
 
   @override
   String inviteBlockedFull(int seats) {
@@ -2555,10 +2559,12 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
-  String get seatMeterOverLimit => 'Über deinem Tarif. Bestehende Kunden bleiben aktiv; neue kannst du nicht aufnehmen.';
+  String get seatMeterOverLimit =>
+      'Über deinem Tarif. Bestehende Kunden bleiben aktiv; neue kannst du nicht aufnehmen.';
 
   @override
-  String get seatMeterFull => 'Tarif voll. Mach einen Platz frei oder wechsle den Tarif, um mehr aufzunehmen.';
+  String get seatMeterFull =>
+      'Tarif voll. Mach einen Platz frei oder wechsle den Tarif, um mehr aufzunehmen.';
 
   @override
   String seatMeterRemaining(int seats) {
@@ -2620,7 +2626,8 @@ class AppLocalizationsDe extends AppLocalizations {
   String get noPlanYet => 'Noch kein Tarif';
 
   @override
-  String get noPlanYetBody => 'Richte einen Trainertarif ein, um Kunden aufzunehmen.';
+  String get noPlanYetBody =>
+      'Richte einen Trainertarif ein, um Kunden aufzunehmen.';
 
   @override
   String get setUp => 'Einrichten';
@@ -2629,7 +2636,8 @@ class AppLocalizationsDe extends AppLocalizations {
   String get setUpTrainerConsole => 'Trainer-Konsole einrichten';
 
   @override
-  String get setUpTrainerConsoleSubtitle => 'Bis zu 3 Kunden kostenlos betreuen';
+  String get setUpTrainerConsoleSubtitle =>
+      'Bis zu 3 Kunden kostenlos betreuen';
 
   @override
   String get changePlan => 'Tarif wechseln';
@@ -2648,7 +2656,8 @@ class AppLocalizationsDe extends AppLocalizations {
   String get proIncluded => 'Pro für dich und alle Kunden enthalten';
 
   @override
-  String get proNotIncluded => 'Pro nicht enthalten — wechsle den Tarif, um deine Kunden abzudecken';
+  String get proNotIncluded =>
+      'Pro nicht enthalten — wechsle den Tarif, um deine Kunden abzudecken';
 
   @override
   String get manageBilling => 'Abrechnung verwalten';
@@ -2667,7 +2676,8 @@ class AppLocalizationsDe extends AppLocalizations {
   String get planCurrent => 'Aktuell';
 
   @override
-  String get licenceLapsedBanner => 'Deine Lizenz ist abgelaufen. Deine Kunden bleiben, aber du kannst ihre Pläne nicht ändern und sie haben Pro verloren.';
+  String get licenceLapsedBanner =>
+      'Deine Lizenz ist abgelaufen. Deine Kunden bleiben, aber du kannst ihre Pläne nicht ändern und sie haben Pro verloren.';
 
   @override
   String get licenceRenew => 'Erneuern';
@@ -2702,52 +2712,65 @@ class AppLocalizationsDe extends AppLocalizations {
   String get traineeKeepPro => 'Pro behalten';
 
   @override
-  String get inviteFailureSeatLimitReached => 'Dein Tarif ist voll. Wechsle den Tarif oder mach einen Platz frei, um einen weiteren Kunden einzuladen.';
+  String get inviteFailureSeatLimitReached =>
+      'Dein Tarif ist voll. Wechsle den Tarif oder mach einen Platz frei, um einen weiteren Kunden einzuladen.';
 
   @override
-  String get inviteFailureLicenceLapsed => 'Deine Lizenz ist abgelaufen. Erneuere sie, um neue Kunden aufzunehmen.';
+  String get inviteFailureLicenceLapsed =>
+      'Deine Lizenz ist abgelaufen. Erneuere sie, um neue Kunden aufzunehmen.';
 
   @override
-  String get inviteFailureNotATrainer => 'Richte einen Trainertarif ein, bevor du Kunden einlädst.';
+  String get inviteFailureNotATrainer =>
+      'Richte einen Trainertarif ein, bevor du Kunden einlädst.';
 
   @override
-  String get inviteFailureInvalidCode => 'Zu diesem Code gibt es keine Einladung. Prüfe ihn und versuch es erneut.';
+  String get inviteFailureInvalidCode =>
+      'Zu diesem Code gibt es keine Einladung. Prüfe ihn und versuch es erneut.';
 
   @override
-  String get inviteFailureExpiredCode => 'Diese Einladung ist abgelaufen. Frag deinen Trainer nach einem neuen Code.';
+  String get inviteFailureExpiredCode =>
+      'Diese Einladung ist abgelaufen. Frag deinen Trainer nach einem neuen Code.';
 
   @override
   String get inviteFailureSelfInvite => 'Das ist dein eigener Einladungscode.';
 
   @override
-  String get inviteFailureTrainerAtSeatLimit => 'Der Tarif deines Trainers ist voll. Bitte ihn, einen Platz frei zu machen.';
+  String get inviteFailureTrainerAtSeatLimit =>
+      'Der Tarif deines Trainers ist voll. Bitte ihn, einen Platz frei zu machen.';
 
   @override
-  String get inviteFailureTrainerNotEntitled => 'Der Tarif deines Trainers ist nicht aktiv. Bitte ihn, ihn zu erneuern.';
+  String get inviteFailureTrainerNotEntitled =>
+      'Der Tarif deines Trainers ist nicht aktiv. Bitte ihn, ihn zu erneuern.';
 
   @override
-  String get inviteFailureNetwork => 'ForgeForm ist nicht erreichbar. Prüfe deine Verbindung und versuch es erneut.';
+  String get inviteFailureNetwork =>
+      'ForgeForm ist nicht erreichbar. Prüfe deine Verbindung und versuch es erneut.';
 
   @override
   String get errorLoadRoster => 'Deine Kunden konnten nicht geladen werden.';
 
   @override
-  String get errorLoadDashboard => 'Dein Dashboard konnte nicht geladen werden.';
+  String get errorLoadDashboard =>
+      'Dein Dashboard konnte nicht geladen werden.';
 
   @override
-  String get errorLoadClientDetail => 'Die Details dieses Kunden konnten nicht geladen werden.';
+  String get errorLoadClientDetail =>
+      'Die Details dieses Kunden konnten nicht geladen werden.';
 
   @override
-  String get errorLoadNutrition => 'Die Ernährung dieses Kunden konnte nicht geladen werden.';
+  String get errorLoadNutrition =>
+      'Die Ernährung dieses Kunden konnte nicht geladen werden.';
 
   @override
-  String get errorLoadSessions => 'Die Einheiten dieses Kunden konnten nicht geladen werden.';
+  String get errorLoadSessions =>
+      'Die Einheiten dieses Kunden konnten nicht geladen werden.';
 
   @override
   String get errorLoadLicence => 'Dein Tarif konnte nicht geladen werden.';
 
   @override
-  String get errorLoadWorkoutPlans => 'Trainingspläne konnten nicht geladen werden.';
+  String get errorLoadWorkoutPlans =>
+      'Trainingspläne konnten nicht geladen werden.';
 
   @override
   String get errorPlanNameRequired => 'Gib dem Plan einen Namen.';
@@ -2756,16 +2779,20 @@ class AppLocalizationsDe extends AppLocalizations {
   String get errorCreatePlan => 'Der Plan konnte nicht erstellt werden.';
 
   @override
-  String get errorCreateInvite => 'Die Einladung konnte nicht erstellt werden. Versuch es erneut.';
+  String get errorCreateInvite =>
+      'Die Einladung konnte nicht erstellt werden. Versuch es erneut.';
 
   @override
-  String get errorWithdrawInvite => 'Die Einladung konnte nicht zurückgezogen werden. Versuch es erneut.';
+  String get errorWithdrawInvite =>
+      'Die Einladung konnte nicht zurückgezogen werden. Versuch es erneut.';
 
   @override
-  String get errorOpenCheckout => 'Die Kasse konnte nicht geöffnet werden. Versuch es erneut.';
+  String get errorOpenCheckout =>
+      'Die Kasse konnte nicht geöffnet werden. Versuch es erneut.';
 
   @override
-  String get errorOpenBilling => 'Die Abrechnung konnte nicht geöffnet werden. Versuch es erneut.';
+  String get errorOpenBilling =>
+      'Die Abrechnung konnte nicht geöffnet werden. Versuch es erneut.';
 
   @override
   String get clientDetailLoading => 'Kundendetails werden geladen';
@@ -2791,22 +2818,18 @@ class AppLocalizationsDe extends AppLocalizations {
   String get weightTrendEmptyTitle => 'Zu wenig Gewichtsdaten';
 
   @override
-  String get weightTrendEmptyBody => 'Für einen Verlauf braucht es mindestens zwei erfasste Wiegungen.';
+  String get weightTrendEmptyBody =>
+      'Für einen Verlauf braucht es mindestens zwei erfasste Wiegungen.';
 
   @override
   String entryCount(num count) {
-    final intl.NumberFormat countNumberFormat = intl.NumberFormat.decimalPattern(
-      localeName,
-    );
-    final String countString = countNumberFormat.format(count);
-
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
+      other: '$count Einträge',
       one: '1 Eintrag',
-      other: '${countString} Einträge',
     );
-    return _temp0;
+    return '$_temp0';
   }
 
   @override
@@ -2818,7 +2841,8 @@ class AppLocalizationsDe extends AppLocalizations {
   String get attendanceEmptyTitle => 'Keine Anwesenheitsdaten';
 
   @override
-  String get attendanceEmptyBody => 'Die Anwesenheit erscheint, sobald Einheiten geplant sind.';
+  String get attendanceEmptyBody =>
+      'Die Anwesenheit erscheint, sobald Einheiten geplant sind.';
 
   @override
   String get attendanceByWeek => 'Anwesenheit nach Woche';
@@ -2832,7 +2856,8 @@ class AppLocalizationsDe extends AppLocalizations {
   String get strengthEmptyTitle => 'Keine Kraftdaten';
 
   @override
-  String get strengthEmptyBody => 'Die Entwicklung erscheint, sobald abgeschlossene Sätze erfasst sind.';
+  String get strengthEmptyBody =>
+      'Die Entwicklung erscheint, sobald abgeschlossene Sätze erfasst sind.';
 
   @override
   String get strengthProgression => 'Kraftentwicklung';
@@ -2868,13 +2893,15 @@ class AppLocalizationsDe extends AppLocalizations {
   String get conversationsLoading => 'Unterhaltungen werden geladen';
 
   @override
-  String get conversationsLoadError => 'Deine Unterhaltungen konnten nicht geladen werden.';
+  String get conversationsLoadError =>
+      'Deine Unterhaltungen konnten nicht geladen werden.';
 
   @override
   String get conversationsEmpty => 'Noch keine Unterhaltungen';
 
   @override
-  String get conversationsEmptyBody => 'Sobald ein Kunde deine Einladung annimmt, kannst du ihm hier schreiben.';
+  String get conversationsEmptyBody =>
+      'Sobald ein Kunde deine Einladung annimmt, kannst du ihm hier schreiben.';
 
   @override
   String get backToConversations => 'Zurück zu den Unterhaltungen';
@@ -2883,22 +2910,26 @@ class AppLocalizationsDe extends AppLocalizations {
   String get pickAConversation => 'Unterhaltung auswählen';
 
   @override
-  String get pickAConversationBody => 'Wähle links einen Kunden, um eure Nachrichten zu sehen.';
+  String get pickAConversationBody =>
+      'Wähle links einen Kunden, um eure Nachrichten zu sehen.';
 
   @override
   String get messagesLoading => 'Nachrichten werden geladen';
 
   @override
-  String get trainerThreadEmptyBody => 'Sag Hallo — hier beginnt eure Unterhaltung.';
+  String get trainerThreadEmptyBody =>
+      'Sag Hallo — hier beginnt eure Unterhaltung.';
 
   @override
-  String get clientStatsElsewhere => 'Kundenstatistiken findest du im Dashboard und in den Kundendetails.';
+  String get clientStatsElsewhere =>
+      'Kundenstatistiken findest du im Dashboard und in den Kundendetails.';
 
   @override
   String get nutritionSubtitle => 'Tagesaufnahme und 7-Tage-Verlauf';
 
   @override
-  String get nutritionSubtitleNoClient => 'Wähle einen Kunden, um seine Aufnahme zu prüfen';
+  String get nutritionSubtitleNoClient =>
+      'Wähle einen Kunden, um seine Aufnahme zu prüfen';
 
   @override
   String get previousDay => 'Vorheriger Tag';
@@ -2910,7 +2941,8 @@ class AppLocalizationsDe extends AppLocalizations {
   String get nutritionLoading => 'Ernährung wird geladen';
 
   @override
-  String get nutritionNoClientsBody => 'Lade deinen ersten Kunden ein, um seine Ernährung zu verfolgen.';
+  String get nutritionNoClientsBody =>
+      'Lade deinen ersten Kunden ein, um seine Ernährung zu verfolgen.';
 
   @override
   String get nothingLogged => 'Nichts erfasst';
@@ -2930,7 +2962,8 @@ class AppLocalizationsDe extends AppLocalizations {
   String get noTrendYet => 'Noch kein Verlauf';
 
   @override
-  String get noTrendYetBody => 'Sobald Mahlzeiten erfasst sind, erscheint hier der 7-Tage-Verlauf.';
+  String get noTrendYetBody =>
+      'Sobald Mahlzeiten erfasst sind, erscheint hier der 7-Tage-Verlauf.';
 
   @override
   String get caloriesVsTarget => 'Kalorien vs. Ziel';
@@ -2960,7 +2993,8 @@ class AppLocalizationsDe extends AppLocalizations {
   String get builderSubtitle => 'Plan erstellen und zuweisen';
 
   @override
-  String get builderSubtitleNoClient => 'Wähle einen Kunden, um einen Plan zu erstellen';
+  String get builderSubtitleNoClient =>
+      'Wähle einen Kunden, um einen Plan zu erstellen';
 
   @override
   String get newPlan => 'Neuer Plan';
@@ -2969,7 +3003,8 @@ class AppLocalizationsDe extends AppLocalizations {
   String get builderLoading => 'Trainingsplaner wird geladen';
 
   @override
-  String get builderNoClientsBody => 'Lade deinen ersten Kunden ein, um ihm einen Plan zu erstellen.';
+  String get builderNoClientsBody =>
+      'Lade deinen ersten Kunden ein, um ihm einen Plan zu erstellen.';
 
   @override
   String planAssignedTo(String name) {
@@ -3016,13 +3051,16 @@ class AppLocalizationsDe extends AppLocalizations {
   String get planActive => 'Aktiv';
 
   @override
-  String get exerciseEditingUnavailable => 'Übungen lassen sich noch nicht bearbeiten';
+  String get exerciseEditingUnavailable =>
+      'Übungen lassen sich noch nicht bearbeiten';
 
   @override
-  String get exerciseEditingUnavailableBody => 'Pläne lassen sich erstellen und zuweisen. Für das Bearbeiten von Übungen, Sätzen und Wiederholungen fehlt noch eine Trainer-API.';
+  String get exerciseEditingUnavailableBody =>
+      'Pläne lassen sich erstellen und zuweisen. Für das Bearbeiten von Übungen, Sätzen und Wiederholungen fehlt noch eine Trainer-API.';
 
   @override
-  String get sessionReviewSubtitleNoClient => 'Wähle einen Kunden, um seine Einheiten zu prüfen';
+  String get sessionReviewSubtitleNoClient =>
+      'Wähle einen Kunden, um seine Einheiten zu prüfen';
 
   @override
   String sessionReviewSubtitle(String name) {
@@ -3030,7 +3068,12 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
-  String sessionReviewSubtitleWithCounts(String name, int total, int done, int missed) {
+  String sessionReviewSubtitleWithCounts(
+    String name,
+    int total,
+    int done,
+    int missed,
+  ) {
     return 'Was $name tatsächlich erfasst hat — $total Einheiten, $done abgeschlossen, $missed verpasst';
   }
 
@@ -3038,7 +3081,8 @@ class AppLocalizationsDe extends AppLocalizations {
   String get sessionsLoading => 'Einheiten werden geladen';
 
   @override
-  String get sessionReviewNoClientsBody => 'Lade deinen ersten Kunden ein, um seine Einheiten zu prüfen.';
+  String get sessionReviewNoClientsBody =>
+      'Lade deinen ersten Kunden ein, um seine Einheiten zu prüfen.';
 
   @override
   String get noSessionsLoggedTitle => 'Noch keine Einheiten erfasst';
@@ -3141,13 +3185,15 @@ class AppLocalizationsDe extends AppLocalizations {
   String get joinATrainer => 'Trainer beitreten';
 
   @override
-  String get joinATrainerSubtitle => 'Gib den Code ein, den dein Trainer dir gegeben hat';
+  String get joinATrainerSubtitle =>
+      'Gib den Code ein, den dein Trainer dir gegeben hat';
 
   @override
   String get joinTrainerTitle => 'Trainer beitreten';
 
   @override
-  String get joinTrainerPrompt => 'Gib den Code ein, den dein Trainer dir gegeben hat.';
+  String get joinTrainerPrompt =>
+      'Gib den Code ein, den dein Trainer dir gegeben hat.';
 
   @override
   String get trainerCode => 'Trainer-Code';
@@ -3156,19 +3202,23 @@ class AppLocalizationsDe extends AppLocalizations {
   String get joinTrainerAction => 'Trainer beitreten';
 
   @override
-  String get joinTrainerDisclosure => 'Dein Trainer kann deine Trainings, dein Gewicht und deine Ernährung sehen. Wenn sein Tarif Pro enthält, bekommst du Pro, solange du auf seiner Liste stehst.';
+  String get joinTrainerDisclosure =>
+      'Dein Trainer kann deine Trainings, dein Gewicht und deine Ernährung sehen. Wenn sein Tarif Pro enthält, bekommst du Pro, solange du auf seiner Liste stehst.';
 
   @override
-  String get joinTrainerCodeMissing => 'Gib den 12-stelligen Code deines Trainers ein.';
+  String get joinTrainerCodeMissing =>
+      'Gib den 12-stelligen Code deines Trainers ein.';
 
   @override
-  String get joinTrainerCodeMalformed => 'Codes bestehen aus 12 Zeichen: Ziffern und die Buchstaben A–F.';
+  String get joinTrainerCodeMalformed =>
+      'Codes bestehen aus 12 Zeichen: Ziffern und die Buchstaben A–F.';
 
   @override
   String get joinTrainerConnected => 'Du bist mit deinem Trainer verbunden.';
 
   @override
-  String get somethingWentWrongRetry => 'Etwas ist schiefgelaufen. Versuch es erneut.';
+  String get somethingWentWrongRetry =>
+      'Etwas ist schiefgelaufen. Versuch es erneut.';
 
   @override
   String get dismiss => 'Ausblenden';
@@ -3177,7 +3227,8 @@ class AppLocalizationsDe extends AppLocalizations {
   String get searchOnline => 'Online suchen';
 
   @override
-  String get resetEmailFailed => 'Die E-Mail zum Zurücksetzen konnte nicht gesendet werden. Bitte versuch es erneut.';
+  String get resetEmailFailed =>
+      'Die E-Mail zum Zurücksetzen konnte nicht gesendet werden. Bitte versuch es erneut.';
 
   @override
   String get kcal => 'kcal';

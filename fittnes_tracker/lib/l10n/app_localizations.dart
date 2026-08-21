@@ -4445,7 +4445,7 @@ abstract class AppLocalizations {
   /// No description provided for @rosterEmptyBody.
   ///
   /// In en, this message translates to:
-  /// **'Create an invite code and share it with your first client. They enter it under "Join a trainer".'**
+  /// **'Create an invite code and share it with your first client. They enter it under \"Join a trainer\".'**
   String get rosterEmptyBody;
 
   /// No description provided for @rosterGridView.
@@ -4523,7 +4523,7 @@ abstract class AppLocalizations {
   /// No description provided for @inviteSheetBody.
   ///
   /// In en, this message translates to:
-  /// **'Share the code with your client. They enter it under "Join a trainer" in their app.'**
+  /// **'Share the code with your client. They enter it under \"Join a trainer\" in their app.'**
   String get inviteSheetBody;
 
   /// No description provided for @createInviteCode.
@@ -4649,7 +4649,7 @@ abstract class AppLocalizations {
   /// No description provided for @seatMeterOverLimit.
   ///
   /// In en, this message translates to:
-  /// **'Over your plan. Existing clients keep working; you can't add more.'**
+  /// **'Over your plan. Existing clients keep working; you can\'t add more.'**
   String get seatMeterOverLimit;
 
   /// No description provided for @seatMeterFull.
@@ -4841,7 +4841,7 @@ abstract class AppLocalizations {
   /// No description provided for @licenceLapsedBanner.
   ///
   /// In en, this message translates to:
-  /// **'Your licence has lapsed. Your clients are still here, but you can't change their plans and they've lost Pro.'**
+  /// **'Your licence has lapsed. Your clients are still here, but you can\'t change their plans and they\'ve lost Pro.'**
   String get licenceLapsedBanner;
 
   /// No description provided for @licenceRenew.
@@ -4865,7 +4865,7 @@ abstract class AppLocalizations {
   /// No description provided for @licenceOverLimitBanner.
   ///
   /// In en, this message translates to:
-  /// **'You have {used} clients on a {limit}-seat plan. Nobody is removed, but you can't add more.'**
+  /// **'You have {used} clients on a {limit}-seat plan. Nobody is removed, but you can\'t add more.'**
   String licenceOverLimitBanner(int used, int limit);
 
   /// No description provided for @licenceUpgrade.
@@ -4913,7 +4913,7 @@ abstract class AppLocalizations {
   /// No description provided for @inviteFailureInvalidCode.
   ///
   /// In en, this message translates to:
-  /// **'That code doesn't match an invite. Check it and try again.'**
+  /// **'That code doesn\'t match an invite. Check it and try again.'**
   String get inviteFailureInvalidCode;
 
   /// No description provided for @inviteFailureExpiredCode.
@@ -4925,25 +4925,25 @@ abstract class AppLocalizations {
   /// No description provided for @inviteFailureSelfInvite.
   ///
   /// In en, this message translates to:
-  /// **'That's your own invite code.'**
+  /// **'That\'s your own invite code.'**
   String get inviteFailureSelfInvite;
 
   /// No description provided for @inviteFailureTrainerAtSeatLimit.
   ///
   /// In en, this message translates to:
-  /// **'Your trainer's plan is full. Ask them to free up a seat.'**
+  /// **'Your trainer\'s plan is full. Ask them to free up a seat.'**
   String get inviteFailureTrainerAtSeatLimit;
 
   /// No description provided for @inviteFailureTrainerNotEntitled.
   ///
   /// In en, this message translates to:
-  /// **'Your trainer's plan isn't active. Ask them to renew it.'**
+  /// **'Your trainer\'s plan isn\'t active. Ask them to renew it.'**
   String get inviteFailureTrainerNotEntitled;
 
   /// No description provided for @inviteFailureNetwork.
   ///
   /// In en, this message translates to:
-  /// **'Couldn't reach ForgeForm. Check your connection and try again.'**
+  /// **'Couldn\'t reach ForgeForm. Check your connection and try again.'**
   String get inviteFailureNetwork;
 
   /// No description provided for @errorLoadRoster.
@@ -5466,7 +5466,12 @@ abstract class AppLocalizations {
   ///
   /// In en, this message translates to:
   /// **'What {name} actually logged — {total} sessions, {done} completed, {missed} missed'**
-  String sessionReviewSubtitleWithCounts(String name, int total, int done, int missed);
+  String sessionReviewSubtitleWithCounts(
+    String name,
+    int total,
+    int done,
+    int missed,
+  );
 
   /// No description provided for @sessionsLoading.
   ///
@@ -5699,7 +5704,7 @@ abstract class AppLocalizations {
   /// No description provided for @joinTrainerConnected.
   ///
   /// In en, this message translates to:
-  /// **'You're connected to your trainer.'**
+  /// **'You\'re connected to your trainer.'**
   String get joinTrainerConnected;
 
   /// No description provided for @somethingWentWrongRetry.

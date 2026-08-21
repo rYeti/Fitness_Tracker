@@ -164,7 +164,6 @@ class TraineeProLapsingBanner extends StatelessWidget {
   }
 }
 
-
 /// Day + abbreviated month in the active locale — the previous month-first
 /// format printed "Sep 3" and broke the contract for grace warnings.
 String _formatDate(BuildContext context, DateTime date) {

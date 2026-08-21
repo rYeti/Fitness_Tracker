@@ -2302,13 +2302,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get coachChatNoCoach => 'No coach yet';
 
   @override
-  String get coachChatNoCoachBody => 'When a trainer adds you to their roster you can message them here.';
+  String get coachChatNoCoachBody =>
+      'When a trainer adds you to their roster you can message them here.';
 
   @override
   String get coachChatEmpty => 'No messages yet';
 
   @override
-  String get coachChatEmptyBody => 'Ask your coach anything — they will see it right away.';
+  String get coachChatEmptyBody =>
+      'Ask your coach anything — they will see it right away.';
 
   @override
   String get coachChatLoadError => 'Could not load this conversation.';
@@ -2338,7 +2340,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chatUnavailable => 'Messaging is unavailable';
 
   @override
-  String get chatUnavailableBody => 'Chat could not start on this device. Restart the app, and if it keeps happening let support know.';
+  String get chatUnavailableBody =>
+      'Chat could not start on this device. Restart the app, and if it keeps happening let support know.';
 
   @override
   String get trainerConsole => 'Trainer Console';
@@ -2389,7 +2392,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get trainerAccessOnly => 'Trainer access only';
 
   @override
-  String get trainerAccessOnlyBody => 'This area is for trainers managing clients. If you should have access, ask your gym to enable it on your account.';
+  String get trainerAccessOnlyBody =>
+      'This area is for trainers managing clients. If you should have access, ask your gym to enable it on your account.';
 
   @override
   String get dashboardLoading => 'Loading dashboard';
@@ -2410,7 +2414,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get rosterEmptyTitle => 'No clients yet';
 
   @override
-  String get rosterEmptyBody => 'Create an invite code and share it with your first client. They enter it under "Join a trainer".';
+  String get rosterEmptyBody =>
+      'Create an invite code and share it with your first client. They enter it under \"Join a trainer\".';
 
   @override
   String get rosterGridView => 'Grid view';
@@ -2451,7 +2456,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get inviteAClient => 'Invite a client';
 
   @override
-  String get inviteSheetBody => 'Share the code with your client. They enter it under "Join a trainer" in their app.';
+  String get inviteSheetBody =>
+      'Share the code with your client. They enter it under \"Join a trainer\" in their app.';
 
   @override
   String get createInviteCode => 'Create invite code';
@@ -2487,7 +2493,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get outstandingInvites => 'Outstanding invites';
 
   @override
-  String get outstandingInvitesBody => 'Each of these holds a seat until it is used or withdrawn.';
+  String get outstandingInvitesBody =>
+      'Each of these holds a seat until it is used or withdrawn.';
 
   @override
   String get inviteExpired => 'Expired';
@@ -2497,18 +2504,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String inviteExpiresInDays(num days) {
-    final intl.NumberFormat daysNumberFormat = intl.NumberFormat.decimalPattern(
-      localeName,
-    );
-    final String daysString = daysNumberFormat.format(days);
-
     String _temp0 = intl.Intl.pluralLogic(
       days,
       locale: localeName,
+      other: 'Expires in $days days',
       one: 'Expires in 1 day',
-      other: 'Expires in ${daysString} days',
     );
-    return _temp0;
+    return '$_temp0';
   }
 
   @override
@@ -2539,7 +2541,8 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get seatMeterOverLimit => 'Over your plan. Existing clients keep working; you can\'t add more.';
+  String get seatMeterOverLimit =>
+      'Over your plan. Existing clients keep working; you can\'t add more.';
 
   @override
   String get seatMeterFull => 'Plan full. Free a seat or upgrade to add more.';
@@ -2604,7 +2607,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noPlanYet => 'No plan yet';
 
   @override
-  String get noPlanYetBody => 'Set up a trainer plan to start taking on clients.';
+  String get noPlanYetBody =>
+      'Set up a trainer plan to start taking on clients.';
 
   @override
   String get setUp => 'Set up';
@@ -2632,7 +2636,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get proIncluded => 'Pro included for you and every client';
 
   @override
-  String get proNotIncluded => 'Pro not included — upgrade to cover your clients';
+  String get proNotIncluded =>
+      'Pro not included — upgrade to cover your clients';
 
   @override
   String get manageBilling => 'Manage billing';
@@ -2651,7 +2656,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get planCurrent => 'Current';
 
   @override
-  String get licenceLapsedBanner => 'Your licence has lapsed. Your clients are still here, but you can\'t change their plans and they\'ve lost Pro.';
+  String get licenceLapsedBanner =>
+      'Your licence has lapsed. Your clients are still here, but you can\'t change their plans and they\'ve lost Pro.';
 
   @override
   String get licenceRenew => 'Renew';
@@ -2686,31 +2692,39 @@ class AppLocalizationsEn extends AppLocalizations {
   String get traineeKeepPro => 'Keep Pro';
 
   @override
-  String get inviteFailureSeatLimitReached => 'Your plan is full. Upgrade or free up a seat to invite another client.';
+  String get inviteFailureSeatLimitReached =>
+      'Your plan is full. Upgrade or free up a seat to invite another client.';
 
   @override
-  String get inviteFailureLicenceLapsed => 'Your licence has lapsed. Renew it to take on new clients.';
+  String get inviteFailureLicenceLapsed =>
+      'Your licence has lapsed. Renew it to take on new clients.';
 
   @override
-  String get inviteFailureNotATrainer => 'Set up a trainer plan before inviting clients.';
+  String get inviteFailureNotATrainer =>
+      'Set up a trainer plan before inviting clients.';
 
   @override
-  String get inviteFailureInvalidCode => 'That code doesn\'t match an invite. Check it and try again.';
+  String get inviteFailureInvalidCode =>
+      'That code doesn\'t match an invite. Check it and try again.';
 
   @override
-  String get inviteFailureExpiredCode => 'That invite has expired. Ask your trainer for a new code.';
+  String get inviteFailureExpiredCode =>
+      'That invite has expired. Ask your trainer for a new code.';
 
   @override
   String get inviteFailureSelfInvite => 'That\'s your own invite code.';
 
   @override
-  String get inviteFailureTrainerAtSeatLimit => 'Your trainer\'s plan is full. Ask them to free up a seat.';
+  String get inviteFailureTrainerAtSeatLimit =>
+      'Your trainer\'s plan is full. Ask them to free up a seat.';
 
   @override
-  String get inviteFailureTrainerNotEntitled => 'Your trainer\'s plan isn\'t active. Ask them to renew it.';
+  String get inviteFailureTrainerNotEntitled =>
+      'Your trainer\'s plan isn\'t active. Ask them to renew it.';
 
   @override
-  String get inviteFailureNetwork => 'Couldn\'t reach ForgeForm. Check your connection and try again.';
+  String get inviteFailureNetwork =>
+      'Couldn\'t reach ForgeForm. Check your connection and try again.';
 
   @override
   String get errorLoadRoster => 'Could not load your clients.';
@@ -2743,7 +2757,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get errorCreateInvite => 'Could not create an invite. Try again.';
 
   @override
-  String get errorWithdrawInvite => 'Could not withdraw that invite. Try again.';
+  String get errorWithdrawInvite =>
+      'Could not withdraw that invite. Try again.';
 
   @override
   String get errorOpenCheckout => 'Could not open checkout. Try again.';
@@ -2775,22 +2790,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get weightTrendEmptyTitle => 'Not enough weight data';
 
   @override
-  String get weightTrendEmptyBody => 'Two or more logged weigh-ins are needed to show a trend.';
+  String get weightTrendEmptyBody =>
+      'Two or more logged weigh-ins are needed to show a trend.';
 
   @override
   String entryCount(num count) {
-    final intl.NumberFormat countNumberFormat = intl.NumberFormat.decimalPattern(
-      localeName,
-    );
-    final String countString = countNumberFormat.format(count);
-
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
+      other: '$count entries',
       one: '1 entry',
-      other: '${countString} entries',
     );
-    return _temp0;
+    return '$_temp0';
   }
 
   @override
@@ -2802,7 +2813,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get attendanceEmptyTitle => 'No attendance data';
 
   @override
-  String get attendanceEmptyBody => 'Attendance appears once sessions are scheduled.';
+  String get attendanceEmptyBody =>
+      'Attendance appears once sessions are scheduled.';
 
   @override
   String get attendanceByWeek => 'Attendance by week';
@@ -2816,7 +2828,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get strengthEmptyTitle => 'No strength data';
 
   @override
-  String get strengthEmptyBody => 'Progression appears once completed sets are logged.';
+  String get strengthEmptyBody =>
+      'Progression appears once completed sets are logged.';
 
   @override
   String get strengthProgression => 'Strength progression';
@@ -2858,7 +2871,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get conversationsEmpty => 'No conversations yet';
 
   @override
-  String get conversationsEmptyBody => 'Once a client accepts your invite you can message them here.';
+  String get conversationsEmptyBody =>
+      'Once a client accepts your invite you can message them here.';
 
   @override
   String get backToConversations => 'Back to conversations';
@@ -2867,22 +2881,26 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pickAConversation => 'Pick a conversation';
 
   @override
-  String get pickAConversationBody => 'Choose a client on the left to see your messages.';
+  String get pickAConversationBody =>
+      'Choose a client on the left to see your messages.';
 
   @override
   String get messagesLoading => 'Loading messages';
 
   @override
-  String get trainerThreadEmptyBody => 'Say hello — this is the start of your conversation.';
+  String get trainerThreadEmptyBody =>
+      'Say hello — this is the start of your conversation.';
 
   @override
-  String get clientStatsElsewhere => 'Client stats appear on the dashboard and client detail screens.';
+  String get clientStatsElsewhere =>
+      'Client stats appear on the dashboard and client detail screens.';
 
   @override
   String get nutritionSubtitle => 'Daily intake and 7-day trend';
 
   @override
-  String get nutritionSubtitleNoClient => 'Select a client to review their intake';
+  String get nutritionSubtitleNoClient =>
+      'Select a client to review their intake';
 
   @override
   String get previousDay => 'Previous day';
@@ -2894,7 +2912,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get nutritionLoading => 'Loading nutrition';
 
   @override
-  String get nutritionNoClientsBody => 'Invite your first client to monitor their nutrition.';
+  String get nutritionNoClientsBody =>
+      'Invite your first client to monitor their nutrition.';
 
   @override
   String get nothingLogged => 'Nothing logged';
@@ -2914,7 +2933,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noTrendYet => 'No trend yet';
 
   @override
-  String get noTrendYetBody => 'Once meals are logged, the 7-day trend appears here.';
+  String get noTrendYetBody =>
+      'Once meals are logged, the 7-day trend appears here.';
 
   @override
   String get caloriesVsTarget => 'Calories vs. target';
@@ -2953,7 +2973,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get builderLoading => 'Loading workout builder';
 
   @override
-  String get builderNoClientsBody => 'Invite your first client to build them a plan.';
+  String get builderNoClientsBody =>
+      'Invite your first client to build them a plan.';
 
   @override
   String planAssignedTo(String name) {
@@ -3000,13 +3021,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get planActive => 'Active';
 
   @override
-  String get exerciseEditingUnavailable => 'Exercise editing isn’t available yet';
+  String get exerciseEditingUnavailable =>
+      'Exercise editing isn’t available yet';
 
   @override
-  String get exerciseEditingUnavailableBody => 'Plans can be created and assigned. Editing a plan’s exercises, sets and reps needs a trainer-facing API that doesn’t exist yet.';
+  String get exerciseEditingUnavailableBody =>
+      'Plans can be created and assigned. Editing a plan’s exercises, sets and reps needs a trainer-facing API that doesn’t exist yet.';
 
   @override
-  String get sessionReviewSubtitleNoClient => 'Select a client to review their sessions';
+  String get sessionReviewSubtitleNoClient =>
+      'Select a client to review their sessions';
 
   @override
   String sessionReviewSubtitle(String name) {
@@ -3014,7 +3038,12 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String sessionReviewSubtitleWithCounts(String name, int total, int done, int missed) {
+  String sessionReviewSubtitleWithCounts(
+    String name,
+    int total,
+    int done,
+    int missed,
+  ) {
     return 'What $name actually logged — $total sessions, $done completed, $missed missed';
   }
 
@@ -3022,7 +3051,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sessionsLoading => 'Loading sessions';
 
   @override
-  String get sessionReviewNoClientsBody => 'Invite your first client to start reviewing their sessions.';
+  String get sessionReviewNoClientsBody =>
+      'Invite your first client to start reviewing their sessions.';
 
   @override
   String get noSessionsLoggedTitle => 'No sessions logged yet';
@@ -3140,13 +3170,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get joinTrainerAction => 'Join Trainer';
 
   @override
-  String get joinTrainerDisclosure => 'Your trainer will be able to see your workouts, weight and nutrition. If their plan includes Pro, you get it while you are on their roster.';
+  String get joinTrainerDisclosure =>
+      'Your trainer will be able to see your workouts, weight and nutrition. If their plan includes Pro, you get it while you are on their roster.';
 
   @override
-  String get joinTrainerCodeMissing => 'Enter the 12-character code from your trainer.';
+  String get joinTrainerCodeMissing =>
+      'Enter the 12-character code from your trainer.';
 
   @override
-  String get joinTrainerCodeMalformed => 'Codes are 12 characters, digits and letters A–F.';
+  String get joinTrainerCodeMalformed =>
+      'Codes are 12 characters, digits and letters A–F.';
 
   @override
   String get joinTrainerConnected => 'You\'re connected to your trainer.';
@@ -3161,7 +3194,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchOnline => 'Search Online';
 
   @override
-  String get resetEmailFailed => 'Failed to send reset email. Please try again.';
+  String get resetEmailFailed =>
+      'Failed to send reset email. Please try again.';
 
   @override
   String get kcal => 'kcal';
