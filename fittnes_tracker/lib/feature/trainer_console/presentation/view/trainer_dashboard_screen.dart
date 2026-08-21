@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/feature/trainer_console/data/trainer_console_repository.dart';
+import 'package:ForgeForm/feature/trainer_console/domain/models/console_error.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_console_models.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/trainer_console_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/trainer_licence_provider.dart';
@@ -14,6 +15,7 @@ import 'package:ForgeForm/feature/trainer_console/presentation/widgets/client_av
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/console_widgets.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/stat_tile.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/status_badge.dart';
+import 'package:ForgeForm/l10n/app_localizations.dart';
 
 /// Trainer's home base: KPI row + client roster (grid/table toggle).
 class TrainerDashboardScreen extends StatefulWidget {
@@ -111,12 +113,16 @@ class _Body extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
 
     if (provider.isLoading) {
-      return const ConsoleSkeleton(semanticsLabel: 'Loading dashboard');
+      return ConsoleSkeleton(semanticsLabel: l10n.dashboardLoading);
     }
     if (provider.error != null) {
-      return ConsoleErrorState(message: provider.error!, onRetry: provider.load);
+      return ConsoleErrorState(
+        message: provider.error!.localizedMessage(l10n),
+        onRetry: provider.load,
+      );
     }
 
     final plan = licence.licence;
@@ -128,7 +134,7 @@ class _Body extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                'Dashboard',
+                l10n.consoleNavDashboard,
                 style: TextStyle(
                   fontFamily: 'Montserrat',
                   fontWeight: FontWeight.w800,
@@ -167,7 +173,7 @@ class _Body extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                'Clients',
+                l10n.clientsHeading,
                 style: TextStyle(
                   fontFamily: 'Montserrat',
                   fontWeight: FontWeight.w700,
@@ -191,10 +197,8 @@ class _Body extends StatelessWidget {
           child: provider.roster.isEmpty
               ? ConsoleEmptyState(
                   icon: Icons.group_outlined,
-                  title: 'No clients yet',
-                  message:
-                      'Create an invite code and share it with your first '
-                      'client. They enter it under "Join a trainer".',
+                  title: l10n.rosterEmptyTitle,
+                  message: l10n.rosterEmptyBody,
                   action: _InviteButton(licence: licence, prominent: true),
                 )
               // The table is dense and needs horizontal room; below the
@@ -228,12 +232,12 @@ class _InviteButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final plan = licence.licence;
     final reason = switch (plan) {
-      null => 'Loading your plan…',
-      final l when l.isReadOnly => 'Renew your licence to invite clients.',
-      final l when l.isFull =>
-        'All ${l.seatLimit} seats are in use. Withdraw an invite or upgrade.',
+      null => l10n.licenceLoading,
+      final l when l.isReadOnly => l10n.inviteBlockedLapsed,
+      final l when l.isFull => l10n.inviteBlockedFull(l.seatLimit),
       _ => null,
     };
     final onPressed = licence.canInvite
@@ -241,19 +245,19 @@ class _InviteButton extends StatelessWidget {
         : null;
 
     return Tooltip(
-      message: reason ?? 'Invite a client',
+      message: reason ?? l10n.inviteAClient,
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 44),
         child: prominent
             ? FilledButton.icon(
                 onPressed: onPressed,
                 icon: const Icon(Icons.person_add_outlined, size: 18),
-                label: const Text('Invite a client'),
+                label: Text(l10n.inviteAClient),
               )
             : OutlinedButton.icon(
                 onPressed: onPressed,
                 icon: const Icon(Icons.person_add_outlined, size: 18),
-                label: const Text('Invite'),
+                label: Text(l10n.invite),
               ),
       ),
     );
@@ -267,6 +271,7 @@ class _KpiRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     // No "Alerts" tile: TrainerConsoleService never assigns AlertCount, so it
     // is always 0 and would read as "nothing is wrong" — which isn't known.
     // See TrainerDashboardKpis.alertCount.
@@ -275,19 +280,19 @@ class _KpiRow extends StatelessWidget {
         icon: Icons.group_rounded,
         accentColor: ForgeColors.forgeOrange,
         value: '${kpis.activeClientCount}',
-        label: 'Active clients',
+        label: l10n.kpiActiveClients,
       ),
       StatTile(
         icon: Icons.trending_up_rounded,
         accentColor: ForgeColors.statusOk,
         value: '${kpis.avgAdherencePercent.round()}%',
-        label: 'Avg adherence',
+        label: l10n.kpiAvgAdherence,
       ),
       StatTile(
         icon: Icons.fitness_center_rounded,
         accentColor: ForgeColors.carbsColor,
         value: '${kpis.sessionsThisWeek}',
-        label: 'Sessions this week',
+        label: l10n.kpiSessionsThisWeek,
       ),
     ];
 
@@ -310,17 +315,18 @@ class _LayoutToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return SegmentedButton<RosterLayout>(
-      segments: const [
+      segments: [
         ButtonSegment(
           value: RosterLayout.grid,
-          icon: Icon(Icons.grid_view_rounded, size: 18),
-          tooltip: 'Grid view',
+          icon: const Icon(Icons.grid_view_rounded, size: 18),
+          tooltip: l10n.rosterGridView,
         ),
         ButtonSegment(
           value: RosterLayout.table,
-          icon: Icon(Icons.table_rows_rounded, size: 18),
-          tooltip: 'Table view',
+          icon: const Icon(Icons.table_rows_rounded, size: 18),
+          tooltip: l10n.rosterTableView,
         ),
       ],
       selected: {layout},
@@ -377,6 +383,8 @@ class _RosterCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
+    final locale = Localizations.localeOf(context).toString();
     final adherence = entry.adherencePercent;
 
     return ConsoleCard(
@@ -408,7 +416,7 @@ class _RosterCard extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      entry.programLabel ?? 'No active plan',
+                      entry.programLabel ?? l10n.noActivePlan,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -427,14 +435,16 @@ class _RosterCard extends StatelessWidget {
             children: [
               Expanded(child: _AdherenceBar(percent: adherence)),
               const SizedBox(width: 10),
-              adherenceBadge(adherence),
+              adherenceBadge(adherence, l10n),
             ],
           ),
           const SizedBox(height: 6),
           Text(
             entry.lastSessionDate == null
-                ? 'No sessions yet'
-                : 'Last: ${DateFormat('d MMM').format(entry.lastSessionDate!)}',
+                ? l10n.noSessionsYet
+                : l10n.lastSessionOn(
+                    DateFormat('d MMM', locale).format(entry.lastSessionDate!),
+                  ),
             style: TextStyle(
               fontFamily: 'Exo 2',
               fontSize: 11,
@@ -449,9 +459,9 @@ class _RosterCard extends StatelessWidget {
 
 /// Adherence banding, shared by the card and table so the two can't disagree.
 /// Null means no sessions were scheduled — reported as "No data", not 0%.
-StatusBadge adherenceBadge(double? percent) {
+StatusBadge adherenceBadge(double? percent, AppLocalizations l10n) {
   if (percent == null) {
-    return const StatusBadge(tone: StatusTone.warn, label: 'No data');
+    return StatusBadge(tone: StatusTone.warn, label: l10n.noData);
   }
   final rounded = percent.round();
   if (rounded >= 80) {
@@ -497,6 +507,8 @@ class _RosterTable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
+    final locale = Localizations.localeOf(context).toString();
     final muted = TextStyle(
       fontFamily: 'Exo 2',
       fontSize: 10,
@@ -513,10 +525,22 @@ class _RosterTable extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
             child: Row(
               children: [
-                Expanded(flex: 3, child: Text('CLIENT', style: muted)),
-                Expanded(flex: 3, child: Text('PROGRAM', style: muted)),
-                Expanded(flex: 2, child: Text('ADHERENCE', style: muted)),
-                Expanded(flex: 2, child: Text('LAST SESSION', style: muted)),
+                Expanded(
+                  flex: 3,
+                  child: Text(l10n.rosterColumnClient, style: muted),
+                ),
+                Expanded(
+                  flex: 3,
+                  child: Text(l10n.rosterColumnProgram, style: muted),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Text(l10n.rosterColumnAdherence, style: muted),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Text(l10n.rosterColumnLastSession, style: muted),
+                ),
               ],
             ),
           ),
@@ -585,7 +609,10 @@ class _RosterTable extends StatelessWidget {
                           flex: 2,
                           child: Align(
                             alignment: Alignment.centerLeft,
-                            child: adherenceBadge(entry.adherencePercent),
+                            child: adherenceBadge(
+                              entry.adherencePercent,
+                              l10n,
+                            ),
                           ),
                         ),
                         Expanded(
@@ -595,6 +622,7 @@ class _RosterTable extends StatelessWidget {
                                 ? '—'
                                 : DateFormat(
                                     'd MMM',
+                                    locale,
                                   ).format(entry.lastSessionDate!),
                             style: TextStyle(
                               fontFamily: 'Exo 2',

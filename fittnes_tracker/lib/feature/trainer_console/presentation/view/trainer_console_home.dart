@@ -18,6 +18,7 @@ import 'package:ForgeForm/feature/trainer_console/presentation/view/trainer_dash
 import 'package:ForgeForm/feature/trainer_console/presentation/view/workout_builder_screen.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/console_widgets.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/trainer_console_shell.dart';
+import 'package:ForgeForm/l10n/app_localizations.dart';
 
 /// Entry point for the Trainer Console.
 ///
@@ -169,14 +170,14 @@ class _ChatUnavailable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
-      body: const SafeArea(
+      body: SafeArea(
         child: ConsoleEmptyState(
           icon: Icons.forum_outlined,
-          title: 'Messaging is unavailable',
-          message: 'Chat could not start on this device. Restart the app, and '
-              'if it keeps happening let support know.',
+          title: l10n.chatUnavailable,
+          message: l10n.chatUnavailableBody,
         ),
       ),
     );

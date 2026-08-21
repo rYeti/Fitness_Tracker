@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_licence.dart';
+import 'package:ForgeForm/l10n/app_localizations.dart';
 
 /// A one-line notice with an icon, a tone, and an action. Colour is paired with
 /// an icon and explicit copy so it carries without being seen as colour.
@@ -82,14 +84,14 @@ class LicenceBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+
     if (licence.isReadOnly) {
       return ConsoleBanner(
         icon: Icons.lock_outline,
         tone: ForgeColors.statusBad,
-        message:
-            'Your licence has lapsed. Your clients are still here, but you '
-            "can't change their plans and they've lost Pro.",
-        actionLabel: 'Renew',
+        message: l10n.licenceLapsedBanner,
+        actionLabel: l10n.licenceRenew,
         onAction: onManage,
       );
     }
@@ -98,11 +100,10 @@ class LicenceBanner extends StatelessWidget {
       return ConsoleBanner(
         icon: Icons.warning_amber_outlined,
         tone: ForgeColors.statusWarn,
-        message:
-            'Payment failed. Everything keeps working until '
-            '${_formatDate(licence.graceEndsAt!)} — after that your clients '
-            'lose Pro.',
-        actionLabel: 'Fix payment',
+        message: l10n.licenceGraceBanner(
+          _formatDate(context, licence.graceEndsAt!),
+        ),
+        actionLabel: l10n.licenceFixPayment,
         onAction: onManage,
       );
     }
@@ -111,11 +112,11 @@ class LicenceBanner extends StatelessWidget {
       return ConsoleBanner(
         icon: Icons.people_outline,
         tone: ForgeColors.statusBad,
-        message:
-            'You have ${licence.seatsUsed} clients on a '
-            '${licence.seatLimit}-seat plan. Nobody is removed, but you '
-            "can't add more.",
-        actionLabel: 'Upgrade',
+        message: l10n.licenceOverLimitBanner(
+          licence.seatsUsed,
+          licence.seatLimit,
+        ),
+        actionLabel: l10n.licenceUpgrade,
         onAction: onManage,
       );
     }
@@ -124,10 +125,11 @@ class LicenceBanner extends StatelessWidget {
       return ConsoleBanner(
         icon: Icons.people_outline,
         tone: ForgeColors.statusWarn,
-        message:
-            'All ${licence.seatLimit} seats on your ${licence.tier.label} plan '
-            'are in use.',
-        actionLabel: 'Upgrade',
+        message: l10n.licenceFullBanner(
+          licence.seatLimit,
+          licence.tier.localizedLabel(l10n),
+        ),
+        actionLabel: l10n.licenceUpgrade,
         onAction: onManage,
       );
     }
@@ -151,22 +153,18 @@ class TraineeProLapsingBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return ConsoleBanner(
       icon: Icons.info_outline,
       tone: ForgeColors.statusWarn,
-      message:
-          'Pro through your trainer ends ${_formatDate(endsAt)}. Your data '
-          'stays put — Pro features just lock.',
-      actionLabel: 'Keep Pro',
+      message: l10n.traineeProLapsingBanner(_formatDate(context, endsAt)),
+      actionLabel: l10n.traineeKeepPro,
       onAction: onSeePlans,
     );
   }
 }
 
-String _formatDate(DateTime date) {
-  const months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-  ];
-  return '${date.day} ${months[date.month - 1]}';
-}
+/// Day + abbreviated month in the active locale — the hand-rolled English
+/// month table this replaced printed "3 Mar" to a German trainer.
+String _formatDate(BuildContext context, DateTime date) =>
+    DateFormat.MMMd(Localizations.localeOf(context).toString()).format(date);

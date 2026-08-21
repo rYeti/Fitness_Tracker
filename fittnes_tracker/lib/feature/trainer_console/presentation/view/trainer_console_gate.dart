@@ -5,6 +5,7 @@ import 'package:ForgeForm/feature/trainer_console/data/trainer_console_repositor
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/trainer_licence_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/view/trainer_console_home.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/console_widgets.dart';
+import 'package:ForgeForm/l10n/app_localizations.dart';
 
 /// Role guard for the Trainer Console.
 ///
@@ -44,6 +45,7 @@ class TrainerConsoleGate extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final access = context.watch<AccessProvider>();
+    final l10n = AppLocalizations.of(context)!;
 
     // initialize() restores the cached flag and notifies before the network
     // re-check, so this window is brief — but on a cold start it's the
@@ -64,14 +66,12 @@ class TrainerConsoleGate extends StatelessWidget {
     if (fallback != null) return fallback!;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Trainer Console')),
-      body: const SafeArea(
+      appBar: AppBar(title: Text(l10n.trainerConsole)),
+      body: SafeArea(
         child: ConsoleEmptyState(
           icon: Icons.lock_outline_rounded,
-          title: 'Trainer access only',
-          message:
-              'This area is for trainers managing clients. If you should have '
-              'access, ask your gym to enable it on your account.',
+          title: l10n.trainerAccessOnly,
+          message: l10n.trainerAccessOnlyBody,
         ),
       ),
     );

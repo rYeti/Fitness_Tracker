@@ -1363,5 +1363,871 @@
   "chatUnavailable": "Messaging is unavailable",
   "@chatUnavailable": {},
   "chatUnavailableBody": "Chat could not start on this device. Restart the app, and if it keeps happening let support know.",
-  "@chatUnavailableBody": {}
+  "@chatUnavailableBody": {},
+  "trainerConsole": "Trainer Console",
+  "@trainerConsole": {},
+  "trainerConsoleSubtitle": "Manage your clients",
+  "@trainerConsoleSubtitle": {},
+  "consoleNavDashboard": "Dashboard",
+  "@consoleNavDashboard": {},
+  "consoleNavMessages": "Messages",
+  "@consoleNavMessages": {},
+  "consoleNavBuilder": "Workout Builder",
+  "@consoleNavBuilder": {},
+  "consoleNavNutrition": "Nutrition",
+  "@consoleNavNutrition": {},
+  "consoleNavSessionReview": "Session Review",
+  "@consoleNavSessionReview": {},
+  "consoleNavDashboardShort": "Home",
+  "@consoleNavDashboardShort": {},
+  "consoleNavMessagesShort": "Chat",
+  "@consoleNavMessagesShort": {},
+  "consoleNavBuilderShort": "Workouts",
+  "@consoleNavBuilderShort": {},
+  "consoleNavNutritionShort": "Nutrition",
+  "@consoleNavNutritionShort": {},
+  "consoleNavSessionReviewShort": "Review",
+  "@consoleNavSessionReviewShort": {},
+  "consoleMyTraining": "My training",
+  "@consoleMyTraining": {},
+  "consoleSwitchToMyTraining": "Switch to my training",
+  "@consoleSwitchToMyTraining": {},
+  "consoleLoading": "Loading",
+  "@consoleLoading": {},
+  "trainerAccessOnly": "Trainer access only",
+  "@trainerAccessOnly": {},
+  "trainerAccessOnlyBody": "This area is for trainers managing clients. If you should have access, ask your gym to enable it on your account.",
+  "@trainerAccessOnlyBody": {},
+  "dashboardLoading": "Loading dashboard",
+  "@dashboardLoading": {},
+  "clientsHeading": "Clients",
+  "@clientsHeading": {},
+  "kpiActiveClients": "Active clients",
+  "@kpiActiveClients": {},
+  "kpiAvgAdherence": "Avg adherence",
+  "@kpiAvgAdherence": {},
+  "kpiSessionsThisWeek": "Sessions this week",
+  "@kpiSessionsThisWeek": {},
+  "rosterEmptyTitle": "No clients yet",
+  "@rosterEmptyTitle": {},
+  "rosterEmptyBody": "Create an invite code and share it with your first client. They enter it under \"Join a trainer\".",
+  "@rosterEmptyBody": {},
+  "rosterGridView": "Grid view",
+  "@rosterGridView": {},
+  "rosterTableView": "Table view",
+  "@rosterTableView": {},
+  "rosterColumnClient": "CLIENT",
+  "@rosterColumnClient": {},
+  "rosterColumnProgram": "PROGRAM",
+  "@rosterColumnProgram": {},
+  "rosterColumnAdherence": "ADHERENCE",
+  "@rosterColumnAdherence": {},
+  "rosterColumnLastSession": "LAST SESSION",
+  "@rosterColumnLastSession": {},
+  "noActivePlan": "No active plan",
+  "@noActivePlan": {},
+  "noSessionsYet": "No sessions yet",
+  "@noSessionsYet": {},
+  "lastSessionOn": "Last: {date}",
+  "@lastSessionOn": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "noData": "No data",
+  "@noData": {},
+  "invite": "Invite",
+  "@invite": {},
+  "inviteAClient": "Invite a client",
+  "@inviteAClient": {},
+  "inviteSheetBody": "Share the code with your client. They enter it under \"Join a trainer\" in their app.",
+  "@inviteSheetBody": {},
+  "createInviteCode": "Create invite code",
+  "@createInviteCode": {},
+  "createNewInviteCode": "Create a new invite code",
+  "@createNewInviteCode": {},
+  "copyCode": "Copy code",
+  "@copyCode": {},
+  "inviteCodeCopied": "Invite code copied",
+  "@inviteCodeCopied": {},
+  "inviteCodeSemantics": "Invite code {code}",
+  "@inviteCodeSemantics": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "inviteExpiresInSevenDays": "Expires in 7 days.",
+  "@inviteExpiresInSevenDays": {},
+  "copyInviteCode": "Copy {code}",
+  "@copyInviteCode": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "withdrawInviteCode": "Withdraw {code}",
+  "@withdrawInviteCode": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "outstandingInvites": "Outstanding invites",
+  "@outstandingInvites": {},
+  "outstandingInvitesBody": "Each of these holds a seat until it is used or withdrawn.",
+  "@outstandingInvitesBody": {},
+  "inviteExpired": "Expired",
+  "@inviteExpired": {},
+  "inviteExpiresToday": "Expires today",
+  "@inviteExpiresToday": {},
+  "inviteExpiresInDays": "{days, plural, =1{Expires in 1 day} other{Expires in {days} days}}",
+  "@inviteExpiresInDays": {
+    "placeholders": {
+      "days": {
+        "type": "num"
+      }
+    }
+  },
+  "withdrawInviteTitle": "Withdraw this invite?",
+  "@withdrawInviteTitle": {},
+  "withdrawInviteBody": "{code} will stop working and its seat is freed. Anyone you already sent it to will need a new code.",
+  "@withdrawInviteBody": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "keep": "Keep",
+  "@keep": {},
+  "withdraw": "Withdraw",
+  "@withdraw": {},
+  "inviteBlockedLapsed": "Renew your licence to invite clients.",
+  "@inviteBlockedLapsed": {},
+  "inviteBlockedFull": "All {seats} seats are in use. Withdraw an invite or upgrade.",
+  "@inviteBlockedFull": {
+    "placeholders": {
+      "seats": {
+        "type": "int"
+      }
+    }
+  },
+  "seatMeterUsage": "{used} of {limit} clients",
+  "@seatMeterUsage": {
+    "placeholders": {
+      "used": {
+        "type": "int"
+      },
+      "limit": {
+        "type": "int"
+      }
+    }
+  },
+  "seatMeterOverLimit": "Over your plan. Existing clients keep working; you can't add more.",
+  "@seatMeterOverLimit": {},
+  "seatMeterFull": "Plan full. Free a seat or upgrade to add more.",
+  "@seatMeterFull": {},
+  "seatMeterRemaining": "{seats} seats left",
+  "@seatMeterRemaining": {
+    "placeholders": {
+      "seats": {
+        "type": "int"
+      }
+    }
+  },
+  "seatMeterSemantics": "{usage}. {caption}",
+  "@seatMeterSemantics": {
+    "placeholders": {
+      "usage": {
+        "type": "String"
+      },
+      "caption": {
+        "type": "String"
+      }
+    }
+  },
+  "seatChipSemantics": "{used} of {limit} client seats used. {tier} plan. Open plan settings.",
+  "@seatChipSemantics": {
+    "placeholders": {
+      "used": {
+        "type": "int"
+      },
+      "limit": {
+        "type": "int"
+      },
+      "tier": {
+        "type": "String"
+      }
+    }
+  },
+  "seatChipTooltip": "{tier} — {used}/{limit} clients",
+  "@seatChipTooltip": {
+    "placeholders": {
+      "tier": {
+        "type": "String"
+      },
+      "used": {
+        "type": "int"
+      },
+      "limit": {
+        "type": "int"
+      }
+    }
+  },
+  "licenceTierFree": "Free",
+  "@licenceTierFree": {},
+  "licenceTierSolo": "Solo",
+  "@licenceTierSolo": {},
+  "licenceTierPro": "Pro",
+  "@licenceTierPro": {},
+  "licenceTierStudio": "Studio",
+  "@licenceTierStudio": {},
+  "licenceStatusActive": "Active",
+  "@licenceStatusActive": {},
+  "licenceStatusTrialing": "Trial",
+  "@licenceStatusTrialing": {},
+  "licenceStatusPastDue": "Payment failed",
+  "@licenceStatusPastDue": {},
+  "licenceStatusCanceled": "Cancelled",
+  "@licenceStatusCanceled": {},
+  "licenceLoading": "Loading your plan…",
+  "@licenceLoading": {},
+  "licenceLoadingLabel": "Loading your plan",
+  "@licenceLoadingLabel": {},
+  "yourPlan": "Your plan",
+  "@yourPlan": {},
+  "yourPlanSubtitle": "Seats, billing and invites",
+  "@yourPlanSubtitle": {},
+  "noPlanYet": "No plan yet",
+  "@noPlanYet": {},
+  "noPlanYetBody": "Set up a trainer plan to start taking on clients.",
+  "@noPlanYetBody": {},
+  "setUp": "Set up",
+  "@setUp": {},
+  "setUpTrainerConsole": "Set up Trainer Console",
+  "@setUpTrainerConsole": {},
+  "setUpTrainerConsoleSubtitle": "Coach up to 3 clients free",
+  "@setUpTrainerConsoleSubtitle": {},
+  "changePlan": "Change plan",
+  "@changePlan": {},
+  "planLadderFootnote": "Paid plans include ForgeForm Pro for you and every client on your roster. The free plan covers {seats} clients without Pro.",
+  "@planLadderFootnote": {
+    "placeholders": {
+      "seats": {
+        "type": "int"
+      }
+    }
+  },
+  "tierPlanTitle": "{tier} plan",
+  "@tierPlanTitle": {
+    "placeholders": {
+      "tier": {
+        "type": "String"
+      }
+    }
+  },
+  "proIncluded": "Pro included for you and every client",
+  "@proIncluded": {},
+  "proNotIncluded": "Pro not included — upgrade to cover your clients",
+  "@proNotIncluded": {},
+  "manageBilling": "Manage billing",
+  "@manageBilling": {},
+  "statusLabel": "Status: {status}",
+  "@statusLabel": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "tierSeatsAndPro": "Up to {seats} clients, Pro included",
+  "@tierSeatsAndPro": {
+    "placeholders": {
+      "seats": {
+        "type": "int"
+      }
+    }
+  },
+  "planCurrent": "Current",
+  "@planCurrent": {},
+  "licenceLapsedBanner": "Your licence has lapsed. Your clients are still here, but you can't change their plans and they've lost Pro.",
+  "@licenceLapsedBanner": {},
+  "licenceRenew": "Renew",
+  "@licenceRenew": {},
+  "licenceGraceBanner": "Payment failed. Everything keeps working until {date} — after that your clients lose Pro.",
+  "@licenceGraceBanner": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "licenceFixPayment": "Fix payment",
+  "@licenceFixPayment": {},
+  "licenceOverLimitBanner": "You have {used} clients on a {limit}-seat plan. Nobody is removed, but you can't add more.",
+  "@licenceOverLimitBanner": {
+    "placeholders": {
+      "used": {
+        "type": "int"
+      },
+      "limit": {
+        "type": "int"
+      }
+    }
+  },
+  "licenceUpgrade": "Upgrade",
+  "@licenceUpgrade": {},
+  "licenceFullBanner": "All {limit} seats on your {tier} plan are in use.",
+  "@licenceFullBanner": {
+    "placeholders": {
+      "limit": {
+        "type": "int"
+      },
+      "tier": {
+        "type": "String"
+      }
+    }
+  },
+  "traineeProLapsingBanner": "Pro through your trainer ends {date}. Your data stays put — Pro features just lock.",
+  "@traineeProLapsingBanner": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "traineeKeepPro": "Keep Pro",
+  "@traineeKeepPro": {},
+  "inviteFailureSeatLimitReached": "Your plan is full. Upgrade or free up a seat to invite another client.",
+  "@inviteFailureSeatLimitReached": {},
+  "inviteFailureLicenceLapsed": "Your licence has lapsed. Renew it to take on new clients.",
+  "@inviteFailureLicenceLapsed": {},
+  "inviteFailureNotATrainer": "Set up a trainer plan before inviting clients.",
+  "@inviteFailureNotATrainer": {},
+  "inviteFailureInvalidCode": "That code doesn't match an invite. Check it and try again.",
+  "@inviteFailureInvalidCode": {},
+  "inviteFailureExpiredCode": "That invite has expired. Ask your trainer for a new code.",
+  "@inviteFailureExpiredCode": {},
+  "inviteFailureSelfInvite": "That's your own invite code.",
+  "@inviteFailureSelfInvite": {},
+  "inviteFailureTrainerAtSeatLimit": "Your trainer's plan is full. Ask them to free up a seat.",
+  "@inviteFailureTrainerAtSeatLimit": {},
+  "inviteFailureTrainerNotEntitled": "Your trainer's plan isn't active. Ask them to renew it.",
+  "@inviteFailureTrainerNotEntitled": {},
+  "inviteFailureNetwork": "Couldn't reach ForgeForm. Check your connection and try again.",
+  "@inviteFailureNetwork": {},
+  "errorLoadRoster": "Could not load your clients.",
+  "@errorLoadRoster": {},
+  "errorLoadDashboard": "Could not load your dashboard.",
+  "@errorLoadDashboard": {},
+  "errorLoadClientDetail": "Could not load this client’s details.",
+  "@errorLoadClientDetail": {},
+  "errorLoadNutrition": "Could not load this client’s nutrition.",
+  "@errorLoadNutrition": {},
+  "errorLoadSessions": "Could not load this client’s sessions.",
+  "@errorLoadSessions": {},
+  "errorLoadLicence": "Could not load your plan.",
+  "@errorLoadLicence": {},
+  "errorLoadWorkoutPlans": "Could not load workout plans.",
+  "@errorLoadWorkoutPlans": {},
+  "errorPlanNameRequired": "Give the plan a name.",
+  "@errorPlanNameRequired": {},
+  "errorCreatePlan": "Could not create the plan.",
+  "@errorCreatePlan": {},
+  "errorCreateInvite": "Could not create an invite. Try again.",
+  "@errorCreateInvite": {},
+  "errorWithdrawInvite": "Could not withdraw that invite. Try again.",
+  "@errorWithdrawInvite": {},
+  "errorOpenCheckout": "Could not open checkout. Try again.",
+  "@errorOpenCheckout": {},
+  "errorOpenBilling": "Could not open billing. Try again.",
+  "@errorOpenBilling": {},
+  "clientDetailLoading": "Loading client details",
+  "@clientDetailLoading": {},
+  "adherence": "Adherence",
+  "@adherence": {},
+  "clientCurrentWeight": "Current weight",
+  "@clientCurrentWeight": {},
+  "change": "Change",
+  "@change": {},
+  "planStartedOn": "Started {date}",
+  "@planStartedOn": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "weightTrend": "Weight trend",
+  "@weightTrend": {},
+  "weightTrendEmptyTitle": "Not enough weight data",
+  "@weightTrendEmptyTitle": {},
+  "weightTrendEmptyBody": "Two or more logged weigh-ins are needed to show a trend.",
+  "@weightTrendEmptyBody": {},
+  "entryCount": "{count, plural, =1{1 entry} other{{count} entries}}",
+  "@entryCount": {
+    "placeholders": {
+      "count": {
+        "type": "num"
+      }
+    }
+  },
+  "weightTrendSemantics": "Weight from {from} to {to} kilograms",
+  "@weightTrendSemantics": {
+    "placeholders": {
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      }
+    }
+  },
+  "attendanceEmptyTitle": "No attendance data",
+  "@attendanceEmptyTitle": {},
+  "attendanceEmptyBody": "Attendance appears once sessions are scheduled.",
+  "@attendanceEmptyBody": {},
+  "attendanceByWeek": "Attendance by week",
+  "@attendanceByWeek": {},
+  "attendanceWeekSemantics": "Week of {date}: {completed} of {planned} sessions",
+  "@attendanceWeekSemantics": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "completed": {
+        "type": "int"
+      },
+      "planned": {
+        "type": "int"
+      }
+    }
+  },
+  "strengthEmptyTitle": "No strength data",
+  "@strengthEmptyTitle": {},
+  "strengthEmptyBody": "Progression appears once completed sets are logged.",
+  "@strengthEmptyBody": {},
+  "strengthProgression": "Strength progression",
+  "@strengthProgression": {},
+  "exercise": "Exercise",
+  "@exercise": {},
+  "todaysMacros": "Today’s macros",
+  "@todaysMacros": {},
+  "caloriesOfGoal": "{eaten} / {goal} kcal",
+  "@caloriesOfGoal": {
+    "placeholders": {
+      "eaten": {
+        "type": "int"
+      },
+      "goal": {
+        "type": "int"
+      }
+    }
+  },
+  "macroSummaryNone": "No macros logged",
+  "@macroSummaryNone": {},
+  "macroSummarySemantics": "Protein {protein}g, carbs {carbs}g, fat {fat}g",
+  "@macroSummarySemantics": {
+    "placeholders": {
+      "protein": {
+        "type": "String"
+      },
+      "carbs": {
+        "type": "String"
+      },
+      "fat": {
+        "type": "String"
+      }
+    }
+  },
+  "switchClientSemantics": "Switch client. Currently {name}",
+  "@switchClientSemantics": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "switchClientHeading": "SWITCH CLIENT",
+  "@switchClientHeading": {},
+  "conversationsLoading": "Loading conversations",
+  "@conversationsLoading": {},
+  "conversationsLoadError": "Could not load your conversations.",
+  "@conversationsLoadError": {},
+  "conversationsEmpty": "No conversations yet",
+  "@conversationsEmpty": {},
+  "conversationsEmptyBody": "Once a client accepts your invite you can message them here.",
+  "@conversationsEmptyBody": {},
+  "backToConversations": "Back to conversations",
+  "@backToConversations": {},
+  "pickAConversation": "Pick a conversation",
+  "@pickAConversation": {},
+  "pickAConversationBody": "Choose a client on the left to see your messages.",
+  "@pickAConversationBody": {},
+  "messagesLoading": "Loading messages",
+  "@messagesLoading": {},
+  "trainerThreadEmptyBody": "Say hello — this is the start of your conversation.",
+  "@trainerThreadEmptyBody": {},
+  "clientStatsElsewhere": "Client stats appear on the dashboard and client detail screens.",
+  "@clientStatsElsewhere": {},
+  "nutritionSubtitle": "Daily intake and 7-day trend",
+  "@nutritionSubtitle": {},
+  "nutritionSubtitleNoClient": "Select a client to review their intake",
+  "@nutritionSubtitleNoClient": {},
+  "previousDay": "Previous day",
+  "@previousDay": {},
+  "nextDay": "Next day",
+  "@nextDay": {},
+  "nutritionLoading": "Loading nutrition",
+  "@nutritionLoading": {},
+  "nutritionNoClientsBody": "Invite your first client to monitor their nutrition.",
+  "@nutritionNoClientsBody": {},
+  "nothingLogged": "Nothing logged",
+  "@nothingLogged": {},
+  "nothingLoggedBody": "{name} didn’t log any meals on this day.",
+  "@nothingLoggedBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "mealsLogged": "Meals logged",
+  "@mealsLogged": {},
+  "meal": "Meal",
+  "@meal": {},
+  "noTrendYet": "No trend yet",
+  "@noTrendYet": {},
+  "noTrendYetBody": "Once meals are logged, the 7-day trend appears here.",
+  "@noTrendYetBody": {},
+  "caloriesVsTarget": "Calories vs. target",
+  "@caloriesVsTarget": {},
+  "withinTarget": "Within target",
+  "@withinTarget": {},
+  "overTarget": "Over target",
+  "@overTarget": {},
+  "targetCalories": "Target {goal} kcal",
+  "@targetCalories": {
+    "placeholders": {
+      "goal": {
+        "type": "int"
+      }
+    }
+  },
+  "trendBarSemantics": "{day}: {calories} kcal",
+  "@trendBarSemantics": {
+    "placeholders": {
+      "day": {
+        "type": "String"
+      },
+      "calories": {
+        "type": "int"
+      }
+    }
+  },
+  "trendBarSemanticsOver": "{day}: {calories} kcal, over target",
+  "@trendBarSemanticsOver": {
+    "placeholders": {
+      "day": {
+        "type": "String"
+      },
+      "calories": {
+        "type": "int"
+      }
+    }
+  },
+  "builderSubtitle": "Create and assign a plan",
+  "@builderSubtitle": {},
+  "builderSubtitleNoClient": "Select a client to build a plan",
+  "@builderSubtitleNoClient": {},
+  "newPlan": "New plan",
+  "@newPlan": {},
+  "builderLoading": "Loading workout builder",
+  "@builderLoading": {},
+  "builderNoClientsBody": "Invite your first client to build them a plan.",
+  "@builderNoClientsBody": {},
+  "planAssignedTo": "Plan assigned to {name}",
+  "@planAssignedTo": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "builderPlanName": "Plan name",
+  "@builderPlanName": {},
+  "builderPlanNameHint": "e.g. Push / Pull / Legs",
+  "@builderPlanNameHint": {},
+  "planNameRequired": "Give the plan a name",
+  "@planNameRequired": {},
+  "planDescriptionOptional": "Description (optional)",
+  "@planDescriptionOptional": {},
+  "assignTo": "Assign to {name}",
+  "@assignTo": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "startFromTemplate": "Start from a template",
+  "@startFromTemplate": {},
+  "templateDaysAndDescription": "{days} days · {description}",
+  "@templateDaysAndDescription": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      },
+      "description": {
+        "type": "String"
+      }
+    }
+  },
+  "noActivePlanTitle": "No active plan",
+  "@noActivePlanTitle": {},
+  "noActivePlanBody": "{name} isn’t on a plan yet.",
+  "@noActivePlanBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "createAPlan": "Create a plan",
+  "@createAPlan": {},
+  "planActive": "Active",
+  "@planActive": {},
+  "exerciseEditingUnavailable": "Exercise editing isn’t available yet",
+  "@exerciseEditingUnavailable": {},
+  "exerciseEditingUnavailableBody": "Plans can be created and assigned. Editing a plan’s exercises, sets and reps needs a trainer-facing API that doesn’t exist yet.",
+  "@exerciseEditingUnavailableBody": {},
+  "sessionReviewSubtitleNoClient": "Select a client to review their sessions",
+  "@sessionReviewSubtitleNoClient": {},
+  "sessionReviewSubtitle": "What {name} actually logged",
+  "@sessionReviewSubtitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "sessionReviewSubtitleWithCounts": "What {name} actually logged — {total} sessions, {done} completed, {missed} missed",
+  "@sessionReviewSubtitleWithCounts": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "total": {
+        "type": "int"
+      },
+      "done": {
+        "type": "int"
+      },
+      "missed": {
+        "type": "int"
+      }
+    }
+  },
+  "sessionsLoading": "Loading sessions",
+  "@sessionsLoading": {},
+  "sessionReviewNoClientsBody": "Invite your first client to start reviewing their sessions.",
+  "@sessionReviewNoClientsBody": {},
+  "noSessionsLoggedTitle": "No sessions logged yet",
+  "@noSessionsLoggedTitle": {},
+  "noSessionsLoggedBody": "{name} hasn’t recorded a workout yet.",
+  "@noSessionsLoggedBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "sessionCompleted": "Completed",
+  "@sessionCompleted": {},
+  "sessionPartial": "Partial",
+  "@sessionPartial": {},
+  "sessionMissed": "Missed",
+  "@sessionMissed": {},
+  "sessionSkipped": "Skipped",
+  "@sessionSkipped": {},
+  "dateToday": "Today · {date}",
+  "@dateToday": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "dateYesterday": "Yesterday · {date}",
+  "@dateYesterday": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "sessionHistory": "Session history",
+  "@sessionHistory": {},
+  "workout": "Workout",
+  "@workout": {},
+  "noWorkoutLoggedTitle": "No workout logged",
+  "@noWorkoutLoggedTitle": {},
+  "noWorkoutLoggedBody": "{name} didn’t record this session.",
+  "@noWorkoutLoggedBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "newPr": "NEW PR",
+  "@newPr": {},
+  "pr": "PR",
+  "@pr": {},
+  "volume": "Volume",
+  "@volume": {},
+  "avgRpe": "Avg RPE",
+  "@avgRpe": {},
+  "clientNote": "CLIENT NOTE",
+  "@clientNote": {},
+  "prescribedSummary": "Prescribed {summary}",
+  "@prescribedSummary": {
+    "placeholders": {
+      "summary": {
+        "type": "String"
+      }
+    }
+  },
+  "setColumn": "SET",
+  "@setColumn": {},
+  "repsColumn": "REPS",
+  "@repsColumn": {},
+  "weightColumn": "WEIGHT",
+  "@weightColumn": {},
+  "rpeColumn": "RPE",
+  "@rpeColumn": {},
+  "setNumber": "Set {number}",
+  "@setNumber": {
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "repsCount": "{reps} reps",
+  "@repsCount": {
+    "placeholders": {
+      "reps": {
+        "type": "int"
+      }
+    }
+  },
+  "bodyweight": "bodyweight",
+  "@bodyweight": {},
+  "rpeValue": "RPE {value}",
+  "@rpeValue": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "underTarget": "under target",
+  "@underTarget": {},
+  "joinATrainer": "Join a trainer",
+  "@joinATrainer": {},
+  "joinATrainerSubtitle": "Enter the code your trainer gave you",
+  "@joinATrainerSubtitle": {},
+  "joinTrainerTitle": "Join a Trainer",
+  "@joinTrainerTitle": {},
+  "joinTrainerPrompt": "Enter the code your trainer gave you.",
+  "@joinTrainerPrompt": {},
+  "trainerCode": "Trainer Code",
+  "@trainerCode": {},
+  "joinTrainerAction": "Join Trainer",
+  "@joinTrainerAction": {},
+  "joinTrainerDisclosure": "Your trainer will be able to see your workouts, weight and nutrition. If their plan includes Pro, you get it while you are on their roster.",
+  "@joinTrainerDisclosure": {},
+  "joinTrainerCodeMissing": "Enter the 12-character code from your trainer.",
+  "@joinTrainerCodeMissing": {},
+  "joinTrainerCodeMalformed": "Codes are 12 characters, digits and letters A–F.",
+  "@joinTrainerCodeMalformed": {},
+  "joinTrainerConnected": "You're connected to your trainer.",
+  "@joinTrainerConnected": {},
+  "somethingWentWrongRetry": "Something went wrong. Try again.",
+  "@somethingWentWrongRetry": {},
+  "dismiss": "Dismiss",
+  "@dismiss": {},
+  "searchOnline": "Search Online",
+  "@searchOnline": {},
+  "resetEmailFailed": "Failed to send reset email. Please try again.",
+  "@resetEmailFailed": {},
+  "kcal": "kcal",
+  "@kcal": {},
+  "calorieRingNoGoal": "{kcal} kcal logged, no goal set",
+  "@calorieRingNoGoal": {
+    "placeholders": {
+      "kcal": {
+        "type": "int"
+      }
+    }
+  },
+  "calorieRingOver": "{eaten} of {goal} kcal, over by {over}",
+  "@calorieRingOver": {
+    "placeholders": {
+      "eaten": {
+        "type": "int"
+      },
+      "goal": {
+        "type": "int"
+      },
+      "over": {
+        "type": "int"
+      }
+    }
+  },
+  "calorieRingRemaining": "{eaten} of {goal} kcal, {remaining} remaining",
+  "@calorieRingRemaining": {
+    "placeholders": {
+      "eaten": {
+        "type": "int"
+      },
+      "goal": {
+        "type": "int"
+      },
+      "remaining": {
+        "type": "int"
+      }
+    }
+  },
+  "calorieRingGoal": "/ {goal} kcal",
+  "@calorieRingGoal": {
+    "placeholders": {
+      "goal": {
+        "type": "int"
+      }
+    }
+  },
+  "calorieRingOverBy": "over by {over}",
+  "@calorieRingOverBy": {
+    "placeholders": {
+      "over": {
+        "type": "int"
+      }
+    }
+  },
+  "calorieRingLeft": "{remaining} left",
+  "@calorieRingLeft": {
+    "placeholders": {
+      "remaining": {
+        "type": "int"
+      }
+    }
+  }
 }

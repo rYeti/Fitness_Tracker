@@ -10,6 +10,8 @@ import 'package:ForgeForm/feature/trainer_console/presentation/widgets/calorie_r
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/client_switcher.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/console_widgets.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/macro_summary.dart';
+import 'package:ForgeForm/feature/trainer_console/domain/models/console_error.dart';
+import 'package:ForgeForm/l10n/app_localizations.dart';
 
 /// Client-switcher (shared ActiveClientProvider) + a day-switcher, so the
 /// trainer can browse any past day's nutrition, not just today.
@@ -116,12 +118,13 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
     final title = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          'Nutrition',
+          l10n.consoleNavNutrition,
           style: TextStyle(
             fontFamily: 'Montserrat',
             fontWeight: FontWeight.w800,
@@ -133,8 +136,8 @@ class _Header extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           clientName == null
-              ? 'Select a client to review their intake'
-              : 'Daily intake and 7-day trend',
+              ? l10n.nutritionSubtitleNoClient
+              : l10n.nutritionSubtitle,
           style: TextStyle(
             fontFamily: 'Exo 2',
             fontSize: 13,
@@ -182,6 +185,7 @@ class _DaySwitcher extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
     final date = nutrition.selectedDate;
     final today = DateTime.now();
     final isToday = date.year == today.year &&
@@ -201,11 +205,16 @@ class _DaySwitcher extends StatelessWidget {
           IconButton(
             onPressed: () => nutrition.previousDay(clientId),
             icon: const Icon(Icons.chevron_left_rounded),
-            tooltip: 'Previous day',
+            tooltip: l10n.previousDay,
             iconSize: 20,
           ),
           Text(
-            isToday ? 'Today' : DateFormat('EEE d MMM').format(date),
+            isToday
+                ? l10n.today
+                : DateFormat(
+                    'EEE d MMM',
+                    Localizations.localeOf(context).toString(),
+                  ).format(date),
             style: TextStyle(
               fontFamily: 'Exo 2',
               fontSize: 13,
@@ -220,7 +229,7 @@ class _DaySwitcher extends StatelessWidget {
                 ? () => nutrition.nextDay(clientId)
                 : null,
             icon: const Icon(Icons.chevron_right_rounded),
-            tooltip: 'Next day',
+            tooltip: l10n.nextDay,
             iconSize: 20,
           ),
         ],
@@ -242,36 +251,37 @@ class _Body extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     if (activeClient.isLoading && activeClient.clients.isEmpty) {
-      return const ConsoleSkeleton(semanticsLabel: 'Loading nutrition');
+      return ConsoleSkeleton(semanticsLabel: l10n.nutritionLoading);
     }
     if (activeClient.error != null) {
       return ConsoleErrorState(
-        message: activeClient.error!,
+        message: activeClient.error!.localizedMessage(l10n),
         onRetry: activeClient.loadClients,
       );
     }
     final client = activeClient.activeClient;
     if (client == null) {
-      return const ConsoleEmptyState(
+      return ConsoleEmptyState(
         icon: Icons.group_outlined,
-        title: 'No clients yet',
-        message: 'Invite your first client to monitor their nutrition.',
+        title: l10n.rosterEmptyTitle,
+        message: l10n.nutritionNoClientsBody,
       );
     }
     if (nutrition.isLoading) {
-      return const ConsoleSkeleton(semanticsLabel: 'Loading nutrition');
+      return ConsoleSkeleton(semanticsLabel: l10n.nutritionLoading);
     }
     if (nutrition.error != null) {
       return ConsoleErrorState(
-        message: nutrition.error!,
+        message: nutrition.error!.localizedMessage(l10n),
         onRetry: () => nutrition.load(client.clientId),
       );
     }
 
     final summary = nutrition.summary;
     if (summary == null) {
-      return const ConsoleSkeleton(semanticsLabel: 'Loading nutrition');
+      return ConsoleSkeleton(semanticsLabel: l10n.nutritionLoading);
     }
 
     final ringCard = _RingCard(summary: summary);
@@ -363,12 +373,13 @@ class _MealsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
 
     if (summary.loggedMeals.isEmpty) {
       return ConsoleEmptyState(
         icon: Icons.no_meals_outlined,
-        title: 'Nothing logged',
-        message: '$clientName didn’t log any meals on this day.',
+        title: l10n.nothingLogged,
+        message: l10n.nothingLoggedBody(clientName),
         inCard: true,
       );
     }
@@ -385,7 +396,7 @@ class _MealsCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const ConsoleSectionTitle(title: 'Meals logged'),
+          ConsoleSectionTitle(title: l10n.mealsLogged),
           for (final meal in meals) ...[
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
@@ -411,7 +422,7 @@ class _MealsCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          _titleCase(meal.category),
+                          _categoryLabel(meal.category, l10n),
                           style: TextStyle(
                             fontFamily: 'Exo 2',
                             fontWeight: FontWeight.w700,
@@ -454,9 +465,18 @@ class _MealsCard extends StatelessWidget {
     );
   }
 
-  static String _titleCase(String value) => value.isEmpty
-      ? 'Meal'
-      : value[0].toUpperCase() + value.substring(1).toLowerCase();
+  /// The wire value is an English slug ("breakfast"); the reader sees their
+  /// own language. An unrecognised category keeps the server's own wording
+  /// rather than being flattened to "Meal".
+  static String _categoryLabel(String category, AppLocalizations l10n) =>
+      switch (category.toLowerCase()) {
+        'breakfast' => l10n.mealBreakfast,
+        'lunch' => l10n.mealLunch,
+        'dinner' => l10n.mealDinner,
+        'snack' || 'snacks' => l10n.mealSnacks,
+        '' => l10n.meal,
+        _ => category[0].toUpperCase() + category.substring(1).toLowerCase(),
+      };
 }
 
 /// 7-day calories-vs-target bars. Hand-built rather than pulled into fl_chart:
@@ -470,12 +490,13 @@ class _TrendCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
 
     if (trend.isEmpty) {
       return ConsoleEmptyState(
         icon: Icons.bar_chart_outlined,
-        title: 'No trend yet',
-        message: 'Once meals are logged, the 7-day trend appears here.',
+        title: l10n.noTrendYet,
+        message: l10n.noTrendYetBody,
         inCard: true,
       );
     }
@@ -491,7 +512,7 @@ class _TrendCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const ConsoleSectionTitle(title: 'Calories vs. target'),
+          ConsoleSectionTitle(title: l10n.caloriesVsTarget),
           SizedBox(
             height: 150,
             child: Row(
@@ -513,13 +534,13 @@ class _TrendCard extends StatelessWidget {
             children: [
               _LegendDot(
                 color: ForgeColors.forgeOrange,
-                label: 'Within target',
+                label: l10n.withinTarget,
               ),
               const SizedBox(width: 16),
-              _LegendDot(color: ForgeColors.statusBad, label: 'Over target'),
+              _LegendDot(color: ForgeColors.statusBad, label: l10n.overTarget),
               const Spacer(),
               Text(
-                'Target ${trend.last.goal} kcal',
+                l10n.targetCalories(trend.last.goal),
                 style: TextStyle(
                   fontFamily: 'Exo 2',
                   fontSize: 11.5,
@@ -548,6 +569,8 @@ class _TrendBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
+    final locale = Localizations.localeOf(context).toString();
     final over = day.isOverBudget;
     final fraction = (day.totalCalories / maxValue).clamp(0.0, 1.0);
 
@@ -557,9 +580,15 @@ class _TrendBar extends StatelessWidget {
     return Semantics(
       container: true,
       excludeSemantics: true,
-      label:
-          '${DateFormat('EEEE').format(day.date)}: ${day.totalCalories} kcal'
-          '${over ? ', over target' : ''}',
+      label: over
+          ? l10n.trendBarSemanticsOver(
+              DateFormat('EEEE', locale).format(day.date),
+              day.totalCalories,
+            )
+          : l10n.trendBarSemantics(
+              DateFormat('EEEE', locale).format(day.date),
+              day.totalCalories,
+            ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4),
         child: Column(
@@ -597,7 +626,7 @@ class _TrendBar extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              DateFormat('E').format(day.date),
+              DateFormat('E', locale).format(day.date),
               style: TextStyle(
                 fontFamily: 'Exo 2',
                 fontSize: 10,

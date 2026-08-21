@@ -13,6 +13,7 @@ import 'package:ForgeForm/feature/chat/presentation/widgets/conversation_row.dar
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/active_client_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/client_avatar.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/console_widgets.dart';
+import 'package:ForgeForm/l10n/app_localizations.dart';
 
 /// Desktop: three columns in one card — conversation list (300px) | thread
 /// (fluid) | client context (260px). Mobile: the list is the screen, and tapping
@@ -56,6 +57,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
   @override
   Widget build(BuildContext context) {
     final isDesktop = MediaQuery.of(context).size.width > 1024;
+    final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
@@ -63,23 +65,24 @@ class _MessagesScreenState extends State<MessagesScreen> {
         child: Consumer<ChatProvider>(
           builder: (context, chat, _) {
             if (chat.isLoading && chat.conversations.isEmpty) {
-              return const Padding(
-                padding: EdgeInsets.all(16),
-                child: ConsoleSkeleton(semanticsLabel: 'Loading conversations'),
+              return Padding(
+                padding: const EdgeInsets.all(16),
+                child: ConsoleSkeleton(
+                  semanticsLabel: l10n.conversationsLoading,
+                ),
               );
             }
             if (chat.error != null) {
               return ConsoleErrorState(
-                message: chat.error!,
+                message: l10n.conversationsLoadError,
                 onRetry: chat.loadConversations,
               );
             }
             if (chat.conversations.isEmpty) {
-              return const ConsoleEmptyState(
+              return ConsoleEmptyState(
                 icon: Icons.forum_outlined,
-                title: 'No conversations yet',
-                message:
-                    'Once a client accepts your invite you can message them here.',
+                title: l10n.conversationsEmpty,
+                message: l10n.conversationsEmptyBody,
               );
             }
 
@@ -186,7 +189,7 @@ class _MobileThreadHeader extends StatelessWidget {
         child: Row(
           children: [
             Tooltip(
-              message: 'Back to conversations',
+              message: AppLocalizations.of(context)!.backToConversations,
               child: IconButton(
                 onPressed: onBack,
                 icon: const Icon(Icons.arrow_back_rounded),
@@ -255,10 +258,11 @@ class _ThreadPane extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (conversation == null) {
-      return const ConsoleEmptyState(
+      final l10n = AppLocalizations.of(context)!;
+      return ConsoleEmptyState(
         icon: Icons.chat_bubble_outline_rounded,
-        title: 'Pick a conversation',
-        message: 'Choose a client on the left to see your messages.',
+        title: l10n.pickAConversation,
+        message: l10n.pickAConversationBody,
       );
     }
 
@@ -281,15 +285,20 @@ class _ThreadBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     if (chat.isThreadLoading) {
-      return const Padding(
-        padding: EdgeInsets.all(16),
-        child: ConsoleSkeleton(rows: 4, rowHeight: 40, semanticsLabel: 'Loading messages'),
+      return Padding(
+        padding: const EdgeInsets.all(16),
+        child: ConsoleSkeleton(
+          rows: 4,
+          rowHeight: 40,
+          semanticsLabel: l10n.messagesLoading,
+        ),
       );
     }
     if (chat.threadError != null) {
       return ConsoleErrorState(
-        message: chat.threadError!,
+        message: l10n.coachChatLoadError,
         onRetry: () {
           final id = chat.activeThreadId;
           if (id != null) chat.openThread(id);
@@ -297,10 +306,10 @@ class _ThreadBody extends StatelessWidget {
       );
     }
     if (chat.thread.isEmpty) {
-      return const ConsoleEmptyState(
+      return ConsoleEmptyState(
         icon: Icons.waving_hand_outlined,
-        title: 'No messages yet',
-        message: 'Say hello — this is the start of your conversation.',
+        title: l10n.coachChatEmpty,
+        message: l10n.trainerThreadEmptyBody,
       );
     }
 
@@ -370,7 +379,7 @@ class _ContextPanel extends StatelessWidget {
             // Adherence and week-progress belong here per the handoff, but the
             // conversations endpoint doesn't carry them and refetching the whole
             // roster to fill one panel isn't worth it yet.
-            'Client stats appear on the dashboard and client detail screens.',
+            AppLocalizations.of(context)!.clientStatsElsewhere,
             textAlign: TextAlign.center,
             style: TextStyle(
               fontFamily: 'Exo 2',

@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:ForgeForm/feature/trainer_console/data/trainer_console_repository.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_console_models.dart';
+import 'package:ForgeForm/feature/trainer_console/domain/models/console_error.dart';
 
 enum RosterLayout { grid, table }
 
@@ -15,13 +16,13 @@ class TrainerConsoleProvider extends ChangeNotifier {
   List<TrainerRosterEntry> _roster = [];
   TrainerDashboardKpis? _kpis;
   bool _isLoading = false;
-  String? _error;
+  ConsoleError? _error;
   RosterLayout _layout = RosterLayout.grid;
 
   List<TrainerRosterEntry> get roster => _roster;
   TrainerDashboardKpis? get kpis => _kpis;
   bool get isLoading => _isLoading;
-  String? get error => _error;
+  ConsoleError? get error => _error;
   RosterLayout get layout => _layout;
 
   void setLayout(RosterLayout layout) {
@@ -45,7 +46,7 @@ class TrainerConsoleProvider extends ChangeNotifier {
       _roster = results[0] as List<TrainerRosterEntry>;
       _kpis = results[1] as TrainerDashboardKpis;
     } catch (_) {
-      _error = 'Could not load your dashboard.';
+      _error = ConsoleError.loadDashboard;
     } finally {
       _isLoading = false;
       notifyListeners();

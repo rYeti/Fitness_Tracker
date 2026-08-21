@@ -448,8 +448,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           color: colorScheme.onPrimaryContainer,
                         ),
                       ),
-                      title: const Text('Trainer Console'),
-                      subtitle: const Text('Manage your clients'),
+                      title: Text(l10n.trainerConsole),
+                      subtitle: Text(l10n.trainerConsoleSubtitle),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () =>
                           Navigator.pushNamed(context, '/trainer-console'),
@@ -470,8 +470,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           color: colorScheme.onPrimaryContainer,
                         ),
                       ),
-                      title: const Text('Your plan'),
-                      subtitle: const Text('Seats, billing and invites'),
+                      title: Text(l10n.yourPlan),
+                      subtitle: Text(l10n.yourPlanSubtitle),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () => Navigator.push(
                         context,
@@ -501,10 +501,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           color: colorScheme.onPrimaryContainer,
                         ),
                       ),
-                      title: const Text('Set up Trainer Console'),
-                      subtitle: const Text(
-                        'Coach up to 3 clients free',
-                      ),
+                      title: Text(l10n.setUpTrainerConsole),
+                      subtitle: Text(l10n.setUpTrainerConsoleSubtitle),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () => Navigator.push(
                         context,
@@ -532,8 +530,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           color: colorScheme.onPrimaryContainer,
                         ),
                       ),
-                      title: const Text('Join a trainer'),
-                      subtitle: const Text('Enter the code your trainer gave you'),
+                      title: Text(l10n.joinATrainer),
+                      subtitle: Text(l10n.joinATrainerSubtitle),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () => Navigator.push(
                         context,

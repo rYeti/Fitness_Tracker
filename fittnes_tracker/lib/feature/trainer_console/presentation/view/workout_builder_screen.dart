@@ -8,6 +8,8 @@ import 'package:ForgeForm/feature/trainer_console/presentation/providers/active_
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/workout_builder_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/client_switcher.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/console_widgets.dart';
+import 'package:ForgeForm/feature/trainer_console/domain/models/console_error.dart';
+import 'package:ForgeForm/l10n/app_localizations.dart';
 
 /// Create a plan for the active client, or view the plan they're on.
 ///
@@ -114,13 +116,14 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
 
     final title = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          'Workout Builder',
+          l10n.consoleNavBuilder,
           style: TextStyle(
             fontFamily: 'Montserrat',
             fontWeight: FontWeight.w800,
@@ -132,8 +135,8 @@ class _Header extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           hasClient
-              ? 'Create and assign a plan'
-              : 'Select a client to build a plan',
+              ? l10n.builderSubtitle
+              : l10n.builderSubtitleNoClient,
           style: TextStyle(
             fontFamily: 'Exo 2',
             fontSize: 13,
@@ -149,7 +152,7 @@ class _Header extends StatelessWidget {
         ? FilledButton.icon(
             onPressed: builder.startNewPlan,
             icon: const Icon(Icons.add_rounded, size: 18),
-            label: const Text('New plan'),
+            label: Text(l10n.newPlan),
           )
         : const SizedBox.shrink();
 
@@ -188,30 +191,31 @@ class _Body extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     if (activeClient.isLoading && activeClient.clients.isEmpty) {
-      return const ConsoleSkeleton(semanticsLabel: 'Loading workout builder');
+      return ConsoleSkeleton(semanticsLabel: l10n.builderLoading);
     }
     if (activeClient.error != null) {
       return ConsoleErrorState(
-        message: activeClient.error!,
+        message: activeClient.error!.localizedMessage(l10n),
         onRetry: activeClient.loadClients,
       );
     }
 
     final client = activeClient.activeClient;
     if (client == null) {
-      return const ConsoleEmptyState(
+      return ConsoleEmptyState(
         icon: Icons.group_outlined,
-        title: 'No clients yet',
-        message: 'Invite your first client to build them a plan.',
+        title: l10n.rosterEmptyTitle,
+        message: l10n.builderNoClientsBody,
       );
     }
     if (builder.isLoading) {
-      return const ConsoleSkeleton(semanticsLabel: 'Loading workout builder');
+      return ConsoleSkeleton(semanticsLabel: l10n.builderLoading);
     }
     if (builder.error != null && !builder.isNew) {
       return ConsoleErrorState(
-        message: builder.error!,
+        message: builder.error!.localizedMessage(l10n),
         onRetry: () => builder.load(client.clientId),
       );
     }
@@ -268,7 +272,11 @@ class _CreatePlanFormState extends State<_CreatePlanForm> {
     if (!mounted) return;
     if (created) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Plan assigned to ${widget.clientName}')),
+        SnackBar(
+          content: Text(
+            AppLocalizations.of(context)!.planAssignedTo(widget.clientName),
+          ),
+        ),
       );
     }
   }
@@ -288,6 +296,7 @@ class _CreatePlanFormState extends State<_CreatePlanForm> {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
     final builder = widget.builder;
 
     return SingleChildScrollView(
@@ -302,25 +311,25 @@ class _CreatePlanFormState extends State<_CreatePlanForm> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const ConsoleSectionTitle(title: 'New plan'),
+                  ConsoleSectionTitle(title: l10n.newPlan),
                   TextFormField(
                     controller: _nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Plan name',
-                      hintText: 'e.g. Push / Pull / Legs',
+                    decoration: InputDecoration(
+                      labelText: l10n.builderPlanName,
+                      hintText: l10n.builderPlanNameHint,
                     ),
                     textInputAction: TextInputAction.next,
                     // Validate on blur as well as submit, per CLAUDE.md.
                     autovalidateMode: AutovalidateMode.onUserInteraction,
                     validator: (value) => (value ?? '').trim().isEmpty
-                        ? 'Give the plan a name'
+                        ? l10n.planNameRequired
                         : null,
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _descriptionController,
-                    decoration: const InputDecoration(
-                      labelText: 'Description (optional)',
+                    decoration: InputDecoration(
+                      labelText: l10n.planDescriptionOptional,
                     ),
                     maxLines: 2,
                   ),
@@ -331,7 +340,7 @@ class _CreatePlanFormState extends State<_CreatePlanForm> {
                         TextButton(
                           onPressed:
                               builder.isSaving ? null : builder.cancelNewPlan,
-                          child: const Text('Cancel'),
+                          child: Text(l10n.cancel),
                         ),
                         const SizedBox(width: 8),
                       ],
@@ -346,7 +355,7 @@ class _CreatePlanFormState extends State<_CreatePlanForm> {
                                     strokeWidth: 2,
                                   ),
                                 )
-                              : Text('Assign to ${widget.clientName}'),
+                              : Text(l10n.assignTo(widget.clientName)),
                         ),
                       ),
                     ],
@@ -354,7 +363,7 @@ class _CreatePlanFormState extends State<_CreatePlanForm> {
                   if (builder.error != null) ...[
                     const SizedBox(height: 12),
                     Text(
-                      builder.error!,
+                      builder.error!.localizedMessage(l10n),
                       style: const TextStyle(
                         fontFamily: 'Exo 2',
                         fontSize: 12.5,
@@ -371,7 +380,7 @@ class _CreatePlanFormState extends State<_CreatePlanForm> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const ConsoleSectionTitle(title: 'Start from a template'),
+                    ConsoleSectionTitle(title: l10n.startFromTemplate),
                     for (final template in builder.templates)
                       _TemplateRow(
                         template: template,
@@ -450,7 +459,10 @@ class _TemplateRow extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      '${template.daysPerWeek} days · ${template.description}',
+                      AppLocalizations.of(context)!.templateDaysAndDescription(
+                        template.daysPerWeek,
+                        template.description,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -485,17 +497,18 @@ class _CurrentPlanView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
     final plan = builder.currentPlan;
 
     if (plan == null) {
       return ConsoleEmptyState(
         icon: Icons.assignment_outlined,
-        title: 'No active plan',
-        message: '$clientName isn’t on a plan yet.',
+        title: l10n.noActivePlanTitle,
+        message: l10n.noActivePlanBody(clientName),
         action: FilledButton.icon(
           onPressed: builder.startNewPlan,
           icon: const Icon(Icons.add_rounded, size: 18),
-          label: const Text('Create a plan'),
+          label: Text(l10n.createAPlan),
         ),
       );
     }
@@ -533,9 +546,9 @@ class _CurrentPlanView extends StatelessWidget {
                           color: ForgeColors.statusOk.withValues(alpha: 0.14),
                           borderRadius: BorderRadius.circular(999),
                         ),
-                        child: const Text(
-                          'Active',
-                          style: TextStyle(
+                        child: Text(
+                          l10n.planActive,
+                          style: const TextStyle(
                             fontFamily: 'Exo 2',
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
@@ -547,7 +560,12 @@ class _CurrentPlanView extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Started ${DateFormat('d MMM yyyy').format(plan.startDate)}',
+                  l10n.planStartedOn(
+                    DateFormat(
+                      'd MMM yyyy',
+                      Localizations.localeOf(context).toString(),
+                    ).format(plan.startDate),
+                  ),
                   style: TextStyle(
                     fontFamily: 'Exo 2',
                     fontSize: 12.5,
@@ -602,7 +620,7 @@ class _EditorUnavailableNote extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Exercise editing isn’t available yet',
+                  AppLocalizations.of(context)!.exerciseEditingUnavailable,
                   style: TextStyle(
                     fontFamily: 'Exo 2',
                     fontWeight: FontWeight.w700,
@@ -612,9 +630,7 @@ class _EditorUnavailableNote extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  'Plans can be created and assigned. Editing a plan’s '
-                  'exercises, sets and reps needs a trainer-facing API that '
-                  'doesn’t exist yet.',
+                  AppLocalizations.of(context)!.exerciseEditingUnavailableBody,
                   style: TextStyle(
                     fontFamily: 'Exo 2',
                     fontSize: 12,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:ForgeForm/core/design_tokens.dart';
+import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_licence.dart';
 
 /// How full a trainer's plan is: "7 of 30 clients", with a pill progress bar.
@@ -18,6 +19,7 @@ class SeatMeter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
     final fraction = licence.seatLimit == 0
         ? 1.0
         : (licence.seatsUsed / licence.seatLimit).clamp(0.0, 1.0);
@@ -28,18 +30,17 @@ class SeatMeter extends StatelessWidget {
       _ => ForgeColors.forgeOrange,
     };
 
-    final label = '${licence.seatsUsed} of ${licence.seatLimit} clients';
+    final label = l10n.seatMeterUsage(licence.seatsUsed, licence.seatLimit);
     final caption = switch (licence) {
-      _ when licence.isOverLimit =>
-        'Over your plan. Existing clients keep working; you can\'t add more.',
-      _ when licence.isFull => 'Plan full. Free a seat or upgrade to add more.',
-      _ => '${licence.seatsRemaining} seats left',
+      _ when licence.isOverLimit => l10n.seatMeterOverLimit,
+      _ when licence.isFull => l10n.seatMeterFull,
+      _ => l10n.seatMeterRemaining(licence.seatsRemaining),
     };
 
     return Semantics(
       container: true,
       excludeSemantics: true,
-      label: '$label. $caption',
+      label: l10n.seatMeterSemantics(label, caption),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -97,6 +98,7 @@ class SeatChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final tone = licence.isOverLimit
         ? ForgeColors.statusBad
         : licence.isFull
@@ -107,11 +109,17 @@ class SeatChip extends StatelessWidget {
       container: true,
       excludeSemantics: true,
       button: true,
-      label:
-          '${licence.seatsUsed} of ${licence.seatLimit} client seats used. '
-          '${licence.tier.label} plan. Open plan settings.',
+      label: l10n.seatChipSemantics(
+        licence.seatsUsed,
+        licence.seatLimit,
+        licence.tier.localizedLabel(l10n),
+      ),
       child: Tooltip(
-        message: '${licence.tier.label} — ${licence.seatsUsed}/${licence.seatLimit} clients',
+        message: l10n.seatChipTooltip(
+          licence.tier.localizedLabel(l10n),
+          licence.seatsUsed,
+          licence.seatLimit,
+        ),
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(999),

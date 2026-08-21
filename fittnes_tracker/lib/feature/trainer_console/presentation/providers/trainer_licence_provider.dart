@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import 'package:ForgeForm/feature/trainer_console/data/trainer_licence_repository.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_licence.dart';
+import 'package:ForgeForm/feature/trainer_console/domain/models/console_error.dart';
 
 /// Drives the licence screen and the seat affordances on the Dashboard: the
 /// plan, its seat usage, and the trainer's outstanding invites.
@@ -14,20 +15,26 @@ class TrainerLicenceProvider extends ChangeNotifier {
   TrainerLicence? _licence;
   List<PendingInvite> _pendingInvites = [];
   bool _isLoading = false;
-  String? _error;
+  ConsoleError? _error;
 
   /// The code minted by the most recent [createInvite], held so the sheet can
   /// display it. Cleared when the sheet is dismissed.
   String? _newInviteCode;
-  String? _inviteError;
+
+  /// Either a typed console failure or the refusal the server described.
+  /// Held as the exception so the screen can prefer the server's wording and
+  /// fall back to a localized sentence — see [InviteException.message].
+  InviteException? _inviteFailure;
+  ConsoleError? _inviteError;
   bool _isMinting = false;
 
   TrainerLicence? get licence => _licence;
   List<PendingInvite> get pendingInvites => _pendingInvites;
   bool get isLoading => _isLoading;
-  String? get error => _error;
+  ConsoleError? get error => _error;
   String? get newInviteCode => _newInviteCode;
-  String? get inviteError => _inviteError;
+  InviteException? get inviteFailure => _inviteFailure;
+  ConsoleError? get inviteError => _inviteError;
   bool get isMinting => _isMinting;
 
   /// Whether the invite action should be offered at all. False when the plan is
@@ -52,18 +59,20 @@ class TrainerLicenceProvider extends ChangeNotifier {
       _licence = results[0] as TrainerLicence;
       _pendingInvites = results[1] as List<PendingInvite>;
     } catch (_) {
-      _error = 'Could not load your plan.';
+      _error = ConsoleError.loadLicence;
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  /// Mints an invite code. On refusal [inviteError] carries the server's
-  /// explanation — "your plan is full" rather than a generic failure.
+  /// Mints an invite code. On refusal [inviteFailure] carries the typed reason
+  /// — "your plan is full" rather than a generic failure — along with the
+  /// server's own wording when it sent any.
   Future<void> createInvite() async {
     _isMinting = true;
     _inviteError = null;
+    _inviteFailure = null;
     _newInviteCode = null;
     notifyListeners();
 
@@ -73,9 +82,9 @@ class TrainerLicenceProvider extends ChangeNotifier {
       // immediately — it holds a seat from the moment it exists.
       await _refreshQuietly();
     } on InviteException catch (e) {
-      _inviteError = e.message;
+      _inviteFailure = e;
     } catch (_) {
-      _inviteError = 'Could not create an invite. Try again.';
+      _inviteError = ConsoleError.createInvite;
     } finally {
       _isMinting = false;
       notifyListeners();
@@ -88,7 +97,7 @@ class TrainerLicenceProvider extends ChangeNotifier {
       await _repository.revokeInvite(inviteId);
       await _refreshQuietly();
     } catch (_) {
-      _inviteError = 'Could not withdraw that invite. Try again.';
+      _inviteError = ConsoleError.withdrawInvite;
     }
     notifyListeners();
   }
@@ -96,6 +105,7 @@ class TrainerLicenceProvider extends ChangeNotifier {
   void clearNewInvite() {
     _newInviteCode = null;
     _inviteError = null;
+    _inviteFailure = null;
     notifyListeners();
   }
 
@@ -118,7 +128,7 @@ class TrainerLicenceProvider extends ChangeNotifier {
     try {
       return await _repository.createCheckoutSession(tier);
     } catch (_) {
-      _error = 'Could not open checkout. Try again.';
+      _error = ConsoleError.openCheckout;
       notifyListeners();
       return null;
     }
@@ -128,7 +138,7 @@ class TrainerLicenceProvider extends ChangeNotifier {
     try {
       return await _repository.createPortalSession();
     } catch (_) {
-      _error = 'Could not open billing. Try again.';
+      _error = ConsoleError.openBilling;
       notifyListeners();
       return null;
     }

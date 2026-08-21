@@ -10,6 +10,8 @@ import 'package:ForgeForm/feature/trainer_console/presentation/view/invite_clien
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/console_widgets.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/licence_banner.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/seat_meter.dart';
+import 'package:ForgeForm/feature/trainer_console/domain/models/console_error.dart';
+import 'package:ForgeForm/l10n/app_localizations.dart';
 
 /// The trainer's plan: what it covers, how full it is, and how to change it.
 class LicenceScreen extends StatefulWidget {
@@ -41,26 +43,27 @@ class _LicenceScreenState extends State<LicenceScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return ChangeNotifierProvider<TrainerLicenceProvider>.value(
       value: _provider,
       child: Scaffold(
-        appBar: AppBar(title: const Text('Your plan')),
+        appBar: AppBar(title: Text(l10n.yourPlan)),
         body: Consumer<TrainerLicenceProvider>(
           builder: (context, provider, _) {
             if (provider.isLoading) {
-              return const Padding(
-                padding: EdgeInsets.all(16),
+              return Padding(
+                padding: const EdgeInsets.all(16),
                 child: ConsoleSkeleton(
                   rows: 3,
                   rowHeight: 96,
-                  semanticsLabel: 'Loading your plan',
+                  semanticsLabel: l10n.licenceLoadingLabel,
                 ),
               );
             }
 
             if (provider.error != null) {
               return ConsoleErrorState(
-                message: provider.error!,
+                message: provider.error!.localizedMessage(l10n),
                 onRetry: provider.load,
               );
             }
@@ -69,11 +72,11 @@ class _LicenceScreenState extends State<LicenceScreen> {
             if (licence == null) {
               return ConsoleEmptyState(
                 icon: Icons.workspace_premium_outlined,
-                title: 'No plan yet',
-                message: 'Set up a trainer plan to start taking on clients.',
+                title: l10n.noPlanYet,
+                message: l10n.noPlanYetBody,
                 action: FilledButton(
                   onPressed: provider.load,
-                  child: const Text('Set up'),
+                  child: Text(l10n.setUp),
                 ),
               );
             }
@@ -113,7 +116,7 @@ class _LicenceBody extends StatelessWidget {
               ],
               _PlanCard(licence: licence, provider: provider),
               const SizedBox(height: 24),
-              const ConsoleSectionTitle(title: 'Clients'),
+              ConsoleSectionTitle(title: l10n.clientsHeading),
               ConsoleCard(
                 padding: const EdgeInsets.all(24),
                 radius: 16,
@@ -127,14 +130,14 @@ class _LicenceBody extends StatelessWidget {
                       child: OutlinedButton.icon(
                         onPressed: () => InviteClientSheet.show(context),
                         icon: const Icon(Icons.person_add_outlined, size: 18),
-                        label: const Text('Invite a client'),
+                        label: Text(l10n.inviteAClient),
                       ),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 24),
-              const ConsoleSectionTitle(title: 'Change plan'),
+              ConsoleSectionTitle(title: l10n.changePlan),
               for (final tier in const [
                 LicenceTier.solo,
                 LicenceTier.pro,
@@ -150,10 +153,9 @@ class _LicenceBody extends StatelessWidget {
                 ),
               const SizedBox(height: 16),
               Text(
-                'Paid plans include ForgeForm Pro for you and every client on '
-                'your roster. The free plan covers '
-                '${licence.tier == LicenceTier.free ? licence.seatLimit : 3} '
-                'clients without Pro.',
+                l10n.planLadderFootnote(
+                  licence.tier == LicenceTier.free ? licence.seatLimit : 3,
+                ),
                 style: TextStyle(
                   fontFamily: 'Exo 2',
                   fontSize: 12,
@@ -200,6 +202,7 @@ class _PlanCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
 
     return ConsoleCard(
       padding: const EdgeInsets.all(24),
@@ -211,7 +214,7 @@ class _PlanCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  '${licence.tier.label} plan',
+                  l10n.tierPlanTitle(licence.tier.localizedLabel(l10n)),
                   style: TextStyle(
                     fontFamily: 'Montserrat',
                     fontWeight: FontWeight.w800,
@@ -237,8 +240,8 @@ class _PlanCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   licence.grantsPro
-                      ? 'Pro included for you and every client'
-                      : 'Pro not included — upgrade to cover your clients',
+                      ? l10n.proIncluded
+                      : l10n.proNotIncluded,
                   style: TextStyle(
                     fontFamily: 'Exo 2',
                     fontSize: 13,
@@ -258,7 +261,7 @@ class _PlanCard extends StatelessWidget {
                   if (url != null) await _open(url);
                 },
                 icon: const Icon(Icons.receipt_long_outlined, size: 18),
-                label: const Text('Manage billing'),
+                label: Text(l10n.manageBilling),
               ),
             ),
           ],
@@ -275,15 +278,17 @@ class _StatusPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (tone, label) = switch (licence.status) {
-      LicenceStatus.active => (ForgeColors.statusOk, 'Active'),
-      LicenceStatus.trialing => (ForgeColors.forgeOrange, 'Trial'),
-      LicenceStatus.pastDue => (ForgeColors.statusWarn, 'Payment failed'),
-      LicenceStatus.canceled => (ForgeColors.statusBad, 'Cancelled'),
+    final l10n = AppLocalizations.of(context)!;
+    final tone = switch (licence.status) {
+      LicenceStatus.active => ForgeColors.statusOk,
+      LicenceStatus.trialing => ForgeColors.forgeOrange,
+      LicenceStatus.pastDue => ForgeColors.statusWarn,
+      LicenceStatus.canceled => ForgeColors.statusBad,
     };
+    final label = licence.status.localizedLabel(l10n);
 
     return Semantics(
-      label: 'Status: $label',
+      label: l10n.statusLabel(label),
       excludeSemantics: true,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -329,6 +334,7 @@ class _TierRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final isCurrent = tier == current;
     final colors = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
 
     return ConsoleCard(
       onTap: isCurrent ? null : onSelect,
@@ -339,7 +345,7 @@ class _TierRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  tier.label,
+                  tier.localizedLabel(l10n),
                   style: TextStyle(
                     fontFamily: 'Montserrat',
                     fontWeight: FontWeight.w700,
@@ -349,7 +355,7 @@ class _TierRow extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Up to ${_seats[tier]} clients, Pro included',
+                  l10n.tierSeatsAndPro(_seats[tier] ?? 0),
                   style: TextStyle(
                     fontFamily: 'Exo 2',
                     fontSize: 12,
@@ -360,9 +366,9 @@ class _TierRow extends StatelessWidget {
             ),
           ),
           if (isCurrent)
-            const Text(
-              'Current',
-              style: TextStyle(
+            Text(
+              l10n.planCurrent,
+              style: const TextStyle(
                 fontFamily: 'Exo 2',
                 fontWeight: FontWeight.w600,
                 fontSize: 12,

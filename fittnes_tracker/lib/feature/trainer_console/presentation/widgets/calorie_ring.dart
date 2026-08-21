@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:ForgeForm/core/design_tokens.dart';
+import 'package:ForgeForm/l10n/app_localizations.dart';
 
 /// Calorie ring (kcal consumed / goal) used by Nutrition and Client Detail.
 ///
@@ -22,16 +23,17 @@ class CalorieRing extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
     final hasGoal = kcalGoal > 0;
     final progress = hasGoal ? kcalConsumed / kcalGoal : 0.0;
     final isOver = hasGoal && kcalConsumed > kcalGoal;
     final remaining = kcalGoal - kcalConsumed;
 
     final label = !hasGoal
-        ? '$kcalConsumed kcal logged, no goal set'
+        ? l10n.calorieRingNoGoal(kcalConsumed)
         : isOver
-        ? '$kcalConsumed of $kcalGoal kcal, over by ${-remaining}'
-        : '$kcalConsumed of $kcalGoal kcal, $remaining remaining';
+        ? l10n.calorieRingOver(kcalConsumed, kcalGoal, -remaining)
+        : l10n.calorieRingRemaining(kcalConsumed, kcalGoal, remaining);
 
     // One node for the whole ring: the label already states consumed, goal and
     // remaining, so letting the three Texts announce separately would just
@@ -64,7 +66,7 @@ class CalorieRing extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  hasGoal ? '/ $kcalGoal kcal' : 'kcal',
+                  hasGoal ? l10n.calorieRingGoal(kcalGoal) : l10n.kcal,
                   style: TextStyle(
                     fontFamily: 'Exo 2',
                     fontSize: size * 0.085,
@@ -75,7 +77,9 @@ class CalorieRing extends StatelessWidget {
                 if (hasGoal) ...[
                   const SizedBox(height: 4),
                   Text(
-                    isOver ? 'over by ${-remaining}' : '$remaining left',
+                    isOver
+                        ? l10n.calorieRingOverBy(-remaining)
+                        : l10n.calorieRingLeft(remaining),
                     style: TextStyle(
                       fontFamily: 'Exo 2',
                       fontSize: size * 0.08,

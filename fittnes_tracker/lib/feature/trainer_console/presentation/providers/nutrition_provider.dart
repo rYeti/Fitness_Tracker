@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:ForgeForm/feature/trainer_console/data/trainer_console_repository.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_console_models.dart';
+import 'package:ForgeForm/feature/trainer_console/domain/models/console_error.dart';
 
 class NutritionProvider extends ChangeNotifier {
   final TrainerConsoleRepository _repository;
@@ -11,13 +12,13 @@ class NutritionProvider extends ChangeNotifier {
   ClientNutritionSummary? _summary;
   DateTime _selectedDate = DateTime.now();
   bool _isLoading = false;
-  String? _error;
+  ConsoleError? _error;
   String? _loadedClientId;
 
   ClientNutritionSummary? get summary => _summary;
   DateTime get selectedDate => _selectedDate;
   bool get isLoading => _isLoading;
-  String? get error => _error;
+  ConsoleError? get error => _error;
   String? get loadedClientId => _loadedClientId;
 
   /// Nothing after today can have been eaten yet, so the day-switcher stops
@@ -52,7 +53,7 @@ class NutritionProvider extends ChangeNotifier {
       _summary = summary;
     } catch (_) {
       if (!_isCurrentRequest(clientId, requestedDate)) return;
-      _error = 'Could not load this client’s nutrition.';
+      _error = ConsoleError.loadNutrition;
     } finally {
       if (_isCurrentRequest(clientId, requestedDate)) {
         _isLoading = false;

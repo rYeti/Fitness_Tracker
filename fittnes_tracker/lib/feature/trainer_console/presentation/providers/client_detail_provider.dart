@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:ForgeForm/feature/trainer_console/data/trainer_console_repository.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_console_models.dart';
+import 'package:ForgeForm/feature/trainer_console/domain/models/console_error.dart';
 
 class ClientDetailProvider extends ChangeNotifier {
   final TrainerConsoleRepository _repository;
@@ -15,13 +16,13 @@ class ClientDetailProvider extends ChangeNotifier {
   List<ClientWeightEntry> _weightHistory = [];
   ClientNutritionSummary? _nutrition;
   bool _isLoading = false;
-  String? _error;
+  ConsoleError? _error;
 
   ClientWorkoutSummary? get workoutSummary => _workoutSummary;
   List<ClientWeightEntry> get weightHistory => _weightHistory;
   ClientNutritionSummary? get nutrition => _nutrition;
   bool get isLoading => _isLoading;
-  String? get error => _error;
+  ConsoleError? get error => _error;
 
   /// Fetches the three sources this screen composes in parallel — they're
   /// independent endpoints and the screen shows them together.
@@ -40,7 +41,7 @@ class ClientDetailProvider extends ChangeNotifier {
       _weightHistory = results[1] as List<ClientWeightEntry>;
       _nutrition = results[2] as ClientNutritionSummary;
     } catch (_) {
-      _error = 'Could not load this client’s details.';
+      _error = ConsoleError.loadClientDetail;
     } finally {
       _isLoading = false;
       notifyListeners();

@@ -453,20 +453,23 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
                 Expanded(
                   flex: 3,
                   child: _isFetchingPortions
-                      ? const InputDecorator(
-                          decoration: InputDecoration(
+                      ? InputDecorator(
+                          decoration: const InputDecoration(
                             border: OutlineInputBorder(),
                             contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                           ),
                           child: Row(
                             children: [
-                              SizedBox(
+                              const SizedBox(
                                 width: 14,
                                 height: 14,
                                 child: CircularProgressIndicator(strokeWidth: 2),
                               ),
-                              SizedBox(width: 8),
-                              Text('Loading…', style: TextStyle(fontSize: 13)),
+                              const SizedBox(width: 8),
+                              Text(
+                                AppLocalizations.of(context)!.loading,
+                                style: const TextStyle(fontSize: 13),
+                              ),
                             ],
                           ),
                         )

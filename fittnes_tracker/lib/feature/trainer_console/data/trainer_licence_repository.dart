@@ -71,35 +71,12 @@ class TrainerLicenceRepository {
     if (data is Map<String, dynamic>) {
       final failure = codes[data['error'] as String?];
       if (failure != null) {
-        return InviteException(
-          failure,
-          data['message'] as String? ?? _fallbackMessage(failure),
-        );
+        // The message stays optional: when the server didn't send one the UI
+        // falls back to its own localized wording, which is better than
+        // handing a German trainer an English sentence from the API.
+        return InviteException(failure, data['message'] as String?);
       }
     }
-    return const InviteException(
-      InviteFailure.network,
-      "Couldn't reach ForgeForm. Check your connection and try again.",
-    );
+    return const InviteException(InviteFailure.network);
   }
-
-  String _fallbackMessage(InviteFailure failure) => switch (failure) {
-    InviteFailure.seatLimitReached =>
-      'Your plan is full. Upgrade or free up a seat to invite another client.',
-    InviteFailure.licenceLapsed =>
-      'Your licence has lapsed. Renew it to take on new clients.',
-    InviteFailure.notATrainer =>
-      'Set up a trainer plan before inviting clients.',
-    InviteFailure.invalidCode =>
-      "That code doesn't match an invite. Check it and try again.",
-    InviteFailure.expiredCode =>
-      'That invite has expired. Ask your trainer for a new code.',
-    InviteFailure.selfInvite => "That's your own invite code.",
-    InviteFailure.trainerAtSeatLimit =>
-      "Your trainer's plan is full. Ask them to free up a seat.",
-    InviteFailure.trainerNotEntitled =>
-      "Your trainer's plan isn't active. Ask them to renew it.",
-    InviteFailure.network =>
-      "Couldn't reach ForgeForm. Check your connection and try again.",
-  };
 }

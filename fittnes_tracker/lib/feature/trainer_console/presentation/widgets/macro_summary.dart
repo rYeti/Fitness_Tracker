@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:ForgeForm/core/design_tokens.dart';
+import 'package:ForgeForm/l10n/app_localizations.dart';
 
 /// Protein/carbs/fat bar — CLAUDE.md design-system component name
 /// `MacroSummary`. Reused by Client Detail and Nutrition, never
@@ -31,12 +32,13 @@ class MacroSummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
     final total = protein + carbs + fat;
 
     final segments = <({Color color, int grams, String label})>[
-      (color: ForgeColors.proteinColor, grams: protein, label: 'Protein'),
-      (color: ForgeColors.carbsColor, grams: carbs, label: 'Carbs'),
-      (color: ForgeColors.fatColor, grams: fat, label: 'Fat'),
+      (color: ForgeColors.proteinColor, grams: protein, label: l10n.proteinLabel),
+      (color: ForgeColors.carbsColor, grams: carbs, label: l10n.carbsLabel),
+      (color: ForgeColors.fatColor, grams: fat, label: l10n.fatLabel),
     ];
 
     return Column(
@@ -45,8 +47,8 @@ class MacroSummary extends StatelessWidget {
       children: [
         Semantics(
           label: total == 0
-              ? 'No macros logged'
-              : 'Protein ${protein}g, carbs ${carbs}g, fat ${fat}g',
+              ? l10n.macroSummaryNone
+              : l10n.macroSummarySemantics('$protein', '$carbs', '$fat'),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(999),
             child: SizedBox(

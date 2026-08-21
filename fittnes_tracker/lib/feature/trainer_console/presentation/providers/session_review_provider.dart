@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:ForgeForm/feature/trainer_console/data/trainer_console_repository.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_console_models.dart';
+import 'package:ForgeForm/feature/trainer_console/domain/models/console_error.dart';
 
 /// Drives Session Review: a history list for the active client (shared
 /// ActiveClientProvider selection, same as Builder/Nutrition — see
@@ -17,11 +18,11 @@ class SessionReviewProvider extends ChangeNotifier {
   List<ClientSessionSummary> _sessions = [];
   String? _selectedSessionId;
   bool _isLoading = false;
-  String? _error;
+  ConsoleError? _error;
 
   List<ClientSessionSummary> get sessions => _sessions;
   bool get isLoading => _isLoading;
-  String? get error => _error;
+  ConsoleError? get error => _error;
   String? get selectedSessionId => _selectedSessionId;
 
   /// The selected session, or the newest one when nothing's been picked yet.
@@ -59,7 +60,7 @@ class SessionReviewProvider extends ChangeNotifier {
       _sessions = sessions;
     } catch (_) {
       if (_loadedClientId != clientId) return;
-      _error = 'Could not load this client’s sessions.';
+      _error = ConsoleError.loadSessions;
     } finally {
       if (_loadedClientId == clientId) {
         _isLoading = false;
