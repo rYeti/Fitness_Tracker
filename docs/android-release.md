@@ -119,7 +119,9 @@ and deletes it afterwards).
 
 ### Service account for Play (to publish automatically)
 
-Only needed to skip the manual upload described above.
+Only needed to skip the manual upload described above. Worth doing: the manual
+prerequisite is already satisfied for this app, so this is all that stands
+between a tag push and a release appearing on the internal track.
 
 1. Play Console → Setup → API access → link a Google Cloud project.
 2. Create a service account in that project, then create a **JSON key** for it.
@@ -139,11 +141,12 @@ tests, builds and signs the bundle, and attaches it to the run as the
 summary rather than looking like it published. Download the artifact, upload it
 in the Play Console, and paste the notes from `PLAY_NOTES.md` into the release.
 
-That is not only a fallback. **Google Play refuses API uploads for an app whose
-first bundle has never been uploaded through the Console by hand**, so this is
-the only way the first release of `com.forgeform.app` can happen. Set the
-service account up afterwards; the workflow starts publishing on its own the
-moment the secret exists, with no change to the file.
+That's a working release path, not a broken one, and it's the right one while
+the service account doesn't exist yet. It is also the only path for an app Play
+has never seen: **Play refuses API uploads until one bundle has been uploaded
+through the Console by hand.** `com.forgeform.app` has already had one, so that
+prerequisite is behind us and the automated path is available as soon as the
+secret is added — no change to the workflow, it starts publishing on its own.
 
 ## Troubleshooting
 
