@@ -116,3 +116,15 @@ Trainers hold a `TrainerLicence`: a tier, a seat limit, and a Stripe subscriptio
 - Auth stack (JWT/OAuth/RBAC) already exists — reuse it for SignalR hub auth (token passed as `?access_token=` query param for the hub path, since WebSocket transport can't set headers).
 - Tie SignalR group membership and any trainer-facing data access to `TrainerTraineeRelationship.Status == Active`, not role membership alone.
 - Follow YAGNI principles — build for the current requirement, not speculative future needs; no unused abstractions, config hooks, or generalized layers "just in case."
+
+### Explain the implementation after every planning phase
+Every planning phase ends with a **detailed written explanation of the implementation, written to teach** — the owner reads these to learn the codebase, not to review a changelog. It is part of the deliverable, not a follow-up.
+
+- **Where it goes:** a standalone document in `docs/`, or a new section appended to the existing document for that feature. Committed alongside the code it describes.
+- **What it covers:**
+  - What was actually wrong or actually needed, and **why the compiler and the tests had nothing to say about it** — the failure modes that type systems and green suites don't catch are the ones worth writing down.
+  - The decisions that aren't obvious from reading the diff, and what the rejected alternatives would have cost.
+  - The general lesson that outlives this particular change — the shape of mistake, not just the instance.
+- **How it reads:** narrative prose that can be read on its own, with tables and diagrams where they earn their place. Not a bullet-point restatement of the diff. Line references point at the commit that introduces the document.
+- **The model to follow:** `docs/chat-architecture.md` — match its depth, tone and structure.
+- **Not a substitute:** `CHANGELOG.md` records *what changed*; this explains *why it was wrong and how not to write it again*. Both get written.
