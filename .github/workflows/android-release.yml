@@ -10,9 +10,21 @@ name: Android Release
 #
 #   git tag v1.0.3 && git push origin v1.0.3
 #
-# The tag must match `version:` in pubspec.yaml (checked below), so a forgotten
-# version bump fails in seconds with a clear message instead of being rejected
-# by Play minutes later.
+# Two things must be updated before a release, both checked by the preflight
+# step below so a forgotten one fails in seconds rather than being rejected by
+# Play minutes later:
+#
+#   1. `version:` in fittnes_tracker/pubspec.yaml — and the tag must match it.
+#      That single line is the whole version: build.gradle.kts reads
+#      flutter.versionName/versionCode from it and needs no edit.
+#   2. A `## <version>` section in both CHANGELOG.md (the engineering record,
+#      any length) and PLAY_NOTES.md (the short blurb published to Play, capped
+#      at 500 characters — Play's own per-locale limit).
+#
+# With no PLAY_SERVICE_ACCOUNT_JSON secret the run still builds and signs the
+# bundle and attaches it for manual upload, which is what a first release needs
+# anyway — Play won't take API uploads until one bundle has gone through the
+# Console by hand.
 
 on:
   push:
@@ -39,6 +51,10 @@ env:
   # different track. Nothing here ever auto-ships to production by default.
   DEFAULT_TRACK: internal
 
+  # Locale the PLAY_NOTES.md blurb is published under. Play keys release notes
+  # by locale; add more files under whatsnew/ if the notes get translated.
+  PLAY_LOCALE: en-US
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -49,23 +65,113 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check the tag matches pubspec.yaml
-        if: startsWith(github.ref, 'refs/tags/v')
+      # Everything that can be checked without a toolchain is checked here, in
+      # one step, so a misconfigured release fails in seconds with every
+      # problem listed at once — rather than after a five-minute build, one
+      # missing secret at a time.
+      - name: Preflight
+        id: preflight
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
         run: |
-          set -euo pipefail
-          # pubspec "1.0.2+11" -> name 1.0.2, build number 11
-          pubspec_version="$(grep -m1 '^version:' pubspec.yaml | awk '{print $2}')"
-          pubspec_name="${pubspec_version%%+*}"
-          tag_name="${GITHUB_REF_NAME#v}"
-          echo "pubspec=$pubspec_version tag=$GITHUB_REF_NAME"
-          if [ "$pubspec_name" != "$tag_name" ]; then
-            echo "::error::Tag $GITHUB_REF_NAME does not match pubspec version $pubspec_name. Bump 'version:' in pubspec.yaml and re-tag."
+          set -uo pipefail
+          failed=0
+          fail() { echo "::error::$1"; failed=1; }
+
+          # --- Version -------------------------------------------------------
+          # pubspec.yaml is the only place the app version lives. Gradle reads
+          # flutter.versionName/versionCode, which the Flutter plugin derives
+          # from this line, so android/app/build.gradle.kts needs no edit.
+          # "1.0.2+11" -> name 1.0.2, versionCode 11.
+          version="$(grep -m1 '^version:' pubspec.yaml | awk '{print $2}')"
+          name="${version%%+*}"
+          build="${version##*+}"
+          echo "pubspec version: $version"
+
+          if [ "$build" = "$version" ]; then
+            fail "pubspec version '$version' has no +buildNumber. Play needs a versionCode, and it must be higher than every previous upload."
+          fi
+
+          if [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
+            tag_name="${GITHUB_REF_NAME#v}"
+            if [ "$name" != "$tag_name" ]; then
+              fail "Tag $GITHUB_REF_NAME does not match pubspec version $name. Bump 'version:' in fittnes_tracker/pubspec.yaml and re-tag."
+            fi
+          fi
+
+          # --- Release notes -------------------------------------------------
+          # Two audiences, two files, both keyed by the full version so neither
+          # can silently go stale — a release physically cannot reuse the
+          # previous version's notes.
+          #   CHANGELOG.md  the engineering record. No length limit.
+          #   PLAY_NOTES.md the short blurb Play shows users. Capped at 500.
+          section() {
+            awk -v want="## $version" '
+              $0 == want { inside = 1; next }
+              inside && /^## / { exit }
+              inside { print }
+            ' "$1" | sed -e '/./,$!d' | tac | sed -e '/./,$!d' | tac
+          }
+
+          if [ -z "$(section "$GITHUB_WORKSPACE/CHANGELOG.md")" ]; then
+            fail "CHANGELOG.md has no '## $version' section. Write the engineering notes for this release."
+          fi
+
+          notes_dir="$GITHUB_WORKSPACE/whatsnew"
+          mkdir -p "$notes_dir"
+          section "$GITHUB_WORKSPACE/PLAY_NOTES.md" > "$notes_dir/whatsnew-$PLAY_LOCALE"
+
+          if [ ! -s "$notes_dir/whatsnew-$PLAY_LOCALE" ]; then
+            fail "PLAY_NOTES.md has no '## $version' section. Write the short user-facing blurb — it is what Play shows on the store listing."
+          else
+            # Play rejects release notes over 500 characters per locale.
+            # Truncating would cut a sentence in half in front of real users,
+            # so this is a hard stop: shorten the blurb instead.
+            chars="$(LC_ALL=C.UTF-8 wc -m < "$notes_dir/whatsnew-$PLAY_LOCALE" | tr -d ' ')"
+            echo "Play notes: $chars characters"
+            if [ "$chars" -gt 500 ]; then
+              fail "The '## $version' section of PLAY_NOTES.md is $chars characters; Play allows 500 per locale. Shorten it — the long version belongs in CHANGELOG.md."
+            fi
+          fi
+
+          # --- Signing secrets -----------------------------------------------
+          # Reported together: finding these one run at a time is what makes a
+          # first release take an afternoon. Note the names carry no ANDROID_
+          # prefix — a near-miss name reads back empty, not as an error.
+          for secret in KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+            if [ -z "${!secret:-}" ]; then
+              fail "Repository secret $secret is not set. See docs/android-release.md."
+            fi
+          done
+
+          # --- Play credentials (optional) -----------------------------------
+          # Without them the run still builds and signs the bundle and attaches
+          # it as an artifact to upload by hand. That isn't a fallback so much
+          # as the only option for a first release: Play refuses API uploads
+          # until one bundle has gone through the Console manually.
+          publish=true
+          if [ -z "${PLAY_SERVICE_ACCOUNT_JSON:-}" ]; then
+            publish=false
+            echo "::warning::PLAY_SERVICE_ACCOUNT_JSON is not set — building a signed bundle but not uploading it. Download the app-release-aab artifact from this run and upload it in the Play Console."
+          elif ! printf '%s' "$PLAY_SERVICE_ACCOUNT_JSON" \
+                 | jq -e 'has("client_email") and has("private_key")' >/dev/null 2>&1; then
+            # A JSON pasted partially, or base64-encoded by mistake, otherwise
+            # surfaces as an opaque failure inside the upload action.
+            fail "PLAY_SERVICE_ACCOUNT_JSON is not the service-account JSON (no client_email/private_key). Paste the whole file, unencoded."
+          fi
+
+          if [ "$failed" -ne 0 ]; then
             exit 1
           fi
-          if ! printf '%s' "$pubspec_version" | grep -q '+'; then
-            echo "::error::pubspec version '$pubspec_version' has no +buildNumber. Play needs a versionCode, and it must be higher than every previous upload."
-            exit 1
-          fi
+          {
+            echo "version=$version"
+            echo "publish=$publish"
+          } >> "$GITHUB_OUTPUT"
+          echo "Ready to build $version (publish to Play: $publish)"
 
       - uses: actions/setup-java@v4
         with:
@@ -84,17 +190,12 @@ jobs:
 
       - name: Restore the upload keystore
         env:
-          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          if [ -z "${KEYSTORE_BASE64:-}" ]; then
-            echo "::error::ANDROID_KEYSTORE_BASE64 is not set. See docs/android-release.md."
-            exit 1
-          fi
-
           keystore_path="$RUNNER_TEMP/upload-keystore.jks"
           printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$keystore_path"
 
@@ -123,6 +224,7 @@ jobs:
         run: flutter build appbundle --release
 
       - name: Publish to Google Play
+        if: steps.preflight.outputs.publish == 'true'
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
@@ -130,6 +232,9 @@ jobs:
           releaseFiles: fittnes_tracker/build/app/outputs/bundle/release/app-release.aab
           track: ${{ inputs.track || env.DEFAULT_TRACK }}
           status: ${{ inputs.status || 'completed' }}
+          # Written by the preflight step from this version's PLAY_NOTES.md
+          # section, so the notes on Play and the notes in the repo can't drift.
+          whatsNewDirectory: whatsnew
           # The release build runs R8 (isMinifyEnabled), so without this every
           # Play Console stack trace is obfuscated.
           mappingFile: fittnes_tracker/build/app/outputs/mapping/release/mapping.txt
@@ -144,3 +249,23 @@ jobs:
           name: app-release-aab
           path: fittnes_tracker/build/app/outputs/bundle/release/app-release.aab
           retention-days: 30
+
+      # A tag push that quietly builds instead of publishing would otherwise
+      # look identical to one that shipped, so spell out which happened.
+      - name: Summary
+        if: always() && steps.preflight.outputs.version != ''
+        run: |
+          version="${{ steps.preflight.outputs.version }}"
+          if [ "${{ steps.preflight.outputs.publish }}" = "true" ]; then
+            echo "Published **$version** to the \`${{ inputs.track || env.DEFAULT_TRACK }}\` track." >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "### Built $version — not published"
+              echo
+              echo "No \`PLAY_SERVICE_ACCOUNT_JSON\` secret, so nothing was uploaded to Play."
+              echo "Download the **app-release-aab** artifact from this run and upload it in the"
+              echo "Play Console by hand. Release notes for this version are in \`PLAY_NOTES.md\`."
+              echo
+              echo "See \`docs/android-release.md\` to set the service account up."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi

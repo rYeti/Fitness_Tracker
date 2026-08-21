@@ -1,6 +1,11 @@
 # Changelog
 
-Patch notes for Google Play Store releases. Newest first.
+Engineering record of what changed in each release. Newest first.
+
+There is no length limit here. The short blurb users actually see on the store
+listing lives in `PLAY_NOTES.md` — a release needs a section in both, and each
+heading must be the full `pubspec.yaml` version, `+buildNumber` included. See
+`docs/android-release.md`.
 
 ## 1.0.2+11
 
