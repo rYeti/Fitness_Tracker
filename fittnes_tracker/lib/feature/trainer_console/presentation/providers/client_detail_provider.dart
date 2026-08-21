@@ -1,10 +1,12 @@
 import 'package:flutter/foundation.dart';
+import 'package:logger/logger.dart';
 import 'package:ForgeForm/feature/trainer_console/data/trainer_console_repository.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_console_models.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/console_error.dart';
 
 class ClientDetailProvider extends ChangeNotifier {
   final TrainerConsoleRepository _repository;
+  final Logger _logger = Logger();
   final String clientId;
 
   ClientDetailProvider({
@@ -40,7 +42,14 @@ class ClientDetailProvider extends ChangeNotifier {
       _workoutSummary = results[0] as ClientWorkoutSummary;
       _weightHistory = results[1] as List<ClientWeightEntry>;
       _nutrition = results[2] as ClientNutritionSummary;
-    } catch (_) {
+    } catch (e, stackTrace) {
+      // Any one of the three failing blanks the whole screen, so the log is the
+      // only thing that says which.
+      _logger.e(
+        'Client detail failed for client $clientId',
+        error: e,
+        stackTrace: stackTrace,
+      );
       _error = ConsoleError.loadClientDetail;
     } finally {
       _isLoading = false;

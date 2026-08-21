@@ -9,6 +9,10 @@ heading must be the full `pubspec.yaml` version, `+buildNumber` included. See
 
 ## 1.0.2+11
 
+- Fixed the Trainer Console's Nutrition tab failing with "Could not load this client's nutrition" for every client on every date, and Client Detail failing with it. The nutrition endpoint passed the requested day to Postgres without a UTC kind, which Npgsql rejects outright for a `timestamp with time zone` column, so the request 500'd before it read anything. Client Detail loads its three panels together, so the same error blanked that screen too.
+- Fixed the trainer-facing nutrition day being off by one for any client not in UTC. Meals are logged against the client's local midnight and stored converted to UTC, so a German client's Tuesday sits at 22:00 Monday in the database; the summary read midnight-to-midnight in UTC and so reported the wrong day's food. Days are now matched against the day they were logged on. Clients at UTC+13/+14 (New Zealand in summer, Samoa, Kiribati) still read one day early.
+- The 7-day nutrition trend now loads in a single query instead of seven sequential ones.
+- Trainer Console nutrition and client-detail failures are now logged with their cause instead of being swallowed, which is why the above went unnoticed.
 - Fixed a crash opening Meal Templates ("type 'Null' is not a subtype of type 'int'") caused by templates pulled from the server missing an internal field. Already-affected templates on your device are repaired automatically the next time they load.
 - Fixed Snack meal templates silently failing to appear in the Food tab after being logged — Snack templates used a different internal category than the rest of the app, so logged food was saved but never shown. Existing Snack templates are migrated automatically.
 - Fixed a synced meal template's "total batch weight" being dropped when synced to or from the server, which silently disabled the gram-portion picker (falling back to "log full template only") for any template that had gone through a sync.

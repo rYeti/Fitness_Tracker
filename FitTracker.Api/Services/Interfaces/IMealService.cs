@@ -5,8 +5,14 @@ namespace FitTracker.Api.Services.Interfaces;
 /// <summary>Business-logic contract for meal log management.</summary>
 public interface IMealService
 {
-    /// <summary>Returns all meal entries for the specified user on the given date.</summary>
+    /// <summary>Returns all meal entries for the specified user on the given calendar day.</summary>
     Task<List<MealResponseDto>> GetMealsForDateAsync(Guid userId, DateTime date);
+
+    /// <summary>
+    /// Returns all meal entries for the specified user across an inclusive span of
+    /// calendar days, in one round trip. Callers group the result by day themselves.
+    /// </summary>
+    Task<List<MealResponseDto>> GetMealsInRangeAsync(Guid userId, DateTime firstDay, DateTime lastDay);
 
     /// <summary>Returns a single meal entry by ID, scoped to the specified user.</summary>
     Task<MealResponseDto?> GetMealByIdAsync(Guid id, Guid userId);

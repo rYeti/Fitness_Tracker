@@ -16,6 +16,13 @@ public class MealService(IMealRepository repository) : IMealService
     }
 
     /// <inheritdoc/>
+    public async Task<List<MealResponseDto>> GetMealsInRangeAsync(Guid userId, DateTime firstDay, DateTime lastDay)
+    {
+        var meals = await repository.GetMealsInRangeAsync(userId, firstDay, lastDay);
+        return meals.Select(ToDto).ToList();
+    }
+
+    /// <inheritdoc/>
     public async Task<MealResponseDto?> GetMealByIdAsync(Guid id, Guid userId)
     {
         var meal = await repository.GetMealByIdAsync(id, userId);

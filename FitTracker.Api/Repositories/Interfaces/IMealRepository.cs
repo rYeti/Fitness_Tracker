@@ -6,8 +6,14 @@ namespace FitTracker.Api.Repositories.Interfaces;
 /// <summary>Data-access contract for meal log management.</summary>
 public interface IMealRepository
 {
-    /// <summary>Returns all meal entries for the specified user on the given date.</summary>
+    /// <summary>Returns all meal entries for the specified user on the given calendar day.</summary>
     Task<List<Meal>> GetMealsForDateAsync(Guid userId, DateTime date);
+
+    /// <summary>
+    /// Returns all meal entries for the specified user across an inclusive span of
+    /// calendar days. Callers group the result with <see cref="MealDayWindow.DayOf"/>.
+    /// </summary>
+    Task<List<Meal>> GetMealsInRangeAsync(Guid userId, DateTime firstDay, DateTime lastDay);
 
     /// <summary>Returns a single meal entry by ID, scoped to the specified user.</summary>
     Task<Meal?> GetMealByIdAsync(Guid id, Guid userId);

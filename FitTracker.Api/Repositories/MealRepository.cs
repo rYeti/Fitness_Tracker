@@ -10,12 +10,17 @@ namespace FitTracker.Api.Repositories;
 public class MealRepository(AppDbContext context) : IMealRepository
 {
     /// <inheritdoc/>
-    public Task<List<Meal>> GetMealsForDateAsync(Guid userId, DateTime date)
+    public Task<List<Meal>> GetMealsForDateAsync(Guid userId, DateTime date) =>
+        GetMealsInRangeAsync(userId, date, date);
+
+    /// <inheritdoc/>
+    public Task<List<Meal>> GetMealsInRangeAsync(Guid userId, DateTime firstDay, DateTime lastDay)
     {
-        var dayStart = date.Date;
-        var dayEnd = dayStart.AddDays(1);
+        // See MealDayWindow: Meal.Date is a day marker stored as an instant, so the
+        // window is centred on the day rather than running midnight to midnight.
+        var (start, end) = MealDayWindow.ForRange(firstDay, lastDay);
         return context.Meals
-            .Where(m => m.UserId == userId && m.Date >= dayStart && m.Date < dayEnd)
+            .Where(m => m.UserId == userId && m.Date >= start && m.Date < end)
             .Include(m => m.FoodEntries)
             .ToListAsync();
     }
