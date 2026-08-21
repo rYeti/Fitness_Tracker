@@ -5,17 +5,18 @@ uploads it to Google Play. Once the secrets below exist, releasing is:
 
 ```bash
 # 1. bump `version:` in fittnes_tracker/pubspec.yaml, e.g. 1.0.2+11 -> 1.0.3+12
-# 2. add a `## 1.0.3+12` section to CHANGELOG.md — those are the Play notes
+# 2. add a `## 1.0.3+12` section to CHANGELOG.md  — the engineering record
+# 3. add a `## 1.0.3+12` section to PLAY_NOTES.md — what users read on Play
 git commit -am "Release 1.0.3+12"
 git tag v1.0.3
 git push origin main v1.0.3
 ```
 
-Both edits are mandatory, and the workflow's preflight step checks them before
-installing anything, so a forgotten one costs seconds rather than a confusing
-rejection from Play.
+All three edits are mandatory, and the workflow's preflight step checks them
+before installing anything, so a forgotten one costs seconds rather than a
+confusing rejection from Play.
 
-## The two files a release touches
+## The three files a release touches
 
 ### `fittnes_tracker/pubspec.yaml` — the version, and the only place it lives
 
@@ -32,11 +33,18 @@ iOS. Change it in `pubspec.yaml` and nowhere else.
 The git tag carries the version name only — `1.0.3+12` is tagged `v1.0.3`. The
 `+12` is not part of the tag, but it still has to increase (see below).
 
-### `CHANGELOG.md` — the release notes Play shows
+### `CHANGELOG.md` — the engineering record
+
+The full account of what changed, at whatever length it takes. Nothing here is
+published anywhere, so there is no limit on it; the preflight step only checks
+that a `## <version>` section exists, as a guard against releasing with no
+notes written at all.
+
+### `PLAY_NOTES.md` — the blurb users read on the store listing
 
 The workflow extracts the section whose heading is exactly the full pubspec
-version, `+buildNumber` included, and publishes it as the `en-US` release
-notes:
+version, `+buildNumber` included, and publishes it verbatim as the `en-US`
+release notes:
 
 ```markdown
 ## 1.0.3+12
@@ -44,20 +52,18 @@ notes:
 - Fixed the calorie ring not refreshing after editing a meal.
 ```
 
-So the heading has to match `version:` character for character. Two rules the
-preflight step enforces:
+Two rules the preflight step enforces:
 
-- **The section must exist.** A version bump with no patch notes fails rather
-  than publishing a release with blank notes.
+- **The section must exist, keyed by the exact version.** This is what stops a
+  release from silently shipping the previous version's notes — a stale blurb
+  simply won't be found.
 - **It must fit in 500 characters** — Play's per-locale limit. The check is a
   hard failure rather than a truncation, because truncating cuts a sentence in
-  half in front of real users. Keep the section to user-visible highlights; the
-  longer engineering detail belongs in the commit history.
+  half in front of real users. If a blurb is over, cut it down; the detail it
+  loses is already in `CHANGELOG.md`.
 
-Note that some older sections in `CHANGELOG.md` are over that limit, so they'd
-need trimming before they could be released as-is. Release notes are only ever
-read from the section matching the version being released, so past sections are
-left alone.
+Play renders the notes as plain text, so write prose and bullets — Markdown
+links, headings and emphasis all show up as literal punctuation.
 
 To publish notes in more locales, write additional `whatsnew-<locale>` files;
 the workflow currently generates only `whatsnew-en-US`, from `PLAY_LOCALE`.
@@ -88,11 +94,15 @@ Settings → Secrets and variables → Actions.
 
 | Secret | What it is |
 | --- | --- |
-| `ANDROID_KEYSTORE_BASE64` | The upload keystore, base64-encoded |
-| `ANDROID_KEYSTORE_PASSWORD` | Its store password |
-| `ANDROID_KEY_ALIAS` | Key alias inside the keystore |
-| `ANDROID_KEY_PASSWORD` | Password for that key |
+| `KEYSTORE_BASE64` | The upload keystore, base64-encoded |
+| `KEYSTORE_PASSWORD` | Its store password |
+| `KEY_ALIAS` | Key alias inside the keystore |
+| `KEY_PASSWORD` | Password for that key |
 | `PLAY_SERVICE_ACCOUNT_JSON` | Service-account JSON, pasted whole |
+
+The names are exact — the workflow reads these and only these. The first four
+carry no `ANDROID_` prefix, which is the mismatch that made the first release
+attempt fail with "not set" against secrets that existed all along.
 
 ### Encoding the keystore
 
@@ -127,18 +137,21 @@ least one manual release, this doesn't apply.
 
 ## Troubleshooting
 
-### `ANDROID_KEYSTORE_BASE64 is not set` / `Repository secret ... is not set`
+### `Repository secret ... is not set`
 
-The secret does not exist in this repository. This is not related to the
-workflow's triggers — the workflow runs fine on a manual dispatch; it just has
-nothing to sign with. Check, in Settings → Secrets and variables → Actions:
+A secret of that exact name is not readable from this workflow. Nothing is
+wrong with the triggers — the workflow runs fine on a manual dispatch; it just
+has nothing to sign with. In Settings → Secrets and variables → Actions, check:
 
-- The secrets are under **Secrets**, not **Variables** — they are separate tabs
-  and a value in the wrong one reads back as empty.
+- **The name matches the table above exactly**, including case and prefix. A
+  secret named something close but not identical is invisible to the workflow,
+  which is what happened on the first attempt: the repository held
+  `KEYSTORE_BASE64` while the workflow asked for `ANDROID_KEYSTORE_BASE64`.
+- They are under **Secrets**, not **Variables** — separate tabs, and a value in
+  the wrong one reads back as empty.
 - They are **repository** secrets, not **environment** secrets. An environment
   secret is only visible to a job that declares `environment:`, which this job
   does not; it would read back empty here.
-- The names match the table above exactly, including case.
 - The run was on this repository and not a fork. Secrets are never passed to
   workflow runs from a forked repository.
 
@@ -163,5 +176,5 @@ propagated yet. A fresh service account often fails its first run.
 - **iOS / App Store.** This workflow is Android only. iOS needs a macOS
   runner, an Apple Developer account, certificates and provisioning profiles,
   and upload via `altool`/Fastlane — a separate piece of work.
-- **Localised release notes.** Only `en-US` is generated, from `CHANGELOG.md`.
+- **Localised release notes.** Only `en-US` is generated, from `PLAY_NOTES.md`.
   Other locales fall back to whatever the Console has.

@@ -17,8 +17,9 @@ name: Android Release
 #   1. `version:` in fittnes_tracker/pubspec.yaml — and the tag must match it.
 #      That single line is the whole version: build.gradle.kts reads
 #      flutter.versionName/versionCode from it and needs no edit.
-#   2. A `## <version>` section in CHANGELOG.md — it becomes the release notes
-#      shown on Play, so it has to exist and fit Play's 500-character limit.
+#   2. A `## <version>` section in both CHANGELOG.md (the engineering record,
+#      any length) and PLAY_NOTES.md (the short blurb published to Play, capped
+#      at 500 characters — Play's own per-locale limit).
 
 on:
   push:
@@ -45,7 +46,7 @@ env:
   # different track. Nothing here ever auto-ships to production by default.
   DEFAULT_TRACK: internal
 
-  # Locale the CHANGELOG.md notes are published under. Play keys release notes
+  # Locale the PLAY_NOTES.md blurb is published under. Play keys release notes
   # by locale; add more files under whatsnew/ if the notes get translated.
   PLAY_LOCALE: en-US
 
@@ -66,10 +67,10 @@ jobs:
       - name: Preflight
         id: preflight
         env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
         run: |
           set -uo pipefail
@@ -98,39 +99,45 @@ jobs:
           fi
 
           # --- Release notes -------------------------------------------------
-          # Play shows the "## <version>" section of CHANGELOG.md as the
-          # release notes, so a release that bumps the version without writing
-          # patch notes is caught here instead of shipping blank notes.
+          # Two audiences, two files, both keyed by the full version so neither
+          # can silently go stale — a release physically cannot reuse the
+          # previous version's notes.
+          #   CHANGELOG.md  the engineering record. No length limit.
+          #   PLAY_NOTES.md the short blurb Play shows users. Capped at 500.
+          section() {
+            awk -v want="## $version" '
+              $0 == want { inside = 1; next }
+              inside && /^## / { exit }
+              inside { print }
+            ' "$1" | sed -e '/./,$!d' | tac | sed -e '/./,$!d' | tac
+          }
+
+          if [ -z "$(section "$GITHUB_WORKSPACE/CHANGELOG.md")" ]; then
+            fail "CHANGELOG.md has no '## $version' section. Write the engineering notes for this release."
+          fi
+
           notes_dir="$GITHUB_WORKSPACE/whatsnew"
           mkdir -p "$notes_dir"
-          awk -v want="## $version" '
-            $0 == want { inside = 1; next }
-            inside && /^## / { exit }
-            inside { print }
-          ' "$GITHUB_WORKSPACE/CHANGELOG.md" \
-            | sed -e '/./,$!d' \
-            | tac | sed -e '/./,$!d' | tac \
-            > "$notes_dir/whatsnew-$PLAY_LOCALE"
+          section "$GITHUB_WORKSPACE/PLAY_NOTES.md" > "$notes_dir/whatsnew-$PLAY_LOCALE"
 
           if [ ! -s "$notes_dir/whatsnew-$PLAY_LOCALE" ]; then
-            fail "CHANGELOG.md has no '## $version' section. Add the patch notes for this release — they are what Play shows to users."
+            fail "PLAY_NOTES.md has no '## $version' section. Write the short user-facing blurb — it is what Play shows on the store listing."
           else
             # Play rejects release notes over 500 characters per locale.
             # Truncating would cut a sentence in half in front of real users,
-            # so this is a hard stop: shorten the section instead.
+            # so this is a hard stop: shorten the blurb instead.
             chars="$(LC_ALL=C.UTF-8 wc -m < "$notes_dir/whatsnew-$PLAY_LOCALE" | tr -d ' ')"
-            echo "release notes: $chars characters"
+            echo "Play notes: $chars characters"
             if [ "$chars" -gt 500 ]; then
-              fail "The '## $version' section of CHANGELOG.md is $chars characters; Play allows 500 per locale. Shorten it to the user-visible highlights."
+              fail "The '## $version' section of PLAY_NOTES.md is $chars characters; Play allows 500 per locale. Shorten it — the long version belongs in CHANGELOG.md."
             fi
           fi
 
           # --- Secrets -------------------------------------------------------
           # Reported together: finding these one run at a time is what makes a
           # first release take an afternoon.
-          for secret in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD \
-                        ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD \
-                        PLAY_SERVICE_ACCOUNT_JSON; do
+          for secret in KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_ALIAS \
+                        KEY_PASSWORD PLAY_SERVICE_ACCOUNT_JSON; do
             if [ -z "${!secret:-}" ]; then
               fail "Repository secret $secret is not set. See docs/android-release.md."
             fi
@@ -167,10 +174,10 @@ jobs:
 
       - name: Restore the upload keystore
         env:
-          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           set -euo pipefail
           keystore_path="$RUNNER_TEMP/upload-keystore.jks"
@@ -208,7 +215,7 @@ jobs:
           releaseFiles: fittnes_tracker/build/app/outputs/bundle/release/app-release.aab
           track: ${{ inputs.track || env.DEFAULT_TRACK }}
           status: ${{ inputs.status || 'completed' }}
-          # Written by the preflight step from this version's CHANGELOG.md
+          # Written by the preflight step from this version's PLAY_NOTES.md
           # section, so the notes on Play and the notes in the repo can't drift.
           whatsNewDirectory: whatsnew
           # The release build runs R8 (isMinifyEnabled), so without this every
