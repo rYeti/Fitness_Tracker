@@ -92,17 +92,17 @@ Nothing auto-ships to production.
 
 Settings → Secrets and variables → Actions.
 
-| Secret | What it is |
-| --- | --- |
-| `KEYSTORE_BASE64` | The upload keystore, base64-encoded |
-| `KEYSTORE_PASSWORD` | Its store password |
-| `KEY_ALIAS` | Key alias inside the keystore |
-| `KEY_PASSWORD` | Password for that key |
-| `PLAY_SERVICE_ACCOUNT_JSON` | Service-account JSON, pasted whole |
+| Secret | What it is | |
+| --- | --- | --- |
+| `KEYSTORE_BASE64` | The upload keystore, base64-encoded | required |
+| `KEYSTORE_PASSWORD` | Its store password | required |
+| `KEY_ALIAS` | Key alias inside the keystore | required |
+| `KEY_PASSWORD` | Password for that key | required |
+| `PLAY_SERVICE_ACCOUNT_JSON` | Service-account JSON, pasted whole | optional — see below |
 
-The names are exact — the workflow reads these and only these. The first four
-carry no `ANDROID_` prefix, which is the mismatch that made the first release
-attempt fail with "not set" against secrets that existed all along.
+The names are exact — the workflow reads these and only these. The four signing
+secrets carry no `ANDROID_` prefix, which is the mismatch that made the first
+release attempt fail with "not set" against secrets that existed all along.
 
 ### Encoding the keystore
 
@@ -117,7 +117,9 @@ The values must match what's in your local `fittnes_tracker/android/key.properti
 (gitignored, and it should stay that way — CI regenerates it from these secrets
 and deletes it afterwards).
 
-### Service account for Play
+### Service account for Play (to publish automatically)
+
+Only needed to skip the manual upload described above.
 
 1. Play Console → Setup → API access → link a Google Cloud project.
 2. Create a service account in that project, then create a **JSON key** for it.
@@ -129,11 +131,19 @@ and deletes it afterwards).
 Permissions can take a few minutes to propagate; a fresh service account often
 fails its first run with a 401.
 
-## First upload has to be manual
+## Running without Play API access
 
-Google Play will not accept an API upload for an app whose first bundle has
-never been uploaded through the Console. If `com.forgeform.app` has had at
-least one manual release, this doesn't apply.
+`PLAY_SERVICE_ACCOUNT_JSON` is optional. Without it the workflow still runs the
+tests, builds and signs the bundle, and attaches it to the run as the
+**app-release-aab** artifact — it just skips the upload, and says so in the run
+summary rather than looking like it published. Download the artifact, upload it
+in the Play Console, and paste the notes from `PLAY_NOTES.md` into the release.
+
+That is not only a fallback. **Google Play refuses API uploads for an app whose
+first bundle has never been uploaded through the Console by hand**, so this is
+the only way the first release of `com.forgeform.app` can happen. Set the
+service account up afterwards; the workflow starts publishing on its own the
+moment the secret exists, with no change to the file.
 
 ## Troubleshooting
 
@@ -168,8 +178,14 @@ one that ships on every push to `main`, and it only ships the API.
 ### `Package not found` or `401` from the Play upload step
 
 Either the app has never had a bundle uploaded through the Console by hand (see
-"First upload has to be manual"), or the service account's permissions haven't
-propagated yet. A fresh service account often fails its first run.
+"Running without Play API access"), or the service account's permissions
+haven't propagated yet. A fresh service account often fails its first run.
+
+### The run was green but nothing appeared on Play
+
+Check the run summary. With no `PLAY_SERVICE_ACCOUNT_JSON` secret the workflow
+builds and signs but does not upload, which is a warning rather than a failure
+— the signed bundle is waiting in the run's artifacts.
 
 ## Not covered
 

@@ -20,6 +20,11 @@ name: Android Release
 #   2. A `## <version>` section in both CHANGELOG.md (the engineering record,
 #      any length) and PLAY_NOTES.md (the short blurb published to Play, capped
 #      at 500 characters — Play's own per-locale limit).
+#
+# With no PLAY_SERVICE_ACCOUNT_JSON secret the run still builds and signs the
+# bundle and attaches it for manual upload, which is what a first release needs
+# anyway — Play won't take API uploads until one bundle has gone through the
+# Console by hand.
 
 on:
   push:
@@ -133,29 +138,40 @@ jobs:
             fi
           fi
 
-          # --- Secrets -------------------------------------------------------
+          # --- Signing secrets -----------------------------------------------
           # Reported together: finding these one run at a time is what makes a
-          # first release take an afternoon.
-          for secret in KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_ALIAS \
-                        KEY_PASSWORD PLAY_SERVICE_ACCOUNT_JSON; do
+          # first release take an afternoon. Note the names carry no ANDROID_
+          # prefix — a near-miss name reads back empty, not as an error.
+          for secret in KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
             if [ -z "${!secret:-}" ]; then
               fail "Repository secret $secret is not set. See docs/android-release.md."
             fi
           done
 
-          # A service-account JSON pasted partially, or base64-encoded by
-          # mistake, otherwise surfaces as an opaque failure in the upload step.
-          if [ -n "${PLAY_SERVICE_ACCOUNT_JSON:-}" ] \
-             && ! printf '%s' "$PLAY_SERVICE_ACCOUNT_JSON" \
-                  | jq -e 'has("client_email") and has("private_key")' >/dev/null 2>&1; then
+          # --- Play credentials (optional) -----------------------------------
+          # Without them the run still builds and signs the bundle and attaches
+          # it as an artifact to upload by hand. That isn't a fallback so much
+          # as the only option for a first release: Play refuses API uploads
+          # until one bundle has gone through the Console manually.
+          publish=true
+          if [ -z "${PLAY_SERVICE_ACCOUNT_JSON:-}" ]; then
+            publish=false
+            echo "::warning::PLAY_SERVICE_ACCOUNT_JSON is not set — building a signed bundle but not uploading it. Download the app-release-aab artifact from this run and upload it in the Play Console."
+          elif ! printf '%s' "$PLAY_SERVICE_ACCOUNT_JSON" \
+                 | jq -e 'has("client_email") and has("private_key")' >/dev/null 2>&1; then
+            # A JSON pasted partially, or base64-encoded by mistake, otherwise
+            # surfaces as an opaque failure inside the upload action.
             fail "PLAY_SERVICE_ACCOUNT_JSON is not the service-account JSON (no client_email/private_key). Paste the whole file, unencoded."
           fi
 
           if [ "$failed" -ne 0 ]; then
             exit 1
           fi
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "Ready to release $version"
+          {
+            echo "version=$version"
+            echo "publish=$publish"
+          } >> "$GITHUB_OUTPUT"
+          echo "Ready to build $version (publish to Play: $publish)"
 
       - uses: actions/setup-java@v4
         with:
@@ -208,6 +224,7 @@ jobs:
         run: flutter build appbundle --release
 
       - name: Publish to Google Play
+        if: steps.preflight.outputs.publish == 'true'
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
@@ -232,3 +249,23 @@ jobs:
           name: app-release-aab
           path: fittnes_tracker/build/app/outputs/bundle/release/app-release.aab
           retention-days: 30
+
+      # A tag push that quietly builds instead of publishing would otherwise
+      # look identical to one that shipped, so spell out which happened.
+      - name: Summary
+        if: always() && steps.preflight.outputs.version != ''
+        run: |
+          version="${{ steps.preflight.outputs.version }}"
+          if [ "${{ steps.preflight.outputs.publish }}" = "true" ]; then
+            echo "Published **$version** to the \`${{ inputs.track || env.DEFAULT_TRACK }}\` track." >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "### Built $version — not published"
+              echo
+              echo "No \`PLAY_SERVICE_ACCOUNT_JSON\` secret, so nothing was uploaded to Play."
+              echo "Download the **app-release-aab** artifact from this run and upload it in the"
+              echo "Play Console by hand. Release notes for this version are in \`PLAY_NOTES.md\`."
+              echo
+              echo "See \`docs/android-release.md\` to set the service account up."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
