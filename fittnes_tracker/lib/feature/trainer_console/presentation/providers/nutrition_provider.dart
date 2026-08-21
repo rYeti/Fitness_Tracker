@@ -1,10 +1,12 @@
 import 'package:flutter/foundation.dart';
+import 'package:logger/logger.dart';
 import 'package:ForgeForm/feature/trainer_console/data/trainer_console_repository.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_console_models.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/console_error.dart';
 
 class NutritionProvider extends ChangeNotifier {
   final TrainerConsoleRepository _repository;
+  final Logger _logger = Logger();
 
   NutritionProvider({TrainerConsoleRepository? repository})
     : _repository = repository ?? TrainerConsoleRepository();
@@ -51,7 +53,14 @@ class NutritionProvider extends ChangeNotifier {
       // Ignore a slow response the trainer has already navigated away from.
       if (!_isCurrentRequest(clientId, requestedDate)) return;
       _summary = summary;
-    } catch (_) {
+    } catch (e, stackTrace) {
+      // The trainer only ever sees "could not load"; without this the cause
+      // never surfaced anywhere, which is how a server-side 500 went unnoticed.
+      _logger.e(
+        'Nutrition summary failed for client $clientId on $requestedDate',
+        error: e,
+        stackTrace: stackTrace,
+      );
       if (!_isCurrentRequest(clientId, requestedDate)) return;
       _error = ConsoleError.loadNutrition;
     } finally {

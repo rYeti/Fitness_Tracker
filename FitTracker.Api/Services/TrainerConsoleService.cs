@@ -1,4 +1,5 @@
 using FitTracker.Api.DTOs;
+using FitTracker.Api.Repositories;
 using FitTracker.Api.Services.Interfaces;
 
 namespace FitTracker.Api.Services;
@@ -389,7 +390,16 @@ public class TrainerConsoleService(
                 .SelectMany(m => m.FoodEntries)
                 .Sum(entry => foodItemsById.TryGetValue(entry.FoodItemId, out var food) ? food.Calories : 0);
 
-        var todaysMeals = await _mealService.GetMealsForDateAsync(clientId, date);
+        // One round trip for the whole trend window, bucketed by day here — the
+        // seven days used to be seven sequential queries.
+        var requestedDay = MealDayWindow.DayFor(date);
+        var trendDays = Enumerable.Range(0, 7).Select(i => requestedDay.AddDays(-i)).ToList();
+        var mealsByDay = (await _mealService.GetMealsInRangeAsync(clientId, trendDays.Last(), requestedDay))
+            .GroupBy(meal => MealDayWindow.DayOf(meal.Date))
+            .ToDictionary(group => group.Key, group => group.ToList());
+
+        var noMeals = new List<MealResponseDto>();
+        var todaysMeals = mealsByDay.GetValueOrDefault(requestedDay, noMeals);
 
         // Resolve each meal against the catalogue here rather than shipping bare
         // food-item ids: the trainer has no route to the client's food catalogue,
@@ -417,23 +427,16 @@ public class TrainerConsoleService(
             };
         }).ToList();
 
-        var sevenDayTrend = new List<DailyCalorieTotalDto>();
-        for (var i = 0; i < 7; i++)
+        // Days with nothing logged still get an entry, so the chart keeps seven bars.
+        var sevenDayTrend = trendDays.Select(day => new DailyCalorieTotalDto
         {
-            var day = date.Date.AddDays(-i);
-            // Reuse the already-fetched list for `date` itself instead of
-            // hitting the service again for the same day.
-            var dayMeals = i == 0 ? todaysMeals : await _mealService.GetMealsForDateAsync(clientId, day);
-            sevenDayTrend.Add(new DailyCalorieTotalDto
-            {
-                Date = day,
-                TotalCalories = TotalCalories(dayMeals),
-                Goal = calorieGoal,
-            });
-        }
+            Date = day,
+            TotalCalories = TotalCalories(mealsByDay.GetValueOrDefault(day, noMeals)),
+            Goal = calorieGoal,
+        }).ToList();
 
-        // Oldest-first reads naturally as a left-to-right bar chart; the loop
-        // above walks backwards from `date`.
+        // Oldest-first reads naturally as a left-to-right bar chart; trendDays
+        // walks backwards from `date`.
         sevenDayTrend.Reverse();
 
         return new ClientNutritionSummaryDto

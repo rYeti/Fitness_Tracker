@@ -98,6 +98,26 @@ public sealed class DbFixture : IDisposable
         return rel;
     }
 
+    /// <summary>
+    /// Logs a meal at an exact instant. Callers pass the value as the app would
+    /// have stored it — the client's local midnight converted to UTC — not the
+    /// calendar day it represents.
+    /// </summary>
+    public Meal AddMeal(Guid userId, DateTime storedUtc, string category = "breakfast")
+    {
+        var meal = new Meal
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            Date = storedUtc,
+            Category = category,
+            FoodItemId = Guid.NewGuid(),
+        };
+        Db.Meals.Add(meal);
+        Db.SaveChanges();
+        return meal;
+    }
+
     /// <summary>Fills <paramref name="trainerId"/>'s roster with
     /// <paramref name="count"/> active clients.</summary>
     public void FillRoster(Guid trainerId, int count)

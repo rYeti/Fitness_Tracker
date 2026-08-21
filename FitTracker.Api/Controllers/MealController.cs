@@ -23,7 +23,8 @@ public class MealController(IMealService mealService) : ControllerBase
     }
 
     /// <summary>Returns all meals for the authenticated user on the given date.</summary>
-    /// <param name="date">The date to query (UTC).</param>
+    /// <param name="date">The calendar day to query. Only the date part is used —
+    /// see <see cref="Repositories.MealDayWindow"/> for how it maps onto stored instants.</param>
     [HttpGet]
     public async Task<IActionResult> GetForDate([FromQuery] DateTime date)
     {
