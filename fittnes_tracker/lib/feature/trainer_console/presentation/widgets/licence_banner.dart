@@ -164,7 +164,10 @@ class TraineeProLapsingBanner extends StatelessWidget {
   }
 }
 
-/// Day + abbreviated month in the active locale — the hand-rolled English
-/// month table this replaced printed "3 Mar" to a German trainer.
-String _formatDate(BuildContext context, DateTime date) =>
-    DateFormat.MMMd(Localizations.localeOf(context).toString()).format(date);
+
+/// Day + abbreviated month in the active locale — the previous month-first
+/// format printed "Sep 3" and broke the contract for grace warnings.
+String _formatDate(BuildContext context, DateTime date) {
+  final locale = Localizations.localeOf(context).toString();
+  return DateFormat('d MMM', locale).format(date);
+}
