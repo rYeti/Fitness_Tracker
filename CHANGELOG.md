@@ -2,6 +2,11 @@
 
 Patch notes for Google Play Store releases. Newest first.
 
+The section matching the version being released is published verbatim as that
+release's Google Play notes, so each heading must be the full `pubspec.yaml`
+version (`+buildNumber` included) and each section must fit Play's
+500-character limit. See `docs/android-release.md`.
+
 ## 1.0.2+11
 
 - Fixed a crash opening Meal Templates ("type 'Null' is not a subtype of type 'int'") caused by templates pulled from the server missing an internal field. Already-affected templates on your device are repaired automatically the next time they load.

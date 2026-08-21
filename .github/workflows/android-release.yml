@@ -10,9 +10,15 @@ name: Android Release
 #
 #   git tag v1.0.3 && git push origin v1.0.3
 #
-# The tag must match `version:` in pubspec.yaml (checked below), so a forgotten
-# version bump fails in seconds with a clear message instead of being rejected
-# by Play minutes later.
+# Two things must be updated before a release, both checked by the preflight
+# step below so a forgotten one fails in seconds rather than being rejected by
+# Play minutes later:
+#
+#   1. `version:` in fittnes_tracker/pubspec.yaml — and the tag must match it.
+#      That single line is the whole version: build.gradle.kts reads
+#      flutter.versionName/versionCode from it and needs no edit.
+#   2. A `## <version>` section in CHANGELOG.md — it becomes the release notes
+#      shown on Play, so it has to exist and fit Play's 500-character limit.
 
 on:
   push:
@@ -39,6 +45,10 @@ env:
   # different track. Nothing here ever auto-ships to production by default.
   DEFAULT_TRACK: internal
 
+  # Locale the CHANGELOG.md notes are published under. Play keys release notes
+  # by locale; add more files under whatsnew/ if the notes get translated.
+  PLAY_LOCALE: en-US
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -49,23 +59,96 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check the tag matches pubspec.yaml
-        if: startsWith(github.ref, 'refs/tags/v')
+      # Everything that can be checked without a toolchain is checked here, in
+      # one step, so a misconfigured release fails in seconds with every
+      # problem listed at once — rather than after a five-minute build, one
+      # missing secret at a time.
+      - name: Preflight
+        id: preflight
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
         run: |
-          set -euo pipefail
-          # pubspec "1.0.2+11" -> name 1.0.2, build number 11
-          pubspec_version="$(grep -m1 '^version:' pubspec.yaml | awk '{print $2}')"
-          pubspec_name="${pubspec_version%%+*}"
-          tag_name="${GITHUB_REF_NAME#v}"
-          echo "pubspec=$pubspec_version tag=$GITHUB_REF_NAME"
-          if [ "$pubspec_name" != "$tag_name" ]; then
-            echo "::error::Tag $GITHUB_REF_NAME does not match pubspec version $pubspec_name. Bump 'version:' in pubspec.yaml and re-tag."
+          set -uo pipefail
+          failed=0
+          fail() { echo "::error::$1"; failed=1; }
+
+          # --- Version -------------------------------------------------------
+          # pubspec.yaml is the only place the app version lives. Gradle reads
+          # flutter.versionName/versionCode, which the Flutter plugin derives
+          # from this line, so android/app/build.gradle.kts needs no edit.
+          # "1.0.2+11" -> name 1.0.2, versionCode 11.
+          version="$(grep -m1 '^version:' pubspec.yaml | awk '{print $2}')"
+          name="${version%%+*}"
+          build="${version##*+}"
+          echo "pubspec version: $version"
+
+          if [ "$build" = "$version" ]; then
+            fail "pubspec version '$version' has no +buildNumber. Play needs a versionCode, and it must be higher than every previous upload."
+          fi
+
+          if [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
+            tag_name="${GITHUB_REF_NAME#v}"
+            if [ "$name" != "$tag_name" ]; then
+              fail "Tag $GITHUB_REF_NAME does not match pubspec version $name. Bump 'version:' in fittnes_tracker/pubspec.yaml and re-tag."
+            fi
+          fi
+
+          # --- Release notes -------------------------------------------------
+          # Play shows the "## <version>" section of CHANGELOG.md as the
+          # release notes, so a release that bumps the version without writing
+          # patch notes is caught here instead of shipping blank notes.
+          notes_dir="$GITHUB_WORKSPACE/whatsnew"
+          mkdir -p "$notes_dir"
+          awk -v want="## $version" '
+            $0 == want { inside = 1; next }
+            inside && /^## / { exit }
+            inside { print }
+          ' "$GITHUB_WORKSPACE/CHANGELOG.md" \
+            | sed -e '/./,$!d' \
+            | tac | sed -e '/./,$!d' | tac \
+            > "$notes_dir/whatsnew-$PLAY_LOCALE"
+
+          if [ ! -s "$notes_dir/whatsnew-$PLAY_LOCALE" ]; then
+            fail "CHANGELOG.md has no '## $version' section. Add the patch notes for this release — they are what Play shows to users."
+          else
+            # Play rejects release notes over 500 characters per locale.
+            # Truncating would cut a sentence in half in front of real users,
+            # so this is a hard stop: shorten the section instead.
+            chars="$(LC_ALL=C.UTF-8 wc -m < "$notes_dir/whatsnew-$PLAY_LOCALE" | tr -d ' ')"
+            echo "release notes: $chars characters"
+            if [ "$chars" -gt 500 ]; then
+              fail "The '## $version' section of CHANGELOG.md is $chars characters; Play allows 500 per locale. Shorten it to the user-visible highlights."
+            fi
+          fi
+
+          # --- Secrets -------------------------------------------------------
+          # Reported together: finding these one run at a time is what makes a
+          # first release take an afternoon.
+          for secret in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD \
+                        ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD \
+                        PLAY_SERVICE_ACCOUNT_JSON; do
+            if [ -z "${!secret:-}" ]; then
+              fail "Repository secret $secret is not set. See docs/android-release.md."
+            fi
+          done
+
+          # A service-account JSON pasted partially, or base64-encoded by
+          # mistake, otherwise surfaces as an opaque failure in the upload step.
+          if [ -n "${PLAY_SERVICE_ACCOUNT_JSON:-}" ] \
+             && ! printf '%s' "$PLAY_SERVICE_ACCOUNT_JSON" \
+                  | jq -e 'has("client_email") and has("private_key")' >/dev/null 2>&1; then
+            fail "PLAY_SERVICE_ACCOUNT_JSON is not the service-account JSON (no client_email/private_key). Paste the whole file, unencoded."
+          fi
+
+          if [ "$failed" -ne 0 ]; then
             exit 1
           fi
-          if ! printf '%s' "$pubspec_version" | grep -q '+'; then
-            echo "::error::pubspec version '$pubspec_version' has no +buildNumber. Play needs a versionCode, and it must be higher than every previous upload."
-            exit 1
-          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Ready to release $version"
 
       - uses: actions/setup-java@v4
         with:
@@ -90,11 +173,6 @@ jobs:
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          if [ -z "${KEYSTORE_BASE64:-}" ]; then
-            echo "::error::ANDROID_KEYSTORE_BASE64 is not set. See docs/android-release.md."
-            exit 1
-          fi
-
           keystore_path="$RUNNER_TEMP/upload-keystore.jks"
           printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$keystore_path"
 
@@ -130,6 +208,9 @@ jobs:
           releaseFiles: fittnes_tracker/build/app/outputs/bundle/release/app-release.aab
           track: ${{ inputs.track || env.DEFAULT_TRACK }}
           status: ${{ inputs.status || 'completed' }}
+          # Written by the preflight step from this version's CHANGELOG.md
+          # section, so the notes on Play and the notes in the repo can't drift.
+          whatsNewDirectory: whatsnew
           # The release build runs R8 (isMinifyEnabled), so without this every
           # Play Console stack trace is obfuscated.
           mappingFile: fittnes_tracker/build/app/outputs/mapping/release/mapping.txt

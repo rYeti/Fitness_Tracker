@@ -4,20 +4,70 @@
 uploads it to Google Play. Once the secrets below exist, releasing is:
 
 ```bash
-# bump `version:` in fittnes_tracker/pubspec.yaml first, e.g. 1.0.3+12
+# 1. bump `version:` in fittnes_tracker/pubspec.yaml, e.g. 1.0.2+11 -> 1.0.3+12
+# 2. add a `## 1.0.3+12` section to CHANGELOG.md — those are the Play notes
+git commit -am "Release 1.0.3+12"
 git tag v1.0.3
-git push origin v1.0.3
+git push origin main v1.0.3
 ```
 
-The workflow checks the tag against `pubspec.yaml` and fails immediately if
-they disagree, so a forgotten version bump costs seconds rather than a
-confusing rejection from Play.
+Both edits are mandatory, and the workflow's preflight step checks them before
+installing anything, so a forgotten one costs seconds rather than a confusing
+rejection from Play.
+
+## The two files a release touches
+
+### `fittnes_tracker/pubspec.yaml` — the version, and the only place it lives
+
+```yaml
+version: 1.0.3+12
+#        ^^^^^ versionName    ^^ versionCode
+```
+
+`android/app/build.gradle.kts` does **not** need editing: it sets
+`versionCode = flutter.versionCode` and `versionName = flutter.versionName`,
+both of which the Flutter Gradle plugin derives from that one line. Same for
+iOS. Change it in `pubspec.yaml` and nowhere else.
+
+The git tag carries the version name only — `1.0.3+12` is tagged `v1.0.3`. The
+`+12` is not part of the tag, but it still has to increase (see below).
+
+### `CHANGELOG.md` — the release notes Play shows
+
+The workflow extracts the section whose heading is exactly the full pubspec
+version, `+buildNumber` included, and publishes it as the `en-US` release
+notes:
+
+```markdown
+## 1.0.3+12
+
+- Fixed the calorie ring not refreshing after editing a meal.
+```
+
+So the heading has to match `version:` character for character. Two rules the
+preflight step enforces:
+
+- **The section must exist.** A version bump with no patch notes fails rather
+  than publishing a release with blank notes.
+- **It must fit in 500 characters** — Play's per-locale limit. The check is a
+  hard failure rather than a truncation, because truncating cuts a sentence in
+  half in front of real users. Keep the section to user-visible highlights; the
+  longer engineering detail belongs in the commit history.
+
+Note that some older sections in `CHANGELOG.md` are over that limit, so they'd
+need trimming before they could be released as-is. Release notes are only ever
+read from the section matching the version being released, so past sections are
+left alone.
+
+To publish notes in more locales, write additional `whatsnew-<locale>` files;
+the workflow currently generates only `whatsnew-en-US`, from `PLAY_LOCALE`.
 
 ## Two rules Play enforces that bite hardest
 
 - **`versionCode` must increase on every upload, forever.** It comes from the
   `+N` suffix in `pubspec.yaml` (`1.0.2+11` → `11`). Reusing a number is
-  rejected. Numbers are burned even by uploads you later discard.
+  rejected. Numbers are burned even by uploads you later discard — including
+  ones you upload as a draft and never roll out.
 - **The upload key can never change.** If the keystore is lost, no future
   update can be published to the existing listing without Google's key-reset
   process. Keep the `.jks` backed up somewhere other than CI.
@@ -75,11 +125,43 @@ Google Play will not accept an API upload for an app whose first bundle has
 never been uploaded through the Console. If `com.forgeform.app` has had at
 least one manual release, this doesn't apply.
 
+## Troubleshooting
+
+### `ANDROID_KEYSTORE_BASE64 is not set` / `Repository secret ... is not set`
+
+The secret does not exist in this repository. This is not related to the
+workflow's triggers — the workflow runs fine on a manual dispatch; it just has
+nothing to sign with. Check, in Settings → Secrets and variables → Actions:
+
+- The secrets are under **Secrets**, not **Variables** — they are separate tabs
+  and a value in the wrong one reads back as empty.
+- They are **repository** secrets, not **environment** secrets. An environment
+  secret is only visible to a job that declares `environment:`, which this job
+  does not; it would read back empty here.
+- The names match the table above exactly, including case.
+- The run was on this repository and not a fork. Secrets are never passed to
+  workflow runs from a forked repository.
+
+Repository secrets are available to every branch and tag, so where you run the
+workflow from does not matter.
+
+### The workflow doesn't run when I push to `main`
+
+That's deliberate, not a fault: every upload permanently burns a `versionCode`
+and testers see the build immediately, so releasing is an explicit act. Push a
+`v*` tag, or use Actions → Android Release → Run workflow. `deploy.yml` is the
+one that ships on every push to `main`, and it only ships the API.
+
+### `Package not found` or `401` from the Play upload step
+
+Either the app has never had a bundle uploaded through the Console by hand (see
+"First upload has to be manual"), or the service account's permissions haven't
+propagated yet. A fresh service account often fails its first run.
+
 ## Not covered
 
 - **iOS / App Store.** This workflow is Android only. iOS needs a macOS
   runner, an Apple Developer account, certificates and provisioning profiles,
   and upload via `altool`/Fastlane — a separate piece of work.
-- **Release notes.** The upload action can send changelogs from
-  `distribution/whatsnew/whatsnew-<locale>`. Add that directory if you want
-  notes attached automatically; otherwise edit them in the Console.
+- **Localised release notes.** Only `en-US` is generated, from `CHANGELOG.md`.
+  Other locales fall back to whatever the Console has.
