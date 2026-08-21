@@ -2307,4 +2307,52 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get templateLogPortion => 'Portion eintragen';
+
+  @override
+  String get coachChat => 'Dein Coach';
+
+  @override
+  String get coachChatSubtitle => 'Schreib deinem Trainer';
+
+  @override
+  String get coachChatNoCoach => 'Noch kein Coach';
+
+  @override
+  String get coachChatNoCoachBody => 'Sobald dich ein Trainer aufnimmt, kannst du hier schreiben.';
+
+  @override
+  String get coachChatEmpty => 'Noch keine Nachrichten';
+
+  @override
+  String get coachChatEmptyBody => 'Frag deinen Coach alles — er sieht es sofort.';
+
+  @override
+  String get coachChatLoadError => 'Unterhaltung konnte nicht geladen werden.';
+
+  @override
+  String get chatComposerHint => 'Nachricht';
+
+  @override
+  String get chatSendMessage => 'Nachricht senden';
+
+  @override
+  String get chatSending => 'Wird gesendet';
+
+  @override
+  String get chatFailedRetry => 'Senden fehlgeschlagen — zum Wiederholen tippen';
+
+  @override
+  String get chatReconnecting => 'Verbindung wird wiederhergestellt…';
+
+  @override
+  String get chatOffline => 'Offline';
+
+  @override
+  String get chatAttachmentsUnavailable => 'Anhänge sind noch nicht verfügbar';
+
+  @override
+  String get chatUnavailable => 'Nachrichten nicht verfügbar';
+
+  @override
+  String get chatUnavailableBody => 'Der Chat konnte auf diesem Gerät nicht starten. Starte die App neu und melde dich beim Support, falls es weiter auftritt.';
 }

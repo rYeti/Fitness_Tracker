@@ -1,0 +1,26 @@
+name: API
+
+# The API had no PR-time build or test at all: deploy.yml only runs on main,
+# which meant the first thing to exercise a change was production. The chat
+# service shipped two defects that way.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - run: dotnet restore FitTracker.sln
+
+      - run: dotnet build FitTracker.sln --configuration Release --no-restore
+
+      - run: dotnet test FitTracker.sln --configuration Release --no-build --verbosity normal

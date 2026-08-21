@@ -12,6 +12,7 @@ import 'package:ForgeForm/core/di/service_locator.dart';
 import 'package:ForgeForm/core/network/api_client.dart';
 import 'package:ForgeForm/core/network/services/sync_service.dart';
 import 'package:ForgeForm/core/providers/access_provider.dart';
+import 'package:ForgeForm/feature/chat/presentation/view/coach_chat_entry.dart';
 import 'package:ForgeForm/core/providers/enums.dart';
 import 'package:ForgeForm/core/providers/theme_provider.dart';
 import 'package:ForgeForm/core/providers/locale_provider.dart';
@@ -395,6 +396,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                   ),
                 ),
+
+                // ── Your coach ────────────────────────────────────────────
+                // Chat lives here rather than in the bottom bar: that bar is
+                // `type: fixed` with five items already, and a sixth crowds it
+                // badly on a phone.
+                if (isTrainerClient) ...[
+                  const SizedBox(height: 12),
+                  Card(
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(color: colorScheme.outlineVariant),
+                    ),
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: colorScheme.primaryContainer,
+                        child: Icon(
+                          Icons.forum_outlined,
+                          color: colorScheme.onPrimaryContainer,
+                        ),
+                      ),
+                      title: Text(l10n.coachChat),
+                      subtitle: Text(l10n.coachChatSubtitle),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const CoachChatEntry(),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
 
                 // ── Trainer Console ───────────────────────────────────────
                 // Only trainers see this; the route's gate re-checks the role

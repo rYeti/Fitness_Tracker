@@ -1,25 +1,20 @@
 {
   "@@locale": "en",
-
   "male": "Male",
   "female": "Female",
   "other": "Other",
-
   "sedentary": "Sedentary",
   "lightlyActive": "Lightly Active",
   "moderatelyActive": "Moderately Active",
   "veryActive": "Very Active",
   "extremelyActive": "Extremely Active",
-
   "weightLoss": "Weight Loss",
   "muscleGain": "Muscle Gain",
   "maintenance": "Maintenance",
-
   "dashboard": "Dashboard",
   "food": "Food",
   "gym": "Gym",
   "progress": "Progress",
-
   "settings": "Settings",
   "appearance": "Appearance",
   "refresh": "Refresh",
@@ -28,8 +23,6 @@
   "dailyCalorieGoal": "Daily Calorie Goal",
   "save": "Save",
   "saveCalorieGoal": "Calorie goal saved",
-
-
   "addFood": "{category}",
   "@addFood": {
     "placeholders": {
@@ -38,11 +31,9 @@
       }
     }
   },
-
   "scanBarcode": "Scan Barcode",
   "nutritionProgress": "Nutrition Progress",
   "foodDetails": "Food Details",
-
   "searchFailed": "Search failed: {error}",
   "@searchFailed": {
     "placeholders": {
@@ -51,11 +42,9 @@
       }
     }
   },
-
   "pleaseEnterValidAgeAndHeight": "Please enter valid age and height",
   "pleaseEnterValidNumber": "Please enter a valid number",
   "calculatedAndSavedCalorieGoal": "Calculated and saved calorie goal",
-
   "failedToSaveProfile": "Failed to save profile: {error}",
   "@failedToSaveProfile": {
     "placeholders": {
@@ -64,7 +53,6 @@
       }
     }
   },
-
   "failedToUpdateCalorieGoal": "Failed to update calorie goal: {error}",
   "@failedToUpdateCalorieGoal": {
     "placeholders": {
@@ -73,7 +61,6 @@
       }
     }
   },
-
   "failedToLoadData": "Failed to load data: {error}",
   "@failedToLoadData": {
     "placeholders": {
@@ -82,11 +69,9 @@
       }
     }
   },
-
   "sex": "Sex",
   "activity": "Activity",
   "goal": "Goal",
-
   "cancel": "Cancel",
   "addCustomFood": "Add Custom Food",
   "foodName": "Food Name",
@@ -97,14 +82,11 @@
   "addedSuccessfully": "added successfully!",
   "pleaseEnterAName": "Please enter a name",
   "pleaseEnterCalories": "Please enter calories",
-
   "foodTracker": "Tracker",
   "proteinLabel": "Protein",
   "carbsLabel": "Carbs",
   "fatLabel": "Fat",
-
   "ok": "OK",
-
   "addFailed": "Failed to add",
   "nutritionInformation": "Nutrition Information",
   "portionSize": "Portion size",
@@ -112,12 +94,10 @@
   "addToTodayLog": "Add to today's log",
   "mealCategory": "Category",
   "addToLog": "Add to log",
-
   "mealBreakfast": "Breakfast",
   "mealLunch": "Lunch",
   "mealDinner": "Dinner",
   "mealSnacks": "Snacks",
-
   "searchForFood": "Search for food",
   "recentlyAdded": "Recently Added",
   "addedToRecentFoods": "{name} added to recent foods",
@@ -250,7 +230,6 @@
       }
     }
   },
-  "save": "Save",
   "noExercisesInWorkout": "No exercises in this workout",
   "setsLabel": "Sets",
   "noSetsFound": "No sets found for this exercise",
@@ -263,7 +242,6 @@
   "unit": "Unit",
   "delete": "Delete",
   "edit": "Edit",
-  "addSet": "Add Set",
   "addButton": "Add",
   "saveButton": "Save",
   "exercises": "Exercises",
@@ -271,7 +249,6 @@
   "setWeightGoal": "Set Weight Goals",
   "calculateBMI": "Calculate BMI",
   "currentWeight": "Current Weight",
-
   "weightProgress": "Weight Progress",
   "nutrition": "Nutrition",
   "exerciseProgress": "Exercise Progress",
@@ -295,21 +272,36 @@
   "completionLessThanWeek": "Less than a week away!",
   "completionWeeks": "About {n} week(s) away",
   "@completionWeeks": {
-    "placeholders": { "n": {"type": "int"} }
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
   },
   "completionMonths": "About {n} month(s) away",
   "@completionMonths": {
-    "placeholders": { "n": {"type": "int"} }
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
   },
   "completionYears": "About {n} year(s) away",
   "@completionYears": {
-    "placeholders": { "n": {"type": "int"} }
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
   },
   "errorLoadingProgress": "Error loading progress: {error}",
   "@errorLoadingProgress": {
-    "placeholders": { "error": {"type": "Object"} }
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
   },
-
   "addBreakfast": "Add Breakfast",
   "addLunch": "Add Lunch",
   "addDinner": "Add Dinner",
@@ -320,7 +312,11 @@
   "todaysWorkout": "Today's Workout",
   "errorLoadingWorkout": "Error loading workout: {error}",
   "@errorLoadingWorkout": {
-    "placeholders": { "error": {"type": "Object"} }
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
   },
   "calorieTrend": "Calorie Trend",
   "avgCalories": "Avg Calories",
@@ -337,7 +333,6 @@
   "logMealsProgress": "Log Meals",
   "completeWorkoutsProgress": "Complete Workouts",
   "summaryStatistics": "Summary",
-
   "myFoods": "My Foods",
   "onlineResults": "Online Results",
   "editPortion": "Edit Portion",
@@ -349,7 +344,11 @@
   "couldNotReachFoodDatabase": "Could not reach food database",
   "noResultsFor": "No results for \"{query}\"",
   "@noResultsFor": {
-    "placeholders": { "query": {"type": "String"} }
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
   },
   "barcodeNotSupportedOnWeb": "Barcode scanning not supported on web",
   "scan": "Scan",
@@ -367,32 +366,51 @@
   "templateCreatedSuccessfully": "Template created successfully",
   "addedToTemplate": "Added {name} to template",
   "@addedToTemplate": {
-    "placeholders": { "name": {"type": "String"} }
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "templateApplied": "\"{name}\" applied to {category}",
   "@templateApplied": {
     "placeholders": {
-      "name": {"type": "String"},
-      "category": {"type": "String"}
+      "name": {
+        "type": "String"
+      },
+      "category": {
+        "type": "String"
+      }
     }
   },
   "errorApplyingTemplate": "Error applying template: {error}",
   "@errorApplyingTemplate": {
-    "placeholders": { "error": {"type": "Object"} }
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
   },
   "errorCreatingTemplate": "Error creating template: {error}",
   "@errorCreatingTemplate": {
-    "placeholders": { "error": {"type": "Object"} }
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
   },
   "errorScanningBarcode": "Error scanning barcode: {error}",
   "@errorScanningBarcode": {
-    "placeholders": { "error": {"type": "Object"} }
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
   },
   "apply": "Apply",
   "applyTemplate": "Apply Template",
   "applyTemplateQuestion": "Apply this template?",
   "addToTemplate": "Add to Template",
-
   "addWeightRecord": "Add Weight Record",
   "addWeightRecordTitle": "Add Weight",
   "editWeightRecord": "Edit Weight Record",
@@ -402,7 +420,6 @@
   "invalidWeight": "Invalid weight",
   "weightCalorieCorrelation": "Weight & Calorie Correlation",
   "maxWeight": "Max Weight",
-
   "workoutProgress": "Workout Progress",
   "workoutComplete": "Workout Complete!",
   "workoutNotes": "Workout Notes",
@@ -417,19 +434,35 @@
   "workoutAddedToPlan": "Workout added to plan",
   "workoutRemovedFromPlan": "\"{name}\" removed from plan",
   "@workoutRemovedFromPlan": {
-    "placeholders": { "name": {"type": "String"} }
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "workoutRenamedTo": "Workout renamed to \"{name}\"",
   "@workoutRenamedTo": {
-    "placeholders": { "name": {"type": "String"} }
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "workoutPostponedTo": "Workout postponed to {date}",
   "@workoutPostponedTo": {
-    "placeholders": { "date": {"type": "String"} }
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
   },
   "deleteWorkoutConfirmation": "Delete \"{name}\"?",
   "@deleteWorkoutConfirmation": {
-    "placeholders": { "name": {"type": "String"} }
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "deleteWorkout": "Delete Workout",
   "editWorkoutName": "Edit Workout Name",
@@ -448,11 +481,19 @@
   "removeWorkoutFromPlanTooltip": "Remove workout from plan",
   "removeWorkoutFromPlanConfirm": "Remove \"{name}\" from plan?",
   "@removeWorkoutFromPlanConfirm": {
-    "placeholders": { "name": {"type": "String"} }
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "failedToRemoveWorkoutFromPlan": "Failed to remove workout from plan: {error}",
   "@failedToRemoveWorkoutFromPlan": {
-    "placeholders": { "error": {"type": "Object"} }
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
   },
   "openPlanEditor": "Open Plan Editor",
   "deletePlanTooltip": "Delete plan",
@@ -461,7 +502,6 @@
   "active": "Active",
   "activePlanBadge": "Active",
   "noWorkoutDataYetLabel": "No data yet",
-
   "nameYourWorkoutPlan": "Name Your Workout Plan",
   "chooseMemorableName": "Choose a memorable name",
   "workoutPlanNameHintAlt": "e.g. Summer Shred",
@@ -482,9 +522,12 @@
   "viewLabel": "View",
   "dayCycleLength": "{n}-day cycle",
   "@dayCycleLength": {
-    "placeholders": { "n": {"type": "int"} }
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
   },
-
   "exerciseFeelingHint": "How did it feel?",
   "exerciseNotes": "Exercise Notes",
   "exerciseRemovedFromWorkout": "Exercise removed",
@@ -546,12 +589,24 @@
   "adaptiveTdeeEstimate": "Estimated daily expenditure",
   "adaptiveTdeeRecommended": "Recommended daily target",
   "adaptiveTdeeBasis": "Based on {days} days of weight and food logs",
-  "@adaptiveTdeeBasis": {"placeholders": {"days": {"type": "int"}}},
+  "@adaptiveTdeeBasis": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
   "adaptiveTdeeInsufficient": "Log your weight and food for at least 2 weeks to unlock an adaptive calorie target.",
   "adaptiveTdeeUncertainty": "Estimate quality depends on logging consistency — under-logging inflates it.",
   "adaptiveTdeeApply": "Apply as daily goal",
   "adaptiveTdeeApplied": "Daily calorie goal updated to {kcal} kcal",
-  "@adaptiveTdeeApplied": {"placeholders": {"kcal": {"type": "int"}}},
+  "@adaptiveTdeeApplied": {
+    "placeholders": {
+      "kcal": {
+        "type": "int"
+      }
+    }
+  },
   "exportSectionLabel": "Data export",
   "exportWorkoutsCsv": "Export workouts (CSV)",
   "exportWeightCsv": "Export weight history (CSV)",
@@ -577,103 +632,184 @@
   "avgPerWeek": "Avg / Week",
   "uniqueExercisesLabel": "Unique Exercises",
   "unknownExercise": "Unknown Exercise",
-
   "exerciseXofY": "Exercise {x} of {y}",
   "@exerciseXofY": {
     "placeholders": {
-      "x": {"type": "int"},
-      "y": {"type": "int"}
+      "x": {
+        "type": "int"
+      },
+      "y": {
+        "type": "int"
+      }
     }
   },
   "exerciseCount": "{n} exercise(s)",
   "@exerciseCount": {
-    "placeholders": { "n": {"type": "int"} }
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
   },
   "setCount": "{n} set(s)",
   "@setCount": {
-    "placeholders": { "n": {"type": "int"} }
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
   },
   "exercisesAndSets": "{exercises} exercise(s), {sets} set(s)",
   "@exercisesAndSets": {
     "placeholders": {
-      "exercises": {"type": "int"},
-      "sets": {"type": "int"}
+      "exercises": {
+        "type": "int"
+      },
+      "sets": {
+        "type": "int"
+      }
     }
   },
   "exerciseAddedToWorkout": "{name} added to workout",
   "@exerciseAddedToWorkout": {
-    "placeholders": { "name": {"type": "String"} }
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "failedToAddExercise": "Failed to add exercise: {error}",
   "@failedToAddExercise": {
-    "placeholders": { "error": {"type": "Object"} }
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
   },
   "failedToAddSet": "Failed to add set: {error}",
   "@failedToAddSet": {
-    "placeholders": { "error": {"type": "Object"} }
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
   },
   "failedToRemoveExercise": "Failed to remove exercise: {error}",
   "@failedToRemoveExercise": {
-    "placeholders": { "error": {"type": "Object"} }
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
   },
   "errorCompletingWorkout": "Error completing workout: {error}",
   "@errorCompletingWorkout": {
-    "placeholders": { "error": {"type": "Object"} }
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
   },
   "errorUpdatingDetails": "Error updating details: {error}",
   "@errorUpdatingDetails": {
-    "placeholders": { "error": {"type": "Object"} }
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
   },
   "errorUpdatingName": "Error updating name: {error}",
   "@errorUpdatingName": {
-    "placeholders": { "error": {"type": "Object"} }
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
   },
   "createdExercises": "{n} exercise(s) created",
   "@createdExercises": {
-    "placeholders": { "n": {"type": "int"} }
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
   },
   "importedSessions": "{n} session(s) imported",
   "@importedSessions": {
-    "placeholders": { "n": {"type": "int"} }
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
   },
   "importedSets": "{n} set(s) imported",
   "@importedSets": {
-    "placeholders": { "n": {"type": "int"} }
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
   },
   "importedWorkoutsCreated": "{n} workout(s) created",
   "@importedWorkoutsCreated": {
-    "placeholders": { "n": {"type": "int"} }
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
   },
   "newExercisesWillBeCreated": "{n} new exercise(s) will be created",
   "@newExercisesWillBeCreated": {
-    "placeholders": { "n": {"type": "int"} }
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
   },
   "sessionsCount": "{n} session(s)",
   "@sessionsCount": {
-    "placeholders": { "n": {"type": "int"} }
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
   },
   "setsCount": "{n} set(s)",
   "@setsCount": {
-    "placeholders": { "n": {"type": "int"} }
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
   },
   "importFailed": "Import failed: {error}",
   "@importFailed": {
-    "placeholders": { "error": {"type": "Object"} }
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
   },
   "csvExercisesAdded": "{n} exercise(s) added",
   "@csvExercisesAdded": {
-    "placeholders": { "n": {"type": "int"} }
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
   },
   "csvExercisesSkipped": "{n} exercise(s) skipped",
   "@csvExercisesSkipped": {
-    "placeholders": { "n": {"type": "int"} }
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
   },
-
   "nameLabel": "Name",
   "goodMorning": "Good morning!",
   "goodAfternoon": "Good afternoon!",
   "goodEvening": "Good evening!",
-
   "onboardingWelcomeSubtitle": "Your personal fitness companion",
   "onboardingCreateAccount": "Create account",
   "profileSetupSkip": "Set up later",
@@ -687,20 +823,22 @@
   "onboardingSummaryTitle": "You're all set!",
   "onboardingSummaryCaloriesLabel": "Estimated daily calorie target",
   "onboardingGetStarted": "Get Started",
-
   "undoSkip": "Undo Skip",
   "replaceExercise": "Replace Exercise",
   "resumeWorkoutTitle": "Resume workout?",
   "resumeWorkoutBody": "\"{name}\" was interrupted. Resume where you left off?",
   "@resumeWorkoutBody": {
-    "placeholders": { "name": {"type": "String"} }
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "resumeWorkout": "Resume",
   "discardWorkout": "Discard",
-   "removeSupersetLink": "Remove from superset",
+  "removeSupersetLink": "Remove from superset",
   "superset": "Superset",
   "supersetPickHint": "Select exercises for the superset",
-
   "targetReps": "Target Reps",
   "targetRepsHint": "e.g., 8-12",
   "targetRepsHintLong": "e.g. 8 - 12",
@@ -708,7 +846,6 @@
   "planName": "Plan Name",
   "planNameHint": "e.g., Beginner Strength Program",
   "create": "Create",
-  "add": "Add",
   "foods": "Foods",
   "addFromScheduledWorkouts": "Add from Scheduled Workouts",
   "importCsvWorkouts": "Import CSV Workouts",
@@ -720,7 +857,11 @@
   "selectFood": "Select Food",
   "doneCount": "Done ({count})",
   "@doneCount": {
-    "placeholders": { "count": {"type": "int"} }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "searchFoods": "Search Foods",
   "noLocalFoodsFound": "No local foods found",
@@ -738,7 +879,6 @@
   "searchExercisesHint": "Search exercises...",
   "invalidAgeHeight": "Please enter valid age and height",
   "searchOnlineTab": "Search Online",
-
   "login": "Login",
   "register": "Register",
   "username": "Username",
@@ -759,7 +899,6 @@
   "invalidEmailFormat": "Enter a valid email address",
   "passwordTooShort": "Password must be at least 8 characters",
   "minimumAgeRequired": "You must be at least 13 years old",
-
   "freeChoiceMode": "Free Choice Mode",
   "freeChoiceModeSubtitle": "Pick workouts manually for each day",
   "cycleModeSubtitle": "Workouts follow a repeating cycle",
@@ -770,16 +909,23 @@
   "confirm": "Confirm",
   "addWorkoutForDate": "Add workout for {date}",
   "@addWorkoutForDate": {
-    "placeholders": { "date": {"type": "String"} }
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
   },
   "pickWorkoutForDate": "Pick workout for {date}",
   "@pickWorkoutForDate": {
-    "placeholders": { "date": {"type": "String"} }
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
   },
   "freeChoiceAddHint": "Add workout templates to choose from each day",
   "cyclePattern": "Cycle Pattern",
   "freeChoiceLabel": "Free Choice",
-
   "accountSettings": "Account Settings",
   "profile": "Profile",
   "security": "Security",
@@ -788,7 +934,6 @@
   "newPassword": "New Password",
   "signOut": "Sign Out",
   "signOutConfirm": "Are you sure you want to sign out?",
-
   "createExercise": "Create Exercise",
   "editExercise": "Edit Exercise",
   "createCustomExercise": "Create custom exercise",
@@ -801,7 +946,11 @@
   "deleteExercise": "Delete Exercise",
   "deleteExerciseConfirmation": "Delete \"{name}\"?",
   "@deleteExerciseConfirmation": {
-    "placeholders": { "name": {"type": "String"} }
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "selectAtLeastOneMuscleGroup": "Please select at least one muscle group",
   "exerciseTypeStrength": "Strength",
@@ -812,16 +961,28 @@
   "saveChangesButton": "Save Changes",
   "errorSavingExercise": "Error saving exercise: {error}",
   "@errorSavingExercise": {
-    "placeholders": { "error": {"type": "Object"} }
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
   },
   "errorDeletingExercise": "Error deleting exercise: {error}",
   "@errorDeletingExercise": {
-    "placeholders": { "error": {"type": "Object"} }
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
   },
   "newExercise": "New Exercise",
   "noExercisesFoundForQuery": "No exercises found matching \"{query}\"",
   "@noExercisesFoundForQuery": {
-    "placeholders": { "query": {"type": "String"} }
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
   },
   "all": "All",
   "muscleGroupChest": "Chest",
@@ -839,74 +1000,156 @@
   "languageSystem": "System default",
   "languageEnglish": "English",
   "languageGerman": "Deutsch",
-
   "start": "Start",
   "stop": "Stop",
   "pause": "Pause",
   "reset": "Reset",
-  "restTimeComplete": "Rest time complete! 💪",
-
   "selectTrainingDays": "Select Training Days",
-  "useSelectedDates": "Use selected dates",
   "daysSelected": "{n} days selected",
-  "@daysSelected": { "placeholders": { "n": { "type": "int" } } },
-
+  "@daysSelected": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
   "manageExercises": "Manage Exercises",
-
-  "searchOnlineTab": "Search Online",
-  "noLocalFoodsFound": "No local foods found",
-  "enterSearchTermsOnline": "Enter search terms to find foods online",
   "noResultsFoundForSearch": "No results found for this search",
   "tryMoreGeneralTerms": "Try using more general terms or check spelling",
   "doneWithCount": "Done ({count})",
-  "@doneWithCount": { "placeholders": { "count": { "type": "int" } } },
+  "@doneWithCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "addingFoodToYours": "Adding {name} to your foods...",
-  "@addingFoodToYours": { "placeholders": { "name": { "type": "String" } } },
+  "@addingFoodToYours": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "foodAddedToYours": "{name} added to your foods",
-  "@foodAddedToYours": { "placeholders": { "name": { "type": "String" } } },
-  "searchFailed": "Search failed: {error}",
-  "@searchFailed": { "placeholders": { "error": { "type": "Object" } } },
+  "@foodAddedToYours": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "errorAddingFood": "Error adding food: {error}",
-  "@errorAddingFood": { "placeholders": { "error": { "type": "Object" } } },
+  "@errorAddingFood": {
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
+  },
   "brandLabel": "Brand: {brand}",
-  "@brandLabel": { "placeholders": { "brand": { "type": "String" } } },
-
+  "@brandLabel": {
+    "placeholders": {
+      "brand": {
+        "type": "String"
+      }
+    }
+  },
   "editMealTemplate": "Edit Meal Template",
   "templateUpdatedSuccessfully": "Template updated successfully",
-  "pleaseAddAtLeastOneFood": "Please add at least one food",
   "barcodeScanningMobileOnly": "Barcode scanning is only supported on mobile devices.",
   "barcodeScanningWebNotSupported": "Barcode scanning is not supported on web",
-
   "setUpdated": "Set updated",
   "failedToRemoveSet": "Failed to remove set: {error}",
-  "@failedToRemoveSet": { "placeholders": { "error": { "type": "Object" } } },
+  "@failedToRemoveSet": {
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
+  },
   "failedToUpdateSet": "Failed to update set: {error}",
-  "@failedToUpdateSet": { "placeholders": { "error": { "type": "Object" } } },
-
+  "@failedToUpdateSet": {
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
+  },
   "workoutPlanCreated": "Workout plan \"{name}\" created",
-  "@workoutPlanCreated": { "placeholders": { "name": { "type": "String" } } },
+  "@workoutPlanCreated": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "failedToCreatePlan": "Failed to create workout plan: {error}",
-  "@failedToCreatePlan": { "placeholders": { "error": { "type": "Object" } } },
+  "@failedToCreatePlan": {
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
+  },
   "failedToAddWorkout": "Failed to add workout: {error}",
-  "@failedToAddWorkout": { "placeholders": { "error": { "type": "Object" } } },
+  "@failedToAddWorkout": {
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
+  },
   "deletedWorkoutPlan": "Deleted workout plan \"{name}\"",
-  "@deletedWorkoutPlan": { "placeholders": { "name": { "type": "String" } } },
+  "@deletedWorkoutPlan": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "failedToDeletePlan": "Failed to delete plan: {error}",
-  "@failedToDeletePlan": { "placeholders": { "error": { "type": "Object" } } },
+  "@failedToDeletePlan": {
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
+  },
   "cannotAddExerciseToUnsavedWorkout": "Cannot add exercise to unsaved workout",
-
   "removeExerciseConfirmBody": "Are you sure you want to remove \"{name}\" from this workout?",
-  "@removeExerciseConfirmBody": { "placeholders": { "name": { "type": "String" } } },
+  "@removeExerciseConfirmBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "removeSetConfirmBody": "Are you sure you want to remove set {setNumber} from \"{exerciseName}\"?",
-  "@removeSetConfirmBody": { "placeholders": { "setNumber": { "type": "int" }, "exerciseName": { "type": "String" } } },
+  "@removeSetConfirmBody": {
+    "placeholders": {
+      "setNumber": {
+        "type": "int"
+      },
+      "exerciseName": {
+        "type": "String"
+      }
+    }
+  },
   "deletePlanConfirmBody": "Are you sure you want to delete \"{name}\"? This will remove the plan but keep the workouts.",
-  "@deletePlanConfirmBody": { "placeholders": { "name": { "type": "String" } } },
+  "@deletePlanConfirmBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "pleaseEnterDuration": "Please enter duration",
   "pleaseEnterValidDuration": "Please enter a valid duration",
   "minutesSuffix": "minutes",
   "selectMuscleGroup": "Select Muscle Group",
   "selectExercise": "Select Exercise",
-
   "extendedNutrientsTitle": "Detailed Nutrition",
   "extendedNutrientsMacrosSection": "Macros Detail",
   "extendedNutrientsVitaminsSection": "Vitamins",
@@ -984,21 +1227,18 @@
   "paywallFeatureCustomFoods": "Unlimited custom foods (free: up to 10)",
   "paywallFeatureLongPlans": "Extended workout plan durations — up to 1 year",
   "paywallFeatureFreeChoice": "Free choice workout mode — schedule any workout on any day",
-  "paywallFeatureNutrition": "Detailed nutrition breakdown — vitamins & minerals",
-  "paywallFeatureCustomFoods": "Unlimited custom foods (free: up to 10)",
-  "paywallFeatureLongPlans": "Extended workout plan durations — up to 1 year",
   "deleteAccount": "Delete Account",
   "deleteAccountWarning": "This will permanently delete your account and all your data including workouts, meals, and weight history. Any trainer relationships will also be removed. This cannot be undone.",
   "deleteAccountError": "Failed to delete account. Please check your password and try again.",
-
   "planDurationLabel": "Plan Duration",
   "nWeeks": "{count} weeks",
   "@nWeeks": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
-
   "forgotPasswordTitle": "Forgot Password",
   "resetYourPassword": "Reset your password",
   "forgotPasswordDescription": "Enter the email address linked to your account and we'll send you a reset link.",
@@ -1006,34 +1246,45 @@
   "checkYourEmail": "Check your email",
   "resetLinkSentBody": "If an account is linked to {email}, you'll receive a reset link shortly.",
   "@resetLinkSentBody": {
-    "placeholders": { "email": { "type": "String" } }
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
   },
   "backToLogin": "Back to Login",
-
   "syncNow": "Sync now",
   "syncNowSubtitle": "Push all pending local changes to the server",
   "syncComplete": "Sync complete",
   "syncFailed": "Sync failed: {error}",
   "@syncFailed": {
-    "placeholders": { "error": { "type": "Object" } }
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
   },
   "restoreFromServer": "Restore from server",
   "restoreFromServerSubtitle": "Download server data to this device",
   "restoreComplete": "Restore complete",
   "restoreFailed": "Restore failed: {error}",
   "@restoreFailed": {
-    "placeholders": { "error": { "type": "Object" } }
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
   },
-
   "premiumUpgradeMultiplePlans": "Premium — upgrade to create unlimited plans",
-
   "freeTemplateLimitReached": "Free limit reached — upgrade to create more than 3 templates",
-
   "itemsCount": "{count} items",
   "@itemsCount": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
-
   "sortResults": "Sort results",
   "sortTooltip": "Sort",
   "sortRelevance": "Relevance",
@@ -1042,7 +1293,6 @@
   "sortLowestCarbs": "Lowest carbs",
   "sortLowestFat": "Lowest fat",
   "sortHighestFibre": "Highest fibre",
-
   "tooManyRequests": "Too many requests — please wait a moment and try again.",
   "couldNotFetchProductData": "Could not fetch product data. Please try again.",
   "unknown": "Unknown",
@@ -1050,30 +1300,68 @@
   "requestedPlanNotFoundShowingAll": "Requested plan not found — showing all plans",
   "foundTemplateWorkouts": "Found {count} template workout(s) from your scheduled workouts that can be added to this plan.",
   "@foundTemplateWorkouts": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "addWorkoutsToPlanHint": "To add workouts to this plan:\n\n1. Import workout templates using the CSV import button\n2. Use the + button to add imported workouts to this plan\n3. Scheduled workouts are separate from plan templates",
   "syncSectionLabel": "Sync",
   "showMore": "Show more",
   "showLess": "Show less",
   "forgotPassword": "Forgot password?",
-
   "resetPasswordTitle": "Reset Password",
   "resetPasswordDescription": "Enter and confirm your new password below.",
   "resetPasswordButton": "Reset Password",
   "passwordResetSuccess": "Password updated successfully. You can now log in.",
   "passwordResetExpired": "This link has expired or has already been used.",
-
   "templateBatchWeight": "Total batch weight (g)",
   "templateBatchWeightHint": "e.g. weigh your full pot / tray after cooking",
   "templateFullBatch": "Full batch: {weight}g • {calories} kcal",
   "@templateFullBatch": {
     "placeholders": {
-      "weight": { "type": "String" },
-      "calories": { "type": "String" }
+      "weight": {
+        "type": "String"
+      },
+      "calories": {
+        "type": "String"
+      }
     }
   },
   "templatePortionLabel": "Your portion (g)",
   "templateLogFull": "Log Full Template",
-  "templateLogPortion": "Log Portion"
+  "templateLogPortion": "Log Portion",
+  "coachChat": "Your coach",
+  "@coachChat": {},
+  "coachChatSubtitle": "Message your trainer",
+  "@coachChatSubtitle": {},
+  "coachChatNoCoach": "No coach yet",
+  "@coachChatNoCoach": {},
+  "coachChatNoCoachBody": "When a trainer adds you to their roster you can message them here.",
+  "@coachChatNoCoachBody": {},
+  "coachChatEmpty": "No messages yet",
+  "@coachChatEmpty": {},
+  "coachChatEmptyBody": "Ask your coach anything — they will see it right away.",
+  "@coachChatEmptyBody": {},
+  "coachChatLoadError": "Could not load this conversation.",
+  "@coachChatLoadError": {},
+  "chatComposerHint": "Message",
+  "@chatComposerHint": {},
+  "chatSendMessage": "Send message",
+  "@chatSendMessage": {},
+  "chatSending": "Sending",
+  "@chatSending": {},
+  "chatFailedRetry": "Failed to send — tap to retry",
+  "@chatFailedRetry": {},
+  "chatReconnecting": "Reconnecting…",
+  "@chatReconnecting": {},
+  "chatOffline": "Offline",
+  "@chatOffline": {},
+  "chatAttachmentsUnavailable": "Attachments are not available yet",
+  "@chatAttachmentsUnavailable": {},
+  "chatUnavailable": "Messaging is unavailable",
+  "@chatUnavailable": {},
+  "chatUnavailableBody": "Chat could not start on this device. Restart the app, and if it keeps happening let support know.",
+  "@chatUnavailableBody": {}
 }

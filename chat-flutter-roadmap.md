@@ -2,6 +2,16 @@
 
 Companion to `chat-feature-roadmap.md` (backend, complete). This covers the client side: outbox, SignalR connection, and the chat screen itself. No implementation bodies here — concepts, shapes, and build order only, same as the backend doc.
 
+> **Status: complete.** §1–§7 are implemented on `claude/chat-implementation-oocjz2`.
+> See `docs/chat-architecture.md` for the reasoning behind the finished code.
+>
+> Two things changed during implementation and are worth reading before this doc:
+> the backend contract below was **not actually working** (`ChatService` never set
+> the required `TrainerClientId`, so every send failed on its foreign key; and
+> `ChatController` passed `GetChatHistoryAsync` its trainer/client arguments
+> swapped, so history was always empty), and §3's suggested package cannot be
+> used — see §3.
+
 Backend contract this builds against (already shipped):
 - Hub: `JoinClientGroup(clientId)`, `SendMessage(clientId, body, messageId)` → returns `ChatMessageDto` (the ack), broadcasts `ReceiveMessage` to the group, `LeaveClientChat(clientId)`.
 - REST: `GET /api/chat/{clientId}/history?range=N` → `List<ChatMessageDto>`.
@@ -15,7 +25,7 @@ Nothing exists yet: no chat feature folder, no SignalR package in `pubspec.yaml`
 
 Build order: **§1 outbox schema → §2 chat models/DTOs → §3 SignalR client wiring → §4 repository (glue layer + reconnect/replay) → §5 state/providers → §6 screen UI → §7 shell wiring.**
 
-**Update:** §1/§2 are DONE (see their sections below). §3–§7 now have skeleton files (signatures + `TODO`s, no bodies, matching the rest of `trainer_console`'s established style) so the shape is in place to fill in:
+**Update (superseded — all sections are now DONE):** §1/§2 were DONE first. §3–§7 then had skeleton files (signatures + `TODO`s, no bodies, matching the rest of `trainer_console`'s established style) so the shape is in place to fill in:
 `data/chat_signalr_client.dart` (§3 — package choice still an open decision, not added to `pubspec.yaml`), `data/chat_api.dart` (REST history wrapper), `data/chat_repository.dart` (§4), `presentation/providers/chat_provider.dart` (§5), `presentation/view/messages_screen.dart` (§6), `domain/models/conversation_summary.dart`. §7 (shell wiring) is still open — `ChatProvider` needs to be registered at the shell/app level per its doc comment, and `TrainerConsoleShell`'s route enum/nav don't reference Messages yet.
 
 ---
@@ -48,6 +58,16 @@ DONE
 ---
 
 ## 3. SignalR client wiring
+DONE — `lib/feature/chat/data/signalr_hub_chat_client.dart`.
+
+**Package decision: `signalr_hub` ^2.1.0, not `signalr_netcore`.** `signalr_netcore`
+imports `dart:io` unconditionally in `lib/web_socket_transport.dart` with no
+conditional-import fallback, so it cannot compile for web — and web is how the
+Trainer Console ships. Every other web-capable option either conflicts on
+`web_socket_channel` or has no published repository. `signalr_hub` needs
+`get_it ^9.2.1`; that bump is safe (get_it 9's only breaking change is disposal
+ordering, which this app never relies on). Full comparison in
+`docs/chat-architecture.md` §7.
 
 Add a SignalR client package (`signalr_netcore` is the common choice for Dart↔ASP.NET Core SignalR — verify current maintenance status before pinning a version, this ecosystem moves slower than the .NET side).
 
@@ -61,6 +81,7 @@ Nothing here touches the outbox or Drift — this class only knows about the wir
 ---
 
 ## 4. Repository — the glue layer (this is where the reconnect/replay logic lives)
+DONE — `lib/feature/chat/data/chat_repository.dart`. The bounded retry budget is 3 attempts, counted in memory rather than in a column: a counter that resets on app restart is the behaviour we want, and it keeps `schemaVersion` at 36.
 
 This is the layer that answers "what happens when a message is lost and then reconnected" from the earlier discussion. It owns both the outbox DAO (§1) and the SignalR client (§3), and mediates between them:
 
@@ -112,6 +133,7 @@ Either branch in step 5 converges on the same outcome: exactly one `ChatMessage`
 ---
 
 ## 5. State / providers (Riverpod, matching existing patterns)
+DONE — `lib/feature/chat/presentation/providers/chat_provider.dart`. Built as a `ChangeNotifier` with `provider`, matching `ActiveClientProvider` and the rest of `trainer_console`, rather than Riverpod: every other console provider is a ChangeNotifier and the shell composes them in one `MultiProvider`.
 
 Follow `active_client_provider.dart`'s shape — a provider scoped to the currently active client, re-deriving when the active client changes, not re-fetched per navigation. Exposes to the UI: the merged message list (history + pending + live), connection status (for a "reconnecting..." banner), and a `sendMessage(body)` action that delegates to the repository.
 
@@ -120,6 +142,7 @@ Per `CLAUDE.md`'s shared-state rule: this must live at the app-shell level along
 ---
 
 ## 6. Chat screen UI
+DONE — `messages_screen.dart` (console) and `lib/feature/chat/presentation/view/coach_chat_screen.dart` (trainee), over shared widgets in `lib/feature/chat/presentation/widgets/`.
 
 Standard screen states per `CLAUDE.md` conventions — all four required, not just the happy path:
 - **Loading** — skeleton message bubbles, not a bare spinner, while history fetches.
@@ -137,6 +160,7 @@ Desktop: 3-pane layout (roster / thread / client detail) per `CLAUDE.md`'s Messa
 ---
 
 ## 7. Shell wiring
+DONE — `trainer_console_home.dart` for the console; `coach_chat_entry.dart` owns the connection for the trainee app, where chat is a pushed route rather than a shell tab.
 
 Register the chat provider/repository at the `trainer_console_shell.dart` level so it's alive alongside the roster and active-client state, and hook connect/disconnect to app lifecycle (join the SignalR group when a chat thread becomes visible, leave it when navigating away — not one global connection joined to every client's group at once).
 
@@ -144,6 +168,7 @@ Register the chat provider/repository at the `trainer_console_shell.dart` level 
 
 ## Out of scope for this pass
 
+- **The trainee surface was added after all** — the roadmap scoped §6/§7 to the console, but a one-sided chat is not a feature. The repository/provider layer is role-agnostic (see `docs/chat-architecture.md` §5), so the trainee screen reuses all of it.
 - **Media/attachments** — no upload UI; backend fields exist but no upload endpoint either (see backend roadmap).
 - **Typing indicators, read receipts, push notifications for new messages while app is backgrounded** — not part of the current spec, would need their own hub methods/schema.
 - **Retry backoff tuning, exact retry-count limit** — a product decision (how many attempts, what interval) not yet made; §4's "bounded retry" is a placeholder for that decision.

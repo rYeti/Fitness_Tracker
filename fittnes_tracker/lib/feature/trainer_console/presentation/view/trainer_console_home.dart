@@ -1,9 +1,17 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:ForgeForm/core/app_database.dart';
+import 'package:ForgeForm/core/di/service_locator.dart';
+import 'package:ForgeForm/feature/chat/data/chat_repository.dart';
+import 'package:ForgeForm/feature/chat/data/signalr_hub_chat_client.dart';
+import 'package:ForgeForm/feature/chat/presentation/providers/chat_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/data/trainer_console_repository.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/active_client_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/trainer_licence_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/view/client_detail_screen.dart';
+import 'package:ForgeForm/feature/trainer_console/presentation/view/messages_screen.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/view/nutrition_screen.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/view/session_review_screen.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/view/trainer_dashboard_screen.dart';
@@ -27,6 +35,8 @@ class TrainerConsoleHome extends StatefulWidget {
   /// Injection seam for tests.
   final TrainerConsoleRepository? repository;
 
+  /// Injection seam for chat, so tests never open a socket or need a database.
+  final ChatRepository? chatRepository;
   /// Injection seam for tests. Defaults to a live provider.
   final TrainerLicenceProvider? licenceProvider;
 
@@ -39,6 +49,7 @@ class TrainerConsoleHome extends StatefulWidget {
   const TrainerConsoleHome({
     super.key,
     this.repository,
+    this.chatRepository,
     this.licenceProvider,
     this.initialRoute = TrainerConsoleRoute.dashboard,
     this.onExitConsole,
@@ -50,6 +61,14 @@ class TrainerConsoleHome extends StatefulWidget {
 
 class _TrainerConsoleHomeState extends State<TrainerConsoleHome> {
   late final ActiveClientProvider _activeClient;
+  /// Null when chat could not be constructed — see [initState]. Everything else
+  /// in the console still works, so this is a missing tab, not a broken screen.
+  ChatProvider? _chat;
+
+  /// Only set when this widget built the transport itself, so an injected one
+  /// is never closed out from under its owner.
+  SignalRHubChatClient? _signalR;
+
   late final TrainerLicenceProvider _licence;
   late final bool _ownsLicenceProvider;
   late TrainerConsoleRoute _route;
@@ -61,6 +80,25 @@ class _TrainerConsoleHomeState extends State<TrainerConsoleHome> {
     _activeClient = ActiveClientProvider(repository: widget.repository);
     _activeClient.loadClients();
 
+    // Built here rather than inside MessagesScreen: it owns the SignalR
+    // connection, which has to survive switching to Nutrition and back. A
+    // provider created by the screen would drop the socket on every tab change.
+    final injected = widget.chatRepository;
+    if (injected != null) {
+      _chat = ChatProvider(repository: injected);
+    } else if (sl.isRegistered<AppDatabase>()) {
+      final signalR = SignalRHubChatClient();
+      _signalR = signalR;
+      _chat = ChatProvider(
+        repository: ChatRepository(db: sl<AppDatabase>(), signalR: signalR),
+      );
+      // Not awaited: the console renders its roster and KPIs fine while the
+      // socket is still opening, and the connection banner covers the gap.
+      unawaited(signalR.connect());
+    }
+    // Otherwise chat stays null. The outbox needs the local database, and
+    // reaching for it unguarded meant a console that could not open *at all*
+    // when it was missing — four of five sections have nothing to do with chat.
     _ownsLicenceProvider = widget.licenceProvider == null;
     _licence = widget.licenceProvider ?? TrainerLicenceProvider();
   }
@@ -68,6 +106,8 @@ class _TrainerConsoleHomeState extends State<TrainerConsoleHome> {
   @override
   void dispose() {
     _activeClient.dispose();
+    _chat?.dispose();
+    unawaited(_signalR?.dispose() ?? Future<void>.value());
     if (_ownsLicenceProvider) _licence.dispose();
     super.dispose();
   }
@@ -86,8 +126,13 @@ class _TrainerConsoleHomeState extends State<TrainerConsoleHome> {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider<ActiveClientProvider>.value(
-      value: _activeClient,
+    final chat = _chat;
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider<ActiveClientProvider>.value(value: _activeClient),
+        if (chat != null)
+          ChangeNotifierProvider<ChatProvider>.value(value: chat),
+      ],
       child: TrainerConsoleShell(
         currentRoute: _route,
         onRouteSelected: (route) => setState(() => _route = route),
@@ -101,7 +146,10 @@ class _TrainerConsoleHomeState extends State<TrainerConsoleHome> {
               onClientSelected: (entry) =>
                   _openClientDetail(entry.clientId, entry.clientName),
             ),
-            const _MessagesPlaceholder(),
+            if (chat != null)
+              const MessagesScreen()
+            else
+              const _ChatUnavailable(),
             WorkoutBuilderScreen(repository: widget.repository),
             NutritionScreen(repository: widget.repository),
             SessionReviewScreen(repository: widget.repository),
@@ -112,13 +160,12 @@ class _TrainerConsoleHomeState extends State<TrainerConsoleHome> {
   }
 }
 
-/// Messages is the one section with no implementation behind it yet: the
-/// SignalR client package is still an open decision (see
-/// chat_signalr_client.dart and chat-flutter-roadmap.md §3), so the repository
-/// and provider are signatures only. Saying so beats a tab that opens onto a
-/// blank screen.
-class _MessagesPlaceholder extends StatelessWidget {
-  const _MessagesPlaceholder();
+/// Shown in place of Messages when the chat stack could not be built.
+///
+/// Says so plainly rather than rendering an empty thread: a trainer who sees a
+/// blank inbox assumes nobody has written to them.
+class _ChatUnavailable extends StatelessWidget {
+  const _ChatUnavailable();
 
   @override
   Widget build(BuildContext context) {
@@ -127,10 +174,9 @@ class _MessagesPlaceholder extends StatelessWidget {
       body: const SafeArea(
         child: ConsoleEmptyState(
           icon: Icons.forum_outlined,
-          title: 'Messaging isn’t wired up yet',
-          message:
-              'The chat backend is ready, but the client needs a SignalR '
-              'package chosen before messages can be sent or received.',
+          title: 'Messaging is unavailable',
+          message: 'Chat could not start on this device. Restart the app, and '
+              'if it keeps happening let support know.',
         ),
       ),
     );

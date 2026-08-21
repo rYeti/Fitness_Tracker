@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:ForgeForm/l10n/app_localizations.dart';
+
+import 'package:ForgeForm/feature/chat/data/chat_repository.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/view/trainer_console_home.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/trainer_console_shell.dart';
 
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/trainer_licence_provider.dart';
 
+import '../chat/fakes.dart';
 import 'fakes.dart';
 import 'licence_fakes.dart';
 
@@ -18,14 +22,30 @@ Future<void> _pump(
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.reset);
 
+  // Chat is injected so the shell doesn't reach for the real SignalR socket or
+  // the registered AppDatabase, neither of which exists under test.
+  final db = newTestDatabase();
+  final signalR = FakeChatSignalRClient();
+  addTearDown(() async {
+    await signalR.dispose();
+    await db.close();
+  });
+
   await tester.pumpWidget(
     MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       home: TrainerConsoleHome(
         repository: repository,
         // The console owns a licence provider for its seat affordances;
         // injected here so the shell tests don't reach the network.
         licenceProvider: TrainerLicenceProvider(
           repository: FakeTrainerLicenceRepository(current: licence()),
+        ),
+        chatRepository: ChatRepository(
+          db: db,
+          api: FakeChatApi(),
+          signalR: signalR,
         ),
       ),
     ),
@@ -86,7 +106,7 @@ void main() {
     expect(find.textContaining('Daily intake'), findsOneWidget);
   });
 
-  testWidgets('messages discloses that it is not wired up', (tester) async {
+  testWidgets('messages opens the real chat screen', (tester) async {
     await _pump(
       tester,
       FakeTrainerConsoleRepository(
@@ -100,7 +120,10 @@ void main() {
     await tester.tap(find.text('Messages').first);
     await tester.pumpAndSettle();
 
-    expect(find.text('Messaging isn’t wired up yet'), findsOneWidget);
+    // Messages used to be a placeholder saying it wasn't wired up. It is now
+    // the real screen, so what this pins is that the tab opens it and that an
+    // empty inbox says so rather than rendering nothing.
+    expect(find.text('No conversations yet'), findsOneWidget);
   });
 
   testWidgets('the active client is shared across sections', (tester) async {

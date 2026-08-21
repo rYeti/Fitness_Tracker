@@ -24,4 +24,15 @@ public class TrainerClient
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? AcceptedAt { get; set; }
+
+    /// <summary>When the trainer last opened this chat thread. Null until they do.</summary>
+    /// <remarks>
+    /// Read state is per-viewer but a pair shares one relationship row, so each
+    /// side needs its own column — a single shared one would let whoever opened
+    /// the thread last clear the other party's unread badge.
+    /// </remarks>
+    public DateTime? TrainerLastReadAt { get; set; }
+
+    /// <summary>When the client last opened this chat thread. Null until they do.</summary>
+    public DateTime? ClientLastReadAt { get; set; }
 }

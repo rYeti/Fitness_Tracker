@@ -10,7 +10,11 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
     <!-- Sqlite rather than the InMemory provider: these tests depend on unique
-         indexes and relational semantics, which InMemory silently ignores. -->
+         indexes, foreign keys and relational semantics, which InMemory silently
+         ignores. Concretely, the chat tests assert that a message is persisted,
+         and that assertion passes against broken code on InMemory because
+         ChatMessage.TrainerClientId being unset is a foreign-key violation it
+         never raises. -->
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.10" />
     <PackageReference Include="xunit" Version="2.9.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
