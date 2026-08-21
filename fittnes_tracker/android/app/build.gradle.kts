@@ -1,5 +1,6 @@
 import java.io.File
 import java.util.Properties
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     id("com.android.application")
@@ -31,10 +32,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_1_8
     }
 
-    kotlinOptions {
-        jvmTarget = "1.8"
-    }
-
     signingConfigs {
         create("release") {
             keyAlias = keyProperties["keyAlias"] as String
@@ -54,6 +51,15 @@ android {
             isMinifyEnabled = false
             isShrinkResources = false
         }
+    }
+}
+
+// Was `android { kotlinOptions { jvmTarget = "1.8" } }`, which Kotlin 2.2
+// turned from a deprecation warning into an error and AGP 9 removes outright.
+// Same target, current DSL. Stays on 1.8 to match compileOptions above.
+kotlin {
+    compilerOptions {
+        jvmTarget = JvmTarget.JVM_1_8
     }
 }
 

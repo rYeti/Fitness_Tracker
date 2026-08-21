@@ -179,7 +179,8 @@ The following additions are specific to this repository. Keep changes minimal an
 
 - Android / Gradle notes
 
-  - This project uses Gradle Kotlin DSL. When editing `android/build.gradle.kts` or `android/app/build.gradle.kts` use Kotlin-style assignments (e.g., `minSdk = flutter.minSdkVersion`) and include `compileOptions` + `kotlinOptions { jvmTarget = "1.8" }` to avoid Kotlin/JVM target mismatches.
+  - This project uses Gradle Kotlin DSL. When editing `android/build.gradle.kts` or `android/app/build.gradle.kts` use Kotlin-style assignments (e.g., `minSdk = flutter.minSdkVersion`), and keep the JVM target aligned with `compileOptions` via the top-level `kotlin { compilerOptions { jvmTarget = JvmTarget.JVM_1_8 } }` block to avoid Kotlin/JVM target mismatches. Do not reintroduce `android { kotlinOptions { ... } }` — Kotlin 2.2 made that DSL an error and AGP 9 removes it.
+  - Gradle, AGP and Kotlin versions are floor-checked by the Flutter Gradle plugin on every build; see the comment in `android/settings.gradle.kts` before changing any of them.
   - If resource shrinking triggers build validation errors, set `isShrinkResources = false` when `isMinifyEnabled` is false in the release config to satisfy Gradle checks.
 
 - UI / Flutter SDK drift
