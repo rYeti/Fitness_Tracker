@@ -3,11 +3,14 @@
 Engineering record of what changed in each release. Newest first.
 
 There is no length limit here. The short blurb users actually see on the store
-listing lives in `PLAY_NOTES.md` — a release needs a section in both, and each
-heading must be the full `pubspec.yaml` version, `+buildNumber` included. See
+listing lives in `PLAY_NOTES.md` — a release needs a section in both.
+
+Work in progress goes under `## Unreleased`. The release workflow renames that
+heading to the version it went out as, so a `## <version>` section is history:
+it is what those users have, and nothing new belongs in it. See
 `docs/android-release.md`.
 
-## 1.0.2+11
+## Unreleased
 
 - Trainer Console: Session Review no longer lists sessions from workout plans the client has moved off. Activating a new plan only deactivates the old one — every date it ever generated stays scheduled — so the trainer's history was padded with dates nobody had asked the client to train on, each shown as Missed. Sessions the client actually completed, skipped or logged against are kept regardless of what became of the plan. The same filter now applies to average adherence, per-client roster adherence and the 12-week attendance chart, all of which were counting those dates as planned-and-not-completed and so understating adherence.
 - Trainer Console: Session Review no longer shows exercises that are no longer in the workout, previously listed as Skipped. Removing an exercise from a workout failed server-side for any workout that had ever been scheduled (a restricted foreign key from the logged-session tables), so the exercise stayed in the workout on the server and was stamped onto every session generated afterwards, invisible in the app but visible to the trainer. Removal now works: sessions that logged nothing against the exercise lose it outright, and where sets were logged the exercise is retired from the workout instead of deleted, so the history keeps its name. See `docs/trainer-session-review.md`.
@@ -17,6 +20,9 @@ heading must be the full `pubspec.yaml` version, `+buildNumber` included. See
 - Fixed the trainer-facing nutrition day being off by one for any client not in UTC. Meals are logged against the client's local midnight and stored converted to UTC, so a German client's Tuesday sits at 22:00 Monday in the database; the summary read midnight-to-midnight in UTC and so reported the wrong day's food. Days are now matched against the day they were logged on. Clients at UTC+13/+14 (New Zealand in summer, Samoa, Kiribati) still read one day early.
 - The 7-day nutrition trend now loads in a single query instead of seven sequential ones.
 - Trainer Console nutrition and client-detail failures are now logged with their cause instead of being swallowed, which is why the above went unnoticed.
+
+## 1.0.2+11
+
 - Fixed a crash opening Meal Templates ("type 'Null' is not a subtype of type 'int'") caused by templates pulled from the server missing an internal field. Already-affected templates on your device are repaired automatically the next time they load.
 - Fixed Snack meal templates silently failing to appear in the Food tab after being logged — Snack templates used a different internal category than the rest of the app, so logged food was saved but never shown. Existing Snack templates are migrated automatically.
 - Fixed a synced meal template's "total batch weight" being dropped when synced to or from the server, which silently disabled the gram-portion picker (falling back to "log full template only") for any template that had gone through a sync.

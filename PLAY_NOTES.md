@@ -9,9 +9,11 @@ changes someone would notice using the app.
 
 Two rules the release workflow enforces:
 
-- Each heading is the full `pubspec.yaml` version, `+buildNumber` included, and
-  must match the version being released exactly. That is what stops a release
-  shipping the previous version's notes.
+- The blurb for the next release goes under `## Unreleased`, and publishing
+  renames that heading to the version it went out as. A `## <version>` section
+  is therefore what those users are reading on the store right now — never edit
+  one, and never add to it. A release with nothing under `## Unreleased` fails
+  rather than reshipping the last blurb.
 - Each section must fit **500 characters** — Play's per-locale limit. Over that
   the release fails rather than being truncated mid-sentence in front of users.
 
@@ -19,6 +21,17 @@ Sections are published verbatim, so write them as plain prose and bullets: no
 Markdown links, headings or emphasis, none of which Play renders.
 
 See `docs/android-release.md`.
+
+## Unreleased
+
+Trainer Console fixes:
+
+- Session Review no longer lists sessions from plans a client has moved off, or
+  exercises that were removed from a workout, and set counts are no longer
+  inflated. Adherence figures are correct again.
+- The Nutrition tab loads again for every client, and shows the right day for
+  clients outside UTC.
+- Tap a meal to see every food in it with its own weight, calories and macros.
 
 ## 1.0.2+11
 
