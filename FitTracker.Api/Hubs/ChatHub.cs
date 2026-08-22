@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using FitTracker.Api.DTOs;
 using FitTracker.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
@@ -31,10 +32,20 @@ public class ChatHub(ITrainerClientService trainerClientService, IChatService ch
     }
 
     /// <summary>
-    /// Persists a message via <see cref="IChatService"/> and broadcasts it to
-    /// every connection in the pair's group (including the sender).
+    /// Persists a message via <see cref="IChatService"/>, broadcasts it to every
+    /// connection in the pair's group (including the sender), and returns it to
+    /// the caller as the acknowledgement.
     /// </summary>
-    public async Task SendMessage(Guid clientId, string body, Guid messageId)
+    /// <returns>
+    /// The persisted message. **The return value is load-bearing, not a
+    /// convenience.** The client generates the message id and keeps a local
+    /// outbox row pending until an ack comes back; a `Task`-returning hub method
+    /// completes the invocation with no result, which the client can only read as
+    /// "no ack" — so it retries a message that was in fact delivered and
+    /// eventually shows the sender a failure for it. Anything that changes this
+    /// signature breaks sending outright. See docs/chat-architecture.md §12.
+    /// </returns>
+    public async Task<ChatMessageDto> SendMessage(Guid clientId, string body, Guid messageId)
     {
         var userId = GetUserId();
         var (trainerId, ok) = await ResolveTrainerAsync(userId, clientId);
@@ -44,6 +55,8 @@ public class ChatHub(ITrainerClientService trainerClientService, IChatService ch
 
         var message = await ChatService.SendMessageAsync(trainerId, actualClientId, senderId: userId, messageId: messageId, body);
         await Clients.Group(GroupName(trainerId, actualClientId)).SendAsync("ReceiveMessage", message);
+
+        return message;
     }
 
     /// <summary>
@@ -74,7 +87,22 @@ public class ChatHub(ITrainerClientService trainerClientService, IChatService ch
         return (default, false);
     }
 
-    private Guid GetUserId() =>
-        Guid.Parse(Context.User!.FindFirstValue(ClaimTypes.NameIdentifier)!);
+    // Same claim handling as ChatController.GetUserId. Tokens minted by the OAuth
+    // path carry the caller's id as a bare "sub" rather than as NameIdentifier, so
+    // reading only the latter left the hub throwing NullReferenceException on a
+    // token the controller accepted happily — one entry point working and the
+    // other not, for the same signed-in user.
+    private Guid GetUserId()
+    {
+        var claim = Context.User?.FindFirst(ClaimTypes.NameIdentifier)
+                    ?? Context.User?.FindFirst("sub");
+
+        // A HubException reaches the client as a readable message; the parse
+        // failure it replaces surfaced as an opaque "an unexpected error occurred".
+        if (claim == null || !Guid.TryParse(claim.Value, out var userId))
+            throw new HubException("Not authorized for this chat.");
+
+        return userId;
+    }
 
 }

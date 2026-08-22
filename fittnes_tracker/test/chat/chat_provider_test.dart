@@ -138,6 +138,36 @@ void main() {
       expect(provider.thread.single.messageId, 'theirs');
     });
 
+    test('a failed group join surfaces an error instead of loading forever',
+        () async {
+      // The regression this pins: joining the hub group was awaited *outside*
+      // openThread's try/finally, so a throw escaped past the `finally` and left
+      // isThreadLoading true for good. Both thread views check that flag first,
+      // so every message sent afterwards repainted the loading skeleton instead
+      // of itself — chat looked slow rather than broken, with no error, no retry
+      // and no way back.
+      signalR.throwOnJoin = StateError('socket still opening');
+      final provider = build();
+
+      await provider.openThread(otherParty);
+
+      expect(provider.isThreadLoading, isFalse);
+      expect(provider.threadError, isNotNull);
+    });
+
+    test('a thread that failed to open recovers on retry', () async {
+      signalR.throwOnJoin = StateError('socket still opening');
+      final provider = build();
+      await provider.openThread(otherParty);
+
+      signalR.throwOnJoin = null;
+      await provider.openThread(otherParty);
+
+      expect(provider.threadError, isNull);
+      expect(provider.isThreadLoading, isFalse);
+      expect(signalR.joined, [otherParty]);
+    });
+
     test('closing a thread leaves the group and clears the messages', () async {
       final provider = build();
       await provider.openThread(otherParty);
@@ -202,6 +232,34 @@ void main() {
 
       expect(provider.thread, hasLength(1));
       expect(provider.thread.single.status, ChatMessageStatus.pending);
+    });
+
+    test('reports a send that broke before the outbox instead of going silent',
+        () async {
+      final provider = build();
+      await provider.openThread(otherParty);
+      // Stands in for the outbox table not existing — which is exactly what a
+      // missed schemaVersion bump produced on every upgraded install. The write
+      // threw before onQueued fired, so there was no bubble, nothing reached the
+      // hub, and the provider let the error escape unhandled: the composer
+      // cleared and absolutely nothing else happened.
+      await db.close();
+
+      await provider.sendMessage(otherParty, 'great set today');
+
+      expect(provider.sendError, isNotNull);
+      expect(provider.thread, isEmpty);
+    });
+
+    test('a later successful send clears the send error', () async {
+      final provider = build();
+      await provider.openThread(otherParty);
+      provider.clearSendError();
+
+      await provider.sendMessage(otherParty, 'great set today');
+
+      expect(provider.sendError, isNull);
+      expect(provider.thread.single.status, ChatMessageStatus.sent);
     });
 
     test('ignores an empty composer', () async {

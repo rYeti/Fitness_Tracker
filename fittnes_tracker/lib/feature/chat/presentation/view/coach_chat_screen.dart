@@ -3,12 +3,11 @@ import 'package:provider/provider.dart';
 
 import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/core/providers/access_provider.dart';
-import 'package:ForgeForm/feature/chat/domain/models/thread_message.dart';
 import 'package:ForgeForm/feature/chat/presentation/providers/chat_provider.dart';
-import 'package:ForgeForm/feature/chat/presentation/widgets/chat_bubble.dart';
 import 'package:ForgeForm/feature/chat/presentation/widgets/chat_composer.dart';
 import 'package:ForgeForm/feature/chat/presentation/widgets/chat_connection_banner.dart';
-import 'package:ForgeForm/feature/chat/presentation/widgets/chat_date_divider.dart';
+import 'package:ForgeForm/feature/chat/presentation/widgets/chat_send_error_strip.dart';
+import 'package:ForgeForm/feature/chat/presentation/widgets/chat_thread_list.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/client_avatar.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/console_widgets.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
@@ -63,7 +62,17 @@ class _CoachChatScreenState extends State<CoachChatScreen> {
                 builder: (context, chat, _) => Column(
                   children: [
                     ChatConnectionBanner(status: chat.connectionStatus),
-                    Expanded(child: _CoachThread(chat: chat, trainerId: trainerId)),
+                    Expanded(
+                      child: ChatThreadList(
+                        chat: chat,
+                        emptyMessage: l10n.coachChatEmptyBody,
+                        onRetry: () => chat.openThread(trainerId),
+                      ),
+                    ),
+                    ChatSendErrorStrip(
+                      error: chat.sendError,
+                      onDismiss: chat.clearSendError,
+                    ),
                     ChatComposer(
                       onSend: (body) => chat.sendMessage(trainerId, body),
                     ),
@@ -131,60 +140,3 @@ class _CoachAppBar extends StatelessWidget implements PreferredSizeWidget {
   }
 }
 
-class _CoachThread extends StatelessWidget {
-  final ChatProvider chat;
-  final String trainerId;
-
-  const _CoachThread({required this.chat, required this.trainerId});
-
-  @override
-  Widget build(BuildContext context) {
-    if (chat.isThreadLoading) {
-      return Padding(
-        padding: const EdgeInsets.all(16),
-        child: ConsoleSkeleton(
-          rows: 4,
-          rowHeight: 40,
-          semanticsLabel: AppLocalizations.of(context)!.messagesLoading,
-        ),
-      );
-    }
-    final l10n = AppLocalizations.of(context)!;
-    if (chat.threadError != null) {
-      return ConsoleErrorState(
-        message: l10n.coachChatLoadError,
-        onRetry: () => chat.openThread(trainerId),
-      );
-    }
-    if (chat.thread.isEmpty) {
-      return ConsoleEmptyState(
-        icon: Icons.waving_hand_outlined,
-        title: l10n.coachChatEmpty,
-        message: l10n.coachChatEmptyBody,
-      );
-    }
-
-    final items = <Object>[];
-    DateTime? previous;
-    for (final message in chat.thread) {
-      if (ChatDateDivider.needed(previous, message.timestamp)) {
-        items.add(message.timestamp);
-      }
-      items.add(message);
-      previous = message.timestamp;
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      itemCount: items.length,
-      itemBuilder: (context, index) {
-        final item = items[index];
-        if (item is DateTime) return ChatDateDivider(date: item);
-        return ChatBubble(
-          message: item as ThreadMessage,
-          onRetry: chat.retryMessage,
-        );
-      },
-    );
-  }
-}

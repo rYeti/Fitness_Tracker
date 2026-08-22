@@ -1338,6 +1338,8 @@
   "chatFailedRetry": "Senden fehlgeschlagen — zum Wiederholen tippen",
   "chatReconnecting": "Verbindung wird wiederhergestellt…",
   "chatOffline": "Offline",
+  "chatSendFailed": "Nachricht nicht gesendet. Prüfe deine Verbindung und versuche es erneut.",
+  "chatDismiss": "Schließen",
   "chatAttachmentsUnavailable": "Anhänge sind noch nicht verfügbar",
   "chatUnavailable": "Nachrichten nicht verfügbar",
   "chatUnavailableBody": "Der Chat konnte auf diesem Gerät nicht starten. Starte die App neu und melde dich beim Support, falls es weiter auftritt.",

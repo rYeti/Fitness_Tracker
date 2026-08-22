@@ -4286,6 +4286,18 @@ abstract class AppLocalizations {
   /// **'Offline'**
   String get chatOffline;
 
+  /// No description provided for @chatSendFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Message not sent. Check your connection and try again.'**
+  String get chatSendFailed;
+
+  /// No description provided for @chatDismiss.
+  ///
+  /// In en, this message translates to:
+  /// **'Dismiss'**
+  String get chatDismiss;
+
   /// No description provided for @chatAttachmentsUnavailable.
   ///
   /// In en, this message translates to:

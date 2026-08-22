@@ -51,6 +51,14 @@ class FakeChatSignalRClient implements ChatSignalRClient {
   /// outage rather than a permanent one.
   int failFirstNSends = 0;
 
+  /// When set, `joinGroup` throws this.
+  ///
+  /// Joining is the first network call a thread makes and the one most likely to
+  /// fail in practice — the socket may still be opening, or the hub may reject
+  /// the pair outright — but nothing exercised that path, so a bug that pinned
+  /// the screen in its loading state forever went unnoticed.
+  Object? throwOnJoin;
+
   @override
   Future<void> connect() async {
     connected = true;
@@ -64,7 +72,10 @@ class FakeChatSignalRClient implements ChatSignalRClient {
   }
 
   @override
-  Future<void> joinGroup(String otherPartyId) async => joined.add(otherPartyId);
+  Future<void> joinGroup(String otherPartyId) async {
+    if (throwOnJoin != null) throw throwOnJoin!;
+    joined.add(otherPartyId);
+  }
 
   @override
   Future<void> leaveGroup(String otherPartyId) async => left.add(otherPartyId);

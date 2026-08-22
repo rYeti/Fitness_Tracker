@@ -2334,6 +2334,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chatOffline => 'Offline';
 
   @override
+  String get chatSendFailed =>
+      'Message not sent. Check your connection and try again.';
+
+  @override
+  String get chatDismiss => 'Dismiss';
+
+  @override
   String get chatAttachmentsUnavailable => 'Attachments are not available yet';
 
   @override

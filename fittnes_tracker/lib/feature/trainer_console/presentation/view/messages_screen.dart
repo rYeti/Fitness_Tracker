@@ -3,12 +3,11 @@ import 'package:provider/provider.dart';
 
 import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/feature/chat/domain/models/conversation_summary.dart';
-import 'package:ForgeForm/feature/chat/domain/models/thread_message.dart';
 import 'package:ForgeForm/feature/chat/presentation/providers/chat_provider.dart';
-import 'package:ForgeForm/feature/chat/presentation/widgets/chat_bubble.dart';
 import 'package:ForgeForm/feature/chat/presentation/widgets/chat_composer.dart';
 import 'package:ForgeForm/feature/chat/presentation/widgets/chat_connection_banner.dart';
-import 'package:ForgeForm/feature/chat/presentation/widgets/chat_date_divider.dart';
+import 'package:ForgeForm/feature/chat/presentation/widgets/chat_send_error_strip.dart';
+import 'package:ForgeForm/feature/chat/presentation/widgets/chat_thread_list.dart';
 import 'package:ForgeForm/feature/chat/presentation/widgets/conversation_row.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/active_client_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/client_avatar.dart';
@@ -271,77 +270,20 @@ class _ThreadPane extends StatelessWidget {
     return Column(
       children: [
         ChatConnectionBanner(status: chat.connectionStatus),
-        Expanded(child: _ThreadBody(chat: chat)),
+        Expanded(
+          child: ChatThreadList(
+            chat: chat,
+            emptyMessage: AppLocalizations.of(context)!.trainerThreadEmptyBody,
+            onRetry: () => chat.openThread(clientId),
+          ),
+        ),
+        ChatSendErrorStrip(
+          error: chat.sendError,
+          onDismiss: chat.clearSendError,
+        ),
         ChatComposer(onSend: (body) => chat.sendMessage(clientId, body)),
       ],
     );
-  }
-}
-
-class _ThreadBody extends StatelessWidget {
-  final ChatProvider chat;
-
-  const _ThreadBody({required this.chat});
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    if (chat.isThreadLoading) {
-      return Padding(
-        padding: const EdgeInsets.all(16),
-        child: ConsoleSkeleton(
-          rows: 4,
-          rowHeight: 40,
-          semanticsLabel: l10n.messagesLoading,
-        ),
-      );
-    }
-    if (chat.threadError != null) {
-      return ConsoleErrorState(
-        message: l10n.coachChatLoadError,
-        onRetry: () {
-          final id = chat.activeThreadId;
-          if (id != null) chat.openThread(id);
-        },
-      );
-    }
-    if (chat.thread.isEmpty) {
-      return ConsoleEmptyState(
-        icon: Icons.waving_hand_outlined,
-        title: l10n.coachChatEmpty,
-        message: l10n.trainerThreadEmptyBody,
-      );
-    }
-
-    final items = _withDateDividers(chat.thread);
-
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      itemCount: items.length,
-      itemBuilder: (context, index) {
-        final item = items[index];
-        if (item is DateTime) return ChatDateDivider(date: item);
-        return ChatBubble(
-          message: item as ThreadMessage,
-          onRetry: chat.retryMessage,
-        );
-      },
-    );
-  }
-
-  /// Interleaves day markers into the message list so the builder stays flat —
-  /// grouping into sections would complicate scroll position for no gain.
-  static List<Object> _withDateDividers(List<ThreadMessage> messages) {
-    final items = <Object>[];
-    DateTime? previous;
-    for (final message in messages) {
-      if (ChatDateDivider.needed(previous, message.timestamp)) {
-        items.add(message.timestamp);
-      }
-      items.add(message);
-      previous = message.timestamp;
-    }
-    return items;
   }
 }
 
