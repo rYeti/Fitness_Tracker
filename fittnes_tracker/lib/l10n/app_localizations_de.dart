@@ -3262,4 +3262,57 @@ class AppLocalizationsDe extends AppLocalizations {
   String calorieRingLeft(int remaining) {
     return '$remaining übrig';
   }
+
+  @override
+  String get proteinShort => 'P';
+
+  @override
+  String get carbsShort => 'K';
+
+  @override
+  String get fatShort => 'F';
+
+  @override
+  String gramsShort(int grams) {
+    return '$grams g';
+  }
+
+  @override
+  String foodCount(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count Lebensmittel',
+      one: '1 Lebensmittel',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String mealDetailSemantics(String meal, int calories) {
+    return '$meal, $calories kcal. Öffnen, um alle erfassten Lebensmittel zu sehen.';
+  }
+
+  @override
+  String foodRowSemantics(
+    String name,
+    int grams,
+    int calories,
+    int protein,
+    int carbs,
+    int fat,
+  ) {
+    return '$name, $grams Gramm, $calories kcal, Protein $protein g, Kohlenhydrate $carbs g, Fett $fat g';
+  }
+
+  @override
+  String foodRowSemanticsNoWeight(
+    String name,
+    int calories,
+    int protein,
+    int carbs,
+    int fat,
+  ) {
+    return '$name, $calories kcal, Protein $protein g, Kohlenhydrate $carbs g, Fett $fat g';
+  }
 }

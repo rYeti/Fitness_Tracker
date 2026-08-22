@@ -2229,5 +2229,81 @@
         "type": "int"
       }
     }
+  },
+  "proteinShort": "P",
+  "@proteinShort": {},
+  "carbsShort": "C",
+  "@carbsShort": {},
+  "fatShort": "F",
+  "@fatShort": {},
+  "gramsShort": "{grams} g",
+  "@gramsShort": {
+    "placeholders": {
+      "grams": {
+        "type": "int"
+      }
+    }
+  },
+  "foodCount": "{count, plural, =1{1 food} other{{count} foods}}",
+  "@foodCount": {
+    "placeholders": {
+      "count": {
+        "type": "num"
+      }
+    }
+  },
+  "mealDetailSemantics": "{meal}, {calories} kcal. Open to see every food logged.",
+  "@mealDetailSemantics": {
+    "placeholders": {
+      "meal": {
+        "type": "String"
+      },
+      "calories": {
+        "type": "int"
+      }
+    }
+  },
+  "foodRowSemantics": "{name}, {grams} grams, {calories} kcal, protein {protein}g, carbs {carbs}g, fat {fat}g",
+  "@foodRowSemantics": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "grams": {
+        "type": "int"
+      },
+      "calories": {
+        "type": "int"
+      },
+      "protein": {
+        "type": "int"
+      },
+      "carbs": {
+        "type": "int"
+      },
+      "fat": {
+        "type": "int"
+      }
+    }
+  },
+  "foodRowSemanticsNoWeight": "{name}, {calories} kcal, protein {protein}g, carbs {carbs}g, fat {fat}g",
+  "@foodRowSemanticsNoWeight": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "calories": {
+        "type": "int"
+      },
+      "protein": {
+        "type": "int"
+      },
+      "carbs": {
+        "type": "int"
+      },
+      "fat": {
+        "type": "int"
+      }
+    }
   }
 }

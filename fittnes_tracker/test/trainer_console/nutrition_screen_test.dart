@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_console_models.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/active_client_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/view/nutrition_screen.dart';
+import 'package:ForgeForm/feature/trainer_console/presentation/widgets/meal_detail_sheet.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 
 import 'fakes.dart';
@@ -206,5 +207,188 @@ void main() {
     expect(find.bySemanticsLabel('Thursday: 2600 kcal, over target'),
         findsOneWidget);
     expect(find.bySemanticsLabel('Wednesday: 1500 kcal'), findsOneWidget);
+  });
+
+  testWidgets('tapping a meal opens its foods with per-food nutrition', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      FakeTrainerConsoleRepository(
+        roster: [fakeClient()],
+        nutrition: fakeNutrition(
+          meals: const [
+            LoggedMeal(
+              mealId: 'm1',
+              category: 'breakfast',
+              foodNames: ['Porridge oats', 'Greek yoghurt', 'Blueberries'],
+              calories: 410,
+              macros: MacroTotals(protein: 24, carbs: 58, fat: 9),
+              foods: [
+                LoggedFood(
+                  foodItemId: 'f1',
+                  name: 'Porridge oats',
+                  grams: 80,
+                  calories: 300,
+                  macros: MacroTotals(protein: 10, carbs: 50, fat: 6),
+                ),
+                LoggedFood(
+                  foodItemId: 'f2',
+                  name: 'Greek yoghurt',
+                  grams: 150,
+                  calories: 85,
+                  macros: MacroTotals(protein: 13, carbs: 6, fat: 3),
+                ),
+                LoggedFood(
+                  foodItemId: 'f3',
+                  name: 'Blueberries',
+                  grams: 40,
+                  calories: 25,
+                  macros: MacroTotals(protein: 1, carbs: 2, fat: 0),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Breakfast'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('3 foods'), findsOneWidget);
+    // The collapsed row joins all three names into one Text, so each name on
+    // its own only matches the sheet's per-food row.
+    expect(find.text('Porridge oats'), findsOneWidget);
+    expect(find.text('Greek yoghurt'), findsOneWidget);
+    expect(find.text('300 kcal'), findsOneWidget);
+    expect(find.text('80 g'), findsOneWidget);
+    expect(find.text('P 10g'), findsOneWidget);
+    expect(find.text('C 50g'), findsOneWidget);
+    expect(find.text('F 6g'), findsOneWidget);
+  });
+
+  testWidgets('a food row is announced as one label, not six fragments', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      FakeTrainerConsoleRepository(
+        roster: [fakeClient()],
+        nutrition: fakeNutrition(
+          meals: const [
+            LoggedMeal(
+              mealId: 'm1',
+              category: 'breakfast',
+              foodNames: ['Porridge oats'],
+              calories: 300,
+              macros: MacroTotals(protein: 10, carbs: 50, fat: 6),
+              foods: [
+                LoggedFood(
+                  foodItemId: 'f1',
+                  name: 'Porridge oats',
+                  grams: 80,
+                  calories: 300,
+                  macros: MacroTotals(protein: 10, carbs: 50, fat: 6),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.bySemanticsLabel(
+        'Breakfast, 300 kcal. Open to see every food logged.',
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Breakfast'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.bySemanticsLabel(
+        'Porridge oats, 80 grams, 300 kcal, protein 10g, carbs 50g, fat 6g',
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('a meal with no per-food detail is not tappable', (tester) async {
+    await _pump(
+      tester,
+      FakeTrainerConsoleRepository(
+        roster: [fakeClient()],
+        nutrition: fakeNutrition(
+          meals: const [
+            // No `foods` — an API build older than the detail view.
+            LoggedMeal(
+              mealId: 'm1',
+              category: 'breakfast',
+              foodNames: ['Oats'],
+              calories: 410,
+              macros: MacroTotals(protein: 20, carbs: 60, fat: 8),
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.ancestor(of: find.text('Breakfast'), matching: find.byType(InkWell)),
+      findsNothing,
+    );
+
+    await tester.tap(find.text('Breakfast'), warnIfMissed: false);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(MealDetailSheet), findsNothing);
+  });
+
+  testWidgets('a food with no recorded serving size shows no weight', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      FakeTrainerConsoleRepository(
+        roster: [fakeClient()],
+        nutrition: fakeNutrition(
+          meals: const [
+            LoggedMeal(
+              mealId: 'm1',
+              category: 'lunch',
+              foodNames: ['Leftover curry'],
+              calories: 520,
+              macros: MacroTotals(protein: 30, carbs: 55, fat: 18),
+              foods: [
+                LoggedFood(
+                  foodItemId: 'f1',
+                  name: 'Leftover curry',
+                  calories: 520,
+                  macros: MacroTotals(protein: 30, carbs: 55, fat: 18),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Lunch'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('0 g'), findsNothing);
+    expect(
+      find.bySemanticsLabel(
+        'Leftover curry, 520 kcal, protein 30g, carbs 55g, fat 18g',
+      ),
+      findsOneWidget,
+    );
   });
 }

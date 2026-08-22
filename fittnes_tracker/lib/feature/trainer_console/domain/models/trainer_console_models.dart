@@ -225,11 +225,50 @@ class MacroTotals {
   int get totalGrams => protein + carbs + fat;
 }
 
+/// One food inside a logged meal, with its own nutrition — the meal detail
+/// view's row. Resolved server-side against the client's food catalogue,
+/// which the trainer has no route to.
+class LoggedFood {
+  final String foodItemId;
+  final String name;
+
+  /// Serving size in grams. 0 when the client's food item never recorded one,
+  /// in which case the detail row leaves the weight out rather than showing
+  /// "0 g".
+  final int grams;
+  final int calories;
+  final MacroTotals macros;
+
+  const LoggedFood({
+    required this.foodItemId,
+    required this.name,
+    this.grams = 0,
+    this.calories = 0,
+    this.macros = const MacroTotals(),
+  });
+
+  factory LoggedFood.fromJson(Map<String, dynamic> json) {
+    final macros = json['macros'] as Map<String, dynamic>?;
+    return LoggedFood(
+      foodItemId: json['foodItemId'] as String? ?? '',
+      name: json['name'] as String? ?? '',
+      grams: json['grams'] as int? ?? 0,
+      calories: json['calories'] as int? ?? 0,
+      macros: macros == null ? const MacroTotals() : MacroTotals.fromJson(macros),
+    );
+  }
+}
+
 /// One meal the client logged, already totalled server-side.
 class LoggedMeal {
   final String mealId;
   final String category;
   final List<String> foodNames;
+
+  /// The same foods as [foodNames], each carrying its own nutrition, in the
+  /// order they were logged. Empty against an API build that predates the
+  /// meal detail view — the meal row is then simply not tappable.
+  final List<LoggedFood> foods;
   final int calories;
   final MacroTotals macros;
 
@@ -239,6 +278,7 @@ class LoggedMeal {
     required this.foodNames,
     required this.calories,
     required this.macros,
+    this.foods = const [],
   });
 
   factory LoggedMeal.fromJson(Map<String, dynamic> json) {
@@ -247,6 +287,9 @@ class LoggedMeal {
       mealId: json['mealId'] as String,
       category: json['category'] as String? ?? '',
       foodNames: ((json['foodNames'] as List?) ?? const []).cast<String>(),
+      foods: ((json['foods'] as List?) ?? const [])
+          .map((f) => LoggedFood.fromJson(f as Map<String, dynamic>))
+          .toList(),
       calories: json['calories'] as int? ?? 0,
       macros: macros == null ? const MacroTotals() : MacroTotals.fromJson(macros),
     );

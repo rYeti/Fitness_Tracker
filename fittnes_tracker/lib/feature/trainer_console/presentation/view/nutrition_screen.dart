@@ -10,6 +10,7 @@ import 'package:ForgeForm/feature/trainer_console/presentation/widgets/calorie_r
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/client_switcher.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/console_widgets.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/macro_summary.dart';
+import 'package:ForgeForm/feature/trainer_console/presentation/widgets/meal_detail_sheet.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/console_error.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 
@@ -398,65 +399,7 @@ class _MealsCard extends StatelessWidget {
         children: [
           ConsoleSectionTitle(title: l10n.mealsLogged),
           for (final meal in meals) ...[
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Row(
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: ForgeColors.forgeOrange.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
-                      _iconFor(meal.category),
-                      size: 19,
-                      color: ForgeColors.forgeOrange,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _categoryLabel(meal.category, l10n),
-                          style: TextStyle(
-                            fontFamily: 'Exo 2',
-                            fontWeight: FontWeight.w700,
-                            fontSize: 13.5,
-                            color: colors.onSurface,
-                          ),
-                        ),
-                        if (meal.foodNames.isNotEmpty)
-                          Text(
-                            meal.foodNames.join(', '),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontFamily: 'Exo 2',
-                              fontSize: 11.5,
-                              color: colors.onSurface.withValues(alpha: 0.55),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '${meal.calories} kcal',
-                    style: TextStyle(
-                      fontFamily: 'Montserrat',
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
-                      color: colors.onSurface,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            _MealRow(meal: meal),
             if (meal != meals.last)
               Divider(height: 1, color: colors.onSurface.withValues(alpha: 0.08)),
           ],
@@ -477,6 +420,116 @@ class _MealsCard extends StatelessWidget {
         '' => l10n.meal,
         _ => category[0].toUpperCase() + category.substring(1).toLowerCase(),
       };
+}
+
+/// One meal in the "Meals logged" list. Tapping opens [MealDetailSheet] with
+/// every food in the meal — the row itself only has space for a one-line,
+/// ellipsised list of names.
+class _MealRow extends StatelessWidget {
+  final LoggedMeal meal;
+
+  const _MealRow({required this.meal});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
+    final label = _MealsCard._categoryLabel(meal.category, l10n);
+    final icon = _MealsCard._iconFor(meal.category);
+
+    // Nothing to drill into when the meal came back without per-food detail
+    // (an empty meal, or an API build older than the detail view) — the row
+    // stays a plain, non-tappable summary rather than opening a blank sheet.
+    final canOpen = meal.foods.isNotEmpty;
+
+    final content = Padding(
+      // 44px min tap target per CLAUDE.md, with the icon tile at 36px.
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: ForgeColors.forgeOrange.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, size: 19, color: ForgeColors.forgeOrange),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontFamily: 'Exo 2',
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13.5,
+                    color: colors.onSurface,
+                  ),
+                ),
+                if (meal.foodNames.isNotEmpty)
+                  Text(
+                    meal.foodNames.join(', '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: 'Exo 2',
+                      fontSize: 11.5,
+                      color: colors.onSurface.withValues(alpha: 0.55),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '${meal.calories} kcal',
+            style: TextStyle(
+              fontFamily: 'Montserrat',
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+              color: colors.onSurface,
+            ),
+          ),
+          if (canOpen) ...[
+            const SizedBox(width: 4),
+            Icon(
+              Icons.chevron_right_rounded,
+              size: 20,
+              color: colors.onSurface.withValues(alpha: 0.45),
+            ),
+          ],
+        ],
+      ),
+    );
+
+    if (!canOpen) return content;
+
+    return Semantics(
+      container: true,
+      button: true,
+      label: l10n.mealDetailSemantics(label, meal.calories),
+      excludeSemantics: true,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: () => MealDetailSheet.show(
+            context,
+            meal: meal,
+            mealLabel: label,
+            icon: icon,
+          ),
+          child: content,
+        ),
+      ),
+    );
+  }
 }
 
 /// 7-day calories-vs-target bars. Hand-built rather than pulled into fl_chart:

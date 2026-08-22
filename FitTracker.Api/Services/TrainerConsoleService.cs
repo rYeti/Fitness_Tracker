@@ -417,6 +417,19 @@ public class TrainerConsoleService(
                 MealId = meal.Id,
                 Category = meal.Category,
                 FoodNames = foods.Select(f => f.Name).ToList(),
+                Foods = foods.Select(f => new LoggedFoodDto
+                {
+                    FoodItemId = f.Id,
+                    Name = f.Name,
+                    Grams = f.Gramm,
+                    Calories = f.Calories,
+                    Macros = new MacroTotalsDto
+                    {
+                        Protein = f.Protein,
+                        Carbs = f.Carbs,
+                        Fat = f.Fat,
+                    },
+                }).ToList(),
                 Calories = foods.Sum(f => f.Calories),
                 Macros = new MacroTotalsDto
                 {

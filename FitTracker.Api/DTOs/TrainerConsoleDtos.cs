@@ -104,6 +104,28 @@ public class LoggedMealDto
     /// <summary>Food names in this meal, for the meal row's subtitle.</summary>
     public List<string> FoodNames { get; set; } = [];
 
+    /// <summary>Every food in this meal with its own nutrition, for the meal
+    /// detail view. Same order the client logged them in, and repeats when the
+    /// same food was logged twice.</summary>
+    public List<LoggedFoodDto> Foods { get; set; } = [];
+
+    public int Calories { get; set; }
+    public MacroTotalsDto Macros { get; set; } = new();
+}
+
+/// <summary>One food inside a logged meal, resolved against the client's food
+/// catalogue. The trainer has no route to that catalogue, so the nutrition
+/// values travel with the name rather than as an id to look up.</summary>
+public class LoggedFoodDto
+{
+    public Guid FoodItemId { get; set; }
+
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>Serving size in grams. 0 when the client's food item never
+    /// recorded one.</summary>
+    public int Grams { get; set; }
+
     public int Calories { get; set; }
     public MacroTotalsDto Macros { get; set; } = new();
 }
