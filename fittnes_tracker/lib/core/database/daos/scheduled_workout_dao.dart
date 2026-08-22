@@ -115,6 +115,36 @@ class ScheduledWorkoutDao extends DatabaseAccessor<AppDatabase>
   Future<List<ScheduledWorkoutTableData>> getAll() =>
       select(scheduledWorkoutTable).get();
 
+  /// Counts scheduled workouts in the half-open range [start, end).
+  ///
+  /// Pass [completed] to restrict to completed (or not-completed) entries.
+  /// The dashboard used to fetch every row ever scheduled and count in Dart.
+  Future<int> countInRange({
+    required DateTime start,
+    required DateTime end,
+    bool? completed,
+  }) {
+    final count = scheduledWorkoutTable.id.count();
+    final query = selectOnly(scheduledWorkoutTable)..addColumns([count]);
+    query.where(
+      scheduledWorkoutTable.scheduledDate.isBiggerOrEqualValue(start) &
+          scheduledWorkoutTable.scheduledDate.isSmallerThanValue(end),
+    );
+    if (completed != null) {
+      query.where(scheduledWorkoutTable.isCompleted.equals(completed));
+    }
+    return query.map((row) => row.read(count) ?? 0).getSingle();
+  }
+
+  /// Total completed workouts, all time.
+  Future<int> countCompleted() {
+    final count = scheduledWorkoutTable.id.count();
+    final query = selectOnly(scheduledWorkoutTable)
+      ..addColumns([count])
+      ..where(scheduledWorkoutTable.isCompleted.equals(true));
+    return query.map((row) => row.read(count) ?? 0).getSingle();
+  }
+
   Future<ScheduledWorkoutTableData?> getByServerId(String serverId) =>
       (select(scheduledWorkoutTable)
             ..where((t) => t.serverId.equals(serverId))
