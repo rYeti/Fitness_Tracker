@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Generates lib/core/seed_exercises.dart from exercises/exercises.csv.
+Generates lib/core/seed_exercises_data.dart from exercises/exercises.csv.
 
 Run from the fittnes_tracker/ directory:
     python3 tool/generate_seeds.py
@@ -8,8 +8,12 @@ Run from the fittnes_tracker/ directory:
 The script:
   1. Extracts existing German translations from the current seed file (by name).
   2. Parses all 873 exercises from the CSV.
-  3. Writes a fresh seed_exercises.dart preserving any German translations
+  3. Writes a fresh seed_exercises_data.dart preserving any German translations
      we already have and leaving nameDe null for the rest.
+  4. Bumps kExerciseSeedVersion so existing installs re-run the seed once.
+
+Only the *data* is generated. The seeding logic lives in the hand-written
+lib/core/seed_exercises.dart and is never touched by this script.
 """
 import csv, json, os, re, textwrap
 
@@ -105,6 +109,14 @@ def load_existing_translations(seed_path: str) -> dict:
             }
     return result
 
+def read_seed_version(seed_path: str) -> int:
+    """Current kExerciseSeedVersion in the generated file, or 0 if absent."""
+    if not os.path.exists(seed_path):
+        return 0
+    with open(seed_path, encoding='utf-8') as f:
+        m = re.search(r'const kExerciseSeedVersion = (\d+);', f.read())
+    return int(m.group(1)) if m else 0
+
 # ── Step 2: read CSV ─────────────────────────────────────────────────────────
 
 def load_csv(csv_path: str) -> list:
@@ -114,53 +126,19 @@ def load_csv(csv_path: str) -> list:
 
 # ── Step 3: generate Dart source ─────────────────────────────────────────────
 
-HEADER = """\
+HEADER_TEMPLATE = """\
 // AUTO-GENERATED — run `python3 tool/generate_seeds.py` to regenerate.
 // Do not edit by hand.
-import 'package:drift/drift.dart' as drift;
-import 'package:ForgeForm/core/app_database.dart';
+//
+// Data only. The seeding *logic* lives in seed_exercises.dart, which is
+// hand-written and must never be regenerated.
 import 'package:ForgeForm/feature/workout_planning/data/models/exercise.dart';
 
-Future<void> seedExercisesIfEmpty(AppDatabase db) async {
-  final existingExercises = await db.exerciseDao.getAllExercises();
-  if (existingExercises.isEmpty) {
-    await _insertAll(db);
-  } else {
-    await _backfillTranslations(db);
-  }
-}
+/// Bumped by the generator on every regeneration. seed_exercises.dart uses it
+/// to decide whether a launch has any seeding work to do at all.
+const kExerciseSeedVersion = {version};
 
-Future<void> _insertAll(AppDatabase db) async {
-  for (final exercise in _exercises) {
-    await db.exerciseDao.saveExercise(db.exerciseDao.modelToEntity(exercise));
-  }
-}
-
-/// Updates any pre-existing exercise that still has a null nameDe,
-/// matched by English name. Custom exercises are never touched.
-Future<void> _backfillTranslations(AppDatabase db) async {
-  final all = await db.exerciseDao.getAllExercises();
-  final needsUpdate = all.where((e) => e.nameDe == null && !e.isCustom);
-  if (needsUpdate.isEmpty) return;
-
-  final translationMap = {
-    for (final ex in _exercises)
-      if (ex.nameDe != null)
-        ex.name: (nameDe: ex.nameDe!, descriptionDe: ex.descriptionDe),
-  };
-
-  for (final row in needsUpdate) {
-    final t = translationMap[row.name];
-    if (t == null) continue;
-    await (db.update(db.exerciseTable)..where((e) => e.id.equals(row.id)))
-        .write(ExerciseTableCompanion(
-      nameDe: drift.Value(t.nameDe),
-      descriptionDe: drift.Value(t.descriptionDe),
-    ));
-  }
-}
-
-final _exercises = <Exercise>[
+final kSeedExercises = <Exercise>[
 """
 
 CAT_ORDER = [
@@ -173,13 +151,13 @@ CAT_ORDER = [
     'stretching',
 ]
 
-def generate(rows: list, translations: dict) -> str:
+def generate(rows: list, translations: dict, version: int) -> str:
     grouped: dict[str, list] = {}
     for row in rows:
         cat = row.get('category', 'strength').strip()
         grouped.setdefault(cat, []).append(row)
 
-    parts = [HEADER]
+    parts = [HEADER_TEMPLATE.format(version=version)]
 
     for cat in CAT_ORDER:
         cat_rows = grouped.get(cat, [])
@@ -232,7 +210,7 @@ if __name__ == '__main__':
     root = os.path.join(script_dir, '..')
 
     csv_path  = os.path.join(root, 'exercises', 'exercises.csv')
-    seed_path = os.path.join(root, 'lib', 'core', 'seed_exercises.dart')
+    seed_path = os.path.join(root, 'lib', 'core', 'seed_exercises_data.dart')
     json_path = os.path.join(script_dir, 'translations_de.json')
 
     print('Reading existing translations from seed file...')
@@ -249,8 +227,9 @@ if __name__ == '__main__':
     rows = load_csv(csv_path)
     print(f'  {len(rows)} exercises loaded.')
 
-    print('Generating seed_exercises.dart...')
-    dart_src = generate(rows, translations)
+    version = read_seed_version(seed_path) + 1
+    print(f'Generating seed_exercises_data.dart (v{version})...')
+    dart_src = generate(rows, translations, version)
 
     with open(seed_path, 'w', encoding='utf-8') as f:
         f.write(dart_src)

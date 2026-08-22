@@ -16,7 +16,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:provider/provider.dart' as provider;
 import 'package:workmanager/workmanager.dart';
 import 'core/di/service_locator.dart';
-import 'core/services/notification_service.dart';
+import 'core/widgets/lazy_indexed_stack.dart';
 import 'core/providers/theme_provider.dart';
 import 'core/providers/locale_provider.dart';
 import 'core/providers/user_goals_provider.dart';
@@ -105,32 +105,49 @@ void main() async {
       systemNavigationBarColor: Colors.transparent,
     ),
   );
-  await initializeDateFormatting();
+  // Only the locales we actually support — the no-argument form initialises
+  // every locale's date symbols, which is a large chunk of the startup budget.
+  await Future.wait([
+    initializeDateFormatting('en'),
+    initializeDateFormatting('de'),
+  ]);
   setupLocator();
-  await sl<NotificationService>().init();
+  // NotificationService is *not* initialised here. It loads the timezone
+  // database and used to raise the Android 13+ permission dialog, which blocks
+  // on the user's tap — a first launch sat on the splash until they answered.
+  // It now initialises itself on first use.
   final db = AppDatabase();
 
   // Register the database instance with the service locator
   registerDatabase(db);
 
-  final prefs = await SharedPreferences.getInstance();
+  // Independent of each other, so opened together rather than in series. Both
+  // queries go through the same drift connection, which serialises internally.
+  final (prefs, userSettings, latestWeight) = await (
+    SharedPreferences.getInstance(),
+    db.userSettingsDao.getSettings(),
+    db.weightRecordDao.getLatestWeightRecord(),
+  ).wait;
 
-  // Load settings and latest weight before runApp so providers start with correct values.
-  final userSettings = await db.userSettingsDao.getSettings();
+  // Loaded before runApp so providers start with correct values.
   final initialTheme =
       userSettings?.themeMode == 'dark' ? ThemeMode.dark : ThemeMode.light;
   final localeCode = prefs.getString('app_locale');
   final initialLocale = localeCode != null ? Locale(localeCode) : null;
-  final latestWeight = await db.weightRecordDao.getLatestWeightRecord();
 
-  // Awaited so the verified-food table is fully seeded before the UI (and
-  // any search) can run against it. The version gate makes this a no-op
-  // after the first launch on a given seed version.
+  // Awaited: the version gate makes this a single prefs read after the first
+  // launch on a given seed version, and keeping it ahead of the UI guarantees
+  // SyncService can never match server exercises against a half-filled table.
   await seedExercisesIfEmpty(db);
-  await seedVerifiedFoodsIfNeeded(db);
+  // Not awaited: seeding decodes a 1.2 MB asset, and nothing on the dashboard
+  // reads verified foods. Food search falls back to OpenFoodFacts results if
+  // it runs before this lands, which can only happen on a first launch.
+  unawaited(seedVerifiedFoodsIfNeeded(db));
 
-  // Always apply the compile-time default so changing the IP in code takes effect immediately.
-  await prefs.setString(serverUrlPrefsKey, serverUrlDefault);
+  // Always apply the compile-time default so changing the IP in code takes
+  // effect immediately. Not awaited — the returned future is the disk write,
+  // and the in-memory value is updated before it completes.
+  unawaited(prefs.setString(serverUrlPrefsKey, serverUrlDefault));
   final container = ProviderContainer(
     overrides: [serverUrlProvider.overrideWith((ref) => serverUrlDefault)],
   );
@@ -153,7 +170,9 @@ void main() async {
   if (restoredAuth.user != null) {
     // Ensure last_logged_in_user is always set so the login-time user-switch
     // detection never incorrectly wipes data for an existing session.
-    await prefs.setString('last_logged_in_user', restoredAuth.user!.username);
+    unawaited(
+      prefs.setString('last_logged_in_user', restoredAuth.user!.username),
+    );
     unawaited(
       accessProvider.initialize(
         userId: restoredAuth.user!.username,
@@ -162,21 +181,6 @@ void main() async {
       ),
     );
   }
-
-  // Register the once-a-day background sync task (mobile only).
-  if (!kIsWeb) {
-    await Workmanager().initialize(_backgroundSyncDispatcher);
-    await Workmanager().registerPeriodicTask(
-      _backgroundSyncTask,
-      _backgroundSyncTask,
-      frequency: const Duration(hours: 24),
-      existingWorkPolicy:
-          ExistingPeriodicWorkPolicy
-              .keep, // don't reset the 24-h clock on every launch
-      constraints: Constraints(networkType: NetworkType.connected),
-    );
-  }
-  FlutterNativeSplash.remove();
 
   runApp(
     UncontrolledProviderScope(
@@ -235,6 +239,32 @@ void main() async {
         ),
       ),
     ),
+  );
+
+  // Everything below is deferred until the first frame is up: none of it is
+  // needed to paint the dashboard, and the WorkManager calls in particular are
+  // platform-channel round trips into a scheduler that does its own disk work.
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    // Removed here rather than before runApp — doing it earlier tore the splash
+    // down before Flutter had drawn anything, leaving a blank window for the
+    // whole first-frame build.
+    FlutterNativeSplash.remove();
+    unawaited(_registerBackgroundSync());
+  });
+}
+
+/// Registers the once-a-day background sync task (mobile only).
+Future<void> _registerBackgroundSync() async {
+  if (kIsWeb) return;
+  await Workmanager().initialize(_backgroundSyncDispatcher);
+  await Workmanager().registerPeriodicTask(
+    _backgroundSyncTask,
+    _backgroundSyncTask,
+    frequency: const Duration(hours: 24),
+    existingWorkPolicy:
+        ExistingPeriodicWorkPolicy
+            .keep, // don't reset the 24-h clock on every launch
+    constraints: Constraints(networkType: NetworkType.connected),
   );
 }
 
@@ -501,12 +531,17 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int _selectedIndex = 0;
 
-  final List<Widget> _screens = [
-    DashboardScreen(key: globalDashboardKey),
-    FoodTrackingScreen(key: globalFoodTrackingKey),
-    const GymTrackingScreen(),
-    ProgressScreen(key: globalProgressKey),
-    const SettingsScreen(),
+  // Builders rather than widgets: LazyIndexedStack mounts a tab the first time
+  // it is selected. Building all five up front meant every tab ran its
+  // initState database loads on the first frame — the Progress tab's
+  // history-wide aggregate query included — while the dashboard waited behind
+  // them for the drift connection.
+  static final List<WidgetBuilder> _screenBuilders = [
+    (_) => DashboardScreen(key: globalDashboardKey),
+    (_) => FoodTrackingScreen(key: globalFoodTrackingKey),
+    (_) => const GymTrackingScreen(),
+    (_) => ProgressScreen(key: globalProgressKey),
+    (_) => const SettingsScreen(),
   ];
 
   @override
@@ -564,7 +599,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           // rather than discovering it when one refuses to open.
           const _TraineeProNotice(),
           Expanded(
-            child: IndexedStack(index: _selectedIndex, children: _screens),
+            child: LazyIndexedStack(
+              index: _selectedIndex,
+              builders: _screenBuilders,
+            ),
           ),
         ],
       ),

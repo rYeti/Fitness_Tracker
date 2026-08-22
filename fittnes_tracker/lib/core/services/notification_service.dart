@@ -9,8 +9,21 @@ class NotificationService {
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
 
-  Future<void> init() async {
-    if (kIsWeb) return;
+  Future<void>? _initialization;
+
+  /// Initialises the plugin at most once, on first use.
+  ///
+  /// Deliberately not called from `main()`: this loads the full timezone
+  /// database and used to also raise the Android 13+ notification permission
+  /// dialog, which blocks on the user's tap — so a first launch sat on the
+  /// splash screen until they answered. The permission is now requested where
+  /// it means something, in [schedulePlanExpiryWarning].
+  Future<void> _ensureInitialized() {
+    if (kIsWeb) return Future.value();
+    return _initialization ??= _init();
+  }
+
+  Future<void> _init() async {
     tz.initializeTimeZones();
     const androidInit = AndroidInitializationSettings('@mipmap/launcher_icon');
     const initSettings = InitializationSettings(android: androidInit);
@@ -18,11 +31,6 @@ class NotificationService {
       initSettings,
       onDidReceiveNotificationResponse: (_) {},
     );
-    await _plugin
-        .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin
-        >()
-        ?.requestNotificationsPermission();
   }
 
   Future<void> schedulePlanExpiryWarning({
@@ -31,9 +39,18 @@ class NotificationService {
     int daysBeforeEnd = 7,
   }) async {
     if (kIsWeb) return;
+    await _ensureInitialized();
     await cancelPlanExpiryWarning();
     final fireAt = planEndDate.subtract(Duration(days: daysBeforeEnd));
     if (fireAt.isBefore(DateTime.now())) return;
+
+    // Asked for here rather than at startup: the user has just created a plan
+    // with an end date, so what the notification is for is obvious.
+    await _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.requestNotificationsPermission();
 
     const androidDetails = AndroidNotificationDetails(
       'plan_expiry',
@@ -57,6 +74,7 @@ class NotificationService {
 
   Future<void> cancelPlanExpiryWarning() async {
     if (kIsWeb) return;
+    await _ensureInitialized();
     await _plugin.cancel(_planExpiryId);
   }
 }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/feature/food_tracking/data/repositories/nutrition_repository.dart';
@@ -175,7 +177,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Future<void> _loadDashboardData() async {
     final db = context.read<AppDatabase>();
-    final all = await db.scheduledWorkoutDao.getAll();
+    final dao = db.scheduledWorkoutDao;
 
     final now = DateTime.now();
     final weekStart = DateTime(
@@ -185,25 +187,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
     ).subtract(Duration(days: now.weekday - 1));
     final weekEnd = weekStart.add(const Duration(days: 7));
 
-    final thisWeek =
-        all
-            .where(
-              (sw) =>
-                  !sw.scheduledDate.isBefore(weekStart) &&
-                  sw.scheduledDate.isBefore(weekEnd),
-            )
-            .toList();
-
-    final repository = NutritionRepository(db);
-    final todayNutrition = await repository.getNutritionHistoryForToday();
-    final todayCalories = todayNutrition.firstOrNull?.totalCalories ?? 0;
+    // Counted in SQL and run together: this used to pull every scheduled
+    // workout ever recorded and filter three times in Dart, on the first frame.
+    final (weekTotal, weekCompleted, allTimeCompleted, todayNutrition) = await (
+      dao.countInRange(start: weekStart, end: weekEnd),
+      dao.countInRange(start: weekStart, end: weekEnd, completed: true),
+      dao.countCompleted(),
+      NutritionRepository(db).getNutritionHistoryForToday(),
+    ).wait;
 
     if (mounted) {
       setState(() {
-        _weekCompleted = thisWeek.where((sw) => sw.isCompleted).length;
-        _weekTotal = thisWeek.length;
-        _allTimeCompleted = all.where((sw) => sw.isCompleted).length;
-        _todayCalories = todayCalories;
+        _weekCompleted = weekCompleted;
+        _weekTotal = weekTotal;
+        _allTimeCompleted = allTimeCompleted;
+        _todayCalories = todayNutrition.firstOrNull?.totalCalories ?? 0;
       });
     }
   }
