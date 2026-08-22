@@ -84,9 +84,15 @@ class ChatRepository {
     final previous = _activeThreadId;
     if (previous != null) await _signalR.leaveGroup(previous);
 
-    _activeThreadId = otherPartyId;
+    // Dropped before the join, committed after it. Setting it up front recorded
+    // the thread as open while the join was still in flight — and if the join
+    // then threw, the guard above turned every retry into an immediate return,
+    // so the user could tap "retry" forever against a group they were never in.
+    _activeThreadId = null;
     _knownIds.clear();
+
     await _signalR.joinGroup(otherPartyId);
+    _activeThreadId = otherPartyId;
   }
 
   Future<void> closeThread() async {
@@ -105,14 +111,28 @@ class ChatRepository {
     final history = await _api.fetchHistory(otherPartyId);
     final unsent = await _db.chatoutboxDao.getUnsentMessages(otherPartyId);
 
-    final messages = [
-      for (final json in history)
-        ThreadMessage.fromChatMessage(
-          ChatMessage.fromJson(json),
-          otherPartyId: otherPartyId,
-        ),
-      for (final row in unsent) ThreadMessage.fromOutbox(row),
-    ]..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+    // Keyed by messageId, server rows inserted first, so an outbox row for a
+    // message the server already has is dropped rather than shown a second time.
+    //
+    // That overlap is not an edge case — it is the outbox's whole reason to
+    // exist. A send whose message was stored but whose ack was lost stays
+    // `pending` locally *by design* (§2: guessing either way loses messages), so
+    // it is in both lists at once. Concatenating them showed the user one message
+    // twice, once sent and once as a failure they were invited to retry.
+    final byId = <String, ThreadMessage>{};
+    for (final json in history) {
+      final message = ThreadMessage.fromChatMessage(
+        ChatMessage.fromJson(json),
+        otherPartyId: otherPartyId,
+      );
+      byId[message.messageId] = message;
+    }
+    for (final row in unsent) {
+      byId.putIfAbsent(row.messageId, () => ThreadMessage.fromOutbox(row));
+    }
+
+    final messages = byId.values.toList()
+      ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
 
     _knownIds
       ..clear()

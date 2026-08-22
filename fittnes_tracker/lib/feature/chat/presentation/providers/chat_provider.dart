@@ -33,6 +33,10 @@ class ChatProvider extends ChangeNotifier {
   String? _error;
   String? _threadError;
 
+  /// A send that failed before it reached the network — distinct from
+  /// [_threadError] because it must not blank out an otherwise-fine thread.
+  String? _sendError;
+
   StreamSubscription<ThreadMessage>? _incomingSubscription;
   StreamSubscription<ChatConnectionStatus>? _statusSubscription;
 
@@ -43,6 +47,7 @@ class ChatProvider extends ChangeNotifier {
   bool get isThreadLoading => _isThreadLoading;
   String? get error => _error;
   String? get threadError => _threadError;
+  String? get sendError => _sendError;
   String? get activeThreadId => _repository.activeThreadId;
 
   /// Loads the conversation list for the list pane.
@@ -68,16 +73,23 @@ class ChatProvider extends ChangeNotifier {
   Future<void> openThread(String otherPartyId) async {
     _isThreadLoading = true;
     _threadError = null;
+    _sendError = null;
     _thread = [];
     notifyListeners();
 
-    await _repository.openThread(otherPartyId);
-
-    await _incomingSubscription?.cancel();
-    _incomingSubscription =
-        _repository.incomingFor(otherPartyId).listen(_upsert);
-
     try {
+      // Inside the try, not ahead of it. Joining the hub group is a network call
+      // and fails like one — and when it threw from out here the exception
+      // escaped past the `finally`, pinning _isThreadLoading true for the rest of
+      // the screen's life. Both thread bodies check that flag first, so every
+      // later message repainted the loading skeleton instead of itself: chat
+      // looked merely slow rather than broken, with no error and no retry.
+      await _repository.openThread(otherPartyId);
+
+      await _incomingSubscription?.cancel();
+      _incomingSubscription =
+          _repository.incomingFor(otherPartyId).listen(_upsert);
+
       final loaded = await _repository.loadThread(otherPartyId);
       // A message can land between subscribing and the history returning.
       // Assigning `loaded` straight over `_thread` would silently swallow it, so
@@ -102,6 +114,7 @@ class ChatProvider extends ChangeNotifier {
     await _repository.closeThread();
     _thread = [];
     _threadError = null;
+    _sendError = null;
     notifyListeners();
   }
 
@@ -111,15 +124,41 @@ class ChatProvider extends ChangeNotifier {
     final trimmed = body.trim();
     if (trimmed.isEmpty) return;
 
-    // Two updates on purpose: the first the moment the message is queued, the
-    // second when the wire call settles. Same id both times, so _upsert replaces
-    // rather than appends.
-    final sent = await _repository.sendMessage(
-      otherPartyId: otherPartyId,
-      body: trimmed,
-      onQueued: _upsert,
-    );
-    _upsert(sent);
+    _sendError = null;
+
+    try {
+      // Two updates on purpose: the first the moment the message is queued, the
+      // second when the wire call settles. Same id both times, so _upsert
+      // replaces rather than appends.
+      final sent = await _repository.sendMessage(
+        otherPartyId: otherPartyId,
+        body: trimmed,
+        onQueued: _upsert,
+      );
+      _upsert(sent);
+    } catch (_) {
+      // A failed *send* is already handled inside the repository, which keeps the
+      // outbox row pending and hands back a bubble either way. Reaching here
+      // means something upstream of the network broke — the local outbox write
+      // itself, most likely — so there is no bubble and nothing queued.
+      //
+      // Left unhandled, that was silence: the composer cleared, no message
+      // appeared, and nothing anywhere said why. It is the single worst failure a
+      // messaging app has, so it gets a visible, dismissible strip of its own.
+      //
+      // Deliberately *not* _threadError: that replaces the whole list with a
+      // full-screen error, which would throw away a perfectly good thread over
+      // one message that didn't make it.
+      _sendError = 'Message not sent. Check your connection and try again.';
+      notifyListeners();
+    }
+  }
+
+  /// Dismisses the send-failure strip. Also cleared by the next successful send.
+  void clearSendError() {
+    if (_sendError == null) return;
+    _sendError = null;
+    notifyListeners();
   }
 
   /// Retries one message the replay loop gave up on. Same path as a first send,

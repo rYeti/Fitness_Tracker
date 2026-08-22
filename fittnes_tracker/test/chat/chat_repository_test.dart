@@ -263,6 +263,41 @@ void main() {
       expect(await repository.loadThread(otherParty), isEmpty);
     });
 
+    test('shows a message once when it is in both history and the outbox',
+        () async {
+      // Not a contrived overlap — it is the case the outbox exists for. The
+      // server stored the message and the ack was lost coming back, so the local
+      // row stays pending on purpose (guessing either way loses messages), and
+      // both lists legitimately contain it. Concatenating them showed the user
+      // one message twice: once sent, and once as a failure inviting them to
+      // send it again.
+      await seedOutboxRow(db,
+          messageId: 'acked-but-unconfirmed',
+          otherPartyId: otherParty,
+          body: 'did you see my form?',
+          createdAt: DateTime.utc(2026, 8, 1, 9));
+      final repository = build(
+        api: FakeChatApi(history: {
+          otherParty: [
+            messageJson(
+              id: 'acked-but-unconfirmed',
+              body: 'did you see my form?',
+              senderId: FakeChatSignalRClient.trainerId,
+              clientId: otherParty,
+              sentAt: DateTime.utc(2026, 8, 1, 9),
+            ),
+          ],
+        }),
+      );
+
+      final thread = await repository.loadThread(otherParty);
+
+      // The server's copy wins: it is the authoritative one, and it is the only
+      // one of the two that can say the message actually arrived.
+      expect(thread, hasLength(1));
+      expect(thread.single.status, ChatMessageStatus.sent);
+    });
+
     test('surfaces a history failure instead of showing an empty thread', () async {
       final repository = build(api: FakeChatApi(throwOnHistory: true));
 

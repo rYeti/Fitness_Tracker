@@ -107,8 +107,19 @@ class AppDatabase extends _$AppDatabase {
     });
   }
 
+  /// 37 exists for `chat_out_box_table`, which shipped without a bump and so was
+  /// never created on any install that already existed — `onUpgrade` only runs
+  /// when the stored `user_version` is behind this number. Adding the table to
+  /// the `@DriftDatabase` list creates it on fresh installs (and in every test,
+  /// which is why nothing caught this), but upgraded devices kept a database with
+  /// no outbox in it, and every send threw before it reached the network.
+  ///
+  /// No `if (from < 37)` branch: `onUpgrade` opens with `createAll()`, which
+  /// emits `CREATE TABLE IF NOT EXISTS`, so the table is created and existing
+  /// ones are untouched. **Do not delete this bump as a no-op** — the bump is the
+  /// entire fix.
   @override
-  int get schemaVersion => 36;
+  int get schemaVersion => 37;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(

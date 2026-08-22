@@ -95,7 +95,10 @@ class _TrainerConsoleHomeState extends State<TrainerConsoleHome> {
       );
       // Not awaited: the console renders its roster and KPIs fine while the
       // socket is still opening, and the connection banner covers the gap.
-      unawaited(signalR.connect());
+      // Errors are dropped here rather than left unhandled — the failure is
+      // already reported twice over, on the status stream that drives the banner
+      // and again from the next joinGroup/send, which retries the connect.
+      unawaited(signalR.connect().catchError((Object _) {}));
     }
     // Otherwise chat stays null. The outbox needs the local database, and
     // reaching for it unguarded meant a console that could not open *at all*

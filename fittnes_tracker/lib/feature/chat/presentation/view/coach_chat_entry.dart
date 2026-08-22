@@ -48,7 +48,9 @@ class _CoachChatEntryState extends State<CoachChatEntry> {
       _chat = ChatProvider(
         repository: ChatRepository(db: sl<AppDatabase>(), signalR: signalR),
       );
-      unawaited(signalR.connect());
+      // Errors dropped rather than left unhandled: the failure reaches the user
+      // through the connection banner, and the next joinGroup/send retries it.
+      unawaited(signalR.connect().catchError((Object _) {}));
     }
   }
 

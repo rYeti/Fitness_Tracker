@@ -451,6 +451,306 @@ change was production.
 
 ---
 
+# Part two: why none of it worked
+
+Everything above describes the design as intended. It shipped, and sending a
+message showed nothing on either side of the conversation — not on the sender's
+screen, not on the recipient's.
+
+Four separate defects, each independently sufficient to produce that. They are
+worth reading together, because they are four instances of one shape of mistake:
+**a contract that no mechanical check was watching.** Not one of the four was
+visible to the C# compiler, the Dart analyser, or a green test suite. Three of
+them were actively *hidden* by a test suite that passed.
+
+| # | Defect | Why nothing caught it |
+| --- | --- | --- |
+| 12 | Hub returns no ack | The contract lived in a markdown file, not a type |
+| 13 | Drift table never created on upgrade | Every test builds a *fresh* database |
+| 14 | Loading flag pinned true | The failing path was never exercised |
+| 15 | Thread committed before the join succeeded | Same |
+
+---
+
+## 12. The ack that was never returned
+
+`ChatHub.SendMessage` was declared:
+
+```csharp
+public async Task SendMessage(Guid clientId, string body, Guid messageId)
+```
+
+`Task`, not `Task<ChatMessageDto>`. It compiled. It resolved the relationship, it
+persisted the message, it broadcast to the group. Every one of those things
+worked. And every send from the app failed.
+
+A hub method returning `Task` completes the invocation **with no result**. On the
+client that is indistinguishable from a hub that had nothing to say, so
+`signalr_hub` resolves `invoke()` to `null`, and the Dart side does the only
+honest thing available to it (`signalr_hub_chat_client.dart:101`):
+
+```dart
+final ack = await _require().invoke('SendMessage', args: [...]);
+if (ack == null) throw StateError('SendMessage returned no acknowledgement.');
+```
+
+Follow what that does to §2's state machine. `_attemptSend` catches the error and
+does exactly what it was designed to do when an ack goes missing: leaves the
+outbox row `pending`, because the server *might* have stored it. Which it did.
+Every time.
+
+```
+send ──► server stores it ──► broadcast goes out ──► recipient sees it
+                                     │
+                                     └──► ack: nothing
+                                              │
+                          outbox stays pending ──► replay on reconnect
+                                              ──► replay fails identically ×3
+                                              ──► "Failed to send — tap to retry"
+```
+
+So the sender watched a message they had successfully delivered sit under a clock
+icon, then turn into a failure, then — on reopening the thread — appear twice,
+once as sent history and once as the failed outbox row (§15). The one path that
+could have settled the bubble, the group broadcast echoing back, is dropped on
+purpose: `sendMessage` pre-registers the id in `_knownIds` before sending
+precisely so the sender doesn't see their own message twice.
+
+**The design was right and self-consistent. One missing return type inverted
+every outcome in it.**
+
+### Why nothing caught it
+
+The contract was written down. `chat-flutter-roadmap.md:16` says `SendMessage`
+"returns `ChatMessageDto` (the ack)". §4 of this very document says the hub
+"returns the persisted DTO to the caller, *and* broadcasts to the group". The
+client was built against that, correctly.
+
+Markdown does not typecheck. On the wire, SignalR has no notion of a method
+signature the two ends must agree on — the client sends an invocation and takes
+whatever comes back, so a hub that returns nothing and a hub that returns a DTO
+are the same hub as far as the protocol is concerned. The mismatch can only
+surface at runtime, in the one place nobody was looking.
+
+And the test suite actively concealed it. `FakeChatSignalRClient.send` returns an
+ack unconditionally, because it was written from the same roadmap. Every Flutter
+test passed. The API tests passed too, because they asserted on *the row in the
+table* — which was always correct.
+
+> **A fake is an assertion about the other side of a boundary, and nothing checks
+> it.** When you write `FakeX implements X`, the analyser holds you to the Dart
+> interface and nothing at all holds you to the remote behaviour you are claiming
+> to imitate. The fake becomes a written-down belief about the server, and if
+> that belief is wrong, every test built on it is confidently wrong in the same
+> direction.
+
+The countermeasure is a test that runs against the real implementation of the
+boundary and asserts the thing the fake assumes. That is `ChatHubTests`, and
+specifically `SendMessage_returns_the_persisted_message_as_the_ack`. Note what it
+asserts: not that the message was stored — the old suite already did that, and
+passed — but **what the hub hands back**. The return value was the untested half
+of the method.
+
+`ChatHub.SendMessage` now carries a doc comment saying the return value is
+load-bearing, because the next person to read it will otherwise see a value the
+hub computes, returns, and appears to use for nothing.
+
+---
+
+## 13. The migration that never ran
+
+The chat outbox is a Drift table. It was added to `@DriftDatabase(tables: [...])`
+on 2026-08-15. `schemaVersion` was last incremented on 2026-08-03, to 36, and was
+not touched.
+
+Drift runs `onUpgrade` only when the database's stored `user_version` is behind
+`schemaVersion`. Adding a table to the declaration list does not change the
+number. So:
+
+| Install | `user_version` on disk | Path taken | Outbox table |
+| --- | --- | --- | --- |
+| Fresh, after 2026-08-15 | none → 36 | `onCreate` → `createAll()` | created |
+| Every test | none → 36 | `onCreate` → `createAll()` | created |
+| **Anyone who opened the app between Aug 3 and Aug 15** | **36** | **neither** | **absent** |
+
+That last row is every real user, and every developer's own phone.
+
+On those devices `ChatRepository.sendMessage` threw at its first statement —
+`insertMessagePending`, "no such table: chat_out_box_table" — which is *before*
+`onQueued` fires and *before* anything touches the network. So: no optimistic
+bubble on the sender's screen, no hub invocation, and therefore nothing for the
+recipient to receive. Both halves of "no message is shown on either client" come
+from this single line, and the failure is upstream of every mechanism in Part one
+designed to keep a message visible.
+
+The fix is one character. `schemaVersion => 37`. The existing `onUpgrade` already
+opens with `await m.createAll();`, and drift emits `CREATE TABLE IF NOT EXISTS`,
+so it creates what is missing and leaves everything else alone. The bump is the
+entire fix, which is exactly what makes it easy to delete later as a no-op — hence
+the comment now sitting on it.
+
+### Why nothing caught it
+
+`newTestDatabase()` is `AppDatabase.test(NativeDatabase.memory())`. A fresh
+in-memory database, per test. A fresh database has no `user_version`, so it takes
+`onCreate`, and `onCreate` calls `createAll()`, which creates every table
+currently declared.
+
+**The test suite could not have caught this defect, in any test, ever.** Not
+"nobody wrote the test" — the fixture makes the failing path unreachable. Every
+test exercised the one branch that was fine.
+
+> **A schema test on a fresh database tests `onCreate`. Nothing else.** Migrations
+> are a property of databases that *already exist*, so testing them requires a
+> database that survives being closed — a file, not memory. Any suite where the
+> fixture starts empty is silently testing half the schema code.
+
+`chat_outbox_migration_test.dart` is that test. It writes a real file, opens it,
+drops the outbox table, stamps `PRAGMA user_version = 36`, closes it — that
+sequence *is* "a phone that has had this app installed since July" — then reopens
+and asserts the insert works. It also asserts a row in an unrelated table
+survives, which is what makes `createAll()`-on-upgrade safe rather than merely
+convenient, and pins `schemaVersion > 36` so a future edit can't quietly undo it.
+
+This generalises past Drift. The same shape appears wherever setup and upgrade
+are different code paths and only one of them is ever exercised: EF Core
+migrations against a recreated database, a config loader tested only on defaults,
+an installer tested only on clean machines.
+
+---
+
+## 14. Why the screen looked idle instead of broken
+
+Two of the four defects were about the message never being sent. The other two are
+about the app having nothing to say when that happened.
+
+`ChatProvider.openThread` set `_isThreadLoading = true`, then:
+
+```dart
+await _repository.openThread(otherPartyId);   // ← outside the try
+try {
+  ...
+} catch (_) {
+  _threadError = 'Could not load this conversation.';
+} finally {
+  _isThreadLoading = false;
+}
+```
+
+`_repository.openThread` calls `_signalR.joinGroup`, which is a network call over
+a socket that may not be up yet. When it threw, the exception left the method
+from *above* the `try`. The `finally` never ran. `_isThreadLoading` stayed `true`
+for the lifetime of the screen.
+
+Both thread views check that flag first. So every subsequent `_upsert` and
+`notifyListeners` — including a successfully queued message — repainted **the
+loading skeleton**. The provider's state was correct; the message was in
+`_thread`; the widget rendered shimmer bars over it, forever, with no error state
+and therefore no retry action.
+
+That is the worst possible presentation of a failure, worse than a crash: an app
+that has stopped and looks like it is still working. Nobody reports it as an
+error, because nothing said there was one.
+
+Two lines moved. `_repository.openThread` now sits inside the `try`, so a join
+failure sets `_threadError`, the `finally` always clears the loading flag, and
+the user gets the inline error with the retry button that was already built and
+wired.
+
+`sendMessage` had the same shape in a purer form: no error handling at all. A
+throw from the repository — defect 13, most often — became an unhandled async
+error. The composer cleared, no bubble appeared, and nothing anywhere,
+on-screen or in the logs the user can see, said why. It now sets `sendError`,
+rendered as `ChatSendErrorStrip`: a strip rather than a full-screen error,
+deliberately, because blanking out a good thread over one undelivered message
+destroys more than it explains.
+
+### The connection was self-poisoning too
+
+`SignalRHubChatClient.connect()` assigned `_connection` **before** awaiting
+`connection.start()`, and guarded itself with `if (_connection != null) return;`.
+So a `start()` that threw — expired token, CORS, unreachable host — left a
+non-null, never-started connection in the field that `connect()` then refused to
+replace. Chat was dead for the lifetime of the widget, and because both call
+sites use `unawaited(connect())`, the error went nowhere.
+
+Worse, `unawaited(connect())` meant the *first* `joinGroup` raced the handshake.
+Tapping a conversation quickly threw straight into the defect above.
+
+Three changes: `_connection` is assigned only after a successful `start()`; the
+in-flight attempt is cached so callers converge on one handshake instead of
+racing it; and `_ready()` awaits that attempt — or starts a fresh one — before
+every invoke, which makes the retry action actually reconnect rather than hit the
+same dead object.
+
+> **Error handling is not a quality pass you do afterwards. It decides whether a
+> bug is diagnosable.** All four defects here were findable in minutes once
+> something said what failed. What cost the time was that three separate layers
+> each turned a specific, actionable failure into an ambiguous one: a stuck
+> spinner, an unhandled future, a connection that silently refused to reopen.
+> When you swallow an error you are not deciding how to handle a failure — you
+> are deciding that the next person to hit it will be debugging a symptom instead
+> of reading a cause.
+
+---
+
+## 15. Two smaller ones, and the pattern they share
+
+**`loadThread` concatenated history and outbox with no dedup.** Both lists can
+legitimately contain the same message — that is §2's entire premise. A send whose
+row was stored but whose ack was lost stays `pending` locally *on purpose*, and
+appears in server history at the same time. The user saw one message twice: once
+sent, once as a failure inviting them to send it again. Now keyed by `messageId`,
+server row winning, because it is the only one of the two that can confirm the
+message actually arrived.
+
+**`ChatRepository.openThread` set `_activeThreadId` before joining the group.**
+Harmless until the join fails — and then the guard at the top of the method
+(`if (_activeThreadId == otherPartyId) return;`) makes every retry an immediate
+no-op. The user could tap "retry" forever against a group they were never in.
+State is now committed only after the join succeeds.
+
+Both are the same error as §14 in miniature: **recording that something happened
+before finding out whether it did.** The loading flag was cleared on a path that
+assumed success; the thread id was set on a path that assumed success; the
+optimistic bubble is the one place in this feature where assuming success is
+*correct*, and it works because the outbox makes it recoverable. The difference
+between the two is whether there is a mechanism to undo the assumption when it
+turns out to be wrong.
+
+The last display bug needed no failure at all to bite: neither list had a
+`ScrollController`, and both append to the end of a forward-ordered `ListView`.
+In a thread longer than the viewport, a message you just sent lands below the
+fold — which, from where the user is sitting, is the same thing as not being sent.
+`ChatThreadList` now owns the controller and scrolls on growth, honouring the
+reduced-motion setting by jumping instead of animating. It also replaces two
+near-identical copies of the same list-plus-date-dividers code, one per screen,
+which is how the missing scroll came to be missing in two places at once.
+
+---
+
+## What all four have in common
+
+Every defect in Part two sat in a gap between two things that were each correct on
+their own: a hub and a client that agreed in prose but not in types; a table
+declaration and a version number; a flag set in one place and cleared in another;
+a field assigned before the operation it described had happened.
+
+Compilers check within a boundary. Tests check what you thought to assert. Neither
+watches the seams, and the seams are where this feature lives — two languages, two
+transports, a local database and a remote one, an optimistic UI over an unreliable
+socket.
+
+The practical rule that would have caught three of the four:
+
+> **Ask what state your test fixture makes unreachable.** A fresh database can't
+> fail a migration. A fake that always acks can't fail a contract. A happy-path
+> test can't reach a `finally`. Those aren't gaps in coverage that more tests of
+> the same shape will close — they are shapes of test that cannot express the
+> failure, and the only fix is a differently-shaped fixture.
+
+---
+
 ## What is deliberately not here
 
 - **Media and attachments.** The DTO has the fields, but there is no upload

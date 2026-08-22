@@ -24,6 +24,11 @@ class SignalRHubChatClient implements ChatSignalRClient {
 
   HubConnection? _connection;
 
+  /// The in-flight [connect] call, so the fire-and-forget call sites and the
+  /// first `joinGroup`/`send` converge on one handshake instead of racing it.
+  /// Cleared on failure so a later attempt can start a fresh one.
+  Future<void>? _connecting;
+
   final _incoming = StreamController<ChatMessage>.broadcast();
   final _reconnected = StreamController<void>.broadcast();
   final _status = StreamController<ChatConnectionStatus>.broadcast();
@@ -37,10 +42,24 @@ class SignalRHubChatClient implements ChatSignalRClient {
   Future<String> _accessToken() async =>
       await SecureTokenStorage.getToken() ?? '';
 
+  /// Opens the connection, or joins the one already being opened.
+  ///
+  /// Callers may fire this and forget it — both surfaces do, so the console can
+  /// paint its roster while the socket comes up. That is only safe because every
+  /// method that needs the connection awaits [_ready] first, so "connect hasn't
+  /// finished yet" is a wait rather than a failure.
   @override
-  Future<void> connect() async {
-    if (_connection != null) return;
+  Future<void> connect() {
+    if (_connection != null) return Future<void>.value();
+    // The cached future is the `whenComplete` chain, not `_openConnection()`'s
+    // own: clearing the field from inside that method's `finally` would run
+    // before `??=` had stored it if it ever threw ahead of its first await,
+    // leaving a permanently-failed future cached in its place.
+    return _connecting ??=
+        _openConnection().whenComplete(() => _connecting = null);
+  }
 
+  Future<void> _openConnection() async {
     final connection = HubConnectionBuilder()
         .withUrl(
           '${baseUrl.endsWith('/') ? baseUrl : '$baseUrl/'}hubs/chat',
@@ -66,15 +85,26 @@ class SignalRHubChatClient implements ChatSignalRClient {
       _status.add(ChatConnectionStatus.disconnected);
     });
 
-    _connection = connection;
-    await connection.start();
-    _status.add(ChatConnectionStatus.connected);
+    try {
+      // Assigned only once the handshake has actually succeeded. Setting it
+      // first left a failed start() behind a non-null field that connect()'s
+      // own guard then refused to rebuild, so one bad token or CORS response
+      // killed chat for the lifetime of the widget with nothing on screen to
+      // say why.
+      await connection.start();
+      _connection = connection;
+      _status.add(ChatConnectionStatus.connected);
+    } catch (_) {
+      _status.add(ChatConnectionStatus.disconnected);
+      rethrow;
+    }
   }
 
   @override
   Future<void> disconnect() async {
     final connection = _connection;
     _connection = null;
+    _connecting = null;
     if (connection == null) return;
     await connection.stop();
     _status.add(ChatConnectionStatus.disconnected);
@@ -82,12 +112,12 @@ class SignalRHubChatClient implements ChatSignalRClient {
 
   @override
   Future<void> joinGroup(String otherPartyId) async {
-    await _require().invoke('JoinClientGroup', args: [otherPartyId]);
+    await (await _ready()).invoke('JoinClientGroup', args: [otherPartyId]);
   }
 
   @override
   Future<void> leaveGroup(String otherPartyId) async {
-    await _require().invoke('LeaveClientChat', args: [otherPartyId]);
+    await (await _ready()).invoke('LeaveClientChat', args: [otherPartyId]);
   }
 
   @override
@@ -98,7 +128,7 @@ class SignalRHubChatClient implements ChatSignalRClient {
   }) async {
     // Positional order is the hub's, not this method's:
     // SendMessage(Guid clientId, string body, Guid messageId).
-    final ack = await _require().invoke(
+    final ack = await (await _ready()).invoke(
       'SendMessage',
       args: [otherPartyId, body, messageId],
     );
@@ -130,10 +160,23 @@ class SignalRHubChatClient implements ChatSignalRClient {
   static Map<String, dynamic> _asJson(Object value) =>
       Map<String, dynamic>.from(value as Map);
 
-  HubConnection _require() {
+  /// The connection, opening one or waiting for one already opening.
+  ///
+  /// Both call sites start the socket with `unawaited(connect())` so the rest of
+  /// the screen can render, which used to mean the first tap on a conversation
+  /// raced the handshake and threw. Awaiting it here turns that race into a short
+  /// wait.
+  ///
+  /// It doubles as the reconnect path: a failed attempt leaves both fields null,
+  /// so the retry action in the thread's error state opens a fresh socket rather
+  /// than hitting the same dead object again. A connect that fails throws its own
+  /// error, not a generic "call connect() first" that says nothing about why.
+  Future<HubConnection> _ready() async {
+    await connect();
+
     final connection = _connection;
     if (connection == null) {
-      throw StateError('connect() must be called before using the chat hub.');
+      throw StateError('The chat connection is not available.');
     }
     return connection;
   }
