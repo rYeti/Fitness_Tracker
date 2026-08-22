@@ -10,7 +10,7 @@ heading to the version it went out as, so a `## <version>` section is history:
 it is what those users have, and nothing new belongs in it. See
 `docs/android-release.md`.
 
-## Unreleased
+## 1.0.2+12
 
 - Trainer Console: Session Review no longer lists sessions from workout plans the client has moved off. Activating a new plan only deactivates the old one — every date it ever generated stays scheduled — so the trainer's history was padded with dates nobody had asked the client to train on, each shown as Missed. Sessions the client actually completed, skipped or logged against are kept regardless of what became of the plan. The same filter now applies to average adherence, per-client roster adherence and the 12-week attendance chart, all of which were counting those dates as planned-and-not-completed and so understating adherence.
 - Trainer Console: Session Review no longer shows exercises that are no longer in the workout, previously listed as Skipped. Removing an exercise from a workout failed server-side for any workout that had ever been scheduled (a restricted foreign key from the logged-session tables), so the exercise stayed in the workout on the server and was stamped onto every session generated afterwards, invisible in the app but visible to the trainer. Removal now works: sessions that logged nothing against the exercise lose it outright, and where sets were logged the exercise is retired from the workout instead of deleted, so the history keeps its name. See `docs/trainer-session-review.md`.

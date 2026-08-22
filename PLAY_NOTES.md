@@ -22,7 +22,7 @@ Markdown links, headings or emphasis, none of which Play renders.
 
 See `docs/android-release.md`.
 
-## Unreleased
+## 1.0.2+12
 
 Trainer Console fixes:
 
