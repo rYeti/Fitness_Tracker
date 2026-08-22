@@ -41,10 +41,14 @@ Gather evidence first. Report the numbers; they are half the deliverable.
   (`gym_tracking/presentation/view/…`) and flat (`progress_dashboard_view.dart`
   sitting directly in `feature/`). Map which features follow which, and whether the
   nesting earns itself where it exists.
-- **Duplicated concepts.** Near-identical modules are the strongest signal available:
-  `workouts/create_view.dart` and `workouts/edit_view.dart` are 2,048 and 1,761
-  lines. Diff them. Shared behaviour that drifted apart is worth more attention than
-  any abstraction you could invent.
+- **Duplicated concepts.** Shared behaviour that drifted apart is worth more attention
+  than any abstraction you could invent — but similar *names* are a hypothesis, not
+  evidence. Find candidate pairs (a `create_`/`edit_` pair, two screens with the same
+  suffix), then diff them whitespace-insensitively and compare method-name sets before
+  concluding anything. A pair that shares only `build()` is two different screens with
+  similar titles, and merging them makes the tree worse. Report the measurement either
+  way: a rejected duplication is a finding too, because it stops the same refactor
+  being proposed again next quarter.
 - **State ownership.** Where does each piece of state actually live, and who can
   mutate it? The **active client** selection must live once at app-shell level and be
   shared across Roster, Chat, Workout Builder and Nutrition — every place it is
