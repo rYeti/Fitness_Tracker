@@ -21,6 +21,14 @@ public class WorkoutExercise
     /// <summary>Optional superset group identifier; exercises sharing the same value are treated as a superset.</summary>
     public int? SupersetGroupId { get; set; }
 
+    /// <summary>When the exercise was taken out of the workout, or null while it is still
+    /// part of it. Set instead of deleting the row when scheduled sessions have already
+    /// logged sets against this entry: <see cref="ScheduledWorkoutExercise"/> holds a
+    /// restricted foreign key here, so removing the row would mean destroying that
+    /// history. Every read that answers "what is in this workout" must exclude
+    /// non-null values; reads that resolve historical logs must not.</summary>
+    public DateTime? RemovedAt { get; set; }
+
     /// <summary>Navigation property to the parent workout.</summary>
     public Workout Workout { get; set; } = null!;
 

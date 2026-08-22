@@ -58,8 +58,12 @@ public class ScheduledWorkoutRepository : IScheduledWorkoutRepository
             if (!ownsPlan) return null;
         }
 
+        // Retired exercises are kept only so already-logged sessions can still resolve
+        // them; they are not part of the workout any more, so a new session must not be
+        // stamped with one. Skipping that check is what put entries nobody could log
+        // against into every session generated after an exercise was dropped.
         var workoutExercises = await _context.WorkoutExercises
-            .Where(we => we.WorkoutId == sw.WorkoutId)
+            .Where(we => we.WorkoutId == sw.WorkoutId && we.RemovedAt == null)
             .OrderBy(we => we.OrderPosition)
             .ToListAsync();
 

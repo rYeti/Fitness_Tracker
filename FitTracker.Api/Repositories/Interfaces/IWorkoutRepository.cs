@@ -47,10 +47,17 @@ public interface IWorkoutRepository
     /// <returns>The updated workout exercise, or <c>null</c> if not found or not owned.</returns>
     Task<WorkoutExercise?> UpdateWorkoutExerciseAsync(Guid weId, Guid userId, WorkoutExerciseRequestDto dto);
 
-    /// <summary>Deletes a workout exercise entry owned by the specified user.</summary>
-    /// <param name="weId">The ID of the workout exercise to delete.</param>
+    /// <summary>Takes an exercise out of a workout owned by the specified user.</summary>
+    /// <remarks>The row is deleted outright only when no scheduled session still needs it.
+    /// Sessions that were generated but never logged against are cleared out of the way
+    /// first; if any session did log sets, the exercise is retired
+    /// (<see cref="WorkoutExercise.RemovedAt"/>) rather than deleted, so the workout loses
+    /// it without the logged history losing what it points at. Either way the exercise
+    /// stops being part of the workout, and calling again on an already-retired exercise
+    /// succeeds without changing anything.</remarks>
+    /// <param name="weId">The ID of the workout exercise to remove.</param>
     /// <param name="userId">The ID of the user who must own the parent workout.</param>
-    /// <returns><c>true</c> if deleted; <c>false</c> if not found or not owned.</returns>
+    /// <returns><c>true</c> if removed; <c>false</c> if not found or not owned.</returns>
     Task<bool> DeleteWorkoutExerciseAsync(Guid weId, Guid userId);
 
     /// <summary>Adds a set template to a workout exercise owned by the specified user.</summary>
@@ -58,6 +65,14 @@ public interface IWorkoutRepository
     /// <param name="userId">The ID of the user who must own the parent workout.</param>
     /// <returns>The newly created set template, or <c>null</c> if the workout exercise doesn't exist or isn't owned by <paramref name="userId"/>.</returns>
     Task<WorkoutSetTemplate?> AddSetTemplateAsync(WorkoutSetTemplate t, Guid userId);
+
+    /// <summary>Replaces every set template on a workout exercise with <paramref name="templates"/>,
+    /// in one transaction.</summary>
+    /// <param name="workoutExerciseId">The workout exercise whose prescription is being rewritten.</param>
+    /// <param name="userId">The ID of the user who must own the parent workout.</param>
+    /// <param name="templates">The complete new prescription — never partial, anything omitted is deleted.</param>
+    /// <returns>The stored templates, or <c>null</c> if the workout exercise doesn't exist or isn't owned by <paramref name="userId"/>.</returns>
+    Task<List<WorkoutSetTemplate>?> ReplaceSetTemplatesAsync(Guid workoutExerciseId, Guid userId, List<WorkoutSetTemplate> templates);
 
     /// <summary>Updates an existing set template owned by the specified user.</summary>
     /// <param name="id">The ID of the set template to update.</param>
