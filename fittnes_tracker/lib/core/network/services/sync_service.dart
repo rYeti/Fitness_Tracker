@@ -273,9 +273,10 @@ class SyncService {
       final templates = await _db.workoutDao.getSetTemplatesForWorkoutExercise(
         valid[i].id,
       );
-      final pending = templates.where((t) => t.syncStatus != 1).toList();
-      if (pending.isNotEmpty)
-        await _syncNewSetTemplatesBatch(pending, weServerId);
+      // The whole prescription, for the same reason as in
+      // _syncMissingWorkoutExercises: the endpoint replaces rather than appends.
+      if (templates.any((t) => t.syncStatus != 1))
+        await _syncNewSetTemplatesBatch(templates, weServerId);
     }
   }
 
@@ -306,6 +307,10 @@ class SyncService {
     _logger.i('Deleted workout exercise ${we.id} from server ${we.serverId}');
   }
 
+  /// Pushes an exercise's prescription. The endpoint replaces whatever the
+  /// exercise currently has, matching the local save path, which rebuilds every
+  /// set template rather than diffing them — so [templates] must always be the
+  /// exercise's complete list, never only the rows that still need syncing.
   Future<void> _syncNewSetTemplatesBatch(
     List<WorkoutSetTemplateData> templates,
     String workoutExerciseServerId,
@@ -762,10 +767,11 @@ class SyncService {
         for (final ex in syncedExercises) {
           final templates = await _db.workoutDao
               .getSetTemplatesForWorkoutExercise(ex.id);
-          final unsyncedTemplates =
-              templates.where((t) => t.serverId == null).toList();
-          if (unsyncedTemplates.isNotEmpty) {
-            await _syncNewSetTemplatesBatch(unsyncedTemplates, ex.serverId!);
+          // Push the whole prescription, not just the rows missing a serverId:
+          // the endpoint replaces what the exercise has, so a partial list would
+          // delete the templates that did make it across on an earlier attempt.
+          if (templates.any((t) => t.serverId == null)) {
+            await _syncNewSetTemplatesBatch(templates, ex.serverId!);
           }
         }
       } catch (e) {
@@ -1947,6 +1953,10 @@ class SyncService {
       final exercises = (w['exercises'] as List).cast<Map<String, dynamic>>();
       for (final ex in exercises) {
         final exServerId = ex['id'] as String;
+        // A retired exercise is still returned so that logged sessions can resolve
+        // what was performed, but it is no longer part of the workout — pulling it
+        // back in would put an exercise the user deleted back into their plan.
+        if (ex['removedAt'] != null) continue;
         if (await _db.workoutDao.getWorkoutExerciseByServerId(exServerId) !=
             null)
           continue;

@@ -125,13 +125,23 @@ public class WorkoutService : IWorkoutService
     /// <inheritdoc/>
     public async Task<List<WorkoutSetTemplateResponseDto>> AddSetTemplatesBatchAsync(Guid workoutExerciseId, Guid userId, List<WorkoutSetTemplateRequestDto> dtos)
     {
-        var results = new List<WorkoutSetTemplateResponseDto>();
-        foreach (var dto in dtos)
+        // The batch is the exercise's whole prescription, not an addition to it: the
+        // client rebuilds every set template locally whenever a workout is saved and
+        // then pushes the lot. Appending them left the previous generation behind, so
+        // an exercise re-saved twice reported three times as many sets as it has.
+        if (dtos.Count == 0) return [];
+
+        var templates = dtos.Select(dto => new WorkoutSetTemplate
         {
-            var created = await AddSetTemplateAsync(workoutExerciseId, userId, dto);
-            if (created != null) results.Add(created);
-        }
-        return results;
+            Id = Guid.NewGuid(),
+            WorkoutExerciseId = workoutExerciseId,
+            SetNumber = dto.SetNumber,
+            TargetReps = dto.TargetReps,
+            OrderPosition = dto.OrderPosition,
+        }).ToList();
+
+        var replaced = await _workoutRepository.ReplaceSetTemplatesAsync(workoutExerciseId, userId, templates);
+        return replaced == null ? [] : [.. replaced.Select(ToSetTemplateDto)];
     }
 
     /// <inheritdoc/>
@@ -170,6 +180,7 @@ public class WorkoutService : IWorkoutService
         OrderPosition = e.OrderPosition,
         Notes = e.Notes,
         SupersetGroupId = e.SupersetGroupId,
+        RemovedAt = e.RemovedAt,
         SetTemplates = [.. e.SetTemplates.Select(ToSetTemplateDto)],
     };
 

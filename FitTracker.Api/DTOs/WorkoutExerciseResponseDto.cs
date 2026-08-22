@@ -21,6 +21,12 @@ public class WorkoutExerciseResponseDto
     /// <summary>Optional superset group identifier.</summary>
     public int? SupersetGroupId { get; set; }
 
+    /// <summary>When this entry was removed from the workout, or null while it is still part
+    /// of it. Non-null entries are only carried so that already-logged sessions can still
+    /// resolve what was performed — they are not part of the workout any more and must not
+    /// be scheduled, prescribed, or counted.</summary>
+    public DateTime? RemovedAt { get; set; }
+
     /// <summary>The set templates defined for this exercise.</summary>
     public List<WorkoutSetTemplateResponseDto> SetTemplates { get; set; } = new();
 }

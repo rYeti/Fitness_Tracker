@@ -11,6 +11,7 @@ ForgeForm is a Flutter fitness app with an ASP.NET Core backend (JWT/OAuth/RBAC 
 - `trainer-console-spec.md` — full Trainer Console feature spec, phasing, and competitive positioning.
 - `docs/trainer-licensing.md` — trainer plans, seat limits, and where premium comes from. **Read before touching anything premium, invite- or seat-related.**
 - `design/trainer_console/design_handoff_trainer_console/README.md` — design handoff for the Trainer Console mockup. **Read this before touching any Trainer Console UI.**
+- `docs/trainer-session-review.md` — why the console showed a client more training than they had, and the rule it leaves behind. **Read before touching scheduled workouts, workout exercises or set templates on either side of the API** — those tables record what was true at a point in time, and reading them as the present broke Session Review three separate ways.
 
 ## Design mockup handling — IMPORTANT
 `design/trainer_console/design_handoff_trainer_console/Trainer Console.dc.html` is a **high-fidelity reference prototype, not production code**:

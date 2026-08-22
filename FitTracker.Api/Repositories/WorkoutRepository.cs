@@ -110,8 +110,48 @@ public class WorkoutRepository : IWorkoutRepository
             .Include(e => e.Workout)
             .FirstOrDefaultAsync(e => e.Id == weId && e.Workout.UserId == userId);
         if (we == null) return false;
+        if (we.RemovedAt != null) return true;
 
-        _context.WorkoutExercises.Remove(we);
+        // Scheduling a workout stamps a ScheduledWorkoutExercise row per exercise, and
+        // that row holds a restricted foreign key back here. Plainly removing the
+        // exercise therefore failed with a foreign-key violation for any workout the
+        // user had ever scheduled — the client's DELETE 500'd, the exercise stayed in
+        // the workout server-side, and every session generated afterwards carried it
+        // again as an entry nobody logged anything against.
+        var scheduledEntries = await _context.ScheduledWorkoutExercises
+            .Where(e => e.WorkoutExerciseId == weId)
+            .Select(e => new { e.Id, HasLoggedSets = e.Sets.Any() })
+            .ToListAsync();
+
+        // Entries with nothing logged are placeholders for a session that was never
+        // performed, or one still in the future. Nothing is lost by dropping them.
+        var emptyEntryIds = scheduledEntries.Where(e => !e.HasLoggedSets).Select(e => e.Id).ToList();
+        if (emptyEntryIds.Count > 0)
+        {
+            await _context.ScheduledWorkoutExercises
+                .Where(e => emptyEntryIds.Contains(e.Id))
+                .ExecuteDeleteAsync();
+
+            // ExecuteDelete goes straight to the database and leaves the change tracker
+            // believing those rows are still there. Anything already tracking one would
+            // otherwise take part in the SaveChanges below and re-assert a row that no
+            // longer exists.
+            DetachTracked<ScheduledWorkoutExercise>(e => emptyEntryIds.Contains(e.Id));
+        }
+
+        if (scheduledEntries.Count == emptyEntryIds.Count)
+        {
+            // Nothing references the exercise any more, so it can go for good.
+            _context.WorkoutExercises.Remove(we);
+        }
+        else
+        {
+            // Sets were logged against it in past sessions. Deleting the row would take
+            // that history with it, so retire the exercise instead: it stops being part
+            // of the workout, but stays resolvable for the sessions that used it.
+            we.RemovedAt = DateTime.UtcNow;
+        }
+
         await _context.SaveChangesAsync();
         return true;
     }
@@ -129,6 +169,23 @@ public class WorkoutRepository : IWorkoutRepository
     }
 
     /// <inheritdoc/>
+    public async Task<List<WorkoutSetTemplate>?> ReplaceSetTemplatesAsync(Guid workoutExerciseId, Guid userId, List<WorkoutSetTemplate> templates)
+    {
+        var ownsExercise = await _context.WorkoutExercises
+            .AnyAsync(e => e.Id == workoutExerciseId && e.Workout.UserId == userId);
+        if (!ownsExercise) return null;
+
+        await _context.WorkoutSetTemplates
+            .Where(t => t.WorkoutExerciseId == workoutExerciseId)
+            .ExecuteDeleteAsync();
+        DetachTracked<WorkoutSetTemplate>(t => t.WorkoutExerciseId == workoutExerciseId);
+
+        _context.WorkoutSetTemplates.AddRange(templates);
+        await _context.SaveChangesAsync();
+        return templates;
+    }
+
+    /// <inheritdoc/>
     public async Task<WorkoutSetTemplate?> UpdateSetTemplateAsync(Guid id, Guid userId, WorkoutSetTemplateRequestDto dto)
     {
         var template = await _context.WorkoutSetTemplates
@@ -143,6 +200,16 @@ public class WorkoutRepository : IWorkoutRepository
 
         await _context.SaveChangesAsync();
         return template;
+    }
+
+    /// <summary>Drops the change tracker's copies of entities a bulk delete has already
+    /// removed from the database, so a later SaveChanges doesn't act on them.</summary>
+    private void DetachTracked<T>(Func<T, bool> match) where T : class
+    {
+        var stale = _context.ChangeTracker.Entries<T>()
+            .Where(e => match(e.Entity))
+            .ToList();
+        foreach (var entry in stale) entry.State = EntityState.Detached;
     }
 
     /// <inheritdoc/>

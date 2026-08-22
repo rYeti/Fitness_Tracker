@@ -37,7 +37,7 @@ public class TrainerConsoleService(
 
         foreach (var client in clients)
         {
-            var scheduled = await _scheduledWorkoutService.GetUserScheduledWorkoutsAsync(client.ClientId);
+            var scheduled = await GetCurrentProgrammeSessionsAsync(client.ClientId);
             var thisWeek = scheduled.Where(w => w.ScheduledDate >= weekStart && w.ScheduledDate < weekStart.AddDays(7)).ToList();
             var planned = thisWeek.Count;
             var completed = thisWeek.Count(w => w.IsCompleted);
@@ -71,14 +71,16 @@ public class TrainerConsoleService(
         var roster = new List<TrainerRosterEntryDto>();
         foreach (var client in clients)
         {
-            var scheduled = await _scheduledWorkoutService.GetUserScheduledWorkoutsAsync(client.ClientId);
+            var plans = await _workoutPlanService.GetUserPlansAsync(client.ClientId);
+            var activePlan = plans.FirstOrDefault(p => p.IsActive);
+
+            var scheduled = FilterToCurrentProgramme(
+                await _scheduledWorkoutService.GetUserScheduledWorkoutsAsync(client.ClientId),
+                plans);
             var window = scheduled
                 .Where(w => w.ScheduledDate >= windowStart && w.ScheduledDate.Date <= DateTime.UtcNow.Date)
                 .ToList();
             var completed = window.Count(w => w.IsCompleted);
-
-            var plans = await _workoutPlanService.GetUserPlansAsync(client.ClientId);
-            var activePlan = plans.FirstOrDefault(p => p.IsActive);
 
             roster.Add(new TrainerRosterEntryDto
             {
@@ -116,7 +118,10 @@ public class TrainerConsoleService(
         if (!isTrainer) return null;
         var weekStart = DateTime.UtcNow.Date.AddDays(-(int)DateTime.UtcNow.DayOfWeek + 1);
         var attendanceWeek = new List<AttendanceWeekDto>();
-        var scheduled = await _scheduledWorkoutService.GetUserScheduledWorkoutsAsync(clientId);
+        var currentClientPlan = await _workoutPlanService.GetUserPlansAsync(clientId);
+        var scheduled = FilterToCurrentProgramme(
+            await _scheduledWorkoutService.GetUserScheduledWorkoutsAsync(clientId),
+            currentClientPlan);
         for (var i = 0; i < 12; i++)
         {
             // Each iteration gets its own week window, shifted `i` weeks back from
@@ -136,7 +141,6 @@ public class TrainerConsoleService(
             };
             attendanceWeek.Add(attendance);
         }
-        var currentClientPlan = await _workoutPlanService.GetUserPlansAsync(clientId);
         var activePlan = currentClientPlan.FirstOrDefault(p => p.IsActive == true);
 
         // Two-argument SelectMany overloads carry the outer item along as you
@@ -212,7 +216,7 @@ public class TrainerConsoleService(
         var isTrainer = await _trainerClientService.IsActiveTrainerOfAsync(trainerId, clientId);
         if (!isTrainer) return null;
 
-        var scheduled = await _scheduledWorkoutService.GetUserScheduledWorkoutsAsync(clientId);
+        var scheduled = await GetCurrentProgrammeSessionsAsync(clientId);
         if (scheduled.Count == 0) return [];
 
         // Name lookups, fetched once rather than per session/exercise.
@@ -253,26 +257,50 @@ public class TrainerConsoleService(
             {
                 workoutExercisesById.TryGetValue(scheduledExercise.WorkoutExerciseId, out var exerciseTemplate);
 
+                var loggedSets = scheduledExercise.Sets.OrderBy(s => s.SetNumber).ToList();
+
+                // Whether this entry is still part of the workout the session was built
+                // from. It stops being so when the exercise is retired out of the workout,
+                // and when the scheduled workout is later pointed at a different workout —
+                // neither of which clears the entries already stamped against it.
+                var stillProgrammed = exerciseTemplate is not null
+                    && exerciseTemplate.RemovedAt is null
+                    && exerciseTemplate.WorkoutId == workout.WorkoutId;
+
+                // An entry that is no longer programmed and that the client never logged
+                // anything against describes nothing that ever happened. Reporting it as a
+                // skipped exercise blamed the client for missing work that was not in
+                // their workout. Where sets *were* logged it is real history and stays,
+                // without a prescription, since there is no longer one to compare against.
+                if (!stillProgrammed && loggedSets.Count == 0) continue;
+
                 // A substituted exercise reports under what the client actually did,
                 // not what was originally programmed.
                 var exerciseId = scheduledExercise.OverrideExerciseId ?? exerciseTemplate?.ExerciseId;
 
+                // One template per set number. Re-saving a workout used to append a fresh
+                // copy of the whole prescription server-side instead of replacing it, so
+                // the raw rows can hold several generations of the same three sets and
+                // counting them reported an exercise as having nine.
+                var setTemplates = new List<WorkoutSetTemplateResponseDto>();
+                if (stillProgrammed)
+                {
+                    setTemplates = exerciseTemplate!.SetTemplates
+                        .GroupBy(t => t.SetNumber)
+                        .OrderBy(g => g.Key)
+                        .Select(g => g.OrderBy(t => t.OrderPosition).First())
+                        .ToList();
+                }
+
                 // Targets are per set, not per exercise — a 12/10/8 pyramid must compare
                 // each logged set against its own target, not all of them against the first.
-                var targetsBySetNumber = exerciseTemplate?.SetTemplates
-                    .GroupBy(t => t.SetNumber)
-                    .ToDictionary(g => g.Key, g => g.First().TargetReps);
+                var targetsBySetNumber = setTemplates.ToDictionary(t => t.SetNumber, t => t.TargetReps);
 
-                var prescribed = exerciseTemplate is null ? null : new PrescribedSetsDto
+                var prescribed = stillProgrammed ? new PrescribedSetsDto
                 {
-                    SetCount = exerciseTemplate.SetTemplates.Count,
-                    TargetRepsPerSet = exerciseTemplate.SetTemplates
-                        .OrderBy(t => t.OrderPosition)
-                        .Select(t => t.TargetReps)
-                        .ToList(),
-                };
-
-                var loggedSets = scheduledExercise.Sets.OrderBy(s => s.SetNumber).ToList();
+                    SetCount = setTemplates.Count,
+                    TargetRepsPerSet = [.. setTemplates.Select(t => t.TargetReps)],
+                } : null;
 
                 var setLogs = new List<SessionSetLogDto>();
                 var exerciseHasPr = false;
@@ -280,7 +308,7 @@ public class TrainerConsoleService(
                 foreach (var set in loggedSets)
                 {
                     var targetReps = ParseTargetRepsFloor(
-                        targetsBySetNumber?.GetValueOrDefault(set.SetNumber));
+                        targetsBySetNumber.GetValueOrDefault(set.SetNumber));
 
                     setLogs.Add(new SessionSetLogDto
                     {
@@ -343,6 +371,40 @@ public class TrainerConsoleService(
 
         sessions.Reverse();
         return sessions.Take(count).ToList();
+    }
+
+    /// <summary>A client's scheduled sessions with the leftovers of abandoned plans removed —
+    /// see <see cref="FilterToCurrentProgramme"/>.</summary>
+    private async Task<List<ScheduledWorkoutResponseDto>> GetCurrentProgrammeSessionsAsync(Guid clientId)
+    {
+        var scheduled = await _scheduledWorkoutService.GetUserScheduledWorkoutsAsync(clientId);
+        if (scheduled.Count == 0) return scheduled;
+
+        var plans = await _workoutPlanService.GetUserPlansAsync(clientId);
+        return FilterToCurrentProgramme(scheduled, plans);
+    }
+
+    /// <summary>Drops the sessions a client is no longer on the hook for, so that every
+    /// trainer-facing count and list is drawn from the same set of sessions.</summary>
+    /// <remarks>Moving a client onto a new plan only clears <c>IsActive</c> on the old one:
+    /// every date that plan ever generated stays in ScheduledWorkouts, unstarted, forever.
+    /// Counted as planned-and-not-completed they hold adherence down for work that was never
+    /// asked of the client, and listed in Session Review they read as a client who stopped
+    /// turning up. A session from a dead plan is only real if the client engaged with it
+    /// while the plan was live; sessions scheduled by hand carry no plan and are always the
+    /// client's current business.</remarks>
+    private static List<ScheduledWorkoutResponseDto> FilterToCurrentProgramme(
+        List<ScheduledWorkoutResponseDto> scheduled,
+        List<WorkoutPlanResponseDto> plans)
+    {
+        var activePlanIds = plans.Where(p => p.IsActive).Select(p => p.Id).ToHashSet();
+
+        return scheduled.Where(w =>
+            w.WorkoutPlanId is not Guid planId
+            || activePlanIds.Contains(planId)
+            || w.IsCompleted
+            || w.IsSkipped
+            || w.Exercises.Any(e => e.Sets.Count > 0)).ToList();
     }
 
     /// <summary>Classifies a session for Session Review: an explicit skip, or a session
