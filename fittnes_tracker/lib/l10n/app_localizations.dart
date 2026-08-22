@@ -5772,6 +5772,67 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{remaining} left'**
   String calorieRingLeft(int remaining);
+
+  /// No description provided for @proteinShort.
+  ///
+  /// In en, this message translates to:
+  /// **'P'**
+  String get proteinShort;
+
+  /// No description provided for @carbsShort.
+  ///
+  /// In en, this message translates to:
+  /// **'C'**
+  String get carbsShort;
+
+  /// No description provided for @fatShort.
+  ///
+  /// In en, this message translates to:
+  /// **'F'**
+  String get fatShort;
+
+  /// No description provided for @gramsShort.
+  ///
+  /// In en, this message translates to:
+  /// **'{grams} g'**
+  String gramsShort(int grams);
+
+  /// No description provided for @foodCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 food} other{{count} foods}}'**
+  String foodCount(num count);
+
+  /// No description provided for @mealDetailSemantics.
+  ///
+  /// In en, this message translates to:
+  /// **'{meal}, {calories} kcal. Open to see every food logged.'**
+  String mealDetailSemantics(String meal, int calories);
+
+  /// No description provided for @foodRowSemantics.
+  ///
+  /// In en, this message translates to:
+  /// **'{name}, {grams} grams, {calories} kcal, protein {protein}g, carbs {carbs}g, fat {fat}g'**
+  String foodRowSemantics(
+    String name,
+    int grams,
+    int calories,
+    int protein,
+    int carbs,
+    int fat,
+  );
+
+  /// No description provided for @foodRowSemanticsNoWeight.
+  ///
+  /// In en, this message translates to:
+  /// **'{name}, {calories} kcal, protein {protein}g, carbs {carbs}g, fat {fat}g'**
+  String foodRowSemanticsNoWeight(
+    String name,
+    int calories,
+    int protein,
+    int carbs,
+    int fat,
+  );
 }
 
 class _AppLocalizationsDelegate

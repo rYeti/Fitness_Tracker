@@ -9,6 +9,7 @@ heading must be the full `pubspec.yaml` version, `+buildNumber` included. See
 
 ## 1.0.2+11
 
+- Trainer Console: tapping a meal in the Nutrition tab now opens it, listing every food in that meal with its own serving weight, calories and macros. The meal row only ever had space for a one-line list of names, so which item carried the calories wasn't visible anywhere. The nutrition endpoint now returns per-food nutrition alongside the names it already sent; a meal with no per-food detail stays a plain, non-tappable row.
 - Fixed the Trainer Console's Nutrition tab failing with "Could not load this client's nutrition" for every client on every date, and Client Detail failing with it. The nutrition endpoint passed the requested day to Postgres without a UTC kind, which Npgsql rejects outright for a `timestamp with time zone` column, so the request 500'd before it read anything. Client Detail loads its three panels together, so the same error blanked that screen too.
 - Fixed the trainer-facing nutrition day being off by one for any client not in UTC. Meals are logged against the client's local midnight and stored converted to UTC, so a German client's Tuesday sits at 22:00 Monday in the database; the summary read midnight-to-midnight in UTC and so reported the wrong day's food. Days are now matched against the day they were logged on. Clients at UTC+13/+14 (New Zealand in summer, Samoa, Kiribati) still read one day early.
 - The 7-day nutrition trend now loads in a single query instead of seven sequential ones.

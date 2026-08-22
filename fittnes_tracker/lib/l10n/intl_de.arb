@@ -1584,5 +1584,13 @@
   "calorieRingRemaining": "{eaten} von {goal} kcal, {remaining} übrig",
   "calorieRingGoal": "/ {goal} kcal",
   "calorieRingOverBy": "{over} darüber",
-  "calorieRingLeft": "{remaining} übrig"
+  "calorieRingLeft": "{remaining} übrig",
+  "proteinShort": "P",
+  "carbsShort": "K",
+  "fatShort": "F",
+  "gramsShort": "{grams} g",
+  "foodCount": "{count, plural, =1{1 Lebensmittel} other{{count} Lebensmittel}}",
+  "mealDetailSemantics": "{meal}, {calories} kcal. Öffnen, um alle erfassten Lebensmittel zu sehen.",
+  "foodRowSemantics": "{name}, {grams} Gramm, {calories} kcal, Protein {protein} g, Kohlenhydrate {carbs} g, Fett {fat} g",
+  "foodRowSemanticsNoWeight": "{name}, {calories} kcal, Protein {protein} g, Kohlenhydrate {carbs} g, Fett {fat} g"
 }
