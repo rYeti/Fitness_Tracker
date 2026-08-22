@@ -10,16 +10,24 @@ name: Android Release
 #
 #   git tag v1.0.3 && git push origin v1.0.3
 #
-# Two things must be updated before a release, both checked by the preflight
-# step below so a forgotten one fails in seconds rather than being rejected by
-# Play minutes later:
+# The build number is NOT typed by hand. Every successful publish leaves a
+# `play/<version>` tag behind, and the next run releases one above the highest
+# of those — so a versionCode can never be uploaded twice, which is what
+# rejected two releases in a row before this was automated. See
+# docs/android-release.md, "Why the build number is CI's job".
 #
-#   1. `version:` in fittnes_tracker/pubspec.yaml — and the tag must match it.
-#      That single line is the whole version: build.gradle.kts reads
-#      flutter.versionName/versionCode from it and needs no edit.
-#   2. A `## <version>` section in both CHANGELOG.md (the engineering record,
-#      any length) and PLAY_NOTES.md (the short blurb published to Play, capped
-#      at 500 characters — Play's own per-locale limit).
+# One thing must be updated before a release, checked by the preflight step
+# below so a forgotten one fails in seconds rather than being rejected by Play
+# minutes later: a `## Unreleased` section in both CHANGELOG.md (the
+# engineering record, any length) and PLAY_NOTES.md (the short blurb published
+# to Play, capped at 500 characters — Play's own per-locale limit). Publishing
+# renames those headings to the version they went out as, so a release
+# physically cannot reuse the previous one's notes.
+#
+# The version NAME still lives in fittnes_tracker/pubspec.yaml and is still
+# yours to bump (1.0.2 -> 1.0.3) when a release deserves it; a v* tag has to
+# match it. The `+N` in that file is written by this workflow and records what
+# last published.
 #
 # With no PLAY_SERVICE_ACCOUNT_JSON secret the run still builds and signs the
 # bundle and attaches it for manual upload, which is what a first release needs
@@ -45,6 +53,13 @@ on:
         type: choice
         options: [completed, draft, inProgress]
 
+# Two runs at once would compute the same build number from the same tags and
+# the second upload would be rejected. Queue them instead of racing; never
+# cancel, because a cancelled run may already have published.
+concurrency:
+  group: android-release
+  cancel-in-progress: false
+
 env:
   # Tag pushes go to the internal track: instant, testers only, no review.
   # Promote from the Play Console, or run the workflow manually to pick a
@@ -58,12 +73,22 @@ env:
 jobs:
   release:
     runs-on: ubuntu-latest
+
+    # The run records what it published back into the repo: a play/<version>
+    # tag, and a commit stamping pubspec.yaml and both note files.
+    permissions:
+      contents: write
+
     defaults:
       run:
         working-directory: fittnes_tracker
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The build number is derived from the play/* tags, so this needs
+          # every tag — the default shallow fetch brings none of them.
+          fetch-depth: 0
 
       # Everything that can be checked without a toolchain is checked here, in
       # one step, so a misconfigured release fails in seconds with every
@@ -83,42 +108,61 @@ jobs:
           fail() { echo "::error::$1"; failed=1; }
 
           # --- Version -------------------------------------------------------
-          # pubspec.yaml is the only place the app version lives. Gradle reads
-          # flutter.versionName/versionCode, which the Flutter plugin derives
-          # from this line, so android/app/build.gradle.kts needs no edit.
-          # "1.0.2+11" -> name 1.0.2, versionCode 11.
-          version="$(grep -m1 '^version:' pubspec.yaml | awk '{print $2}')"
-          name="${version%%+*}"
-          build="${version##*+}"
-          echo "pubspec version: $version"
+          # pubspec.yaml holds the version NAME, and its `+N` records the build
+          # number that last published — both read here, neither typed for this
+          # release. android/app/build.gradle.kts still needs no edit: it sets
+          # versionCode/versionName from flutter.versionCode/versionName, and
+          # the --build-number passed to `flutter build` below feeds the first.
+          pubspec_version="$(grep -m1 '^version:' pubspec.yaml | awk '{print $2}')"
+          name="${pubspec_version%%+*}"
+          last="${pubspec_version##*+}"
+          echo "pubspec version: $pubspec_version"
 
-          if [ "$build" = "$version" ]; then
-            fail "pubspec version '$version' has no +buildNumber. Play needs a versionCode, and it must be higher than every previous upload."
+          if [ "$last" = "$pubspec_version" ]; then
+            fail "pubspec version '$pubspec_version' has no +buildNumber. That number records the build that last published and is the floor the next one is computed from."
+            last=0
           fi
+
+          # Every successful publish tags the commit `play/<version>`, so the
+          # highest of those is the last versionCode Play has burned — the one
+          # fact about Play that this repo can hold on its own. pubspec's own
+          # number is the floor, which is what makes the first run after this
+          # was introduced compute 11 + 1 rather than starting from zero.
+          for tag in $(git tag -l 'play/*'); do
+            n="${tag##*+}"
+            case "$n" in ''|*[!0-9]*) continue ;; esac
+            if [ "$n" -gt "$last" ]; then last="$n"; fi
+          done
+
+          build=$((last + 1))
+          version="$name+$build"
+          echo "Releasing $version (previous versionCode: $last)"
 
           if [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
             tag_name="${GITHUB_REF_NAME#v}"
             if [ "$name" != "$tag_name" ]; then
-              fail "Tag $GITHUB_REF_NAME does not match pubspec version $name. Bump 'version:' in fittnes_tracker/pubspec.yaml and re-tag."
+              fail "Tag $GITHUB_REF_NAME does not match pubspec version name $name. Bump 'version:' in fittnes_tracker/pubspec.yaml and re-tag."
             fi
           fi
 
           # --- Release notes -------------------------------------------------
-          # Two audiences, two files, both keyed by the full version so neither
-          # can silently go stale — a release physically cannot reuse the
-          # previous version's notes.
+          # Two audiences, two files. Both carry a `## Unreleased` section while
+          # a release is being written, and publishing renames it to the version
+          # it went out as — so a release cannot silently ship the previous
+          # one's notes: the section read here stops existing under that name
+          # the moment it has shipped.
           #   CHANGELOG.md  the engineering record. No length limit.
           #   PLAY_NOTES.md the short blurb Play shows users. Capped at 500.
           section() {
-            awk -v want="## $version" '
-              $0 == want { inside = 1; next }
+            awk '
+              $0 == "## Unreleased" { inside = 1; next }
               inside && /^## / { exit }
               inside { print }
             ' "$1" | sed -e '/./,$!d' | tac | sed -e '/./,$!d' | tac
           }
 
           if [ -z "$(section "$GITHUB_WORKSPACE/CHANGELOG.md")" ]; then
-            fail "CHANGELOG.md has no '## $version' section. Write the engineering notes for this release."
+            fail "CHANGELOG.md has no '## Unreleased' section. Write the engineering notes for this release — the previous section was renamed to its version when it published."
           fi
 
           notes_dir="$GITHUB_WORKSPACE/whatsnew"
@@ -126,7 +170,7 @@ jobs:
           section "$GITHUB_WORKSPACE/PLAY_NOTES.md" > "$notes_dir/whatsnew-$PLAY_LOCALE"
 
           if [ ! -s "$notes_dir/whatsnew-$PLAY_LOCALE" ]; then
-            fail "PLAY_NOTES.md has no '## $version' section. Write the short user-facing blurb — it is what Play shows on the store listing."
+            fail "PLAY_NOTES.md has no '## Unreleased' section. Write the short user-facing blurb — it is what Play shows on the store listing, and the previous one was renamed to its version when it published."
           else
             # Play rejects release notes over 500 characters per locale.
             # Truncating would cut a sentence in half in front of real users,
@@ -134,7 +178,7 @@ jobs:
             chars="$(LC_ALL=C.UTF-8 wc -m < "$notes_dir/whatsnew-$PLAY_LOCALE" | tr -d ' ')"
             echo "Play notes: $chars characters"
             if [ "$chars" -gt 500 ]; then
-              fail "The '## $version' section of PLAY_NOTES.md is $chars characters; Play allows 500 per locale. Shorten it — the long version belongs in CHANGELOG.md."
+              fail "The '## Unreleased' section of PLAY_NOTES.md is $chars characters; Play allows 500 per locale. Shorten it — the long version belongs in CHANGELOG.md."
             fi
           fi
 
@@ -169,6 +213,7 @@ jobs:
           fi
           {
             echo "version=$version"
+            echo "build=$build"
             echo "publish=$publish"
           } >> "$GITHUB_OUTPUT"
           echo "Ready to build $version (publish to Play: $publish)"
@@ -220,8 +265,10 @@ jobs:
             -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" > /dev/null
           echo "Keystore OK (alias $KEY_ALIAS)"
 
+      # --build-number is the computed versionCode; the version name still
+      # comes from pubspec.yaml.
       - name: Build app bundle
-        run: flutter build appbundle --release
+        run: flutter build appbundle --release --build-number "${{ steps.preflight.outputs.build }}"
 
       - name: Publish to Google Play
         if: steps.preflight.outputs.publish == 'true'
@@ -232,12 +279,83 @@ jobs:
           releaseFiles: fittnes_tracker/build/app/outputs/bundle/release/app-release.aab
           track: ${{ inputs.track || env.DEFAULT_TRACK }}
           status: ${{ inputs.status || 'completed' }}
-          # Written by the preflight step from this version's PLAY_NOTES.md
+          # Written by the preflight step from PLAY_NOTES.md's '## Unreleased'
           # section, so the notes on Play and the notes in the repo can't drift.
           whatsNewDirectory: whatsnew
           # The release build runs R8 (isMinifyEnabled), so without this every
           # Play Console stack trace is obfuscated.
           mappingFile: fittnes_tracker/build/app/outputs/mapping/release/mapping.txt
+
+      # A published versionCode is burned forever, so the fact that it went out
+      # has to outlive the run. The tag is what the next release computes from;
+      # the commit is what keeps pubspec.yaml and the notes honest about what
+      # shipped, and is why an already-published section can't be written into.
+      - name: Record the release
+        if: steps.preflight.outputs.publish == 'true'
+        env:
+          VERSION: ${{ steps.preflight.outputs.version }}
+          BUILD: ${{ steps.preflight.outputs.build }}
+          TARGET_BRANCH: ${{ github.ref_type == 'branch' && github.ref_name || github.event.repository.default_branch }}
+        run: |
+          set -uo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # The tag goes first and on its own. It is the load-bearing half: as
+          # long as it lands, the next run cannot reuse this versionCode, even
+          # if everything below fails.
+          git tag "play/$VERSION"
+          if ! git push origin "refs/tags/play/$VERSION"; then
+            echo "::error::$VERSION was published to Play — the release shipped and versionCode $BUILD is burned — but the play/$VERSION tag could not be pushed. Create it by hand (git tag play/$VERSION $GITHUB_SHA && git push origin play/$VERSION), or the next release will try to upload $BUILD again and be rejected."
+            exit 1
+          fi
+
+          sed -i -E "s/^version: .*/version: $VERSION/" pubspec.yaml
+
+          # First '## Unreleased' only — every older section is already stamped.
+          for f in "$GITHUB_WORKSPACE/CHANGELOG.md" "$GITHUB_WORKSPACE/PLAY_NOTES.md"; do
+            awk -v stamped="## $VERSION" '
+              !seen && $0 == "## Unreleased" { print stamped; seen = 1; next }
+              { print }
+            ' "$f" > "$f.stamped" && mv "$f.stamped" "$f"
+          done
+
+          # A half-applied stamp is worse than none: the next release would find
+          # a '## Unreleased' section holding notes that have already shipped
+          # and publish them again. Check the rename actually took.
+          for f in "$GITHUB_WORKSPACE/CHANGELOG.md" "$GITHUB_WORKSPACE/PLAY_NOTES.md"; do
+            if grep -qx '## Unreleased' "$f"; then
+              echo "::error::$VERSION was published to Play — the release shipped and play/$VERSION records it — but the '## Unreleased' heading in $(basename "$f") could not be renamed. Rename it to '## $VERSION' by hand, or the next release will republish these notes."
+              exit 1
+            fi
+          done
+
+          git add pubspec.yaml "$GITHUB_WORKSPACE/CHANGELOG.md" "$GITHUB_WORKSPACE/PLAY_NOTES.md"
+          # [skip ci]: deploy.yml ships the API on every push to main, and this
+          # commit changes nothing any of the other workflows build.
+          if ! git commit -m "Release $VERSION [skip ci]"; then
+            echo "::error::$VERSION was published to Play — the release shipped and play/$VERSION records it — but the stamp could not be committed. On $TARGET_BRANCH, set 'version: $VERSION' in fittnes_tracker/pubspec.yaml and rename '## Unreleased' to '## $VERSION' in CHANGELOG.md and PLAY_NOTES.md."
+            exit 1
+          fi
+
+          pushed=0
+          for attempt in 1 2 3; do
+            if git push origin "HEAD:refs/heads/$TARGET_BRANCH"; then
+              pushed=1
+              break
+            fi
+            # The build takes ~10 minutes, so the branch may well have moved.
+            # Replay the stamp on top of it rather than forcing over anyone.
+            git fetch origin "$TARGET_BRANCH" || true
+            git rebase "origin/$TARGET_BRANCH" || { git rebase --abort || true; break; }
+            sleep $((attempt * 5))
+          done
+
+          if [ "$pushed" -ne 1 ]; then
+            echo "::error::$VERSION was published to Play — the release shipped, versionCode $BUILD is burned and play/$VERSION records it. Only the repo stamp failed. On $TARGET_BRANCH: set 'version: $VERSION' in fittnes_tracker/pubspec.yaml and rename the '## Unreleased' heading to '## $VERSION' in CHANGELOG.md and PLAY_NOTES.md. Until that is done the next release will republish these same notes."
+            exit 1
+          fi
+          echo "Stamped $VERSION on $TARGET_BRANCH and tagged play/$VERSION."
 
       - name: Remove signing material
         if: always()
@@ -264,7 +382,18 @@ jobs:
               echo
               echo "No \`PLAY_SERVICE_ACCOUNT_JSON\` secret, so nothing was uploaded to Play."
               echo "Download the **app-release-aab** artifact from this run and upload it in the"
-              echo "Play Console by hand. Release notes for this version are in \`PLAY_NOTES.md\`."
+              echo "Play Console by hand. Release notes for this version are in \`PLAY_NOTES.md\`,"
+              echo "under \`## Unreleased\`."
+              echo
+              echo "The bundle carries versionCode \`${{ steps.preflight.outputs.build }}\`. Nothing was"
+              echo "recorded in the repo, because nothing was burned — **if you do upload it by hand**,"
+              echo "record it so the next release doesn't reuse the number:"
+              echo
+              echo '```'
+              echo "git tag play/$version && git push origin play/$version"
+              echo '```'
+              echo
+              echo "and stamp \`$version\` into \`fittnes_tracker/pubspec.yaml\` and both note headings."
               echo
               echo "See \`docs/android-release.md\` to set the service account up."
             } >> "$GITHUB_STEP_SUMMARY"
