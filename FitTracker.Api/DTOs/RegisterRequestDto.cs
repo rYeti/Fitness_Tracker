@@ -28,4 +28,13 @@ public class RegisterRequestDto
     /// <summary>The user's date of birth.</summary>
     public DateTime DateOfBirth { get; set; }
 
+    /// <summary>What kind of account to create: <c>Trainee</c> (the default) or
+    /// <c>Trainer</c>.
+    ///
+    /// A string parsed at the call site rather than a bound enum, matching
+    /// CheckoutRequest.Tier — no JsonStringEnumConverter is registered, so a
+    /// bound enum would only accept its numeric value. Anything unrecognised is
+    /// rejected rather than defaulted, but omitting it entirely means Trainee,
+    /// so a payload that never mentions it can't produce a trainer by accident.</summary>
+    public string? AccountType { get; set; }
 }

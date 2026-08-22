@@ -7,7 +7,13 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace FitTracker.Api.Controllers;
 
-/// <summary>A trainer's plan: what it covers, and how to buy or manage it.</summary>
+/// <summary>A trainer's plan: what it covers, and how to buy or manage it.
+///
+/// Every action here is trainer-only, and none of them provisions. Being a
+/// trainer is decided once, when the account is registered as one — see
+/// AuthService.RegisterAsync. This controller used to mint a Free licence from
+/// its own GET, which quietly turned any user who opened the plan screen into a
+/// permanent trainer.</summary>
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
@@ -15,25 +21,16 @@ public class TrainerLicenceController(ITrainerLicenceService service) : Controll
 {
     private readonly ITrainerLicenceService _service = service;
 
-    /// <summary>The caller's plan. Provisions a Free licence on first call —
-    /// which is what turns a user into a trainer.</summary>
+    /// <summary>The caller's plan, or a <c>not_a_trainer</c> refusal if they
+    /// aren't one. A pure read — it provisions nothing.</summary>
     [HttpGet("me")]
     public async Task<IActionResult> GetMine()
     {
         var userId = GetUserId();
         if (userId == null) return Unauthorized();
-        return Ok(await _service.GetOrCreateAsync(userId.Value));
-    }
 
-    /// <summary>Explicit opt-in to being a trainer. Same effect as GET me, but
-    /// says so at the call site rather than relying on a read having a side
-    /// effect.</summary>
-    [HttpPost("me")]
-    public async Task<IActionResult> BecomeTrainer()
-    {
-        var userId = GetUserId();
-        if (userId == null) return Unauthorized();
-        return Ok(await _service.GetOrCreateAsync(userId.Value));
+        var licence = await _service.GetMineAsync(userId.Value);
+        return licence == null ? NotATrainer() : Ok(licence);
     }
 
     /// <summary>Starts Stripe Checkout for a paid tier and returns the URL to
@@ -43,6 +40,7 @@ public class TrainerLicenceController(ITrainerLicenceService service) : Controll
     {
         var userId = GetUserId();
         if (userId == null) return Unauthorized();
+        if (!await _service.IsTrainerAsync(userId.Value)) return NotATrainer();
 
         if (!Enum.TryParse<LicenceTier>(request.Tier, ignoreCase: true, out var tier) ||
             !LicencePlanCatalog.PurchasableTiers.Contains(tier))
@@ -72,6 +70,7 @@ public class TrainerLicenceController(ITrainerLicenceService service) : Controll
     {
         var userId = GetUserId();
         if (userId == null) return Unauthorized();
+        if (!await _service.IsTrainerAsync(userId.Value)) return NotATrainer();
 
         var url = await _service.CreatePortalSessionAsync(userId.Value);
         return url == null
@@ -87,6 +86,23 @@ public class TrainerLicenceController(ITrainerLicenceService service) : Controll
     {
         public string Tier { get; set; } = string.Empty;
     }
+
+    /// <summary>The refusal every action here shares. 403 with an
+    /// <c>error</c> of <c>not_a_trainer</c> matches what TrainerClientController
+    /// already sends for the same condition, so the client has one case to
+    /// handle rather than one per endpoint.
+    ///
+    /// <para><c>error</c> is the contract; <c>message</c> is diagnostic and is
+    /// deliberately not localized. The API has no localization and receives no
+    /// Accept-Language, so it cannot know the caller's language — clients map
+    /// the code to their own translated wording (see AuthFailure and
+    /// InviteFailure on the Flutter side). Never show this text to a user.</para></summary>
+    private ObjectResult NotATrainer() =>
+        StatusCode(StatusCodes.Status403Forbidden, new
+        {
+            error = "not_a_trainer",
+            message = "This account isn't a trainer account.",
+        });
 
     private Guid? GetUserId()
     {

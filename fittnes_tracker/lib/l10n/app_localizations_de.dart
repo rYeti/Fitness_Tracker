@@ -2410,7 +2410,19 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get trainerAccessOnlyBody =>
-      'Dieser Bereich ist für Trainer, die Kunden betreuen. Wenn du Zugriff haben solltest, lass ihn von deinem Studio für dein Konto freischalten.';
+      'Dieser Bereich ist für Trainer, die Kunden betreuen. Ein Trainerkonto wird bei der Registrierung gewählt — ein bestehendes Konto lässt sich nicht umstellen.';
+
+  @override
+  String get accountType => 'Kontotyp';
+
+  @override
+  String get accountTypeTrainee => 'Für mich';
+
+  @override
+  String get accountTypeTrainer => 'Ich betreue Kunden';
+
+  @override
+  String get accountTypeLockedNote => 'Ein Trainerkonto öffnet die Trainer-Konsole. Das lässt sich später nicht ändern — ein bestehendes Konto kann nicht umgestellt werden.';
 
   @override
   String get dashboardLoading => 'Dashboard wird geladen';
@@ -2623,23 +2635,6 @@ class AppLocalizationsDe extends AppLocalizations {
   String get yourPlanSubtitle => 'Plätze, Abrechnung und Einladungen';
 
   @override
-  String get noPlanYet => 'Noch kein Tarif';
-
-  @override
-  String get noPlanYetBody =>
-      'Richte einen Trainertarif ein, um Kunden aufzunehmen.';
-
-  @override
-  String get setUp => 'Einrichten';
-
-  @override
-  String get setUpTrainerConsole => 'Trainer-Konsole einrichten';
-
-  @override
-  String get setUpTrainerConsoleSubtitle =>
-      'Bis zu 3 Kunden kostenlos betreuen';
-
-  @override
   String get changePlan => 'Tarif wechseln';
 
   @override
@@ -2721,7 +2716,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get inviteFailureNotATrainer =>
-      'Richte einen Trainertarif ein, bevor du Kunden einlädst.';
+      'Nur ein Trainerkonto kann Kunden einladen.';
 
   @override
   String get inviteFailureInvalidCode =>
@@ -2745,6 +2740,29 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get inviteFailureNetwork =>
       'ForgeForm ist nicht erreichbar. Prüfe deine Verbindung und versuch es erneut.';
+
+  @override
+  String get authFailureInvalidCredentials => 'Benutzername oder Passwort ist falsch.';
+
+  @override
+  String get authFailureRegistrationFailed => 'Dieser Benutzername oder diese E-Mail-Adresse ist bereits vergeben.';
+
+  @override
+  String get authFailureUnknownAccountType => 'Dieser Kontotyp ist unbekannt. Wähle eine der Optionen und versuche es erneut.';
+
+  @override
+  String get authFailureNetwork => 'ForgeForm ist nicht erreichbar. Prüfe deine Verbindung und versuche es erneut.';
+
+  @override
+  String get authFailureUnknown => 'Etwas ist schiefgelaufen. Bitte versuche es erneut.';
+
+  @override
+  String get resetFailureLinkNoLongerValid => 'Dieser Link ist abgelaufen oder wurde bereits verwendet.';
+
+  @override
+  String inviteFailureSeatLimitReachedDetailed(int seatsUsed, int seatLimit) {
+    return 'Dein Tarif umfasst $seatLimit Kunden und alle $seatsUsed sind belegt. Upgrade oder gib einen Platz frei.';
+  }
 
   @override
   String get errorLoadRoster => 'Deine Kunden konnten nicht geladen werden.';

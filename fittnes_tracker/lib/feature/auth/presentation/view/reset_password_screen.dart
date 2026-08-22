@@ -1,3 +1,4 @@
+import 'package:ForgeForm/feature/auth/data/Models/auth_failure.dart';
 import 'package:ForgeForm/feature/auth/presentation/providers/auth_provider.dart';
 import 'package:ForgeForm/feature/auth/presentation/view/login_screen.dart';
 import 'package:ForgeForm/feature/onboarding/onboarding_screen.dart'
@@ -23,7 +24,12 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
   bool _obscureConfirm = true;
   bool _isLoading = false;
   bool _success = false;
-  String? _error;
+  /// The failure case; localized at build time. See [ResetPasswordFailure].
+  ResetPasswordFailure? _error;
+
+  /// Local form validation, not a server refusal — kept separate so the two
+  /// can't overwrite each other.
+  bool _mismatch = false;
 
   @override
   void dispose() {
@@ -33,18 +39,17 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
   }
 
   Future<void> _submit() async {
-    final l10n = AppLocalizations.of(context)!;
     final newPassword = _newPasswordController.text;
     final confirm = _confirmPasswordController.text;
 
     if (newPassword.isEmpty || confirm.isEmpty) return;
 
     if (newPassword != confirm) {
-      setState(() => _error = l10n.passwordsDoNotMatch);
+      setState(() => _mismatch = true);
       return;
     }
 
-    setState(() { _isLoading = true; _error = null; });
+    setState(() { _isLoading = true; _error = null; _mismatch = false; });
 
     final error = await ref
         .read(authProvider.notifier)
@@ -129,10 +134,12 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
           textInputAction: TextInputAction.done,
           onSubmitted: (_) => _submit(),
         ),
-        if (_error != null) ...[
+        if (_mismatch || _error != null) ...[
           const SizedBox(height: 12),
           Text(
-            _error!,
+            _mismatch
+                ? l10n.passwordsDoNotMatch
+                : _error!.localizedMessage(l10n),
             style: TextStyle(color: theme.colorScheme.error),
           ),
         ],

@@ -4403,8 +4403,32 @@ abstract class AppLocalizations {
   /// No description provided for @trainerAccessOnlyBody.
   ///
   /// In en, this message translates to:
-  /// **'This area is for trainers managing clients. If you should have access, ask your gym to enable it on your account.'**
+  /// **'This area is for trainers managing clients. Trainer accounts are chosen when the account is created — an existing account can't be switched over.'**
   String get trainerAccessOnlyBody;
+
+  /// No description provided for @accountType.
+  ///
+  /// In en, this message translates to:
+  /// **'Account type'**
+  String get accountType;
+
+  /// No description provided for @accountTypeTrainee.
+  ///
+  /// In en, this message translates to:
+  /// **'For myself'**
+  String get accountTypeTrainee;
+
+  /// No description provided for @accountTypeTrainer.
+  ///
+  /// In en, this message translates to:
+  /// **'Coaching clients'**
+  String get accountTypeTrainer;
+
+  /// No description provided for @accountTypeLockedNote.
+  ///
+  /// In en, this message translates to:
+  /// **'A trainer account opens the Trainer Console. This can't be changed later — an existing account can't be switched over.'**
+  String get accountTypeLockedNote;
 
   /// No description provided for @dashboardLoading.
   ///
@@ -4754,36 +4778,6 @@ abstract class AppLocalizations {
   /// **'Seats, billing and invites'**
   String get yourPlanSubtitle;
 
-  /// No description provided for @noPlanYet.
-  ///
-  /// In en, this message translates to:
-  /// **'No plan yet'**
-  String get noPlanYet;
-
-  /// No description provided for @noPlanYetBody.
-  ///
-  /// In en, this message translates to:
-  /// **'Set up a trainer plan to start taking on clients.'**
-  String get noPlanYetBody;
-
-  /// No description provided for @setUp.
-  ///
-  /// In en, this message translates to:
-  /// **'Set up'**
-  String get setUp;
-
-  /// No description provided for @setUpTrainerConsole.
-  ///
-  /// In en, this message translates to:
-  /// **'Set up Trainer Console'**
-  String get setUpTrainerConsole;
-
-  /// No description provided for @setUpTrainerConsoleSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Coach up to 3 clients free'**
-  String get setUpTrainerConsoleSubtitle;
-
   /// No description provided for @changePlan.
   ///
   /// In en, this message translates to:
@@ -4907,7 +4901,7 @@ abstract class AppLocalizations {
   /// No description provided for @inviteFailureNotATrainer.
   ///
   /// In en, this message translates to:
-  /// **'Set up a trainer plan before inviting clients.'**
+  /// **'Only a trainer account can invite clients.'**
   String get inviteFailureNotATrainer;
 
   /// No description provided for @inviteFailureInvalidCode.
@@ -4945,6 +4939,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Couldn\'t reach ForgeForm. Check your connection and try again.'**
   String get inviteFailureNetwork;
+
+  /// No description provided for @authFailureInvalidCredentials.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid username or password.'**
+  String get authFailureInvalidCredentials;
+
+  /// No description provided for @authFailureRegistrationFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'That username or email is already taken.'**
+  String get authFailureRegistrationFailed;
+
+  /// No description provided for @authFailureUnknownAccountType.
+  ///
+  /// In en, this message translates to:
+  /// **'That account type isn\'t recognised. Choose one of the options and try again.'**
+  String get authFailureUnknownAccountType;
+
+  /// No description provided for @authFailureNetwork.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t reach ForgeForm. Check your connection and try again.'**
+  String get authFailureNetwork;
+
+  /// No description provided for @authFailureUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong. Please try again.'**
+  String get authFailureUnknown;
+
+  /// No description provided for @resetFailureLinkNoLongerValid.
+  ///
+  /// In en, this message translates to:
+  /// **'This link has expired or has already been used.'**
+  String get resetFailureLinkNoLongerValid;
+
+  /// No description provided for @inviteFailureSeatLimitReachedDetailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Your plan covers {seatLimit} clients and all {seatsUsed} are in use. Upgrade or free up a seat.'**
+  String inviteFailureSeatLimitReachedDetailed(int seatsUsed, int seatLimit);
 
   /// No description provided for @errorLoadRoster.
   ///

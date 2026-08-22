@@ -60,6 +60,20 @@ void main() {
       expect(find.text('7 of 30 clients'), findsOneWidget);
       expect(find.text('23 seats left'), findsOneWidget);
     });
+
+    testWidgets('says trainer-only when the account is not a trainer',
+        (tester) async {
+      // A null licence is the server's "not a trainer account" answer. The
+      // screen used to offer a "Set up" button here whose only action was to
+      // reload — and reloading is what provisioned a licence, so tapping it
+      // silently turned the user into a trainer. There must be no action.
+      await pump(tester, FakeTrainerLicenceRepository(notATrainer: true));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Trainer access only'), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, 'Set up'), findsNothing);
+      expect(find.byType(FilledButton), findsNothing);
+    });
   });
 
   group('what the plan includes', () {

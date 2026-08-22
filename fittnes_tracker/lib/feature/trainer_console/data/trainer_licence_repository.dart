@@ -9,11 +9,11 @@ class TrainerLicenceRepository {
   TrainerLicenceRepository({TrainerLicenceApi? api})
     : _api = api ?? TrainerLicenceApi();
 
-  Future<TrainerLicence> getMine() async =>
-      TrainerLicence.fromJson(await _api.fetchMine());
-
-  Future<TrainerLicence> becomeTrainer() async =>
-      TrainerLicence.fromJson(await _api.becomeTrainer());
+  /// The caller's plan, or null when this isn't a trainer account.
+  Future<TrainerLicence?> getMine() async {
+    final json = await _api.fetchMine();
+    return json == null ? null : TrainerLicence.fromJson(json);
+  }
 
   Future<String> createCheckoutSession(LicenceTier tier) =>
       _api.createCheckoutSession(tier.wireName);
@@ -71,10 +71,16 @@ class TrainerLicenceRepository {
     if (data is Map<String, dynamic>) {
       final failure = codes[data['error'] as String?];
       if (failure != null) {
-        // The message stays optional: when the server didn't send one the UI
-        // falls back to its own localized wording, which is better than
-        // handing a German trainer an English sentence from the API.
-        return InviteException(failure, data['message'] as String?);
+        // The message is carried for diagnostics only — the UI renders the
+        // localized wording for the code. The seat numbers travel separately
+        // and *are* shown, so a full plan can be described exactly without
+        // borrowing the API's English.
+        return InviteException(
+          failure,
+          data['message'] as String?,
+          data['seatsUsed'] as int?,
+          data['seatLimit'] as int?,
+        );
       }
     }
     return const InviteException(InviteFailure.network);

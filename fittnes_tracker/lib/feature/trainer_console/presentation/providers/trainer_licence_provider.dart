@@ -28,6 +28,8 @@ class TrainerLicenceProvider extends ChangeNotifier {
   ConsoleError? _inviteError;
   bool _isMinting = false;
 
+  /// The plan, or null when this isn't a trainer account — or when the load
+  /// failed, which [error] is what distinguishes.
   TrainerLicence? get licence => _licence;
   List<PendingInvite> get pendingInvites => _pendingInvites;
   bool get isLoading => _isLoading;
@@ -56,7 +58,7 @@ class TrainerLicenceProvider extends ChangeNotifier {
         _repository.getMine(),
         _repository.getPendingInvites(),
       ]);
-      _licence = results[0] as TrainerLicence;
+      _licence = results[0] as TrainerLicence?;
       _pendingInvites = results[1] as List<PendingInvite>;
     } catch (_) {
       _error = ConsoleError.loadLicence;
@@ -117,7 +119,7 @@ class TrainerLicenceProvider extends ChangeNotifier {
         _repository.getMine(),
         _repository.getPendingInvites(),
       ]);
-      _licence = results[0] as TrainerLicence;
+      _licence = results[0] as TrainerLicence?;
       _pendingInvites = results[1] as List<PendingInvite>;
     } catch (_) {
       // Leave the last-known values; the mutation itself already succeeded.

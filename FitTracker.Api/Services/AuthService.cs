@@ -20,14 +20,16 @@ public class AuthService : IAuthService
     private readonly IConfiguration _configuration;
     private readonly AppDbContext _db;
     private readonly IEmailService _emailService;
+    private readonly ITrainerLicenceRepository _licences;
     private readonly ILogger<AuthService> _logger;
 
-    public AuthService(IUserRepository userRepository, IConfiguration configuration, AppDbContext db, IEmailService emailService, ILogger<AuthService> logger)
+    public AuthService(IUserRepository userRepository, IConfiguration configuration, AppDbContext db, IEmailService emailService, ITrainerLicenceRepository licences, ILogger<AuthService> logger)
     {
         _userRepository = userRepository;
         _configuration = configuration;
         _db = db;
         _emailService = emailService;
+        _licences = licences;
         _logger = logger;
     }
 
@@ -50,7 +52,7 @@ public class AuthService : IAuthService
     }
 
     /// <inheritdoc/>
-    public async Task<AuthResponseDto?> RegisterAsync(string username, string email, string password, string firstName, string lastName, DateTime dateOfBirth)
+    public async Task<AuthResponseDto?> RegisterAsync(string username, string email, string password, string firstName, string lastName, DateTime dateOfBirth, AccountType accountType = AccountType.Trainee)
     {
         if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(email) || string.IsNullOrEmpty(password))
         {
@@ -83,6 +85,14 @@ public class AuthService : IAuthService
         };
 
         await _userRepository.CreateUserAsync(newUser);
+
+        // Registration is the only moment a licence is created, and holding one
+        // is what makes someone a trainer. Nothing converts an account later, so
+        // an ordinary user can't drift into the Trainer Console.
+        if (accountType == AccountType.Trainer)
+        {
+            await _licences.CreateFreeAsync(newUser.Id);
+        }
 
         return await IssueTokensAsync(newUser);
     }

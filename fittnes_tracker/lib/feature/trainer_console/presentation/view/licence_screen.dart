@@ -68,16 +68,16 @@ class _LicenceScreenState extends State<LicenceScreen> {
               );
             }
 
+            // Only a trainer account can reach this screen, so a null licence
+            // here means the server says this isn't one. There is deliberately
+            // no action: reloading used to be what provisioned a licence, and a
+            // button that silently made you a trainer is the bug being fixed.
             final licence = provider.licence;
             if (licence == null) {
               return ConsoleEmptyState(
-                icon: Icons.workspace_premium_outlined,
-                title: l10n.noPlanYet,
-                message: l10n.noPlanYetBody,
-                action: FilledButton(
-                  onPressed: provider.load,
-                  child: Text(l10n.setUp),
-                ),
+                icon: Icons.lock_outline_rounded,
+                title: l10n.trainerAccessOnly,
+                message: l10n.trainerAccessOnlyBody,
               );
             }
 

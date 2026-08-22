@@ -98,14 +98,20 @@ void main() {
       expect(find.text('Renew your licence to invite clients.'), findsOneWidget);
     });
 
-    testWidgets('surfaces the server refusal verbatim', (tester) async {
+    testWidgets('surfaces the server refusal in the reader\'s language',
+        (tester) async {
       final repo = FakeTrainerLicenceRepository(
         // The provider lets the tap through; the server refuses. This is the
         // race the redemption-time check exists for.
         current: licence(seatsUsed: 2, seatLimit: 10),
+        // The server also sends an English sentence. It must not be what the
+        // trainer reads — the seat *numbers* carry the specificity, so the
+        // localized string is just as precise in any language.
         inviteFailure: const InviteException(
           InviteFailure.seatLimitReached,
           'Your plan covers 10 clients and all of them are in use.',
+          10,
+          10,
         ),
       );
       await pump(tester, repo);
@@ -114,8 +120,16 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        find.text('Your plan covers 10 clients and all of them are in use.'),
+        find.text(
+          'Your plan covers 10 clients and all 10 are in use. '
+          'Upgrade or free up a seat.',
+        ),
         findsOneWidget,
+      );
+      expect(
+        find.text('Your plan covers 10 clients and all of them are in use.'),
+        findsNothing,
+        reason: 'the API sentence is diagnostic, never shown',
       );
     });
   });
