@@ -71,10 +71,16 @@ class TrainerLicenceRepository {
     if (data is Map<String, dynamic>) {
       final failure = codes[data['error'] as String?];
       if (failure != null) {
-        // The message stays optional: when the server didn't send one the UI
-        // falls back to its own localized wording, which is better than
-        // handing a German trainer an English sentence from the API.
-        return InviteException(failure, data['message'] as String?);
+        // The message is carried for diagnostics only — the UI renders the
+        // localized wording for the code. The seat numbers travel separately
+        // and *are* shown, so a full plan can be described exactly without
+        // borrowing the API's English.
+        return InviteException(
+          failure,
+          data['message'] as String?,
+          data['seatsUsed'] as int?,
+          data['seatLimit'] as int?,
+        );
       }
     }
     return const InviteException(InviteFailure.network);

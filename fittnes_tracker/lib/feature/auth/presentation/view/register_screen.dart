@@ -2,6 +2,7 @@ import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/providers/access_provider.dart';
 import 'package:ForgeForm/core/providers/user_goals_provider.dart';
 import 'package:ForgeForm/feature/auth/data/Models/account_type.dart';
+import 'package:ForgeForm/feature/auth/data/Models/auth_failure.dart';
 import 'package:ForgeForm/feature/auth/presentation/providers/auth_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ForgeForm/feature/onboarding/onboarding_screen.dart'
@@ -114,9 +115,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
     ref.listen<AuthState>(authProvider, (_, next) async {
       if (next.error != null) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(next.error!)));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(next.error!.localizedMessage(l10n))),
+        );
       }
       if (next.isAuthenticated) {
         final serverUrl = ref.read(serverUrlProvider);

@@ -90,7 +90,13 @@ public class TrainerLicenceController(ITrainerLicenceService service) : Controll
     /// <summary>The refusal every action here shares. 403 with an
     /// <c>error</c> of <c>not_a_trainer</c> matches what TrainerClientController
     /// already sends for the same condition, so the client has one case to
-    /// handle rather than one per endpoint.</summary>
+    /// handle rather than one per endpoint.
+    ///
+    /// <para><c>error</c> is the contract; <c>message</c> is diagnostic and is
+    /// deliberately not localized. The API has no localization and receives no
+    /// Accept-Language, so it cannot know the caller's language — clients map
+    /// the code to their own translated wording (see AuthFailure and
+    /// InviteFailure on the Flutter side). Never show this text to a user.</para></summary>
     private ObjectResult NotATrainer() =>
         StatusCode(StatusCodes.Status403Forbidden, new
         {

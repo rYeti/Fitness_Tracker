@@ -52,6 +52,11 @@ public class AuthController : ControllerBase
         if (!string.IsNullOrWhiteSpace(request.AccountType) &&
             !Enum.TryParse(request.AccountType, ignoreCase: true, out accountType))
         {
+            // `error` is the contract; `message` is diagnostic and deliberately
+            // not localized. The API has no localization and receives no
+            // Accept-Language, so it cannot know the caller's language — the
+            // client maps the code to its own translated wording (AuthFailure).
+            // Never show this text to a user.
             return BadRequest(new
             {
                 error = "unknown_account_type",

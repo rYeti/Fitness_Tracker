@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:ForgeForm/core/network/api_client.dart';
 import 'package:ForgeForm/core/network/secure_token_storage.dart';
 import 'package:ForgeForm/feature/auth/data/Models/account_type.dart';
+import 'package:ForgeForm/feature/auth/data/Models/auth_failure.dart';
 import 'package:ForgeForm/feature/auth/data/Models/auth_response_model.dart';
 import 'package:ForgeForm/feature/auth/data/repositories/auth_repository.dart';
 import 'package:dio/dio.dart';
@@ -12,7 +13,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 class AuthState {
   final bool isLoading;
   final AuthResponseModel? user;
-  final String? error;
+
+  /// The failure case, not a sentence — the screen localizes it. See
+  /// [AuthFailure].
+  final AuthFailure? error;
 
   const AuthState({
     this.isLoading = false,
@@ -86,7 +90,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       );
       state = AuthState(user: user);
     } catch (e) {
-      state = AuthState(error: _friendlyError(e));
+      state = AuthState(error: classifyAuthError(e, registering: false));
     }
   }
 
@@ -118,18 +122,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
       );
       state = AuthState(user: user);
     } catch (e) {
-      state = AuthState(error: _friendlyError(e));
+      state = AuthState(error: classifyAuthError(e, registering: true));
     }
-  }
-
-  String _friendlyError(Object e) {
-    final msg = e.toString();
-    if (msg.contains('401')) return 'Invalid username or password.';
-    if (msg.contains('400'))
-      return 'Registration failed. Username or email already taken.';
-    if (msg.contains('SocketException') || msg.contains('connection'))
-      return 'Could not connect to server.';
-    return msg;
   }
 
   Future<void> updateProfile({
@@ -156,7 +150,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
       );
       state = AuthState(user: updated);
     } catch (e) {
-      state = AuthState(user: state.user, error: e.toString());
+      state = AuthState(
+        user: state.user,
+        error: classifyAuthError(e, registering: false),
+      );
     }
   }
 
@@ -175,7 +172,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
       );
       state = AuthState(user: state.user);
     } catch (e) {
-      state = AuthState(user: state.user, error: e.toString());
+      state = AuthState(
+        user: state.user,
+        error: classifyAuthError(e, registering: false),
+      );
     }
   }
 
@@ -188,17 +188,24 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  /// Returns null on success, or an error message string on failure.
-  Future<String?> resetPassword(String token, String newPassword) async {
+  /// Returns null on success, or the failure case on error — the screen
+  /// localizes it, same as [AuthState.error].
+  Future<ResetPasswordFailure?> resetPassword(
+    String token,
+    String newPassword,
+  ) async {
     try {
       await _authRepository.resetPassword(token, newPassword);
       return null;
     } catch (e) {
-      final msg = e.toString();
-      if (msg.contains('400') || msg.contains('invalid') || msg.contains('expired')) {
-        return 'This link has expired or has already been used.';
-      }
-      return 'Something went wrong. Please try again.';
+      // A 400 is the server rejecting the token itself: already used, expired,
+      // or never valid. Anything else is a problem with the request, not the
+      // link, and saying "your link expired" would send the user to ask for a
+      // new one that fails the same way.
+      final status = e is DioException ? e.response?.statusCode : null;
+      return status == 400
+          ? ResetPasswordFailure.linkNoLongerValid
+          : ResetPasswordFailure.unknown;
     }
   }
 

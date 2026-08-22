@@ -194,18 +194,42 @@ extension InviteFailureMessage on InviteFailure {
 class InviteException implements Exception {
   final InviteFailure failure;
 
-  /// The server's own explanation, when it sent one. It can be more specific
-  /// than anything the client knows to say ("Your plan covers 10 clients and
-  /// all of them are in use"), so it wins over the local wording — but it
-  /// arrives in whatever language the API speaks, so it is optional and
-  /// [InviteFailureMessage.localizedMessage] covers its absence.
+  /// The server's own explanation, when it sent one.
+  ///
+  /// **Diagnostic only — never shown to a user.** It arrives in whatever
+  /// language the API speaks (English), and the API has no localization: it
+  /// reports *which* refusal happened via a machine-readable `error` code and
+  /// the UI decides how to say it. This used to win over the local wording,
+  /// which handed a German trainer an English sentence and left every
+  /// `inviteFailure*` string unreachable.
   final String? serverMessage;
 
-  const InviteException(this.failure, [this.serverMessage]);
+  /// Seats consumed and covered, when the refusal was [InviteFailure.seatLimitReached].
+  ///
+  /// The server's prose was genuinely more specific than the client's for this
+  /// one case ("Your plan covers 10 clients and all of them are in use"), but
+  /// that specificity is *data*, not wording — the API sends both numbers as
+  /// their own fields. Carrying them lets the localized string be just as
+  /// specific in any language.
+  final int? seatsUsed;
+  final int? seatLimit;
 
-  /// What to show the user: the server's words if it sent any, ours otherwise.
-  String message(AppLocalizations l10n) =>
-      serverMessage ?? failure.localizedMessage(l10n);
+  const InviteException(
+    this.failure, [
+    this.serverMessage,
+    this.seatsUsed,
+    this.seatLimit,
+  ]);
+
+  /// What to show the user, in their language.
+  String message(AppLocalizations l10n) {
+    if (failure == InviteFailure.seatLimitReached &&
+        seatsUsed != null &&
+        seatLimit != null) {
+      return l10n.inviteFailureSeatLimitReachedDetailed(seatsUsed!, seatLimit!);
+    }
+    return failure.localizedMessage(l10n);
+  }
 
   @override
   String toString() => serverMessage ?? failure.name;

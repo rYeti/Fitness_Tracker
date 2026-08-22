@@ -4901,7 +4901,7 @@ abstract class AppLocalizations {
   /// No description provided for @inviteFailureNotATrainer.
   ///
   /// In en, this message translates to:
-  /// **'Set up a trainer plan before inviting clients.'**
+  /// **'Only a trainer account can invite clients.'**
   String get inviteFailureNotATrainer;
 
   /// No description provided for @inviteFailureInvalidCode.
@@ -4939,6 +4939,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Couldn\'t reach ForgeForm. Check your connection and try again.'**
   String get inviteFailureNetwork;
+
+  /// No description provided for @authFailureInvalidCredentials.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid username or password.'**
+  String get authFailureInvalidCredentials;
+
+  /// No description provided for @authFailureRegistrationFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'That username or email is already taken.'**
+  String get authFailureRegistrationFailed;
+
+  /// No description provided for @authFailureUnknownAccountType.
+  ///
+  /// In en, this message translates to:
+  /// **'That account type isn\'t recognised. Choose one of the options and try again.'**
+  String get authFailureUnknownAccountType;
+
+  /// No description provided for @authFailureNetwork.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t reach ForgeForm. Check your connection and try again.'**
+  String get authFailureNetwork;
+
+  /// No description provided for @authFailureUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong. Please try again.'**
+  String get authFailureUnknown;
+
+  /// No description provided for @resetFailureLinkNoLongerValid.
+  ///
+  /// In en, this message translates to:
+  /// **'This link has expired or has already been used.'**
+  String get resetFailureLinkNoLongerValid;
+
+  /// No description provided for @inviteFailureSeatLimitReachedDetailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Your plan covers {seatLimit} clients and all {seatsUsed} are in use. Upgrade or free up a seat.'**
+  String inviteFailureSeatLimitReachedDetailed(int seatsUsed, int seatLimit);
 
   /// No description provided for @errorLoadRoster.
   ///

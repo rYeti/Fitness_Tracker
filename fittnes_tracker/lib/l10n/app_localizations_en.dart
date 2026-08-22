@@ -2697,7 +2697,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get inviteFailureNotATrainer =>
-      'Set up a trainer plan before inviting clients.';
+      'Only a trainer account can invite clients.';
 
   @override
   String get inviteFailureInvalidCode =>
@@ -2721,6 +2721,29 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get inviteFailureNetwork =>
       'Couldn\'t reach ForgeForm. Check your connection and try again.';
+
+  @override
+  String get authFailureInvalidCredentials => 'Invalid username or password.';
+
+  @override
+  String get authFailureRegistrationFailed => 'That username or email is already taken.';
+
+  @override
+  String get authFailureUnknownAccountType => 'That account type isn\'t recognised. Choose one of the options and try again.';
+
+  @override
+  String get authFailureNetwork => 'Couldn\'t reach ForgeForm. Check your connection and try again.';
+
+  @override
+  String get authFailureUnknown => 'Something went wrong. Please try again.';
+
+  @override
+  String get resetFailureLinkNoLongerValid => 'This link has expired or has already been used.';
+
+  @override
+  String inviteFailureSeatLimitReachedDetailed(int seatsUsed, int seatLimit) {
+    return 'Your plan covers $seatLimit clients and all $seatsUsed are in use. Upgrade or free up a seat.';
+  }
 
   @override
   String get errorLoadRoster => 'Could not load your clients.';
