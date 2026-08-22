@@ -22,6 +22,18 @@ account. It collects nothing. On web it's skipped in favour of the login screen
 directly — that surface is the Trainer Console, and a consumer pitch for calorie
 tracking has no place in front of it.
 
+**Registration picks the role.** The register screen offers an account type —
+"For myself" or "Coaching clients" — defaulting to trainee, and sends it as
+`accountType`. Registering as a trainer is what provisions the trainer licence,
+and holding a licence is what makes someone a trainer, so this is the only moment
+the Trainer Console becomes reachable at all. The choice is permanent: an
+existing account cannot be converted, and the trainee app shows no trainer
+affordance anywhere. See `docs/trainer-licensing.md` → "Becoming a trainer" for
+why the old self-serve route was removed.
+
+A trainer is still also a ForgeForm user: they land in the console, but reach
+their own training through `onExitConsole` without signing out.
+
 **Post-auth**, `PostAuthHome` → `ProfileSetupGate` decides. Setup is shown only
 when both hold:
 

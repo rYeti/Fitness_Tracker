@@ -13,17 +13,16 @@ public class TrainerLicenceRepository(AppDbContext context) : ITrainerLicenceRep
     public async Task<TrainerLicence?> GetByTrainerAsync(Guid trainerId) =>
         await _context.TrainerLicences.FirstOrDefaultAsync(l => l.TrainerId == trainerId);
 
-    /// <summary>Provisions a Free licence on first ask.
+    /// <summary>Provisions a Free licence — the act of becoming a trainer.
     ///
-    /// This is what breaks the chicken-and-egg the console used to have: a user
-    /// was only "a trainer" if they already had active clients, so a new trainer
-    /// was locked out of the very screen they needed in order to invite anyone.
-    /// Holding a licence is now the definition.</summary>
-    public async Task<TrainerLicence> GetOrCreateAsync(Guid trainerId)
+    /// Holding a licence is the definition of being a trainer, which is why this
+    /// is a plain insert rather than a get-or-create. It used to be the latter,
+    /// reached from <c>GET api/TrainerLicence/me</c>, so merely opening the plan
+    /// screen turned an ordinary user into a permanent trainer. Now the only
+    /// caller is trainer registration, and the unique index on TrainerId turns a
+    /// second call for the same user into an error rather than a silent no-op.</summary>
+    public async Task<TrainerLicence> CreateFreeAsync(Guid trainerId)
     {
-        var existing = await GetByTrainerAsync(trainerId);
-        if (existing != null) return existing;
-
         var licence = new TrainerLicence
         {
             TrainerId = trainerId,

@@ -54,6 +54,11 @@ class FakeTrainerLicenceRepository implements TrainerLicenceRepository {
   /// Completes only when a test says so, to hold a screen in loading.
   final Completer<void>? gate;
 
+  /// Makes [getMine] answer null — the server's "this isn't a trainer account"
+  /// refusal, which is distinct from [current] being unset (that just means
+  /// "give me a default licence").
+  final bool notATrainer;
+
   final List<String> revokedInviteIds = [];
   final List<LicenceTier> checkoutTiers = [];
   final List<String> joinedCodes = [];
@@ -67,12 +72,14 @@ class FakeTrainerLicenceRepository implements TrainerLicenceRepository {
     this.inviteFailure,
     this.joinFailure,
     this.gate,
+    this.notATrainer = false,
   });
 
   @override
-  Future<TrainerLicence> getMine() async {
+  Future<TrainerLicence?> getMine() async {
     if (gate != null) await gate!.future;
     if (throwOnLoad) throw Exception('boom');
+    if (notATrainer) return null;
     return current ?? licence();
   }
 
@@ -82,9 +89,6 @@ class FakeTrainerLicenceRepository implements TrainerLicenceRepository {
     if (throwOnLoad) throw Exception('boom');
     return invites;
   }
-
-  @override
-  Future<TrainerLicence> becomeTrainer() async => current ?? freeLicence();
 
   @override
   Future<String> createInvite() async {

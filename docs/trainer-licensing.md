@@ -113,13 +113,31 @@ they hear of it should not be a feature refusing to open.
 
 ## Becoming a trainer
 
-A user becomes a trainer by asking for a licence: `POST api/TrainerLicence/me`,
-reached from Settings → "Set up Trainer Console". This provisions Free/3/Active.
+**Trainer is an account type, chosen at registration.** `POST api/auth/register`
+takes an `accountType` of `Trainee` (the default) or `Trainer`; registering as a
+trainer provisions Free/3/Active in `AuthService.RegisterAsync`. That call to
+`ITrainerLicenceRepository.CreateFreeAsync` is the **only** place a licence is
+ever created. There is deliberately no way to convert an existing account, and
+the trainee app offers no route to one.
 
-This replaced `IsTrainer = asTrainer.Count > 0`, which made you a trainer only if
-you already had active clients — so a newly signed-up trainer was refused the
-console, which is the only place they could invite their first client from.
-Regression test: `TrainerClientServiceTests.AUserHoldingALicenceIsATrainerEvenWithNoClients`.
+It used to be self-serve from Settings → "Set up Trainer Console", which opened
+the plan screen — and the plan screen's own load, `GET api/TrainerLicence/me`,
+was a get-or-create. So *reading* your plan provisioned one: an ordinary user who
+opened that screen once became a permanent trainer, with three free seats and, on
+web, a console they landed in on every subsequent sign-in. Every licence endpoint
+is now a pure read plus a `not_a_trainer` refusal, and the repository exposes
+`CreateFreeAsync` rather than `GetOrCreateAsync` so no read *can* provision.
+Regression tests: `TrainerProvisioningTests`.
+
+`IsTrainer = licence != null` is unchanged and still correct — it replaced
+`IsTrainer = asTrainer.Count > 0`, which made you a trainer only if you already
+had active clients, so a newly signed-up trainer was refused the console, the
+only place they could invite their first client from. Regression test:
+`TrainerClientServiceTests.AUserHoldingALicenceIsATrainerEvenWithNoClients`.
+
+Free remains an entry state rather than something bought: Stripe is only involved
+in *upgrading* an account that is already a trainer, and `checkout-session` /
+`portal-session` refuse a caller with no licence.
 
 ## Configuration
 

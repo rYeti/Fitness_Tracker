@@ -9,11 +9,11 @@ class TrainerLicenceRepository {
   TrainerLicenceRepository({TrainerLicenceApi? api})
     : _api = api ?? TrainerLicenceApi();
 
-  Future<TrainerLicence> getMine() async =>
-      TrainerLicence.fromJson(await _api.fetchMine());
-
-  Future<TrainerLicence> becomeTrainer() async =>
-      TrainerLicence.fromJson(await _api.becomeTrainer());
+  /// The caller's plan, or null when this isn't a trainer account.
+  Future<TrainerLicence?> getMine() async {
+    final json = await _api.fetchMine();
+    return json == null ? null : TrainerLicence.fromJson(json);
+  }
 
   Future<String> createCheckoutSession(LicenceTier tier) =>
       _api.createCheckoutSession(tier.wireName);

@@ -22,12 +22,17 @@ public class TrainerLicenceService(
     private readonly IConfiguration _configuration = configuration;
     private readonly ILogger<TrainerLicenceService> _logger = logger;
 
-    public async Task<TrainerLicenceDto> GetOrCreateAsync(Guid trainerId)
+    public async Task<TrainerLicenceDto?> GetMineAsync(Guid trainerId)
     {
-        var licence = await _licences.GetOrCreateAsync(trainerId);
+        var licence = await _licences.GetByTrainerAsync(trainerId);
+        if (licence == null) return null;
+
         var seatsUsed = await _clients.CountSeatsUsedAsync(trainerId);
         return TrainerLicenceDto.From(licence, seatsUsed);
     }
+
+    public async Task<bool> IsTrainerAsync(Guid userId) =>
+        await _licences.GetByTrainerAsync(userId) != null;
 
     public async Task<string?> CreateCheckoutSessionAsync(Guid trainerId, LicenceTier tier)
     {
@@ -36,7 +41,12 @@ public class TrainerLicenceService(
         var priceId = _catalog.PriceFor(tier);
         if (string.IsNullOrWhiteSpace(priceId)) return null;
 
-        var licence = await _licences.GetOrCreateAsync(trainerId);
+        // Only an existing trainer can buy an upgrade. This used to be a
+        // get-or-create, which meant starting checkout would mint a licence for
+        // anyone who asked — the same provisioning-on-read hole by another route.
+        var licence = await _licences.GetByTrainerAsync(trainerId);
+        if (licence == null) return null;
+
         var customerId = licence.StripeCustomerId ?? await CreateCustomerAsync(licence, trainerId);
 
         var options = new SessionCreateOptions

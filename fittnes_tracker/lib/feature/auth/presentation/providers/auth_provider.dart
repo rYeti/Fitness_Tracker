@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:ForgeForm/core/network/api_client.dart';
 import 'package:ForgeForm/core/network/secure_token_storage.dart';
+import 'package:ForgeForm/feature/auth/data/Models/account_type.dart';
 import 'package:ForgeForm/feature/auth/data/Models/auth_response_model.dart';
 import 'package:ForgeForm/feature/auth/data/repositories/auth_repository.dart';
 import 'package:dio/dio.dart';
@@ -96,6 +97,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     String firstName,
     String lastName,
     DateTime dateOfBirth,
+    AccountType accountType,
   ) async {
     state = const AuthState(isLoading: true);
 
@@ -107,6 +109,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         firstName,
         lastName,
         dateOfBirth,
+        accountType,
       );
       await SecureTokenStorage.saveSession(
         token: user.token,

@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using FitTracker.Api.DTOs;
+using FitTracker.Api.Models;
 using FitTracker.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -45,7 +46,20 @@ public class AuthController : ControllerBase
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] RegisterRequestDto request)
     {
-        var result = await _authService.RegisterAsync(request.Username, request.Email, request.Password, request.FirstName, request.LastName, request.DateOfBirth);
+        // Absent means Trainee. An unrecognised value is refused rather than
+        // defaulted, so a typo can't quietly produce the wrong kind of account.
+        var accountType = AccountType.Trainee;
+        if (!string.IsNullOrWhiteSpace(request.AccountType) &&
+            !Enum.TryParse(request.AccountType, ignoreCase: true, out accountType))
+        {
+            return BadRequest(new
+            {
+                error = "unknown_account_type",
+                message = $"Choose one of: {string.Join(", ", Enum.GetNames<AccountType>())}.",
+            });
+        }
+
+        var result = await _authService.RegisterAsync(request.Username, request.Email, request.Password, request.FirstName, request.LastName, request.DateOfBirth, accountType);
         if (result == null)
         {
             return BadRequest("Registration failed. Please check the provided information.");

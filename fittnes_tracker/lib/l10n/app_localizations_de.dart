@@ -2410,7 +2410,19 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get trainerAccessOnlyBody =>
-      'Dieser Bereich ist für Trainer, die Kunden betreuen. Wenn du Zugriff haben solltest, lass ihn von deinem Studio für dein Konto freischalten.';
+      'Dieser Bereich ist für Trainer, die Kunden betreuen. Ein Trainerkonto wird bei der Registrierung gewählt — ein bestehendes Konto lässt sich nicht umstellen.';
+
+  @override
+  String get accountType => 'Kontotyp';
+
+  @override
+  String get accountTypeTrainee => 'Für mich';
+
+  @override
+  String get accountTypeTrainer => 'Ich betreue Kunden';
+
+  @override
+  String get accountTypeLockedNote => 'Ein Trainerkonto öffnet die Trainer-Konsole. Das lässt sich später nicht ändern — ein bestehendes Konto kann nicht umgestellt werden.';
 
   @override
   String get dashboardLoading => 'Dashboard wird geladen';
@@ -2621,23 +2633,6 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get yourPlanSubtitle => 'Plätze, Abrechnung und Einladungen';
-
-  @override
-  String get noPlanYet => 'Noch kein Tarif';
-
-  @override
-  String get noPlanYetBody =>
-      'Richte einen Trainertarif ein, um Kunden aufzunehmen.';
-
-  @override
-  String get setUp => 'Einrichten';
-
-  @override
-  String get setUpTrainerConsole => 'Trainer-Konsole einrichten';
-
-  @override
-  String get setUpTrainerConsoleSubtitle =>
-      'Bis zu 3 Kunden kostenlos betreuen';
 
   @override
   String get changePlan => 'Tarif wechseln';

@@ -1,6 +1,7 @@
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/providers/access_provider.dart';
 import 'package:ForgeForm/core/providers/user_goals_provider.dart';
+import 'package:ForgeForm/feature/auth/data/Models/account_type.dart';
 import 'package:ForgeForm/feature/auth/presentation/providers/auth_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ForgeForm/feature/onboarding/onboarding_screen.dart'
@@ -31,6 +32,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   DateTime? _selectedDate;
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
+
+  /// Chosen once, here. A trainer account is provisioned with a trainer licence
+  /// at registration and an existing account can't be converted, so this is the
+  /// only point at which the console is reachable at all.
+  AccountType _accountType = AccountType.trainee;
 
   @override
   void initState() {
@@ -96,6 +102,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           _firstNameController.text.trim(),
           _lastNameController.text.trim(),
           _selectedDate!,
+          _accountType,
         );
   }
 
@@ -327,6 +334,51 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                               : '',
                     ),
                   ),
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // Account type. A trainer account is the only route to the
+              // Trainer Console, and the choice is permanent — hence the note
+              // rather than a silent segmented control.
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  l10n.accountType,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SegmentedButton<AccountType>(
+                segments: [
+                  ButtonSegment(
+                    value: AccountType.trainee,
+                    icon: const Icon(Icons.person_outline),
+                    label: Text(l10n.accountTypeTrainee),
+                    tooltip: l10n.accountTypeTrainee,
+                  ),
+                  ButtonSegment(
+                    value: AccountType.trainer,
+                    icon: const Icon(Icons.groups_outlined),
+                    label: Text(l10n.accountTypeTrainer),
+                    tooltip: l10n.accountTypeTrainer,
+                  ),
+                ],
+                selected: {_accountType},
+                onSelectionChanged: (selection) =>
+                    setState(() => _accountType = selection.first),
+                style: SegmentedButton.styleFrom(
+                  minimumSize: const Size(0, 48),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                l10n.accountTypeLockedNote,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
 

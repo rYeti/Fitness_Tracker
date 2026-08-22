@@ -1,4 +1,5 @@
 using FitTracker.Api.DTOs;
+using FitTracker.Api.Models;
 
 namespace FitTracker.Api.Services.Interfaces;
 
@@ -6,13 +7,15 @@ namespace FitTracker.Api.Services.Interfaces;
 public interface IAuthService
 {
     /// <summary>
-    /// Registers a new user with the provided username, email, and password. 
+    /// Registers a new user with the provided username, email, and password.
     /// </summary>
-    /// <param name="username"></param>
-    /// <param name="email"></param>
-    /// <param name="password"></param>
-    /// <returns></returns>
-    Task<AuthResponseDto?> RegisterAsync(string username, string email, string password, string firstName, string lastName, DateTime dateOfBirth);
+    /// <param name="accountType">
+    /// Registering as <see cref="AccountType.Trainer"/> provisions a Free licence
+    /// for the new user, which is what makes them a trainer. This is the only
+    /// place a licence is ever created — there is no way to convert an account
+    /// afterwards.
+    /// </param>
+    Task<AuthResponseDto?> RegisterAsync(string username, string email, string password, string firstName, string lastName, DateTime dateOfBirth, AccountType accountType = AccountType.Trainee);
 
     /// <summary>
     /// Authenticates a user with the provided username and password.

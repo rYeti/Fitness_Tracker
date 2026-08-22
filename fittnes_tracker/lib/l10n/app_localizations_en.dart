@@ -2393,7 +2393,19 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get trainerAccessOnlyBody =>
-      'This area is for trainers managing clients. If you should have access, ask your gym to enable it on your account.';
+      'This area is for trainers managing clients. Trainer accounts are chosen when the account is created — an existing account can\'t be switched over.';
+
+  @override
+  String get accountType => 'Account type';
+
+  @override
+  String get accountTypeTrainee => 'For myself';
+
+  @override
+  String get accountTypeTrainer => 'Coaching clients';
+
+  @override
+  String get accountTypeLockedNote => 'A trainer account opens the Trainer Console. This can\'t be changed later — an existing account can\'t be switched over.';
 
   @override
   String get dashboardLoading => 'Loading dashboard';
@@ -2602,22 +2614,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get yourPlanSubtitle => 'Seats, billing and invites';
-
-  @override
-  String get noPlanYet => 'No plan yet';
-
-  @override
-  String get noPlanYetBody =>
-      'Set up a trainer plan to start taking on clients.';
-
-  @override
-  String get setUp => 'Set up';
-
-  @override
-  String get setUpTrainerConsole => 'Set up Trainer Console';
-
-  @override
-  String get setUpTrainerConsoleSubtitle => 'Coach up to 3 clients free';
 
   @override
   String get changePlan => 'Change plan';

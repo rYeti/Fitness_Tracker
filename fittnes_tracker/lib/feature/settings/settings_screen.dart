@@ -483,37 +483,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ],
 
-                // ── Becoming a trainer / joining one ──────────────────────
-                // Both are self-serve: there's no admin step behind either.
-                if (!isTrainer) ...[
-                  const SizedBox(height: 12),
-                  Card(
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      side: BorderSide(color: colorScheme.outlineVariant),
-                    ),
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: colorScheme.primaryContainer,
-                        child: Icon(
-                          Icons.badge_outlined,
-                          color: colorScheme.onPrimaryContainer,
-                        ),
-                      ),
-                      title: Text(l10n.setUpTrainerConsole),
-                      subtitle: Text(l10n.setUpTrainerConsoleSubtitle),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute<void>(
-                          builder: (_) => const LicenceScreen(),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-
+                // ── Joining a trainer ─────────────────────────────────────
+                // There is deliberately no "become a trainer" entry here. That
+                // card used to open the plan screen, whose load provisioned a
+                // Free licence — so an ordinary user tapping it once became a
+                // permanent trainer. Trainer is now an account type chosen at
+                // registration, and an existing account can't convert.
                 if (!isTrainerClient) ...[
                   const SizedBox(height: 12),
                   Card(

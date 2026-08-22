@@ -1,4 +1,5 @@
 import 'package:ForgeForm/core/network/api_client.dart';
+import 'package:ForgeForm/feature/auth/data/Models/account_type.dart';
 import 'package:ForgeForm/feature/auth/data/Models/auth_response_model.dart';
 import 'package:dio/dio.dart';
 
@@ -101,6 +102,7 @@ class AuthRepository {
     String firstName,
     String lastName,
     DateTime dateOfBirth,
+    AccountType accountType,
   ) async {
     final response = await _apiClient.post(
       'api/auth/register',
@@ -111,6 +113,9 @@ class AuthRepository {
         'firstName': firstName,
         'lastName': lastName,
         'dateOfBirth': dateOfBirth.toIso8601String(),
+        // Registering as a trainer is the only thing that provisions a trainer
+        // licence, and so the only way to reach the Trainer Console.
+        'accountType': accountType.wireName,
       },
     );
 
