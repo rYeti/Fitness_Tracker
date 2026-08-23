@@ -32,6 +32,21 @@ public class MealRepository(AppDbContext context) : IMealRepository
             .FirstOrDefaultAsync(m => m.Id == id && m.UserId == userId);
 
     /// <inheritdoc/>
+    public async Task<Meal?> FindSameDayMealAsync(Guid userId, DateTime storedDate, string category)
+    {
+        var (start, end) = MealDayWindow.ForDayOf(storedDate);
+        var sameDay = await context.Meals
+            .Where(m => m.UserId == userId && m.Date >= start && m.Date < end)
+            .Include(m => m.FoodEntries)
+            .OrderBy(m => m.Date)
+            .ToListAsync();
+
+        // Category matching normalises (see MealCategory) and so can't be translated
+        // to SQL; a single day holds a handful of rows, so it runs here instead.
+        return sameDay.FirstOrDefault(m => MealCategory.AreSame(m.Category, category));
+    }
+
+    /// <inheritdoc/>
     public async Task<Meal> CreateMealAsync(Meal meal)
     {
         context.Meals.Add(meal);

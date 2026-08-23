@@ -134,6 +134,45 @@ void main() {
     expect(find.text('Salmon, Rice'), findsOneWidget);
   });
 
+  testWidgets('the app\'s own "Snacks" spelling is labelled and ordered', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      FakeTrainerConsoleRepository(
+        roster: [fakeClient()],
+        nutrition: fakeNutrition(
+          meals: const [
+            LoggedMeal(
+              mealId: 'm2',
+              category: 'dinner',
+              foodNames: ['Salmon'],
+              calories: 720,
+              macros: MacroTotals(protein: 50, carbs: 60, fat: 25),
+            ),
+            // What the tracker actually writes — not the "snack" the API's
+            // own DTOs document, which is all this screen used to match.
+            LoggedMeal(
+              mealId: 'm3',
+              category: 'Snacks',
+              foodNames: ['Almonds'],
+              calories: 180,
+              macros: MacroTotals(protein: 6, carbs: 6, fat: 15),
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Snacks'), findsOneWidget);
+    expect(find.byIcon(Icons.cookie_outlined), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('Snacks')).dy,
+      lessThan(tester.getTopLeft(find.text('Dinner')).dy),
+    );
+  });
+
   testWidgets('a day with no meals shows the nothing-logged state', (
     tester,
   ) async {

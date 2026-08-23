@@ -362,8 +362,19 @@ class _MealsCard extends StatelessWidget {
   /// The design orders meals by time of day rather than insertion order.
   static const _categoryOrder = ['breakfast', 'lunch', 'snack', 'dinner'];
 
+  /// The category as written by the client app ("Breakfast", "Snacks") reduced
+  /// to the one value the lookups below key on. The app has used both "Snack"
+  /// and "Snacks" over its life, and the tracker capitalises where this API's
+  /// DTOs document lowercase, so nothing here may compare the raw string:
+  /// unrecognised categories fall through to a generic icon and the end of the
+  /// list, which is how Snacks used to render.
+  static String _key(String category) {
+    final normalized = category.trim().toLowerCase();
+    return normalized == 'snacks' ? 'snack' : normalized;
+  }
+
   static IconData _iconFor(String category) =>
-      switch (category.toLowerCase()) {
+      switch (_key(category)) {
         'breakfast' => Icons.free_breakfast_outlined,
         'lunch' => Icons.lunch_dining_outlined,
         'dinner' => Icons.dinner_dining_outlined,
@@ -386,8 +397,8 @@ class _MealsCard extends StatelessWidget {
     }
 
     final meals = [...summary.loggedMeals]..sort((a, b) {
-      final ai = _categoryOrder.indexOf(a.category.toLowerCase());
-      final bi = _categoryOrder.indexOf(b.category.toLowerCase());
+      final ai = _categoryOrder.indexOf(_key(a.category));
+      final bi = _categoryOrder.indexOf(_key(b.category));
       // Unknown categories sort last rather than to the front.
       return (ai < 0 ? _categoryOrder.length : ai)
           .compareTo(bi < 0 ? _categoryOrder.length : bi);
@@ -412,11 +423,11 @@ class _MealsCard extends StatelessWidget {
   /// own language. An unrecognised category keeps the server's own wording
   /// rather than being flattened to "Meal".
   static String _categoryLabel(String category, AppLocalizations l10n) =>
-      switch (category.toLowerCase()) {
+      switch (_key(category)) {
         'breakfast' => l10n.mealBreakfast,
         'lunch' => l10n.mealLunch,
         'dinner' => l10n.mealDinner,
-        'snack' || 'snacks' => l10n.mealSnacks,
+        'snack' => l10n.mealSnacks,
         '' => l10n.meal,
         _ => category[0].toUpperCase() + category.substring(1).toLowerCase(),
       };

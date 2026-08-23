@@ -466,41 +466,54 @@ public class TrainerConsoleService(
         // Resolve each meal against the catalogue here rather than shipping bare
         // food-item ids: the trainer has no route to the client's food catalogue,
         // so an unresolved id would be unrenderable on their side.
-        var loggedMeals = todaysMeals.Select(meal =>
-        {
-            var foods = meal.FoodEntries
-                .Select(entry => foodItemsById.GetValueOrDefault(entry.FoodItemId))
-                .Where(food => food is not null)
-                .Select(food => food!)
-                .ToList();
-
-            return new LoggedMealDto
+        //
+        // Grouped by category, because a day can hold more than one row for the same
+        // one and a client only ever ate one breakfast. The app writes at most one
+        // row per day and category and reads the first of each, so a duplicate is
+        // invisible there; this screen listed the rows raw and showed the trainer two
+        // of every meal. Creating is idempotent now (see MealService.CreateMealAsync),
+        // but rows written before that stay in the database, so the read folds them.
+        var loggedMeals = todaysMeals
+            .GroupBy(meal => MealCategory.Key(meal.Category))
+            .Select(sameCategory =>
             {
-                MealId = meal.Id,
-                Category = meal.Category,
-                FoodNames = foods.Select(f => f.Name).ToList(),
-                Foods = foods.Select(f => new LoggedFoodDto
+                var meal = sameCategory.First();
+                var foods = sameCategory
+                    .OrderBy(m => m.Date)
+                    .SelectMany(m => m.FoodEntries)
+                    .Select(entry => foodItemsById.GetValueOrDefault(entry.FoodItemId))
+                    .Where(food => food is not null)
+                    .Select(food => food!)
+                    .ToList();
+
+                return new LoggedMealDto
                 {
-                    FoodItemId = f.Id,
-                    Name = f.Name,
-                    Grams = f.Gramm,
-                    Calories = f.Calories,
+                    MealId = meal.Id,
+                    Category = meal.Category,
+                    FoodNames = foods.Select(f => f.Name).ToList(),
+                    Foods = foods.Select(f => new LoggedFoodDto
+                    {
+                        FoodItemId = f.Id,
+                        Name = f.Name,
+                        Grams = f.Gramm,
+                        Calories = f.Calories,
+                        Macros = new MacroTotalsDto
+                        {
+                            Protein = f.Protein,
+                            Carbs = f.Carbs,
+                            Fat = f.Fat,
+                        },
+                    }).ToList(),
+                    Calories = foods.Sum(f => f.Calories),
                     Macros = new MacroTotalsDto
                     {
-                        Protein = f.Protein,
-                        Carbs = f.Carbs,
-                        Fat = f.Fat,
+                        Protein = foods.Sum(f => f.Protein),
+                        Carbs = foods.Sum(f => f.Carbs),
+                        Fat = foods.Sum(f => f.Fat),
                     },
-                }).ToList(),
-                Calories = foods.Sum(f => f.Calories),
-                Macros = new MacroTotalsDto
-                {
-                    Protein = foods.Sum(f => f.Protein),
-                    Carbs = foods.Sum(f => f.Carbs),
-                    Fat = foods.Sum(f => f.Fat),
-                },
-            };
-        }).ToList();
+                };
+            })
+            .ToList();
 
         // Days with nothing logged still get an entry, so the chart keeps seven bars.
         var sevenDayTrend = trendDays.Select(day => new DailyCalorieTotalDto

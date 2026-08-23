@@ -18,6 +18,16 @@ public interface IMealRepository
     /// <summary>Returns a single meal entry by ID, scoped to the specified user.</summary>
     Task<Meal?> GetMealByIdAsync(Guid id, Guid userId);
 
+    /// <summary>
+    /// The meal already recorded in <paramref name="category"/> on the day
+    /// <paramref name="storedDate"/> falls in, if there is one.
+    /// </summary>
+    /// <param name="storedDate">An instant as meals are stored — the client's local
+    /// midnight — not a calendar day. Resolved via <see cref="MealDayWindow.ForDayOf"/>.</param>
+    /// <param name="category">Matched with <see cref="MealCategory.AreSame"/>, so
+    /// spelling and casing differences between client builds still find the row.</param>
+    Task<Meal?> FindSameDayMealAsync(Guid userId, DateTime storedDate, string category);
+
     /// <summary>Creates a new meal log entry.</summary>
     Task<Meal> CreateMealAsync(Meal meal);
 

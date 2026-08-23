@@ -118,6 +118,46 @@ public sealed class DbFixture : IDisposable
         return meal;
     }
 
+    /// <summary>Adds a food item to a user's catalogue. The nutrition values are
+    /// what meal totals are built from, so callers that assert on kcal pass their
+    /// own; the rest can leave them defaulted.</summary>
+    public FoodItem AddFoodItem(
+        Guid userId,
+        string name = "Oats",
+        int calories = 100,
+        int protein = 10,
+        int carbs = 20,
+        int fat = 5)
+    {
+        var food = new FoodItem
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            Name = name,
+            Calories = calories,
+            Protein = protein,
+            Carbs = carbs,
+            Fat = fat,
+        };
+        Db.FoodItems.Add(food);
+        Db.SaveChanges();
+        return food;
+    }
+
+    /// <summary>Links a food item into a meal, the way the app's food-entry batch does.</summary>
+    public MealFoodEntry AddFoodToMeal(Guid mealId, Guid foodItemId)
+    {
+        var entry = new MealFoodEntry
+        {
+            Id = Guid.NewGuid(),
+            MealId = mealId,
+            FoodItemId = foodItemId,
+        };
+        Db.MealFoodEntries.Add(entry);
+        Db.SaveChanges();
+        return entry;
+    }
+
     /// <summary>Fills <paramref name="trainerId"/>'s roster with
     /// <paramref name="count"/> active clients.</summary>
     public void FillRoster(Guid trainerId, int count)

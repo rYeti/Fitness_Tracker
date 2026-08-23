@@ -30,13 +30,28 @@ public class MealService(IMealRepository repository) : IMealService
     }
 
     /// <inheritdoc/>
+    /// <remarks>
+    /// Creating is idempotent per user, day and category: a client that posts a meal
+    /// it has already posted gets that meal back rather than a second row. The app
+    /// only ever wants one — it looks a meal up by day and category before adding
+    /// food to it — but its sync can genuinely repeat the POST: a reconcile pass
+    /// clears the local serverId when a server row looks gone, a second device pushes
+    /// its own copy, or the response is lost after the row was written. Those extra
+    /// rows are invisible in the app (it renders four fixed categories and reads the
+    /// first row of each) and were listed one by one in the Trainer Console.
+    /// </remarks>
     public async Task<MealResponseDto> CreateMealAsync(MealRequestDto dto, Guid userId)
     {
+        var date = DateTime.SpecifyKind(dto.Date, DateTimeKind.Utc);
+
+        var existing = await repository.FindSameDayMealAsync(userId, date, dto.Category);
+        if (existing is not null) return ToDto(existing);
+
         var meal = new Meal
         {
             Id = Guid.NewGuid(),
             UserId = userId,
-            Date = DateTime.SpecifyKind(dto.Date, DateTimeKind.Utc),
+            Date = date,
             Category = dto.Category,
             FoodItemId = dto.FoodItemId,
         };
