@@ -729,6 +729,74 @@ which is how the missing scroll came to be missing in two places at once.
 
 ---
 
+## 16. The inbox could not have worked, by construction
+
+Once messages were being sent and received, a second report: the conversation
+list never showed an unread badge. Two causes, and the interesting one is a
+design decision from Part one that turned out to forbid the feature.
+
+**The list was loaded exactly once.** `MessagesScreen` calls
+`loadConversations()` from a post-frame callback in `initState`, and
+`TrainerConsoleHome` renders its five sections inside an **`IndexedStack`** —
+which builds every child once and keeps them all alive so tab switches don't lose
+state. That is the right choice for the console, and it means `initState` runs
+once for the console's entire lifetime. Every preview and unread count in the
+inbox was frozen at the moment the trainer opened it.
+
+That alone would be a stale list. The second cause made it unfixable by
+refreshing:
+
+**This device was only ever in the hub group of the thread it had open.**
+`openThread` joined a group and `closeThread` left it, on the reasoning recorded
+in the code:
+
+> Staying joined to every thread at once would deliver messages for threads that
+> aren't on screen, which the UI would then have to filter out anyway.
+
+That argument is sound for the thread view and exactly backwards for the inbox.
+**An unread badge is, by definition, about a conversation you do not have open.**
+Scoping delivery to the open thread did not make those messages unnecessary; it
+made them undeliverable. No amount of refetching fixes it either, because a
+refetch is a round trip per message and still races the next one.
+
+So membership is now reversed: `watchConversations` joins every conversation's
+group after the list loads and stays in them, `openThread` only marks which
+thread is on screen, and `closeThread` keeps the group. `ChatRepository` grows a
+second stream — `allIncoming`, every message, no dedup — beside `incomingFor`,
+because the two consumers want opposite things:
+
+| | `incomingFor(thread)` | `allIncoming` |
+| --- | --- | --- |
+| Scope | one thread | every watched conversation |
+| Dedup | yes, against `_knownIds` | none |
+| Consumer | the thread view | the conversation list |
+| Wants your own echo? | no — it already drew the bubble | no, but must recognise it |
+
+The provider folds each message into the matching row in place: preview,
+timestamp, unread, re-sorted by the same key the server uses so a live update and
+a reload agree. Deciding "is this mine?" reuses §5's trick — the message names
+both parties, this client knows the other one, so `senderId != otherPartyId` is
+"mine" without the client ever learning its own user id. Without that term a
+trainer would badge themselves for their own replies, which is §9's `SenderId !=
+callerId` bug reappearing one layer up, in memory rather than in SQL.
+
+One deliberate asymmetry: a `watchConversations` join that fails is swallowed,
+where a thread's own join is not. The costs are not comparable — a conversation
+that failed to join shows a stale badge until the next load, while failing the
+whole inbox over one group would take the trainer's entire messaging surface
+down. The thread still joins independently when opened, so nothing is
+permanently lost.
+
+> **A scoping decision made for one consumer quietly sets the ceiling for every
+> future one.** "Only deliver what's on screen" was a reasonable filter when the
+> thread view was the only reader. It became a hard architectural limit the
+> moment a second reader wanted the opposite thing — and it did not announce
+> itself as a limit, it announced itself as a missing badge. When you narrow what
+> enters the system, you are deciding what every later feature is allowed to
+> know.
+
+---
+
 ## What all four have in common
 
 Every defect in Part two sat in a gap between two things that were each correct on

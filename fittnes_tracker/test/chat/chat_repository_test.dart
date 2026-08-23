@@ -362,26 +362,75 @@ void main() {
   });
 
   group('groups and conversations', () {
-    test('joins the thread\'s group when it opens and leaves it when it closes', () async {
+    test('joins the thread\'s group when it opens and keeps it when it closes',
+        () async {
       final repository = build();
 
       await repository.openThread(otherParty);
       expect(signalR.joined, [otherParty]);
 
       await repository.closeThread();
-      expect(signalR.left, [otherParty]);
+      expect(signalR.left, isEmpty);
+      expect(repository.activeThreadId, isNull);
     });
 
-    test('leaves the previous group before joining the next', () async {
+    test('stays in the previous group when opening the next', () async {
       final repository = build();
 
       await repository.openThread(otherParty);
       await repository.openThread('another-client');
 
-      // Staying joined to every client's group would deliver messages for threads
-      // that are not on screen.
-      expect(signalR.left, [otherParty]);
+      // The original code left the old group here, reasoning that messages for
+      // threads nobody is looking at would only have to be filtered out again.
+      // True of the thread view, and fatal to the inbox: it made every unread
+      // badge undeliverable rather than merely unnecessary.
+      expect(signalR.left, isEmpty);
       expect(signalR.joined, [otherParty, 'another-client']);
+    });
+
+    test('watching conversations joins each group exactly once', () async {
+      final repository = build();
+
+      await repository.watchConversations([otherParty, 'another-client']);
+      // Opening one of them must not re-join a group already held.
+      await repository.openThread(otherParty);
+      await repository.watchConversations([otherParty, 'a-third-client']);
+
+      expect(signalR.joined, [otherParty, 'another-client', 'a-third-client']);
+    });
+
+    test('a failed watch drops that conversation rather than the whole inbox',
+        () async {
+      final repository = build();
+      signalR.throwOnJoin = StateError('socket still opening');
+
+      await repository.watchConversations([otherParty]);
+
+      // No throw: a conversation that could not be watched costs a stale badge
+      // until the next load, which is a far better trade than an inbox that
+      // fails to load at all.
+      expect(signalR.joined, isEmpty);
+    });
+
+    test('delivers messages for threads that are not open', () async {
+      final repository = build();
+      await repository.watchConversations([otherParty, 'another-client']);
+      await repository.openThread(otherParty);
+
+      final seen = <String>[];
+      repository.allIncoming.listen((m) => seen.add(m.id));
+
+      signalR.emitIncoming(signalR.ack(
+        messageId: 'from-the-other-thread',
+        otherPartyId: 'another-client',
+        body: 'a message about a conversation you are not looking at',
+        senderId: 'another-client',
+      ));
+      await pumpEventQueue();
+
+      // incomingFor() would have dropped this — it is not the open thread. The
+      // inbox has to hear about it anyway; that is what an unread badge is.
+      expect(seen, ['from-the-other-thread']);
     });
 
     test('maps conversation rows from the API', () async {

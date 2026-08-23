@@ -35,6 +35,20 @@ class ConversationSummary {
     );
   }
 
+  ConversationSummary copyWith({
+    String? lastMessagePreview,
+    DateTime? lastMessageAt,
+    int? unreadCount,
+  }) {
+    return ConversationSummary(
+      clientId: clientId,
+      clientName: clientName,
+      lastMessagePreview: lastMessagePreview ?? this.lastMessagePreview,
+      lastMessageAt: lastMessageAt ?? this.lastMessageAt,
+      unreadCount: unreadCount ?? this.unreadCount,
+    );
+  }
+
   /// Up to two letters ("Robert Meyer" -> "RM"), matching the avatars in the
   /// design handoff. Derived rather than stored so it cannot drift from the name.
   String get initials {
