@@ -66,13 +66,16 @@ public class ClientNutritionSummaryDto
 {
     public DateTime Date { get; set; }
 
-    /// <summary>Raw meal entries. Note these carry only food-item <em>ids</em>
-    /// (<see cref="MealFoodEntryResponseDto"/>), not nutrition values — use
-    /// <see cref="LoggedMeals"/> for anything the trainer actually sees.</summary>
+    /// <summary>Raw meal rows, exactly as stored: they carry only food-item <em>ids</em>
+    /// (<see cref="MealFoodEntryResponseDto"/>) rather than nutrition values, and a day
+    /// can hold more than one row for the same category. Use <see cref="LoggedMeals"/>
+    /// for anything the trainer actually sees.</summary>
     public List<MealResponseDto> Meals { get; set; } = [];
 
-    /// <summary>Per-meal totals with the food-item lookup already resolved, so the
-    /// client doesn't need the client's whole food catalogue to render a meal list.</summary>
+    /// <summary>One entry per meal of the day, with the food-item lookup already
+    /// resolved so the trainer doesn't need the client's whole food catalogue to
+    /// render a meal list. Rows sharing a category are folded into one entry —
+    /// see <see cref="Repositories.MealCategory"/> for why more than one exists.</summary>
     public List<LoggedMealDto> LoggedMeals { get; set; } = [];
 
     /// <summary>Total kcal consumed on <see cref="Date"/>.</summary>

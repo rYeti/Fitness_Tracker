@@ -2,7 +2,6 @@ using FitTracker.Api.DTOs;
 using FitTracker.Api.Models;
 using FitTracker.Api.Repositories;
 using FitTracker.Api.Services;
-using FitTracker.Api.Services.Interfaces;
 using Xunit;
 
 namespace FitTracker.Api.Tests;
@@ -396,31 +395,5 @@ public class TrainerSessionReviewTests : IDisposable
             });
         }
         _fx.Db.SaveChanges();
-    }
-
-    /// <summary>Stands in for the relationship gate, which these tests are not about —
-    /// it is covered by TrainerClientServiceTests.</summary>
-    private sealed class ActiveRelationshipStub(Guid expectedTrainer, Guid expectedClient) : ITrainerClientService
-    {
-        public Task<bool> IsActiveTrainerOfAsync(Guid trainer, Guid client) =>
-            Task.FromResult(trainer == expectedTrainer && client == expectedClient);
-
-        public Task<List<TrainerClientResponseDto>> GetClientsAsync(Guid trainer)
-        {
-            var clients = new List<TrainerClientResponseDto>();
-            if (trainer == expectedTrainer)
-            {
-                clients.Add(new TrainerClientResponseDto { ClientId = expectedClient });
-            }
-            return Task.FromResult(clients);
-        }
-
-        public Task<CreateInviteOutcome> CreateInviteAsync(Guid trainerId) => throw new NotSupportedException();
-        public Task<AcceptInviteOutcome> AcceptInviteAsync(string inviteCode, Guid clientId) => throw new NotSupportedException();
-        public Task<bool> RevokeInviteAsync(Guid inviteId, Guid trainerId) => throw new NotSupportedException();
-        public Task<List<PendingInviteDto>> GetPendingInvitesAsync(Guid trainerId) => throw new NotSupportedException();
-        public Task<TrainerClientStatusDto> GetStatusAsync(Guid userId) => throw new NotSupportedException();
-        public Task<bool> RemoveRelationshipAsync(Guid relationshipId, Guid requestingUserId) => throw new NotSupportedException();
-        public Task<TrainerClient?> GetActiveRelationshipAsync(Guid trainerId, Guid clientId) => throw new NotSupportedException();
     }
 }

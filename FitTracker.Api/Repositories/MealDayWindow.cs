@@ -48,6 +48,20 @@ public static class MealDayWindow
          MidnightUtc(lastDay).AddHours(OffsetToleranceHours));
 
     /// <summary>
+    /// The window holding every meal logged on the same calendar day as
+    /// <paramref name="storedDate"/> — which is an instant as stored, not a
+    /// calendar day, so it is resolved through <see cref="DayOf"/> first.
+    /// Passing the raw instant to <see cref="ForRange"/> instead would build the
+    /// window around the wrong day and, for anything east of UTC, one that does
+    /// not even contain the meal it came from.
+    /// </summary>
+    public static (DateTime Start, DateTime End) ForDayOf(DateTime storedDate)
+    {
+        var day = DayOf(storedDate);
+        return ForRange(day, day);
+    }
+
+    /// <summary>
     /// The calendar day a stored meal instant belongs to — the inverse of
     /// <see cref="ForRange"/>, for bucketing a range query back into days.
     /// </summary>

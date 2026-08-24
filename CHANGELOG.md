@@ -10,6 +10,11 @@ heading to the version it went out as, so a `## <version>` section is history:
 it is what those users have, and nothing new belongs in it. See
 `docs/android-release.md`.
 
+## Unreleased
+
+- Trainer Console: the Nutrition tab no longer shows a client's day twice over — two breakfasts, two lunches, two dinners, two snacks. The database has never limited a client to one meal row per category per day, and the app's sync could genuinely write a second one (a reconcile pass clearing a meal's server link when the row only looked gone, a response lost after the row was written, a second device, or the old `Snack`/`Snacks` category spelling failing to match itself). None of it was visible in the app, which renders four fixed meal sections and reads the first row of each, and the day's calorie and macro totals are computed from the foods themselves, so folding the rows back together leaves them unchanged. Creating a meal is now idempotent per day and category, so no new rows accumulate, and the console folds rows that already exist back into one meal — no re-sync or cleanup needed on affected accounts. See `docs/trainer-nutrition-duplicate-meals.md`.
+- Trainer Console: Snacks in the Nutrition tab now carry the snack icon and sort between lunch and dinner instead of last. The screen matched the lowercase `snack` its API documents while the app writes `Snacks`, so the category fell through to the unknown-category handling everywhere except its label.
+
 ## 1.0.2+12
 
 - Trainer Console: Session Review no longer lists sessions from workout plans the client has moved off. Activating a new plan only deactivates the old one — every date it ever generated stays scheduled — so the trainer's history was padded with dates nobody had asked the client to train on, each shown as Missed. Sessions the client actually completed, skipped or logged against are kept regardless of what became of the plan. The same filter now applies to average adherence, per-client roster adherence and the 12-week attendance chart, all of which were counting those dates as planned-and-not-completed and so understating adherence.
