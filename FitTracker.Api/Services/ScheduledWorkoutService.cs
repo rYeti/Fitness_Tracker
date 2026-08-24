@@ -75,6 +75,7 @@ public class ScheduledWorkoutService : IScheduledWorkoutService
             Weight = dto.Weight,
             WeightUnit = dto.WeightUnit,
             DurationSeconds = dto.DurationSeconds,
+            Rpe = dto.Rpe,
             Notes = dto.Notes,
             IsCompleted = dto.IsCompleted,
         };
@@ -84,15 +85,32 @@ public class ScheduledWorkoutService : IScheduledWorkoutService
     }
 
     /// <inheritdoc/>
+    /// <remarks>The batch is the exercise's whole log, not an addition to it. Saving an
+    /// exercise deletes every local set row for it and rebuilds them from the templates
+    /// (active_workout_view.dart), which drops their server ids, so the client posts the
+    /// full list as new every time. Appending it meant each save left the previous
+    /// generation behind server-side and the trainer saw the same set twice, three times,
+    /// four — while the client, which had rebuilt its own rows, showed the right count.</remarks>
     public async Task<List<WorkoutSetResponseDto>> AddSetsBatchAsync(Guid scheduledWorkoutExerciseId, Guid userId, List<WorkoutSetRequestDto> dtos)
     {
-        var results = new List<WorkoutSetResponseDto>();
-        foreach (var dto in dtos)
+        if (dtos.Count == 0) return [];
+
+        var sets = dtos.Select(dto => new WorkoutSet
         {
-            var created = await AddSetAsync(scheduledWorkoutExerciseId, userId, dto);
-            if (created != null) results.Add(created);
-        }
-        return results;
+            Id = Guid.NewGuid(),
+            ScheduledWorkoutExerciseId = scheduledWorkoutExerciseId,
+            SetNumber = dto.SetNumber,
+            Reps = dto.Reps,
+            Weight = dto.Weight,
+            WeightUnit = dto.WeightUnit,
+            DurationSeconds = dto.DurationSeconds,
+            Rpe = dto.Rpe,
+            Notes = dto.Notes,
+            IsCompleted = dto.IsCompleted,
+        }).ToList();
+
+        var replaced = await _scheduledRepository.ReplaceSetsAsync(scheduledWorkoutExerciseId, userId, sets);
+        return replaced == null ? [] : [.. replaced.Select(ToSetDto)];
     }
 
     /// <inheritdoc/>
@@ -161,6 +179,7 @@ public class ScheduledWorkoutService : IScheduledWorkoutService
         Weight = s.Weight,
         WeightUnit = s.WeightUnit,
         DurationSeconds = s.DurationSeconds,
+        Rpe = s.Rpe,
         IsCompleted = s.IsCompleted,
         Notes = s.Notes,
     };

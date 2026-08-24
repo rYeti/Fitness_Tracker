@@ -195,8 +195,6 @@ class SyncService {
         'color': w.color?.toSigned(32),
       },
     );
-    await _db.workoutDao.markWorkoutSynced(w.id, w.serverId!);
-
     // Sync unsynced exercises for this workout.
     final exercises = await _db.workoutDao.getExercisesForWorkoutRaw(w.id);
     final newExercises =
@@ -213,6 +211,10 @@ class SyncService {
     for (final we in exercises.where((e) => e.syncStatus == 3)) {
       await _syncDeleteWorkoutExercise(we);
     }
+    // Marked synced only once the exercises are done. Doing it first meant a failing
+    // exercise delete left the workout looking synced, and since getUnsyncedTemplates()
+    // only returns syncStatus != 1, the delete was never retried again.
+    await _db.workoutDao.markWorkoutSynced(w.id, w.serverId!);
     _logger.i('Updated workout ${w.id} on server ${w.serverId}');
   }
 
@@ -756,14 +758,34 @@ class SyncService {
     for (final w in syncedWorkouts) {
       try {
         final exercises = await _db.workoutDao.getExercisesForWorkoutRaw(w.id);
+
+        // Deletions first, and excluded from everything below: an exercise on its way out
+        // must not be created, nor have its prescription pushed, on the way.
+        //
+        // This is the only sweep that visits an already-synced workout, so it is the only
+        // place these can drain. saveWorkout marks a removed exercise pendingDelete but
+        // never marks the workout dirty (markWorkoutPendingUpdate has no callers), so
+        // _syncUpdateWorkout — which owns the pendingDelete loop — never runs for it, and
+        // the exercise stayed in the workout server-side, showing up in the trainer's
+        // Session Review as an exercise the client had skipped.
+        for (final we in exercises.where((e) => e.syncStatus == 3)) {
+          try {
+            await _syncDeleteWorkoutExercise(we);
+          } catch (e) {
+            _logger.w('Pending exercise delete failed for local ${we.id}: $e');
+          }
+        }
+        final live = exercises.where((e) => e.syncStatus != 3).toList();
+
         final unsyncedExercises =
-            exercises.where((e) => e.serverId == null).toList();
+            live.where((e) => e.serverId == null).toList();
         if (unsyncedExercises.isNotEmpty) {
           await _syncNewWorkoutExercisesBatch(unsyncedExercises, w.serverId!);
         }
+
         // Also check for set templates on exercises that are now synced.
         final syncedExercises =
-            exercises.where((e) => e.serverId != null).toList();
+            live.where((e) => e.serverId != null).toList();
         for (final ex in syncedExercises) {
           final templates = await _db.workoutDao
               .getSetTemplatesForWorkoutExercise(ex.id);
@@ -1893,6 +1915,10 @@ class SyncService {
     final list = (response.data as List).cast<Map<String, dynamic>>();
     for (final w in list) {
       final workoutServerId = w['id'] as String;
+      // A retired workout is still returned so that logged sessions can resolve what was
+      // performed, but the user deleted it — inserting it would put it back in their
+      // workout list. Checked before anything is written, not after.
+      if (w['removedAt'] != null) continue;
       if (await _db.workoutDao.getWorkoutByServerId(workoutServerId) != null)
         continue;
 

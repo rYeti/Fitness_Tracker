@@ -169,6 +169,7 @@ public class WorkoutService : IWorkoutService
         ScheduledDate = w.ScheduledDate,
         CompletedDate = w.CompletedDate,
         Color = w.Color,
+        RemovedAt = w.RemovedAt,
         Exercises = [.. w.Exercises.Select(ToExerciseDto)],
     };
 

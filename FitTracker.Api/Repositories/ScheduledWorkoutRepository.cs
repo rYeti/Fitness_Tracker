@@ -49,7 +49,9 @@ public class ScheduledWorkoutRepository : IScheduledWorkoutRepository
         if (existing != null)
             return existing;
 
-        var ownsWorkout = await _context.Workouts.AnyAsync(w => w.Id == sw.WorkoutId && w.UserId == userId);
+        // A retired workout is kept only so already-logged sessions can resolve it; it is not
+        // one of the user's workouts any more, so nothing new may be scheduled from it.
+        var ownsWorkout = await _context.Workouts.AnyAsync(w => w.Id == sw.WorkoutId && w.UserId == userId && w.RemovedAt == null);
         if (!ownsWorkout) return null;
 
         if (sw.WorkoutPlanId != null)
@@ -169,6 +171,29 @@ public class ScheduledWorkoutRepository : IScheduledWorkoutRepository
     }
 
     /// <inheritdoc/>
+    public async Task<List<WorkoutSet>?> ReplaceSetsAsync(Guid scheduledWorkoutExerciseId, Guid userId, List<WorkoutSet> sets)
+    {
+        var ownsExercise = await _context.ScheduledWorkoutExercises
+            .AnyAsync(e => e.Id == scheduledWorkoutExerciseId && e.ScheduledWorkout.Workout.UserId == userId);
+        if (!ownsExercise) return null;
+
+        await _context.WorkoutSets
+            .Where(s => s.ScheduledWorkoutExerciseId == scheduledWorkoutExerciseId)
+            .ExecuteDeleteAsync();
+
+        // ExecuteDelete bypasses the change tracker, which would otherwise still believe
+        // those rows exist and act on them during the SaveChanges below.
+        var stale = _context.ChangeTracker.Entries<WorkoutSet>()
+            .Where(e => e.Entity.ScheduledWorkoutExerciseId == scheduledWorkoutExerciseId)
+            .ToList();
+        foreach (var entry in stale) entry.State = EntityState.Detached;
+
+        _context.WorkoutSets.AddRange(sets);
+        await _context.SaveChangesAsync();
+        return sets;
+    }
+
+    /// <inheritdoc/>
     public async Task<WorkoutSet?> UpdateSetAsync(Guid setId, Guid userId, WorkoutSetRequestDto dto)
     {
         var set = await _context.WorkoutSets
@@ -180,6 +205,7 @@ public class ScheduledWorkoutRepository : IScheduledWorkoutRepository
         set.Weight = dto.Weight;
         set.WeightUnit = dto.WeightUnit;
         set.DurationSeconds = dto.DurationSeconds;
+        set.Rpe = dto.Rpe;
         set.IsCompleted = dto.IsCompleted;
         set.Notes = dto.Notes;
 

@@ -33,6 +33,13 @@ public class Workout
     /// <summary>An optional colour value associated with the workout (ARGB integer).</summary>
     public int? Color { get; set; }
 
+    /// <summary>When the workout was deleted, or null while it still exists. Set instead of
+    /// deleting the row when scheduled sessions have already logged sets against it:
+    /// <see cref="ScheduledWorkout"/> holds a restricted foreign key here, so removing the
+    /// row would mean destroying that history. Every read that answers "which workouts does
+    /// this user have" must exclude non-null values; reads that resolve logged sessions must not.</summary>
+    public DateTime? RemovedAt { get; set; }
+
     /// <summary>Navigation property to the user who owns this workout.</summary>
     public User User { get; set; } = null!;
 

@@ -25,6 +25,7 @@ public class TrainerSessionReviewTests : IDisposable
     private readonly DbFixture _fx = new();
     private readonly TrainerConsoleService _console;
     private readonly WorkoutService _workouts;
+    private readonly ScheduledWorkoutService _scheduling;
     private readonly User _trainer;
     private readonly User _client;
     private readonly Exercise _squat;
@@ -40,6 +41,7 @@ public class TrainerSessionReviewTests : IDisposable
         _fx.Db.SaveChanges();
 
         _workouts = new WorkoutService(new WorkoutRepository(_fx.Db));
+        _scheduling = new ScheduledWorkoutService(new ScheduledWorkoutRepository(_fx.Db));
         _console = new TrainerConsoleService(
             new ActiveRelationshipStub(_trainer.Id, _client.Id),
             null!,
@@ -264,8 +266,7 @@ public class TrainerSessionReviewTests : IDisposable
         retired.RemovedAt = DateTime.UtcNow;
         await _fx.Db.SaveChangesAsync();
 
-        var scheduling = new ScheduledWorkoutService(new ScheduledWorkoutRepository(_fx.Db));
-        var created = await scheduling.CreateScheduledWorkoutAsync(new ScheduledWorkoutRequestDto
+        var created = await _scheduling.CreateScheduledWorkoutAsync(new ScheduledWorkoutRequestDto
         {
             WorkoutId = workout.Id,
             ScheduledDate = DateTime.UtcNow.Date,
@@ -276,6 +277,169 @@ public class TrainerSessionReviewTests : IDisposable
         var entry = Assert.Single(created!.Exercises);
         Assert.Equal(kept.Id, entry.WorkoutExerciseId);
         Assert.DoesNotContain(created!.Exercises, e => e.WorkoutExerciseId == retired.Id);
+    }
+
+
+    // ── Logged sets: the client rebuilds, the server must not accumulate ─────
+
+    [Fact]
+    public async Task PushingTheSameSetsTwiceLeavesOneRowPerSetNumber()
+    {
+        var workout = AddWorkout("Lower A");
+        var exercise = AddWorkoutExercise(workout, sets: 2);
+        var plan = AddPlan("Spring Block", isActive: true);
+        var session = AddSession(workout, plan, DaysAgo(1), isCompleted: true);
+        var entry = AddScheduledEntry(session, exercise);
+
+        var batch = new List<WorkoutSetRequestDto>
+        {
+            new() { SetNumber = 1, Reps = 8, Weight = 100, WeightUnit = "kg", IsCompleted = true },
+            new() { SetNumber = 2, Reps = 8, Weight = 100, WeightUnit = "kg", IsCompleted = true },
+        };
+
+        // Saving an exercise rebuilds every local set row and drops their server ids, so the
+        // client posts the whole log as new on each save. Appending it meant the trainer saw
+        // the same set two, three, four times while the client showed the right count.
+        await _scheduling.AddSetsBatchAsync(entry.Id, _client.Id, batch);
+        await _scheduling.AddSetsBatchAsync(entry.Id, _client.Id, batch);
+
+        Assert.Equal(2, _fx.Db.WorkoutSets.Count(s => s.ScheduledWorkoutExerciseId == entry.Id));
+
+        var only = Assert.Single(await LoadHistory());
+        var logged = Assert.Single(only.Exercises);
+        Assert.Equal(2, logged.Sets.Count);
+        // Volume counted each set once, not twice.
+        Assert.Equal(1600, only.TotalVolume);
+    }
+
+    [Fact]
+    public async Task PushingFewerSetsRemovesTheOnesThatAreGone()
+    {
+        var workout = AddWorkout("Lower A");
+        var exercise = AddWorkoutExercise(workout, sets: 3);
+        var plan = AddPlan("Spring Block", isActive: true);
+        var session = AddSession(workout, plan, DaysAgo(1), isCompleted: true);
+        var entry = AddScheduledEntry(session, exercise);
+
+        await _scheduling.AddSetsBatchAsync(entry.Id, _client.Id,
+        [
+            new() { SetNumber = 1, Reps = 8, Weight = 100, IsCompleted = true },
+            new() { SetNumber = 2, Reps = 8, Weight = 100, IsCompleted = true },
+            new() { SetNumber = 3, Reps = 8, Weight = 100, IsCompleted = true },
+        ]);
+
+        // The client dropped a set. The batch is the whole log, so the third must go.
+        await _scheduling.AddSetsBatchAsync(entry.Id, _client.Id,
+        [
+            new() { SetNumber = 1, Reps = 8, Weight = 100, IsCompleted = true },
+            new() { SetNumber = 2, Reps = 8, Weight = 100, IsCompleted = true },
+        ]);
+
+        var stored = _fx.Db.WorkoutSets.Where(s => s.ScheduledWorkoutExerciseId == entry.Id).ToList();
+        Assert.Equal(2, stored.Count);
+        Assert.DoesNotContain(stored, s => s.SetNumber == 3);
+    }
+
+    [Fact]
+    public async Task RpeSurvivesTheRoundTrip()
+    {
+        var workout = AddWorkout("Lower A");
+        var exercise = AddWorkoutExercise(workout, sets: 1);
+        var plan = AddPlan("Spring Block", isActive: true);
+        var session = AddSession(workout, plan, DaysAgo(1), isCompleted: true);
+        var entry = AddScheduledEntry(session, exercise);
+
+        await _scheduling.AddSetsBatchAsync(entry.Id, _client.Id,
+        [
+            new() { SetNumber = 1, Reps = 8, Weight = 100, Rpe = 9, IsCompleted = true },
+        ]);
+
+        // Rpe was on the request, on the entity and on the response, and was mapped in none
+        // of them — so the trainer's RPE column read "—" for every set ever logged.
+        var only = Assert.Single(await LoadHistory());
+        var logged = Assert.Single(only.Exercises);
+        Assert.Equal(9, Assert.Single(logged.Sets).Rpe);
+        Assert.Equal(9, only.AvgRpe);
+    }
+
+    // ── Deleting a workout ──────────────────────────────────────────────────
+
+    [Fact]
+    public async Task DeletingAWorkoutNobodyLoggedRemovesItAndItsSessions()
+    {
+        var workout = AddWorkout("Test1");
+        AddWorkoutExercise(workout, sets: 3);
+        var plan = AddPlan("Spring Block", isActive: true);
+        AddSession(workout, plan, DaysAgo(2));
+
+        // ScheduledWorkouts holds a restricted foreign key to Workouts, so this used to fail
+        // outright and the workout stayed in the trainer's tab row after the client deleted it.
+        Assert.True(await _workouts.DeleteWorkoutAsync(workout.Id, _client.Id));
+
+        Assert.Empty(_fx.Db.Workouts.Where(w => w.Id == workout.Id).ToList());
+        Assert.Empty(_fx.Db.ScheduledWorkouts.Where(sw => sw.WorkoutId == workout.Id).ToList());
+        Assert.Empty(await LoadHistory());
+    }
+
+    [Fact]
+    public async Task DeletingAWorkoutWithLoggedHistoryRetiresItAndKeepsThatHistory()
+    {
+        var workout = AddWorkout("Test2");
+        var exercise = AddWorkoutExercise(workout, sets: 3);
+        var plan = AddPlan("Spring Block", isActive: true);
+        var performed = AddSession(workout, plan, DaysAgo(9), isCompleted: true);
+        LogSets(performed, exercise, reps: 8, weight: 100, count: 3);
+        var neverDone = AddSession(workout, plan, DaysAgo(2));
+
+        Assert.True(await _workouts.DeleteWorkoutAsync(workout.Id, _client.Id));
+
+        var stored = Assert.Single(_fx.Db.Workouts.Where(w => w.Id == workout.Id).ToList());
+        Assert.NotNull(stored.RemovedAt);
+        // The date nobody trained on goes; the session actually performed stays, and keeps
+        // the workout row precisely so it can still be named.
+        Assert.Empty(_fx.Db.ScheduledWorkouts.Where(sw => sw.Id == neverDone.Id).ToList());
+
+        var only = Assert.Single(await LoadHistory());
+        Assert.Equal(performed.Id, only.ScheduledWorkoutId);
+        Assert.Equal("Test2", only.WorkoutName);
+    }
+
+    [Fact]
+    public async Task ARetiredWorkoutIsGoneFromTheClientsWorkoutsAndCannotBeScheduled()
+    {
+        var workout = AddWorkout("Test2");
+        var exercise = AddWorkoutExercise(workout, sets: 3);
+        var plan = AddPlan("Spring Block", isActive: true);
+        LogSets(AddSession(workout, plan, DaysAgo(9), isCompleted: true), exercise,
+            reps: 8, weight: 100, count: 3);
+
+        await _workouts.DeleteWorkoutAsync(workout.Id, _client.Id);
+
+        // Still returned by the workouts read, flagged, so logged sessions can resolve it —
+        // but the client filters on RemovedAt and nothing new may be scheduled from it.
+        var listed = await _workouts.GetUserWorkoutsAsync(_client.Id);
+        Assert.NotNull(listed.Single(w => w.Id == workout.Id).RemovedAt);
+
+        var created = await _scheduling.CreateScheduledWorkoutAsync(new ScheduledWorkoutRequestDto
+        {
+            WorkoutId = workout.Id,
+            ScheduledDate = DateTime.UtcNow.Date,
+        }, _client.Id);
+        Assert.Null(created);
+    }
+
+    [Fact]
+    public async Task ARetiredWorkoutsUnloggedSessionsAreNotReported()
+    {
+        var workout = AddWorkout("Test1");
+        var plan = AddPlan("Spring Block", isActive: true);
+        var stranded = AddSession(workout, plan, DaysAgo(2), isCompleted: true);
+        workout.RemovedAt = DateTime.UtcNow;
+        await _fx.Db.SaveChangesAsync();
+
+        // Belt and braces for sessions already stranded by the delete that used to 500:
+        // the workout is gone, nothing was logged, so there is nothing to report.
+        Assert.DoesNotContain(await LoadHistory(), s => s.ScheduledWorkoutId == stranded.Id);
     }
 
     // ── Seeding ─────────────────────────────────────────────────────────────

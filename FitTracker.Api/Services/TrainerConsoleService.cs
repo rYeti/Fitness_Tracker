@@ -248,6 +248,12 @@ public class TrainerConsoleService(
         {
             workoutsById.TryGetValue(workout.WorkoutId, out var template);
 
+            // The workout was deleted. Sessions the client actually performed are real history
+            // and stay — the workout row is retained precisely so they can still be named — but
+            // a date it generated and nobody logged against describes nothing that ever
+            // happened, and listing it accuses the client of missing a workout they deleted.
+            if (template?.RemovedAt != null && !workout.Exercises.Any(e => e.Sets.Count > 0)) continue;
+
             var exerciseLogs = new List<SessionExerciseLogDto>();
             double totalVolume = 0;
             var rpes = new List<int>();

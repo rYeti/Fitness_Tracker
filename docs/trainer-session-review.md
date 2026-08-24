@@ -232,3 +232,69 @@ when only one of its readers knows.
   templates are self-evidently duplicates and can be cleaned up on read; a stale
   exercise that is still legitimately in the workout is not distinguishable from
   a real one, and no amount of filtering will make it so.
+
+---
+
+## 6. Postscript: the above was half wrong
+
+Everything up to here shipped as PR #48, deployed, and **changed nothing the trainer could see.**
+The corrections matter more than the original, so they are recorded here rather than quietly fixed.
+
+### What §4 got wrong
+
+Section 4 claims the "too many sets" report was duplicated `WorkoutSetTemplates`. It was not. The
+prescription was always correct — the screenshot that prompted the report reads
+`Prescribed 2 × 8 - 12` next to four logged rows numbered `1, 1, 2, 2`. The duplication was in
+`WorkoutSets`, the *logged* table. Two tables, both plausible, and the fix landed on the wrong one.
+
+The mechanism is the one §4 describes, one table over. `active_workout_view.dart:616` hard-deletes
+every local set row for an exercise on save and rebuilds it from the templates, which throws away
+their `serverId`s; the sync then posts the whole log as new, and `AddSetsBatchAsync` appended it.
+One extra copy of every set, per save. `markWorkoutSetPendingDelete` exists in the DAO and has
+never had a caller.
+
+### What §3 got wrong
+
+Section 3 presents the retired-exercise fix as complete. The server half was. The client half was
+not, and nobody checked: `saveWorkout` marks a removed exercise `syncStatus = 3` but never marks
+the **workout** dirty — `workoutCompanion` omits `syncStatus` and `markWorkoutPendingUpdate` has
+zero callers — while `getUnsyncedTemplates()` returns only `syncStatus != 1`. The pendingDelete
+loop lives inside `_syncUpdateWorkout`, which is therefore unreachable for any workout that has
+synced once. The `DELETE` was fixed and then never called.
+
+Worse, `_syncUpdateWorkout` marked the workout synced *before* running its exercise loop, so the
+first failure permanently removed the workout from the retry set.
+
+### The one that was never looked for
+
+`ScheduledWorkout → Workout` is `Restrict` too. `DeleteWorkoutAsync` was a bare `Remove` +
+`SaveChanges`, so deleting a workout that had ever been scheduled raised a foreign-key violation,
+500'd, and left the workout on the server. Deleted workouts kept generating tabs in the trainer's
+Session Review, under names the client had removed weeks earlier.
+
+§3 had already found and fixed exactly this shape on `WorkoutExercise`. The identical defect sat
+one level up in the same file, on the same kind of foreign key, and the fix did not go looking for
+it. **Finding the shape of a bug is not the same as finding its instances.** When a defect turns
+out to be structural — a restricted foreign key nobody accounted for — the next move is to
+enumerate every relationship with that structure, not to fix the one that was reported.
+
+### The lesson that outlives all of it
+
+The framing in §1 — *history read as the present* — was real but secondary. The stronger pattern,
+visible only once all four defects are laid side by side, is this:
+
+> **A write that fails silently becomes a reading bug somewhere else.** Every one of these surfaced
+> as "the Trainer Console is showing the wrong thing", and not one of them was a bug in the Trainer
+> Console. Three were failed or unreachable deletes; one was a client that rebuilds while the
+> server appends. The console was the first screen honest enough to display what the database
+> actually contained.
+
+Two practical consequences, both of which would have caught these years earlier:
+
+- **A sync client that swallows its errors has no error budget.** Every one of these failures was
+  caught, logged at `warn`, and dropped. The user saw a workout disappear locally and had no way to
+  know the server disagreed. Failed pushes need to be visible somewhere a human looks.
+- **Symmetry between local and remote mutation is a testable invariant.** "The client rebuilds, the
+  server appends" and "the client deletes, the server refuses" are both statements about the pair,
+  and neither side's tests can express them alone. They only fail in integration, against real
+  foreign keys — which is exactly why `DbFixture` uses SQLite rather than the InMemory provider.

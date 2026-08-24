@@ -33,6 +33,11 @@ public class WorkoutResponseDto
     /// <summary>An optional colour value associated with the workout (ARGB integer).</summary>
     public int? Color { get; set; }
 
+    /// <summary>When this workout was deleted, or null while it still exists. Non-null
+    /// workouts are only carried so that already-logged sessions can still resolve what was
+    /// performed — they are not the user's workouts any more and must not be listed or scheduled.</summary>
+    public DateTime? RemovedAt { get; set; }
+
     /// <summary>The list of exercises that make up this workout.</summary>
     public List<WorkoutExerciseResponseDto> Exercises { get; set; } = new();
 }

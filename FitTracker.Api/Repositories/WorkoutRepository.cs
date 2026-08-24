@@ -69,8 +69,42 @@ public class WorkoutRepository : IWorkoutRepository
     {
         var workout = await _context.Workouts.FirstOrDefaultAsync(w => w.Id == id && w.UserId == userId);
         if (workout == null) return false;
+        if (workout.RemovedAt != null) return true;
 
-        _context.Workouts.Remove(workout);
+        // ScheduledWorkouts holds a restricted foreign key to Workouts, so plainly removing
+        // a workout the user had ever scheduled failed with a foreign-key violation — the
+        // client's DELETE 500'd, the workout survived server-side, and every session it had
+        // ever generated stayed in the trainer's Session Review under a name the client had
+        // already deleted. Same shape as DeleteWorkoutExerciseAsync below, one level up.
+        var scheduled = await _context.ScheduledWorkouts
+            .Where(sw => sw.WorkoutId == id)
+            .Select(sw => new { sw.Id, HasLoggedSets = sw.Exercises.Any(e => e.Sets.Any()) })
+            .ToListAsync();
+
+        // A session with nothing logged is a date that never became anything. Nothing is
+        // lost by dropping it, and its ScheduledWorkoutExercises cascade away with it.
+        var emptyIds = scheduled.Where(sw => !sw.HasLoggedSets).Select(sw => sw.Id).ToList();
+        if (emptyIds.Count > 0)
+        {
+            await _context.ScheduledWorkouts
+                .Where(sw => emptyIds.Contains(sw.Id))
+                .ExecuteDeleteAsync();
+            DetachTracked<ScheduledWorkout>(sw => emptyIds.Contains(sw.Id));
+        }
+
+        if (scheduled.Count == emptyIds.Count)
+        {
+            // Nothing references the workout any more, so it can go for good.
+            _context.Workouts.Remove(workout);
+        }
+        else
+        {
+            // Sets were logged against it. Deleting the row would take that history with it,
+            // so retire the workout instead: gone from the user's workouts, still resolvable
+            // for the sessions that were actually performed.
+            workout.RemovedAt = DateTime.UtcNow;
+        }
+
         await _context.SaveChangesAsync();
         return true;
     }
