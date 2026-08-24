@@ -66,6 +66,49 @@ void main() {
     expect(find.text('Trainer access only'), findsNothing);
   });
 
+  testWidgets('waits for an unanswered role rather than reading it as a no', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      // The state a trainer is in the moment they finish registering: the cache
+      // is restored (so `initialized` is true) but holds no role for this
+      // account, and the status call hasn't landed. `isTrainer` is false here
+      // because nobody has asked yet — not because the answer is no.
+      AccessProvider.withState(
+        isTrainer: false,
+        roleResolved: false,
+        roleKnown: false,
+      ),
+      fallback: const Scaffold(body: Text('trainee app')),
+    );
+    await tester.pump();
+
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    // The regression: a brand-new trainer was dropped into the trainee app here.
+    expect(find.text('trainee app'), findsNothing);
+  });
+
+  testWidgets('a cached non-trainer is not made to wait for the network', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      // A returning trainee on a cold start: last session's answer is cached,
+      // this session's check is still in flight. Their own app renders now.
+      AccessProvider.withState(
+        isTrainer: false,
+        roleResolved: false,
+        roleKnown: true,
+      ),
+      fallback: const Scaffold(body: Text('trainee app')),
+    );
+    await tester.pump();
+
+    expect(find.text('trainee app'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+  });
+
   testWidgets('a non-trainer with no fallback is told why', (tester) async {
     await _pump(tester, AccessProvider.withState(isTrainer: false));
     await tester.pumpAndSettle();
