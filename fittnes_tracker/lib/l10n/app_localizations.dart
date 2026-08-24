@@ -4286,6 +4286,12 @@ abstract class AppLocalizations {
   /// **'Offline'**
   String get chatOffline;
 
+  /// No description provided for @chatUnreadCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} unread'**
+  String chatUnreadCount(Object count);
+
   /// No description provided for @chatSendFailed.
   ///
   /// In en, this message translates to:

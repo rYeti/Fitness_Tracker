@@ -56,6 +56,14 @@ class ChatProvider extends ChangeNotifier {
   String? get sendError => _sendError;
   String? get activeThreadId => _repository.activeThreadId;
 
+  /// Unread across every conversation — what the console's Messages tab badges.
+  ///
+  /// Derived rather than stored: a second counter kept in step by hand would
+  /// drift from the rows the moment one of the several paths that change them
+  /// (a live message, opening a thread, a reload) forgot to update it.
+  int get totalUnread =>
+      _conversations.fold(0, (sum, c) => sum + c.unreadCount);
+
   /// Loads the conversation list for the list pane.
   Future<void> loadConversations() async {
     _isLoading = true;

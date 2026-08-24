@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/feature/chat/domain/models/conversation_summary.dart';
+import 'package:ForgeForm/feature/chat/presentation/widgets/unread_badge.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/client_avatar.dart';
 
 /// One row in the conversation list: avatar, name, time, truncated preview and
@@ -101,7 +102,7 @@ class ConversationRow extends StatelessWidget {
                 ),
                 if (conversation.hasUnread) ...[
                   const SizedBox(width: 8),
-                  _UnreadBadge(count: conversation.unreadCount),
+                  UnreadBadge(count: conversation.unreadCount),
                 ],
               ],
             ),
@@ -137,35 +138,5 @@ class ConversationRow extends StatelessWidget {
       return days[local.weekday - 1];
     }
     return '${local.day}/${local.month}';
-  }
-}
-
-/// The count itself, not just a coloured dot: a dot tells a colourblind trainer
-/// nothing, and "how many" is the useful part anyway.
-class _UnreadBadge extends StatelessWidget {
-  final int count;
-
-  const _UnreadBadge({required this.count});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
-      alignment: Alignment.center,
-      padding: const EdgeInsets.symmetric(horizontal: 6),
-      decoration: const BoxDecoration(
-        color: ForgeColors.forgeOrange,
-        borderRadius: BorderRadius.all(Radius.circular(999)),
-      ),
-      child: Text(
-        '$count',
-        style: const TextStyle(
-          fontFamily: 'Montserrat',
-          fontWeight: FontWeight.w700,
-          fontSize: 11,
-          color: Colors.white,
-        ),
-      ),
-    );
   }
 }

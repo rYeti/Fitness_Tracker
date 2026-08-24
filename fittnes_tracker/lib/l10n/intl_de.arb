@@ -1338,6 +1338,7 @@
   "chatFailedRetry": "Senden fehlgeschlagen — zum Wiederholen tippen",
   "chatReconnecting": "Verbindung wird wiederhergestellt…",
   "chatOffline": "Offline",
+  "chatUnreadCount": "{count} ungelesen",
   "chatSendFailed": "Nachricht nicht gesendet. Prüfe deine Verbindung und versuche es erneut.",
   "chatDismiss": "Schließen",
   "chatAttachmentsUnavailable": "Anhänge sind noch nicht verfügbar",

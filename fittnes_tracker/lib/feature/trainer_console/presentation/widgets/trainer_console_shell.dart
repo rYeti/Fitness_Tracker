@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
 import 'package:ForgeForm/core/design_tokens.dart';
+import 'package:ForgeForm/feature/chat/presentation/providers/chat_provider.dart';
+import 'package:ForgeForm/feature/chat/presentation/widgets/unread_badge.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 
 enum TrainerConsoleRoute { dashboard, messages, builder, nutrition, sessionReview }
@@ -72,6 +76,17 @@ class TrainerConsoleShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDesktop = MediaQuery.of(context).size.width > 1024;
 
+    // Nullable on purpose: TrainerConsoleHome only registers a ChatProvider when
+    // the chat stack could be built, and the other four sections have nothing to
+    // do with chat. `provider` returns null for a nullable type rather than
+    // throwing, which is exactly the behaviour wanted here — no badge, no crash.
+    //
+    // Watching from the shell rather than passing a count in from the console:
+    // the shell already sits inside the provider, and `child` is constructed by
+    // the parent, so a rebuild here re-inserts the identical widget instance and
+    // never reaches the five sections underneath it.
+    final unread = context.watch<ChatProvider?>()?.totalUnread ?? 0;
+
     if (isDesktop) {
       return Scaffold(
         body: Row(
@@ -80,6 +95,7 @@ class TrainerConsoleShell extends StatelessWidget {
               currentRoute: currentRoute,
               onRouteSelected: onRouteSelected,
               onExitConsole: onExitConsole,
+              unread: unread,
             ),
             Expanded(child: child),
           ],
@@ -99,6 +115,7 @@ class TrainerConsoleShell extends StatelessWidget {
       bottomNavigationBar: _BottomNav(
         currentRoute: currentRoute,
         onRouteSelected: onRouteSelected,
+        unread: unread,
       ),
     );
   }
@@ -150,10 +167,12 @@ class _Sidebar extends StatelessWidget {
   final TrainerConsoleRoute currentRoute;
   final ValueChanged<TrainerConsoleRoute> onRouteSelected;
   final VoidCallback? onExitConsole;
+  final int unread;
 
   const _Sidebar({
     required this.currentRoute,
     required this.onRouteSelected,
+    required this.unread,
     this.onExitConsole,
   });
 
@@ -187,6 +206,8 @@ class _Sidebar extends StatelessWidget {
                 route: route,
                 selected: route == currentRoute,
                 onTap: () => onRouteSelected(route),
+                // Only Messages carries a count; the badge hides itself at zero.
+                unread: route == TrainerConsoleRoute.messages ? unread : 0,
               ),
             const Spacer(),
             if (onExitConsole != null)
@@ -253,11 +274,13 @@ class _SidebarItem extends StatelessWidget {
   final TrainerConsoleRoute route;
   final bool selected;
   final VoidCallback onTap;
+  final int unread;
 
   const _SidebarItem({
     required this.route,
     required this.selected,
     required this.onTap,
+    this.unread = 0,
   });
 
   @override
@@ -270,8 +293,13 @@ class _SidebarItem extends StatelessWidget {
         selected: selected,
         button: true,
         // Explicit label: without it the icon and text announce as two loose
-        // nodes and the item has no accessible name of its own.
-        label: route.label(l10n),
+        // nodes and the item has no accessible name of its own. The count goes
+        // in the label rather than being left to the badge — `excludeSemantics`
+        // drops the badge's own text, and an orange pill nobody announces is
+        // invisible to a screen reader.
+        label: unread > 0
+            ? '${route.label(l10n)}, ${l10n.chatUnreadCount(unread)}'
+            : route.label(l10n),
         excludeSemantics: true,
         child: Material(
           color: selected
@@ -305,6 +333,10 @@ class _SidebarItem extends StatelessWidget {
                       ),
                     ),
                   ),
+                  if (unread > 0) ...[
+                    const SizedBox(width: 8),
+                    UnreadBadge(count: unread),
+                  ],
                 ],
               ),
             ),
@@ -318,8 +350,13 @@ class _SidebarItem extends StatelessWidget {
 class _BottomNav extends StatelessWidget {
   final TrainerConsoleRoute currentRoute;
   final ValueChanged<TrainerConsoleRoute> onRouteSelected;
+  final int unread;
 
-  const _BottomNav({required this.currentRoute, required this.onRouteSelected});
+  const _BottomNav({
+    required this.currentRoute,
+    required this.onRouteSelected,
+    required this.unread,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -339,15 +376,39 @@ class _BottomNav extends StatelessWidget {
       destinations: [
         for (final route in TrainerConsoleShell._routes)
           NavigationDestination(
-            icon: Icon(route.icon),
-            selectedIcon: Icon(
-              route.activeIcon,
-              color: ForgeColors.forgeOrange,
+            icon: _maybeBadge(route, Icon(route.icon)),
+            selectedIcon: _maybeBadge(
+              route,
+              Icon(route.activeIcon, color: ForgeColors.forgeOrange),
             ),
             label: route.shortLabel(l10n),
-            tooltip: route.label(l10n),
+            // NavigationDestination builds its own semantics from `label`, and
+            // the badge is decoration as far as that is concerned. The tooltip
+            // is the one string here a screen reader will read out, so the count
+            // rides along in it.
+            tooltip: route == TrainerConsoleRoute.messages && unread > 0
+                ? '${route.label(l10n)}, ${l10n.chatUnreadCount(unread)}'
+                : route.label(l10n),
           ),
       ],
+    );
+  }
+
+  /// Overlays the unread count on the Messages icon, and leaves every other
+  /// destination untouched.
+  ///
+  /// Material's [Badge] rather than [UnreadBadge] here: a bottom-tab count has
+  /// to sit *on* the icon, and getting that overlay right inside a
+  /// NavigationBar (which clips) is exactly the fiddly bit Badge already
+  /// solves. The colour and type come from UnreadBadge's constants so the pill
+  /// on the tab and the pill in the inbox cannot drift apart.
+  Widget _maybeBadge(TrainerConsoleRoute route, Widget icon) {
+    if (route != TrainerConsoleRoute.messages || unread <= 0) return icon;
+    return Badge(
+      backgroundColor: UnreadBadge.background,
+      textStyle: UnreadBadge.textStyle,
+      label: Text(UnreadBadge.label(unread)),
+      child: icon,
     );
   }
 }

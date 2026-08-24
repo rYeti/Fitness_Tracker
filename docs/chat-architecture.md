@@ -797,6 +797,42 @@ permanently lost.
 
 ---
 
+## 17. Where the count is allowed to live
+
+With the inbox live (§16), the console's Messages tab gets a badge. The
+implementation is small; the two decisions in it are worth recording.
+
+**The total is derived, never stored.** `ChatProvider.totalUnread` folds over the
+conversation rows on every read rather than maintaining a counter beside them.
+Three separate paths change those rows — a live message, opening a thread, a
+reload — and a hand-maintained total only has to be forgotten on one of them to
+start lying. A fold is O(clients) on a list that is already in memory and already
+being rebuilt; there is no performance argument on the other side.
+
+**The badge is one widget with two presentations.** `_UnreadBadge` was private to
+`conversation_row.dart`; it is now the shared `UnreadBadge`. A count that renders
+one way in the inbox and another on the tab leading to it is worse than either
+choice made consistently, and CLAUDE.md's "one shared widget per repeated
+pattern" rule exists for exactly this. But the bottom tab needs the count
+*overlaid* on an icon inside a `NavigationBar` that clips, which is fiddly and
+which Material's own `Badge` already solves. So the widget exposes its colour,
+type and 99-cap as constants that `Badge` borrows: two presentations, one source
+of truth, no second implementation to drift.
+
+The accessibility detail is the one that would have been missed. Both nav items
+already wrap themselves in `Semantics(..., excludeSemantics: true)` so the icon
+and label announce as a single named control — which also drops the badge's text.
+An orange pill nobody announces is invisible to a screen reader, so the count
+goes into the semantic label and the tooltip instead of being left to the visual.
+Same rule as §10's "status is never colour alone", one layer further out: a badge
+is not information until something says it out loud.
+
+> **Adding a visual affordance inside an `excludeSemantics` subtree removes it
+> from the accessibility tree.** The wrapper that makes a compound control
+> announce properly is the same wrapper that silences anything added to it later.
+
+---
+
 ## What all four have in common
 
 Every defect in Part two sat in a gap between two things that were each correct on
