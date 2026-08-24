@@ -2412,7 +2412,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get accountTypeTrainer => 'Coaching clients';
 
   @override
-  String get accountTypeLockedNote => 'A trainer account opens the Trainer Console. This can\'t be changed later — an existing account can\'t be switched over.';
+  String get accountTypeLockedNote =>
+      'A trainer account opens the Trainer Console. This can\'t be changed later — an existing account can\'t be switched over.';
 
   @override
   String get dashboardLoading => 'Loading dashboard';
@@ -2733,19 +2734,23 @@ class AppLocalizationsEn extends AppLocalizations {
   String get authFailureInvalidCredentials => 'Invalid username or password.';
 
   @override
-  String get authFailureRegistrationFailed => 'That username or email is already taken.';
+  String get authFailureRegistrationFailed =>
+      'That username or email is already taken.';
 
   @override
-  String get authFailureUnknownAccountType => 'That account type isn\'t recognised. Choose one of the options and try again.';
+  String get authFailureUnknownAccountType =>
+      'That account type isn\'t recognised. Choose one of the options and try again.';
 
   @override
-  String get authFailureNetwork => 'Couldn\'t reach ForgeForm. Check your connection and try again.';
+  String get authFailureNetwork =>
+      'Couldn\'t reach ForgeForm. Check your connection and try again.';
 
   @override
   String get authFailureUnknown => 'Something went wrong. Please try again.';
 
   @override
-  String get resetFailureLinkNoLongerValid => 'This link has expired or has already been used.';
+  String get resetFailureLinkNoLongerValid =>
+      'This link has expired or has already been used.';
 
   @override
   String inviteFailureSeatLimitReachedDetailed(int seatsUsed, int seatLimit) {

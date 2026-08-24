@@ -4415,7 +4415,7 @@ abstract class AppLocalizations {
   /// No description provided for @trainerAccessOnlyBody.
   ///
   /// In en, this message translates to:
-  /// **'This area is for trainers managing clients. Trainer accounts are chosen when the account is created — an existing account can't be switched over.'**
+  /// **'This area is for trainers managing clients. Trainer accounts are chosen when the account is created — an existing account can\'t be switched over.'**
   String get trainerAccessOnlyBody;
 
   /// No description provided for @accountType.
@@ -4439,7 +4439,7 @@ abstract class AppLocalizations {
   /// No description provided for @accountTypeLockedNote.
   ///
   /// In en, this message translates to:
-  /// **'A trainer account opens the Trainer Console. This can't be changed later — an existing account can't be switched over.'**
+  /// **'A trainer account opens the Trainer Console. This can\'t be changed later — an existing account can\'t be switched over.'**
   String get accountTypeLockedNote;
 
   /// No description provided for @dashboardLoading.
