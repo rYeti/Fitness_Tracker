@@ -1,10 +1,12 @@
 ﻿using System.Text;
 using System.Threading.RateLimiting;
+using FirebaseAdmin;
 using FitTracker.Api.Data;
 using FitTracker.Api.Repositories;
 using FitTracker.Api.Repositories.Interfaces;
 using FitTracker.Api.Services;
 using FitTracker.Api.Services.Interfaces;
+using Google.Apis.Auth.OAuth2;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -208,6 +210,35 @@ builder.Services.AddScoped<IWorkoutPlanTemplateService, WorkoutPlanTemplateServi
 builder.Services.AddTransient<IEmailService, GmailApiEmailService>();
 builder.Services.AddScoped<IChatRepository, ChatRepository>();
 builder.Services.AddScoped<IChatService, ChatService>();
+builder.Services.AddScoped<IDeviceTokenRepository, DeviceTokenRepository>();
+builder.Services.AddScoped<IPushNotificationService, PushNotificationService>();
+
+// Singleton: it holds a scope factory and a logger and nothing else. It has to
+// outlive the hub invocation that queues work on it, which is the entire point.
+builder.Services.AddSingleton<IChatPushDispatcher, ChatPushDispatcher>();
+
+// Push transport. Configured or not, the API serves every request identically --
+// the same posture as the Stripe and CORS blocks below: log loudly, keep serving.
+// Without credentials chat still works end to end; it just doesn't notify.
+var fcmCredentialsBase64 = builder.Configuration["Fcm:ServiceAccountJsonBase64"];
+if (!string.IsNullOrWhiteSpace(fcmCredentialsBase64))
+{
+    // Base64 rather than raw JSON because deploy.yml passes every setting in one
+    // comma-joined --set-env-vars string and gcloud splits it on commas. A
+    // service-account JSON is full of them. Base64 has none.
+    var fcmJson = Encoding.UTF8.GetString(Convert.FromBase64String(fcmCredentialsBase64));
+    var firebaseApp = FirebaseApp.Create(new AppOptions
+    {
+        Credential = GoogleCredential.FromJson(fcmJson),
+        ProjectId = builder.Configuration["Fcm:ProjectId"],
+    });
+    builder.Services.AddSingleton(firebaseApp);
+    builder.Services.AddSingleton<IPushSender, FirebasePushSender>();
+}
+else
+{
+    builder.Services.AddSingleton<IPushSender, DisabledPushSender>();
+}
 
 
 // ── Build ────────────────────────────────────────────────────
@@ -233,6 +264,14 @@ else
         "CORS: no Cors:AllowedOrigins configured — falling back to any-origin without credentials. " +
         "SignalR browser clients will fail their negotiate request until origins are set. " +
         "See docs/cors-and-signalr.md.");
+}
+
+if (string.IsNullOrWhiteSpace(fcmCredentialsBase64))
+{
+    app.Logger.LogWarning(
+        "Push: no Fcm:ServiceAccountJsonBase64 configured — chat works, but nobody is " +
+        "notified while their app is closed. Set FCM_SERVICE_ACCOUNT_BASE64 and " +
+        "FCM_PROJECT_ID. See docs/chat-architecture.md.");
 }
 
 // Stripe. Configured once at startup rather than per request; the SDK reads

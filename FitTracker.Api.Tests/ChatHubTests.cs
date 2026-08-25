@@ -3,6 +3,7 @@ using FitTracker.Api.DTOs;
 using FitTracker.Api.Hubs;
 using FitTracker.Api.Repositories;
 using FitTracker.Api.Services;
+using FitTracker.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.SignalR;
 using Xunit;
@@ -32,15 +33,24 @@ namespace FitTracker.Api.Tests;
 /// </remarks>
 public class ChatHubTests
 {
-    private static ChatHub NewHub(ChatScenario ctx, Guid callerId, out RecordingClients clients)
+    private static ChatHub NewHub(ChatScenario ctx, Guid callerId, out RecordingClients clients) =>
+        NewHub(ctx, callerId, out clients, out _);
+
+    private static ChatHub NewHub(
+        ChatScenario ctx,
+        Guid callerId,
+        out RecordingClients clients,
+        out RecordingPushDispatcher pushes)
     {
         var trainerClientRepo = new TrainerClientRepository(ctx.Db);
         clients = new RecordingClients();
+        pushes = new RecordingPushDispatcher();
 
         return new ChatHub(
             new TrainerClientService(
                 trainerClientRepo, new TrainerLicenceRepository(ctx.Db)),
-            new ChatService(trainerClientRepo, new ChatRepository(ctx.Db)))
+            new ChatService(trainerClientRepo, new ChatRepository(ctx.Db)),
+            pushes)
         {
             Context = new FakeHubCallerContext(callerId),
             Clients = clients,
@@ -136,7 +146,8 @@ public class ChatHubTests
         var hub = new ChatHub(
             new TrainerClientService(
                 trainerClientRepo, new TrainerLicenceRepository(ctx.Db)),
-            new ChatService(trainerClientRepo, new ChatRepository(ctx.Db)))
+            new ChatService(trainerClientRepo, new ChatRepository(ctx.Db)),
+            new RecordingPushDispatcher())
         {
             // ChatController already falls back to "sub"; the hub read only
             // NameIdentifier and threw on exactly the tokens the controller
@@ -160,7 +171,8 @@ public class ChatHubTests
         var hub = new ChatHub(
             new TrainerClientService(
                 trainerClientRepo, new TrainerLicenceRepository(ctx.Db)),
-            new ChatService(trainerClientRepo, new ChatRepository(ctx.Db)))
+            new ChatService(trainerClientRepo, new ChatRepository(ctx.Db)),
+            new RecordingPushDispatcher())
         {
             Context = new FakeHubCallerContext(userId: null),
             Clients = new RecordingClients(),
@@ -185,7 +197,8 @@ public class ChatHubTests
         ChatHub HubFor(Guid callerId, RecordingGroups groups) => new(
             new TrainerClientService(
                 trainerClientRepo, new TrainerLicenceRepository(ctx.Db)),
-            new ChatService(trainerClientRepo, new ChatRepository(ctx.Db)))
+            new ChatService(trainerClientRepo, new ChatRepository(ctx.Db)),
+            new RecordingPushDispatcher())
         {
             Context = new FakeHubCallerContext(callerId),
             Clients = new RecordingClients(),
@@ -201,9 +214,68 @@ public class ChatHubTests
         Assert.Equal($"chat:{ctx.TrainerId}:{ctx.ClientId}", Assert.Single(trainerGroups.Added).groupName);
     }
 
+
+    [Fact]
+    public async Task SendMessage_pushes_to_the_recipient_and_not_the_sender()
+    {
+        using var ctx = new ChatScenario();
+        var hub = NewHub(ctx, ctx.TrainerId, out _, out var pushes);
+
+        await hub.SendMessage(ctx.ClientId, "how did the last set feel?", Guid.NewGuid());
+
+        // The hub had never needed to name a recipient before — every other
+        // operation on it is symmetric between the two parties.
+        var push = Assert.Single(pushes.Queued);
+        Assert.Equal(ctx.ClientId, push.recipientId);
+        Assert.Equal(ctx.TrainerId, push.senderId);
+        Assert.Equal("how did the last set feel?", push.body);
+    }
+
+    [Fact]
+    public async Task The_recipient_is_the_trainer_when_the_client_sends()
+    {
+        using var ctx = new ChatScenario();
+        var hub = NewHub(ctx, ctx.ClientId, out _, out var pushes);
+
+        await hub.SendMessage(ctx.TrainerId, "sore but good", Guid.NewGuid());
+
+        var push = Assert.Single(pushes.Queued);
+        Assert.Equal(ctx.TrainerId, push.recipientId);
+        Assert.Equal(ctx.ClientId, push.senderId);
+    }
+
+    [Fact]
+    public async Task A_refused_send_pushes_nothing()
+    {
+        using var ctx = new ChatScenario();
+        var stranger = ctx.AddUser("Mara", "Vogel");
+        var hub = NewHub(ctx, stranger.Id, out _, out var pushes);
+
+        await Assert.ThrowsAsync<HubException>(
+            () => hub.SendMessage(ctx.ClientId, "let me in", Guid.NewGuid()));
+
+        // Authorisation is checked before anything is persisted or queued, so a
+        // stranger cannot make someone else's phone buzz.
+        Assert.Empty(pushes.Queued);
+    }
+
     // ── Minimal SignalR harness ───────────────────────────────────────────────
     // Hand-written rather than mocked: the project has no mocking library, and
     // these only need to record what the hub did with them.
+
+    /// <summary>
+    /// Stands in for the real dispatcher, which detaches a task and opens its own
+    /// DI scope — untestable in-process, and not what these tests are about. What
+    /// matters here is only that the hub queued the right push for the right
+    /// person.
+    /// </summary>
+    private sealed class RecordingPushDispatcher : IChatPushDispatcher
+    {
+        public List<(Guid recipientId, Guid senderId, string? body)> Queued { get; } = [];
+
+        public void Queue(Guid recipientId, Guid senderId, string? body) =>
+            Queued.Add((recipientId, senderId, body));
+    }
 
     private sealed class FakeHubCallerContext(Guid? userId, string? claimType = null) : HubCallerContext
     {

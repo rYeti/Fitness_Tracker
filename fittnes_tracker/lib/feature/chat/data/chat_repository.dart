@@ -38,6 +38,11 @@ class ChatRepository {
   /// message twice; see [incomingFor].
   final Set<String> _knownIds = {};
 
+  /// Every thread whose hub group this connection has joined — the open one plus
+  /// all the conversations being watched for the inbox. Kept so a re-open or a
+  /// second [watchConversations] doesn't re-join a group needlessly.
+  final Set<String> _watchedThreads = {};
+
   /// Resend attempts per message id, for the bounded retry in [replayPending].
   ///
   /// In memory rather than a column: a counter that resets when the app restarts
@@ -46,6 +51,7 @@ class ChatRepository {
   final Map<String, int> _replayAttempts = {};
 
   final _threadMessages = StreamController<ThreadMessage>.broadcast();
+  final _allIncoming = StreamController<ChatMessage>.broadcast();
   StreamSubscription<ChatMessage>? _incomingSubscription;
   StreamSubscription<void>? _reconnectedSubscription;
 
@@ -74,15 +80,42 @@ class ChatRepository {
 
   // ── Thread lifecycle ──────────────────────────────────────────────────────
 
-  /// Joins [otherPartyId]'s hub group, leaving the previous thread's first.
+  /// Joins the hub groups for every conversation in [otherPartyIds] and stays in
+  /// them, so a message arriving for a thread that is *not* on screen still
+  /// reaches this device.
   ///
-  /// Staying joined to every thread at once would deliver messages for threads
-  /// that aren't on screen, which the UI would then have to filter out anyway.
+  /// This reverses an earlier decision. Membership used to follow the open
+  /// thread — join on open, leave on switch — reasoning that messages for
+  /// threads nobody is looking at would only have to be filtered out again. That
+  /// is true of the *thread view*, and false of everything else: an unread badge
+  /// is by definition about a conversation you do not have open, so scoping
+  /// delivery to the open thread made a live inbox impossible rather than
+  /// merely unnecessary. The filtering that argument wanted to avoid is four
+  /// lines in [_handleIncoming].
+  ///
+  /// A join that fails is dropped rather than propagated: the cost is a stale
+  /// badge for one conversation until the next load, and failing the whole
+  /// inbox over that would be a far worse trade. The thread's own [openThread]
+  /// joins independently, so opening a conversation still works.
+  Future<void> watchConversations(Iterable<String> otherPartyIds) async {
+    for (final id in otherPartyIds) {
+      if (!_watchedThreads.add(id)) continue;
+      try {
+        await _signalR.joinGroup(id);
+      } catch (_) {
+        _watchedThreads.remove(id);
+      }
+    }
+  }
+
+  /// Marks [otherPartyId] as the thread on screen, joining its group if
+  /// [watchConversations] has not already.
+  ///
+  /// No longer leaves the previous thread's group — see [watchConversations].
+  /// The trainee app has exactly one thread and never calls
+  /// [watchConversations], so this is still the only join it needs.
   Future<void> openThread(String otherPartyId) async {
     if (_activeThreadId == otherPartyId) return;
-
-    final previous = _activeThreadId;
-    if (previous != null) await _signalR.leaveGroup(previous);
 
     // Dropped before the join, committed after it. Setting it up front recorded
     // the thread as open while the join was still in flight — and if the join
@@ -91,17 +124,21 @@ class ChatRepository {
     _activeThreadId = null;
     _knownIds.clear();
 
-    await _signalR.joinGroup(otherPartyId);
+    if (!_watchedThreads.contains(otherPartyId)) {
+      await _signalR.joinGroup(otherPartyId);
+      _watchedThreads.add(otherPartyId);
+    }
     _activeThreadId = otherPartyId;
   }
 
+  /// Closes the thread view. Group membership is deliberately kept: the
+  /// conversation list still wants this thread's messages, for its preview and
+  /// its unread count.
   Future<void> closeThread() async {
-    final thread = _activeThreadId;
-    if (thread == null) return;
+    if (_activeThreadId == null) return;
 
     _activeThreadId = null;
     _knownIds.clear();
-    await _signalR.leaveGroup(thread);
   }
 
   /// History (REST) merged with anything still unsent locally, so a message the
@@ -319,7 +356,21 @@ class ChatRepository {
     return _threadMessages.stream.where((_) => _activeThreadId == otherPartyId);
   }
 
+  /// Every message that arrives, whichever thread it belongs to.
+  ///
+  /// Separate from [incomingFor] because the two have opposite requirements. The
+  /// thread view wants exactly one thread's messages, deduped against what it is
+  /// already showing. The conversation list wants *all* of them and no dedup at
+  /// all — its job is precisely to tell you about the conversation you are not
+  /// looking at.
+  Stream<ChatMessage> get allIncoming => _allIncoming.stream;
+
   void _handleIncoming(ChatMessage message) {
+    // Before the active-thread filter, and never deduped: the inbox has to hear
+    // about a message whether or not its thread is open, which is the whole
+    // reason this device now stays in every conversation's group.
+    _allIncoming.add(message);
+
     final thread = _activeThreadId;
     if (thread == null) return;
 
@@ -349,5 +400,6 @@ class ChatRepository {
     await _incomingSubscription?.cancel();
     await _reconnectedSubscription?.cancel();
     await _threadMessages.close();
+    await _allIncoming.close();
   }
 }

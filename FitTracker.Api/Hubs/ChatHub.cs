@@ -7,10 +7,14 @@ using Microsoft.AspNetCore.SignalR;
 namespace FitTracker.Api.Hubs;
 
 [Authorize]
-public class ChatHub(ITrainerClientService trainerClientService, IChatService chatService) : Hub
+public class ChatHub(
+    ITrainerClientService trainerClientService,
+    IChatService chatService,
+    IChatPushDispatcher pushDispatcher) : Hub
 {
     private ITrainerClientService TrainerClientService { get; } = trainerClientService;
     private IChatService ChatService { get; } = chatService;
+    private IChatPushDispatcher PushDispatcher { get; } = pushDispatcher;
     private static string GroupName(Guid trainerId, Guid clientId) => $"chat:{trainerId}:{clientId}";
 
     /// <summary>
@@ -55,6 +59,17 @@ public class ChatHub(ITrainerClientService trainerClientService, IChatService ch
 
         var message = await ChatService.SendMessageAsync(trainerId, actualClientId, senderId: userId, messageId: messageId, body);
         await Clients.Group(GroupName(trainerId, actualClientId)).SendAsync("ReceiveMessage", message);
+
+        // The pair is (trainerId, actualClientId) and the sender is userId, so
+        // the recipient is simply the one that isn't. The hub has never needed to
+        // name that party before — every other operation is symmetric.
+        var recipientId = trainerId == userId ? actualClientId : trainerId;
+
+        // Queued, never awaited: this returns before anything touches Google.
+        // The return value below is what the client blocks on and what it reads
+        // as proof of delivery, so nothing slow or third-party may sit in front
+        // of it. See IChatPushDispatcher.
+        PushDispatcher.Queue(recipientId, senderId: userId, body: body);
 
         return message;
     }

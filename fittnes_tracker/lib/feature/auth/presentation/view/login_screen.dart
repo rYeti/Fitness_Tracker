@@ -1,4 +1,8 @@
+import 'dart:async';
+
 import 'package:ForgeForm/core/app_database.dart';
+import 'package:ForgeForm/core/di/service_locator.dart';
+import 'package:ForgeForm/core/services/push_service.dart';
 import 'package:ForgeForm/core/providers/access_provider.dart';
 import 'package:ForgeForm/core/providers/user_goals_provider.dart';
 import 'package:ForgeForm/feature/auth/presentation/sign_out.dart';
@@ -72,6 +76,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           await context.read<UserGoalsProvider>().reload();
         }
         await prefs.setString('last_logged_in_user', newUserId);
+
+        // This device now belongs to this user. Not awaited: a slow or failed
+        // registration must not hold up landing on the app.
+        unawaited(sl<PushService>().registerForCurrentUser());
 
         if (!context.mounted) return;
         context.read<AccessProvider>().initialize(

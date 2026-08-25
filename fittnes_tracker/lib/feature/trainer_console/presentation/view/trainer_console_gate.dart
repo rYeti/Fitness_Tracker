@@ -4,6 +4,7 @@ import 'package:ForgeForm/core/providers/access_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/data/trainer_console_repository.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/trainer_licence_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/view/trainer_console_home.dart';
+import 'package:ForgeForm/feature/trainer_console/presentation/widgets/trainer_console_shell.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/console_widgets.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 
@@ -34,10 +35,18 @@ class TrainerConsoleGate extends StatelessWidget {
   /// owns the licence provider for its seat affordances.
   final TrainerLicenceProvider? licenceProvider;
 
+  /// Which section the console opens on.
+  ///
+  /// TrainerConsoleHome has always accepted this; the gate simply dropped it, so
+  /// every entry point landed on the dashboard. A tapped chat notification needs
+  /// Messages, which is what made the omission visible.
+  final TrainerConsoleRoute initialRoute;
+
   const TrainerConsoleGate({
     super.key,
     this.fallback,
     this.onExitConsole,
+    this.initialRoute = TrainerConsoleRoute.dashboard,
     this.repository,
     this.licenceProvider,
   });
@@ -68,6 +77,7 @@ class TrainerConsoleGate extends StatelessWidget {
         onExitConsole: onExitConsole,
         repository: repository,
         licenceProvider: licenceProvider,
+        initialRoute: initialRoute,
       );
     }
     if (fallback != null) return fallback!;

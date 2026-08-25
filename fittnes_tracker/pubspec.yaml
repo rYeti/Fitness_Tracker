@@ -59,6 +59,15 @@ dependencies:
   purchases_ui_flutter: ^10.0.1
   flutter_local_notifications: ^18.0.1
   timezone: ^0.9.4
+
+  # Cloud Messaging only -- the push transport for a closed app. Nothing else
+  # from Firebase is used: data stays in Postgres and auth stays with our JWTs.
+  # firebase_core is a required peer of firebase_messaging, not a second product.
+  #
+  # Both no-op unless android/app/google-services.json exists, so the app builds
+  # and runs without it (see android/app/build.gradle.kts).
+  firebase_core: ^3.8.0
+  firebase_messaging: ^15.1.5
   app_links: ^6.0.0
   # 4.x rather than 3.x because signalr_hub pulls sse_channel, which requires
   # uuid ^4.5.1. Only ChatRepository uses it, and `const Uuid()` / `v4()` are

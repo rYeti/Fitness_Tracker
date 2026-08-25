@@ -5,6 +5,7 @@ import 'package:ForgeForm/l10n/app_localizations.dart';
 
 import 'package:ForgeForm/feature/chat/data/chat_repository.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/view/trainer_console_home.dart';
+import 'package:ForgeForm/feature/chat/presentation/widgets/unread_badge.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/trainer_console_shell.dart';
 
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/trainer_licence_provider.dart';
@@ -17,6 +18,7 @@ Future<void> _pump(
   WidgetTester tester,
   FakeTrainerConsoleRepository repository, {
   Size size = const Size(1400, 1200),
+  FakeChatApi? chatApi,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1.0;
@@ -44,7 +46,7 @@ Future<void> _pump(
         ),
         chatRepository: ChatRepository(
           db: db,
-          api: FakeChatApi(),
+          api: chatApi ?? FakeChatApi(),
           signalR: signalR,
         ),
       ),
@@ -155,4 +157,92 @@ void main() {
     expect(find.text('Ana Silva'), findsWidgets);
     expect(find.text('Robert Meyer'), findsNothing);
   });
+
+  // ── Unread badge on the Messages tab ──────────────────────────────────────
+
+  Map<String, dynamic> conversation(String id, String name, int unread) => {
+        'otherPartyId': id,
+        'otherPartyName': name,
+        'lastMessagePreview': 'see you thursday',
+        'lastMessageAt': DateTime.utc(2026, 8, 1, 9).toIso8601String(),
+        'unreadCount': unread,
+      };
+
+  testWidgets('the sidebar badges Messages with the total unread count',
+      (tester) async {
+    await _pump(
+      tester,
+      FakeTrainerConsoleRepository(
+        roster: [fakeClient()],
+        rosterWithStats: [fakeRosterEntry()],
+        nutrition: fakeNutrition(),
+      ),
+      chatApi: FakeChatApi(conversations: [
+        conversation('client-a', 'Robert Meyer', 2),
+        conversation('client-b', 'Ana Duarte', 3),
+        conversation('client-c', 'Tom Vasquez', 0),
+      ]),
+    );
+    await tester.pumpAndSettle();
+
+    // The total across conversations, not a per-row count and not a dot: the
+    // trainer wants to know how much is waiting before deciding to open it.
+    expect(find.widgetWithText(UnreadBadge, '5'), findsOneWidget);
+  });
+
+  testWidgets('no badge when everything is read', (tester) async {
+    await _pump(
+      tester,
+      FakeTrainerConsoleRepository(
+        roster: [fakeClient()],
+        rosterWithStats: [fakeRosterEntry()],
+        nutrition: fakeNutrition(),
+      ),
+      chatApi: FakeChatApi(conversations: [
+        conversation('client-a', 'Robert Meyer', 0),
+      ]),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(UnreadBadge), findsNothing);
+  });
+
+  testWidgets('mobile badges the Messages destination too', (tester) async {
+    await _pump(
+      tester,
+      FakeTrainerConsoleRepository(
+        roster: [fakeClient()],
+        rosterWithStats: [fakeRosterEntry()],
+        nutrition: fakeNutrition(),
+      ),
+      size: const Size(420, 900),
+      chatApi: FakeChatApi(conversations: [
+        conversation('client-a', 'Robert Meyer', 4),
+      ]),
+    );
+    await tester.pumpAndSettle();
+
+    // Material's Badge on the tab icon rather than UnreadBadge -- see
+    // _BottomNav._maybeBadge for why the two presentations differ.
+    expect(find.widgetWithText(Badge, '4'), findsOneWidget);
+  });
+
+  testWidgets('a count past 99 is capped rather than breaking the layout',
+      (tester) async {
+    await _pump(
+      tester,
+      FakeTrainerConsoleRepository(
+        roster: [fakeClient()],
+        rosterWithStats: [fakeRosterEntry()],
+        nutrition: fakeNutrition(),
+      ),
+      chatApi: FakeChatApi(conversations: [
+        conversation('client-a', 'Robert Meyer', 120),
+      ]),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(UnreadBadge, '99+'), findsOneWidget);
+  });
+
 }

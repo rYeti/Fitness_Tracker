@@ -9,6 +9,11 @@
 
   <ItemGroup>
     <PackageReference Include="BCrypt.Net-Next" Version="4.1.0" />
+    <!-- Cloud Messaging only. Firebase is the push transport for Android, not a
+         database and not an auth provider: user data stays in Postgres and
+         identity stays with our own JWTs. FCM is simply the only route to an
+         Android app that is not currently running. -->
+    <PackageReference Include="FirebaseAdmin" Version="3.1.0" />
     <PackageReference Include="Google.Apis.Gmail.v1" Version="1.69.0.3742" />
     <PackageReference Include="MailKit" Version="4.17.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.10" />

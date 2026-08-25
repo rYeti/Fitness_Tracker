@@ -13,10 +13,15 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:provider/provider.dart' as provider;
 import 'package:workmanager/workmanager.dart';
 import 'core/di/service_locator.dart';
 import 'core/widgets/lazy_indexed_stack.dart';
+import 'core/services/notification_service.dart';
+import 'core/services/push_service.dart';
+import 'feature/chat/presentation/view/coach_chat_entry.dart';
+import 'feature/trainer_console/presentation/widgets/trainer_console_shell.dart';
 import 'core/providers/theme_provider.dart';
 import 'core/providers/locale_provider.dart';
 import 'core/providers/user_goals_provider.dart';
@@ -116,6 +121,12 @@ void main() async {
   // database and used to raise the Android 13+ permission dialog, which blocks
   // on the user's tap — a first launch sat on the splash until they answered.
   // It now initialises itself on first use.
+  //
+  // Push is started here but deliberately *not* awaited, for the same reason:
+  // its init() asks for the notification permission. A cold-start notification
+  // tap is still delivered — getInitialMessage() holds it until we ask, and
+  // _openChatFor retries until the navigator exists.
+  unawaited(_startPushNotifications());
   final db = AppDatabase();
 
   // Register the database instance with the service locator
@@ -180,6 +191,9 @@ void main() async {
         bearerToken: restoredAuth.user!.token,
       ),
     );
+    // The third path that establishes a session, alongside login and register.
+    // Re-registering every launch is also what keeps a rotated FCM token current.
+    unawaited(sl<PushService>().registerForCurrentUser());
   }
 
   runApp(
@@ -278,6 +292,104 @@ class MyApp extends StatefulWidget {
 
   @override
   State<MyApp> createState() => _MyAppState();
+}
+
+/// Runs in a separate isolate when a push arrives with the app backgrounded.
+///
+/// Must be a top-level function and must carry `@pragma('vm:entry-point')`, or
+/// tree-shaking removes it from the release build and background pushes silently
+/// stop working — in release only, which is the worst possible place to find out.
+///
+/// It deliberately does nothing: the payload is a `notification` message, so the
+/// OS has already drawn it. This exists to satisfy the plugin's contract and to
+/// be the obvious place for background bookkeeping if it is ever needed.
+@pragma('vm:entry-point')
+Future<void> _firebaseBackgroundHandler(RemoteMessage message) async {}
+
+/// Brings push up off the startup path.
+///
+/// Separated from `main()` so it can be started and not awaited: `init()` asks
+/// for the notification permission, and blocking a first launch on that dialog
+/// is exactly the splash-screen stall NotificationService was changed to avoid.
+Future<void> _startPushNotifications() async {
+  final push = sl<PushService>();
+  await push.init();
+
+  // Guarded, because "unavailable" is the *normal* state in three situations:
+  // on web, on any machine without android/app/google-services.json, and in
+  // every CI build. Wiring up regardless means calling
+  // FirebaseMessaging.onBackgroundMessage against an uninitialised Firebase,
+  // which throws -- inside an unawaited future, so it surfaces as an unhandled
+  // async error rather than anything that points at the cause.
+  if (!push.isAvailable) return;
+
+  _wirePushNotifications();
+}
+
+/// Connects the two ways a chat notification can be tapped to the one place that
+/// knows how to navigate.
+void _wirePushNotifications() {
+  FirebaseMessaging.onBackgroundMessage(_firebaseBackgroundHandler);
+
+  final push = sl<PushService>();
+  final notifications = sl<NotificationService>();
+
+  // Foreground: the OS does not display a notification for an app that is
+  // already open, so if this device is not on the relevant screen we draw one
+  // ourselves. A user staring at the thread gets nothing extra -- the bubble and
+  // the tab badge already told them.
+  FirebaseMessaging.onMessage.listen((message) {
+    if (message.data['type'] != 'chat_message') return;
+    final notification = message.notification;
+    if (notification == null) return;
+
+    unawaited(
+      notifications.showChatMessage(
+        title: notification.title ?? 'New message',
+        body: notification.body ?? '',
+        threadId: message.data['threadId'] as String?,
+      ),
+    );
+  });
+
+  // A tap on one we drew ourselves comes back through the plugin instead of
+  // through FCM, so it is funnelled into the same stream.
+  notifications.onChatNotificationTap = push.handleLocalTap;
+
+  push.onNotificationTap.listen(_openChatFor);
+}
+
+/// Opens the right chat surface for a tapped notification.
+///
+/// Which surface depends on the role, and neither is addressable by route name:
+/// a trainee has exactly one thread and reads it from AccessProvider, while a
+/// trainer needs the console opened on its Messages tab. Deep-linking to one
+/// specific conversation inside the console inbox is deliberately out of scope --
+/// landing on the inbox with the badge showing is enough to act on.
+void _openChatFor(ChatNotificationTarget target) {
+  final nav = navigatorKey.currentState;
+  if (nav == null) {
+    // Same retry the password-reset link uses: a tap that launched the app from
+    // cold arrives before the navigator exists.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _openChatFor(target));
+    return;
+  }
+
+  final context = nav.context;
+  final isTrainer = provider.Provider.of<AccessProvider>(
+    context,
+    listen: false,
+  ).isTrainer;
+
+  nav.push(
+    MaterialPageRoute(
+      builder: (_) => isTrainer
+          ? const TrainerConsoleGate(
+              initialRoute: TrainerConsoleRoute.messages,
+            )
+          : const CoachChatEntry(),
+    ),
+  );
 }
 
 class _MyAppState extends State<MyApp> {

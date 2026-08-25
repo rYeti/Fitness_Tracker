@@ -729,6 +729,229 @@ which is how the missing scroll came to be missing in two places at once.
 
 ---
 
+## 16. The inbox could not have worked, by construction
+
+Once messages were being sent and received, a second report: the conversation
+list never showed an unread badge. Two causes, and the interesting one is a
+design decision from Part one that turned out to forbid the feature.
+
+**The list was loaded exactly once.** `MessagesScreen` calls
+`loadConversations()` from a post-frame callback in `initState`, and
+`TrainerConsoleHome` renders its five sections inside an **`IndexedStack`** —
+which builds every child once and keeps them all alive so tab switches don't lose
+state. That is the right choice for the console, and it means `initState` runs
+once for the console's entire lifetime. Every preview and unread count in the
+inbox was frozen at the moment the trainer opened it.
+
+That alone would be a stale list. The second cause made it unfixable by
+refreshing:
+
+**This device was only ever in the hub group of the thread it had open.**
+`openThread` joined a group and `closeThread` left it, on the reasoning recorded
+in the code:
+
+> Staying joined to every thread at once would deliver messages for threads that
+> aren't on screen, which the UI would then have to filter out anyway.
+
+That argument is sound for the thread view and exactly backwards for the inbox.
+**An unread badge is, by definition, about a conversation you do not have open.**
+Scoping delivery to the open thread did not make those messages unnecessary; it
+made them undeliverable. No amount of refetching fixes it either, because a
+refetch is a round trip per message and still races the next one.
+
+So membership is now reversed: `watchConversations` joins every conversation's
+group after the list loads and stays in them, `openThread` only marks which
+thread is on screen, and `closeThread` keeps the group. `ChatRepository` grows a
+second stream — `allIncoming`, every message, no dedup — beside `incomingFor`,
+because the two consumers want opposite things:
+
+| | `incomingFor(thread)` | `allIncoming` |
+| --- | --- | --- |
+| Scope | one thread | every watched conversation |
+| Dedup | yes, against `_knownIds` | none |
+| Consumer | the thread view | the conversation list |
+| Wants your own echo? | no — it already drew the bubble | no, but must recognise it |
+
+The provider folds each message into the matching row in place: preview,
+timestamp, unread, re-sorted by the same key the server uses so a live update and
+a reload agree. Deciding "is this mine?" reuses §5's trick — the message names
+both parties, this client knows the other one, so `senderId != otherPartyId` is
+"mine" without the client ever learning its own user id. Without that term a
+trainer would badge themselves for their own replies, which is §9's `SenderId !=
+callerId` bug reappearing one layer up, in memory rather than in SQL.
+
+One deliberate asymmetry: a `watchConversations` join that fails is swallowed,
+where a thread's own join is not. The costs are not comparable — a conversation
+that failed to join shows a stale badge until the next load, while failing the
+whole inbox over one group would take the trainer's entire messaging surface
+down. The thread still joins independently when opened, so nothing is
+permanently lost.
+
+> **A scoping decision made for one consumer quietly sets the ceiling for every
+> future one.** "Only deliver what's on screen" was a reasonable filter when the
+> thread view was the only reader. It became a hard architectural limit the
+> moment a second reader wanted the opposite thing — and it did not announce
+> itself as a limit, it announced itself as a missing badge. When you narrow what
+> enters the system, you are deciding what every later feature is allowed to
+> know.
+
+---
+
+## 17. Where the count is allowed to live
+
+With the inbox live (§16), the console's Messages tab gets a badge. The
+implementation is small; the two decisions in it are worth recording.
+
+**The total is derived, never stored.** `ChatProvider.totalUnread` folds over the
+conversation rows on every read rather than maintaining a counter beside them.
+Three separate paths change those rows — a live message, opening a thread, a
+reload — and a hand-maintained total only has to be forgotten on one of them to
+start lying. A fold is O(clients) on a list that is already in memory and already
+being rebuilt; there is no performance argument on the other side.
+
+**The badge is one widget with two presentations.** `_UnreadBadge` was private to
+`conversation_row.dart`; it is now the shared `UnreadBadge`. A count that renders
+one way in the inbox and another on the tab leading to it is worse than either
+choice made consistently, and CLAUDE.md's "one shared widget per repeated
+pattern" rule exists for exactly this. But the bottom tab needs the count
+*overlaid* on an icon inside a `NavigationBar` that clips, which is fiddly and
+which Material's own `Badge` already solves. So the widget exposes its colour,
+type and 99-cap as constants that `Badge` borrows: two presentations, one source
+of truth, no second implementation to drift.
+
+The accessibility detail is the one that would have been missed. Both nav items
+already wrap themselves in `Semantics(..., excludeSemantics: true)` so the icon
+and label announce as a single named control — which also drops the badge's text.
+An orange pill nobody announces is invisible to a screen reader, so the count
+goes into the semantic label and the tooltip instead of being left to the visual.
+Same rule as §10's "status is never colour alone", one layer further out: a badge
+is not information until something says it out loud.
+
+> **Adding a visual affordance inside an `excludeSemantics` subtree removes it
+> from the accessibility tree.** The wrapper that makes a compound control
+> announce properly is the same wrapper that silences anything added to it later.
+
+---
+
+# Part three: reaching a closed app
+
+Everything up to here assumes the app is running. It very often is not, and
+`SignalRHubChatClient` only holds a socket while a chat surface is *mounted* —
+so a trainer on the Nutrition tab is as unreachable as one whose phone is in a
+drawer. Push is therefore not an improvement to the existing delivery path. It is
+a **second, independent one**, and the two never meet.
+
+| | SignalR | Push |
+| --- | --- | --- |
+| Works when | a chat screen is open | always |
+| Carries | the message itself | a notification about it |
+| Fails by | reconnecting | being silently undelivered |
+| Owned by | `ChatRepository` | `PushService` / `PushNotificationService` |
+
+## 18. Why the push is not awaited
+
+The obvious implementation sends the notification inside `ChatHub.SendMessage`,
+right after the broadcast. It is wrong for a reason §12 already paid for: that
+method's return value is the ack, the client blocks on it, and **an ack that does
+not arrive is read as "not delivered"**. Put an HTTPS round trip to Google in
+front of it and every message pays that latency; let Google have a bad afternoon
+and the app starts showing "Failed to send" for messages that were delivered
+perfectly.
+
+So `IChatPushDispatcher.Queue` returns immediately and the work happens on a
+detached task with its own DI scope. The scope is not optional: everything the
+send needs is registered `Scoped`, and the hub invocation's scope is disposed the
+moment `SendMessage` returns. Reusing it means querying a disposed `DbContext` —
+intermittently, under load, in production.
+
+Fire-and-forget is safe here for a reason particular to this deployment. Cloud
+Run only guarantees CPU *during a request*; work detached after a response is
+throttled or frozen. A SignalR hub is not that shape — the WebSocket keeps a
+request open for the whole connection — so the task actually runs. Copy this
+pattern to an ordinary controller and it will fail in a way that is almost
+impossible to reproduce locally.
+
+What that buys costs one thing: a push in flight when an instance shuts down is
+lost. That is the right trade. A missed notification is a minor annoyance; a chat
+send that appears to fail is the worst thing a messaging app does.
+
+## 19. Nobody knows who is online, and that turns out to be fine
+
+The tempting refinement is to skip the push when the recipient already has the
+message over SignalR. Doing that needs server-side presence — `OnConnectedAsync`,
+`OnDisconnectedAsync`, and a table of who is connected — and that state is wrong
+the instant a train goes into a tunnel. Chasing it means reconciling two
+unreliable signals to decide whether to send a third.
+
+The client already knows the answer for free. A `notification` payload is drawn
+by the OS **only when the app is not in the foreground**; when it is, the message
+arrives on `onMessage` and the app decides. So: push unconditionally, and let the
+foreground case fall through to what Part two already built — the bubble and the
+tab badge. Correct behaviour, no server state, no reconciliation.
+
+## 20. The token is the key, not the user
+
+`DeviceToken` is unique on `Token`, not on `(UserId, Token)`, and `UpsertAsync`
+*moves* a row rather than inserting one.
+
+That is not tidiness. An FCM registration token identifies an **app install**, and
+an install serves one account at a time. Key it by user and the natural
+implementation leaves the old row in place when a second person signs in on the
+same phone — and that phone keeps receiving the first user's messages, on the
+lock screen, indefinitely. It is the most damaging bug this feature can have and
+it is invisible in every single-account test.
+
+The same reasoning drives two smaller decisions:
+
+- **`unregisterForCurrentUser` is awaited, and awaited before
+  `SecureTokenStorage.clear()`.** The request needs the auth header that clear()
+  is about to remove. Fire it after, and it 401s silently — leaving exactly the
+  stale row above.
+- **Unregister is not scoped to the caller.** The point of the endpoint is that
+  the token stops belonging to *anyone*. Knowing a token is proof of holding the
+  device, and the worst it lets an attacker do is stop their own notifications.
+
+## 21. Two config files, two very different rules
+
+`google-services.json` is committed. It ships inside the APK, contains no secret,
+and committing it means a fresh clone builds. The **service account** JSON is the
+secret and never leaves GitHub Secrets and Cloud Run.
+
+Getting it there needed one discovery. `deploy.yml` joins every setting into a
+single `--set-env-vars` string, and `gcloud` splits that on commas — the workflow
+already carries a comment saying so, which is why CORS origins are passed as
+indexed keys rather than a list. A service-account JSON is *full* of commas. So it
+travels base64-encoded, which has none, matching `KEYSTORE_BASE64` in the release
+workflow.
+
+The Gradle plugin is applied **only if `google-services.json` exists**, because
+`com.google.gms.google-services` fails the build outright when it does not. Applied
+unconditionally, a fresh checkout could not build the Android app at all — and no
+CI workflow builds Android on a PR, so nothing would have caught it until someone
+cut a release tag.
+
+> **Trace how a value actually reaches production before choosing its format.**
+> The JSON-in-an-env-var plan looks obviously fine and is silently broken by a
+> comma. The constraint was already written down in the workflow; the mistake
+> available here was not reading it.
+
+## 22. The migration that tests cannot demand
+
+`DbFixture` builds its schema with `EnsureCreated()`, which reads the *current
+model*. A new `DbSet` with no migration therefore passes `dotnet test` and every
+PR check, and throws on `db.Database.Migrate()` the moment Cloud Run boots.
+
+This is §13 again — the missed Drift `schemaVersion` bump — in a different
+framework, with the same shape: **the fixture makes the failing path
+unreachable.** One is a fresh in-memory SQLite file, the other a fresh in-memory
+SQLite file. Both test `onCreate` and call it schema coverage.
+
+There is no clever fix, only a habit: when you add a table, the migration is part
+of adding the table, and the thing that confirms it is `dotnet ef migrations list`
+or a boot log — never a green suite.
+
+---
+
 ## What all four have in common
 
 Every defect in Part two sat in a gap between two things that were each correct on

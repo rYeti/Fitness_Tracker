@@ -48,6 +48,10 @@ plugins {
     id("dev.flutter.flutter-plugin-loader") version "1.0.0"
     id("com.android.application") version "8.13.0" apply false
     id("org.jetbrains.kotlin.android") version "2.3.21" apply false
+    // Declared here, applied conditionally in app/build.gradle.kts -- the plugin
+    // hard-fails the build when google-services.json is absent, and that file is
+    // per-developer setup rather than something the repo can guarantee.
+    id("com.google.gms.google-services") version "4.5.0" apply false
 }
 
 include(":app")

@@ -61,6 +61,77 @@ void main() {
       expect(provider.error, isNull);
     });
 
+    test('raises an unread badge for a message in a thread that is not open',
+        () async {
+      final provider = build(
+        api: FakeChatApi(conversations: [
+          conversationJson(otherParty, 'Robert Meyer'),
+        ]),
+      );
+      await provider.loadConversations();
+      expect(provider.conversations.single.unreadCount, 0);
+
+      signalR.emitIncoming(signalR.ack(
+        messageId: 'unseen',
+        otherPartyId: otherParty,
+        body: 'quick question about thursday',
+        senderId: otherParty,
+      ));
+      await pumpEventQueue();
+
+      final row = provider.conversations.single;
+      expect(row.unreadCount, 1);
+      expect(row.lastMessagePreview, 'quick question about thursday');
+      expect(row.hasUnread, isTrue);
+    });
+
+    test('does not raise a badge for the thread the user is looking at',
+        () async {
+      final provider = build(
+        api: FakeChatApi(conversations: [
+          conversationJson(otherParty, 'Robert Meyer'),
+        ]),
+      );
+      await provider.loadConversations();
+      await provider.openThread(otherParty);
+
+      signalR.emitIncoming(signalR.ack(
+        messageId: 'while-watching',
+        otherPartyId: otherParty,
+        body: 'and one more thing',
+        senderId: otherParty,
+      ));
+      await pumpEventQueue();
+
+      expect(provider.conversations.single.unreadCount, 0);
+      // The read has to reach the server too, or the badge returns on reload.
+      expect(provider.conversations.single.lastMessagePreview,
+          'and one more thing');
+    });
+
+    test('does not count this user\'s own message as unread', () async {
+      final provider = build(
+        api: FakeChatApi(conversations: [
+          conversationJson(otherParty, 'Robert Meyer'),
+        ]),
+      );
+      await provider.loadConversations();
+
+      // The hub broadcasts to the whole group including the sender, so a
+      // message this device sent comes back here as well. Counting it would
+      // badge the trainer for their own reply.
+      signalR.emitIncoming(signalR.ack(
+        messageId: 'my-own',
+        otherPartyId: otherParty,
+        body: 'nice work today',
+        senderId: FakeChatSignalRClient.trainerId,
+      ));
+      await pumpEventQueue();
+
+      expect(provider.conversations.single.unreadCount, 0);
+      expect(provider.conversations.single.lastMessagePreview, 'nice work today');
+    });
+
     test('surfaces a recoverable error rather than an empty list', () async {
       final provider = build(api: FakeChatApi(throwOnConversations: true));
 
@@ -112,13 +183,16 @@ void main() {
       expect(provider.activeThreadId, otherParty);
     });
 
-    test('switching client leaves the old group and joins the new one', () async {
+    test('switching client joins the new group and stays in the old one', () async {
       final provider = build();
 
       await provider.openThread(otherParty);
       await provider.openThread('another-client');
 
-      expect(signalR.left, [otherParty]);
+      // Deliberately reversed from the original behaviour. Leaving the previous
+      // group made the inbox blind to it, and an unread badge is by definition
+      // about a conversation you do not have open.
+      expect(signalR.left, isEmpty);
       expect(signalR.joined, [otherParty, 'another-client']);
       expect(provider.activeThreadId, 'another-client');
     });
@@ -168,13 +242,15 @@ void main() {
       expect(signalR.joined, [otherParty]);
     });
 
-    test('closing a thread leaves the group and clears the messages', () async {
+    test('closing a thread clears the messages but keeps the group', () async {
       final provider = build();
       await provider.openThread(otherParty);
 
       await provider.closeThread();
 
-      expect(signalR.left, [otherParty]);
+      // Membership outlives the thread view: the conversation list still wants
+      // this thread's messages for its preview and unread count.
+      expect(signalR.left, isEmpty);
       expect(provider.thread, isEmpty);
       expect(provider.activeThreadId, isNull);
     });

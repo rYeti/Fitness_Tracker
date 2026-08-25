@@ -2362,6 +2362,11 @@ class AppLocalizationsDe extends AppLocalizations {
   String get chatOffline => 'Offline';
 
   @override
+  String chatUnreadCount(Object count) {
+    return '$count ungelesen';
+  }
+
+  @override
   String get chatSendFailed =>
       'Nachricht nicht gesendet. Prüfe deine Verbindung und versuche es erneut.';
 

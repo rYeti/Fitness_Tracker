@@ -44,6 +44,10 @@ jobs:
           # Settings -> Secrets and variables -> Actions -> Variables.
           WEB_ORIGIN: ${{ vars.WEB_ORIGIN }}
           WEB_ORIGIN_ALT: ${{ vars.WEB_ORIGIN_ALT }}
+          # Firebase Cloud Messaging — the push transport for a closed app.
+          # Secrets, not variables: the service account can send as this project.
+          FCM_SERVICE_ACCOUNT_BASE64: ${{ secrets.FCM_SERVICE_ACCOUNT_BASE64 }}
+          FCM_PROJECT_ID: ${{ secrets.FCM_PROJECT_ID }}
         run: |
           set -euo pipefail
 
@@ -62,6 +66,21 @@ jobs:
 
           if [ -z "${WEB_ORIGIN:-}" ]; then
             echo "::warning::WEB_ORIGIN is not set — the API will fall back to any-origin without credentials, and browser SignalR will fail. See docs/cors-and-signalr.md."
+          fi
+
+          # Base64 rather than the raw JSON, and this is the reason: the line
+          # above joins every setting with commas and gcloud splits on them. A
+          # service-account JSON is full of commas and would be parsed as a
+          # dozen malformed variables. Base64 contains none.
+          if [ -n "${FCM_SERVICE_ACCOUNT_BASE64:-}" ]; then
+            env_vars="$env_vars,Fcm__ServiceAccountJsonBase64=$FCM_SERVICE_ACCOUNT_BASE64"
+          fi
+          if [ -n "${FCM_PROJECT_ID:-}" ]; then
+            env_vars="$env_vars,Fcm__ProjectId=$FCM_PROJECT_ID"
+          fi
+
+          if [ -z "${FCM_SERVICE_ACCOUNT_BASE64:-}" ]; then
+            echo "::warning::FCM_SERVICE_ACCOUNT_BASE64 is not set — chat works, but nobody is notified while their app is closed. See docs/push-notifications.md."
           fi
 
           gcloud run deploy ${{ env.SERVICE }} \

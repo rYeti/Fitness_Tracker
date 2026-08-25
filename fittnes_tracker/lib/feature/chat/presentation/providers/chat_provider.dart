@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import 'package:ForgeForm/feature/chat/data/chat_repository.dart';
 import 'package:ForgeForm/feature/chat/data/chat_signalr_client.dart';
+import 'package:ForgeForm/feature/chat/domain/models/chat_message.dart';
 import 'package:ForgeForm/feature/chat/domain/models/conversation_summary.dart';
 import 'package:ForgeForm/feature/chat/domain/models/thread_message.dart';
 
@@ -23,6 +24,10 @@ class ChatProvider extends ChangeNotifier {
       _connectionStatus = status;
       notifyListeners();
     });
+
+    // Subscribed for the provider's whole life, not per thread: the point of it
+    // is the conversation you do *not* have open.
+    _inboxSubscription = _repository.allIncoming.listen(_applyToConversations);
   }
 
   List<ConversationSummary> _conversations = [];
@@ -39,6 +44,7 @@ class ChatProvider extends ChangeNotifier {
 
   StreamSubscription<ThreadMessage>? _incomingSubscription;
   StreamSubscription<ChatConnectionStatus>? _statusSubscription;
+  StreamSubscription<ChatMessage>? _inboxSubscription;
 
   List<ConversationSummary> get conversations => _conversations;
   List<ThreadMessage> get thread => _thread;
@@ -50,6 +56,14 @@ class ChatProvider extends ChangeNotifier {
   String? get sendError => _sendError;
   String? get activeThreadId => _repository.activeThreadId;
 
+  /// Unread across every conversation — what the console's Messages tab badges.
+  ///
+  /// Derived rather than stored: a second counter kept in step by hand would
+  /// drift from the rows the moment one of the several paths that change them
+  /// (a live message, opening a thread, a reload) forgot to update it.
+  int get totalUnread =>
+      _conversations.fold(0, (sum, c) => sum + c.unreadCount);
+
   /// Loads the conversation list for the list pane.
   Future<void> loadConversations() async {
     _isLoading = true;
@@ -57,6 +71,12 @@ class ChatProvider extends ChangeNotifier {
     notifyListeners();
     try {
       _conversations = await _repository.getConversations();
+      // Joins every conversation's hub group. Without it this device only ever
+      // hears about the thread it has open, so no message could ever raise an
+      // unread badge — the badge is for the conversation you are not in.
+      await _repository.watchConversations(
+        _conversations.map((c) => c.clientId),
+      );
     } catch (_) {
       // Deliberately not left as an empty list: "no conversations" and "the
       // request failed" look identical on screen, and only one of them has a
@@ -186,20 +206,56 @@ class ChatProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Folds a newly arrived message into the conversation list: preview,
+  /// timestamp, unread count, and the ordering those imply.
+  ///
+  /// Updated in place rather than by refetching the list. A refetch is a network
+  /// round trip per message and would still race the next one; every field the
+  /// row shows is already on the message.
+  void _applyToConversations(ChatMessage message) {
+    // A message names both sides of its pair, and exactly one of them is the
+    // other party from this device's point of view — whichever one it has a row
+    // for. That is the same trick ThreadMessage uses to decide `isMine`, and for
+    // the same reason: this client has never been told its own user id.
+    final index = _conversations.indexWhere(
+      (c) => c.clientId == message.clientId || c.clientId == message.trainerId,
+    );
+    if (index == -1) return;
+
+    final current = _conversations[index];
+    final mine = message.senderId != current.clientId;
+    final isOpen = _repository.activeThreadId == current.clientId;
+
+    // Reading a thread you are looking at has to reach the server too, or the
+    // badge comes back the next time the list is loaded. Fire-and-forget for the
+    // same reason as in loadThread: a missed read is a stale badge, not a reason
+    // to fail anything.
+    if (isOpen && !mine) {
+      unawaited(_repository.markRead(current.clientId).catchError((_) {}));
+    }
+
+    final next = [..._conversations];
+    next[index] = current.copyWith(
+      lastMessagePreview: message.body ?? current.lastMessagePreview,
+      lastMessageAt: message.sentAt,
+      unreadCount:
+          (mine || isOpen) ? current.unreadCount : current.unreadCount + 1,
+    );
+
+    // Same ordering the server uses, so a live update and a reload agree.
+    next.sort((a, b) => (b.lastMessageAt ?? DateTime(0))
+        .compareTo(a.lastMessageAt ?? DateTime(0)));
+    _conversations = next;
+    notifyListeners();
+  }
+
   void _markConversationRead(String otherPartyId) {
     final index =
         _conversations.indexWhere((c) => c.clientId == otherPartyId);
     if (index == -1 || _conversations[index].unreadCount == 0) return;
 
-    final current = _conversations[index];
     final next = [..._conversations];
-    next[index] = ConversationSummary(
-      clientId: current.clientId,
-      clientName: current.clientName,
-      lastMessagePreview: current.lastMessagePreview,
-      lastMessageAt: current.lastMessageAt,
-      unreadCount: 0,
-    );
+    next[index] = next[index].copyWith(unreadCount: 0);
     _conversations = next;
   }
 
@@ -207,6 +263,7 @@ class ChatProvider extends ChangeNotifier {
   void dispose() {
     _incomingSubscription?.cancel();
     _statusSubscription?.cancel();
+    _inboxSubscription?.cancel();
     _repository.dispose();
     super.dispose();
   }
