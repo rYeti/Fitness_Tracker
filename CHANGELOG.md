@@ -10,7 +10,7 @@ heading to the version it went out as, so a `## <version>` section is history:
 it is what those users have, and nothing new belongs in it. See
 `docs/android-release.md`.
 
-## Unreleased
+## 1.0.2+13
 
 - Registering a trainer account now opens the Trainer Console instead of the trainee dashboard, on every platform rather than only in a browser. Two things sent new trainers to the dashboard: the post-auth landing rule was written as a platform check (`kIsWeb`) rather than a role check, so off the web the role was never consulted and the console was reachable only from Settings; and the console's role gate treated "nobody has asked the server yet" as "not a trainer", which is exactly the state a brand-new account is in for the first second of its life. The gate now waits for the role to actually be answered — a cached answer for the same account counts, so returning users still see their own app immediately. Leaving the console for your own training is unchanged ("My training", no sign-out). See `docs/onboarding-and-roles.md`.
 - Fixed cached access flags (trainer role, premium, assigned trainer) being restored for the wrong account when more than one person signs in on the same device. They were stored per device rather than per account, so the previous user's answers stood in for the next one's until the server replied — briefly granting a stranger's Pro, among other things. They are now keyed to the account they describe and ignored for anyone else.
