@@ -20,7 +20,7 @@ class DailyIntake {
   });
 }
 
-@DriftAccessor(tables: [MealTable, MealFoodTable, FoodItem])
+@DriftAccessor(tables: [MealTable, MealFoodTable, MealFoodDeletionTable, FoodItem])
 class MealDao extends DatabaseAccessor<AppDatabase> with _$MealDaoMixin {
   MealDao(super.db);
 
@@ -143,6 +143,39 @@ class MealDao extends DatabaseAccessor<AppDatabase> with _$MealDaoMixin {
       (update(mealFoodTable)..where(
         (t) => t.id.equals(entryId),
       )).write(MealFoodTableCompanion(serverId: Value(serverId)));
+
+  // ── Removals waiting to reach the server ────────────────────────────────────
+
+  /// Records that a pushed food entry was removed from a meal, so the deletion
+  /// survives the local row being gone. See [MealFoodDeletionTable].
+  Future<int> queueFoodEntryDeletion({
+    required String mealServerId,
+    required String foodItemServerId,
+  }) => into(mealFoodDeletionTable).insert(
+    MealFoodDeletionTableCompanion.insert(
+      mealServerId: mealServerId,
+      foodItemServerId: foodItemServerId,
+      createdAt: DateTime.now(),
+    ),
+  );
+
+  /// Oldest first: a remove-then-re-add of the same food has to be pushed in
+  /// the order the user did it, or the re-add is what gets deleted.
+  Future<List<MealFoodDeletionTableData>> getPendingFoodEntryDeletions() =>
+      (select(mealFoodDeletionTable)
+        ..orderBy([(t) => OrderingTerm.asc(t.createdAt)])).get();
+
+  /// The food ids still waiting to be deleted from [mealServerId], repeated once
+  /// per queued deletion — the pull skips that many of the server's entries so
+  /// it doesn't re-add a food the user has already removed.
+  Future<List<String>> pendingFoodEntryDeletionsForMeal(String mealServerId) =>
+      (select(mealFoodDeletionTable)
+            ..where((t) => t.mealServerId.equals(mealServerId)))
+          .get()
+          .then((rows) => rows.map((r) => r.foodItemServerId).toList());
+
+  Future<void> clearFoodEntryDeletion(int id) =>
+      (delete(mealFoodDeletionTable)..where((t) => t.id.equals(id))).go();
 
   Future<MealTableData?> getByServerId(String serverId) =>
       (select(mealTable)

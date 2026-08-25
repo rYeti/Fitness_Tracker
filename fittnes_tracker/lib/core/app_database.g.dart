@@ -2620,6 +2620,341 @@ class MealFoodTableCompanion extends UpdateCompanion<MealFoodTableData> {
   }
 }
 
+class $MealFoodDeletionTableTable extends MealFoodDeletionTable
+    with TableInfo<$MealFoodDeletionTableTable, MealFoodDeletionTableData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $MealFoodDeletionTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _mealServerIdMeta = const VerificationMeta(
+    'mealServerId',
+  );
+  @override
+  late final GeneratedColumn<String> mealServerId = GeneratedColumn<String>(
+    'meal_server_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _foodItemServerIdMeta = const VerificationMeta(
+    'foodItemServerId',
+  );
+  @override
+  late final GeneratedColumn<String> foodItemServerId = GeneratedColumn<String>(
+    'food_item_server_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    mealServerId,
+    foodItemServerId,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'meal_food_deletion_table';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<MealFoodDeletionTableData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('meal_server_id')) {
+      context.handle(
+        _mealServerIdMeta,
+        mealServerId.isAcceptableOrUnknown(
+          data['meal_server_id']!,
+          _mealServerIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_mealServerIdMeta);
+    }
+    if (data.containsKey('food_item_server_id')) {
+      context.handle(
+        _foodItemServerIdMeta,
+        foodItemServerId.isAcceptableOrUnknown(
+          data['food_item_server_id']!,
+          _foodItemServerIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_foodItemServerIdMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  MealFoodDeletionTableData map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return MealFoodDeletionTableData(
+      id:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.int,
+            data['${effectivePrefix}id'],
+          )!,
+      mealServerId:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.string,
+            data['${effectivePrefix}meal_server_id'],
+          )!,
+      foodItemServerId:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.string,
+            data['${effectivePrefix}food_item_server_id'],
+          )!,
+      createdAt:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.dateTime,
+            data['${effectivePrefix}created_at'],
+          )!,
+    );
+  }
+
+  @override
+  $MealFoodDeletionTableTable createAlias(String alias) {
+    return $MealFoodDeletionTableTable(attachedDatabase, alias);
+  }
+}
+
+class MealFoodDeletionTableData extends DataClass
+    implements Insertable<MealFoodDeletionTableData> {
+  final int id;
+
+  /// The meal's server-side UUID. Not a local id: the local row may be gone by
+  /// the time this is pushed, and the server is the only side that still needs
+  /// naming.
+  final String mealServerId;
+
+  /// The food item's server-side UUID.
+  final String foodItemServerId;
+  final DateTime createdAt;
+  const MealFoodDeletionTableData({
+    required this.id,
+    required this.mealServerId,
+    required this.foodItemServerId,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['meal_server_id'] = Variable<String>(mealServerId);
+    map['food_item_server_id'] = Variable<String>(foodItemServerId);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  MealFoodDeletionTableCompanion toCompanion(bool nullToAbsent) {
+    return MealFoodDeletionTableCompanion(
+      id: Value(id),
+      mealServerId: Value(mealServerId),
+      foodItemServerId: Value(foodItemServerId),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory MealFoodDeletionTableData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return MealFoodDeletionTableData(
+      id: serializer.fromJson<int>(json['id']),
+      mealServerId: serializer.fromJson<String>(json['mealServerId']),
+      foodItemServerId: serializer.fromJson<String>(json['foodItemServerId']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'mealServerId': serializer.toJson<String>(mealServerId),
+      'foodItemServerId': serializer.toJson<String>(foodItemServerId),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  MealFoodDeletionTableData copyWith({
+    int? id,
+    String? mealServerId,
+    String? foodItemServerId,
+    DateTime? createdAt,
+  }) => MealFoodDeletionTableData(
+    id: id ?? this.id,
+    mealServerId: mealServerId ?? this.mealServerId,
+    foodItemServerId: foodItemServerId ?? this.foodItemServerId,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  MealFoodDeletionTableData copyWithCompanion(
+    MealFoodDeletionTableCompanion data,
+  ) {
+    return MealFoodDeletionTableData(
+      id: data.id.present ? data.id.value : this.id,
+      mealServerId:
+          data.mealServerId.present
+              ? data.mealServerId.value
+              : this.mealServerId,
+      foodItemServerId:
+          data.foodItemServerId.present
+              ? data.foodItemServerId.value
+              : this.foodItemServerId,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MealFoodDeletionTableData(')
+          ..write('id: $id, ')
+          ..write('mealServerId: $mealServerId, ')
+          ..write('foodItemServerId: $foodItemServerId, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, mealServerId, foodItemServerId, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is MealFoodDeletionTableData &&
+          other.id == this.id &&
+          other.mealServerId == this.mealServerId &&
+          other.foodItemServerId == this.foodItemServerId &&
+          other.createdAt == this.createdAt);
+}
+
+class MealFoodDeletionTableCompanion
+    extends UpdateCompanion<MealFoodDeletionTableData> {
+  final Value<int> id;
+  final Value<String> mealServerId;
+  final Value<String> foodItemServerId;
+  final Value<DateTime> createdAt;
+  const MealFoodDeletionTableCompanion({
+    this.id = const Value.absent(),
+    this.mealServerId = const Value.absent(),
+    this.foodItemServerId = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  });
+  MealFoodDeletionTableCompanion.insert({
+    this.id = const Value.absent(),
+    required String mealServerId,
+    required String foodItemServerId,
+    required DateTime createdAt,
+  }) : mealServerId = Value(mealServerId),
+       foodItemServerId = Value(foodItemServerId),
+       createdAt = Value(createdAt);
+  static Insertable<MealFoodDeletionTableData> custom({
+    Expression<int>? id,
+    Expression<String>? mealServerId,
+    Expression<String>? foodItemServerId,
+    Expression<DateTime>? createdAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (mealServerId != null) 'meal_server_id': mealServerId,
+      if (foodItemServerId != null) 'food_item_server_id': foodItemServerId,
+      if (createdAt != null) 'created_at': createdAt,
+    });
+  }
+
+  MealFoodDeletionTableCompanion copyWith({
+    Value<int>? id,
+    Value<String>? mealServerId,
+    Value<String>? foodItemServerId,
+    Value<DateTime>? createdAt,
+  }) {
+    return MealFoodDeletionTableCompanion(
+      id: id ?? this.id,
+      mealServerId: mealServerId ?? this.mealServerId,
+      foodItemServerId: foodItemServerId ?? this.foodItemServerId,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (mealServerId.present) {
+      map['meal_server_id'] = Variable<String>(mealServerId.value);
+    }
+    if (foodItemServerId.present) {
+      map['food_item_server_id'] = Variable<String>(foodItemServerId.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MealFoodDeletionTableCompanion(')
+          ..write('id: $id, ')
+          ..write('mealServerId: $mealServerId, ')
+          ..write('foodItemServerId: $foodItemServerId, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $SearchCacheTableTable extends SearchCacheTable
     with TableInfo<$SearchCacheTableTable, SearchCacheTableData> {
   @override
@@ -9195,6 +9530,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $UserSettingsTable userSettings = $UserSettingsTable(this);
   late final $MealTableTable mealTable = $MealTableTable(this);
   late final $MealFoodTableTable mealFoodTable = $MealFoodTableTable(this);
+  late final $MealFoodDeletionTableTable mealFoodDeletionTable =
+      $MealFoodDeletionTableTable(this);
   late final $SearchCacheTableTable searchCacheTable = $SearchCacheTableTable(
     this,
   );
@@ -9254,6 +9591,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     userSettings,
     mealTable,
     mealFoodTable,
+    mealFoodDeletionTable,
     searchCacheTable,
     weightRecord,
     exerciseTable,
@@ -11099,6 +11437,211 @@ typedef $$MealFoodTableTableProcessedTableManager =
       (MealFoodTableData, $$MealFoodTableTableReferences),
       MealFoodTableData,
       PrefetchHooks Function({bool mealId, bool foodEntryId})
+    >;
+typedef $$MealFoodDeletionTableTableCreateCompanionBuilder =
+    MealFoodDeletionTableCompanion Function({
+      Value<int> id,
+      required String mealServerId,
+      required String foodItemServerId,
+      required DateTime createdAt,
+    });
+typedef $$MealFoodDeletionTableTableUpdateCompanionBuilder =
+    MealFoodDeletionTableCompanion Function({
+      Value<int> id,
+      Value<String> mealServerId,
+      Value<String> foodItemServerId,
+      Value<DateTime> createdAt,
+    });
+
+class $$MealFoodDeletionTableTableFilterComposer
+    extends Composer<_$AppDatabase, $MealFoodDeletionTableTable> {
+  $$MealFoodDeletionTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get mealServerId => $composableBuilder(
+    column: $table.mealServerId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get foodItemServerId => $composableBuilder(
+    column: $table.foodItemServerId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$MealFoodDeletionTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $MealFoodDeletionTableTable> {
+  $$MealFoodDeletionTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get mealServerId => $composableBuilder(
+    column: $table.mealServerId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get foodItemServerId => $composableBuilder(
+    column: $table.foodItemServerId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$MealFoodDeletionTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $MealFoodDeletionTableTable> {
+  $$MealFoodDeletionTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get mealServerId => $composableBuilder(
+    column: $table.mealServerId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get foodItemServerId => $composableBuilder(
+    column: $table.foodItemServerId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$MealFoodDeletionTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $MealFoodDeletionTableTable,
+          MealFoodDeletionTableData,
+          $$MealFoodDeletionTableTableFilterComposer,
+          $$MealFoodDeletionTableTableOrderingComposer,
+          $$MealFoodDeletionTableTableAnnotationComposer,
+          $$MealFoodDeletionTableTableCreateCompanionBuilder,
+          $$MealFoodDeletionTableTableUpdateCompanionBuilder,
+          (
+            MealFoodDeletionTableData,
+            BaseReferences<
+              _$AppDatabase,
+              $MealFoodDeletionTableTable,
+              MealFoodDeletionTableData
+            >,
+          ),
+          MealFoodDeletionTableData,
+          PrefetchHooks Function()
+        > {
+  $$MealFoodDeletionTableTableTableManager(
+    _$AppDatabase db,
+    $MealFoodDeletionTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer:
+              () => $$MealFoodDeletionTableTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer:
+              () => $$MealFoodDeletionTableTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer:
+              () => $$MealFoodDeletionTableTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> mealServerId = const Value.absent(),
+                Value<String> foodItemServerId = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+              }) => MealFoodDeletionTableCompanion(
+                id: id,
+                mealServerId: mealServerId,
+                foodItemServerId: foodItemServerId,
+                createdAt: createdAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String mealServerId,
+                required String foodItemServerId,
+                required DateTime createdAt,
+              }) => MealFoodDeletionTableCompanion.insert(
+                id: id,
+                mealServerId: mealServerId,
+                foodItemServerId: foodItemServerId,
+                createdAt: createdAt,
+              ),
+          withReferenceMapper:
+              (p0) =>
+                  p0
+                      .map(
+                        (e) => (
+                          e.readTable(table),
+                          BaseReferences(db, table, e),
+                        ),
+                      )
+                      .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$MealFoodDeletionTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $MealFoodDeletionTableTable,
+      MealFoodDeletionTableData,
+      $$MealFoodDeletionTableTableFilterComposer,
+      $$MealFoodDeletionTableTableOrderingComposer,
+      $$MealFoodDeletionTableTableAnnotationComposer,
+      $$MealFoodDeletionTableTableCreateCompanionBuilder,
+      $$MealFoodDeletionTableTableUpdateCompanionBuilder,
+      (
+        MealFoodDeletionTableData,
+        BaseReferences<
+          _$AppDatabase,
+          $MealFoodDeletionTableTable,
+          MealFoodDeletionTableData
+        >,
+      ),
+      MealFoodDeletionTableData,
+      PrefetchHooks Function()
     >;
 typedef $$SearchCacheTableTableCreateCompanionBuilder =
     SearchCacheTableCompanion Function({
@@ -17011,6 +17554,8 @@ class $AppDatabaseManager {
       $$MealTableTableTableManager(_db, _db.mealTable);
   $$MealFoodTableTableTableManager get mealFoodTable =>
       $$MealFoodTableTableTableManager(_db, _db.mealFoodTable);
+  $$MealFoodDeletionTableTableTableManager get mealFoodDeletionTable =>
+      $$MealFoodDeletionTableTableTableManager(_db, _db.mealFoodDeletionTable);
   $$SearchCacheTableTableTableManager get searchCacheTable =>
       $$SearchCacheTableTableTableManager(_db, _db.searchCacheTable);
   $$WeightRecordTableTableManager get weightRecord =>

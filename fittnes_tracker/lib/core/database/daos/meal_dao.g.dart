@@ -7,4 +7,6 @@ mixin _$MealDaoMixin on DatabaseAccessor<AppDatabase> {
   $MealTableTable get mealTable => attachedDatabase.mealTable;
   $FoodItemTable get foodItem => attachedDatabase.foodItem;
   $MealFoodTableTable get mealFoodTable => attachedDatabase.mealFoodTable;
+  $MealFoodDeletionTableTable get mealFoodDeletionTable =>
+      attachedDatabase.mealFoodDeletionTable;
 }

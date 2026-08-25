@@ -71,6 +71,33 @@ class MealFoodTable extends Table {
   TextColumn get serverId => text().nullable()();
 }
 
+/// A food entry the user removed from a meal that had already been pushed,
+/// kept until the removal reaches the server.
+///
+/// Deleting the [MealFoodTable] row destroys the only record that the entry
+/// ever existed, so an offline removal would otherwise be un-pushable: the next
+/// pull would simply re-add the food the user deleted. A tombstone survives that
+/// gap. Rows are keyed the way the API's delete route is
+/// (`DELETE api/Meal/{mealId}/foods/{foodItemId}`), which removes one matching
+/// entry per call — so a meal that held the same food twice leaves two rows and
+/// takes two calls.
+///
+/// Only removals that have something to delete get a row: an entry the server
+/// never saw (no `serverId` on the meal or the food) leaves nothing behind.
+class MealFoodDeletionTable extends Table {
+  IntColumn get id => integer().autoIncrement()();
+
+  /// The meal's server-side UUID. Not a local id: the local row may be gone by
+  /// the time this is pushed, and the server is the only side that still needs
+  /// naming.
+  TextColumn get mealServerId => text()();
+
+  /// The food item's server-side UUID.
+  TextColumn get foodItemServerId => text()();
+
+  DateTimeColumn get createdAt => dateTime()();
+}
+
 /// Curated verified foods (per-100g values) shown above crowdsourced search
 /// results. Seeded from a bundled JSON asset; designed so a BLS 4.0 export
 /// (blsdb.de) can be dropped in as the seed source without code changes.

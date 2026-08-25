@@ -1,6 +1,8 @@
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/dao/meal_template_dao.dart';
 import 'package:ForgeForm/core/network/api_client.dart';
+import 'package:ForgeForm/core/network/services/meal_entry_reconcile.dart';
+import 'package:dio/dio.dart' show DioException;
 import 'package:drift/drift.dart';
 import 'package:logger/logger.dart';
 
@@ -1440,6 +1442,11 @@ class SyncService {
   // ── Meals ─────────────────────────────────────────────────────────────────
 
   Future<void> syncMeals() async {
+    // Removals first, and unconditionally: a meal can have nothing else pending
+    // and still owe the server a deletion, and pushing a re-added food before
+    // the removal that preceded it would delete the wrong one.
+    await _syncMealFoodDeletions();
+
     final unsynced = await _db.mealDao.getUnsyncedMeals();
     if (unsynced.isEmpty) return;
 
@@ -1477,12 +1484,10 @@ class SyncService {
     final mealServerId = response.data['id'] as String;
     await _db.mealDao.markMealSynced(localId: meal.id, serverId: mealServerId);
 
-    // Push food entries in a batch.
-    final entries = await _db.mealDao.getAllFoodEntriesForMeal(meal.id);
-    await _syncMealFoodEntriesBatch(
-      entries.where((e) => e.serverId == null).toList(),
-      mealServerId,
-    );
+    // The response is not necessarily an empty meal: creating is idempotent
+    // server-side, so a meal this device has pushed before comes back with the
+    // food it already holds. Reconcile against it rather than appending.
+    await _pushMealFoodEntries(meal.id, mealServerId, response.data);
     _logger.i('Synced new meal ${meal.id} → server $mealServerId');
   }
 
@@ -1492,7 +1497,7 @@ class SyncService {
       return;
     }
     final primaryFood = await _db.foodItemDao.getFoodItemById(meal.foodItemId);
-    await _apiClient.put(
+    final response = await _apiClient.put(
       'api/Meal/${meal.serverId}',
       data: {
         'date': meal.date.toUtc().toIso8601String(),
@@ -1506,39 +1511,98 @@ class SyncService {
       serverId: meal.serverId!,
     );
 
-    // Push any food entries that haven't been synced yet (batch).
-    final entries = await _db.mealDao.getAllFoodEntriesForMeal(meal.id);
-    await _syncMealFoodEntriesBatch(
-      entries.where((e) => e.serverId == null).toList(),
-      meal.serverId!,
-    );
+    // This is the path a food added to an already-pushed meal travels, so the
+    // meal on the server nearly always holds entries already.
+    await _pushMealFoodEntries(meal.id, meal.serverId!, response.data);
     _logger.i('Updated meal ${meal.id} on server ${meal.serverId}');
   }
 
-  Future<void> _syncMealFoodEntriesBatch(
-    List<dynamic> entries,
+  /// Brings the server's copy of one meal's food entries up to date with this
+  /// device's, given what the server said it holds ([serverMeal] is a meal
+  /// response body). Entries the server already has are adopted rather than
+  /// re-sent — see [planMealEntryPush] for why that matters.
+  Future<void> _pushMealFoodEntries(
+    int localMealId,
     String mealServerId,
+    dynamic serverMeal,
   ) async {
-    final foodServerIds = <String>[];
-    final valid = <dynamic>[];
-    for (final entry in entries) {
-      final food = await _db.foodItemDao.getFoodItemById(entry.foodEntryId);
-      if (food?.serverId == null) continue;
-      foodServerIds.add(food!.serverId!);
-      valid.add(entry);
+    final localRows = await _db.mealDao.getAllFoodEntriesForMeal(localMealId);
+    final local = <LocalFoodEntry>[];
+    final foodServerIdByEntry = <int, String>{};
+    for (final row in localRows) {
+      final food = await _db.foodItemDao.getFoodItemById(row.foodEntryId);
+      final foodServerId = food?.serverId;
+      if (foodServerId != null) foodServerIdByEntry[row.id] = foodServerId;
+      local.add(
+        LocalFoodEntry(
+          id: row.id,
+          serverId: row.serverId,
+          foodServerId: foodServerId,
+        ),
+      );
     }
-    if (foodServerIds.isEmpty) return;
+
+    final serverEntries =
+        ((serverMeal is Map ? serverMeal['foodEntries'] : null) as List? ??
+                const [])
+            .whereType<Map>()
+            .map(
+              (e) => ServerFoodEntry(
+                id: e['id'] as String,
+                foodItemId: e['foodItemId'] as String,
+              ),
+            )
+            .toList();
+
+    final plan = planMealEntryPush(local: local, server: serverEntries);
+
+    for (final adopted in plan.adopt.entries) {
+      await _db.mealDao.setFoodEntryServerId(adopted.key, adopted.value);
+    }
+    if (plan.adopt.isNotEmpty) {
+      _logger.i(
+        'Meal $mealServerId: adopted ${plan.adopt.length} entries the server already had',
+      );
+    }
+    if (plan.push.isEmpty) return;
 
     final response = await _apiClient.post(
       'api/Meal/$mealServerId/foods/batch',
-      data: foodServerIds,
+      data: [for (final id in plan.push) foodServerIdByEntry[id]!],
     );
-    final serverList = (response.data as List).cast<Map<String, dynamic>>();
-    for (var i = 0; i < valid.length && i < serverList.length; i++) {
+    final created = (response.data as List).cast<Map<String, dynamic>>();
+    for (var i = 0; i < plan.push.length && i < created.length; i++) {
       await _db.mealDao.setFoodEntryServerId(
-        valid[i].id,
-        serverList[i]['id'] as String,
+        plan.push[i],
+        created[i]['id'] as String,
       );
+    }
+  }
+
+  /// Pushes food removals that outlived their local rows. A 404 is success:
+  /// the entry being gone is exactly what the queued row was asking for.
+  Future<void> _syncMealFoodDeletions() async {
+    final pending = await _db.mealDao.getPendingFoodEntryDeletions();
+    if (pending.isEmpty) return;
+
+    for (final deletion in pending) {
+      try {
+        await _apiClient.delete(
+          'api/Meal/${deletion.mealServerId}/foods/${deletion.foodItemServerId}',
+        );
+        await _db.mealDao.clearFoodEntryDeletion(deletion.id);
+        _logger.i(
+          'Deleted food ${deletion.foodItemServerId} from meal ${deletion.mealServerId}',
+        );
+      } on DioException catch (e) {
+        if (e.response?.statusCode == 404) {
+          await _db.mealDao.clearFoodEntryDeletion(deletion.id);
+          continue;
+        }
+        _logger.w('Meal food deletion failed for ${deletion.id}: $e');
+      } catch (e) {
+        _logger.w('Meal food deletion failed for ${deletion.id}: $e');
+      }
     }
   }
 
@@ -2403,9 +2467,17 @@ class SyncService {
         localMealId = existing.id;
       }
 
+      // Removals this device has made but not yet pushed: the server still
+      // lists that food, and without this the pull puts back what the user
+      // deleted (one occurrence per queued deletion, so a second portion the
+      // user kept survives).
+      final awaitingDeletion = await _db.mealDao
+          .pendingFoodEntryDeletionsForMeal(mealServerId);
+
       for (final entry
           in (m['foodEntries'] as List).cast<Map<String, dynamic>>()) {
         final entryServerId = entry['id'] as String;
+        if (awaitingDeletion.remove(entry['foodItemId'] as String)) continue;
         if (await _db.mealDao.getFoodEntryByServerId(entryServerId) != null)
           continue;
         final entryFood = await _db.foodItemDao.getByServerId(

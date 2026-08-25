@@ -167,3 +167,134 @@ inconsistent, and it took all three to notice.
 - **Normalise once, in one place.** Both the `Snack`/`Snacks` rename and the
   casing drift between client and API were survivable individually. What made
   them bugs was that each comparison site decided for itself.
+
+---
+
+# Part two: the push path nobody was on
+
+§4 above ended by naming one duplication this fix left alone — a re-push adding
+the same food to a meal twice — and calling it client-side work. Going after it
+turned up something larger, and the duplication was the least of it.
+
+`MealDao.markMealPendingUpdate` and `MealDao.markMealPendingDelete` exist, are
+written correctly, and had **no callers anywhere in the app**.
+
+## 7. Three symptoms, one dead code path
+
+`syncMeals()` iterates `getUnsyncedMeals()` — every meal whose `syncStatus` is
+not `synced`. A meal that has been pushed once is `synced` forever, because the
+only two functions that could take it back out of that state were never called.
+So:
+
+| What the user did | What the server was told |
+|---|---|
+| Logged breakfast, waited for a sync | Breakfast, with the food it had at that moment |
+| Added coffee half an hour later | **Nothing.** The meal was `synced`, so it was skipped |
+| Deleted the coffee again | **Nothing.** The local row was destroyed and no `DELETE` was ever issued |
+| Synced again after a reconcile pass | The meal's foods, *appended a second time* |
+
+The first row is the one that matters. A food logged after the day's first sync
+never left the phone: not to the trainer, not to the user's other device, and
+not to a reinstall. It looked fine locally forever, which is exactly why it went
+unreported — the only screen that could show the difference is the trainer's,
+and until Part One that screen was showing two of everything anyway.
+
+`MealFoodTable.serverId` even carries the comment *"used to delete specific
+entries"*. The column was added for a deletion that was never wired up. A field
+whose doc comment describes a feature is not evidence the feature exists.
+
+### Why nothing caught it
+
+There is no failing call to find. `markMealPendingUpdate` compiles, is exported,
+is covered by no test, and is referenced by nothing — and Dart's analyzer says
+nothing about an unused *public* method on a DAO, because being called from
+elsewhere is the entire point of a public method. The same is true of the
+deletion endpoint on the API: `DELETE api/Meal/{mealId}/foods/{foodItemId}` is
+implemented, tested at the repository level, reachable, and had no client.
+
+> Two correct halves and no line joining them is invisible to every tool that
+> checks halves. A status enum with no writer is a queue nobody joins, and it
+> looks exactly like a queue nobody happens to be in.
+
+## 8. Making the push a reconcile
+
+The three symptoms have one shape — the server's copy of a meal's entries and
+the device's copy were never compared, only appended to — so the fix is one
+change of stance: **push by reconciling, not by appending**.
+
+`planMealEntryPush` (`lib/core/network/services/meal_entry_reconcile.dart`) is a
+pure function over "what this device has" and "what the server says it has". It
+returns two lists: entries to **adopt** (the server already holds this food;
+stamp the local row with the server's id) and entries to **push** (it genuinely
+doesn't). Everything the server holds that the device doesn't is left alone.
+
+Matching is by food **and count**, never set membership. Two portions of the
+same food is a real thing to log, and the API's own DTO documents that repeats
+are meaningful, so "the server already has an egg" cannot answer "should I push
+this second egg". Local two, server one → adopt one, push one.
+
+That one function covers the duplication from §4 (after a reconcile reset, all
+the entries are adopted and nothing is pushed) and makes the additions fix safe
+to turn on: `addFoodToMeal` now marks a pushed meal `pendingUpdate`, so
+`_syncUpdateMeal` starts running on a path that had never run before, against
+meals the server already has entries for.
+
+Being a pure function is also the only reason it has tests. `SyncService` takes
+a concrete `ApiClient` wrapping a private `Dio`; there is no seam to fake and no
+sync test in this repo to copy. Pulling the *decision* out of the I/O left the
+part worth asserting on assertable, and the part that isn't — three HTTP calls
+in a row — small enough to read.
+
+### The API had to stop lying first
+
+`_syncUpdateMeal` believes the PUT response when it asks what the server holds.
+`MealRepository.UpdateMealAsync` fetched the meal **without** `.Include`ing its
+food entries, so `FoodEntries` serialised as `[]` — indistinguishable from a
+meal with no food. A reconcile against that answer re-pushes everything, which
+is the exact bug being fixed, arriving through the fix. One `.Include`, and a
+test that pins it, because nothing else in the codebase would have noticed:
+before this change, no caller read that field of that response.
+
+## 9. Deletions need a tombstone, not a reconcile
+
+Additions reconcile cleanly. Deletions cannot, and the reason is worth keeping.
+
+Deleting a local `MealFoodTable` row destroys the only record that the entry
+existed. An offline removal has nothing left to push. The tempting fix is to
+extend the reconcile — "anything the server has that the device doesn't, delete"
+— and it is wrong: the device's list is not the truth, it is *one device's*
+truth. A phone that hasn't pulled since yesterday would silently delete every
+food the user logged on the web in between.
+
+So removals leave a `MealFoodDeletionTable` row: the meal's server id, the
+food's server id, when. Keyed exactly the way the delete route is
+(`DELETE api/Meal/{mealId}/foods/{foodItemId}` removes one matching row), so two
+portions leave two tombstones and take two calls. `_syncMealFoodDeletions()`
+drains the queue before any entry is pushed — a remove-then-re-add in the same
+window has to be applied in that order, or the re-add is what gets deleted — and
+treats a 404 as success, because the entry being gone is precisely what the row
+was asking for. Nothing is queued when the meal or the food has no server id:
+there is nothing there to delete, and a tombstone naming a meal the server never
+had would retry forever.
+
+The pull needs the matching guard. `_pullMeals` re-adds any server entry it
+doesn't recognise, so between a removal and its push it would faithfully restore
+the food the user just deleted. It now skips one server entry per queued
+deletion — one, not all, so a second portion the user *kept* survives.
+
+## 10. What to take from part two
+
+- **Ask who calls it.** Every other check — types, tests, analyzer, review —
+  looks at whether a function is right, not at whether anything reaches it.
+  Two correct halves with no edge between them pass all of them.
+- **A comment describing behaviour is not behaviour.** `serverId`'s "used to
+  delete specific entries" outlived the deletion by however long it took someone
+  to grep for the endpoint.
+- **Silence on the client is not silence in the system.** Losing a food only
+  after the day's first sync is invisible on the device that lost it. It took a
+  second reader — the trainer — for anyone to be able to see it at all.
+- **Reconcile additions; queue deletions.** Absence on one device means "I
+  haven't heard about it yet" at least as often as it means "this is gone".
+  Additive reconciliation is safe under partial knowledge; subtractive isn't.
+- **Extract the decision from the I/O.** Not for purity — for the test that
+  otherwise doesn't get written, in a file that had no tests at all.

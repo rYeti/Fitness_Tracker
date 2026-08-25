@@ -97,6 +97,27 @@ public class MealCreationTests : IDisposable
     }
 
     [Fact]
+    public async Task UpdatingAMealReturnsTheFoodItStillHolds()
+    {
+        var user = _fx.AddUser();
+        var meal = await Log(user.Id, StoredOnTheTwentyFirst, "Breakfast");
+        var oats = _fx.AddFoodItem(user.Id, "Oats");
+        _fx.AddFoodToMeal(meal.Id, oats.Id);
+
+        var updated = await _meals.UpdateMealAsync(meal.Id, user.Id, new MealRequestDto
+        {
+            Date = StoredOnTheTwentyFirst,
+            Category = "Breakfast",
+            FoodItemId = oats.Id,
+        });
+
+        // The client reconciles its own entries against this list, and an unloaded
+        // collection serialises as an empty one — which reads as "the server holds
+        // no food for this meal" and re-pushes every entry it already has.
+        Assert.Equal(oats.Id, Assert.Single(updated!.FoodEntries).FoodItemId);
+    }
+
+    [Fact]
     public async Task AnotherUsersMealIsNeverReused()
     {
         var user = _fx.AddUser();

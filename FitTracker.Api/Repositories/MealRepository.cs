@@ -55,9 +55,15 @@ public class MealRepository(AppDbContext context) : IMealRepository
     }
 
     /// <inheritdoc/>
+    /// <remarks>Loads the food entries so the response describes the whole meal. The
+    /// client reconciles its own entries against what comes back, and an unloaded
+    /// collection serialises as an empty one — indistinguishable from a meal the
+    /// server holds no food for, which is the reading that re-pushes everything.</remarks>
     public async Task<Meal?> UpdateMealAsync(Guid id, Guid userId, MealRequestDto dto)
     {
-        var meal = await context.Meals.FirstOrDefaultAsync(m => m.Id == id && m.UserId == userId);
+        var meal = await context.Meals
+            .Include(m => m.FoodEntries)
+            .FirstOrDefaultAsync(m => m.Id == id && m.UserId == userId);
         if (meal == null) return null;
 
         meal.Date = dto.Date;

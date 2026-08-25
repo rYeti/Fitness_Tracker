@@ -227,6 +227,13 @@ class NutritionRepository {
       meal = await db.mealDao.getMealById(mealId);
     }
     await db.mealDao.addFoodToMeal(foodItem.id, meal!.id);
+
+    // A new meal is already pending, but one that has been pushed goes back in
+    // the queue or the food never leaves the device: syncMeals() iterates
+    // unsynced meals, so a synced meal's new entries are never looked at.
+    if (meal.syncStatus == MealSyncStatus.synced.index) {
+      await db.mealDao.markMealPendingUpdate(meal.id);
+    }
   }
 
   DateTime _normalizeDate(DateTime? date) {
@@ -294,6 +301,12 @@ class NutritionRepository {
     return [dailyNutrition];
   }
 
+  /// Removes every entry for [foodItem] from the day's [category] meal.
+  ///
+  /// Deleting the local rows destroys the only record that the entries existed,
+  /// so anything the server has already been told about is queued as a deletion
+  /// first — otherwise the removal never reaches the server and the next pull
+  /// puts the food back.
   Future<int> removeFoodFromMeal(
     String category,
     FoodItemData foodItem, {
@@ -305,7 +318,28 @@ class NutritionRepository {
       (m) => m.category == category,
       orElse: () => throw StateError('No meal found for category $category'),
     );
-    return await db.mealDao.deleteFoodFromMeal(foodItem.id, meal.id);
+
+    final mealServerId = meal.serverId;
+    final foodServerId = foodItem.serverId;
+    if (mealServerId != null && foodServerId != null) {
+      // One tombstone per pushed entry: the API's delete route removes a single
+      // matching row, so two portions of the same food take two calls.
+      final pushed = (await db.mealDao.getFoodItemsForMeal(meal.id))
+          .where((e) => e.foodEntryId == foodItem.id && e.serverId != null)
+          .length;
+      for (var i = 0; i < pushed; i++) {
+        await db.mealDao.queueFoodEntryDeletion(
+          mealServerId: mealServerId,
+          foodItemServerId: foodServerId,
+        );
+      }
+    }
+
+    final deleted = await db.mealDao.deleteFoodFromMeal(foodItem.id, meal.id);
+    if (meal.syncStatus == MealSyncStatus.synced.index) {
+      await db.mealDao.markMealPendingUpdate(meal.id);
+    }
+    return deleted;
   }
 
   Future<int> setCalorieGoal(int goal) async {

@@ -46,6 +46,7 @@ part 'app_database.g.dart';
     UserSettings,
     MealTable,
     MealFoodTable,
+    MealFoodDeletionTable,
     SearchCacheTable,
     WeightRecord,
     // Workout planning tables
@@ -87,6 +88,7 @@ class AppDatabase extends _$AppDatabase {
   /// Call this on logout so the next user starts with a clean local DB.
   Future<void> clearAllUserData() async {
     await transaction(() async {
+      await delete(mealFoodDeletionTable).go();
       await delete(mealFoodTable).go();
       await delete(mealTable).go();
       await delete(foodItem).go();
@@ -118,8 +120,14 @@ class AppDatabase extends _$AppDatabase {
   /// emits `CREATE TABLE IF NOT EXISTS`, so the table is created and existing
   /// ones are untouched. **Do not delete this bump as a no-op** — the bump is the
   /// entire fix.
+  ///
+  /// 38 exists for `meal_food_deletion_table`, for the same reason and with the
+  /// same shape: a new table, created by the `createAll()` at the top of
+  /// `onUpgrade`, which only runs because this number moved. A device that
+  /// stayed at 37 would have no table to record a removed food in, and
+  /// `removeFoodFromMeal` would throw where it used to work.
   @override
-  int get schemaVersion => 37;
+  int get schemaVersion => 38;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(

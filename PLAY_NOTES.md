@@ -11,12 +11,17 @@ Two rules the release workflow enforces:
 
 - The blurb for the next release goes under `## Unreleased
 
+Food logging fixes:
+
+- Food you add to a meal after it has already synced now reaches the server, so
+  it survives a reinstall and your trainer can see it. Removing a food now
+  removes it there too, even if you were offline.
+
 Trainer Console fixes:
 
-- The Nutrition tab no longer lists every meal twice. Meals recorded more than
-  once by an earlier sync now show as the single meal they are, and new ones
-  can no longer be recorded twice. Calorie totals are unchanged.
-- Snacks now show the snack icon and sit between lunch and dinner.
+- The Nutrition tab no longer lists every meal twice. Calorie totals are
+  unchanged.
+- Snacks show the snack icon and sit between lunch and dinner.
 
 ## 1.0.2+12
 
