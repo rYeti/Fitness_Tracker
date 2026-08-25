@@ -221,6 +221,16 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
 /// SharedPreferences key and fallback for the API server URL.
 const serverUrlPrefsKey = 'server_url';
+
+/// When the app last *downloaded* server state, as opposed to
+/// `last_sync_timestamp`, which records the last push.
+///
+/// They have to be separate keys. The background task only ever pushes, and it
+/// stamped the shared one, so a background run that had downloaded nothing
+/// still convinced the startup sync that everything was fresh — and the pull it
+/// then skipped was the one that would have fetched the account's real data.
+/// Cleared alongside the local database whenever accounts change.
+const lastPullPrefsKey = 'last_pull_timestamp';
 const serverUrlDefault = 'https://fittracker-api-soav3zyeaa-ey.a.run.app/';
 
 /// Holds the active API server URL. Seeded at startup from SharedPreferences

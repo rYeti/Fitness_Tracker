@@ -12,6 +12,7 @@ import 'package:ForgeForm/core/di/service_locator.dart';
 import 'package:ForgeForm/core/network/api_client.dart';
 import 'package:ForgeForm/core/network/services/sync_service.dart';
 import 'package:ForgeForm/core/providers/access_provider.dart';
+import 'package:ForgeForm/feature/auth/presentation/sign_out.dart';
 import 'package:ForgeForm/feature/chat/presentation/view/coach_chat_entry.dart';
 import 'package:ForgeForm/core/providers/enums.dart';
 import 'package:ForgeForm/core/providers/theme_provider.dart';
@@ -206,6 +207,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         mealTemplateDao: MealTemplateDao(db),
       );
       await syncService.pullAll();
+      await prefs.setInt(
+        lastPullPrefsKey,
+        DateTime.now().millisecondsSinceEpoch,
+      );
       if (mounted) {
         globalFoodTrackingKey.currentState?.loadNutritionData();
         Provider.of<WeightProvider>(context, listen: false).reload();
@@ -1029,39 +1034,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           style: TextStyle(color: colorScheme.error),
                         ),
                         onTap: () async {
-                          final access = context.read<AccessProvider>();
-                          final confirmed = await showDialog<bool>(
-                            context: context,
-                            builder:
-                                (_) => AlertDialog(
-                                  title: Text(l10n.signOut),
-                                  content: Text(l10n.signOutConfirm),
-                                  actions: [
-                                    TextButton(
-                                      onPressed:
-                                          () => Navigator.pop(context, false),
-                                      child: Text(l10n.cancel),
-                                    ),
-                                    TextButton(
-                                      onPressed:
-                                          () => Navigator.pop(context, true),
-                                      child: Text(l10n.signOut),
-                                    ),
-                                  ],
-                                ),
+                          final signedOut = await confirmAndSignOut(
+                            context,
+                            ref,
                           );
-                          if (confirmed == true) {
-                            await access.reset();
-                            await ref.read(authProvider.notifier).logout();
-                            if (context.mounted) {
-                              Navigator.of(context).pushAndRemoveUntil(
-                                MaterialPageRoute(
-                                  builder:
-                                      (_) => const auth_login.LoginScreen(),
-                                ),
-                                (_) => false,
-                              );
-                            }
+                          if (signedOut && context.mounted) {
+                            Navigator.of(context).pushAndRemoveUntil(
+                              MaterialPageRoute(
+                                builder: (_) => const auth_login.LoginScreen(),
+                              ),
+                              (_) => false,
+                            );
                           }
                         },
                       ),

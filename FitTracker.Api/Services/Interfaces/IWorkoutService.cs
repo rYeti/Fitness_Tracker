@@ -1,4 +1,5 @@
 using FitTracker.Api.DTOs;
+using FitTracker.Api.Models;
 
 namespace FitTracker.Api.Services.Interfaces;
 
@@ -31,8 +32,13 @@ public interface IWorkoutService
     /// <summary>Deletes a workout owned by the specified user.</summary>
     /// <param name="id">The ID of the workout to delete.</param>
     /// <param name="userId">The ID of the user who owns the workout.</param>
-    /// <returns><c>true</c> if deleted; <c>false</c> if not found.</returns>
-    Task<bool> DeleteWorkoutAsync(Guid id, Guid userId);
+    /// <returns>
+    /// <see cref="WorkoutDeleteResult.Deleted"/> if the workout and any never-performed
+    /// sessions of it are gone; <see cref="WorkoutDeleteResult.NotFound"/> if no such
+    /// workout belongs to the user; <see cref="WorkoutDeleteResult.HasLoggedHistory"/> if
+    /// sets were logged against it and it is therefore kept.
+    /// </returns>
+    Task<WorkoutDeleteResult> DeleteWorkoutAsync(Guid id, Guid userId);
 
     /// <summary>Adds an exercise entry to a workout owned by the specified user.</summary>
     Task<WorkoutExerciseResponseDto?> AddExerciseToWorkoutAsync(Guid workoutId, Guid userId, WorkoutExerciseRequestDto dto);

@@ -934,6 +934,16 @@
   "newPassword": "New Password",
   "signOut": "Sign Out",
   "signOutConfirm": "Are you sure you want to sign out?",
+  "signOutUnsyncedTitle": "Unsynced changes",
+  "signOutUnsyncedBody": "{count} changes haven't reached the server yet. Signing out clears this device's copy of your account, so they would be lost \u2014 including any exercises you deleted, which would come back.",
+  "@signOutUnsyncedBody": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "signOutAnyway": "Sign out anyway",
   "createExercise": "Create Exercise",
   "editExercise": "Edit Exercise",
   "createCustomExercise": "Create custom exercise",
