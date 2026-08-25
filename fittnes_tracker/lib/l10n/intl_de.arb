@@ -927,6 +927,16 @@
   "newPassword": "Neues Passwort",
   "signOut": "Abmelden",
   "signOutConfirm": "Bist du sicher, dass du dich abmelden möchtest?",
+  "signOutUnsyncedTitle": "Nicht synchronisierte \u00c4nderungen",
+  "signOutUnsyncedBody": "{count} \u00c4nderungen haben den Server noch nicht erreicht. Beim Abmelden werden die lokalen Daten dieses Ger\u00e4ts gel\u00f6scht, sie gingen also verloren \u2014 einschlie\u00dflich gel\u00f6schter \u00dcbungen, die dadurch zur\u00fcckk\u00e4men.",
+  "@signOutUnsyncedBody": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "signOutAnyway": "Trotzdem abmelden",
   "createExercise": "Übung erstellen",
   "editExercise": "Übung bearbeiten",
   "createCustomExercise": "Eigene Übung erstellen",

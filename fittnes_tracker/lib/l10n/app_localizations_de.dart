@@ -1661,6 +1661,17 @@ class AppLocalizationsDe extends AppLocalizations {
       'Bist du sicher, dass du dich abmelden möchtest?';
 
   @override
+  String get signOutUnsyncedTitle => 'Nicht synchronisierte \u00c4nderungen';
+
+  @override
+  String signOutUnsyncedBody(int count) {
+    return '$count \u00c4nderungen haben den Server noch nicht erreicht. Beim Abmelden werden die lokalen Daten dieses Ger\u00e4ts gel\u00f6scht, sie gingen also verloren \u2014 einschlie\u00dflich gel\u00f6schter \u00dcbungen, die dadurch zur\u00fcckk\u00e4men.';
+  }
+
+  @override
+  String get signOutAnyway => 'Trotzdem abmelden';
+
+  @override
   String get createExercise => 'Übung erstellen';
 
   @override

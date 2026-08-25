@@ -195,8 +195,6 @@ class SyncService {
         'color': w.color?.toSigned(32),
       },
     );
-    await _db.workoutDao.markWorkoutSynced(w.id, w.serverId!);
-
     // Sync unsynced exercises for this workout.
     final exercises = await _db.workoutDao.getExercisesForWorkoutRaw(w.id);
     final newExercises =
@@ -213,6 +211,13 @@ class SyncService {
     for (final we in exercises.where((e) => e.syncStatus == 3)) {
       await _syncDeleteWorkoutExercise(we);
     }
+
+    // Marked synced only once the exercises are done, not before them. The
+    // workout's own status is the only thing that brings us back here, so a
+    // throw part-way down the loops above used to leave the remaining ops
+    // stranded behind a row that already looked synced — permanently, for the
+    // pendingDelete rows, which have no other push path.
+    await _db.workoutDao.markWorkoutSynced(w.id, w.serverId!);
     _logger.i('Updated workout ${w.id} on server ${w.serverId}');
   }
 
@@ -746,6 +751,76 @@ class SyncService {
       ..where((t) => t.id.equals(s.id))).go();
   }
 
+  /// Links local workout exercises to the rows the server already holds for
+  /// [w], and returns the ones that are genuinely absent and still need
+  /// creating.
+  ///
+  /// Matching is on `(exercise serverId, orderPosition)`, not on the exercise
+  /// alone: a workout may legitimately contain the same movement twice — a
+  /// superset pairing it with itself — and those instances differ only by
+  /// position. Each server row is claimed at most once, so two unstamped local
+  /// rows can never both latch onto it.
+  Future<List<WorkoutExerciseTableData>> _stampWorkoutExercisesFromServer(
+    WorkoutTableData w,
+    List<WorkoutExerciseTableData> unstamped,
+  ) async {
+    final List<Map<String, dynamic>> serverExercises;
+    try {
+      final response = await _apiClient.get('api/Workout/${w.serverId}');
+      final data = (response.data as Map).cast<String, dynamic>();
+      serverExercises =
+          (data['exercises'] as List? ?? []).cast<Map<String, dynamic>>();
+    } catch (e) {
+      // We could not find out what the server has. Creating blind is how the
+      // duplicates got there, and a duplicate is not something the user can
+      // undo; a missed push costs one sync cycle. Skip and retry next run.
+      _logger.w(
+        '_stampWorkoutExercisesFromServer: GET api/Workout/${w.serverId} failed — '
+        'skipping creation this run to avoid duplicates: $e',
+      );
+      return const [];
+    }
+
+    // A retired exercise is no longer part of the workout; linking a local row
+    // to one would quietly bring it back.
+    final available =
+        serverExercises.where((e) => e['removedAt'] == null).toList();
+    final claimed = <String>{};
+    final stillMissing = <WorkoutExerciseTableData>[];
+
+    for (final we in unstamped) {
+      final localExercise = await _db.exerciseDao.getExerciseById(we.exerciseId);
+      final exerciseServerId = localExercise?.serverId;
+      if (exerciseServerId == null) {
+        stillMissing.add(we);
+        continue;
+      }
+
+      Map<String, dynamic>? match;
+      for (final s in available) {
+        if (claimed.contains(s['id'] as String)) continue;
+        if (s['exerciseId'] == exerciseServerId &&
+            s['orderPosition'] == we.orderPosition) {
+          match = s;
+          break;
+        }
+      }
+      if (match == null) {
+        stillMissing.add(we);
+        continue;
+      }
+
+      final matchedServerId = match['id'] as String;
+      claimed.add(matchedServerId);
+      await _db.workoutDao.markWorkoutExerciseSynced(we.id, matchedServerId);
+      _logger.i(
+        'Re-linked workout exercise ${we.id} to existing server $matchedServerId '
+        '(was about to be created a second time)',
+      );
+    }
+    return stillMissing;
+  }
+
   /// Finds workouts already on the server whose exercises were never pushed
   /// (skipped because system exercise serverIds were missing at sync time).
   Future<void> _syncMissingWorkoutExercises() async {
@@ -755,11 +830,27 @@ class SyncService {
 
     for (final w in syncedWorkouts) {
       try {
-        final exercises = await _db.workoutDao.getExercisesForWorkoutRaw(w.id);
-        final unsyncedExercises =
-            exercises.where((e) => e.serverId == null).toList();
-        if (unsyncedExercises.isNotEmpty) {
-          await _syncNewWorkoutExercisesBatch(unsyncedExercises, w.serverId!);
+        var exercises = await _db.workoutDao.getExercisesForWorkoutRaw(w.id);
+        // pendingDelete rows are on their way out — POSTing one would re-create
+        // server-side precisely what the user asked us to remove.
+        final unstamped =
+            exercises
+                .where((e) => e.serverId == null && e.syncStatus != 3)
+                .toList();
+        if (unstamped.isNotEmpty) {
+          // Ask the server what this workout already holds before creating
+          // anything. A push whose response never arrived still committed
+          // server-side, leaving the local row unstamped while the server row
+          // exists; POSTing it again is what produced duplicate exercises.
+          // Same reasoning as _syncMissingScheduledExerciseSets below.
+          final stillMissing = await _stampWorkoutExercisesFromServer(
+            w,
+            unstamped,
+          );
+          if (stillMissing.isNotEmpty) {
+            await _syncNewWorkoutExercisesBatch(stillMissing, w.serverId!);
+          }
+          exercises = await _db.workoutDao.getExercisesForWorkoutRaw(w.id);
         }
         // Also check for set templates on exercises that are now synced.
         final syncedExercises =
@@ -840,26 +931,60 @@ class SyncService {
           await (_db.select(_db.scheduledWorkoutTable)
             ..orderBy([(t) => OrderingTerm.asc(t.id)])).get();
 
-      // Group by workoutId + scheduledDate — keep first (lowest id), delete the rest.
-      final seen = <String>{};
+      // Group by workoutId + scheduledDate (date-only, so a UTC-stored and a
+      // locally-stored copy of the same calendar day match), then choose which
+      // row survives.
+      final groups = <String, List<ScheduledWorkoutTableData>>{};
       for (final sw in all) {
-        // Normalize to date-only so UTC-stored vs local-stored dates on the
-        // same calendar day are treated as identical.
         final d = sw.scheduledDate;
-        final key = '${sw.workoutId}_${d.year}-${d.month}-${d.day}';
-        if (!seen.add(key)) {
+        groups
+            .putIfAbsent(
+              '${sw.workoutId}_${d.year}-${d.month}-${d.day}',
+              () => [],
+            )
+            .add(sw);
+      }
+
+      for (final group in groups.values) {
+        if (group.length < 2) continue;
+
+        // Deleting a session takes its logged sets with it, so a session the
+        // user actually trained outranks everything else — the old rule kept
+        // the lowest id and could throw away the only copy of a workout that
+        // happened. After that, prefer the row the server knows about.
+        final logged = <int, bool>{};
+        for (final sw in group) {
+          logged[sw.id] = await _hasLoggedSets(sw.id);
+        }
+        final winner = group.firstWhere(
+          (sw) => logged[sw.id] == true,
+          orElse:
+              () => group.firstWhere(
+                (sw) => sw.serverId != null,
+                orElse: () => group.first,
+              ),
+        );
+
+        for (final loser in group.where((sw) => sw.id != winner.id)) {
+          if (logged[loser.id] == true) {
+            _logger.w(
+              'Dedup by content: keeping duplicate SW ${loser.id} — it has logged '
+              'sets and so does the survivor ${winner.id}; refusing to delete training history',
+            );
+            continue;
+          }
           final exercises = await _db.scheduledWorkoutExerciseDao
-              .getAllForScheduledWorkout(sw.id);
+              .getAllForScheduledWorkout(loser.id);
           for (final ex in exercises) {
             await (_db.delete(_db.workoutSetTable)
               ..where((t) => t.scheduledWorkoutExerciseId.equals(ex.id))).go();
           }
           await (_db.delete(_db.scheduledWorkoutExerciseTable)
-            ..where((t) => t.scheduledWorkoutId.equals(sw.id))).go();
+            ..where((t) => t.scheduledWorkoutId.equals(loser.id))).go();
           await (_db.delete(_db.scheduledWorkoutTable)
-            ..where((t) => t.id.equals(sw.id))).go();
+            ..where((t) => t.id.equals(loser.id))).go();
           _logger.i(
-            'Dedup by content: removed duplicate SW ${sw.id} (workout ${sw.workoutId} date ${sw.scheduledDate})',
+            'Dedup by content: removed duplicate SW ${loser.id} (workout ${loser.workoutId} date ${loser.scheduledDate})',
           );
         }
       }
@@ -874,23 +999,80 @@ class SyncService {
           await (_db.select(_db.scheduledWorkoutExerciseTable)
             ..orderBy([(t) => OrderingTerm.asc(t.id)])).get();
 
-      // Keep the first (lowest id) row per (scheduledWorkoutId, workoutExerciseId).
-      final seen = <String>{};
+      // Group first, then choose a survivor — the old pass kept whichever row
+      // had the lowest id, which is generally the stale unstamped one. It
+      // therefore deleted the row that had just been linked to the server and
+      // left the group unlinked again, so the next pull re-created the twin and
+      // the next dedup deleted it again, forever. Prefer the linked row, the
+      // same way _deduplicateWorkoutsByContent and MealDao.deduplicateMeals
+      // already do.
+      final groups = <String, List<ScheduledWorkoutExerciseTableData>>{};
       for (final ex in all) {
-        final key = '${ex.scheduledWorkoutId}_${ex.workoutExerciseId}';
-        if (!seen.add(key)) {
-          await (_db.delete(_db.workoutSetTable)
-            ..where((t) => t.scheduledWorkoutExerciseId.equals(ex.id))).go();
+        groups
+            .putIfAbsent(
+              '${ex.scheduledWorkoutId}_${ex.workoutExerciseId}',
+              () => [],
+            )
+            .add(ex);
+      }
+
+      for (final group in groups.values) {
+        if (group.length < 2) continue;
+        final winner = group.firstWhere(
+          (e) => e.serverId != null,
+          orElse: () => group.first,
+        );
+        for (final loser in group.where((e) => e.id != winner.id)) {
+          await _moveLoggedSets(from: loser.id, to: winner.id);
           await (_db.delete(_db.scheduledWorkoutExerciseTable)
-            ..where((t) => t.id.equals(ex.id))).go();
+            ..where((t) => t.id.equals(loser.id))).go();
           _logger.i(
-            'Dedup by content: removed duplicate ScheduledExercise ${ex.id} '
-            '(SW ${ex.scheduledWorkoutId}, WE ${ex.workoutExerciseId})',
+            'Dedup by content: merged duplicate ScheduledExercise ${loser.id} '
+            'into ${winner.id} (SW ${loser.scheduledWorkoutId}, WE ${loser.workoutExerciseId})',
           );
         }
       }
     } catch (e) {
       _logger.w('_deduplicateScheduledExercisesByContent failed: $e');
+    }
+  }
+
+  /// Whether a scheduled workout has anything the user actually logged against
+  /// it. Used to decide which of two duplicate sessions is the real one.
+  Future<bool> _hasLoggedSets(int scheduledWorkoutId) async {
+    final exercises = await _db.scheduledWorkoutExerciseDao
+        .getAllForScheduledWorkout(scheduledWorkoutId);
+    for (final ex in exercises) {
+      final sets = await _db.workoutDao.getSetsForScheduledExercise(ex.id);
+      if (sets.isNotEmpty) return true;
+    }
+    return false;
+  }
+
+  /// Re-points a duplicate scheduled exercise's logged sets at the row that
+  /// survives de-duplication.
+  ///
+  /// Sets are what the user actually lifted. The previous pass deleted them
+  /// outright along with the duplicate row, so de-duplicating could silently
+  /// cost someone a session. A set number the winner already has is a genuine
+  /// collision — both rows recorded set 2 — and only then is the loser's copy
+  /// dropped.
+  Future<void> _moveLoggedSets({required int from, required int to}) async {
+    final taken =
+        (await _db.workoutDao.getSetsForScheduledExercise(
+          to,
+        )).map((s) => s.setNumber).toSet();
+
+    for (final s in await _db.workoutDao.getSetsForScheduledExercise(from)) {
+      if (taken.add(s.setNumber)) {
+        await (_db.update(_db.workoutSetTable)
+          ..where((t) => t.id.equals(s.id))).write(
+          WorkoutSetTableCompanion(scheduledWorkoutExerciseId: Value(to)),
+        );
+      } else {
+        await (_db.delete(_db.workoutSetTable)
+          ..where((t) => t.id.equals(s.id))).go();
+      }
     }
   }
 
@@ -1888,6 +2070,74 @@ class SyncService {
     }
   }
 
+  /// Folds a workout's server-side exercises down to one per
+  /// `(exerciseId, orderPosition)`.
+  ///
+  /// `POST api/Workout/{id}/exercises/batch` had no idempotency, so a push whose
+  /// response was lost and then retried left a second identical row behind. The
+  /// endpoint is fixed, but the rows it already created are still stored, and a
+  /// full pull — which only happens once the local tables have been emptied, so
+  /// in practice after an account switch — would materialise every one of them.
+  ///
+  /// Position is part of the key on purpose: a workout may hold the same
+  /// movement twice as a superset, and those instances are genuinely distinct.
+  /// Two entries sharing both the exercise *and* the slot are not.
+  List<Map<String, dynamic>> _collapseDuplicateServerExercises(
+    List<Map<String, dynamic>> exercises,
+  ) {
+    final seen = <String>{};
+    final result = <Map<String, dynamic>>[];
+    var dropped = 0;
+    for (final ex in exercises) {
+      // The caller skips retired rows on its own; pass them through rather than
+      // letting one occupy a slot and hide the live entry behind it.
+      if (ex['removedAt'] != null) {
+        result.add(ex);
+        continue;
+      }
+      final key = '${ex['exerciseId']}@${ex['orderPosition']}';
+      if (!seen.add(key)) {
+        dropped++;
+        continue;
+      }
+      result.add(ex);
+    }
+    if (dropped > 0) {
+      _logger.i(
+        'Pull: collapsed $dropped duplicate workout exercise(s) from the server',
+      );
+    }
+    return result;
+  }
+
+  /// Folds an exercise's prescription down to one row per set number.
+  ///
+  /// `AddSetTemplatesBatchAsync` appended rather than replaced until 1.0.2+12
+  /// (see `docs/trainer-session-review.md` §4), so a workout saved three times
+  /// left three complete copies of its prescription on the server. Set numbers
+  /// are ordinals within an exercise — two templates numbered 2 are by
+  /// definition the same set — so collapsing them is not a heuristic. Session
+  /// Review already does exactly this server-side; the sync client is the other
+  /// reader that needed to.
+  List<Map<String, dynamic>> _collapseDuplicateSetTemplates(
+    List<Map<String, dynamic>> templates,
+  ) {
+    final seen = <int>{};
+    final result = <Map<String, dynamic>>[];
+    var dropped = 0;
+    for (final st in templates) {
+      if (!seen.add(st['setNumber'] as int)) {
+        dropped++;
+        continue;
+      }
+      result.add(st);
+    }
+    if (dropped > 0) {
+      _logger.i('Pull: collapsed $dropped duplicate set template(s)');
+    }
+    return result;
+  }
+
   Future<void> _pullWorkouts() async {
     final response = await _apiClient.get('api/Workout');
     final list = (response.data as List).cast<Map<String, dynamic>>();
@@ -1950,7 +2200,9 @@ class SyncService {
             );
       }
 
-      final exercises = (w['exercises'] as List).cast<Map<String, dynamic>>();
+      final exercises = _collapseDuplicateServerExercises(
+        (w['exercises'] as List).cast<Map<String, dynamic>>(),
+      );
       for (final ex in exercises) {
         final exServerId = ex['id'] as String;
         // A retired exercise is still returned so that logged sessions can resolve
@@ -2024,8 +2276,9 @@ class SyncService {
               );
         }
 
-        for (final st
-            in (ex['setTemplates'] as List).cast<Map<String, dynamic>>()) {
+        for (final st in _collapseDuplicateSetTemplates(
+          (ex['setTemplates'] as List).cast<Map<String, dynamic>>(),
+        )) {
           final stServerId = st['id'] as String;
           // Stamp existing unsynced set template if one already exists.
           if (nameMatch != null) {
@@ -2240,18 +2493,51 @@ class SyncService {
             );
             continue;
           }
-          localSeId = await _db
-              .into(_db.scheduledWorkoutExerciseTable)
-              .insert(
-                ScheduledWorkoutExerciseTableCompanion(
-                  scheduledWorkoutId: Value(localSwId),
-                  workoutExerciseId: Value(localWe.id),
-                  isCompleted: Value(se['isCompleted'] as bool),
-                  notes: Value(se['notes'] as String?),
-                  serverId: Value(seServerId),
-                  syncStatus: const Value(1),
-                ),
-              );
+
+          // If a local entry for this session and this workout exercise already
+          // exists without a serverId, stamp it rather than inserting a second
+          // one. The scheduled workout above and the sets below both have this
+          // fallback; without it here, every locally-created-but-unstamped
+          // entry got a twin on pull — and the content de-duplication pass then
+          // kept the *older* of the two, dropping the row that had just been
+          // linked and setting the whole cycle up to repeat.
+          final unlinkedSe =
+              await (_db.select(_db.scheduledWorkoutExerciseTable)
+                    ..where(
+                      (t) =>
+                          t.scheduledWorkoutId.equals(localSwId) &
+                          t.workoutExerciseId.equals(localWe.id) &
+                          t.serverId.isNull(),
+                    )
+                    ..limit(1))
+                  .getSingleOrNull();
+
+          if (unlinkedSe != null) {
+            localSeId = unlinkedSe.id;
+            await (_db.update(_db.scheduledWorkoutExerciseTable)
+              ..where((t) => t.id.equals(localSeId))).write(
+              ScheduledWorkoutExerciseTableCompanion(
+                serverId: Value(seServerId),
+                syncStatus: const Value(1),
+              ),
+            );
+            _logger.i(
+              'Pull SW $swServerId: re-linked local exercise $localSeId to server $seServerId',
+            );
+          } else {
+            localSeId = await _db
+                .into(_db.scheduledWorkoutExerciseTable)
+                .insert(
+                  ScheduledWorkoutExerciseTableCompanion(
+                    scheduledWorkoutId: Value(localSwId),
+                    workoutExerciseId: Value(localWe.id),
+                    isCompleted: Value(se['isCompleted'] as bool),
+                    notes: Value(se['notes'] as String?),
+                    serverId: Value(seServerId),
+                    syncStatus: const Value(1),
+                  ),
+                );
+          }
         }
 
         for (final s in (se['sets'] as List).cast<Map<String, dynamic>>()) {

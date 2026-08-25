@@ -291,6 +291,23 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
           ..where((w) => w.id.equals(workout.id!))).write(workoutCompanion);
 
         workoutId = workout.id!;
+
+        // An edit to an already-synced workout has to re-enter the push queue,
+        // or nothing below this line ever reaches the server: syncWorkoutTemplates
+        // only looks at rows whose syncStatus != synced, so leaving it at synced
+        // stranded every rename, every set change, and — worst — every
+        // pendingDelete stamped on a removed exercise in step 2️⃣, which is what
+        // put deleted exercises back on the next full pull.
+        //
+        // Only synced is promoted: pending (a workout that has never reached the
+        // server) and pendingDelete (one on its way out) both outrank an update
+        // and must not be overwritten by it.
+        final current =
+            await (select(workoutTable)
+              ..where((w) => w.id.equals(workoutId))).getSingleOrNull();
+        if (current?.syncStatus == 1) {
+          await markWorkoutPendingUpdate(workoutId);
+        }
       }
 
       // 🔹 2️⃣ If updating, diff old vs new exercises.

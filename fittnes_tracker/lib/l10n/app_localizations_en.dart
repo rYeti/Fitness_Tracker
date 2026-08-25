@@ -1649,6 +1649,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get signOutConfirm => 'Are you sure you want to sign out?';
 
   @override
+  String get signOutUnsyncedTitle => 'Unsynced changes';
+
+  @override
+  String signOutUnsyncedBody(int count) {
+    return '$count changes haven\'t reached the server yet. Signing out clears this device\'s copy of your account, so they would be lost \u2014 including any exercises you deleted, which would come back.';
+  }
+
+  @override
+  String get signOutAnyway => 'Sign out anyway';
+
+  @override
   String get createExercise => 'Create Exercise';
 
   @override

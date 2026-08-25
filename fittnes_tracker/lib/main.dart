@@ -519,14 +519,20 @@ class _MyAppState extends State<MyApp> {
   }
 }
 
-/// Where an authenticated user lands: on web a trainer gets the console,
-/// everyone else the trainee app.
+/// Where an authenticated user lands: a trainer gets the console, everyone
+/// else the trainee app.
 ///
 /// This is deliberately the *only* place that decision is made. Cold start,
 /// login and register each used to push [HomeScreen] directly, which meant a
 /// trainer signing in on the web was dropped into the trainee app instead of
 /// the console — the landing logic only ever ran on a cold start with an
 /// existing token.
+///
+/// The decision is the *role*, not the platform. It used to short-circuit on
+/// `!kIsWeb`, on the reasoning that off the web the console is reached from
+/// Settings — which quietly meant a trainer registering on a phone or desktop
+/// landed on the trainee dashboard and had to go find the console. Settings
+/// still offers it; it is no longer the only way in.
 ///
 /// Stateful only to hold the "I chose to look at my own training" flag — a
 /// trainer is also a ForgeForm user, so leaving the console has to be possible
@@ -542,12 +548,10 @@ class _PostAuthHomeState extends State<PostAuthHome> {
   bool _showTraineeApp = false;
 
   Widget _home() {
-    // Off the web the console is reached from Settings, so nothing here has to
-    // wait on the role check.
-    if (!kIsWeb || _showTraineeApp) return const HomeScreen();
+    if (_showTraineeApp) return const HomeScreen();
     return TrainerConsoleGate(
-      // A client signing in on the web gets the normal app rather than a
-      // "trainer access only" wall.
+      // Everyone who isn't a trainer gets the normal app rather than a
+      // "trainer access only" wall — the gate is the router here, not a bouncer.
       fallback: const HomeScreen(),
       onExitConsole: () => setState(() => _showTraineeApp = true),
     );
@@ -753,10 +757,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   Future<void> _runInitialSync() async {
     final prefs = await SharedPreferences.getInstance();
-    final lastSyncMs = prefs.getInt('last_sync_timestamp');
-    if (lastSyncMs != null) {
-      final lastSync = DateTime.fromMillisecondsSinceEpoch(lastSyncMs);
-      if (DateTime.now().difference(lastSync) < const Duration(hours: 6)) {
+    // The pull is throttled on its own key, not on last_sync_timestamp. The
+    // background task stamps that one after a push-only sync, so a background
+    // run that never downloaded anything used to suppress the foreground pull
+    // for the next six hours — which is why data could take most of a day to
+    // come back after signing in again.
+    final lastPullMs = prefs.getInt(lastPullPrefsKey);
+    if (lastPullMs != null) {
+      final lastPull = DateTime.fromMillisecondsSinceEpoch(lastPullMs);
+      if (DateTime.now().difference(lastPull) < const Duration(hours: 6)) {
         return;
       }
     }
@@ -775,10 +784,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     try {
       await syncService.syncAll();
       await syncService.pullAll();
-      await prefs.setInt(
-        'last_sync_timestamp',
-        DateTime.now().millisecondsSinceEpoch,
-      );
+      final now = DateTime.now().millisecondsSinceEpoch;
+      await prefs.setInt('last_sync_timestamp', now);
+      await prefs.setInt(lastPullPrefsKey, now);
       if (mounted) {
         globalFoodTrackingKey.currentState?.loadNutritionData();
         globalProgressKey.currentState?.reloadGymData();

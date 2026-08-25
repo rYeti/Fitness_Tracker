@@ -5,6 +5,7 @@ import 'package:ForgeForm/core/services/push_service.dart';
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/providers/access_provider.dart';
 import 'package:ForgeForm/core/providers/user_goals_provider.dart';
+import 'package:ForgeForm/feature/auth/presentation/sign_out.dart';
 import 'package:ForgeForm/feature/auth/data/Models/account_type.dart';
 import 'package:ForgeForm/feature/auth/data/Models/auth_failure.dart';
 import 'package:ForgeForm/feature/auth/presentation/providers/auth_provider.dart';
@@ -128,12 +129,16 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         final newUserId = next.user!.username;
         final db = context.read<AppDatabase>();
 
+        // Backstop only. Signing out clears the database on the way out
+        // (confirmAndSignOut), which is what keeps one account's rows from
+        // sitting on disk under the next account's token. This still has to be
+        // here for the paths that never reach it — a refresh token expiring
+        // mid-session, or the app dying part-way through a sign-out.
         final prefs = await SharedPreferences.getInstance();
         final lastUserId = prefs.getString('last_logged_in_user');
         if (lastUserId != null && lastUserId != newUserId) {
           await db.clearAllUserData();
-          await prefs.remove('meal_templates');
-          await prefs.remove('last_sync_timestamp');
+          await clearPerAccountPrefs();
           if (!context.mounted) return;
           await context.read<UserGoalsProvider>().reload();
         }
