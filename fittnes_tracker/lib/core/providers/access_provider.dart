@@ -22,6 +22,10 @@ const _prefIsTrainer = 'access_is_trainer';
 const _prefTrainerId = 'access_trainer_id';
 const _prefTrainerName = 'access_trainer_name';
 const _prefProFromLicence = 'access_pro_from_licence';
+// Who the cached flags above describe. They are account state, not device
+// state: without this key a trainee's cached "not a trainer" was restored for
+// the next account to sign in on the same device — see [AccessProvider.initialize].
+const _prefCachedUserId = 'access_cached_user_id';
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Aggregates premium status from RevenueCat purchases and the server-side
@@ -32,6 +36,10 @@ class AccessProvider extends ChangeNotifier {
 
   /// Builds a provider in a known state, so role-gated UI can be tested
   /// without RevenueCat or a live `api/TrainerClient/status`.
+  ///
+  /// [roleKnown] stands in for a cached role. Pass `roleKnown: false` *and*
+  /// `roleResolved: false` for the first-sign-in state, where nobody has
+  /// answered the role question yet — [roleResolved] implies [roleKnown].
   @visibleForTesting
   AccessProvider.withState({
     bool isPremium = false,
@@ -41,6 +49,7 @@ class AccessProvider extends ChangeNotifier {
     DateTime? proEndsAt,
     bool initialized = true,
     bool roleResolved = true,
+    bool roleKnown = true,
     String? trainerId,
     String? trainerName,
   }) : _isPremium = isPremium,
@@ -50,6 +59,7 @@ class AccessProvider extends ChangeNotifier {
        _proEndsAt = proEndsAt,
        _initialized = initialized,
        _roleResolved = roleResolved,
+       _roleFromCache = roleKnown,
        _trainerId = trainerId,
        _trainerName = trainerName;
 
@@ -60,6 +70,10 @@ class AccessProvider extends ChangeNotifier {
   DateTime? _proEndsAt;
   bool _initialized = false;
   bool _roleResolved = false;
+  /// Whether the flags restored in [initialize] included a role for *this*
+  /// account. Backs [roleKnown]; see it for why an absent cache is not a
+  /// "no".
+  bool _roleFromCache = false;
   String? _trainerId;
   String? _trainerName;
 
@@ -99,6 +113,21 @@ class AccessProvider extends ChangeNotifier {
   /// available and callers shouldn't hang forever waiting for better.
   bool get roleResolved => _roleResolved;
 
+  /// Whether the role question has been *answered* for this account at all —
+  /// by this session's check ([roleResolved]) or by a cached answer from an
+  /// earlier session for the same user.
+  ///
+  /// The weaker signal, and the right one for anything that would otherwise
+  /// read an unanswered role as "not a trainer". [isTrainer] is a `bool`, so
+  /// "no" and "nobody has asked yet" look identical to it; on a first sign-in
+  /// only the second is true, and treating it as the first is what sent a
+  /// newly registered trainer to the trainee dashboard.
+  ///
+  /// Deliberately weaker than [roleResolved]: a cached answer for the same
+  /// account is a real answer, so a returning trainee isn't made to wait on
+  /// the network before their own app renders.
+  bool get roleKnown => _roleResolved || _roleFromCache;
+
   /// True if the user has access to premium features from ANY source: their own
   /// purchase, or a licence that grants it.
   ///
@@ -119,16 +148,28 @@ class AccessProvider extends ChangeNotifier {
     required String serverBaseUrl,
     required String bearerToken,
   }) async {
-    // Restore cached values immediately so UI is correct while we re-check.
+    // Restore cached values immediately so UI is correct while we re-check —
+    // but only the ones cached for *this* account. The cache is a snapshot of
+    // one user's access, and the device may have been someone else's last:
+    // restoring their flags means answering "is this a trainer?" and "is this
+    // Pro?" with a stranger's answer until the network lands.
     final prefs = await SharedPreferences.getInstance();
-    _isPremium = prefs.getBool(_prefIsPremium) ?? false;
-    _isTrainerClient = prefs.getBool(_prefIsTrainerClient) ?? false;
-    _isTrainer = prefs.getBool(_prefIsTrainer) ?? false;
+    final cachedUserId = prefs.getString(_prefCachedUserId);
+    final cacheIsOurs = cachedUserId == userId;
+    _isPremium = (cacheIsOurs ? prefs.getBool(_prefIsPremium) : null) ?? false;
+    _isTrainerClient =
+        (cacheIsOurs ? prefs.getBool(_prefIsTrainerClient) : null) ?? false;
+    _isTrainer = (cacheIsOurs ? prefs.getBool(_prefIsTrainer) : null) ?? false;
+    // A role was cached for this user, so [isTrainer] above is an answer rather
+    // than a default. Absent (first sign-in, or another account's cache), the
+    // role stays unknown until _checkTrainerClient lands — see [roleKnown].
+    _roleFromCache = cacheIsOurs && prefs.containsKey(_prefIsTrainer);
     // Cached alongside the role flags for the same reason: on a cold start the
     // trainee's chat entry point should be right before the network answers.
-    _trainerId = prefs.getString(_prefTrainerId);
-    _trainerName = prefs.getString(_prefTrainerName);
-    _proFromLicence = prefs.getBool(_prefProFromLicence) ?? false;
+    _trainerId = cacheIsOurs ? prefs.getString(_prefTrainerId) : null;
+    _trainerName = cacheIsOurs ? prefs.getString(_prefTrainerName) : null;
+    _proFromLicence =
+        (cacheIsOurs ? prefs.getBool(_prefProFromLicence) : null) ?? false;
     _initialized = true;
     notifyListeners();
 
@@ -138,7 +179,10 @@ class AccessProvider extends ChangeNotifier {
       _checkTrainerClient(serverBaseUrl, bearerToken),
     ]);
 
-    // Persist so the next cold start has correct values before the network check.
+    // Persist so the next cold start has correct values before the network
+    // check. Stamped with the account they describe, so the next sign-in can
+    // tell whose answers these are.
+    await prefs.setString(_prefCachedUserId, userId);
     await prefs.setBool(_prefIsPremium, _isPremium);
     await prefs.setBool(_prefIsTrainerClient, _isTrainerClient);
     await prefs.setBool(_prefIsTrainer, _isTrainer);
@@ -174,9 +218,11 @@ class AccessProvider extends ChangeNotifier {
     _proEndsAt = null;
     _initialized = false;
     _roleResolved = false;
+    _roleFromCache = false;
     _trainerId = null;
     _trainerName = null;
     final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_prefCachedUserId);
     await prefs.remove(_prefIsPremium);
     await prefs.remove(_prefIsTrainerClient);
     await prefs.remove(_prefIsTrainer);

@@ -47,10 +47,17 @@ class TrainerConsoleGate extends StatelessWidget {
     final access = context.watch<AccessProvider>();
     final l10n = AppLocalizations.of(context)!;
 
-    // initialize() restores the cached flag and notifies before the network
-    // re-check, so this window is brief — but on a cold start it's the
-    // difference between a flash of "not a trainer" and a spinner.
-    if (!access.initialized) {
+    // Wait until the role has actually been *answered* for this account, not
+    // merely defaulted. initialize() restores the cached flags and notifies
+    // before the network re-check, so `initialized` alone says nothing about
+    // whether anyone has asked — and on a first sign-in (registration, or a new
+    // account on a device someone else used) there is no cached answer, so
+    // `isTrainer` reads false until `api/TrainerClient/status` lands. Taking the
+    // non-trainer branch there sent a brand-new trainer to the trainee app.
+    //
+    // A cached answer for the same user counts, so a returning trainee never
+    // waits on the network to see their own app. See AccessProvider.roleKnown.
+    if (!access.initialized || !access.roleKnown) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       );
