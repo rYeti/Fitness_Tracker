@@ -65,14 +65,48 @@ public class WorkoutRepository : IWorkoutRepository
     }
 
     /// <inheritdoc/>
-    public async Task<bool> DeleteWorkoutAsync(Guid id, Guid userId)
+    public async Task<WorkoutDeleteResult> DeleteWorkoutAsync(Guid id, Guid userId)
     {
         var workout = await _context.Workouts.FirstOrDefaultAsync(w => w.Id == id && w.UserId == userId);
-        if (workout == null) return false;
+        if (workout == null) return WorkoutDeleteResult.NotFound;
+
+        // Same restricted foreign key that DeleteWorkoutExerciseAsync had to learn about,
+        // one level up: ScheduledWorkouts points here with Restrict, so removing a workout
+        // the user had ever scheduled threw a foreign-key violation. The client saw a 500,
+        // deleted its own copy anyway, and the workout stayed on the server — where a full
+        // pull, which only happens once the local tables have been emptied, put it back.
+        var sessions = await _context.ScheduledWorkouts
+            .Where(sw => sw.WorkoutId == id)
+            .Select(sw => new { sw.Id, HasLoggedSets = sw.Exercises.Any(e => e.Sets.Any()) })
+            .ToListAsync();
+
+        // A session with sets logged against it is real training history. There is no
+        // RemovedAt on Workout to retire the workout behind, the way there is one level
+        // down on WorkoutExercise, so the workout stays — and saying so plainly beats a
+        // 500 the client retries until the end of time.
+        if (sessions.Any(s => s.HasLoggedSets))
+        {
+            return WorkoutDeleteResult.HasLoggedHistory;
+        }
+
+        // Everything left is a placeholder — a date the plan generated, or one still in
+        // the future, that nobody ever performed. Nothing is lost by dropping it, and
+        // dropping it is what releases the foreign key.
+        var emptySessionIds = sessions.Select(s => s.Id).ToList();
+        if (emptySessionIds.Count > 0)
+        {
+            await _context.ScheduledWorkouts
+                .Where(sw => emptySessionIds.Contains(sw.Id))
+                .ExecuteDeleteAsync();
+
+            // ExecuteDelete bypasses the change tracker, which would otherwise re-assert
+            // these rows during the SaveChanges below.
+            DetachTracked<ScheduledWorkout>(sw => emptySessionIds.Contains(sw.Id));
+        }
 
         _context.Workouts.Remove(workout);
         await _context.SaveChangesAsync();
-        return true;
+        return WorkoutDeleteResult.Deleted;
     }
 
     /// <inheritdoc/>
@@ -80,6 +114,24 @@ public class WorkoutRepository : IWorkoutRepository
     {
         var ownsWorkout = await _context.Workouts.AnyAsync(w => w.Id == we.WorkoutId && w.UserId == userId);
         if (!ownsWorkout) return null;
+
+        // Adding an exercise is idempotent per slot. Every caller of this is a sync push,
+        // and a push whose response was lost still committed here — so the client retried
+        // with a row it thought had never arrived, and the workout grew a second copy of
+        // the same exercise. Returning the row that already occupies the slot hands the
+        // client the ID it was missing instead, which is what it needed all along.
+        //
+        // OrderPosition is part of the key because a workout may legitimately contain the
+        // same movement more than once — a superset pairing it with itself — and those
+        // instances are distinguishable only by position. Two entries sharing the exercise
+        // *and* the slot are not. Retired entries are excluded: re-adding a movement the
+        // user removed should give them a fresh row, not resurrect the old one.
+        var existing = await _context.WorkoutExercises.FirstOrDefaultAsync(e =>
+            e.WorkoutId == we.WorkoutId &&
+            e.ExerciseId == we.ExerciseId &&
+            e.OrderPosition == we.OrderPosition &&
+            e.RemovedAt == null);
+        if (existing != null) return existing;
 
         _context.WorkoutExercises.Add(we);
         await _context.SaveChangesAsync();

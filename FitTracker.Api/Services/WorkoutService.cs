@@ -59,7 +59,7 @@ public class WorkoutService : IWorkoutService
     }
 
     /// <inheritdoc/>
-    public async Task<bool> DeleteWorkoutAsync(Guid id, Guid userId)
+    public async Task<WorkoutDeleteResult> DeleteWorkoutAsync(Guid id, Guid userId)
     {
         return await _workoutRepository.DeleteWorkoutAsync(id, userId);
     }

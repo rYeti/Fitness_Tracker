@@ -1,4 +1,5 @@
 using FitTracker.Api.DTOs;
+using FitTracker.Api.Models;
 using FitTracker.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -78,7 +79,10 @@ public class WorkoutController : ControllerBase
 
     /// <summary>Deletes a workout belonging to the authenticated user.</summary>
     /// <param name="id">The ID of the workout to delete.</param>
-    /// <returns>204 No Content on success, or 404 if not found.</returns>
+    /// <returns>
+    /// 204 No Content on success, 404 if not found, or 409 Conflict if the workout has
+    /// sessions with logged sets and is therefore kept.
+    /// </returns>
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteWorkout([FromRoute] Guid id)
     {
@@ -86,9 +90,16 @@ public class WorkoutController : ControllerBase
         if (userId == Guid.Empty) return NotFound("User not found");
 
         var result = await _workoutService.DeleteWorkoutAsync(id, userId);
-        if (!result) return NotFound("Workout not found");
-
-        return NoContent();
+        return result switch
+        {
+            WorkoutDeleteResult.Deleted => NoContent(),
+            WorkoutDeleteResult.NotFound => NotFound("Workout not found"),
+            // 409 rather than the 500 a foreign-key violation used to produce: the request
+            // is understood and will never succeed, so the client should stop retrying.
+            WorkoutDeleteResult.HasLoggedHistory => Conflict(
+                "Workout has logged training sessions and cannot be deleted"),
+            _ => NoContent(),
+        };
     }
 
     /// <summary>Adds an exercise entry to a workout.</summary>
