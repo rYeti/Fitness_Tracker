@@ -85,11 +85,6 @@ class PushService {
       return;
     }
 
-    // Asked for at startup rather than at sign-in: on Android 13+ and iOS this
-    // shows a system dialog, and the answer is remembered per install. Denial is
-    // a normal outcome and nothing below depends on it succeeding.
-    await _messaging.requestPermission();
-
     _tapSub = FirebaseMessaging.onMessageOpenedApp.listen(_handleTap);
 
     // A tap that launched the app from cold has no stream event — the message is
@@ -106,12 +101,41 @@ class PushService {
     });
   }
 
+  /// Asks for the notification permission, once the user is signed in.
+  ///
+  /// Deliberately not part of [init]. On Android 13+ this raises a system
+  /// dialog, and init runs from `main()` — so asking there means a brand-new
+  /// install is prompted on its very first launch, before sign-in, with nothing
+  /// on screen to explain what the notifications are for.
+  ///
+  /// That is the same mistake `NotificationService` was restructured to stop
+  /// making, and the permission is the same one: Android has a single
+  /// `POST_NOTIFICATIONS` grant covering chat push and the app's own scheduled
+  /// reminders alike. Asking here covers both, at the first moment the answer
+  /// means anything.
+  ///
+  /// Denial is a normal outcome. Nothing else in this class depends on it — a
+  /// token is still obtained and still registered, so turning notifications back
+  /// on in system settings starts them working with no further action here.
+  Future<void> requestPermissionIfNeeded() async {
+    if (!_available) return;
+    try {
+      await _messaging.requestPermission();
+    } catch (error) {
+      debugPrint('Could not request notification permission: $error');
+    }
+  }
+
   /// Registers this device against the signed-in user. Call after every path
   /// that establishes a session — login, register, and cold-start restore.
   Future<void> registerForCurrentUser() async {
     if (!_available) return;
 
     try {
+      // Permission first, so the very first notification this device is sent
+      // can actually be displayed rather than silently dropped.
+      await requestPermissionIfNeeded();
+
       final token = await _messaging.getToken();
       if (token == null) return;
       _currentToken = token;

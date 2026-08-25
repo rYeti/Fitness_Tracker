@@ -312,7 +312,17 @@ Future<void> _firebaseBackgroundHandler(RemoteMessage message) async {}
 /// for the notification permission, and blocking a first launch on that dialog
 /// is exactly the splash-screen stall NotificationService was changed to avoid.
 Future<void> _startPushNotifications() async {
-  await sl<PushService>().init();
+  final push = sl<PushService>();
+  await push.init();
+
+  // Guarded, because "unavailable" is the *normal* state in three situations:
+  // on web, on any machine without android/app/google-services.json, and in
+  // every CI build. Wiring up regardless means calling
+  // FirebaseMessaging.onBackgroundMessage against an uninitialised Firebase,
+  // which throws -- inside an unawaited future, so it surfaces as an unhandled
+  // async error rather than anything that points at the cause.
+  if (!push.isAvailable) return;
+
   _wirePushNotifications();
 }
 

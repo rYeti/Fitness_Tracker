@@ -85,6 +85,31 @@ void main() {
     });
   });
 
+  group('permission timing', () {
+    test('init does not ask for permission', () async {
+      // The regression this guards: init() runs from main(), so asking there
+      // prompted a brand-new install on its very first launch, before sign-in,
+      // with nothing on screen explaining what for. It is the same mistake
+      // NotificationService was restructured to stop making, over the same
+      // Android POST_NOTIFICATIONS grant.
+      final push = PushService(client: api);
+
+      await push.init();
+
+      // Unavailable without Firebase, which is the point: init must be safe to
+      // call at startup on any machine, in any build.
+      expect(push.isAvailable, isFalse);
+      expect(api.posts, isEmpty);
+    });
+
+    test('asking for permission with push unavailable is a no-op', () async {
+      final push = PushService(client: api);
+
+      // Must not throw: web and every un-configured build take this path.
+      await expectLater(push.requestPermissionIfNeeded(), completes);
+    });
+  });
+
   group('tap routing', () {
     test('a local tap emits the thread it carries', () async {
       final push = PushService(client: api);

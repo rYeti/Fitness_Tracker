@@ -51,7 +51,7 @@ plugins {
     // Declared here, applied conditionally in app/build.gradle.kts -- the plugin
     // hard-fails the build when google-services.json is absent, and that file is
     // per-developer setup rather than something the repo can guarantee.
-    id("com.google.gms.google-services") version "4.4.2" apply false
+    id("com.google.gms.google-services") version "4.5.0" apply false
 }
 
 include(":app")
