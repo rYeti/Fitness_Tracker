@@ -1,4 +1,4 @@
-import 'package:ForgeForm/core/providers/access_provider.dart';
+import 'package:ForgeForm/feature/auth/presentation/sign_out.dart';
 import 'package:ForgeForm/feature/auth/presentation/providers/auth_provider.dart';
 import 'package:ForgeForm/feature/auth/presentation/view/login_screen.dart';
 import 'package:ForgeForm/feature/onboarding/onboarding_screen.dart'
@@ -7,7 +7,6 @@ import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
 
 class UserSettingsScreen extends ConsumerStatefulWidget {
   const UserSettingsScreen({super.key});
@@ -141,34 +140,8 @@ class _UserSettingsScreenState extends ConsumerState<UserSettingsScreen> {
   }
 
   Future<void> _signOut() async {
-    final access = context.read<AccessProvider>();
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) {
-        final l10n = AppLocalizations.of(ctx)!;
-        return AlertDialog(
-          title: Text(l10n.signOut),
-          content: Text(l10n.signOutConfirm),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: Text(l10n.cancel),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: Text(
-                l10n.signOut,
-                style: TextStyle(color: Theme.of(ctx).colorScheme.error),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-    if (confirmed != true || !mounted) return;
-    await access.reset();
-    await ref.read(authProvider.notifier).logout();
-    if (!mounted) return;
+    final signedOut = await confirmAndSignOut(context, ref);
+    if (!signedOut || !mounted) return;
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (_) => const LoginScreen()),

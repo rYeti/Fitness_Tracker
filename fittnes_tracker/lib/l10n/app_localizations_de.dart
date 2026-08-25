@@ -1661,6 +1661,17 @@ class AppLocalizationsDe extends AppLocalizations {
       'Bist du sicher, dass du dich abmelden möchtest?';
 
   @override
+  String get signOutUnsyncedTitle => 'Nicht synchronisierte \u00c4nderungen';
+
+  @override
+  String signOutUnsyncedBody(int count) {
+    return '$count \u00c4nderungen haben den Server noch nicht erreicht. Beim Abmelden werden die lokalen Daten dieses Ger\u00e4ts gel\u00f6scht, sie gingen also verloren \u2014 einschlie\u00dflich gel\u00f6schter \u00dcbungen, die dadurch zur\u00fcckk\u00e4men.';
+  }
+
+  @override
+  String get signOutAnyway => 'Trotzdem abmelden';
+
+  @override
   String get createExercise => 'Übung erstellen';
 
   @override
@@ -2429,7 +2440,8 @@ class AppLocalizationsDe extends AppLocalizations {
   String get accountTypeTrainer => 'Ich betreue Kunden';
 
   @override
-  String get accountTypeLockedNote => 'Ein Trainerkonto öffnet die Trainer-Konsole. Das lässt sich später nicht ändern — ein bestehendes Konto kann nicht umgestellt werden.';
+  String get accountTypeLockedNote =>
+      'Ein Trainerkonto öffnet die Trainer-Konsole. Das lässt sich später nicht ändern — ein bestehendes Konto kann nicht umgestellt werden.';
 
   @override
   String get dashboardLoading => 'Dashboard wird geladen';
@@ -2749,22 +2761,28 @@ class AppLocalizationsDe extends AppLocalizations {
       'ForgeForm ist nicht erreichbar. Prüfe deine Verbindung und versuch es erneut.';
 
   @override
-  String get authFailureInvalidCredentials => 'Benutzername oder Passwort ist falsch.';
+  String get authFailureInvalidCredentials =>
+      'Benutzername oder Passwort ist falsch.';
 
   @override
-  String get authFailureRegistrationFailed => 'Dieser Benutzername oder diese E-Mail-Adresse ist bereits vergeben.';
+  String get authFailureRegistrationFailed =>
+      'Dieser Benutzername oder diese E-Mail-Adresse ist bereits vergeben.';
 
   @override
-  String get authFailureUnknownAccountType => 'Dieser Kontotyp ist unbekannt. Wähle eine der Optionen und versuche es erneut.';
+  String get authFailureUnknownAccountType =>
+      'Dieser Kontotyp ist unbekannt. Wähle eine der Optionen und versuche es erneut.';
 
   @override
-  String get authFailureNetwork => 'ForgeForm ist nicht erreichbar. Prüfe deine Verbindung und versuche es erneut.';
+  String get authFailureNetwork =>
+      'ForgeForm ist nicht erreichbar. Prüfe deine Verbindung und versuche es erneut.';
 
   @override
-  String get authFailureUnknown => 'Etwas ist schiefgelaufen. Bitte versuche es erneut.';
+  String get authFailureUnknown =>
+      'Etwas ist schiefgelaufen. Bitte versuche es erneut.';
 
   @override
-  String get resetFailureLinkNoLongerValid => 'Dieser Link ist abgelaufen oder wurde bereits verwendet.';
+  String get resetFailureLinkNoLongerValid =>
+      'Dieser Link ist abgelaufen oder wurde bereits verwendet.';
 
   @override
   String inviteFailureSeatLimitReachedDetailed(int seatsUsed, int seatLimit) {

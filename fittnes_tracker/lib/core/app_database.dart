@@ -83,6 +83,44 @@ class AppDatabase extends _$AppDatabase {
   /// useful for in-memory tests.
   AppDatabase.test(QueryExecutor executor) : super(executor);
 
+  /// How many rows are still waiting to reach the server.
+  ///
+  /// [clearAllUserData] is unrecoverable for anything that has not synced — the
+  /// row is the only record that the change happened, and for a pendingDelete
+  /// row it is the only record that the *deletion* happened. Signing out has to
+  /// be able to say how much would go, so the user can choose.
+  ///
+  /// Counts every table carrying a `syncStatus`, where `1` is `SyncStatus.synced`
+  /// and every other value is work that has not reached the server. Built-in
+  /// exercises are seeded locally and never pushed, so only the user's own custom
+  /// ones count.
+  ///
+  /// One statement rather than a dozen round trips, because this runs on the
+  /// sign-out tap and the user is waiting on it.
+  Future<int> countUnsyncedChanges() async {
+    const sql = '''
+      SELECT
+        (SELECT COUNT(*) FROM workout_table                     WHERE sync_status != 1) +
+        (SELECT COUNT(*) FROM workout_exercise_table            WHERE sync_status != 1) +
+        (SELECT COUNT(*) FROM workout_set_template_table        WHERE sync_status != 1) +
+        (SELECT COUNT(*) FROM workout_set_table                 WHERE sync_status != 1) +
+        (SELECT COUNT(*) FROM scheduled_workout_table           WHERE sync_status != 1) +
+        (SELECT COUNT(*) FROM scheduled_workout_exercise_table  WHERE sync_status != 1) +
+        (SELECT COUNT(*) FROM workout_plan_table                WHERE sync_status != 1) +
+        (SELECT COUNT(*) FROM workout_plan_workout_table        WHERE sync_status != 1) +
+        (SELECT COUNT(*) FROM meal_table                        WHERE sync_status != 1) +
+        (SELECT COUNT(*) FROM food_item                         WHERE sync_status != 1) +
+        (SELECT COUNT(*) FROM weight_record                     WHERE sync_status != 1) +
+        (SELECT COUNT(*) FROM exercise_table                    WHERE sync_status != 1 AND is_custom = 1) +
+        -- Chat has its own status column: 1 is sent, 0 pending and 2 failed.
+        -- An unsent message is lost by the wipe exactly like an unsynced set.
+        (SELECT COUNT(*) FROM chat_out_box_table                WHERE chat_message_status != 1)
+      AS total
+    ''';
+    final row = await customSelect(sql).getSingle();
+    return row.read<int>('total');
+  }
+
   /// Deletes all user-generated data from every table.
   /// Call this on logout so the next user starts with a clean local DB.
   Future<void> clearAllUserData() async {

@@ -645,10 +645,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   Future<void> _runInitialSync() async {
     final prefs = await SharedPreferences.getInstance();
-    final lastSyncMs = prefs.getInt('last_sync_timestamp');
-    if (lastSyncMs != null) {
-      final lastSync = DateTime.fromMillisecondsSinceEpoch(lastSyncMs);
-      if (DateTime.now().difference(lastSync) < const Duration(hours: 6)) {
+    // The pull is throttled on its own key, not on last_sync_timestamp. The
+    // background task stamps that one after a push-only sync, so a background
+    // run that never downloaded anything used to suppress the foreground pull
+    // for the next six hours — which is why data could take most of a day to
+    // come back after signing in again.
+    final lastPullMs = prefs.getInt(lastPullPrefsKey);
+    if (lastPullMs != null) {
+      final lastPull = DateTime.fromMillisecondsSinceEpoch(lastPullMs);
+      if (DateTime.now().difference(lastPull) < const Duration(hours: 6)) {
         return;
       }
     }
@@ -667,10 +672,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     try {
       await syncService.syncAll();
       await syncService.pullAll();
-      await prefs.setInt(
-        'last_sync_timestamp',
-        DateTime.now().millisecondsSinceEpoch,
-      );
+      final now = DateTime.now().millisecondsSinceEpoch;
+      await prefs.setInt('last_sync_timestamp', now);
+      await prefs.setInt(lastPullPrefsKey, now);
       if (mounted) {
         globalFoodTrackingKey.currentState?.loadNutritionData();
         globalProgressKey.currentState?.reloadGymData();

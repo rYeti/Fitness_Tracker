@@ -3092,6 +3092,24 @@ abstract class AppLocalizations {
   /// **'Are you sure you want to sign out?'**
   String get signOutConfirm;
 
+  /// No description provided for @signOutUnsyncedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Unsynced changes'**
+  String get signOutUnsyncedTitle;
+
+  /// No description provided for @signOutUnsyncedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} changes haven\'t reached the server yet. Signing out clears this device\'s copy of your account, so they would be lost \u2014 including any exercises you deleted, which would come back.'**
+  String signOutUnsyncedBody(int count);
+
+  /// No description provided for @signOutAnyway.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign out anyway'**
+  String get signOutAnyway;
+
   /// No description provided for @createExercise.
   ///
   /// In en, this message translates to:
@@ -4415,7 +4433,7 @@ abstract class AppLocalizations {
   /// No description provided for @trainerAccessOnlyBody.
   ///
   /// In en, this message translates to:
-  /// **'This area is for trainers managing clients. Trainer accounts are chosen when the account is created — an existing account can't be switched over.'**
+  /// **'This area is for trainers managing clients. Trainer accounts are chosen when the account is created — an existing account can\'t be switched over.'**
   String get trainerAccessOnlyBody;
 
   /// No description provided for @accountType.
@@ -4439,7 +4457,7 @@ abstract class AppLocalizations {
   /// No description provided for @accountTypeLockedNote.
   ///
   /// In en, this message translates to:
-  /// **'A trainer account opens the Trainer Console. This can't be changed later — an existing account can't be switched over.'**
+  /// **'A trainer account opens the Trainer Console. This can\'t be changed later — an existing account can\'t be switched over.'**
   String get accountTypeLockedNote;
 
   /// No description provided for @dashboardLoading.

@@ -55,7 +55,7 @@ dependencies:
   # 2.4.8 removed the plugin's native Android module, which was pinned at
   # compileSdk 31 and failed :flutter_native_splash:checkReleaseAarMetadata
   # against its own AndroidX dependencies. Do not lower this floor.
-  flutter_native_splash: ^2.4.8
+  flutter_native_splash: 2.4.7
   purchases_ui_flutter: ^10.0.1
   flutter_local_notifications: ^18.0.1
   timezone: ^0.9.4
