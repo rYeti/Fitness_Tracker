@@ -9,6 +9,8 @@ import 'package:ForgeForm/feature/auth/data/Models/auth_response_model.dart';
 import 'package:ForgeForm/feature/auth/data/repositories/auth_repository.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:ForgeForm/core/di/service_locator.dart';
+import 'package:ForgeForm/core/services/push_service.dart';
 
 class AuthState {
   final bool isLoading;
@@ -210,6 +212,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<void> logout() async {
+    // Awaited, and awaited *first*. The request needs the Authorization header
+    // that SecureTokenStorage.clear() is about to remove, and a token left
+    // registered would keep delivering this user's messages to this phone after
+    // somebody else signs in on it.
+    if (sl.isRegistered<PushService>()) {
+      await sl<PushService>().unregisterForCurrentUser();
+    }
+
     final refreshToken = await SecureTokenStorage.getRefreshToken();
     if (refreshToken != null && refreshToken.isNotEmpty) {
       unawaited(_authRepository.logout(refreshToken));

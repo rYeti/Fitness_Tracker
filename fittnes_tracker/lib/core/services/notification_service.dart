@@ -6,10 +6,23 @@ import 'package:timezone/timezone.dart' as tz;
 class NotificationService {
   static const _planExpiryId = 1001;
 
+  /// Must match `FirebasePushSender.ChatChannelId` on the server. FCM names the
+  /// channel in its payload, and Android silently drops a notification naming a
+  /// channel that does not exist — a mismatch here produces no error anywhere,
+  /// just nothing on screen.
+  static const chatChannelId = 'chat_messages';
+
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
 
   Future<void>? _initialization;
+
+  /// Invoked when the user taps a chat notification this plugin displayed, with
+  /// the thread id carried in its payload. Wired up by [PushService].
+  ///
+  /// Read inside the plugin's tap callback rather than captured, so it can be
+  /// set after initialisation — which it is, since initialisation is lazy.
+  void Function(String? threadId)? onChatNotificationTap;
 
   /// Initialises the plugin at most once, on first use.
   ///
@@ -29,7 +42,58 @@ class NotificationService {
     const initSettings = InitializationSettings(android: androidInit);
     await _plugin.initialize(
       initSettings,
-      onDidReceiveNotificationResponse: (_) {},
+      // Was an empty stub, which meant a tap on any locally-shown notification
+      // opened the app and did nothing else. Chat needs the tap to land
+      // somewhere, so the payload is routed out to whoever is listening.
+      onDidReceiveNotificationResponse: (response) {
+        onChatNotificationTap?.call(response.payload);
+      },
+    );
+
+    // Created up front so it exists before the first push names it. Android
+    // creates channels lazily from a notification otherwise, which loses the
+    // name and importance we want it to have.
+    await _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.createNotificationChannel(
+          const AndroidNotificationChannel(
+            chatChannelId,
+            'Messages',
+            description: 'Messages from your trainer or your clients',
+            importance: Importance.high,
+          ),
+        );
+  }
+
+  /// Shows a chat notification this app is rendering itself.
+  ///
+  /// Only needed in the foreground. When the app is backgrounded or closed the
+  /// OS renders the FCM payload directly and this is never called — which is why
+  /// nothing here is on the delivery path for the case push exists to solve.
+  Future<void> showChatMessage({
+    required String title,
+    required String body,
+    required String? threadId,
+  }) async {
+    if (kIsWeb) return;
+    await _ensureInitialized();
+    await _plugin.show(
+      // Hashed off the thread so a second message from the same person replaces
+      // the first rather than stacking. Chat is a conversation, not a log.
+      threadId.hashCode,
+      title,
+      body,
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          chatChannelId,
+          'Messages',
+          importance: Importance.high,
+          priority: Priority.high,
+        ),
+      ),
+      payload: threadId,
     );
   }
 

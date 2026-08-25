@@ -79,6 +79,9 @@ public class AppDbContext : DbContext
 
     public DbSet<ChatMessage> ChatMessages { get; set; }
 
+    /// <summary>Push registration tokens, one row per signed-in device.</summary>
+    public DbSet<DeviceToken> DeviceTokens { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<User>(entity =>
@@ -301,6 +304,22 @@ public class AppDbContext : DbContext
                   .HasForeignKey(t => t.UserId)
                   .OnDelete(DeleteBehavior.Cascade);
             entity.HasIndex(t => t.TokenHash).IsUnique();
+        });
+
+        modelBuilder.Entity<DeviceToken>(entity =>
+        {
+            entity.HasKey(d => d.Id);
+            entity.HasOne(d => d.User)
+                  .WithMany()
+                  .HasForeignKey(d => d.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+            // Unique on the token, not on (user, token): a registration token
+            // identifies an app install, and an install serves one account at a
+            // time. The uniqueness is what makes re-registering after a user
+            // switch move the row instead of leaving the previous user's
+            // messages going to that phone.
+            entity.HasIndex(d => d.Token).IsUnique();
+            entity.HasIndex(d => d.UserId);
         });
     }
 }

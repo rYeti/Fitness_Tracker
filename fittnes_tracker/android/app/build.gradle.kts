@@ -8,6 +8,27 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// Firebase Cloud Messaging -- the push transport, and nothing else from Firebase.
+//
+// Applied only when the config file is actually present. The google-services
+// plugin fails the build outright on a missing google-services.json, and that
+// file is obtained per developer from the Firebase console rather than committed
+// by whoever clones the repo first. Without this guard a fresh checkout cannot
+// build the Android app at all, which is a far worse default than shipping
+// without notifications.
+//
+// It also keeps CI honest: no workflow builds Android on a PR, so nothing there
+// would have caught the breakage before a release tag did.
+val googleServicesJson = file("google-services.json")
+if (googleServicesJson.exists()) {
+    apply(plugin = "com.google.gms.google-services")
+} else {
+    logger.lifecycle(
+        "google-services.json not found -- building without push notifications. " +
+        "Download it from the Firebase console into android/app/ to enable them."
+    )
+}
+
 // Load signing credentials from key.properties
 val keyPropertiesFile = rootProject.file("key.properties")
 val keyProperties = Properties().apply {

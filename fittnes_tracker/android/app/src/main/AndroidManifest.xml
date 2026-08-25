@@ -32,6 +32,17 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- The channel FCM notifications land in when the payload names one
+             that does not exist yet. Must match NotificationService.chatChannelId
+             and FirebasePushSender.ChatChannelId: Android silently drops a
+             notification naming an unknown channel, with no error anywhere. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="chat_messages" />
+        <!-- Without this the status bar shows a generic grey square. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@mipmap/launcher_icon" />
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
             <intent-filter>

@@ -1,5 +1,6 @@
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/services/notification_service.dart';
+import 'package:ForgeForm/core/services/push_service.dart';
 import 'package:ForgeForm/feature/auth/presentation/providers/auth_provider.dart'
     show serverUrlDefault;
 import 'package:get_it/get_it.dart';
@@ -36,6 +37,7 @@ void setupLocator() {
   );
   sl.registerLazySingleton(() => FoodApi());
   sl.registerLazySingleton(() => NotificationService());
+  sl.registerLazySingleton(() => PushService());
   // Database will be registered after creation in main.dart
 }
 
