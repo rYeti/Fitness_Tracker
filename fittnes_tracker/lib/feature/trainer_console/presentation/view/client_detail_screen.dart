@@ -258,7 +258,7 @@ class _PlanCard extends StatelessWidget {
                   ),
                   style: TextStyle(
                     fontFamily: 'Exo 2',
-                    fontSize: 11.5,
+                    fontSize: 12,
                     color: colors.onSurface.withValues(alpha: 0.55),
                   ),
                 ),
@@ -302,7 +302,7 @@ class _WeightCard extends StatelessWidget {
               l10n.entryCount(history.length),
               style: TextStyle(
                 fontFamily: 'Exo 2',
-                fontSize: 11.5,
+                fontSize: 12,
                 color: Theme.of(
                   context,
                 ).colorScheme.onSurface.withValues(alpha: 0.55),
@@ -353,7 +353,7 @@ class _AxisLabel extends StatelessWidget {
     text,
     style: TextStyle(
       fontFamily: 'Exo 2',
-      fontSize: 10.5,
+      fontSize: 10,
       color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55),
     ),
   );
@@ -489,7 +489,7 @@ class _AttendanceCard extends StatelessWidget {
                               DateFormat('d/M', locale).format(week.weekStart),
                               style: TextStyle(
                                 fontFamily: 'Exo 2',
-                                fontSize: 8.5,
+                                fontSize: 8,
                                 color: colors.onSurface.withValues(alpha: 0.5),
                               ),
                             ),
@@ -647,7 +647,7 @@ class _MacrosCard extends StatelessWidget {
               ),
               style: TextStyle(
                 fontFamily: 'Exo 2',
-                fontSize: 11.5,
+                fontSize: 12,
                 fontWeight: FontWeight.w600,
                 color: colors.onSurface.withValues(alpha: 0.65),
               ),

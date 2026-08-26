@@ -117,7 +117,7 @@ class LoadingSkeleton extends StatelessWidget {
       child: ListView.builder(
         itemCount: rows,
         itemBuilder: (context, index) => Padding(
-          padding: const EdgeInsets.only(bottom: 11),
+          padding: const EdgeInsets.only(bottom: 12),
           child: AppCard(
             child: SizedBox(
               height: rowHeight,
@@ -239,7 +239,7 @@ class EmptyStateView extends StatelessWidget {
           textAlign: TextAlign.center,
           style: TextStyle(
             fontFamily: 'Exo 2',
-            fontSize: 12.5,
+            fontSize: 12,
             color: colors.onSurface.withValues(alpha: 0.65),
           ),
         ),

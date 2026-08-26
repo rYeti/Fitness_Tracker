@@ -298,11 +298,11 @@ class _Body extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 SizedBox(width: 340, child: ringCard),
-                const SizedBox(width: 18),
+                const SizedBox(width: 16),
                 Expanded(child: mealsCard),
               ],
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 16),
             trendCard,
           ],
         ),
@@ -478,7 +478,7 @@ class _MealRow extends StatelessWidget {
                   style: TextStyle(
                     fontFamily: 'Exo 2',
                     fontWeight: FontWeight.w700,
-                    fontSize: 13.5,
+                    fontSize: 14,
                     color: colors.onSurface,
                   ),
                 ),
@@ -489,7 +489,7 @@ class _MealRow extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontFamily: 'Exo 2',
-                      fontSize: 11.5,
+                      fontSize: 12,
                       color: colors.onSurface.withValues(alpha: 0.55),
                     ),
                   ),
@@ -611,7 +611,7 @@ class _TrendCard extends StatelessWidget {
                     : l10n.noCalorieTarget,
                 style: TextStyle(
                   fontFamily: 'Exo 2',
-                  fontSize: 11.5,
+                  fontSize: 12,
                   color: colors.onSurface.withValues(alpha: 0.55),
                 ),
               ),
@@ -666,7 +666,7 @@ class _TrendBar extends StatelessWidget {
               '${day.totalCalories}',
               style: TextStyle(
                 fontFamily: 'Exo 2',
-                fontSize: 9.5,
+                fontSize: 10,
                 fontWeight: FontWeight.w600,
                 color: colors.onSurface.withValues(alpha: 0.55),
               ),
@@ -726,12 +726,12 @@ class _LegendDot extends StatelessWidget {
           height: 8,
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
-        const SizedBox(width: 5),
+        const SizedBox(width: 4),
         Text(
           label,
           style: TextStyle(
             fontFamily: 'Exo 2',
-            fontSize: 11.5,
+            fontSize: 12,
             color: colors.onSurface.withValues(alpha: 0.65),
           ),
         ),

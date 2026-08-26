@@ -1533,7 +1533,7 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
               child: Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 14,
-                  vertical: 11,
+                  vertical: 12,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

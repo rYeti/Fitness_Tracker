@@ -541,7 +541,7 @@ class _RosterCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontFamily: 'Exo 2',
-                        fontSize: 11.5,
+                        fontSize: 12,
                         color: colors.onSurface.withValues(alpha: 0.55),
                       ),
                     ),
@@ -720,7 +720,7 @@ class _RosterTable extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontFamily: 'Exo 2',
-                              fontSize: 12.5,
+                              fontSize: 12,
                               color: colors.onSurface.withValues(alpha: 0.75),
                             ),
                           ),
@@ -746,7 +746,7 @@ class _RosterTable extends StatelessWidget {
                                   ).format(entry.lastSessionDate!),
                             style: TextStyle(
                               fontFamily: 'Exo 2',
-                              fontSize: 12.5,
+                              fontSize: 12,
                               color: colors.onSurface.withValues(alpha: 0.75),
                             ),
                           ),

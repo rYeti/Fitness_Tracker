@@ -76,7 +76,7 @@ class _ChatComposerState extends State<ChatComposer> {
                 maxLines: 4,
                 textInputAction: TextInputAction.send,
                 onSubmitted: (_) => _send(),
-                style: const TextStyle(fontFamily: 'Exo 2', fontSize: 13.5),
+                style: const TextStyle(fontFamily: 'Exo 2', fontSize: 14),
                 decoration: InputDecoration(
                   hintText: l10n.chatComposerHint,
                   isDense: true,

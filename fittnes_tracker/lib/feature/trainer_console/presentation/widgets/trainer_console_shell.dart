@@ -233,13 +233,13 @@ class _Sidebar extends StatelessWidget {
                               size: 20,
                               color: Colors.white.withValues(alpha: 0.7),
                             ),
-                            const SizedBox(width: 13),
+                            const SizedBox(width: 12),
                             Expanded(
                               child: Text(
                                 l10n.consoleMyTraining,
                                 style: TextStyle(
                                   fontFamily: 'Exo 2',
-                                  fontSize: 13.5,
+                                  fontSize: 14,
                                   fontWeight: FontWeight.w600,
                                   color: Colors.white.withValues(alpha: 0.8),
                                 ),
@@ -320,7 +320,7 @@ class _SidebarItem extends StatelessWidget {
                     // Unselected icons sit back so the active one reads first.
                     color: selected ? color : color.withValues(alpha: 0.7),
                   ),
-                  const SizedBox(width: 13),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       route.label(l10n),

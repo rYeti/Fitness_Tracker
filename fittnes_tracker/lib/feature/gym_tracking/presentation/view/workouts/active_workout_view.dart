@@ -1977,7 +1977,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                   style: const TextStyle(fontSize: 18),
                 ),
                 style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 18),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
                   backgroundColor:
                       isLastSet && isLastExercise
                           ? ThemeProvider.kSuccessColor

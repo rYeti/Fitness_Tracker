@@ -259,7 +259,7 @@ class _Body extends StatelessWidget {
             width: 330,
             child: _HistoryList(sessions: review.sessions, review: review),
           ),
-          const SizedBox(width: 18),
+          const SizedBox(width: 16),
           Expanded(
             child: SingleChildScrollView(
               child: _SessionDetail(session: selected, client: client!),
@@ -330,7 +330,7 @@ class _HistoryList extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 11),
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
             child: Text(
               AppLocalizations.of(context)!.sessionHistory,
               style: TextStyle(
@@ -404,7 +404,7 @@ class _HistoryRow extends StatelessWidget {
                 ),
               ),
             ),
-            padding: const EdgeInsets.fromLTRB(11, 12, 14, 12),
+            padding: const EdgeInsets.fromLTRB(12, 12, 14, 12),
             child: Row(
               children: [
                 Expanded(
@@ -423,7 +423,7 @@ class _HistoryRow extends StatelessWidget {
                               style: TextStyle(
                                 fontFamily: 'Exo 2',
                                 fontWeight: FontWeight.w700,
-                                fontSize: 13.5,
+                                fontSize: 14,
                                 color: colors.onSurface,
                               ),
                             ),
@@ -439,7 +439,7 @@ class _HistoryRow extends StatelessWidget {
                         _formatDate(context, session.date),
                         style: TextStyle(
                           fontFamily: 'Exo 2',
-                          fontSize: 11.5,
+                          fontSize: 12,
                           color: colors.onSurface.withValues(alpha: 0.55),
                         ),
                       ),
@@ -488,7 +488,7 @@ class _SessionTabs extends StatelessWidget {
                 onTap: () => review.selectSession(session.scheduledWorkoutId),
                 child: Container(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(11),
                     border: Border.all(
@@ -508,7 +508,7 @@ class _SessionTabs extends StatelessWidget {
                         style: TextStyle(
                           fontFamily: 'Exo 2',
                           fontWeight: FontWeight.w700,
-                          fontSize: 12.5,
+                          fontSize: 12,
                           color: selected ? Colors.white : colors.onSurface,
                         ),
                       ),
@@ -520,7 +520,7 @@ class _SessionTabs extends StatelessWidget {
                         ).format(session.date),
                         style: TextStyle(
                           fontFamily: 'Exo 2',
-                          fontSize: 9.5,
+                          fontSize: 10,
                           color: selected
                               ? Colors.white.withValues(alpha: 0.85)
                               : colors.onSurface.withValues(alpha: 0.55),
@@ -567,7 +567,7 @@ class _SessionDetail extends StatelessWidget {
         else
           ...session.exercises.map(
             (exercise) => Padding(
-              padding: const EdgeInsets.only(bottom: 11),
+              padding: const EdgeInsets.only(bottom: 12),
               child: _ExerciseCard(exercise: exercise),
             ),
           ),
@@ -613,12 +613,12 @@ class _SessionHeroCard extends StatelessWidget {
               if (session.isPr) _PrPill(label: l10n.newPr),
             ],
           ),
-          const SizedBox(height: 5),
+          const SizedBox(height: 4),
           Text(
             _formatDate(context, session.date),
             style: TextStyle(
               fontFamily: 'Exo 2',
-              fontSize: 12.5,
+              fontSize: 12,
               color: colors.onSurface.withValues(alpha: 0.65),
             ),
           ),
@@ -693,7 +693,7 @@ class _ClientNote extends StatelessWidget {
                   AppLocalizations.of(context)!.clientNote,
                   style: TextStyle(
                     fontFamily: 'Exo 2',
-                    fontSize: 10.5,
+                    fontSize: 10,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.8,
                     color: colors.onSurface.withValues(alpha: 0.55),
@@ -757,7 +757,7 @@ class _ExerciseCard extends StatelessWidget {
                           ),
                         ),
                         if (exercise.isPr) ...[
-                          const SizedBox(width: 7),
+                          const SizedBox(width: 8),
                           const _PrPill(),
                         ],
                       ],
@@ -768,7 +768,7 @@ class _ExerciseCard extends StatelessWidget {
                         l10n.prescribedSummary(prescribed),
                         style: TextStyle(
                           fontFamily: 'Exo 2',
-                          fontSize: 11.5,
+                          fontSize: 12,
                           color: colors.onSurface.withValues(alpha: 0.55),
                         ),
                       ),
@@ -844,8 +844,8 @@ class _SetRow extends StatelessWidget {
     final missedTarget = !set.hitTarget;
 
     Widget cell(String text, {Color? color, FontWeight? weight}) => Container(
-      margin: const EdgeInsets.only(left: 9),
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+      margin: const EdgeInsets.only(left: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: sunken,
         borderRadius: BorderRadius.circular(7),
@@ -886,7 +886,7 @@ class _SetRow extends StatelessWidget {
                 style: TextStyle(
                   fontFamily: 'Montserrat',
                   fontWeight: FontWeight.w700,
-                  fontSize: 11.5,
+                  fontSize: 12,
                   color: colors.onSurface,
                 ),
               ),
@@ -961,7 +961,7 @@ class _PrPill extends StatelessWidget {
         label ?? AppLocalizations.of(context)!.pr,
         style: const TextStyle(
           fontFamily: 'Exo 2',
-          fontSize: 9.5,
+          fontSize: 10,
           fontWeight: FontWeight.w800,
           letterSpacing: 0.5,
           color: ForgeColors.forgeOrange,

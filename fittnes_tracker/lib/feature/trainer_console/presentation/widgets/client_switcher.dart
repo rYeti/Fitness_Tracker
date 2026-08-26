@@ -95,7 +95,7 @@ class ClientSwitcher extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontFamily: 'Exo 2',
-                            fontSize: 10.5,
+                            fontSize: 10,
                             color: colors.onSurface.withValues(alpha: 0.55),
                           ),
                         ),

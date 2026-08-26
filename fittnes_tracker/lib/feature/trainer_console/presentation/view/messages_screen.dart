@@ -210,7 +210,7 @@ class _MobileThreadHeader extends StatelessWidget {
                   style: const TextStyle(
                     fontFamily: 'Montserrat',
                     fontWeight: FontWeight.w700,
-                    fontSize: 14.5,
+                    fontSize: 14,
                     color: Colors.white,
                   ),
                 ),
