@@ -1081,7 +1081,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                 LinearProgressIndicator(
                   value: progress,
                   minHeight: 8,
-                  backgroundColor: theme.colorScheme.surfaceVariant,
+                  backgroundColor: theme.colorScheme.surfaceContainerHighest,
                   valueColor: AlwaysStoppedAnimation(theme.colorScheme.primary),
                 ),
 
@@ -1249,7 +1249,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                             horizontal: 8,
                           ),
                           decoration: BoxDecoration(
-                            color: theme.colorScheme.surfaceVariant,
+                            color: theme.colorScheme.surfaceContainerHighest,
                             borderRadius: const BorderRadius.vertical(
                               top: Radius.circular(8),
                             ),
@@ -1329,7 +1329,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                                     decoration: BoxDecoration(
                                       border: Border(
                                         bottom: BorderSide(
-                                          color: theme.dividerColor.withOpacity(
+                                          color: theme.dividerColor.withValues(alpha: 
                                             0.5,
                                           ),
                                         ),
@@ -1378,8 +1378,8 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: theme.colorScheme.surfaceVariant
-                                  .withOpacity(0.5),
+                              color: theme.colorScheme.surfaceContainerHighest
+                                  .withValues(alpha: 0.5),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Row(
@@ -1489,7 +1489,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
 
           if (previousSet != null)
             Card(
-              color: theme.colorScheme.surfaceVariant,
+              color: theme.colorScheme.surfaceContainerHighest,
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
@@ -1537,7 +1537,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
             )
           else
             Card(
-              color: theme.colorScheme.surfaceVariant.withOpacity(0.5),
+              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
@@ -1692,7 +1692,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                       border: const OutlineInputBorder(),
                       filled: true,
                       fillColor: theme.colorScheme.surfaceContainerHighest
-                          .withOpacity(0.3),
+                          .withValues(alpha: 0.3),
                     ),
                     maxLines: 3,
                   ),
@@ -1944,7 +1944,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
         color: theme.colorScheme.surface,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 8,
             offset: const Offset(0, -2),
           ),
@@ -2638,7 +2638,7 @@ class WorkoutSummaryDialog extends StatelessWidget {
                                   horizontal: 8,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: theme.colorScheme.surfaceVariant,
+                                  color: theme.colorScheme.surfaceContainerHighest,
                                   borderRadius: const BorderRadius.vertical(
                                     top: Radius.circular(8),
                                   ),
@@ -2708,7 +2708,7 @@ class WorkoutSummaryDialog extends StatelessWidget {
                                             border: Border(
                                               bottom: BorderSide(
                                                 color: theme.dividerColor
-                                                    .withOpacity(0.5),
+                                                    .withValues(alpha: 0.5),
                                               ),
                                             ),
                                           ),
@@ -2750,8 +2750,8 @@ class WorkoutSummaryDialog extends StatelessWidget {
                                 Container(
                                   padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
-                                    color: theme.colorScheme.surfaceVariant
-                                        .withOpacity(0.5),
+                                    color: theme.colorScheme.surfaceContainerHighest
+                                        .withValues(alpha: 0.5),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Row(

@@ -131,7 +131,7 @@ class _RestTimerWidgetState extends State<RestTimerWidget>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -159,7 +159,7 @@ class _RestTimerWidgetState extends State<RestTimerWidget>
                   child: CircularProgressIndicator(
                     value: progress,
                     strokeWidth: 8,
-                    backgroundColor: theme.colorScheme.surfaceVariant,
+                    backgroundColor: theme.colorScheme.surfaceContainerHighest,
                     valueColor: AlwaysStoppedAnimation<Color>(
                       _remainingSeconds <= 10
                           ? ForgeColors.statusBadFor(Theme.of(context).brightness)

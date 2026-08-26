@@ -564,7 +564,7 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
       decoration: BoxDecoration(
         color: Theme.of(
           context,
-        ).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+        ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -619,7 +619,7 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
         color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
-          color: Theme.of(context).dividerColor.withOpacity(0.3),
+          color: Theme.of(context).dividerColor.withValues(alpha: 0.3),
         ),
       ),
       child: Row(
@@ -921,7 +921,7 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
               isActive
                   ? Theme.of(
                     context,
-                  ).colorScheme.primaryContainer.withOpacity(0.1)
+                  ).colorScheme.primaryContainer.withValues(alpha: 0.1)
                   : null,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

@@ -43,11 +43,9 @@ class ThemeProvider with ChangeNotifier {
         secondary: ForgeColors.forgeOrangeOnLight,
         tertiary: ForgeColors.charcoal,
         surface: ForgeColors.surfaceLight,
-        background: ForgeColors.backgroundLight,
         onPrimary: Colors.white,
         onSecondary: Colors.white,
         onSurface: ForgeColors.charcoal,
-        onBackground: ForgeColors.charcoal,
       ),
       textTheme: TextTheme(
         displayLarge: TextStyle(
@@ -181,11 +179,9 @@ class ThemeProvider with ChangeNotifier {
         secondary: ForgeColors.forgeOrange,
         tertiary: ForgeColors.charcoal,
         surface: ForgeColors.surfaceDark,
-        background: ForgeColors.backgroundDark,
         onPrimary: Colors.white,
         onSecondary: Colors.white,
         onSurface: Colors.white,
-        onBackground: Colors.white,
       ),
       textTheme: TextTheme(
         displayLarge: TextStyle(

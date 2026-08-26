@@ -69,7 +69,7 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
         border: Border(bottom: BorderSide(color: theme.dividerColor, width: 1)),
       ),
       child: Row(
@@ -95,7 +95,7 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
                           color:
                               isCompleted || isCurrent
                                   ? theme.colorScheme.primary
-                                  : theme.colorScheme.surfaceVariant,
+                                  : theme.colorScheme.surfaceContainerHighest,
                           shape: BoxShape.circle,
                           border: Border.all(
                             color:
@@ -148,7 +148,7 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
                     color:
                         isCompleted
                             ? theme.colorScheme.primary
-                            : theme.colorScheme.surfaceVariant,
+                            : theme.colorScheme.surfaceContainerHighest,
                   ),
               ],
             ),
@@ -171,7 +171,7 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
         color: theme.colorScheme.surface,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 8,
             offset: const Offset(0, -2),
           ),
@@ -752,7 +752,7 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
           children: [
             Icon(Icons.fitness_center,
                 size: 64,
-                color: theme.colorScheme.onSurfaceVariant.withOpacity(0.5)),
+                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5)),
             const SizedBox(height: 16),
             Text(
               l10n.noWorkoutsAddedYet,
@@ -831,7 +831,7 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
           Icon(
             Icons.event_available,
             size: 64,
-            color: theme.colorScheme.onSurfaceVariant.withOpacity(0.5),
+            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
           ),
           const SizedBox(height: 16),
           Text(
@@ -1024,7 +1024,7 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
           ),
           const SizedBox(height: 24),
           Card(
-            color: theme.colorScheme.secondaryContainer.withOpacity(0.3),
+            color: theme.colorScheme.secondaryContainer.withValues(alpha: 0.3),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
@@ -1503,7 +1503,7 @@ class _WorkoutDetailsScreenState extends State<_WorkoutDetailsScreen> {
           Icon(
             Icons.fitness_center,
             size: 64,
-            color: theme.colorScheme.onSurfaceVariant.withOpacity(0.5),
+            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
           ),
           const SizedBox(height: 16),
           Text(
@@ -1778,7 +1778,7 @@ class _ExerciseCardState extends State<_ExerciseCard> {
                                 width: 32,
                                 height: 32,
                                 decoration: BoxDecoration(
-                                  color: theme.colorScheme.surfaceVariant,
+                                  color: theme.colorScheme.surfaceContainerHighest,
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Center(
@@ -2015,7 +2015,7 @@ class _AddDaySpeedDialState extends State<_AddDaySpeedDial>
         Material(
           elevation: 2,
           borderRadius: BorderRadius.circular(8),
-          color: backgroundColor.withOpacity(0.9),
+          color: backgroundColor.withValues(alpha: 0.9),
           child: InkWell(
             onTap: onTap,
             borderRadius: BorderRadius.circular(8),
