@@ -3,7 +3,7 @@
 /// row spec (avatar, name, timestamp, truncated preview, unread dot).
 ///
 /// Maps to `ChatConversationDto` from `api/chat/conversations`. Deliberately
-/// separate from `TrainerClientSummary`: the roster doesn't need message-preview
+/// separate from `TrainerRosterEntry`: the roster doesn't need message-preview
 /// data, and coupling them would force every roster fetch to also compute
 /// unread counts.
 class ConversationSummary {

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/di/service_locator.dart';
+import 'package:ForgeForm/core/widgets/lazy_indexed_stack.dart';
 import 'package:ForgeForm/feature/chat/data/chat_repository.dart';
 import 'package:ForgeForm/feature/chat/data/signalr_hub_chat_client.dart';
 import 'package:ForgeForm/feature/chat/presentation/providers/chat_provider.dart';
@@ -29,9 +30,14 @@ import 'package:ForgeForm/l10n/app_localizations.dart';
 /// console-wide state, not the Dashboard's private business, and minting an
 /// invite from one screen has to move the seat meter on another.
 ///
-/// Screens are kept alive in an [IndexedStack] so switching sections doesn't
-/// re-fetch everything; a screen reloads only when the active client actually
-/// changes, which each screen watches for itself.
+/// Screens are built on their first visit and kept alive from then on, so switching
+/// sections doesn't re-fetch everything; a screen reloads only when the active client
+/// actually changes, which each screen watches for itself.
+///
+/// The "kept alive" half used to be spelled as a plain [IndexedStack], which also builds
+/// every child immediately — so opening the console mounted all five sections at once and
+/// each fired its own loads for a screen nobody was looking at. [LazyIndexedStack] keeps
+/// the part that was wanted and drops the part that wasn't.
 class TrainerConsoleHome extends StatefulWidget {
   /// Injection seam for tests.
   final TrainerConsoleRepository? repository;
@@ -103,6 +109,12 @@ class _TrainerConsoleHomeState extends State<TrainerConsoleHome> {
     // Otherwise chat stays null. The outbox needs the local database, and
     // reaching for it unguarded meant a console that could not open *at all*
     // when it was missing — four of five sections have nothing to do with chat.
+
+    // Conversations are loaded here rather than by MessagesScreen, for the same reason the
+    // socket is: the sidebar's unread badge is folded from them, and loading them is what
+    // joins this device to every thread's hub group. Both have to happen whether or not the
+    // trainer ever opens Messages.
+    unawaited(_chat?.loadConversations() ?? Future<void>.value());
     _ownsLicenceProvider = widget.licenceProvider == null;
     _licence = widget.licenceProvider ?? TrainerLicenceProvider();
   }
@@ -141,22 +153,19 @@ class _TrainerConsoleHomeState extends State<TrainerConsoleHome> {
         currentRoute: _route,
         onRouteSelected: (route) => setState(() => _route = route),
         onExitConsole: widget.onExitConsole,
-        child: IndexedStack(
+        child: LazyIndexedStack(
           index: TrainerConsoleRoute.values.indexOf(_route),
-          children: [
-            TrainerDashboardScreen(
+          builders: [
+            (_) => TrainerDashboardScreen(
               repository: widget.repository,
               licenceProvider: _licence,
               onClientSelected: (entry) =>
                   _openClientDetail(entry.clientId, entry.clientName),
             ),
-            if (chat != null)
-              const MessagesScreen()
-            else
-              const _ChatUnavailable(),
-            WorkoutBuilderScreen(repository: widget.repository),
-            NutritionScreen(repository: widget.repository),
-            SessionReviewScreen(repository: widget.repository),
+            (_) => chat != null ? const MessagesScreen() : const _ChatUnavailable(),
+            (_) => WorkoutBuilderScreen(repository: widget.repository),
+            (_) => NutritionScreen(repository: widget.repository),
+            (_) => SessionReviewScreen(repository: widget.repository),
           ],
         ),
       ),

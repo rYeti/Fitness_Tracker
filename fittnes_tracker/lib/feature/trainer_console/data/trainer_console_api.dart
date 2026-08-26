@@ -9,13 +9,6 @@ class TrainerConsoleApi {
   TrainerConsoleApi({ApiClient? client})
     : _client = client ?? sl<ApiClient>(instanceName: backendApiClient);
 
-  /// The bare relationship list. Prefer [fetchRoster] for anything that shows
-  /// training data — this one has no adherence or program.
-  Future<List<Map<String, dynamic>>> fetchMyClients() async {
-    final response = await _client.get('api/TrainerClient/my-clients');
-    return (response.data as List).cast<Map<String, dynamic>>();
-  }
-
   /// Active clients with the stats the Dashboard roster displays.
   Future<List<Map<String, dynamic>>> fetchRoster() async {
     final response = await _client.get('api/TrainerConsole/roster');

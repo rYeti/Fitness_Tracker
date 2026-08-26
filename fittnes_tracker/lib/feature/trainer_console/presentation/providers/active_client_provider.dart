@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:ForgeForm/feature/trainer_console/data/trainer_console_repository.dart';
-import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_client_summary.dart';
+import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_console_models.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/console_error.dart';
 
 /// Shared "client-switcher" state used by Workout Builder, Nutrition, Session
@@ -13,6 +13,13 @@ import 'package:ForgeForm/feature/trainer_console/domain/models/console_error.da
 /// it. Per CLAUDE.md this must be registered once at the app-shell level, not
 /// per screen, so switching a client re-derives the visible panes without a
 /// navigation reload.
+///
+/// It owns it for the Dashboard too. This used to read `api/TrainerClient/my-clients`
+/// while the Dashboard separately read `api/TrainerConsole/roster` — two requests on every
+/// console open, for the same list, from two different queries that could disagree with
+/// each other. The roster endpoint is a superset (it carries programme and adherence as
+/// well) and is already filtered to active relationships server-side, so this reads that
+/// one and the Dashboard renders from here.
 class ActiveClientProvider extends ChangeNotifier {
   final TrainerConsoleRepository _repository;
 
@@ -21,18 +28,18 @@ class ActiveClientProvider extends ChangeNotifier {
 
   String? _activeClientId;
   bool _pickerOpen = false;
-  List<TrainerClientSummary> _clients = [];
+  List<TrainerRosterEntry> _clients = [];
   bool _isLoading = false;
   ConsoleError? _error;
 
   String? get activeClientId => _activeClientId;
   bool get pickerOpen => _pickerOpen;
-  List<TrainerClientSummary> get clients => _clients;
+  List<TrainerRosterEntry> get clients => _clients;
   bool get isLoading => _isLoading;
   ConsoleError? get error => _error;
 
   /// The selected client, or null when the roster is empty or still loading.
-  TrainerClientSummary? get activeClient {
+  TrainerRosterEntry? get activeClient {
     if (_clients.isEmpty) return null;
     final id = _activeClientId;
     if (id == null) return _clients.first;
@@ -47,7 +54,7 @@ class ActiveClientProvider extends ChangeNotifier {
     _error = null;
     notifyListeners();
     try {
-      _clients = await _repository.getRoster();
+      _clients = await _repository.getRosterWithStats();
       final stillPresent =
           _clients.any((c) => c.clientId == _activeClientId);
       if (!stillPresent) {

@@ -122,10 +122,12 @@ class _Body extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    if (provider.isLoading) {
+    if (provider.isLoading && !provider.hasAnyData) {
       return ConsoleSkeleton(semanticsLabel: l10n.clientDetailLoading);
     }
-    if (provider.error != null) {
+    // Only when nothing at all came back. The three sections load independently, so one
+    // failing endpoint costs its own card and leaves the rest of the client's picture up.
+    if (provider.error != null && !provider.hasAnyData) {
       return ConsoleErrorState(
         message: provider.error!.localizedMessage(l10n),
         onRetry: provider.load,

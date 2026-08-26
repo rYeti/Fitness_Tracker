@@ -22,6 +22,12 @@ Markdown links, headings or emphasis, none of which Play renders.
 
 See `docs/android-release.md`.
 
+## Unreleased
+
+The Trainer Console now opens far faster. Loading a client's roster and dashboard used to read every session, exercise and set they had ever recorded, and the console loaded all five of its sections at once even though you were only looking at one. Your client list also appears as soon as it is ready instead of waiting for the summary tiles.
+
+Also fixed: the dashboard showed zero sessions every Sunday, and exercise names were missing from the strength chart.
+
 ## 1.0.2+13
 
 Trainer accounts now open the Trainer Console when you sign in or register,

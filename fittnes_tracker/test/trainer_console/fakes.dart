@@ -1,14 +1,12 @@
 import 'dart:async';
 
 import 'package:ForgeForm/feature/trainer_console/data/trainer_console_repository.dart';
-import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_client_summary.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_console_models.dart';
 
 /// Stands in for the network layer so each screen's states can be driven
 /// deterministically. Shared across the console's tests so a repository change
 /// only has to be absorbed in one place.
 class FakeTrainerConsoleRepository implements TrainerConsoleRepository {
-  final List<TrainerClientSummary> roster;
   final List<TrainerRosterEntry> rosterWithStats;
   final List<ClientSessionSummary> sessions;
   final TrainerDashboardKpis? kpis;
@@ -21,15 +19,23 @@ class FakeTrainerConsoleRepository implements TrainerConsoleRepository {
   final bool throwOnSessions;
   final bool throwOnDashboard;
   final bool throwOnNutrition;
+  final bool throwOnRoster;
 
-  /// Completes only when a test says so, to hold a screen in loading.
+  /// Completes only when a test says so, to hold a screen in loading. [gate] holds every
+  /// gated call; [kpiGate] holds only the KPI fetch, so a test can let the roster land
+  /// while the KPIs are still in flight — which is the whole point of the Dashboard's
+  /// per-section loading.
   final Completer<void>? gate;
+  final Completer<void>? kpiGate;
+
+  /// How many times each fetch was made, so a test can assert that a section nobody has
+  /// opened never fetched, and that revisiting one doesn't re-fetch.
+  final Map<String, int> calls = {};
 
   /// Records what createClientWorkoutPlan was called with.
   final List<({String clientId, String name})> createdPlans = [];
 
   FakeTrainerConsoleRepository({
-    this.roster = const [],
     this.rosterWithStats = const [],
     this.sessions = const [],
     this.kpis,
@@ -40,21 +46,25 @@ class FakeTrainerConsoleRepository implements TrainerConsoleRepository {
     this.throwOnSessions = false,
     this.throwOnDashboard = false,
     this.throwOnNutrition = false,
+    this.throwOnRoster = false,
     this.gate,
+    this.kpiGate,
   });
 
-  @override
-  Future<List<TrainerClientSummary>> getRoster() async => roster;
+  void _record(String name) => calls[name] = (calls[name] ?? 0) + 1;
 
   @override
   Future<List<TrainerRosterEntry>> getRosterWithStats() async {
+    _record('roster');
     if (gate != null) await gate!.future;
-    if (throwOnDashboard) throw Exception('boom');
+    if (throwOnRoster) throw Exception('boom');
     return rosterWithStats;
   }
 
   @override
   Future<TrainerDashboardKpis> getDashboardKpis() async {
+    _record('kpis');
+    if (kpiGate != null) await kpiGate!.future;
     if (gate != null) await gate!.future;
     if (throwOnDashboard) throw Exception('boom');
     return kpis ??
@@ -71,6 +81,7 @@ class FakeTrainerConsoleRepository implements TrainerConsoleRepository {
     String clientId, {
     int count = 10,
   }) async {
+    _record('sessions');
     if (gate != null) await gate!.future;
     if (throwOnSessions) throw Exception('boom');
     return sessions;
@@ -81,6 +92,7 @@ class FakeTrainerConsoleRepository implements TrainerConsoleRepository {
     String clientId,
     DateTime date,
   ) async {
+    _record('nutrition');
     if (gate != null) await gate!.future;
     if (throwOnNutrition) throw Exception('boom');
     if (nutrition == null) throw StateError('no nutrition fixture supplied');
@@ -89,6 +101,7 @@ class FakeTrainerConsoleRepository implements TrainerConsoleRepository {
 
   @override
   Future<ClientWorkoutSummary> getClientWorkoutSummary(String clientId) async {
+    _record('workoutSummary');
     if (gate != null) await gate!.future;
     return workoutSummary ??
         const ClientWorkoutSummary(attendance: [], strengthProgression: []);
@@ -99,8 +112,10 @@ class FakeTrainerConsoleRepository implements TrainerConsoleRepository {
       weightHistory;
 
   @override
-  Future<List<WorkoutPlanTemplateSummary>> getWorkoutPlanTemplates() async =>
-      templates;
+  Future<List<WorkoutPlanTemplateSummary>> getWorkoutPlanTemplates() async {
+    _record('templates');
+    return templates;
+  }
 
   @override
   Future<WorkoutPlanSummary> createClientWorkoutPlan({
@@ -122,16 +137,6 @@ class FakeTrainerConsoleRepository implements TrainerConsoleRepository {
   @override
   noSuchMethod(Invocation invocation) => throw UnimplementedError();
 }
-
-TrainerClientSummary fakeClient({
-  String id = 'client-1',
-  String name = 'Robert Meyer',
-}) => TrainerClientSummary(
-  relationshipId: 'rel-$id',
-  clientId: id,
-  clientName: name,
-  status: 'Active',
-);
 
 TrainerRosterEntry fakeRosterEntry({
   String id = 'client-1',

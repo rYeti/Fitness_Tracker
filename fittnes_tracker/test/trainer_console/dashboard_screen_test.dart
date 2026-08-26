@@ -2,9 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
 
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_console_models.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_licence.dart';
+import 'package:ForgeForm/feature/trainer_console/presentation/providers/active_client_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/trainer_licence_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/view/trainer_dashboard_screen.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
@@ -25,18 +27,27 @@ Future<void> _pump(
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.reset);
 
+  // The roster lives in the shared client-switcher state, which the console shell owns —
+  // so a Dashboard pumped on its own needs one above it, fed by the same fake.
+  final activeClient = ActiveClientProvider(repository: repository);
+  unawaited(activeClient.loadClients());
+  addTearDown(activeClient.dispose);
+
   await tester.pumpWidget(
-    MaterialApp(
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      home: TrainerDashboardScreen(
-        repository: repository,
-        licenceProvider: TrainerLicenceProvider(
-          repository: FakeTrainerLicenceRepository(
-            current: plan ?? licence(seatsUsed: 1, seatLimit: 10),
+    ChangeNotifierProvider<ActiveClientProvider>.value(
+      value: activeClient,
+      child: MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: TrainerDashboardScreen(
+          repository: repository,
+          licenceProvider: TrainerLicenceProvider(
+            repository: FakeTrainerLicenceRepository(
+              current: plan ?? licence(seatsUsed: 1, seatLimit: 10),
+            ),
           ),
+          onClientSelected: onClientSelected,
         ),
-        onClientSelected: onClientSelected,
       ),
     ),
   );
@@ -45,24 +56,79 @@ Future<void> _pump(
 void main() {
   group('seats', _seatTests);
 
-  testWidgets('loading shows a skeleton', (tester) async {
+  testWidgets('each section shows its own skeleton while it loads', (
+    tester,
+  ) async {
     final gate = Completer<void>();
     await _pump(tester, FakeTrainerConsoleRepository(gate: gate));
     await tester.pump();
 
-    expect(find.bySemanticsLabel('Loading dashboard'), findsOneWidget);
+    expect(find.bySemanticsLabel('Loading clients'), findsOneWidget);
+    expect(find.bySemanticsLabel('Loading summary'), findsOneWidget);
 
     gate.complete();
     await tester.pumpAndSettle();
   });
 
-  testWidgets('a failing load shows an inline error with retry', (
+  testWidgets('the roster renders while the KPIs are still loading', (
     tester,
   ) async {
-    await _pump(tester, FakeTrainerConsoleRepository(throwOnDashboard: true));
+    // The whole point of splitting the gate. The roster is what the trainer came for;
+    // it used to be held back until the slower KPI query landed too.
+    final kpiGate = Completer<void>();
+    await _pump(
+      tester,
+      FakeTrainerConsoleRepository(
+        rosterWithStats: [fakeRosterEntry()],
+        kpiGate: kpiGate,
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('Robert Meyer'), findsOneWidget);
+    expect(find.bySemanticsLabel('Loading summary'), findsOneWidget);
+
+    kpiGate.complete();
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('a failing KPI load leaves the roster visible', (tester) async {
+    await _pump(
+      tester,
+      FakeTrainerConsoleRepository(
+        rosterWithStats: [fakeRosterEntry()],
+        throwOnDashboard: true,
+      ),
+    );
     await tester.pumpAndSettle();
 
+    expect(find.text('Robert Meyer'), findsOneWidget);
     expect(find.text('Retry'), findsOneWidget);
+  });
+
+  testWidgets('a failing roster load shows an inline error with retry', (
+    tester,
+  ) async {
+    await _pump(tester, FakeTrainerConsoleRepository(throwOnRoster: true));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Retry'), findsWidgets);
+  });
+
+  testWidgets('the invite action is reachable while data is still loading', (
+    tester,
+  ) async {
+    // Page chrome used to sit behind the same gate as the data, so a trainer waiting on
+    // a slow roster could not do the one thing an empty console is for.
+    final gate = Completer<void>();
+    await _pump(tester, FakeTrainerConsoleRepository(gate: gate));
+    await tester.pump();
+
+    expect(find.widgetWithText(OutlinedButton, 'Invite'), findsOneWidget);
+
+    gate.complete();
+    await tester.pumpAndSettle();
   });
 
   testWidgets('no clients shows the empty state', (tester) async {

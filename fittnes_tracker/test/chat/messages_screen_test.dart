@@ -73,7 +73,7 @@ void main() {
       ),
     );
     final activeClient = ActiveClientProvider(
-      repository: FakeTrainerConsoleRepository(roster: [fakeClient()]),
+      repository: FakeTrainerConsoleRepository(rosterWithStats: [fakeRosterEntry()]),
     );
 
     await tester.pumpWidget(
@@ -355,7 +355,7 @@ void main() {
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: TrainerConsoleHome(
-            repository: FakeTrainerConsoleRepository(roster: [fakeClient()]),
+            repository: FakeTrainerConsoleRepository(rosterWithStats: [fakeRosterEntry()]),
             licenceProvider: TrainerLicenceProvider(
               repository: FakeTrainerLicenceRepository(current: licence()),
             ),

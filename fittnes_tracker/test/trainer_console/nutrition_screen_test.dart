@@ -48,7 +48,7 @@ void main() {
     await _pump(
       tester,
       FakeTrainerConsoleRepository(
-        roster: [fakeClient()],
+        rosterWithStats: [fakeRosterEntry()],
         throwOnNutrition: true,
       ),
     );
@@ -63,7 +63,7 @@ void main() {
     await _pump(
       tester,
       FakeTrainerConsoleRepository(
-        roster: [fakeClient()],
+        rosterWithStats: [fakeRosterEntry()],
         nutrition: fakeNutrition(totalCalories: 1850, goal: 2200),
       ),
     );
@@ -84,7 +84,7 @@ void main() {
     await _pump(
       tester,
       FakeTrainerConsoleRepository(
-        roster: [fakeClient()],
+        rosterWithStats: [fakeRosterEntry()],
         nutrition: fakeNutrition(totalCalories: 2500, goal: 2200),
       ),
     );
@@ -102,7 +102,7 @@ void main() {
     await _pump(
       tester,
       FakeTrainerConsoleRepository(
-        roster: [fakeClient()],
+        rosterWithStats: [fakeRosterEntry()],
         nutrition: fakeNutrition(
           meals: const [
             // Deliberately out of order — the screen sorts them.
@@ -140,7 +140,7 @@ void main() {
     await _pump(
       tester,
       FakeTrainerConsoleRepository(
-        roster: [fakeClient()],
+        rosterWithStats: [fakeRosterEntry()],
         nutrition: fakeNutrition(
           meals: const [
             LoggedMeal(
@@ -179,7 +179,7 @@ void main() {
     await _pump(
       tester,
       FakeTrainerConsoleRepository(
-        roster: [fakeClient()],
+        rosterWithStats: [fakeRosterEntry()],
         nutrition: fakeNutrition(meals: const []),
       ),
     );
@@ -192,7 +192,7 @@ void main() {
     await _pump(
       tester,
       FakeTrainerConsoleRepository(
-        roster: [fakeClient()],
+        rosterWithStats: [fakeRosterEntry()],
         nutrition: fakeNutrition(),
       ),
     );
@@ -223,7 +223,7 @@ void main() {
     await _pump(
       tester,
       FakeTrainerConsoleRepository(
-        roster: [fakeClient()],
+        rosterWithStats: [fakeRosterEntry()],
         nutrition: fakeNutrition(
           goal: 2000,
           trend: [
@@ -254,7 +254,7 @@ void main() {
     await _pump(
       tester,
       FakeTrainerConsoleRepository(
-        roster: [fakeClient()],
+        rosterWithStats: [fakeRosterEntry()],
         nutrition: fakeNutrition(
           meals: const [
             LoggedMeal(
@@ -314,7 +314,7 @@ void main() {
     await _pump(
       tester,
       FakeTrainerConsoleRepository(
-        roster: [fakeClient()],
+        rosterWithStats: [fakeRosterEntry()],
         nutrition: fakeNutrition(
           meals: const [
             LoggedMeal(
@@ -361,7 +361,7 @@ void main() {
     await _pump(
       tester,
       FakeTrainerConsoleRepository(
-        roster: [fakeClient()],
+        rosterWithStats: [fakeRosterEntry()],
         nutrition: fakeNutrition(
           meals: const [
             // No `foods` — an API build older than the detail view.
@@ -395,7 +395,7 @@ void main() {
     await _pump(
       tester,
       FakeTrainerConsoleRepository(
-        roster: [fakeClient()],
+        rosterWithStats: [fakeRosterEntry()],
         nutrition: fakeNutrition(
           meals: const [
             LoggedMeal(

@@ -2435,6 +2435,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dashboardLoading => 'Loading dashboard';
 
   @override
+  String get rosterLoading => 'Loading clients';
+
+  @override
+  String get kpisLoading => 'Loading summary';
+
+  @override
   String get clientsHeading => 'Clients';
 
   @override

@@ -5,6 +5,7 @@ import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/feature/trainer_console/data/trainer_console_repository.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/console_error.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_console_models.dart';
+import 'package:ForgeForm/feature/trainer_console/presentation/providers/active_client_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/trainer_console_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/trainer_licence_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/view/invite_client_sheet.dart';
@@ -71,8 +72,9 @@ class _TrainerDashboardScreenState extends State<TrainerDashboardScreen> {
         ChangeNotifierProvider<TrainerConsoleProvider>.value(value: _provider),
         ChangeNotifierProvider<TrainerLicenceProvider>.value(value: _licence),
       ],
-      child: Consumer2<TrainerConsoleProvider, TrainerLicenceProvider>(
-        builder: (context, provider, licence, _) {
+      child: Consumer3<TrainerConsoleProvider, TrainerLicenceProvider,
+          ActiveClientProvider>(
+        builder: (context, provider, licence, activeClient, _) {
           final isDesktop = MediaQuery.of(context).size.width > 1024;
           final padding = isDesktop ? 32.0 : 16.0;
 
@@ -85,6 +87,7 @@ class _TrainerDashboardScreenState extends State<TrainerDashboardScreen> {
                 child: _Body(
                   provider: provider,
                   licence: licence,
+                  activeClient: activeClient,
                   isDesktop: isDesktop,
                   onClientSelected: widget.onClientSelected,
                 ),
@@ -100,12 +103,17 @@ class _TrainerDashboardScreenState extends State<TrainerDashboardScreen> {
 class _Body extends StatelessWidget {
   final TrainerConsoleProvider provider;
   final TrainerLicenceProvider licence;
+
+  /// The shared client-switcher state, which owns the roster.
+  final ActiveClientProvider activeClient;
+
   final bool isDesktop;
   final ValueChanged<TrainerRosterEntry>? onClientSelected;
 
   const _Body({
     required this.provider,
     required this.licence,
+    required this.activeClient,
     required this.isDesktop,
     required this.onClientSelected,
   });
@@ -115,17 +123,12 @@ class _Body extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     final l10n = AppLocalizations.of(context)!;
 
-    if (provider.isLoading) {
-      return ConsoleSkeleton(semanticsLabel: l10n.dashboardLoading);
-    }
-    if (provider.error != null) {
-      return ConsoleErrorState(
-        message: provider.error!.localizedMessage(l10n),
-        onRetry: provider.load,
-      );
-    }
-
+    // No page-level loading gate. There used to be one, covering both the roster and the
+    // KPIs, so the fast request waited on the slow one and the page chrome — including the
+    // invite button — was hidden from a trainer who had nothing else to do while waiting.
+    // Each section below owns its own loading, empty and error states.
     final plan = licence.licence;
+    final roster = activeClient.clients;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -167,7 +170,25 @@ class _Body extends StatelessWidget {
           ),
         ],
         const SizedBox(height: 20),
-        if (provider.kpis != null) _KpiRow(kpis: provider.kpis!),
+        // No empty state for the KPI row: zeroes are a real answer, not an absence of one.
+        if (provider.kpis != null)
+          _KpiRow(kpis: provider.kpis!)
+        else if (provider.error != null)
+          _KpiErrorStrip(
+            message: provider.error!.localizedMessage(l10n),
+            onRetry: provider.load,
+          )
+        else
+          SizedBox(
+            // ConsoleSkeleton draws a card, so the box has to clear rowHeight plus the
+            // card's 16px padding either side plus its 11px bottom gap.
+            height: 96,
+            child: ConsoleSkeleton(
+              rows: 1,
+              rowHeight: 48,
+              semanticsLabel: l10n.kpisLoading,
+            ),
+          ),
         const SizedBox(height: 24),
         Row(
           children: [
@@ -183,7 +204,7 @@ class _Body extends StatelessWidget {
               ),
             ),
             _InviteButton(licence: licence),
-            if (provider.roster.isNotEmpty) ...[
+            if (roster.isNotEmpty) ...[
               const SizedBox(width: 8),
               _LayoutToggle(
                 layout: provider.layout,
@@ -194,28 +215,123 @@ class _Body extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         Expanded(
-          child: provider.roster.isEmpty
-              ? ConsoleEmptyState(
-                  icon: Icons.group_outlined,
-                  title: l10n.rosterEmptyTitle,
-                  message: l10n.rosterEmptyBody,
-                  action: _InviteButton(licence: licence, prominent: true),
-                )
-              // The table is dense and needs horizontal room; below the
-              // desktop breakpoint it always falls back to cards.
-              : (provider.layout == RosterLayout.table && isDesktop)
-                  ? _RosterTable(
-                      roster: provider.roster,
-                      onClientSelected: onClientSelected,
-                    )
-                  : _RosterGrid(
-                      roster: provider.roster,
-                      isDesktop: isDesktop,
-                      onClientSelected: onClientSelected,
-                    ),
+          child: _RosterSection(
+            activeClient: activeClient,
+            licence: licence,
+            layout: provider.layout,
+            isDesktop: isDesktop,
+            onClientSelected: onClientSelected,
+          ),
         ),
       ],
     );
+  }
+}
+
+/// A failed KPI load, said in one line instead of the full-height [ConsoleErrorState].
+///
+/// The KPI row is a strip, not a pane: giving it the tall centred error state would push
+/// the roster off a phone screen for the sake of three numbers that failed to load. The
+/// roster underneath is the thing the trainer came for and stays visible either way.
+class _KpiErrorStrip extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+
+  const _KpiErrorStrip({required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
+
+    return ConsoleCard(
+      child: Row(
+        children: [
+          Icon(
+            Icons.error_outline_rounded,
+            size: 20,
+            color: colors.onSurface.withValues(alpha: 0.55),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(
+                fontFamily: 'Exo 2',
+                fontSize: 13,
+                color: colors.onSurface.withValues(alpha: 0.65),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 44),
+            child: TextButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              label: Text(l10n.retry),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The roster's four states, independent of whatever the KPI row is doing.
+///
+/// The skeleton shows only when there is genuinely nothing to draw — the same
+/// `isLoading && isEmpty` shape MessagesScreen already uses — so a refresh redraws over
+/// the clients already on screen rather than blanking them.
+class _RosterSection extends StatelessWidget {
+  final ActiveClientProvider activeClient;
+  final TrainerLicenceProvider licence;
+  final RosterLayout layout;
+  final bool isDesktop;
+  final ValueChanged<TrainerRosterEntry>? onClientSelected;
+
+  const _RosterSection({
+    required this.activeClient,
+    required this.licence,
+    required this.layout,
+    required this.isDesktop,
+    required this.onClientSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final roster = activeClient.clients;
+
+    if (activeClient.isLoading && roster.isEmpty) {
+      return ConsoleSkeleton(semanticsLabel: l10n.rosterLoading);
+    }
+
+    if (activeClient.error != null && roster.isEmpty) {
+      return ConsoleErrorState(
+        message: activeClient.error!.localizedMessage(l10n),
+        onRetry: activeClient.loadClients,
+      );
+    }
+
+    if (roster.isEmpty) {
+      return ConsoleEmptyState(
+        icon: Icons.group_outlined,
+        title: l10n.rosterEmptyTitle,
+        message: l10n.rosterEmptyBody,
+        action: _InviteButton(licence: licence, prominent: true),
+      );
+    }
+
+    // The table is dense and needs horizontal room; below the desktop
+    // breakpoint it always falls back to cards.
+    return (layout == RosterLayout.table && isDesktop)
+        ? _RosterTable(roster: roster, onClientSelected: onClientSelected)
+        : _RosterGrid(
+            roster: roster,
+            isDesktop: isDesktop,
+            onClientSelected: onClientSelected,
+          );
   }
 }
 
