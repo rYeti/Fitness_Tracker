@@ -30,11 +30,14 @@ class ThemeProvider with ChangeNotifier {
       useMaterial3: true,
       fontFamily: 'Exo 2',
       colorScheme: ColorScheme.light(
-        primary: ForgeColors.forgeOrange,
-        secondary: ForgeColors.forgeOrange,
+        // The AA-safe variant, not the raw brand orange: colorScheme.primary
+        // is what every FilledButton/FAB/selected-state fills with, and white
+        // on #FF6B3E is 2.83:1. See ForgeColors.forgeOrangeOnLight.
+        primary: ForgeColors.forgeOrangeOnLight,
+        secondary: ForgeColors.forgeOrangeOnLight,
         tertiary: ForgeColors.charcoal,
-        surface: Colors.white,
-        background: Color(0xFFF5F5F5), // Light gray background
+        surface: ForgeColors.surfaceLight,
+        background: ForgeColors.backgroundLight,
         onPrimary: Colors.white,
         onSecondary: Colors.white,
         onSurface: ForgeColors.charcoal,
@@ -98,11 +101,11 @@ class ThemeProvider with ChangeNotifier {
       cardTheme: CardThemeData(
         elevation: 2,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        color: Colors.white,
+        color: ForgeColors.surfaceLight,
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: ForgeColors.forgeOrange,
+          backgroundColor: ForgeColors.forgeOrangeOnLight,
           foregroundColor: Colors.white,
           elevation: 0,
           padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
@@ -133,24 +136,27 @@ class ThemeProvider with ChangeNotifier {
         ),
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: ForgeColors.forgeOrange,
+        backgroundColor: ForgeColors.forgeOrangeOnLight,
         foregroundColor: Colors.white,
         elevation: 4,
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: Colors.white,
+        fillColor: ForgeColors.surfaceLight,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: Color(0xFFE0E0E0)),
+          borderSide: BorderSide(color: ForgeColors.borderLight),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: Color(0xFFE0E0E0)),
+          borderSide: BorderSide(color: ForgeColors.borderLight),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: ForgeColors.forgeOrange, width: 2),
+          borderSide: BorderSide(
+            color: ForgeColors.forgeOrangeOnLight,
+            width: 2,
+          ),
         ),
         labelStyle: TextStyle(fontFamily: 'Exo 2', color: Color(0xFF666666)),
       ),
@@ -167,8 +173,8 @@ class ThemeProvider with ChangeNotifier {
         primary: ForgeColors.forgeOrange,
         secondary: ForgeColors.forgeOrange,
         tertiary: ForgeColors.charcoal,
-        surface: Color(0xFF1E1E1E),
-        background: Color(0xFF121212),
+        surface: ForgeColors.surfaceDark,
+        background: ForgeColors.backgroundDark,
         onPrimary: Colors.white,
         onSecondary: Colors.white,
         onSurface: Colors.white,
@@ -232,7 +238,7 @@ class ThemeProvider with ChangeNotifier {
       cardTheme: CardThemeData(
         elevation: 2,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        color: Color(0xFF2C2C2C),
+        color: ForgeColors.cardDark,
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
@@ -273,14 +279,14 @@ class ThemeProvider with ChangeNotifier {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: Color(0xFF2C2C2C),
+        fillColor: ForgeColors.cardDark,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: Color(0xFF404040)),
+          borderSide: BorderSide(color: ForgeColors.borderDark),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: Color(0xFF404040)),
+          borderSide: BorderSide(color: ForgeColors.borderDark),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
