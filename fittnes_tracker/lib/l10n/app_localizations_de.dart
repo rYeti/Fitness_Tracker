@@ -3399,4 +3399,11 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get adherence28d => 'Adhärenz, letzte 28 Tage';
+
+  @override
+  String get couldNotLoad => 'Daten konnten nicht geladen werden';
+
+  @override
+  String get couldNotLoadBody =>
+      'Prüfe deine Verbindung und versuche es erneut.';
 }

@@ -1647,5 +1647,9 @@
   "rosterColumnAdherence28d": "ADHÄRENZ (28 T)",
   "@rosterColumnAdherence28d": {},
   "adherence28d": "Adhärenz, letzte 28 Tage",
-  "@adherence28d": {}
+  "@adherence28d": {},
+  "couldNotLoad": "Daten konnten nicht geladen werden",
+  "@couldNotLoad": {},
+  "couldNotLoadBody": "Prüfe deine Verbindung und versuche es erneut.",
+  "@couldNotLoadBody": {}
 }

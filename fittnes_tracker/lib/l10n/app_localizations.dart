@@ -5965,6 +5965,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Adherence, last 28 days'**
   String get adherence28d;
+
+  /// No description provided for @couldNotLoad.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load your data'**
+  String get couldNotLoad;
+
+  /// No description provided for @couldNotLoadBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Check your connection and try again.'**
+  String get couldNotLoadBody;
 }
 
 class _AppLocalizationsDelegate

@@ -3365,4 +3365,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get adherence28d => 'Adherence, last 28 days';
+
+  @override
+  String get couldNotLoad => 'Couldn\'t load your data';
+
+  @override
+  String get couldNotLoadBody => 'Check your connection and try again.';
 }

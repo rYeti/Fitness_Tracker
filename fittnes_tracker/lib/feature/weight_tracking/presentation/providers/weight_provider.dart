@@ -9,6 +9,14 @@ class WeightProvider with ChangeNotifier {
   final UserGoalsProvider userGoalsProvider;
   List<WeightRecordData> _weightRecords = [];
   bool _isLoading = false;
+  /// Non-null when the last load failed.
+  ///
+  /// Before this existed the catch below logged and moved on, leaving
+  /// `_weightRecords` empty — so a failed load rendered as the *empty state*,
+  /// telling the user they had never logged a weight. A silent failure that
+  /// disguises itself as valid data is worse than a visible error, and
+  /// CLAUDE.md rules out both.
+  Object? _loadError;
 
   WeightProvider(AppDatabase db, {required this.userGoalsProvider})
     : _repository = WeightRepository(db) {
@@ -17,16 +25,22 @@ class WeightProvider with ChangeNotifier {
 
   List<WeightRecordData> get weightRecords => _weightRecords;
   bool get isLoading => _isLoading;
+  bool get hasError => _loadError != null;
+
+  /// Re-runs the load. Wired to the error state's retry action.
+  Future<void> retry() => _loadWeightRecords();
 
   // Load all weight records
   Future<void> _loadWeightRecords() async {
     _isLoading = true;
+    _loadError = null;
     notifyListeners();
 
     try {
       _weightRecords = await _repository.getAllWeightRecords();
     } catch (e) {
       AppLogger.i('Error loading weight records: $e');
+      _loadError = e;
     } finally {
       _isLoading = false;
       notifyListeners();

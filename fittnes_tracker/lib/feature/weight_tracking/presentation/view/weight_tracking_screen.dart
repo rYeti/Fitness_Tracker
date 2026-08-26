@@ -1,3 +1,4 @@
+import 'package:ForgeForm/core/widgets/app_widgets.dart';
 import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/feature/weight_tracking/presentation/providers/weight_provider.dart';
 import 'package:ForgeForm/feature/weight_tracking/presentation/widgets/weight_chart.dart';
@@ -69,9 +70,21 @@ class WeightTrackingScreen extends StatelessWidget {
         body: Consumer<WeightProvider>(
           builder: (context, weightProvider, _) {
             final colorScheme = Theme.of(context).colorScheme;
+            // Four states, in the order they can occur. Loading uses a
+            // skeleton shaped like the rows it replaces rather than a bare
+            // spinner (CLAUDE.md), and the error branch comes *before* the
+            // empty check — a failed load used to fall through to "no records
+            // yet", which is a different and untrue statement.
             if (weightProvider.isLoading) {
-              return Center(
-                child: CircularProgressIndicator(color: colorScheme.primary),
+              return LoadingSkeleton(
+                rows: 4,
+                semanticsLabel: l10n.consoleLoading,
+              );
+            }
+            if (weightProvider.hasError) {
+              return ErrorStateView(
+                message: l10n.couldNotLoadBody,
+                onRetry: weightProvider.retry,
               );
             }
             final weightRecords = weightProvider.weightRecords;

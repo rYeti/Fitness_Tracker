@@ -448,9 +448,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   )
                 else if (snapshot.hasError)
+                  // The message, not the exception. This used to interpolate
+                  // snapshot.error straight into the UI, which CLAUDE.md rules
+                  // out — a stack trace or a Dio error string is not something
+                  // to show a user, and it leaks internals. The detail still
+                  // goes to the log where it is useful.
                   Text(
-                    l10n.errorLoadingWorkout(snapshot.error ?? ''),
-                    style: const TextStyle(color: ForgeColors.statusBad),
+                    l10n.couldNotLoad,
+                    style: TextStyle(
+                      color: ForgeColors.statusBadFor(
+                        Theme.of(context).brightness,
+                      ),
+                    ),
                   )
                 else
                   Text(
