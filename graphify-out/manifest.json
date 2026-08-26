@@ -1,0 +1,3080 @@
+{
+  ".mcp.json": {
+    "mtime": 1787725803.3299677,
+    "seen": 1787727623.9720762,
+    "ast_hash": "be30d6b140f31bd1b2f0d8f8aa9be237",
+    "semantic_hash": "be30d6b140f31bd1b2f0d8f8aa9be237"
+  },
+  "FitTracker.Api/Controllers/AuthController.cs": {
+    "mtime": 1787571807.8423238,
+    "seen": 1787727623.972083,
+    "ast_hash": "6a9ef3de76792d83bc701228e74a6096",
+    "semantic_hash": "6a9ef3de76792d83bc701228e74a6096"
+  },
+  "FitTracker.Api/Controllers/ChatController.cs": {
+    "mtime": 1787313840.8208253,
+    "seen": 1787727623.972086,
+    "ast_hash": "dcd9604ecae0aca0db462b79035a8df2",
+    "semantic_hash": "dcd9604ecae0aca0db462b79035a8df2"
+  },
+  "FitTracker.Api/Controllers/DeviceTokenController.cs": {
+    "mtime": 1787725803.3326776,
+    "seen": 1787727623.9720876,
+    "ast_hash": "6c9335a03915bc5911436b08859bb321",
+    "semantic_hash": "6c9335a03915bc5911436b08859bb321"
+  },
+  "FitTracker.Api/Controllers/ExerciseController.cs": {
+    "mtime": 1784267079.3572466,
+    "seen": 1787727623.9720895,
+    "ast_hash": "3f0ef6353661a080b4d8dec81527a2f7",
+    "semantic_hash": "3f0ef6353661a080b4d8dec81527a2f7"
+  },
+  "FitTracker.Api/Controllers/FoodItemController.cs": {
+    "mtime": 1784267079.3572466,
+    "seen": 1787727623.972091,
+    "ast_hash": "5f498b83c9e41f692273a4b6a3c741de",
+    "semantic_hash": "5f498b83c9e41f692273a4b6a3c741de"
+  },
+  "FitTracker.Api/Controllers/MealController.cs": {
+    "mtime": 1787571807.8433838,
+    "seen": 1787727623.9720924,
+    "ast_hash": "8ab6a83c1d065c51d901c33c303c82d3",
+    "semantic_hash": "8ab6a83c1d065c51d901c33c303c82d3"
+  },
+  "FitTracker.Api/Controllers/MealTemplateController.cs": {
+    "mtime": 1784267079.3624034,
+    "seen": 1787727623.9720933,
+    "ast_hash": "ecf6c7d4d33272c8b539073514ac24d5",
+    "semantic_hash": "ecf6c7d4d33272c8b539073514ac24d5"
+  },
+  "FitTracker.Api/Controllers/ScheduledWorkoutController.cs": {
+    "mtime": 1784267079.3624034,
+    "seen": 1787727623.9720945,
+    "ast_hash": "000fdba2b5420e4f15c2aa3757538788",
+    "semantic_hash": "000fdba2b5420e4f15c2aa3757538788"
+  },
+  "FitTracker.Api/Controllers/StripeWebhookController.cs": {
+    "mtime": 1787313840.8221104,
+    "seen": 1787727623.9720957,
+    "ast_hash": "60a2b9db1f54047aee1b9cf98cd315bc",
+    "semantic_hash": "60a2b9db1f54047aee1b9cf98cd315bc"
+  },
+  "FitTracker.Api/Controllers/TrainerClientController.cs": {
+    "mtime": 1787313840.8221104,
+    "seen": 1787727623.972097,
+    "ast_hash": "f33ed635656b549a4676c5a906d1256c",
+    "semantic_hash": "f33ed635656b549a4676c5a906d1256c"
+  },
+  "FitTracker.Api/Controllers/TrainerConsoleController.cs": {
+    "mtime": 1787313840.8231158,
+    "seen": 1787727623.9720988,
+    "ast_hash": "319343ef4a1c27d2d74aa0b7f1a95c64",
+    "semantic_hash": "319343ef4a1c27d2d74aa0b7f1a95c64"
+  },
+  "FitTracker.Api/Controllers/TrainerLicenceController.cs": {
+    "mtime": 1787571807.8444228,
+    "seen": 1787727623.9721,
+    "ast_hash": "66aeae1863b1c0331400ae9197f0674a",
+    "semantic_hash": "66aeae1863b1c0331400ae9197f0674a"
+  },
+  "FitTracker.Api/Controllers/UserSettingsController.cs": {
+    "mtime": 1784267079.3624034,
+    "seen": 1787727623.9721012,
+    "ast_hash": "db7f5f26b377904b054c0c35cd7ab878",
+    "semantic_hash": "db7f5f26b377904b054c0c35cd7ab878"
+  },
+  "FitTracker.Api/Controllers/WeightTrackingController.cs": {
+    "mtime": 1784267079.3624034,
+    "seen": 1787727623.9721024,
+    "ast_hash": "ddf755ea172f1d21709a3d50adfc438a",
+    "semantic_hash": "ddf755ea172f1d21709a3d50adfc438a"
+  },
+  "FitTracker.Api/Controllers/WorkoutController.cs": {
+    "mtime": 1787647323.8075063,
+    "seen": 1787727623.9721034,
+    "ast_hash": "da1e97c67ebda3076938c04fe30e3736",
+    "semantic_hash": "da1e97c67ebda3076938c04fe30e3736"
+  },
+  "FitTracker.Api/Controllers/WorkoutPlanController.cs": {
+    "mtime": 1784267079.3624034,
+    "seen": 1787727623.9721048,
+    "ast_hash": "e42e11ac554c3f77b5222274af55aabd",
+    "semantic_hash": "e42e11ac554c3f77b5222274af55aabd"
+  },
+  "FitTracker.Api/Controllers/WorkoutPlanTemplateController.cs": {
+    "mtime": 1784267079.3624034,
+    "seen": 1787727623.9721057,
+    "ast_hash": "41d6e67d6e887fbf38f76f30b97fd0cd",
+    "semantic_hash": "41d6e67d6e887fbf38f76f30b97fd0cd"
+  },
+  "FitTracker.Api/DTOs/AuthResponseDto.cs": {
+    "mtime": 1784267079.3624034,
+    "seen": 1787727623.972107,
+    "ast_hash": "208cb3237bc325b6ee83d98673e235a3",
+    "semantic_hash": "208cb3237bc325b6ee83d98673e235a3"
+  },
+  "FitTracker.Api/DTOs/ChangePasswordRequestDto.cs": {
+    "mtime": 1784267079.3624034,
+    "seen": 1787727623.9721084,
+    "ast_hash": "e67d2620774dc66985e34f381151fc98",
+    "semantic_hash": "e67d2620774dc66985e34f381151fc98"
+  },
+  "FitTracker.Api/DTOs/ChatConversationDto.cs": {
+    "mtime": 1787313840.8242304,
+    "seen": 1787727623.9721098,
+    "ast_hash": "635a99db3ea2caa79be191d21a42cdba",
+    "semantic_hash": "635a99db3ea2caa79be191d21a42cdba"
+  },
+  "FitTracker.Api/DTOs/ChatMessageDto.cs": {
+    "mtime": 1787313840.8242304,
+    "seen": 1787727623.9721107,
+    "ast_hash": "4ff381901c80656bd3358012ea7eb2b0",
+    "semantic_hash": "4ff381901c80656bd3358012ea7eb2b0"
+  },
+  "FitTracker.Api/DTOs/DeleteAccountRequestDto.cs": {
+    "mtime": 1784267079.3624034,
+    "seen": 1787727623.9721134,
+    "ast_hash": "5838bba5387ac505a7be0aa0b71245ca",
+    "semantic_hash": "5838bba5387ac505a7be0aa0b71245ca"
+  },
+  "FitTracker.Api/DTOs/ExerciceRequest.Dto.cs": {
+    "mtime": 1784267079.3624034,
+    "seen": 1787727623.9721148,
+    "ast_hash": "f3bd8b70be28891917cc1586da462eae",
+    "semantic_hash": "f3bd8b70be28891917cc1586da462eae"
+  },
+  "FitTracker.Api/DTOs/ExerciseReponseDto.cs": {
+    "mtime": 1784267079.3624034,
+    "seen": 1787727623.9721158,
+    "ast_hash": "f3a3fa6404e7bb7a765d8339ed4793c6",
+    "semantic_hash": "f3a3fa6404e7bb7a765d8339ed4793c6"
+  },
+  "FitTracker.Api/DTOs/FoodItemRequestDto.cs": {
+    "mtime": 1784267079.3624034,
+    "seen": 1787727623.972117,
+    "ast_hash": "41fe27f54ccafd6856e412e25fdc9a2c",
+    "semantic_hash": "41fe27f54ccafd6856e412e25fdc9a2c"
+  },
+  "FitTracker.Api/DTOs/FoodItemResponseDto.cs": {
+    "mtime": 1784267079.3624034,
+    "seen": 1787727623.9721184,
+    "ast_hash": "8cbd59ae206c4114c043066416c64a7a",
+    "semantic_hash": "8cbd59ae206c4114c043066416c64a7a"
+  },
+  "FitTracker.Api/DTOs/ForgotPasswordRequestDto.cs": {
+    "mtime": 1784267079.3624034,
+    "seen": 1787727623.9721196,
+    "ast_hash": "682b425becee0b176df771a99eee0aa2",
+    "semantic_hash": "682b425becee0b176df771a99eee0aa2"
+  },
+  "FitTracker.Api/DTOs/LoginRequestDto.cs": {
+    "mtime": 1784267079.3624034,
+    "seen": 1787727623.9721208,
+    "ast_hash": "8b3aede582b9ac03e12674630b5f3d3e",
+    "semantic_hash": "8b3aede582b9ac03e12674630b5f3d3e"
+  },
+  "FitTracker.Api/DTOs/MealFoodEntryRequestDto.cs": {
+    "mtime": 1784267079.3624034,
+    "seen": 1787727623.972122,
+    "ast_hash": "b0e91d92f740633a70f3e17c8a1eaf41",
+    "semantic_hash": "b0e91d92f740633a70f3e17c8a1eaf41"
+  },
+  "FitTracker.Api/DTOs/MealFoodEntryResponseDto.cs": {
+    "mtime": 1784267079.3624034,
+    "seen": 1787727623.972123,
+    "ast_hash": "fc82e4ee42fd638052ec0ccfbd334a1b",
+    "semantic_hash": "fc82e4ee42fd638052ec0ccfbd334a1b"
+  },
+  "FitTracker.Api/DTOs/MealRequestDto.cs": {
+    "mtime": 1784267079.3624034,
+    "seen": 1787727623.9721239,
+    "ast_hash": "11241bc084ad406bf461a0e3e10de23d",
+    "semantic_hash": "11241bc084ad406bf461a0e3e10de23d"
+  },
+  "FitTracker.Api/DTOs/MealResponseDto.cs": {
+    "mtime": 1784267079.3624034,
+    "seen": 1787727623.9721253,
+    "ast_hash": "3824e61b192aa060fa602ec56a6b60cf",
+    "semantic_hash": "3824e61b192aa060fa602ec56a6b60cf"
+  },
+  "FitTracker.Api/DTOs/MealTemplateItemRequestDto.cs": {
+    "mtime": 1784267079.3624034,
+    "seen": 1787727623.9721262,
+    "ast_hash": "3ff4ffd565c40d4c8e3ded9ffa27daf0",
+    "semantic_hash": "3ff4ffd565c40d4c8e3ded9ffa27daf0"
+  },
+  "FitTracker.Api/DTOs/MealTemplateItemResponseDto.cs": {
+    "mtime": 1784267079.3624034,
+    "seen": 1787727623.9721272,
+    "ast_hash": "94cf4d592542b006d736cdeb45473bbc",
+    "semantic_hash": "94cf4d592542b006d736cdeb45473bbc"
+  },
+  "FitTracker.Api/DTOs/MealTemplateRequestDto.cs": {
+    "mtime": 1784267079.3624034,
+    "seen": 1787727623.9721286,
+    "ast_hash": "d7d70d041005ed0e516e8fd98cec0e10",
+    "semantic_hash": "d7d70d041005ed0e516e8fd98cec0e10"
+  },
+  "FitTracker.Api/DTOs/MealTemplateResponseDto.cs": {
+    "mtime": 1784267079.3624034,
+    "seen": 1787727623.9721298,
+    "ast_hash": "e4519c18b20c5e1c8bbabac9eca71caf",
+    "semantic_hash": "e4519c18b20c5e1c8bbabac9eca71caf"
+  },
+  "FitTracker.Api/DTOs/RefreshRequestDto.cs": {
+    "mtime": 1784267079.3624034,
+    "seen": 1787727623.9721313,
+    "ast_hash": "446b1ad87a4dc386fbd26e0b02c86946",
+    "semantic_hash": "446b1ad87a4dc386fbd26e0b02c86946"
+  },
+  "FitTracker.Api/DTOs/RegisterRequestDto.cs": {
+    "mtime": 1787571807.8458536,
+    "seen": 1787727623.9721327,
+    "ast_hash": "41531e7366e1c611e6b680cf260fbba6",
+    "semantic_hash": "41531e7366e1c611e6b680cf260fbba6"
+  },
+  "FitTracker.Api/DTOs/ResetPasswordRequestDto.cs": {
+    "mtime": 1784267079.3624034,
+    "seen": 1787727623.9721336,
+    "ast_hash": "ea059af064b113b6f77907b7e8fdbfad",
+    "semantic_hash": "ea059af064b113b6f77907b7e8fdbfad"
+  },
+  "FitTracker.Api/DTOs/ScheduledWorkoutExerciseResponseDto.cs": {
+    "mtime": 1784267079.3624034,
+    "seen": 1787727623.9721348,
+    "ast_hash": "47266d80e63cdcdd6ed5983cff2deb16",
+    "semantic_hash": "47266d80e63cdcdd6ed5983cff2deb16"
+  },
+  "FitTracker.Api/DTOs/ScheduledWorkoutRequestDto.cs": {
+    "mtime": 1784267079.3624034,
+    "seen": 1787727623.972136,
+    "ast_hash": "cc5dd3cad5b89e0dfe50c2c2793322aa",
+    "semantic_hash": "cc5dd3cad5b89e0dfe50c2c2793322aa"
+  },
+  "FitTracker.Api/DTOs/ScheduledWorkoutResponseDto.cs": {
+    "mtime": 1784267079.3624034,
+    "seen": 1787727623.9721372,
+    "ast_hash": "ebf758f674d1c94efee5d9e166e2e6ef",
+    "semantic_hash": "ebf758f674d1c94efee5d9e166e2e6ef"
+  },
+  "FitTracker.Api/DTOs/TrainerClientResponseDto.cs": {
+    "mtime": 1787313840.8252406,
+    "seen": 1787727623.9721394,
+    "ast_hash": "c83c50c076ac17b6d2dcdec67e454b0e",
+    "semantic_hash": "c83c50c076ac17b6d2dcdec67e454b0e"
+  },
+  "FitTracker.Api/DTOs/TrainerConsoleDtos.cs": {
+    "mtime": 1787571807.8468764,
+    "seen": 1787727623.9721406,
+    "ast_hash": "dd2ae90e75f988257dd83b8fe2f0cee5",
+    "semantic_hash": "dd2ae90e75f988257dd83b8fe2f0cee5"
+  },
+  "FitTracker.Api/DTOs/TrainerLicenceDto.cs": {
+    "mtime": 1787313840.8252406,
+    "seen": 1787727623.9721417,
+    "ast_hash": "a0b5de0e9c196d9a54472bede72cd9b3",
+    "semantic_hash": "a0b5de0e9c196d9a54472bede72cd9b3"
+  },
+  "FitTracker.Api/DTOs/UpdateProfileRequestDto.cs": {
+    "mtime": 1784267079.3624034,
+    "seen": 1787727623.9721432,
+    "ast_hash": "0866faa7f2f9bbedd8708de5cd9945fa",
+    "semantic_hash": "0866faa7f2f9bbedd8708de5cd9945fa"
+  },
+  "FitTracker.Api/DTOs/UserSettingsRequestDto.cs": {
+    "mtime": 1784267079.3624034,
+    "seen": 1787727623.9721441,
+    "ast_hash": "a27ad7c08e3d899725e068e0e40c5a84",
+    "semantic_hash": "a27ad7c08e3d899725e068e0e40c5a84"
+  },
+  "FitTracker.Api/DTOs/UserSettingsResponseDto.cs": {
+    "mtime": 1784267079.3624034,
+    "seen": 1787727623.9721453,
+    "ast_hash": "c499aa2ad5c6cfe163c4ce88722b58da",
+    "semantic_hash": "c499aa2ad5c6cfe163c4ce88722b58da"
+  },
+  "FitTracker.Api/DTOs/Validation/HttpsUrlAttribute.cs": {
+    "mtime": 1784267079.3624034,
+    "seen": 1787727623.9721463,
+    "ast_hash": "2208dc3111a2c933433daf4656229b0c",
+    "semantic_hash": "2208dc3111a2c933433daf4656229b0c"
+  },
+  "FitTracker.Api/DTOs/WeightTrackingRequestDto.cs": {
+    "mtime": 1784267079.3624034,
+    "seen": 1787727623.9721475,
+    "ast_hash": "4451ee4d517d2ad4f5440457dd51d101",
+    "semantic_hash": "4451ee4d517d2ad4f5440457dd51d101"
+  },
+  "FitTracker.Api/DTOs/WeightTrackingResponseDto.cs": {
+    "mtime": 1784267079.3624034,
+    "seen": 1787727623.9721487,
+    "ast_hash": "f6f723f7e86fec0bf9bbad088342dc9a",
+    "semantic_hash": "f6f723f7e86fec0bf9bbad088342dc9a"
+  },
+  "FitTracker.Api/DTOs/WorkoutExerciseRequestDto.cs": {
+    "mtime": 1784267079.3624034,
+    "seen": 1787727623.9721498,
+    "ast_hash": "2cc652fb96ed43619776e4cb755b2fc8",
+    "semantic_hash": "2cc652fb96ed43619776e4cb755b2fc8"
+  },
+  "FitTracker.Api/DTOs/WorkoutExerciseResponseDto.cs": {
+    "mtime": 1787571807.8489087,
+    "seen": 1787727623.9721508,
+    "ast_hash": "7b34d58f17ac03fa0fca2985db8f2d8a",
+    "semantic_hash": "7b34d58f17ac03fa0fca2985db8f2d8a"
+  },
+  "FitTracker.Api/DTOs/WorkoutPlanRequestDto.cs": {
+    "mtime": 1784267079.3624034,
+    "seen": 1787727623.9721518,
+    "ast_hash": "3785e66f6b84cd154c0b2ab029de8c61",
+    "semantic_hash": "3785e66f6b84cd154c0b2ab029de8c61"
+  },
+  "FitTracker.Api/DTOs/WorkoutPlanResponseDto.cs": {
+    "mtime": 1784267079.3624034,
+    "seen": 1787727623.9721532,
+    "ast_hash": "f6ccd45697f14f33e4b4f2471e816809",
+    "semantic_hash": "f6ccd45697f14f33e4b4f2471e816809"
+  },
+  "FitTracker.Api/DTOs/WorkoutPlanTemplateResponseDto.cs": {
+    "mtime": 1784267079.3624034,
+    "seen": 1787727623.9721544,
+    "ast_hash": "8c181f7a5790974163d33ec79b4b33e4",
+    "semantic_hash": "8c181f7a5790974163d33ec79b4b33e4"
+  },
+  "FitTracker.Api/DTOs/WorkoutRequestDto.cs": {
+    "mtime": 1784267079.3624034,
+    "seen": 1787727623.9721556,
+    "ast_hash": "4f488a59a2ca6b0a9ba1fed589a23cd3",
+    "semantic_hash": "4f488a59a2ca6b0a9ba1fed589a23cd3"
+  },
+  "FitTracker.Api/DTOs/WorkoutResponseDto.cs": {
+    "mtime": 1784267079.3624034,
+    "seen": 1787727623.9721568,
+    "ast_hash": "40353d1999927d8ab3cf7f9d49112ece",
+    "semantic_hash": "40353d1999927d8ab3cf7f9d49112ece"
+  },
+  "FitTracker.Api/DTOs/WorkoutSetRequestDto.cs": {
+    "mtime": 1784267079.3624034,
+    "seen": 1787727623.9721577,
+    "ast_hash": "617c24b84844e8a15d98e2a931b7a937",
+    "semantic_hash": "617c24b84844e8a15d98e2a931b7a937"
+  },
+  "FitTracker.Api/DTOs/WorkoutSetResponseDto.cs": {
+    "mtime": 1784267079.3624034,
+    "seen": 1787727623.9721587,
+    "ast_hash": "85065d17d6ca865e7f58bdc7086b1618",
+    "semantic_hash": "85065d17d6ca865e7f58bdc7086b1618"
+  },
+  "FitTracker.Api/DTOs/WorkoutSetTemplateRequestDto.cs": {
+    "mtime": 1784267079.3624034,
+    "seen": 1787727623.97216,
+    "ast_hash": "0c80d23c0aac53f59241552e3da89c43",
+    "semantic_hash": "0c80d23c0aac53f59241552e3da89c43"
+  },
+  "FitTracker.Api/DTOs/WorkoutSetTemplateResponseDto.cs": {
+    "mtime": 1784267079.3624034,
+    "seen": 1787727623.9721613,
+    "ast_hash": "75d178ee2563be4fc7823a2d450abb2f",
+    "semantic_hash": "75d178ee2563be4fc7823a2d450abb2f"
+  },
+  "FitTracker.Api/Data/AppDbContext.cs": {
+    "mtime": 1787725803.3339999,
+    "seen": 1787727623.9721625,
+    "ast_hash": "5b70bb70ff8b37ea657a541cb21be0ef",
+    "semantic_hash": "5b70bb70ff8b37ea657a541cb21be0ef"
+  },
+  "FitTracker.Api/Eums/Media.cs": {
+    "mtime": 1787313840.8267167,
+    "seen": 1787727623.9721637,
+    "ast_hash": "102c5dde6443d544a153ca436bf0fac1",
+    "semantic_hash": "102c5dde6443d544a153ca436bf0fac1"
+  },
+  "FitTracker.Api/Filters/RequireEntitledLicenceFilter.cs": {
+    "mtime": 1787313840.8281093,
+    "seen": 1787727623.9721646,
+    "ast_hash": "ec771eac72e29e30c731fea33b221ed3",
+    "semantic_hash": "ec771eac72e29e30c731fea33b221ed3"
+  },
+  "FitTracker.Api/FitTracker.Api.csproj": {
+    "mtime": 1787725803.3339999,
+    "seen": 1787727623.9721658,
+    "ast_hash": "6200bb02749fd5656f114e567d96aabf",
+    "semantic_hash": "6200bb02749fd5656f114e567d96aabf"
+  },
+  "FitTracker.Api/FitTracker.Api.sln": {
+    "mtime": 1784267079.3729036,
+    "seen": 1787727623.972167,
+    "ast_hash": "3b4c473f729d1d9897f497a0f1d75b8d",
+    "semantic_hash": "3b4c473f729d1d9897f497a0f1d75b8d"
+  },
+  "FitTracker.Api/Hubs/ChatHub.cs": {
+    "mtime": 1787725803.335503,
+    "seen": 1787727623.9721682,
+    "ast_hash": "d9dae25a4280f11e4d2f3dae93d3e1c1",
+    "semantic_hash": "d9dae25a4280f11e4d2f3dae93d3e1c1"
+  },
+  "FitTracker.Api/Migrations/20260331191149_InitialCreate.Designer.cs": {
+    "mtime": 1784267079.3729036,
+    "seen": 1787727623.9721694,
+    "ast_hash": "9f10c947fe5fd6311ab54d355cdef84b",
+    "semantic_hash": "9f10c947fe5fd6311ab54d355cdef84b"
+  },
+  "FitTracker.Api/Migrations/20260331191149_InitialCreate.cs": {
+    "mtime": 1784267079.3729036,
+    "seen": 1787727623.9721706,
+    "ast_hash": "0925a90da65cc7eca2e03f6e1dc49456",
+    "semantic_hash": "0925a90da65cc7eca2e03f6e1dc49456"
+  },
+  "FitTracker.Api/Migrations/20260412204131_AddWeightTracking.Designer.cs": {
+    "mtime": 1784267079.3729036,
+    "seen": 1787727623.972172,
+    "ast_hash": "57fb55c69de6e82c73c0fafbe95ddccd",
+    "semantic_hash": "57fb55c69de6e82c73c0fafbe95ddccd"
+  },
+  "FitTracker.Api/Migrations/20260412204131_AddWeightTracking.cs": {
+    "mtime": 1784267079.3729036,
+    "seen": 1787727623.972173,
+    "ast_hash": "88ab6efdfde379f00f73c6098a51fd58",
+    "semantic_hash": "88ab6efdfde379f00f73c6098a51fd58"
+  },
+  "FitTracker.Api/Migrations/20260414173917_AddWeightTrackingNote.Designer.cs": {
+    "mtime": 1784267079.3750286,
+    "seen": 1787727623.9721744,
+    "ast_hash": "4fe53f4f7a40e83ef12e8a5c10a53414",
+    "semantic_hash": "4fe53f4f7a40e83ef12e8a5c10a53414"
+  },
+  "FitTracker.Api/Migrations/20260414173917_AddWeightTrackingNote.cs": {
+    "mtime": 1784267079.3750286,
+    "seen": 1787727623.9721754,
+    "ast_hash": "cd29799ea6e48a037b9e93965939587c",
+    "semantic_hash": "cd29799ea6e48a037b9e93965939587c"
+  },
+  "FitTracker.Api/Migrations/20260416192032_Exercise.Designer.cs": {
+    "mtime": 1784267079.3750286,
+    "seen": 1787727623.9721763,
+    "ast_hash": "42a92c72dc8cd78ee31f81ce7d788fbc",
+    "semantic_hash": "42a92c72dc8cd78ee31f81ce7d788fbc"
+  },
+  "FitTracker.Api/Migrations/20260416192032_Exercise.cs": {
+    "mtime": 1784267079.3750286,
+    "seen": 1787727623.9721775,
+    "ast_hash": "6ae7be09f2c7861585aaed90fa551d70",
+    "semantic_hash": "6ae7be09f2c7861585aaed90fa551d70"
+  },
+  "FitTracker.Api/Migrations/20260417141933_WorkoutSession.Designer.cs": {
+    "mtime": 1784267079.3750286,
+    "seen": 1787727623.9721787,
+    "ast_hash": "78904cafd13ba8f8f35ee5fd996ba698",
+    "semantic_hash": "78904cafd13ba8f8f35ee5fd996ba698"
+  },
+  "FitTracker.Api/Migrations/20260417141933_WorkoutSession.cs": {
+    "mtime": 1784267079.3750286,
+    "seen": 1787727623.97218,
+    "ast_hash": "01119818acf0681edf9dacd54f81d748",
+    "semantic_hash": "01119818acf0681edf9dacd54f81d748"
+  },
+  "FitTracker.Api/Migrations/20260417160721_Workout.Designer.cs": {
+    "mtime": 1784267079.3750286,
+    "seen": 1787727623.972181,
+    "ast_hash": "e2cb7267b4c076f39863576314270be5",
+    "semantic_hash": "e2cb7267b4c076f39863576314270be5"
+  },
+  "FitTracker.Api/Migrations/20260417160721_Workout.cs": {
+    "mtime": 1784267079.3750286,
+    "seen": 1787727623.9721823,
+    "ast_hash": "a0cee0ae41808ccbc3dc5899a365b71f",
+    "semantic_hash": "a0cee0ae41808ccbc3dc5899a365b71f"
+  },
+  "FitTracker.Api/Migrations/20260417181108_RemoveExerciseFkFromWorkoutExercise.Designer.cs": {
+    "mtime": 1784267079.3750286,
+    "seen": 1787727623.9721832,
+    "ast_hash": "0257c25880e64f390e6812d795dd3437",
+    "semantic_hash": "0257c25880e64f390e6812d795dd3437"
+  },
+  "FitTracker.Api/Migrations/20260417181108_RemoveExerciseFkFromWorkoutExercise.cs": {
+    "mtime": 1784267079.3750286,
+    "seen": 1787727623.9721847,
+    "ast_hash": "7721edc985e57fe1cfce3c2c8feab073",
+    "semantic_hash": "7721edc985e57fe1cfce3c2c8feab073"
+  },
+  "FitTracker.Api/Migrations/20260417182609_RenameTargetMuscleToTargetMuscleGroups.Designer.cs": {
+    "mtime": 1784267079.3750286,
+    "seen": 1787727623.9721859,
+    "ast_hash": "0f8000ccc0b709008165cd35ea68f6e5",
+    "semantic_hash": "0f8000ccc0b709008165cd35ea68f6e5"
+  },
+  "FitTracker.Api/Migrations/20260417182609_RenameTargetMuscleToTargetMuscleGroups.cs": {
+    "mtime": 1784267079.3750286,
+    "seen": 1787727623.972187,
+    "ast_hash": "01fa2e7b2667a4b0e96870637a9350e4",
+    "semantic_hash": "01fa2e7b2667a4b0e96870637a9350e4"
+  },
+  "FitTracker.Api/Migrations/20260417183401_AddProfileImageUrlAndFixWeightPrecision.Designer.cs": {
+    "mtime": 1784267079.3750286,
+    "seen": 1787727623.9721882,
+    "ast_hash": "44988be981f7e806692344d42c1d4e82",
+    "semantic_hash": "44988be981f7e806692344d42c1d4e82"
+  },
+  "FitTracker.Api/Migrations/20260417183401_AddProfileImageUrlAndFixWeightPrecision.cs": {
+    "mtime": 1784267079.3750286,
+    "seen": 1787727623.9721909,
+    "ast_hash": "7c5e063b4cd3eea032aa76a95b181728",
+    "semantic_hash": "7c5e063b4cd3eea032aa76a95b181728"
+  },
+  "FitTracker.Api/Migrations/20260418105710_AddFoodMealUserSettings.Designer.cs": {
+    "mtime": 1784267079.3750286,
+    "seen": 1787727623.972192,
+    "ast_hash": "9a3e7193841a56fafdfd7accc614ff78",
+    "semantic_hash": "9a3e7193841a56fafdfd7accc614ff78"
+  },
+  "FitTracker.Api/Migrations/20260418105710_AddFoodMealUserSettings.cs": {
+    "mtime": 1784267079.3750286,
+    "seen": 1787727623.9721932,
+    "ast_hash": "7b93707fa769a0b4c1fcd4cd468da482",
+    "semantic_hash": "7b93707fa769a0b4c1fcd4cd468da482"
+  },
+  "FitTracker.Api/Migrations/20260418110329_AddMealTemplate.Designer.cs": {
+    "mtime": 1784267079.3750286,
+    "seen": 1787727623.9721947,
+    "ast_hash": "a1e66d9f8caadd2c50cee222fefddd54",
+    "semantic_hash": "a1e66d9f8caadd2c50cee222fefddd54"
+  },
+  "FitTracker.Api/Migrations/20260418110329_AddMealTemplate.cs": {
+    "mtime": 1784267079.3750286,
+    "seen": 1787727623.9721956,
+    "ast_hash": "eb8ed61b5dac3921bd3b705b66f584e2",
+    "semantic_hash": "eb8ed61b5dac3921bd3b705b66f584e2"
+  },
+  "FitTracker.Api/Migrations/20260418184829_MakeExerciseUserIdNullable.Designer.cs": {
+    "mtime": 1784267079.3750286,
+    "seen": 1787727623.9721968,
+    "ast_hash": "9f46da34ff84e41f5f09207cfb92c5e0",
+    "semantic_hash": "9f46da34ff84e41f5f09207cfb92c5e0"
+  },
+  "FitTracker.Api/Migrations/20260418184829_MakeExerciseUserIdNullable.cs": {
+    "mtime": 1784267079.3750286,
+    "seen": 1787727623.9721978,
+    "ast_hash": "529b370b4361e7c850cbb94f0a78c22f",
+    "semantic_hash": "529b370b4361e7c850cbb94f0a78c22f"
+  },
+  "FitTracker.Api/Migrations/20260424225254_AddTrainerClient.Designer.cs": {
+    "mtime": 1784267079.3750286,
+    "seen": 1787727623.972199,
+    "ast_hash": "73ba4c93847554d8951267e8e9683adc",
+    "semantic_hash": "73ba4c93847554d8951267e8e9683adc"
+  },
+  "FitTracker.Api/Migrations/20260424225254_AddTrainerClient.cs": {
+    "mtime": 1784267079.3799157,
+    "seen": 1787727623.9722002,
+    "ast_hash": "d889ccd27d399e772ee1b88e264e860f",
+    "semantic_hash": "d889ccd27d399e772ee1b88e264e860f"
+  },
+  "FitTracker.Api/Migrations/20260427213331_AddPasswordResetTokens.Designer.cs": {
+    "mtime": 1784267079.3799157,
+    "seen": 1787727623.972201,
+    "ast_hash": "41aa48c5baa277f1dd5081dae5f58fa3",
+    "semantic_hash": "41aa48c5baa277f1dd5081dae5f58fa3"
+  },
+  "FitTracker.Api/Migrations/20260427213331_AddPasswordResetTokens.cs": {
+    "mtime": 1784267079.3799157,
+    "seen": 1787727623.9722023,
+    "ast_hash": "fe06bfc01ad8929e505a2e9177578c49",
+    "semantic_hash": "fe06bfc01ad8929e505a2e9177578c49"
+  },
+  "FitTracker.Api/Migrations/20260506200831_AddDurationDaysToWorkoutPlan.Designer.cs": {
+    "mtime": 1784267079.3799157,
+    "seen": 1787727623.9722035,
+    "ast_hash": "629b6080816e9fba6e892452b6774c8b",
+    "semantic_hash": "629b6080816e9fba6e892452b6774c8b"
+  },
+  "FitTracker.Api/Migrations/20260506200831_AddDurationDaysToWorkoutPlan.cs": {
+    "mtime": 1784267079.3799157,
+    "seen": 1787727623.9722044,
+    "ast_hash": "5c76dbe21a60156091b1afe72dd07a05",
+    "semantic_hash": "5c76dbe21a60156091b1afe72dd07a05"
+  },
+  "FitTracker.Api/Migrations/20260622203442_AddMealTemplateTotalWeight.Designer.cs": {
+    "mtime": 1784267079.3799157,
+    "seen": 1787727623.9722056,
+    "ast_hash": "bfb3953d742f0bfedf3cb27dc7bc4586",
+    "semantic_hash": "bfb3953d742f0bfedf3cb27dc7bc4586"
+  },
+  "FitTracker.Api/Migrations/20260622203442_AddMealTemplateTotalWeight.cs": {
+    "mtime": 1784267079.3799157,
+    "seen": 1787727623.9722068,
+    "ast_hash": "4d4782ee68d141d3fa2e140d5568cbc4",
+    "semantic_hash": "4d4782ee68d141d3fa2e140d5568cbc4"
+  },
+  "FitTracker.Api/Migrations/20260708204831_AddRefreshTokens.Designer.cs": {
+    "mtime": 1784267079.3799157,
+    "seen": 1787727623.9722078,
+    "ast_hash": "f50b473d38beb41a637895ae31644fca",
+    "semantic_hash": "f50b473d38beb41a637895ae31644fca"
+  },
+  "FitTracker.Api/Migrations/20260708204831_AddRefreshTokens.cs": {
+    "mtime": 1784267079.3820024,
+    "seen": 1787727623.972209,
+    "ast_hash": "68f2b8f627b8c7ce4d15cf126a2be8cb",
+    "semantic_hash": "68f2b8f627b8c7ce4d15cf126a2be8cb"
+  },
+  "FitTracker.Api/Migrations/20260709162152_MakeTrainerClientClientIdNullable.Designer.cs": {
+    "mtime": 1784267079.3820024,
+    "seen": 1787727623.97221,
+    "ast_hash": "eae3bd1c3adc6aa4715d76b83f348c4a",
+    "semantic_hash": "eae3bd1c3adc6aa4715d76b83f348c4a"
+  },
+  "FitTracker.Api/Migrations/20260709162152_MakeTrainerClientClientIdNullable.cs": {
+    "mtime": 1784267079.3820024,
+    "seen": 1787727623.9722111,
+    "ast_hash": "c8dab65a62cd9df4f89a6a6f3629eba2",
+    "semantic_hash": "c8dab65a62cd9df4f89a6a6f3629eba2"
+  },
+  "FitTracker.Api/Migrations/20260712195228_AddInviteCodeExpiry.Designer.cs": {
+    "mtime": 1784267079.3820024,
+    "seen": 1787727623.9722126,
+    "ast_hash": "98911aec39d58e73a325fe49e03f2440",
+    "semantic_hash": "98911aec39d58e73a325fe49e03f2440"
+  },
+  "FitTracker.Api/Migrations/20260712195228_AddInviteCodeExpiry.cs": {
+    "mtime": 1784267079.3820024,
+    "seen": 1787727623.9722135,
+    "ast_hash": "2a7cd66a0348713c9794337cca0765a3",
+    "semantic_hash": "2a7cd66a0348713c9794337cca0765a3"
+  },
+  "FitTracker.Api/Migrations/20260715212509_AddWorkoutSetRpe.Designer.cs": {
+    "mtime": 1784267079.3820024,
+    "seen": 1787727623.9722147,
+    "ast_hash": "2bc318e48befece33f342dcb7053fb8f",
+    "semantic_hash": "2bc318e48befece33f342dcb7053fb8f"
+  },
+  "FitTracker.Api/Migrations/20260715212509_AddWorkoutSetRpe.cs": {
+    "mtime": 1784267079.3820024,
+    "seen": 1787727623.972216,
+    "ast_hash": "50aae84328a1bddcf2d9f0309ddb5094",
+    "semantic_hash": "50aae84328a1bddcf2d9f0309ddb5094"
+  },
+  "FitTracker.Api/Migrations/20260805213526_AddChatMessages.Designer.cs": {
+    "mtime": 1787313840.8291159,
+    "seen": 1787727623.972217,
+    "ast_hash": "33b3584407d863c314d78003b90c811f",
+    "semantic_hash": "33b3584407d863c314d78003b90c811f"
+  },
+  "FitTracker.Api/Migrations/20260805213526_AddChatMessages.cs": {
+    "mtime": 1787313840.8301158,
+    "seen": 1787727623.972218,
+    "ast_hash": "2d8eb74c93f410d4c3d703e334f87cce",
+    "semantic_hash": "2d8eb74c93f410d4c3d703e334f87cce"
+  },
+  "FitTracker.Api/Migrations/20260820165810_AddTrainerLicence.Designer.cs": {
+    "mtime": 1787313840.8301158,
+    "seen": 1787727623.9722195,
+    "ast_hash": "4387dd449ae2a46ea9d6939dabdf9f74",
+    "semantic_hash": "4387dd449ae2a46ea9d6939dabdf9f74"
+  },
+  "FitTracker.Api/Migrations/20260820165810_AddTrainerLicence.cs": {
+    "mtime": 1787313840.8311167,
+    "seen": 1787727623.9722204,
+    "ast_hash": "a86172da1b42e9527922e843c2fa0512",
+    "semantic_hash": "a86172da1b42e9527922e843c2fa0512"
+  },
+  "FitTracker.Api/Migrations/20260820170500_AddChatReadState.Designer.cs": {
+    "mtime": 1787313840.8311167,
+    "seen": 1787727623.9722216,
+    "ast_hash": "033a83c87171bba262f3788b5ca9ac58",
+    "semantic_hash": "033a83c87171bba262f3788b5ca9ac58"
+  },
+  "FitTracker.Api/Migrations/20260820170500_AddChatReadState.cs": {
+    "mtime": 1787313840.832116,
+    "seen": 1787727623.9722228,
+    "ast_hash": "434619938a10bf09b1c04923548f6f1b",
+    "semantic_hash": "434619938a10bf09b1c04923548f6f1b"
+  },
+  "FitTracker.Api/Migrations/20260822120000_AddWorkoutExerciseRemovedAt.Designer.cs": {
+    "mtime": 1787571807.8509927,
+    "seen": 1787727623.972224,
+    "ast_hash": "57a9a1187c3769b03fced41f4cd83ad2",
+    "semantic_hash": "57a9a1187c3769b03fced41f4cd83ad2"
+  },
+  "FitTracker.Api/Migrations/20260822120000_AddWorkoutExerciseRemovedAt.cs": {
+    "mtime": 1787571807.8519914,
+    "seen": 1787727623.972225,
+    "ast_hash": "b79b2a7b679f6a8fa1ac6636ce287934",
+    "semantic_hash": "b79b2a7b679f6a8fa1ac6636ce287934"
+  },
+  "FitTracker.Api/Migrations/20260824120000_AddDeviceTokens.Designer.cs": {
+    "mtime": 1787725803.335503,
+    "seen": 1787727623.9722261,
+    "ast_hash": "d71bccd60266ca7f046e74555f8b3087",
+    "semantic_hash": "d71bccd60266ca7f046e74555f8b3087"
+  },
+  "FitTracker.Api/Migrations/20260824120000_AddDeviceTokens.cs": {
+    "mtime": 1787725803.335503,
+    "seen": 1787727623.972227,
+    "ast_hash": "a86ba94c0c41437a0a249ee6246915b9",
+    "semantic_hash": "a86ba94c0c41437a0a249ee6246915b9"
+  },
+  "FitTracker.Api/Migrations/AppDbContextModelSnapshot.cs": {
+    "mtime": 1787725803.3369513,
+    "seen": 1787727623.9722283,
+    "ast_hash": "41a516b02c0ceb948abbd582cd554293",
+    "semantic_hash": "41a516b02c0ceb948abbd582cd554293"
+  },
+  "FitTracker.Api/Models/AccountType.cs": {
+    "mtime": 1787571807.8530045,
+    "seen": 1787727623.97223,
+    "ast_hash": "466abee5cf770c5e5eaf8f82c76f6a5a",
+    "semantic_hash": "466abee5cf770c5e5eaf8f82c76f6a5a"
+  },
+  "FitTracker.Api/Models/ChatMessage.cs": {
+    "mtime": 1787313840.8331158,
+    "seen": 1787727623.972231,
+    "ast_hash": "cb3b404842b2f84ed6434058ec5fe3d7",
+    "semantic_hash": "cb3b404842b2f84ed6434058ec5fe3d7"
+  },
+  "FitTracker.Api/Models/DeviceToken.cs": {
+    "mtime": 1787725803.3369513,
+    "seen": 1787727623.9722319,
+    "ast_hash": "29136b8febeade6641445721054ed690",
+    "semantic_hash": "29136b8febeade6641445721054ed690"
+  },
+  "FitTracker.Api/Models/Exercise.cs": {
+    "mtime": 1784267079.3820024,
+    "seen": 1787727623.9722333,
+    "ast_hash": "09056ecdbe6ef9a9e25701349c63198e",
+    "semantic_hash": "09056ecdbe6ef9a9e25701349c63198e"
+  },
+  "FitTracker.Api/Models/FoodItem.cs": {
+    "mtime": 1784267079.3820024,
+    "seen": 1787727623.972234,
+    "ast_hash": "cfe267bd68e350d87a9fadcf65298d70",
+    "semantic_hash": "cfe267bd68e350d87a9fadcf65298d70"
+  },
+  "FitTracker.Api/Models/Meal.cs": {
+    "mtime": 1784267079.3820024,
+    "seen": 1787727623.9722352,
+    "ast_hash": "00458875b6cf0fdeb387493a4d12a834",
+    "semantic_hash": "00458875b6cf0fdeb387493a4d12a834"
+  },
+  "FitTracker.Api/Models/MealFoodEntry.cs": {
+    "mtime": 1784267079.3820024,
+    "seen": 1787727623.9722364,
+    "ast_hash": "681ba53ffd7c9dcfc0b714f9de8aae1e",
+    "semantic_hash": "681ba53ffd7c9dcfc0b714f9de8aae1e"
+  },
+  "FitTracker.Api/Models/MealTemplate.cs": {
+    "mtime": 1784267079.3820024,
+    "seen": 1787727623.9722376,
+    "ast_hash": "e83227780a3bf20f68d48f5168446d0a",
+    "semantic_hash": "e83227780a3bf20f68d48f5168446d0a"
+  },
+  "FitTracker.Api/Models/MealTemplateItem.cs": {
+    "mtime": 1784267079.3820024,
+    "seen": 1787727623.9722388,
+    "ast_hash": "816a79337ed8d6632a23e9e7b6f63bb7",
+    "semantic_hash": "816a79337ed8d6632a23e9e7b6f63bb7"
+  },
+  "FitTracker.Api/Models/PasswordResetToken.cs": {
+    "mtime": 1784267079.3820024,
+    "seen": 1787727623.9722402,
+    "ast_hash": "156541a675aff285e05aef820ebbfa98",
+    "semantic_hash": "156541a675aff285e05aef820ebbfa98"
+  },
+  "FitTracker.Api/Models/RefreshToken.cs": {
+    "mtime": 1784267079.3820024,
+    "seen": 1787727623.9722412,
+    "ast_hash": "54055258516a9ab84aa8b89466e70509",
+    "semantic_hash": "54055258516a9ab84aa8b89466e70509"
+  },
+  "FitTracker.Api/Models/ScheduledWorkout.cs": {
+    "mtime": 1784267079.3820024,
+    "seen": 1787727623.972242,
+    "ast_hash": "be2ec40032b33120159480379c6df1ed",
+    "semantic_hash": "be2ec40032b33120159480379c6df1ed"
+  },
+  "FitTracker.Api/Models/ScheduledWorkoutExercise.cs": {
+    "mtime": 1784267079.3820024,
+    "seen": 1787727623.9722435,
+    "ast_hash": "c52d16d81a153c2399ceb5aa3e6e44b4",
+    "semantic_hash": "c52d16d81a153c2399ceb5aa3e6e44b4"
+  },
+  "FitTracker.Api/Models/TrainerClient.cs": {
+    "mtime": 1787313840.8341177,
+    "seen": 1787727623.9722445,
+    "ast_hash": "104f6caa7eb998f9ec62c9274ce1908b",
+    "semantic_hash": "104f6caa7eb998f9ec62c9274ce1908b"
+  },
+  "FitTracker.Api/Models/TrainerClientResults.cs": {
+    "mtime": 1787313840.8341177,
+    "seen": 1787727623.9722455,
+    "ast_hash": "8e5d77332802e5af1d3e716ed4d9ceac",
+    "semantic_hash": "8e5d77332802e5af1d3e716ed4d9ceac"
+  },
+  "FitTracker.Api/Models/TrainerLicence.cs": {
+    "mtime": 1787313840.835118,
+    "seen": 1787727623.972247,
+    "ast_hash": "0b7845320967d1e6cb0e3d8c2c5e9371",
+    "semantic_hash": "0b7845320967d1e6cb0e3d8c2c5e9371"
+  },
+  "FitTracker.Api/Models/User.cs": {
+    "mtime": 1784267079.3820024,
+    "seen": 1787727623.9722478,
+    "ast_hash": "37b5b4548ec23a565b2424e88247e3ca",
+    "semantic_hash": "37b5b4548ec23a565b2424e88247e3ca"
+  },
+  "FitTracker.Api/Models/UserSettings.cs": {
+    "mtime": 1784267079.3820024,
+    "seen": 1787727623.9722488,
+    "ast_hash": "697e9f2679e4929f76a8322f48c6700e",
+    "semantic_hash": "697e9f2679e4929f76a8322f48c6700e"
+  },
+  "FitTracker.Api/Models/WeigthTracking.cs": {
+    "mtime": 1784267079.3820024,
+    "seen": 1787727623.9722497,
+    "ast_hash": "ba21754d9f04d24c30bbddf7ee8e8497",
+    "semantic_hash": "ba21754d9f04d24c30bbddf7ee8e8497"
+  },
+  "FitTracker.Api/Models/Workout.cs": {
+    "mtime": 1784267079.3820024,
+    "seen": 1787727623.972251,
+    "ast_hash": "8442106203456d21a763fdb89942830e",
+    "semantic_hash": "8442106203456d21a763fdb89942830e"
+  },
+  "FitTracker.Api/Models/WorkoutDeleteResult.cs": {
+    "mtime": 1787647323.8075063,
+    "seen": 1787727623.972252,
+    "ast_hash": "4b4baa2552718fed3cd3e29554e0c973",
+    "semantic_hash": "4b4baa2552718fed3cd3e29554e0c973"
+  },
+  "FitTracker.Api/Models/WorkoutExercise.cs": {
+    "mtime": 1787571807.8545482,
+    "seen": 1787727623.972253,
+    "ast_hash": "3759e123a91ea8dc67e74c1904eb163d",
+    "semantic_hash": "3759e123a91ea8dc67e74c1904eb163d"
+  },
+  "FitTracker.Api/Models/WorkoutPlan.cs": {
+    "mtime": 1784267079.3820024,
+    "seen": 1787727623.9722543,
+    "ast_hash": "e563202c2ae92388c0f42fa200d5e6c1",
+    "semantic_hash": "e563202c2ae92388c0f42fa200d5e6c1"
+  },
+  "FitTracker.Api/Models/WorkoutPlanTemplate.cs": {
+    "mtime": 1784267079.3820024,
+    "seen": 1787727623.9722552,
+    "ast_hash": "b10f8e4bec304a28e6de23e1a1fa36f0",
+    "semantic_hash": "b10f8e4bec304a28e6de23e1a1fa36f0"
+  },
+  "FitTracker.Api/Models/WorkoutPlanWorkout.cs": {
+    "mtime": 1784267079.3820024,
+    "seen": 1787727623.9722562,
+    "ast_hash": "0fca09736bc9c9cddf62d9c41c66518e",
+    "semantic_hash": "0fca09736bc9c9cddf62d9c41c66518e"
+  },
+  "FitTracker.Api/Models/WorkoutSet.cs": {
+    "mtime": 1784267079.3820024,
+    "seen": 1787727623.9722576,
+    "ast_hash": "3f4f60ffb22bb15e9454b92238a1b017",
+    "semantic_hash": "3f4f60ffb22bb15e9454b92238a1b017"
+  },
+  "FitTracker.Api/Models/WorkoutSetTemplate.cs": {
+    "mtime": 1784267079.3820024,
+    "seen": 1787727623.9722586,
+    "ast_hash": "aceed4a20610c427b0d73f79ebf8dbbd",
+    "semantic_hash": "aceed4a20610c427b0d73f79ebf8dbbd"
+  },
+  "FitTracker.Api/Program.cs": {
+    "mtime": 1787725803.3369513,
+    "seen": 1787727623.9722595,
+    "ast_hash": "81778bd006ec84a9b84ae14ce2817133",
+    "semantic_hash": "81778bd006ec84a9b84ae14ce2817133"
+  },
+  "FitTracker.Api/Properties/launchSettings.json": {
+    "mtime": 1784267079.3820024,
+    "seen": 1787727623.9722607,
+    "ast_hash": "0c3d97ad34a1bbcb3583951246c1c9f1",
+    "semantic_hash": "0c3d97ad34a1bbcb3583951246c1c9f1"
+  },
+  "FitTracker.Api/Repositories/ChatRepository.cs": {
+    "mtime": 1787313840.835118,
+    "seen": 1787727623.972262,
+    "ast_hash": "7dcbf322e9379a3165a39174eac633ba",
+    "semantic_hash": "7dcbf322e9379a3165a39174eac633ba"
+  },
+  "FitTracker.Api/Repositories/DeviceTokenRepository.cs": {
+    "mtime": 1787725803.3382866,
+    "seen": 1787727623.9722629,
+    "ast_hash": "d95789d785d3a441586d12a679308018",
+    "semantic_hash": "d95789d785d3a441586d12a679308018"
+  },
+  "FitTracker.Api/Repositories/ExerciseRepository.cs": {
+    "mtime": 1787313840.8366106,
+    "seen": 1787727623.9722643,
+    "ast_hash": "7954bafb6aca796ff656c0c4dac65fec",
+    "semantic_hash": "7954bafb6aca796ff656c0c4dac65fec"
+  },
+  "FitTracker.Api/Repositories/FoodItemRepository.cs": {
+    "mtime": 1784267079.3889704,
+    "seen": 1787727623.972268,
+    "ast_hash": "40af9766b9896f7f2971569fcdcc08b0",
+    "semantic_hash": "40af9766b9896f7f2971569fcdcc08b0"
+  },
+  "FitTracker.Api/Repositories/Interfaces/IChatRepository.cs": {
+    "mtime": 1787313840.8366106,
+    "seen": 1787727623.9722693,
+    "ast_hash": "770fab9b45b6785f06c66b0744664021",
+    "semantic_hash": "770fab9b45b6785f06c66b0744664021"
+  },
+  "FitTracker.Api/Repositories/Interfaces/IDeviceTokenRepository.cs": {
+    "mtime": 1787725803.3382866,
+    "seen": 1787727623.9722703,
+    "ast_hash": "3f93aaaf5461abffdc8e85ffdc77d9c0",
+    "semantic_hash": "3f93aaaf5461abffdc8e85ffdc77d9c0"
+  },
+  "FitTracker.Api/Repositories/Interfaces/IExerciseRepository.cs": {
+    "mtime": 1787313840.837658,
+    "seen": 1787727623.9722717,
+    "ast_hash": "93055a6e4693fc3b84d80e681c09fff3",
+    "semantic_hash": "93055a6e4693fc3b84d80e681c09fff3"
+  },
+  "FitTracker.Api/Repositories/Interfaces/IFoodItemRepository.cs": {
+    "mtime": 1784267079.389542,
+    "seen": 1787727623.9722726,
+    "ast_hash": "cf5f0a891c183d3b8295cd1140b815cf",
+    "semantic_hash": "cf5f0a891c183d3b8295cd1140b815cf"
+  },
+  "FitTracker.Api/Repositories/Interfaces/IMealRepository.cs": {
+    "mtime": 1787571807.855862,
+    "seen": 1787727623.9722738,
+    "ast_hash": "aff8bb78ca5f33f909425ec1131aa034",
+    "semantic_hash": "aff8bb78ca5f33f909425ec1131aa034"
+  },
+  "FitTracker.Api/Repositories/Interfaces/IMealTemplateRepository.cs": {
+    "mtime": 1784267079.389542,
+    "seen": 1787727623.9722753,
+    "ast_hash": "a2d1e7184c185b665190fdd46abbc9fa",
+    "semantic_hash": "a2d1e7184c185b665190fdd46abbc9fa"
+  },
+  "FitTracker.Api/Repositories/Interfaces/IScheduledWorkoutRepository.cs": {
+    "mtime": 1784267079.389542,
+    "seen": 1787727623.9722762,
+    "ast_hash": "6328558737b91eaae0d12568d8c76771",
+    "semantic_hash": "6328558737b91eaae0d12568d8c76771"
+  },
+  "FitTracker.Api/Repositories/Interfaces/ITrainerClientRepository.cs": {
+    "mtime": 1787313840.837658,
+    "seen": 1787727623.9722772,
+    "ast_hash": "11399ae2adc74163694ce7850366477c",
+    "semantic_hash": "11399ae2adc74163694ce7850366477c"
+  },
+  "FitTracker.Api/Repositories/Interfaces/ITrainerLicenceRepository.cs": {
+    "mtime": 1787571807.8568733,
+    "seen": 1787727623.9722784,
+    "ast_hash": "6953fee07a6681d70dc309e1f586869e",
+    "semantic_hash": "6953fee07a6681d70dc309e1f586869e"
+  },
+  "FitTracker.Api/Repositories/Interfaces/IUserRepository.cs": {
+    "mtime": 1784267079.389542,
+    "seen": 1787727623.9722795,
+    "ast_hash": "656bf5cd6f9530824fb83f6786495d7d",
+    "semantic_hash": "656bf5cd6f9530824fb83f6786495d7d"
+  },
+  "FitTracker.Api/Repositories/Interfaces/IUserSettingsRepository.cs": {
+    "mtime": 1784267079.389542,
+    "seen": 1787727623.9722805,
+    "ast_hash": "78ab964ac153a9094620201fdbf2d310",
+    "semantic_hash": "78ab964ac153a9094620201fdbf2d310"
+  },
+  "FitTracker.Api/Repositories/Interfaces/IWeightTrackingRepository.cs": {
+    "mtime": 1787313840.8391533,
+    "seen": 1787727623.972282,
+    "ast_hash": "707e80866dc57ca862119d37b726659a",
+    "semantic_hash": "707e80866dc57ca862119d37b726659a"
+  },
+  "FitTracker.Api/Repositories/Interfaces/IWorkoutPlanRepository.cs": {
+    "mtime": 1784267079.389542,
+    "seen": 1787727623.972283,
+    "ast_hash": "2c6a6396b4edfe2482076753376142e3",
+    "semantic_hash": "2c6a6396b4edfe2482076753376142e3"
+  },
+  "FitTracker.Api/Repositories/Interfaces/IWorkoutPlanTemplateRepository.cs": {
+    "mtime": 1787313840.8391533,
+    "seen": 1787727623.972284,
+    "ast_hash": "7309d37805a8a430744136f4a3c944b6",
+    "semantic_hash": "7309d37805a8a430744136f4a3c944b6"
+  },
+  "FitTracker.Api/Repositories/Interfaces/IWorkoutRepository.cs": {
+    "mtime": 1787647323.8075063,
+    "seen": 1787727623.9722853,
+    "ast_hash": "9f7e029cd9f021e4ae188280e561aa39",
+    "semantic_hash": "9f7e029cd9f021e4ae188280e561aa39"
+  },
+  "FitTracker.Api/Repositories/MealCategory.cs": {
+    "mtime": 1787571807.8588707,
+    "seen": 1787727623.9722865,
+    "ast_hash": "2a8c937bd5783473c7010f464760f1c2",
+    "semantic_hash": "2a8c937bd5783473c7010f464760f1c2"
+  },
+  "FitTracker.Api/Repositories/MealDayWindow.cs": {
+    "mtime": 1787571807.8588707,
+    "seen": 1787727623.9722874,
+    "ast_hash": "c75f89f46893c89e00b53427ab6c7c41",
+    "semantic_hash": "c75f89f46893c89e00b53427ab6c7c41"
+  },
+  "FitTracker.Api/Repositories/MealRepository.cs": {
+    "mtime": 1787571807.8606026,
+    "seen": 1787727623.9722886,
+    "ast_hash": "5183adc2d848d71d21cfe1a19d00bc45",
+    "semantic_hash": "5183adc2d848d71d21cfe1a19d00bc45"
+  },
+  "FitTracker.Api/Repositories/MealTemplateRepository.cs": {
+    "mtime": 1784267079.389542,
+    "seen": 1787727623.9722912,
+    "ast_hash": "4f045ffaf8f246b81522d20b57559d8b",
+    "semantic_hash": "4f045ffaf8f246b81522d20b57559d8b"
+  },
+  "FitTracker.Api/Repositories/ScheduledWorkoutRepository.cs": {
+    "mtime": 1787571807.8619199,
+    "seen": 1787727623.9722927,
+    "ast_hash": "bafbc527e8948d1e008dbd2b831a7bb9",
+    "semantic_hash": "bafbc527e8948d1e008dbd2b831a7bb9"
+  },
+  "FitTracker.Api/Repositories/TrainerClientRepository.cs": {
+    "mtime": 1787313840.8403304,
+    "seen": 1787727623.9722939,
+    "ast_hash": "dcbfed62fd64077ba3903e242982b12d",
+    "semantic_hash": "dcbfed62fd64077ba3903e242982b12d"
+  },
+  "FitTracker.Api/Repositories/TrainerLicenceRepository.cs": {
+    "mtime": 1787571807.8629158,
+    "seen": 1787727623.9722948,
+    "ast_hash": "4466e280bc65238c24ef441b5e50b3e2",
+    "semantic_hash": "4466e280bc65238c24ef441b5e50b3e2"
+  },
+  "FitTracker.Api/Repositories/UserRepository.cs": {
+    "mtime": 1784267079.389542,
+    "seen": 1787727623.972296,
+    "ast_hash": "9068565d8ce01de625e9ccb8821db962",
+    "semantic_hash": "9068565d8ce01de625e9ccb8821db962"
+  },
+  "FitTracker.Api/Repositories/UserSettingsRepository.cs": {
+    "mtime": 1784267079.389542,
+    "seen": 1787727623.9722972,
+    "ast_hash": "f3a02f280d3f1c7dafba9885077f3a57",
+    "semantic_hash": "f3a02f280d3f1c7dafba9885077f3a57"
+  },
+  "FitTracker.Api/Repositories/WeightTrackingRepository.cs": {
+    "mtime": 1787313840.8403304,
+    "seen": 1787727623.972298,
+    "ast_hash": "8e71601a7fa8bfa14f2c0c898f7cd429",
+    "semantic_hash": "8e71601a7fa8bfa14f2c0c898f7cd429"
+  },
+  "FitTracker.Api/Repositories/WorkoutPlanRepository.cs": {
+    "mtime": 1784267079.389542,
+    "seen": 1787727623.9722993,
+    "ast_hash": "8c4ab8d8f6f3dd131fe0c1478df412e9",
+    "semantic_hash": "8c4ab8d8f6f3dd131fe0c1478df412e9"
+  },
+  "FitTracker.Api/Repositories/WorkoutPlanTemplateRepository.cs": {
+    "mtime": 1787313840.8403304,
+    "seen": 1787727623.9723003,
+    "ast_hash": "7f1eb543a5fb5f2c02e170e7557b027a",
+    "semantic_hash": "7f1eb543a5fb5f2c02e170e7557b027a"
+  },
+  "FitTracker.Api/Repositories/WorkoutRepository.cs": {
+    "mtime": 1787647323.8075063,
+    "seen": 1787727623.9723015,
+    "ast_hash": "0542561a7a3f81d1c5a5ba044252d3fb",
+    "semantic_hash": "0542561a7a3f81d1c5a5ba044252d3fb"
+  },
+  "FitTracker.Api/Services/AuthService.cs": {
+    "mtime": 1787571807.864397,
+    "seen": 1787727623.972303,
+    "ast_hash": "04bdace4753a8f1dfc73d412aa5d959b",
+    "semantic_hash": "04bdace4753a8f1dfc73d412aa5d959b"
+  },
+  "FitTracker.Api/Services/ChatPushDispatcher.cs": {
+    "mtime": 1787725803.3382866,
+    "seen": 1787727623.972304,
+    "ast_hash": "53545d5a83704a45d80d79fa22fcab0b",
+    "semantic_hash": "53545d5a83704a45d80d79fa22fcab0b"
+  },
+  "FitTracker.Api/Services/ChatService.cs": {
+    "mtime": 1787313840.8418338,
+    "seen": 1787727623.9723053,
+    "ast_hash": "c19b354ae6c97b4175fa36bec8f718cf",
+    "semantic_hash": "c19b354ae6c97b4175fa36bec8f718cf"
+  },
+  "FitTracker.Api/Services/ConsoleEmailService.cs": {
+    "mtime": 1784267079.389542,
+    "seen": 1787727623.9723063,
+    "ast_hash": "6350d1b27696c1c0af81b43c468240cb",
+    "semantic_hash": "6350d1b27696c1c0af81b43c468240cb"
+  },
+  "FitTracker.Api/Services/DisabledPushSender.cs": {
+    "mtime": 1787725803.3396382,
+    "seen": 1787727623.9723074,
+    "ast_hash": "bb7f004645682e42ad37a14092968ad4",
+    "semantic_hash": "bb7f004645682e42ad37a14092968ad4"
+  },
+  "FitTracker.Api/Services/ExerciseService.cs": {
+    "mtime": 1787313840.8430104,
+    "seen": 1787727623.9723084,
+    "ast_hash": "598721009a731c0c5684ffb1f4360076",
+    "semantic_hash": "598721009a731c0c5684ffb1f4360076"
+  },
+  "FitTracker.Api/Services/FirebasePushSender.cs": {
+    "mtime": 1787725803.3396382,
+    "seen": 1787727623.9723096,
+    "ast_hash": "6cf8fd2a4786ade2787c5a90690987b9",
+    "semantic_hash": "6cf8fd2a4786ade2787c5a90690987b9"
+  },
+  "FitTracker.Api/Services/FoodItemService.cs": {
+    "mtime": 1784267079.389542,
+    "seen": 1787727623.9723105,
+    "ast_hash": "7eb5d9b24f091e49b1844e94e2f3e453",
+    "semantic_hash": "7eb5d9b24f091e49b1844e94e2f3e453"
+  },
+  "FitTracker.Api/Services/GmailApiEmailService.cs": {
+    "mtime": 1784267079.389542,
+    "seen": 1787727623.9723117,
+    "ast_hash": "6ccf6d673a3b9261266b91d4b46f6f20",
+    "semantic_hash": "6ccf6d673a3b9261266b91d4b46f6f20"
+  },
+  "FitTracker.Api/Services/Interfaces/IAuthService.cs": {
+    "mtime": 1787571807.8654544,
+    "seen": 1787727623.972313,
+    "ast_hash": "854e68cfd177c9cdad3ce75522713ef2",
+    "semantic_hash": "854e68cfd177c9cdad3ce75522713ef2"
+  },
+  "FitTracker.Api/Services/Interfaces/IChatPushDispatcher.cs": {
+    "mtime": 1787725803.3408806,
+    "seen": 1787727623.9723153,
+    "ast_hash": "f83deb4abe5b160fee537889e95225b4",
+    "semantic_hash": "f83deb4abe5b160fee537889e95225b4"
+  },
+  "FitTracker.Api/Services/Interfaces/IChatService.cs": {
+    "mtime": 1787313840.8430104,
+    "seen": 1787727623.9723167,
+    "ast_hash": "81007e704f250e40a223a86368c42c96",
+    "semantic_hash": "81007e704f250e40a223a86368c42c96"
+  },
+  "FitTracker.Api/Services/Interfaces/IEmailService.cs": {
+    "mtime": 1784267079.389542,
+    "seen": 1787727623.972318,
+    "ast_hash": "ac021cee7b00fca6ce1b235d5f506042",
+    "semantic_hash": "ac021cee7b00fca6ce1b235d5f506042"
+  },
+  "FitTracker.Api/Services/Interfaces/IExerciseService.cs": {
+    "mtime": 1787313840.8442185,
+    "seen": 1787727623.9723196,
+    "ast_hash": "56d07f9ede937fff161294d1446157c9",
+    "semantic_hash": "56d07f9ede937fff161294d1446157c9"
+  },
+  "FitTracker.Api/Services/Interfaces/IFoodItemService.cs": {
+    "mtime": 1784267079.389542,
+    "seen": 1787727623.9723206,
+    "ast_hash": "14864d93e77a139c5b1f146f140f09fb",
+    "semantic_hash": "14864d93e77a139c5b1f146f140f09fb"
+  },
+  "FitTracker.Api/Services/Interfaces/IMealService.cs": {
+    "mtime": 1787571807.8669567,
+    "seen": 1787727623.9723215,
+    "ast_hash": "6b072eea19abe7c6cef6db52af38349c",
+    "semantic_hash": "6b072eea19abe7c6cef6db52af38349c"
+  },
+  "FitTracker.Api/Services/Interfaces/IMealTemplateService.cs": {
+    "mtime": 1784267079.3956895,
+    "seen": 1787727623.9723227,
+    "ast_hash": "55bf84553ef8b14c3fc590cd62cbcb84",
+    "semantic_hash": "55bf84553ef8b14c3fc590cd62cbcb84"
+  },
+  "FitTracker.Api/Services/Interfaces/IPushNotificationService.cs": {
+    "mtime": 1787725803.3408806,
+    "seen": 1787727623.9723241,
+    "ast_hash": "51063c9de41a66388599121d150a7d35",
+    "semantic_hash": "51063c9de41a66388599121d150a7d35"
+  },
+  "FitTracker.Api/Services/Interfaces/IPushSender.cs": {
+    "mtime": 1787725803.3418887,
+    "seen": 1787727623.972325,
+    "ast_hash": "2c1c866bc57a8e60dd866e030d134faa",
+    "semantic_hash": "2c1c866bc57a8e60dd866e030d134faa"
+  },
+  "FitTracker.Api/Services/Interfaces/IScheduledWorkoutService.cs": {
+    "mtime": 1784267079.3956895,
+    "seen": 1787727623.9723265,
+    "ast_hash": "56ef8bc75b4f7c43e9b7b73cc16edce4",
+    "semantic_hash": "56ef8bc75b4f7c43e9b7b73cc16edce4"
+  },
+  "FitTracker.Api/Services/Interfaces/ITrainerClientService.cs": {
+    "mtime": 1787313840.8442185,
+    "seen": 1787727623.9723275,
+    "ast_hash": "552747293977e139cfecd5eb2869bb9e",
+    "semantic_hash": "552747293977e139cfecd5eb2869bb9e"
+  },
+  "FitTracker.Api/Services/Interfaces/ITrainerConsoleService.cs": {
+    "mtime": 1787313840.8452287,
+    "seen": 1787727623.9723287,
+    "ast_hash": "81c13973ce9f1910abc8b7a8341a8242",
+    "semantic_hash": "81c13973ce9f1910abc8b7a8341a8242"
+  },
+  "FitTracker.Api/Services/Interfaces/ITrainerLicenceService.cs": {
+    "mtime": 1787571807.867963,
+    "seen": 1787727623.9723296,
+    "ast_hash": "0b44b433f28c6a105c7aafbe13a0e010",
+    "semantic_hash": "0b44b433f28c6a105c7aafbe13a0e010"
+  },
+  "FitTracker.Api/Services/Interfaces/IUserSettingsService.cs": {
+    "mtime": 1784267079.3956895,
+    "seen": 1787727623.972331,
+    "ast_hash": "d06b94ebe7ce2fa8f8dfb74febd1c1bc",
+    "semantic_hash": "d06b94ebe7ce2fa8f8dfb74febd1c1bc"
+  },
+  "FitTracker.Api/Services/Interfaces/IWeightTrackingService.cs": {
+    "mtime": 1787313840.8452287,
+    "seen": 1787727623.9723322,
+    "ast_hash": "049ece2b8d6b942f0f5b593210530678",
+    "semantic_hash": "049ece2b8d6b942f0f5b593210530678"
+  },
+  "FitTracker.Api/Services/Interfaces/IWorkoutPlanService.cs": {
+    "mtime": 1784267079.3956895,
+    "seen": 1787727623.9723337,
+    "ast_hash": "7b9154bc696ce7a6e979ed244ff39933",
+    "semantic_hash": "7b9154bc696ce7a6e979ed244ff39933"
+  },
+  "FitTracker.Api/Services/Interfaces/IWorkoutPlanTemplateService.cs": {
+    "mtime": 1784267079.3956895,
+    "seen": 1787727623.9723346,
+    "ast_hash": "80e9a0904220f8c18a28f685414bab1d",
+    "semantic_hash": "80e9a0904220f8c18a28f685414bab1d"
+  },
+  "FitTracker.Api/Services/Interfaces/IWorkoutService.cs": {
+    "mtime": 1787647323.8075063,
+    "seen": 1787727623.9723358,
+    "ast_hash": "dc5d10d27ecb40ec05f1d7768d92eecd",
+    "semantic_hash": "dc5d10d27ecb40ec05f1d7768d92eecd"
+  },
+  "FitTracker.Api/Services/LicencePlanCatalog.cs": {
+    "mtime": 1787313840.8452287,
+    "seen": 1787727623.9723372,
+    "ast_hash": "760f8cb7fcdf4683fa00cc9a7c527afd",
+    "semantic_hash": "760f8cb7fcdf4683fa00cc9a7c527afd"
+  },
+  "FitTracker.Api/Services/MealService.cs": {
+    "mtime": 1787571807.8691225,
+    "seen": 1787727623.9723382,
+    "ast_hash": "204a498d46f7d1d191027608e343de76",
+    "semantic_hash": "204a498d46f7d1d191027608e343de76"
+  },
+  "FitTracker.Api/Services/MealTemplateService.cs": {
+    "mtime": 1784267079.3956895,
+    "seen": 1787727623.9723396,
+    "ast_hash": "92f417fc4f6f975c8d76a87982f75e6e",
+    "semantic_hash": "92f417fc4f6f975c8d76a87982f75e6e"
+  },
+  "FitTracker.Api/Services/PushNotificationService.cs": {
+    "mtime": 1787725803.3418887,
+    "seen": 1787727623.9723408,
+    "ast_hash": "07e7438585462bb215d8acfb0b39273c",
+    "semantic_hash": "07e7438585462bb215d8acfb0b39273c"
+  },
+  "FitTracker.Api/Services/ScheduledWorkoutService.cs": {
+    "mtime": 1784267079.3956895,
+    "seen": 1787727623.972342,
+    "ast_hash": "6e95263c392cbf5c33bfa727f47a5948",
+    "semantic_hash": "6e95263c392cbf5c33bfa727f47a5948"
+  },
+  "FitTracker.Api/Services/SmtpEmailService.cs": {
+    "mtime": 1787313840.8466792,
+    "seen": 1787727623.972343,
+    "ast_hash": "3b6d0438325739db52b96f57a8eeddfc",
+    "semantic_hash": "3b6d0438325739db52b96f57a8eeddfc"
+  },
+  "FitTracker.Api/Services/SubscriptionSnapshot.cs": {
+    "mtime": 1787313840.8466792,
+    "seen": 1787727623.9723442,
+    "ast_hash": "86e9ded420a0f69e03368f925f333c1a",
+    "semantic_hash": "86e9ded420a0f69e03368f925f333c1a"
+  },
+  "FitTracker.Api/Services/TrainerClientService.cs": {
+    "mtime": 1787313840.8466792,
+    "seen": 1787727623.972345,
+    "ast_hash": "7226a8d8bb0b5f7f082e42e9ceba7242",
+    "semantic_hash": "7226a8d8bb0b5f7f082e42e9ceba7242"
+  },
+  "FitTracker.Api/Services/TrainerConsoleService.cs": {
+    "mtime": 1787571807.8703737,
+    "seen": 1787727623.9723463,
+    "ast_hash": "d0fa4913976a7fe3ead8ade1553b26fe",
+    "semantic_hash": "d0fa4913976a7fe3ead8ade1553b26fe"
+  },
+  "FitTracker.Api/Services/TrainerLicenceService.cs": {
+    "mtime": 1787571807.8703737,
+    "seen": 1787727623.9723475,
+    "ast_hash": "06d6060a4fa6dc16755838bbd56b47c8",
+    "semantic_hash": "06d6060a4fa6dc16755838bbd56b47c8"
+  },
+  "FitTracker.Api/Services/UserSettingsService.cs": {
+    "mtime": 1784267079.3956895,
+    "seen": 1787727623.9723485,
+    "ast_hash": "ef5c5ce1b596b1e853f7aba5cd920829",
+    "semantic_hash": "ef5c5ce1b596b1e853f7aba5cd920829"
+  },
+  "FitTracker.Api/Services/WeightTrackingService.cs": {
+    "mtime": 1787313840.848147,
+    "seen": 1787727623.9723496,
+    "ast_hash": "22c25deaefb632b05a42cef538501c2a",
+    "semantic_hash": "22c25deaefb632b05a42cef538501c2a"
+  },
+  "FitTracker.Api/Services/WorkoutPlanService.cs": {
+    "mtime": 1784267079.3956895,
+    "seen": 1787727623.972351,
+    "ast_hash": "f12cf247ce03439886b94ca59eaae616",
+    "semantic_hash": "f12cf247ce03439886b94ca59eaae616"
+  },
+  "FitTracker.Api/Services/WorkoutPlanTemplateService.cs": {
+    "mtime": 1787313840.8496468,
+    "seen": 1787727623.9723523,
+    "ast_hash": "a740cf1cd953e80e112695aff64e9ad6",
+    "semantic_hash": "a740cf1cd953e80e112695aff64e9ad6"
+  },
+  "FitTracker.Api/Services/WorkoutService.cs": {
+    "mtime": 1787647323.8075063,
+    "seen": 1787727623.9723535,
+    "ast_hash": "a72ceb76260cf7f8f3fce5663516550c",
+    "semantic_hash": "a72ceb76260cf7f8f3fce5663516550c"
+  },
+  "FitTracker.Api/appsettings.json": {
+    "mtime": 1784267079.3956895,
+    "seen": 1787727623.972355,
+    "ast_hash": "0da376d4e133e429a6f4560ef566ea71",
+    "semantic_hash": "0da376d4e133e429a6f4560ef566ea71"
+  },
+  "FitTracker.Api/obj/Debug/net8.0/.NETCoreApp,Version=v8.0.AssemblyAttributes.cs": {
+    "mtime": 1787306326.8285632,
+    "seen": 1787727623.9723558,
+    "ast_hash": "9b225453b5a8008eefb62f6c5c66ce15",
+    "semantic_hash": "9b225453b5a8008eefb62f6c5c66ce15"
+  },
+  "FitTracker.Api/obj/Debug/net8.0/FitTracker.Api.GlobalUsings.g.cs": {
+    "mtime": 1787726528.4163177,
+    "seen": 1787727623.972357,
+    "ast_hash": "27a3303725b3d7fb45be5fb2a2844928",
+    "semantic_hash": "27a3303725b3d7fb45be5fb2a2844928"
+  },
+  "FitTracker.Api/obj/FitTracker.Api.csproj.nuget.dgspec.json": {
+    "mtime": 1787725832.7357774,
+    "seen": 1787727623.9723582,
+    "ast_hash": "a45909e2051a3eb15a24e6fe2b65d9b6",
+    "semantic_hash": "a45909e2051a3eb15a24e6fe2b65d9b6"
+  },
+  "FitTracker.Api/obj/project.assets.json": {
+    "mtime": 1787725832.737668,
+    "seen": 1787727623.9723592,
+    "ast_hash": "074db38b27d21ee62c2509bd3fd0f32e",
+    "semantic_hash": "074db38b27d21ee62c2509bd3fd0f32e"
+  },
+  "FitTracker.sln": {
+    "mtime": 1787313840.853896,
+    "seen": 1787727623.9723604,
+    "ast_hash": "c5db49c500449d2d1190a8e04e879c33",
+    "semantic_hash": "c5db49c500449d2d1190a8e04e879c33"
+  },
+  "fittnes_tracker/.devcontainer/devcontainer.json": {
+    "mtime": 1784267079.4047043,
+    "seen": 1787727623.9723616,
+    "ast_hash": "a4ac89cb17348b977906c472c6a1f58d",
+    "semantic_hash": "a4ac89cb17348b977906c472c6a1f58d"
+  },
+  "fittnes_tracker/android/app/build.gradle.kts": {
+    "mtime": 1787725803.3509192,
+    "seen": 1787727623.972363,
+    "ast_hash": "dc7cea82e3970ec0139e82e698a97a9c",
+    "semantic_hash": "dc7cea82e3970ec0139e82e698a97a9c"
+  },
+  "fittnes_tracker/android/app/google-services.json": {
+    "mtime": 1787638899.561784,
+    "seen": 1787727623.972364,
+    "ast_hash": "b61d7118cd5f61c66e7cca8a452b716a",
+    "semantic_hash": "b61d7118cd5f61c66e7cca8a452b716a"
+  },
+  "fittnes_tracker/android/app/src/main/kotlin/com/forgeform/app/MainActivity.kt": {
+    "mtime": 1784267079.406221,
+    "seen": 1787727623.9723654,
+    "ast_hash": "8d72063a379a111767230a76eb08dc0b",
+    "semantic_hash": "8d72063a379a111767230a76eb08dc0b"
+  },
+  "fittnes_tracker/android/build.gradle.kts": {
+    "mtime": 1784267079.4269998,
+    "seen": 1787727623.9723663,
+    "ast_hash": "0be80ea97a9d674e007d056c9b84ed4c",
+    "semantic_hash": "0be80ea97a9d674e007d056c9b84ed4c"
+  },
+  "fittnes_tracker/android/settings.gradle.kts": {
+    "mtime": 1787725803.3522005,
+    "seen": 1787727623.9723675,
+    "ast_hash": "a3ca1ab631b77c946b2a30289c49b490",
+    "semantic_hash": "a3ca1ab631b77c946b2a30289c49b490"
+  },
+  "fittnes_tracker/assets/data/bls_components.json": {
+    "mtime": 1787313840.8593552,
+    "seen": 1787727623.9723687,
+    "ast_hash": "1cae56fe8c536f004fee85089199d5fc",
+    "semantic_hash": "1cae56fe8c536f004fee85089199d5fc"
+  },
+  "fittnes_tracker/assets/data/bls_nutrients.json": {
+    "mtime": 1787313840.8765705,
+    "seen": 1787727623.97237,
+    "ast_hash": "96c1eb44f809c1f1a9776a2d49400259",
+    "semantic_hash": "96c1eb44f809c1f1a9776a2d49400259"
+  },
+  "fittnes_tracker/assets/data/verified_foods_de.json": {
+    "mtime": 1787313840.880969,
+    "seen": 1787727623.9723713,
+    "ast_hash": "3db1e4a0ce1519728227ca662662ee52",
+    "semantic_hash": "3db1e4a0ce1519728227ca662662ee52"
+  },
+  "fittnes_tracker/ios/RunnerTests/RunnerTests.swift": {
+    "mtime": 1784267079.4683273,
+    "seen": 1787727623.9723725,
+    "ast_hash": "24e5d095048eb86c30423f4e04b6e57b",
+    "semantic_hash": "24e5d095048eb86c30423f4e04b6e57b"
+  },
+  "fittnes_tracker/ios/Runner/AppDelegate.swift": {
+    "mtime": 1784267079.4584758,
+    "seen": 1787727623.9723735,
+    "ast_hash": "e277c49e98c9f80e9e71c0524a5cb60f",
+    "semantic_hash": "e277c49e98c9f80e9e71c0524a5cb60f"
+  },
+  "fittnes_tracker/ios/Runner/Runner-Bridging-Header.h": {
+    "mtime": 1784267079.4683273,
+    "seen": 1787727623.9723747,
+    "ast_hash": "7ad7b5cea096132de13ba526b2b9efbe",
+    "semantic_hash": "7ad7b5cea096132de13ba526b2b9efbe"
+  },
+  "fittnes_tracker/lib/core/app_database.dart": {
+    "mtime": 1787647323.8136623,
+    "seen": 1787727623.972376,
+    "ast_hash": "982279fd3f5e228ad9dc1ecee12b7591",
+    "semantic_hash": "982279fd3f5e228ad9dc1ecee12b7591"
+  },
+  "fittnes_tracker/lib/core/app_database.g.dart": {
+    "mtime": 1787313840.8849664,
+    "seen": 1787727623.972377,
+    "ast_hash": "9292d8516e7f107f84210c514413e374",
+    "semantic_hash": "9292d8516e7f107f84210c514413e374"
+  },
+  "fittnes_tracker/lib/core/app_database_connection.dart": {
+    "mtime": 1784267079.4710274,
+    "seen": 1787727623.9723783,
+    "ast_hash": "1b851692e17ee091432faca0b0abb99d",
+    "semantic_hash": "1b851692e17ee091432faca0b0abb99d"
+  },
+  "fittnes_tracker/lib/core/app_database_connection_native.dart": {
+    "mtime": 1784267079.4710274,
+    "seen": 1787727623.9723794,
+    "ast_hash": "b31e46ce93eab48fd87f94d8fdc890e4",
+    "semantic_hash": "b31e46ce93eab48fd87f94d8fdc890e4"
+  },
+  "fittnes_tracker/lib/core/app_database_connection_web.dart": {
+    "mtime": 1784267079.4710274,
+    "seen": 1787727623.9723806,
+    "ast_hash": "61295d990be65b8b7c91f954b14214fe",
+    "semantic_hash": "61295d990be65b8b7c91f954b14214fe"
+  },
+  "fittnes_tracker/lib/core/dao/meal_template_dao.dart": {
+    "mtime": 1787313840.8849664,
+    "seen": 1787727623.9723823,
+    "ast_hash": "304fc998a0a78dc45078062c382cda5f",
+    "semantic_hash": "304fc998a0a78dc45078062c382cda5f"
+  },
+  "fittnes_tracker/lib/core/data_export/data_exporter.dart": {
+    "mtime": 1787313840.8864155,
+    "seen": 1787727623.9723833,
+    "ast_hash": "f7faf734a9a08ae573d2a34c2f6dbaf5",
+    "semantic_hash": "f7faf734a9a08ae573d2a34c2f6dbaf5"
+  },
+  "fittnes_tracker/lib/core/database/daos/chatOutbox_dao.dart": {
+    "mtime": 1787313840.8864155,
+    "seen": 1787727623.9723845,
+    "ast_hash": "bab5af96a0ae5ad11320650db5008a6f",
+    "semantic_hash": "bab5af96a0ae5ad11320650db5008a6f"
+  },
+  "fittnes_tracker/lib/core/database/daos/chatOutbox_dao.g.dart": {
+    "mtime": 1787313840.8878336,
+    "seen": 1787727623.9723856,
+    "ast_hash": "1991323a19bd1ba2f7682cd6b02a07bd",
+    "semantic_hash": "1991323a19bd1ba2f7682cd6b02a07bd"
+  },
+  "fittnes_tracker/lib/core/database/daos/exercise_dao.dart": {
+    "mtime": 1787313840.8878336,
+    "seen": 1787727623.9723866,
+    "ast_hash": "47f287e7fd8a88233d6de90029c7013f",
+    "semantic_hash": "47f287e7fd8a88233d6de90029c7013f"
+  },
+  "fittnes_tracker/lib/core/database/daos/exercise_dao.g.dart": {
+    "mtime": 1787313840.8878336,
+    "seen": 1787727623.9723876,
+    "ast_hash": "5a0f7868f74d64c2463f87cc896fbe60",
+    "semantic_hash": "5a0f7868f74d64c2463f87cc896fbe60"
+  },
+  "fittnes_tracker/lib/core/database/daos/food_item_dao.dart": {
+    "mtime": 1787313840.8892531,
+    "seen": 1787727623.972389,
+    "ast_hash": "053954f2030264fdfbd6e715cbb38dbd",
+    "semantic_hash": "053954f2030264fdfbd6e715cbb38dbd"
+  },
+  "fittnes_tracker/lib/core/database/daos/food_item_dao.g.dart": {
+    "mtime": 1787313840.8892531,
+    "seen": 1787727623.9723902,
+    "ast_hash": "4988c34910b902de51485e513cbaea11",
+    "semantic_hash": "4988c34910b902de51485e513cbaea11"
+  },
+  "fittnes_tracker/lib/core/database/daos/meal_dao.dart": {
+    "mtime": 1787313840.8892531,
+    "seen": 1787727623.9723911,
+    "ast_hash": "4d24a4d27df4ad3f646a81c03f0afb2f",
+    "semantic_hash": "4d24a4d27df4ad3f646a81c03f0afb2f"
+  },
+  "fittnes_tracker/lib/core/database/daos/meal_dao.g.dart": {
+    "mtime": 1787313840.8904085,
+    "seen": 1787727623.9723926,
+    "ast_hash": "0b7ce6e3f2efc689daf6c2768d68f3ba",
+    "semantic_hash": "0b7ce6e3f2efc689daf6c2768d68f3ba"
+  },
+  "fittnes_tracker/lib/core/database/daos/scheduled_workout_dao.dart": {
+    "mtime": 1787571807.8881967,
+    "seen": 1787727623.9723935,
+    "ast_hash": "fe6445de3309c87dbeca27cb3cfe48d3",
+    "semantic_hash": "fe6445de3309c87dbeca27cb3cfe48d3"
+  },
+  "fittnes_tracker/lib/core/database/daos/scheduled_workout_dao.g.dart": {
+    "mtime": 1787313840.8904085,
+    "seen": 1787727623.972395,
+    "ast_hash": "b5c8192cb2e624580f916a175214f4e1",
+    "semantic_hash": "b5c8192cb2e624580f916a175214f4e1"
+  },
+  "fittnes_tracker/lib/core/database/daos/scheduled_workout_exercise_dao.dart": {
+    "mtime": 1787313840.8904085,
+    "seen": 1787727623.9723961,
+    "ast_hash": "4572c1d60f7ace02cbca9f23620407ba",
+    "semantic_hash": "4572c1d60f7ace02cbca9f23620407ba"
+  },
+  "fittnes_tracker/lib/core/database/daos/scheduled_workout_exercise_dao.g.dart": {
+    "mtime": 1787313840.8918748,
+    "seen": 1787727623.972397,
+    "ast_hash": "9ae06da5c1f4ffcf01e538de8e4c7bdc",
+    "semantic_hash": "9ae06da5c1f4ffcf01e538de8e4c7bdc"
+  },
+  "fittnes_tracker/lib/core/database/daos/search_cache_dao.dart": {
+    "mtime": 1787313840.8918748,
+    "seen": 1787727623.972398,
+    "ast_hash": "b67b5f959880ecdbf439918499bc7ffa",
+    "semantic_hash": "b67b5f959880ecdbf439918499bc7ffa"
+  },
+  "fittnes_tracker/lib/core/database/daos/search_cache_dao.g.dart": {
+    "mtime": 1787313840.8918748,
+    "seen": 1787727623.9723997,
+    "ast_hash": "415a0ea7715858470cfcfbbd369d2b5f",
+    "semantic_hash": "415a0ea7715858470cfcfbbd369d2b5f"
+  },
+  "fittnes_tracker/lib/core/database/daos/user_settings_dao.dart": {
+    "mtime": 1787313840.8918748,
+    "seen": 1787727623.9724007,
+    "ast_hash": "1b58b3939d2c6114e36ee9098d445221",
+    "semantic_hash": "1b58b3939d2c6114e36ee9098d445221"
+  },
+  "fittnes_tracker/lib/core/database/daos/user_settings_dao.g.dart": {
+    "mtime": 1787313840.8918748,
+    "seen": 1787727623.9724016,
+    "ast_hash": "113fa3eb773e79cda87d235a71f5e055",
+    "semantic_hash": "113fa3eb773e79cda87d235a71f5e055"
+  },
+  "fittnes_tracker/lib/core/database/daos/weight_record_dao.dart": {
+    "mtime": 1787313840.8933785,
+    "seen": 1787727623.972403,
+    "ast_hash": "e4535094e14537401be1faf5f0365565",
+    "semantic_hash": "e4535094e14537401be1faf5f0365565"
+  },
+  "fittnes_tracker/lib/core/database/daos/weight_record_dao.g.dart": {
+    "mtime": 1787313840.8933785,
+    "seen": 1787727623.972404,
+    "ast_hash": "613091ead741d07a4f4d011e134739d0",
+    "semantic_hash": "613091ead741d07a4f4d011e134739d0"
+  },
+  "fittnes_tracker/lib/core/database/daos/workout_dao.dart": {
+    "mtime": 1787647323.815997,
+    "seen": 1787727623.972405,
+    "ast_hash": "aac5689e2143294ce164938b60ca44c5",
+    "semantic_hash": "aac5689e2143294ce164938b60ca44c5"
+  },
+  "fittnes_tracker/lib/core/database/daos/workout_dao.g.dart": {
+    "mtime": 1787313840.8945982,
+    "seen": 1787727623.9724064,
+    "ast_hash": "158787a59f2f556daa0c0c44da0d9627",
+    "semantic_hash": "158787a59f2f556daa0c0c44da0d9627"
+  },
+  "fittnes_tracker/lib/core/database/daos/workout_plan_dao.dart": {
+    "mtime": 1787313840.8945982,
+    "seen": 1787727623.9724073,
+    "ast_hash": "fcbadd2dae92a615da0fc77f2d295838",
+    "semantic_hash": "fcbadd2dae92a615da0fc77f2d295838"
+  },
+  "fittnes_tracker/lib/core/database/daos/workout_plan_dao.g.dart": {
+    "mtime": 1787313840.8945982,
+    "seen": 1787727623.9724083,
+    "ast_hash": "ff6c6e2a90e64a0f48f4c5af945e9cd7",
+    "semantic_hash": "ff6c6e2a90e64a0f48f4c5af945e9cd7"
+  },
+  "fittnes_tracker/lib/core/database/daos/workout_set_template_dao.dart": {
+    "mtime": 1787313840.8945982,
+    "seen": 1787727623.9724095,
+    "ast_hash": "8b9262db483f8265edb505b79f8062db",
+    "semantic_hash": "8b9262db483f8265edb505b79f8062db"
+  },
+  "fittnes_tracker/lib/core/database/daos/workout_set_template_dao.g.dart": {
+    "mtime": 1787313840.8960888,
+    "seen": 1787727623.972411,
+    "ast_hash": "997766a4aa881e3e16ca757bb3c7d9a2",
+    "semantic_hash": "997766a4aa881e3e16ca757bb3c7d9a2"
+  },
+  "fittnes_tracker/lib/core/database/tables/chatOutbox_table.dart": {
+    "mtime": 1787313840.8960888,
+    "seen": 1787727623.9724123,
+    "ast_hash": "888282a3b58b464497cd035ca971e711",
+    "semantic_hash": "888282a3b58b464497cd035ca971e711"
+  },
+  "fittnes_tracker/lib/core/database/tables/food_tables.dart": {
+    "mtime": 1787313840.8960888,
+    "seen": 1787727623.9724138,
+    "ast_hash": "8cc56cb7a6f301f3ab5cfa1cb851d62a",
+    "semantic_hash": "8cc56cb7a6f301f3ab5cfa1cb851d62a"
+  },
+  "fittnes_tracker/lib/core/database/tables/weight_tables.dart": {
+    "mtime": 1787313840.8974528,
+    "seen": 1787727623.972415,
+    "ast_hash": "74595b62226dc54ea92211dbdeadb4ed",
+    "semantic_hash": "74595b62226dc54ea92211dbdeadb4ed"
+  },
+  "fittnes_tracker/lib/core/database/tables/workout_tables.dart": {
+    "mtime": 1787313840.898548,
+    "seen": 1787727623.972416,
+    "ast_hash": "18fc5d710a9900efeebd8f2046b12077",
+    "semantic_hash": "18fc5d710a9900efeebd8f2046b12077"
+  },
+  "fittnes_tracker/lib/core/design_tokens.dart": {
+    "mtime": 1787313840.898548,
+    "seen": 1787727623.9724174,
+    "ast_hash": "3950ac530f0d7ce949966c3fdbb5fbc0",
+    "semantic_hash": "3950ac530f0d7ce949966c3fdbb5fbc0"
+  },
+  "fittnes_tracker/lib/core/di/service_locator.dart": {
+    "mtime": 1787725803.3532069,
+    "seen": 1787727623.9724183,
+    "ast_hash": "c59c087154b8e80f382e27c267366116",
+    "semantic_hash": "c59c087154b8e80f382e27c267366116"
+  },
+  "fittnes_tracker/lib/core/errors/failure.dart": {
+    "mtime": 1784267079.4710274,
+    "seen": 1787727623.9724195,
+    "ast_hash": "f3e2ed5a5760e534572fef7479208981",
+    "semantic_hash": "f3e2ed5a5760e534572fef7479208981"
+  },
+  "fittnes_tracker/lib/core/network/api_client.dart": {
+    "mtime": 1787313840.8999908,
+    "seen": 1787727623.972422,
+    "ast_hash": "08a26aedeec8e9c31062c9802f4fe54e",
+    "semantic_hash": "08a26aedeec8e9c31062c9802f4fe54e"
+  },
+  "fittnes_tracker/lib/core/network/base_api_service.dart": {
+    "mtime": 1784267079.4710274,
+    "seen": 1787727623.9724233,
+    "ast_hash": "76deedd0c4a6874cd960c563acbc5617",
+    "semantic_hash": "76deedd0c4a6874cd960c563acbc5617"
+  },
+  "fittnes_tracker/lib/core/network/secure_token_storage.dart": {
+    "mtime": 1784267079.4710274,
+    "seen": 1787727623.9724245,
+    "ast_hash": "f7fe299bc2662f4ae369dfc6b9be60aa",
+    "semantic_hash": "f7fe299bc2662f4ae369dfc6b9be60aa"
+  },
+  "fittnes_tracker/lib/core/network/services/nutrition_api_service.dart": {
+    "mtime": 1784267079.4710274,
+    "seen": 1787727623.9724257,
+    "ast_hash": "c62635aafa1a209ee2fc801c3a334e41",
+    "semantic_hash": "c62635aafa1a209ee2fc801c3a334e41"
+  },
+  "fittnes_tracker/lib/core/network/services/sync_service.dart": {
+    "mtime": 1787647323.815997,
+    "seen": 1787727623.972427,
+    "ast_hash": "0548171251ac94c2093a9361725ad4da",
+    "semantic_hash": "0548171251ac94c2093a9361725ad4da"
+  },
+  "fittnes_tracker/lib/core/network/services/user_api_service.dart": {
+    "mtime": 1784267079.4745605,
+    "seen": 1787727623.9724283,
+    "ast_hash": "cbe759ffba6a3a3983d33832bf6a3cc6",
+    "semantic_hash": "cbe759ffba6a3a3983d33832bf6a3cc6"
+  },
+  "fittnes_tracker/lib/core/network/services/workout_api_service.dart": {
+    "mtime": 1784267079.4745605,
+    "seen": 1787727623.9724293,
+    "ast_hash": "53e70478809ce2ea9812609aa896d4b5",
+    "semantic_hash": "53e70478809ce2ea9812609aa896d4b5"
+  },
+  "fittnes_tracker/lib/core/network/token_refresh_service.dart": {
+    "mtime": 1787313840.9010584,
+    "seen": 1787727623.9724307,
+    "ast_hash": "a83d9a3ae6b72b45b159a06634095e53",
+    "semantic_hash": "a83d9a3ae6b72b45b159a06634095e53"
+  },
+  "fittnes_tracker/lib/core/providers/access_provider.dart": {
+    "mtime": 1787647323.815997,
+    "seen": 1787727623.972432,
+    "ast_hash": "b4637b040575186987647eea5352c82e",
+    "semantic_hash": "b4637b040575186987647eea5352c82e"
+  },
+  "fittnes_tracker/lib/core/providers/enums.dart": {
+    "mtime": 1787313840.9025218,
+    "seen": 1787727623.9724329,
+    "ast_hash": "ac9b26a7903838a275e50915f947804e",
+    "semantic_hash": "ac9b26a7903838a275e50915f947804e"
+  },
+  "fittnes_tracker/lib/core/providers/locale_provider.dart": {
+    "mtime": 1784267079.4745605,
+    "seen": 1787727623.9724343,
+    "ast_hash": "fd82fcdd7322ad2350a71200ff4f1c1b",
+    "semantic_hash": "fd82fcdd7322ad2350a71200ff4f1c1b"
+  },
+  "fittnes_tracker/lib/core/providers/theme_provider.dart": {
+    "mtime": 1787313840.9025218,
+    "seen": 1787727623.9724352,
+    "ast_hash": "f30ada497d6df0d774f46de4ab57f3dc",
+    "semantic_hash": "f30ada497d6df0d774f46de4ab57f3dc"
+  },
+  "fittnes_tracker/lib/core/providers/user_goals_provider.dart": {
+    "mtime": 1784267079.4745605,
+    "seen": 1787727623.9724362,
+    "ast_hash": "ad0d9b3e269cea3557fe670674b0caa9",
+    "semantic_hash": "ad0d9b3e269cea3557fe670674b0caa9"
+  },
+  "fittnes_tracker/lib/core/seed_exercises.dart": {
+    "mtime": 1787571807.8908336,
+    "seen": 1787727623.9724376,
+    "ast_hash": "5a29da71ed6697ba121b10b653640e43",
+    "semantic_hash": "5a29da71ed6697ba121b10b653640e43"
+  },
+  "fittnes_tracker/lib/core/seed_exercises_data.dart": {
+    "mtime": 1787571807.8953347,
+    "seen": 1787727623.9724386,
+    "ast_hash": "a1158c00c2f4e199cc4b2b10c60b7076",
+    "semantic_hash": "a1158c00c2f4e199cc4b2b10c60b7076"
+  },
+  "fittnes_tracker/lib/core/seed_verified_foods.dart": {
+    "mtime": 1787571807.8968148,
+    "seen": 1787727623.9724405,
+    "ast_hash": "48e038e28ed324b1a6981b12aa204307",
+    "semantic_hash": "48e038e28ed324b1a6981b12aa204307"
+  },
+  "fittnes_tracker/lib/core/services/notification_service.dart": {
+    "mtime": 1787725803.354398,
+    "seen": 1787727623.9724429,
+    "ast_hash": "3978ed9d347422a35db049a5790acca9",
+    "semantic_hash": "3978ed9d347422a35db049a5790acca9"
+  },
+  "fittnes_tracker/lib/core/services/push_service.dart": {
+    "mtime": 1787725803.354398,
+    "seen": 1787727623.9724452,
+    "ast_hash": "c73b558c7465a45ae06e4d4df96aaaa6",
+    "semantic_hash": "c73b558c7465a45ae06e4d4df96aaaa6"
+  },
+  "fittnes_tracker/lib/core/utils/app_logger.dart": {
+    "mtime": 1784267079.4745605,
+    "seen": 1787727623.9724472,
+    "ast_hash": "5725e61e64adf735867fc14531772772",
+    "semantic_hash": "5725e61e64adf735867fc14531772772"
+  },
+  "fittnes_tracker/lib/core/widgets/lazy_indexed_stack.dart": {
+    "mtime": 1787571807.8989244,
+    "seen": 1787727623.9724486,
+    "ast_hash": "4d612d7c26b2181e75de78068aba71ee",
+    "semantic_hash": "4d612d7c26b2181e75de78068aba71ee"
+  },
+  "fittnes_tracker/lib/feature/auth/data/Models/account_type.dart": {
+    "mtime": 1787571807.8999858,
+    "seen": 1787727623.9724498,
+    "ast_hash": "70bba96e4d6a68d2a152145a1ffc059a",
+    "semantic_hash": "70bba96e4d6a68d2a152145a1ffc059a"
+  },
+  "fittnes_tracker/lib/feature/auth/data/Models/auth_failure.dart": {
+    "mtime": 1787571807.910149,
+    "seen": 1787727623.9724505,
+    "ast_hash": "b6380b8c73b5cd22dee4bfe2127800ba",
+    "semantic_hash": "b6380b8c73b5cd22dee4bfe2127800ba"
+  },
+  "fittnes_tracker/lib/feature/auth/data/Models/auth_response_model.dart": {
+    "mtime": 1784267079.4745605,
+    "seen": 1787727623.972451,
+    "ast_hash": "5b02ae72df09bf988d862463434ee205",
+    "semantic_hash": "5b02ae72df09bf988d862463434ee205"
+  },
+  "fittnes_tracker/lib/feature/auth/data/repositories/auth_repository.dart": {
+    "mtime": 1787571807.9121728,
+    "seen": 1787727623.9724522,
+    "ast_hash": "6d9decb65d2c43001f2211e8b7e3cdb7",
+    "semantic_hash": "6d9decb65d2c43001f2211e8b7e3cdb7"
+  },
+  "fittnes_tracker/lib/feature/auth/presentation/providers/auth_provider.dart": {
+    "mtime": 1787725803.355617,
+    "seen": 1787727623.9724529,
+    "ast_hash": "0d0e62a0fc6a8376cbd0f58827e4e3f1",
+    "semantic_hash": "0d0e62a0fc6a8376cbd0f58827e4e3f1"
+  },
+  "fittnes_tracker/lib/feature/auth/presentation/sign_out.dart": {
+    "mtime": 1787647323.815997,
+    "seen": 1787727623.9724534,
+    "ast_hash": "62b5dc5682a80fd5b2e379202861f598",
+    "semantic_hash": "62b5dc5682a80fd5b2e379202861f598"
+  },
+  "fittnes_tracker/lib/feature/auth/presentation/view/forgot_password_screen.dart": {
+    "mtime": 1787313840.9047308,
+    "seen": 1787727623.9724543,
+    "ast_hash": "abd9acfe132033cf2e626ebfded4f369",
+    "semantic_hash": "abd9acfe132033cf2e626ebfded4f369"
+  },
+  "fittnes_tracker/lib/feature/auth/presentation/view/login_screen.dart": {
+    "mtime": 1787725803.355617,
+    "seen": 1787727623.9724553,
+    "ast_hash": "4e8bc4dbe679f62c90919900c9475f66",
+    "semantic_hash": "4e8bc4dbe679f62c90919900c9475f66"
+  },
+  "fittnes_tracker/lib/feature/auth/presentation/view/register_screen.dart": {
+    "mtime": 1787725803.355617,
+    "seen": 1787727623.9724557,
+    "ast_hash": "d18dcc42075be01723a3d67eb3241790",
+    "semantic_hash": "d18dcc42075be01723a3d67eb3241790"
+  },
+  "fittnes_tracker/lib/feature/auth/presentation/view/reset_password_screen.dart": {
+    "mtime": 1787571807.9168973,
+    "seen": 1787727623.9724565,
+    "ast_hash": "fc94ad9cbba16291b0a19d1d5ccf0e3d",
+    "semantic_hash": "fc94ad9cbba16291b0a19d1d5ccf0e3d"
+  },
+  "fittnes_tracker/lib/feature/auth/presentation/view/user_settings_screen.dart": {
+    "mtime": 1787647323.820087,
+    "seen": 1787727623.9724572,
+    "ast_hash": "adb9cbce2619aabc683334ca53d44aa0",
+    "semantic_hash": "adb9cbce2619aabc683334ca53d44aa0"
+  },
+  "fittnes_tracker/lib/feature/chat/data/chat_api.dart": {
+    "mtime": 1787313840.906871,
+    "seen": 1787727623.972458,
+    "ast_hash": "7232681d4b687cc4912ca37547b33cb7",
+    "semantic_hash": "7232681d4b687cc4912ca37547b33cb7"
+  },
+  "fittnes_tracker/lib/feature/chat/data/chat_repository.dart": {
+    "mtime": 1787725803.3571045,
+    "seen": 1787727623.9724588,
+    "ast_hash": "2ff22a7b80667fc363133e7b5953c5eb",
+    "semantic_hash": "2ff22a7b80667fc363133e7b5953c5eb"
+  },
+  "fittnes_tracker/lib/feature/chat/data/chat_signalr_client.dart": {
+    "mtime": 1787313840.9082751,
+    "seen": 1787727623.9724596,
+    "ast_hash": "5097b59f0397642a252f6d8c897480d0",
+    "semantic_hash": "5097b59f0397642a252f6d8c897480d0"
+  },
+  "fittnes_tracker/lib/feature/chat/data/signalr_hub_chat_client.dart": {
+    "mtime": 1787571807.919371,
+    "seen": 1787727623.9724603,
+    "ast_hash": "50912a3d2c9e6ef03906e2f62e012919",
+    "semantic_hash": "50912a3d2c9e6ef03906e2f62e012919"
+  },
+  "fittnes_tracker/lib/feature/chat/domain/models/chat_message.dart": {
+    "mtime": 1787313840.9096203,
+    "seen": 1787727623.972461,
+    "ast_hash": "07ba4b897c9b110e1050368cf8f591d4",
+    "semantic_hash": "07ba4b897c9b110e1050368cf8f591d4"
+  },
+  "fittnes_tracker/lib/feature/chat/domain/models/conversation_summary.dart": {
+    "mtime": 1787725803.3571045,
+    "seen": 1787727623.972462,
+    "ast_hash": "56c18c8a3c36a7274a193d8957a11266",
+    "semantic_hash": "56c18c8a3c36a7274a193d8957a11266"
+  },
+  "fittnes_tracker/lib/feature/chat/domain/models/thread_message.dart": {
+    "mtime": 1787313840.9096203,
+    "seen": 1787727623.9724624,
+    "ast_hash": "aa390715f65fc863a1ae8791d10b2384",
+    "semantic_hash": "aa390715f65fc863a1ae8791d10b2384"
+  },
+  "fittnes_tracker/lib/feature/chat/presentation/providers/chat_provider.dart": {
+    "mtime": 1787725803.3585694,
+    "seen": 1787727623.9724631,
+    "ast_hash": "9503dadd387699b00b3bd6845ccc3d5b",
+    "semantic_hash": "9503dadd387699b00b3bd6845ccc3d5b"
+  },
+  "fittnes_tracker/lib/feature/chat/presentation/view/coach_chat_entry.dart": {
+    "mtime": 1787571807.9226282,
+    "seen": 1787727623.9724636,
+    "ast_hash": "59e5f30b1190f4d6dcd4edfa67b82032",
+    "semantic_hash": "59e5f30b1190f4d6dcd4edfa67b82032"
+  },
+  "fittnes_tracker/lib/feature/chat/presentation/view/coach_chat_screen.dart": {
+    "mtime": 1787571807.9237976,
+    "seen": 1787727623.9724646,
+    "ast_hash": "489c4498295fed43045628d1d0bae1be",
+    "semantic_hash": "489c4498295fed43045628d1d0bae1be"
+  },
+  "fittnes_tracker/lib/feature/chat/presentation/widgets/chat_bubble.dart": {
+    "mtime": 1787313840.9129953,
+    "seen": 1787727623.9724655,
+    "ast_hash": "45b5541e7a8ea1893093facdf2f3c130",
+    "semantic_hash": "45b5541e7a8ea1893093facdf2f3c130"
+  },
+  "fittnes_tracker/lib/feature/chat/presentation/widgets/chat_composer.dart": {
+    "mtime": 1787313840.9129953,
+    "seen": 1787727623.972466,
+    "ast_hash": "909acf437b01dd730e3796adfad29bdd",
+    "semantic_hash": "909acf437b01dd730e3796adfad29bdd"
+  },
+  "fittnes_tracker/lib/feature/chat/presentation/widgets/chat_connection_banner.dart": {
+    "mtime": 1787313840.9144435,
+    "seen": 1787727623.9724667,
+    "ast_hash": "01f05ba293c5c665bf1a1982be0cbaca",
+    "semantic_hash": "01f05ba293c5c665bf1a1982be0cbaca"
+  },
+  "fittnes_tracker/lib/feature/chat/presentation/widgets/chat_date_divider.dart": {
+    "mtime": 1787313840.9144435,
+    "seen": 1787727623.9724674,
+    "ast_hash": "431fc4c82c36320fceb264efa6cd8ea7",
+    "semantic_hash": "431fc4c82c36320fceb264efa6cd8ea7"
+  },
+  "fittnes_tracker/lib/feature/chat/presentation/widgets/chat_send_error_strip.dart": {
+    "mtime": 1787571807.9248075,
+    "seen": 1787727623.9724681,
+    "ast_hash": "3f8311a7cbdd4d29d4e4cb08cfcf3170",
+    "semantic_hash": "3f8311a7cbdd4d29d4e4cb08cfcf3170"
+  },
+  "fittnes_tracker/lib/feature/chat/presentation/widgets/chat_thread_list.dart": {
+    "mtime": 1787571807.9262707,
+    "seen": 1787727623.9724689,
+    "ast_hash": "1f9ecdae2efa07f2ee84ae5ca9444494",
+    "semantic_hash": "1f9ecdae2efa07f2ee84ae5ca9444494"
+  },
+  "fittnes_tracker/lib/feature/chat/presentation/widgets/conversation_row.dart": {
+    "mtime": 1787725803.3585694,
+    "seen": 1787727623.9724696,
+    "ast_hash": "3a3da950e9a0c164fc859f4441e81357",
+    "semantic_hash": "3a3da950e9a0c164fc859f4441e81357"
+  },
+  "fittnes_tracker/lib/feature/chat/presentation/widgets/unread_badge.dart": {
+    "mtime": 1787725803.3598545,
+    "seen": 1787727623.97247,
+    "ast_hash": "6e1f1b0d8bde95ff1de59c72ab1aa047",
+    "semantic_hash": "6e1f1b0d8bde95ff1de59c72ab1aa047"
+  },
+  "fittnes_tracker/lib/feature/dashboard/view/dashboard_screen.dart": {
+    "mtime": 1787571807.9275613,
+    "seen": 1787727623.9724708,
+    "ast_hash": "b0f80ad5bbb9c14bcc7b5f5326b081d3",
+    "semantic_hash": "b0f80ad5bbb9c14bcc7b5f5326b081d3"
+  },
+  "fittnes_tracker/lib/feature/dashboard/widgets/dashboard_weight_card.dart": {
+    "mtime": 1787313840.9170282,
+    "seen": 1787727623.9724715,
+    "ast_hash": "55c69a9c256a622c7ecb4e55a1acbe55",
+    "semantic_hash": "55c69a9c256a622c7ecb4e55a1acbe55"
+  },
+  "fittnes_tracker/lib/feature/food_tracking/data/adaptive_tdee_service.dart": {
+    "mtime": 1787313840.918243,
+    "seen": 1787727623.9724724,
+    "ast_hash": "40ccfc2884acea5220223a4fba39d3ce",
+    "semantic_hash": "40ccfc2884acea5220223a4fba39d3ce"
+  },
+  "fittnes_tracker/lib/feature/food_tracking/data/data_sources/food_api.dart": {
+    "mtime": 1784267079.4840932,
+    "seen": 1787727623.9724731,
+    "ast_hash": "930080ba55f5ab3bb51f0c4b187bf5e1",
+    "semantic_hash": "930080ba55f5ab3bb51f0c4b187bf5e1"
+  },
+  "fittnes_tracker/lib/feature/food_tracking/data/models/daily_nutrition_model.dart": {
+    "mtime": 1784267079.4840932,
+    "seen": 1787727623.9724739,
+    "ast_hash": "5c21b9b3aa195023ddb8ad8288974aef",
+    "semantic_hash": "5c21b9b3aa195023ddb8ad8288974aef"
+  },
+  "fittnes_tracker/lib/feature/food_tracking/data/models/extended_nutrients.dart": {
+    "mtime": 1784267079.4840932,
+    "seen": 1787727623.9724746,
+    "ast_hash": "9c1e3a9bc6089eb25f0f030c2ac049c3",
+    "semantic_hash": "9c1e3a9bc6089eb25f0f030c2ac049c3"
+  },
+  "fittnes_tracker/lib/feature/food_tracking/data/models/food_item_model.dart": {
+    "mtime": 1784267079.4840932,
+    "seen": 1787727623.9724753,
+    "ast_hash": "f0a5543cf7f46d21350ef4c465faad0e",
+    "semantic_hash": "f0a5543cf7f46d21350ef4c465faad0e"
+  },
+  "fittnes_tracker/lib/feature/food_tracking/data/models/meal_template.dart": {
+    "mtime": 1784267079.4840932,
+    "seen": 1787727623.9724762,
+    "ast_hash": "2942dea87a16b83ac22336ebbfa92bdb",
+    "semantic_hash": "2942dea87a16b83ac22336ebbfa92bdb"
+  },
+  "fittnes_tracker/lib/feature/food_tracking/data/models/portion_option.dart": {
+    "mtime": 1784267079.4840932,
+    "seen": 1787727623.972477,
+    "ast_hash": "8f63b851ffaf44b96000acd8b5a56736",
+    "semantic_hash": "8f63b851ffaf44b96000acd8b5a56736"
+  },
+  "fittnes_tracker/lib/feature/food_tracking/data/models/user_settings_model.dart": {
+    "mtime": 1784267079.4840932,
+    "seen": 1787727623.9724774,
+    "ast_hash": "77a529296fcd069f7a0014a29e7e4aff",
+    "semantic_hash": "77a529296fcd069f7a0014a29e7e4aff"
+  },
+  "fittnes_tracker/lib/feature/food_tracking/data/repositories/meal_template_repository.dart": {
+    "mtime": 1787313840.918243,
+    "seen": 1787727623.972478,
+    "ast_hash": "196296812050aac23c3ce7a080332e87",
+    "semantic_hash": "196296812050aac23c3ce7a080332e87"
+  },
+  "fittnes_tracker/lib/feature/food_tracking/data/repositories/nutrition_repository.dart": {
+    "mtime": 1784267079.4840932,
+    "seen": 1787727623.9724786,
+    "ast_hash": "58d735d48c780e687171960b7ed36abf",
+    "semantic_hash": "58d735d48c780e687171960b7ed36abf"
+  },
+  "fittnes_tracker/lib/feature/food_tracking/network/api_client.dart": {
+    "mtime": 1784267079.4840932,
+    "seen": 1787727623.9724796,
+    "ast_hash": "937a4e82aa98ee6719e888a0a4e22067",
+    "semantic_hash": "937a4e82aa98ee6719e888a0a4e22067"
+  },
+  "fittnes_tracker/lib/feature/food_tracking/presentation/view/barcode_scanner_view.dart": {
+    "mtime": 1784267079.4840932,
+    "seen": 1787727623.972483,
+    "ast_hash": "b1b4bb4b373f68f14181ac112a320d92",
+    "semantic_hash": "b1b4bb4b373f68f14181ac112a320d92"
+  },
+  "fittnes_tracker/lib/feature/food_tracking/presentation/view/create_meal_template_screen.dart": {
+    "mtime": 1787313840.918243,
+    "seen": 1787727623.9724834,
+    "ast_hash": "d6c615cccb5b694fbec47d44c124c97f",
+    "semantic_hash": "d6c615cccb5b694fbec47d44c124c97f"
+  },
+  "fittnes_tracker/lib/feature/food_tracking/presentation/view/edit_meal_template_screen.dart": {
+    "mtime": 1787313840.9195569,
+    "seen": 1787727623.972484,
+    "ast_hash": "97e85f8cc5a697982bc0c62628dbeae6",
+    "semantic_hash": "97e85f8cc5a697982bc0c62628dbeae6"
+  },
+  "fittnes_tracker/lib/feature/food_tracking/presentation/view/food_add_screen.dart": {
+    "mtime": 1787313840.9209173,
+    "seen": 1787727623.9724848,
+    "ast_hash": "cb8679a8ce2c04f5b9ed3e7ea4209486",
+    "semantic_hash": "cb8679a8ce2c04f5b9ed3e7ea4209486"
+  },
+  "fittnes_tracker/lib/feature/food_tracking/presentation/view/food_detail_view.dart": {
+    "mtime": 1787313840.9209173,
+    "seen": 1787727623.9724855,
+    "ast_hash": "d9fcec7f02de190ee710397889564ba7",
+    "semantic_hash": "d9fcec7f02de190ee710397889564ba7"
+  },
+  "fittnes_tracker/lib/feature/food_tracking/presentation/view/food_tracking_screen.dart": {
+    "mtime": 1787313840.9209173,
+    "seen": 1787727623.9724865,
+    "ast_hash": "977437311d6363782706cbcf98c320c9",
+    "semantic_hash": "977437311d6363782706cbcf98c320c9"
+  },
+  "fittnes_tracker/lib/feature/food_tracking/presentation/view/meal_templates_screen.dart": {
+    "mtime": 1787313840.922215,
+    "seen": 1787727623.972487,
+    "ast_hash": "a7b781b3a8e5dd3103e613f4bfefb89d",
+    "semantic_hash": "a7b781b3a8e5dd3103e613f4bfefb89d"
+  },
+  "fittnes_tracker/lib/feature/food_tracking/presentation/widgets/food_search_screen.dart": {
+    "mtime": 1787313840.922215,
+    "seen": 1787727623.9724877,
+    "ast_hash": "30dac27c433efdbd033fb6539294118a",
+    "semantic_hash": "30dac27c433efdbd033fb6539294118a"
+  },
+  "fittnes_tracker/lib/feature/gym_tracking/data/csv_workout_importer.dart": {
+    "mtime": 1784267079.4840932,
+    "seen": 1787727623.9724884,
+    "ast_hash": "8d629b52e8d13a15c16aef7f353ee08f",
+    "semantic_hash": "8d629b52e8d13a15c16aef7f353ee08f"
+  },
+  "fittnes_tracker/lib/feature/gym_tracking/data/models/ScheduledWorkoutExerciseUi.dart": {
+    "mtime": 1784267079.490561,
+    "seen": 1787727623.9724894,
+    "ast_hash": "937a4e82aa98ee6719e888a0a4e22067",
+    "semantic_hash": "937a4e82aa98ee6719e888a0a4e22067"
+  },
+  "fittnes_tracker/lib/feature/gym_tracking/data/models/ScheduledWorkoutWithDetails.dart": {
+    "mtime": 1784267079.490561,
+    "seen": 1787727623.97249,
+    "ast_hash": "5b251338d2551241c0f0d0b289f62130",
+    "semantic_hash": "5b251338d2551241c0f0d0b289f62130"
+  },
+  "fittnes_tracker/lib/feature/gym_tracking/data/models/set_template.dart": {
+    "mtime": 1784267079.490561,
+    "seen": 1787727623.9724908,
+    "ast_hash": "ad2411518181c09138bee71359a9789d",
+    "semantic_hash": "ad2411518181c09138bee71359a9789d"
+  },
+  "fittnes_tracker/lib/feature/gym_tracking/presentation/providers/scheduled_workout_provider.dart": {
+    "mtime": 1784267079.490561,
+    "seen": 1787727623.9724915,
+    "ast_hash": "aa31c1ac69f426f46c7f85c2a8ec315b",
+    "semantic_hash": "aa31c1ac69f426f46c7f85c2a8ec315b"
+  },
+  "fittnes_tracker/lib/feature/gym_tracking/presentation/providers/workout_provider.dart": {
+    "mtime": 1784267079.490561,
+    "seen": 1787727623.9724922,
+    "ast_hash": "85d1aca1fff2033b9d1a092e47a73e96",
+    "semantic_hash": "85d1aca1fff2033b9d1a092e47a73e96"
+  },
+  "fittnes_tracker/lib/feature/gym_tracking/presentation/view/exercises/exercise_management_screen.dart": {
+    "mtime": 1784267079.490561,
+    "seen": 1787727623.9724932,
+    "ast_hash": "23a56c6327f4200696bd11cea2375a66",
+    "semantic_hash": "23a56c6327f4200696bd11cea2375a66"
+  },
+  "fittnes_tracker/lib/feature/gym_tracking/presentation/view/gym_tracking_screen.dart": {
+    "mtime": 1784267079.490561,
+    "seen": 1787727623.972494,
+    "ast_hash": "5b5c7b5383f269429aa4a4fb36722b32",
+    "semantic_hash": "5b5c7b5383f269429aa4a4fb36722b32"
+  },
+  "fittnes_tracker/lib/feature/gym_tracking/presentation/view/scheduled_workouts_view.dart": {
+    "mtime": 1787313840.9232202,
+    "seen": 1787727623.9724946,
+    "ast_hash": "7de08d1848e07eeff3a1730968bf6401",
+    "semantic_hash": "7de08d1848e07eeff3a1730968bf6401"
+  },
+  "fittnes_tracker/lib/feature/gym_tracking/presentation/view/workouts/active_workout_view.dart": {
+    "mtime": 1787313840.9245267,
+    "seen": 1787727623.9724953,
+    "ast_hash": "1ca645642fab8f1ea9105af9f0c937d3",
+    "semantic_hash": "1ca645642fab8f1ea9105af9f0c937d3"
+  },
+  "fittnes_tracker/lib/feature/gym_tracking/presentation/view/workouts/create_view.dart": {
+    "mtime": 1784267079.490561,
+    "seen": 1787727623.9724958,
+    "ast_hash": "4d14d8fe2ece4fdcfb2e2643fd60d9b9",
+    "semantic_hash": "4d14d8fe2ece4fdcfb2e2643fd60d9b9"
+  },
+  "fittnes_tracker/lib/feature/gym_tracking/presentation/view/workouts/date_selection_sheet.dart": {
+    "mtime": 1784267079.490561,
+    "seen": 1787727623.9724967,
+    "ast_hash": "a1b9627a6207dab644da24b533a2f865",
+    "semantic_hash": "a1b9627a6207dab644da24b533a2f865"
+  },
+  "fittnes_tracker/lib/feature/gym_tracking/presentation/view/workouts/edit_single_view.dart": {
+    "mtime": 1784267079.4952526,
+    "seen": 1787727623.9724975,
+    "ast_hash": "4323a7d46cba12c872c6487f9665a029",
+    "semantic_hash": "4323a7d46cba12c872c6487f9665a029"
+  },
+  "fittnes_tracker/lib/feature/gym_tracking/presentation/view/workouts/edit_view.dart": {
+    "mtime": 1784267079.4952526,
+    "seen": 1787727623.972498,
+    "ast_hash": "144024f337ba8f546ae1750c68d8f01f",
+    "semantic_hash": "144024f337ba8f546ae1750c68d8f01f"
+  },
+  "fittnes_tracker/lib/feature/gym_tracking/presentation/view/workouts/importer/csv_import_screen.dart": {
+    "mtime": 1784267079.4952526,
+    "seen": 1787727623.9724987,
+    "ast_hash": "b88ec34e1a2549e2a9ba13d5059b5cdc",
+    "semantic_hash": "b88ec34e1a2549e2a9ba13d5059b5cdc"
+  },
+  "fittnes_tracker/lib/feature/gym_tracking/presentation/view/workouts/importer/fitnotes_import_view.dart": {
+    "mtime": 1784267079.4952526,
+    "seen": 1787727623.9724996,
+    "ast_hash": "24136ed1e9a28b33f20ba364c8e0991d",
+    "semantic_hash": "24136ed1e9a28b33f20ba364c8e0991d"
+  },
+  "fittnes_tracker/lib/feature/gym_tracking/presentation/view/workouts/schedule_view.dart": {
+    "mtime": 1784267079.4952526,
+    "seen": 1787727623.9725003,
+    "ast_hash": "3069f0845ca00938556edaba2ab5fc99",
+    "semantic_hash": "3069f0845ca00938556edaba2ab5fc99"
+  },
+  "fittnes_tracker/lib/feature/gym_tracking/presentation/view/workouts/workouts_list_view.dart": {
+    "mtime": 1784267079.4952526,
+    "seen": 1787727623.972501,
+    "ast_hash": "b3b91663aa4f0d1ea14eb6effa9fdeb1",
+    "semantic_hash": "b3b91663aa4f0d1ea14eb6effa9fdeb1"
+  },
+  "fittnes_tracker/lib/feature/gym_tracking/presentation/widgets/exercise_form_sheet.dart": {
+    "mtime": 1784267079.4952526,
+    "seen": 1787727623.9725015,
+    "ast_hash": "b7c183be6847d0e5f64a4bbddab34ba4",
+    "semantic_hash": "b7c183be6847d0e5f64a4bbddab34ba4"
+  },
+  "fittnes_tracker/lib/feature/gym_tracking/presentation/widgets/exercise_list_view.dart": {
+    "mtime": 1784267079.4952526,
+    "seen": 1787727623.9725022,
+    "ast_hash": "eead1fe4b940ccde97ecae29f0774ae5",
+    "semantic_hash": "eead1fe4b940ccde97ecae29f0774ae5"
+  },
+  "fittnes_tracker/lib/feature/gym_tracking/presentation/widgets/exercise_selection_modal.dart": {
+    "mtime": 1784267079.4952526,
+    "seen": 1787727623.972503,
+    "ast_hash": "a78624b93369e2ca5b88df0b21f253d3",
+    "semantic_hash": "a78624b93369e2ca5b88df0b21f253d3"
+  },
+  "fittnes_tracker/lib/feature/gym_tracking/presentation/widgets/expandable_description.dart": {
+    "mtime": 1784267079.4952526,
+    "seen": 1787727623.972504,
+    "ast_hash": "f7151e0d1fd11932051caa9ec4fd530c",
+    "semantic_hash": "f7151e0d1fd11932051caa9ec4fd530c"
+  },
+  "fittnes_tracker/lib/feature/gym_tracking/presentation/widgets/muscle_group_selector.dart": {
+    "mtime": 1784267079.4952526,
+    "seen": 1787727623.9725044,
+    "ast_hash": "48179096b30580e1444ddd02ed66ce99",
+    "semantic_hash": "48179096b30580e1444ddd02ed66ce99"
+  },
+  "fittnes_tracker/lib/feature/gym_tracking/presentation/widgets/reset_timer_widget.dart": {
+    "mtime": 1784267079.4952526,
+    "seen": 1787727623.972505,
+    "ast_hash": "7340224bd2bdab3b98dcd6aaa1d86770",
+    "semantic_hash": "7340224bd2bdab3b98dcd6aaa1d86770"
+  },
+  "fittnes_tracker/lib/feature/onboarding/onboarding_screen.dart": {
+    "mtime": 1787313840.949786,
+    "seen": 1787727623.9725056,
+    "ast_hash": "bcc18f1e69d3c75c65fbedc02755a9a1",
+    "semantic_hash": "bcc18f1e69d3c75c65fbedc02755a9a1"
+  },
+  "fittnes_tracker/lib/feature/onboarding/profile_setup_prefs.dart": {
+    "mtime": 1787313840.949786,
+    "seen": 1787727623.9725063,
+    "ast_hash": "28a8a7cb11d568b4ba080e41c051d9e6",
+    "semantic_hash": "28a8a7cb11d568b4ba080e41c051d9e6"
+  },
+  "fittnes_tracker/lib/feature/onboarding/profile_setup_screen.dart": {
+    "mtime": 1787313840.9511929,
+    "seen": 1787727623.9725072,
+    "ast_hash": "be515edab2e4d86cb13690eee1a9d2cd",
+    "semantic_hash": "be515edab2e4d86cb13690eee1a9d2cd"
+  },
+  "fittnes_tracker/lib/feature/onboarding/welcome_screen.dart": {
+    "mtime": 1787313840.9526982,
+    "seen": 1787727623.972508,
+    "ast_hash": "3df04e8d8af4c3cc95cd045f7fb5c595",
+    "semantic_hash": "3df04e8d8af4c3cc95cd045f7fb5c595"
+  },
+  "fittnes_tracker/lib/feature/premium/paywall_launcher.dart": {
+    "mtime": 1787313840.9526982,
+    "seen": 1787727623.9725084,
+    "ast_hash": "43cf62fbd91dc13d5aa272e05cff878b",
+    "semantic_hash": "43cf62fbd91dc13d5aa272e05cff878b"
+  },
+  "fittnes_tracker/lib/feature/premium/paywall_screen.dart": {
+    "mtime": 1787313840.9526982,
+    "seen": 1787727623.9725091,
+    "ast_hash": "57bd9166b7ba47d45f613f1c12109db3",
+    "semantic_hash": "57bd9166b7ba47d45f613f1c12109db3"
+  },
+  "fittnes_tracker/lib/feature/premium/premium_gate.dart": {
+    "mtime": 1787313840.9540246,
+    "seen": 1787727623.9725096,
+    "ast_hash": "78bc1fe837e67769210bcb8ba3503e40",
+    "semantic_hash": "78bc1fe837e67769210bcb8ba3503e40"
+  },
+  "fittnes_tracker/lib/feature/progress_dashboard_view.dart": {
+    "mtime": 1787313840.955503,
+    "seen": 1787727623.9725106,
+    "ast_hash": "e7338c8b29ea0de9a3116b2a8025e129",
+    "semantic_hash": "e7338c8b29ea0de9a3116b2a8025e129"
+  },
+  "fittnes_tracker/lib/feature/settings/settings_screen.dart": {
+    "mtime": 1787647323.8222227,
+    "seen": 1787727623.972511,
+    "ast_hash": "851e85cf3a5b3dd22545cee87dc155de",
+    "semantic_hash": "851e85cf3a5b3dd22545cee87dc155de"
+  },
+  "fittnes_tracker/lib/feature/trainer/presentation/view/join_trainer_screen.dart": {
+    "mtime": 1787313840.9576533,
+    "seen": 1787727623.9725118,
+    "ast_hash": "e66e2c63ca5c84a976ac574319f23194",
+    "semantic_hash": "e66e2c63ca5c84a976ac574319f23194"
+  },
+  "fittnes_tracker/lib/feature/trainer_console/data/trainer_console_api.dart": {
+    "mtime": 1787313840.9576533,
+    "seen": 1787727623.9725125,
+    "ast_hash": "53234ba6da02ed05e4f1d8aa44aab2ab",
+    "semantic_hash": "53234ba6da02ed05e4f1d8aa44aab2ab"
+  },
+  "fittnes_tracker/lib/feature/trainer_console/data/trainer_console_repository.dart": {
+    "mtime": 1787313840.9586513,
+    "seen": 1787727623.9725132,
+    "ast_hash": "6775c5abf10ade40c2a5a1abf82fa186",
+    "semantic_hash": "6775c5abf10ade40c2a5a1abf82fa186"
+  },
+  "fittnes_tracker/lib/feature/trainer_console/data/trainer_licence_api.dart": {
+    "mtime": 1787571807.9298913,
+    "seen": 1787727623.9725137,
+    "ast_hash": "f513fb2d6bc701db319d14899a0a5fce",
+    "semantic_hash": "f513fb2d6bc701db319d14899a0a5fce"
+  },
+  "fittnes_tracker/lib/feature/trainer_console/data/trainer_licence_repository.dart": {
+    "mtime": 1787571807.931028,
+    "seen": 1787727623.9725146,
+    "ast_hash": "0fca8e0b8851586939940224b95e533b",
+    "semantic_hash": "0fca8e0b8851586939940224b95e533b"
+  },
+  "fittnes_tracker/lib/feature/trainer_console/domain/models/console_error.dart": {
+    "mtime": 1787313840.959936,
+    "seen": 1787727623.9725153,
+    "ast_hash": "2f3aa950c2d1bd651574c8f99dae24c4",
+    "semantic_hash": "2f3aa950c2d1bd651574c8f99dae24c4"
+  },
+  "fittnes_tracker/lib/feature/trainer_console/domain/models/trainer_client_summary.dart": {
+    "mtime": 1787313840.959936,
+    "seen": 1787727623.9725158,
+    "ast_hash": "1e82931b6e56e75784a531bedd3c64c1",
+    "semantic_hash": "1e82931b6e56e75784a531bedd3c64c1"
+  },
+  "fittnes_tracker/lib/feature/trainer_console/domain/models/trainer_console_models.dart": {
+    "mtime": 1787571807.932522,
+    "seen": 1787727623.9725165,
+    "ast_hash": "88fb2f01a2e65be39c54dc630ba9b6d3",
+    "semantic_hash": "88fb2f01a2e65be39c54dc630ba9b6d3"
+  },
+  "fittnes_tracker/lib/feature/trainer_console/domain/models/trainer_licence.dart": {
+    "mtime": 1787571807.9336393,
+    "seen": 1787727623.9725175,
+    "ast_hash": "4e6a18182c91f610da9e1e12e6c5c73d",
+    "semantic_hash": "4e6a18182c91f610da9e1e12e6c5c73d"
+  },
+  "fittnes_tracker/lib/feature/trainer_console/presentation/providers/active_client_provider.dart": {
+    "mtime": 1787313840.9625156,
+    "seen": 1787727623.9725182,
+    "ast_hash": "da9cf9126da092046a48451e4cf65f87",
+    "semantic_hash": "da9cf9126da092046a48451e4cf65f87"
+  },
+  "fittnes_tracker/lib/feature/trainer_console/presentation/providers/client_detail_provider.dart": {
+    "mtime": 1787571807.9350135,
+    "seen": 1787727623.9725187,
+    "ast_hash": "eac13f68989fca7470377d42d64a158d",
+    "semantic_hash": "eac13f68989fca7470377d42d64a158d"
+  },
+  "fittnes_tracker/lib/feature/trainer_console/presentation/providers/nutrition_provider.dart": {
+    "mtime": 1787571807.9360218,
+    "seen": 1787727623.9725194,
+    "ast_hash": "fd45109d3d085c1630283ede4a8d5d81",
+    "semantic_hash": "fd45109d3d085c1630283ede4a8d5d81"
+  },
+  "fittnes_tracker/lib/feature/trainer_console/presentation/providers/session_review_provider.dart": {
+    "mtime": 1787313840.9638724,
+    "seen": 1787727623.9725199,
+    "ast_hash": "de444e3aa8a9790fe8aac5e5ded239f0",
+    "semantic_hash": "de444e3aa8a9790fe8aac5e5ded239f0"
+  },
+  "fittnes_tracker/lib/feature/trainer_console/presentation/providers/trainer_console_provider.dart": {
+    "mtime": 1787313840.9638724,
+    "seen": 1787727623.9725206,
+    "ast_hash": "6246936b8e1d4b71852ba2a01c491959",
+    "semantic_hash": "6246936b8e1d4b71852ba2a01c491959"
+  },
+  "fittnes_tracker/lib/feature/trainer_console/presentation/providers/trainer_licence_provider.dart": {
+    "mtime": 1787571807.937375,
+    "seen": 1787727623.9725213,
+    "ast_hash": "75bfb9a5edc561a494fe388669fbe2ba",
+    "semantic_hash": "75bfb9a5edc561a494fe388669fbe2ba"
+  },
+  "fittnes_tracker/lib/feature/trainer_console/presentation/providers/workout_builder_provider.dart": {
+    "mtime": 1787313840.965207,
+    "seen": 1787727623.972522,
+    "ast_hash": "56a0a50624d2f7ce1842387fdd7180e7",
+    "semantic_hash": "56a0a50624d2f7ce1842387fdd7180e7"
+  },
+  "fittnes_tracker/lib/feature/trainer_console/presentation/view/client_detail_screen.dart": {
+    "mtime": 1787313840.9666357,
+    "seen": 1787727623.9725227,
+    "ast_hash": "91479c233a848c2643b1df60f810c8b1",
+    "semantic_hash": "91479c233a848c2643b1df60f810c8b1"
+  },
+  "fittnes_tracker/lib/feature/trainer_console/presentation/view/invite_client_sheet.dart": {
+    "mtime": 1787313840.9676294,
+    "seen": 1787727623.9725235,
+    "ast_hash": "0fe44257fe74d4df143170bc94c5cf1e",
+    "semantic_hash": "0fe44257fe74d4df143170bc94c5cf1e"
+  },
+  "fittnes_tracker/lib/feature/trainer_console/presentation/view/licence_screen.dart": {
+    "mtime": 1787571807.9384756,
+    "seen": 1787727623.9725244,
+    "ast_hash": "62c828d782048f85ebd47dc47469f88e",
+    "semantic_hash": "62c828d782048f85ebd47dc47469f88e"
+  },
+  "fittnes_tracker/lib/feature/trainer_console/presentation/view/messages_screen.dart": {
+    "mtime": 1787571807.9396486,
+    "seen": 1787727623.9725251,
+    "ast_hash": "aa01d1e697b4b145aaff902ad51ebc91",
+    "semantic_hash": "aa01d1e697b4b145aaff902ad51ebc91"
+  },
+  "fittnes_tracker/lib/feature/trainer_console/presentation/view/nutrition_screen.dart": {
+    "mtime": 1787571807.9396486,
+    "seen": 1787727623.9725258,
+    "ast_hash": "fe2a316ad28240ab6fbe918440afe9d3",
+    "semantic_hash": "fe2a316ad28240ab6fbe918440afe9d3"
+  },
+  "fittnes_tracker/lib/feature/trainer_console/presentation/view/session_review_screen.dart": {
+    "mtime": 1787313840.9689724,
+    "seen": 1787727623.9725263,
+    "ast_hash": "d6209453dbb74cfe7eceff85fc08b6a5",
+    "semantic_hash": "d6209453dbb74cfe7eceff85fc08b6a5"
+  },
+  "fittnes_tracker/lib/feature/trainer_console/presentation/view/trainer_console_gate.dart": {
+    "mtime": 1787725803.3598545,
+    "seen": 1787727623.9725268,
+    "ast_hash": "70d84a199260920f89f6dda1de7af938",
+    "semantic_hash": "70d84a199260920f89f6dda1de7af938"
+  },
+  "fittnes_tracker/lib/feature/trainer_console/presentation/view/trainer_console_home.dart": {
+    "mtime": 1787571807.9411197,
+    "seen": 1787727623.9725275,
+    "ast_hash": "c546f6b2ff85725f6dfa92caad5001c5",
+    "semantic_hash": "c546f6b2ff85725f6dfa92caad5001c5"
+  },
+  "fittnes_tracker/lib/feature/trainer_console/presentation/view/trainer_dashboard_screen.dart": {
+    "mtime": 1787313840.9699874,
+    "seen": 1787727623.9725285,
+    "ast_hash": "089bd28d3311de80d6d3ecb9573688f4",
+    "semantic_hash": "089bd28d3311de80d6d3ecb9573688f4"
+  },
+  "fittnes_tracker/lib/feature/trainer_console/presentation/view/workout_builder_screen.dart": {
+    "mtime": 1787313840.9713569,
+    "seen": 1787727623.97253,
+    "ast_hash": "b329a2344a3ade7e51de260523d36629",
+    "semantic_hash": "b329a2344a3ade7e51de260523d36629"
+  },
+  "fittnes_tracker/lib/feature/trainer_console/presentation/widgets/calorie_ring.dart": {
+    "mtime": 1787313840.9713569,
+    "seen": 1787727623.9725306,
+    "ast_hash": "4f5f82bcdeef9ab0c4f31e8ff13716f4",
+    "semantic_hash": "4f5f82bcdeef9ab0c4f31e8ff13716f4"
+  },
+  "fittnes_tracker/lib/feature/trainer_console/presentation/widgets/client_avatar.dart": {
+    "mtime": 1787313840.9724133,
+    "seen": 1787727623.9725313,
+    "ast_hash": "0595887d7f587124d4bcc29f51f34009",
+    "semantic_hash": "0595887d7f587124d4bcc29f51f34009"
+  },
+  "fittnes_tracker/lib/feature/trainer_console/presentation/widgets/client_switcher.dart": {
+    "mtime": 1787313840.9724133,
+    "seen": 1787727623.9725318,
+    "ast_hash": "9b6490ade179bcd2d8a4f184859f9812",
+    "semantic_hash": "9b6490ade179bcd2d8a4f184859f9812"
+  },
+  "fittnes_tracker/lib/feature/trainer_console/presentation/widgets/console_widgets.dart": {
+    "mtime": 1787313840.9734263,
+    "seen": 1787727623.9725325,
+    "ast_hash": "715d6db14a3498705c155fad67d2bf2f",
+    "semantic_hash": "715d6db14a3498705c155fad67d2bf2f"
+  },
+  "fittnes_tracker/lib/feature/trainer_console/presentation/widgets/licence_banner.dart": {
+    "mtime": 1787316156.2703156,
+    "seen": 1787727623.9725332,
+    "ast_hash": "32a7afb7999a84298a465dc68989d1a5",
+    "semantic_hash": "32a7afb7999a84298a465dc68989d1a5"
+  },
+  "fittnes_tracker/lib/feature/trainer_console/presentation/widgets/macro_summary.dart": {
+    "mtime": 1787313840.9749246,
+    "seen": 1787727623.972534,
+    "ast_hash": "01648e6f6c1738eaf237616392e48a96",
+    "semantic_hash": "01648e6f6c1738eaf237616392e48a96"
+  },
+  "fittnes_tracker/lib/feature/trainer_console/presentation/widgets/meal_detail_sheet.dart": {
+    "mtime": 1787571807.9424658,
+    "seen": 1787727623.9725344,
+    "ast_hash": "d403ea665febe5fc75fb0f67da6e6327",
+    "semantic_hash": "d403ea665febe5fc75fb0f67da6e6327"
+  },
+  "fittnes_tracker/lib/feature/trainer_console/presentation/widgets/seat_meter.dart": {
+    "mtime": 1787313840.9749246,
+    "seen": 1787727623.9725354,
+    "ast_hash": "9f134897f5f4a875bba856d0055c4ba8",
+    "semantic_hash": "9f134897f5f4a875bba856d0055c4ba8"
+  },
+  "fittnes_tracker/lib/feature/trainer_console/presentation/widgets/stat_tile.dart": {
+    "mtime": 1787313840.976377,
+    "seen": 1787727623.9725358,
+    "ast_hash": "6ee44b654762a17541fa0c0898de7e46",
+    "semantic_hash": "6ee44b654762a17541fa0c0898de7e46"
+  },
+  "fittnes_tracker/lib/feature/trainer_console/presentation/widgets/status_badge.dart": {
+    "mtime": 1787313840.976377,
+    "seen": 1787727623.9725366,
+    "ast_hash": "4e5e249e4b15acd2309cdd4e66a84966",
+    "semantic_hash": "4e5e249e4b15acd2309cdd4e66a84966"
+  },
+  "fittnes_tracker/lib/feature/trainer_console/presentation/widgets/trainer_console_shell.dart": {
+    "mtime": 1787725803.3610642,
+    "seen": 1787727623.972537,
+    "ast_hash": "86f94a5c16e7fda74040e7ba5867d13a",
+    "semantic_hash": "86f94a5c16e7fda74040e7ba5867d13a"
+  },
+  "fittnes_tracker/lib/feature/weight_tracking/data/repositories/weight_repository.dart": {
+    "mtime": 1784267079.5052588,
+    "seen": 1787727623.9725378,
+    "ast_hash": "25cf7c2c2ebf5c16b7674f9c411ea3fd",
+    "semantic_hash": "25cf7c2c2ebf5c16b7674f9c411ea3fd"
+  },
+  "fittnes_tracker/lib/feature/weight_tracking/presentation/providers/weight_provider.dart": {
+    "mtime": 1784267079.5052588,
+    "seen": 1787727623.9725387,
+    "ast_hash": "654eedaf3d4dae9968f2552f07fdcda3",
+    "semantic_hash": "654eedaf3d4dae9968f2552f07fdcda3"
+  },
+  "fittnes_tracker/lib/feature/weight_tracking/presentation/view/weight_goal_screen.dart": {
+    "mtime": 1784267079.5052588,
+    "seen": 1787727623.9725394,
+    "ast_hash": "88711933375f64e9ab688399377f93d5",
+    "semantic_hash": "88711933375f64e9ab688399377f93d5"
+  },
+  "fittnes_tracker/lib/feature/weight_tracking/presentation/view/weight_tracking_screen.dart": {
+    "mtime": 1784267079.5052588,
+    "seen": 1787727623.97254,
+    "ast_hash": "d31e182fa31d1997d29dba5a75bd6adf",
+    "semantic_hash": "d31e182fa31d1997d29dba5a75bd6adf"
+  },
+  "fittnes_tracker/lib/feature/weight_tracking/presentation/widgets/weight_chart.dart": {
+    "mtime": 1784267079.5052588,
+    "seen": 1787727623.9725404,
+    "ast_hash": "9aaa66a43d2681a1b9cf97f4cd7a08df",
+    "semantic_hash": "9aaa66a43d2681a1b9cf97f4cd7a08df"
+  },
+  "fittnes_tracker/lib/feature/weight_tracking/presentation/widgets/weight_progress_card.dart": {
+    "mtime": 1784267079.50787,
+    "seen": 1787727623.972541,
+    "ast_hash": "e0c1cc6a95d5152144ebf4808eb831a0",
+    "semantic_hash": "e0c1cc6a95d5152144ebf4808eb831a0"
+  },
+  "fittnes_tracker/lib/feature/workout_planning/data/models/exercise.dart": {
+    "mtime": 1784267079.50787,
+    "seen": 1787727623.972542,
+    "ast_hash": "29edbf96126db34ce5a5bcbd609fddc8",
+    "semantic_hash": "29edbf96126db34ce5a5bcbd609fddc8"
+  },
+  "fittnes_tracker/lib/feature/workout_planning/data/models/workout.dart": {
+    "mtime": 1784267079.50787,
+    "seen": 1787727623.9725425,
+    "ast_hash": "d8f9d62a3279837acecb8d62ab4777bb",
+    "semantic_hash": "d8f9d62a3279837acecb8d62ab4777bb"
+  },
+  "fittnes_tracker/lib/feature/workout_planning/data/models/workout_exercise.dart": {
+    "mtime": 1784267079.5091746,
+    "seen": 1787727623.972543,
+    "ast_hash": "47fb886b5cb4edd7a6ae4b7bc7ed6e4c",
+    "semantic_hash": "47fb886b5cb4edd7a6ae4b7bc7ed6e4c"
+  },
+  "fittnes_tracker/lib/feature/workout_planning/data/models/workout_plan.dart": {
+    "mtime": 1784267079.5091746,
+    "seen": 1787727623.9725437,
+    "ast_hash": "8e653d97d656c496a119e7e978fca18f",
+    "semantic_hash": "8e653d97d656c496a119e7e978fca18f"
+  },
+  "fittnes_tracker/lib/feature/workout_planning/data/models/workout_set.dart": {
+    "mtime": 1787313840.9774473,
+    "seen": 1787727623.9725442,
+    "ast_hash": "f9c2ddd1c33bbdb630f1f7218a0e60c7",
+    "semantic_hash": "f9c2ddd1c33bbdb630f1f7218a0e60c7"
+  },
+  "fittnes_tracker/lib/feature/workout_planning/data/models/workout_template_models.dart": {
+    "mtime": 1784267079.5091746,
+    "seen": 1787727623.972545,
+    "ast_hash": "6223d70012fbfe554db22105e456b915",
+    "semantic_hash": "6223d70012fbfe554db22105e456b915"
+  },
+  "fittnes_tracker/lib/feature/workout_planning/data/repositories/ScheduledWorkoutExerciseRepository.dart": {
+    "mtime": 1784267079.5091746,
+    "seen": 1787727623.9725459,
+    "ast_hash": "69cbe83d02020ee91bcd0adbcc502a30",
+    "semantic_hash": "69cbe83d02020ee91bcd0adbcc502a30"
+  },
+  "fittnes_tracker/lib/feature/workout_planning/data/repositories/workout_repository.dart": {
+    "mtime": 1784267079.5091746,
+    "seen": 1787727623.9725466,
+    "ast_hash": "4daca652d1a003a5bc5ad3c452a24131",
+    "semantic_hash": "4daca652d1a003a5bc5ad3c452a24131"
+  },
+  "fittnes_tracker/lib/l10n/app_localizations.dart": {
+    "mtime": 1787725832.7398512,
+    "seen": 1787727623.972547,
+    "ast_hash": "dccd089fee6bb97527ee6b979ec23f7a",
+    "semantic_hash": "dccd089fee6bb97527ee6b979ec23f7a"
+  },
+  "fittnes_tracker/lib/l10n/app_localizations_de.dart": {
+    "mtime": 1787725832.7419226,
+    "seen": 1787727623.9725475,
+    "ast_hash": "2fc026f7c8bec7ff436757c65c2290e4",
+    "semantic_hash": "2fc026f7c8bec7ff436757c65c2290e4"
+  },
+  "fittnes_tracker/lib/l10n/app_localizations_en.dart": {
+    "mtime": 1787725832.7429292,
+    "seen": 1787727623.9725482,
+    "ast_hash": "5b9c7ea70ab427d74186205974e1a599",
+    "semantic_hash": "5b9c7ea70ab427d74186205974e1a599"
+  },
+  "fittnes_tracker/lib/main.dart": {
+    "mtime": 1787725803.366557,
+    "seen": 1787727623.9725492,
+    "ast_hash": "7f0604bd3a796b01ee8fefef830d13be",
+    "semantic_hash": "7f0604bd3a796b01ee8fefef830d13be"
+  },
+  "fittnes_tracker/linux/flutter/generated_plugin_registrant.cc": {
+    "mtime": 1787725832.7429292,
+    "seen": 1787727623.9725497,
+    "ast_hash": "08697ac039885de6b5aab5f7df816a42",
+    "semantic_hash": "08697ac039885de6b5aab5f7df816a42"
+  },
+  "fittnes_tracker/linux/flutter/generated_plugin_registrant.h": {
+    "mtime": 1787725832.7443552,
+    "seen": 1787727623.9725504,
+    "ast_hash": "0208db974972d7b29a0ac368be83644b",
+    "semantic_hash": "0208db974972d7b29a0ac368be83644b"
+  },
+  "fittnes_tracker/linux/runner/main.cc": {
+    "mtime": 1784267079.5091746,
+    "seen": 1787727623.9725509,
+    "ast_hash": "539395bcd63dba20afed0838d136189f",
+    "semantic_hash": "539395bcd63dba20afed0838d136189f"
+  },
+  "fittnes_tracker/linux/runner/my_application.cc": {
+    "mtime": 1784267079.5091746,
+    "seen": 1787727623.9725516,
+    "ast_hash": "4797b593c050a0cbb091b824b61a4dd2",
+    "semantic_hash": "4797b593c050a0cbb091b824b61a4dd2"
+  },
+  "fittnes_tracker/linux/runner/my_application.h": {
+    "mtime": 1784267079.5091746,
+    "seen": 1787727623.9725525,
+    "ast_hash": "f6b37d58752c8671078b6f660e33e8c1",
+    "semantic_hash": "f6b37d58752c8671078b6f660e33e8c1"
+  },
+  "fittnes_tracker/macos/Flutter/GeneratedPluginRegistrant.swift": {
+    "mtime": 1787725832.7455301,
+    "seen": 1787727623.9725533,
+    "ast_hash": "22bcb6fca44c4bc570ceb975491c349b",
+    "semantic_hash": "22bcb6fca44c4bc570ceb975491c349b"
+  },
+  "fittnes_tracker/macos/RunnerTests/RunnerTests.swift": {
+    "mtime": 1784267079.518693,
+    "seen": 1787727623.9725537,
+    "ast_hash": "8059f5d27a19c556eeafb49b3f9b7bdd",
+    "semantic_hash": "8059f5d27a19c556eeafb49b3f9b7bdd"
+  },
+  "fittnes_tracker/macos/Runner/AppDelegate.swift": {
+    "mtime": 1784267079.518693,
+    "seen": 1787727623.9725542,
+    "ast_hash": "4b52e0b89ebfef9baf45b04548c463d6",
+    "semantic_hash": "4b52e0b89ebfef9baf45b04548c463d6"
+  },
+  "fittnes_tracker/macos/Runner/MainFlutterWindow.swift": {
+    "mtime": 1784267079.518693,
+    "seen": 1787727623.972555,
+    "ast_hash": "93c22dae2d93f3dc1402e121901f582b",
+    "semantic_hash": "93c22dae2d93f3dc1402e121901f582b"
+  },
+  "fittnes_tracker/setup_android_sdk.sh": {
+    "mtime": 1784267079.518693,
+    "seen": 1787727623.9725556,
+    "ast_hash": "67f45fa340bb7fd08b8f00737fbb90ff",
+    "semantic_hash": "67f45fa340bb7fd08b8f00737fbb90ff"
+  },
+  "fittnes_tracker/test/auth/localized_errors_test.dart": {
+    "mtime": 1787571807.9558105,
+    "seen": 1787727623.9725564,
+    "ast_hash": "cf188c05f93f481fa6c9aae4467d0b01",
+    "semantic_hash": "cf188c05f93f481fa6c9aae4467d0b01"
+  },
+  "fittnes_tracker/test/chat/access_provider_test.dart": {
+    "mtime": 1787313840.9843404,
+    "seen": 1787727623.9725568,
+    "ast_hash": "110326e861b1d0f0981bb8eb37839f78",
+    "semantic_hash": "110326e861b1d0f0981bb8eb37839f78"
+  },
+  "fittnes_tracker/test/chat/chat_outbox_migration_test.dart": {
+    "mtime": 1787571807.9571476,
+    "seen": 1787727623.9725573,
+    "ast_hash": "d33a39dfaa477eef8a5e8b62cff5ef48",
+    "semantic_hash": "d33a39dfaa477eef8a5e8b62cff5ef48"
+  },
+  "fittnes_tracker/test/chat/chat_provider_test.dart": {
+    "mtime": 1787725803.3679836,
+    "seen": 1787727623.972558,
+    "ast_hash": "2c058ac989a8bd5e0f1b788f0c23adb9",
+    "semantic_hash": "2c058ac989a8bd5e0f1b788f0c23adb9"
+  },
+  "fittnes_tracker/test/chat/chat_repository_test.dart": {
+    "mtime": 1787725803.3693874,
+    "seen": 1787727623.9725585,
+    "ast_hash": "65948076c44f6032610532a76d969dd8",
+    "semantic_hash": "65948076c44f6032610532a76d969dd8"
+  },
+  "fittnes_tracker/test/chat/coach_chat_screen_test.dart": {
+    "mtime": 1787313840.9858062,
+    "seen": 1787727623.9725595,
+    "ast_hash": "e5f6d2d6051eb41827ca07a81e17d1b2",
+    "semantic_hash": "e5f6d2d6051eb41827ca07a81e17d1b2"
+  },
+  "fittnes_tracker/test/chat/fakes.dart": {
+    "mtime": 1787571807.960614,
+    "seen": 1787727623.97256,
+    "ast_hash": "7120e90d23dcae548a65103939b8d4dd",
+    "semantic_hash": "7120e90d23dcae548a65103939b8d4dd"
+  },
+  "fittnes_tracker/test/chat/messages_screen_test.dart": {
+    "mtime": 1787313840.9868393,
+    "seen": 1787727623.9725606,
+    "ast_hash": "7496ecca6ea9dcac90be4904c0437e1f",
+    "semantic_hash": "7496ecca6ea9dcac90be4904c0437e1f"
+  },
+  "fittnes_tracker/test/nutrition/daily_intake_test.dart": {
+    "mtime": 1787313840.9880433,
+    "seen": 1787727623.9725611,
+    "ast_hash": "ee522b6746fece568cd87d51a67563c9",
+    "semantic_hash": "ee522b6746fece568cd87d51a67563c9"
+  },
+  "fittnes_tracker/test/onboarding/profile_setup_gate_test.dart": {
+    "mtime": 1787313840.9880433,
+    "seen": 1787727623.9725618,
+    "ast_hash": "fb6f95d94c55ded91ed7bd86dd1bab71",
+    "semantic_hash": "fb6f95d94c55ded91ed7bd86dd1bab71"
+  },
+  "fittnes_tracker/test/push/push_service_test.dart": {
+    "mtime": 1787725803.3693874,
+    "seen": 1787727623.9725628,
+    "ast_hash": "6f31596b04f7f3b637c723b9d253809e",
+    "semantic_hash": "6f31596b04f7f3b637c723b9d253809e"
+  },
+  "fittnes_tracker/test/seed/dashboard_counts_test.dart": {
+    "mtime": 1787571807.9626188,
+    "seen": 1787727623.9725633,
+    "ast_hash": "a6d463812bb179c67d76540d829f340a",
+    "semantic_hash": "a6d463812bb179c67d76540d829f340a"
+  },
+  "fittnes_tracker/test/seed/exercise_seed_test.dart": {
+    "mtime": 1787571807.9636257,
+    "seen": 1787727623.9725637,
+    "ast_hash": "12b6c5d3c33de1a416612b22c0a7181a",
+    "semantic_hash": "12b6c5d3c33de1a416612b22c0a7181a"
+  },
+  "fittnes_tracker/test/seed/seed_versions_test.dart": {
+    "mtime": 1787571807.9646354,
+    "seen": 1787727623.9725645,
+    "ast_hash": "c20e7bd08789df13bd3fdff0f23faa88",
+    "semantic_hash": "c20e7bd08789df13bd3fdff0f23faa88"
+  },
+  "fittnes_tracker/test/sync/fakes.dart": {
+    "mtime": 1787647323.8284006,
+    "seen": 1787727623.972565,
+    "ast_hash": "9efc902a83e76958711d9bf808b91be8",
+    "semantic_hash": "9efc902a83e76958711d9bf808b91be8"
+  },
+  "fittnes_tracker/test/sync/sync_service_test.dart": {
+    "mtime": 1787647323.8284006,
+    "seen": 1787727623.9725654,
+    "ast_hash": "725c0ebacf47f630db7383fbfbc51728",
+    "semantic_hash": "725c0ebacf47f630db7383fbfbc51728"
+  },
+  "fittnes_tracker/test/trainer_console/access_provider_test.dart": {
+    "mtime": 1787647323.8284006,
+    "seen": 1787727623.9725664,
+    "ast_hash": "3ddc3f768f100b4ec6cb621e425c49f3",
+    "semantic_hash": "3ddc3f768f100b4ec6cb621e425c49f3"
+  },
+  "fittnes_tracker/test/trainer_console/dashboard_screen_test.dart": {
+    "mtime": 1787313840.9890742,
+    "seen": 1787727623.9725668,
+    "ast_hash": "38d43b1528002e784b006b3854c694fc",
+    "semantic_hash": "38d43b1528002e784b006b3854c694fc"
+  },
+  "fittnes_tracker/test/trainer_console/fakes.dart": {
+    "mtime": 1787313840.9890742,
+    "seen": 1787727623.9725676,
+    "ast_hash": "5ccfbc065be68198a8c984817db5554e",
+    "semantic_hash": "5ccfbc065be68198a8c984817db5554e"
+  },
+  "fittnes_tracker/test/trainer_console/invite_client_sheet_test.dart": {
+    "mtime": 1787571807.9658103,
+    "seen": 1787727623.972568,
+    "ast_hash": "825a4551b13fbd50c4c0bded1c1f78f8",
+    "semantic_hash": "825a4551b13fbd50c4c0bded1c1f78f8"
+  },
+  "fittnes_tracker/test/trainer_console/join_trainer_screen_test.dart": {
+    "mtime": 1787313840.991561,
+    "seen": 1787727623.9725688,
+    "ast_hash": "bc4c646e96c9ac6c03aca53b38e93c87",
+    "semantic_hash": "bc4c646e96c9ac6c03aca53b38e93c87"
+  },
+  "fittnes_tracker/test/trainer_console/licence_fakes.dart": {
+    "mtime": 1787571807.9668589,
+    "seen": 1787727623.9725697,
+    "ast_hash": "01a4c7534c418dc491884f3a3f69fa81",
+    "semantic_hash": "01a4c7534c418dc491884f3a3f69fa81"
+  },
+  "fittnes_tracker/test/trainer_console/licence_screen_test.dart": {
+    "mtime": 1787571807.968367,
+    "seen": 1787727623.9725702,
+    "ast_hash": "b552cea88e59b1be19cd757fd4dd35e4",
+    "semantic_hash": "b552cea88e59b1be19cd757fd4dd35e4"
+  },
+  "fittnes_tracker/test/trainer_console/nutrition_screen_test.dart": {
+    "mtime": 1787571807.9693768,
+    "seen": 1787727623.972571,
+    "ast_hash": "39a1dc13e7c24728fbbad82847cbba60",
+    "semantic_hash": "39a1dc13e7c24728fbbad82847cbba60"
+  },
+  "fittnes_tracker/test/trainer_console/seat_meter_theme_test.dart": {
+    "mtime": 1787313840.9926522,
+    "seen": 1787727623.9725716,
+    "ast_hash": "83cdb67efff4dc933e2db0bcecb3acf7",
+    "semantic_hash": "83cdb67efff4dc933e2db0bcecb3acf7"
+  },
+  "fittnes_tracker/test/trainer_console/session_review_screen_test.dart": {
+    "mtime": 1787313840.9926522,
+    "seen": 1787727623.9725723,
+    "ast_hash": "10ff9d26fd615638f0609b02a8e619cd",
+    "semantic_hash": "10ff9d26fd615638f0609b02a8e619cd"
+  },
+  "fittnes_tracker/test/trainer_console/shell_test.dart": {
+    "mtime": 1787725803.3708792,
+    "seen": 1787727623.9725733,
+    "ast_hash": "068ce128cbdf91d66cd5ac2ad0fc5e7a",
+    "semantic_hash": "068ce128cbdf91d66cd5ac2ad0fc5e7a"
+  },
+  "fittnes_tracker/test/trainer_console/trainer_console_gate_test.dart": {
+    "mtime": 1787647323.8284006,
+    "seen": 1787727623.9725738,
+    "ast_hash": "dc3091a0a333b2c0697282c0a150fdb0",
+    "semantic_hash": "dc3091a0a333b2c0697282c0a150fdb0"
+  },
+  "fittnes_tracker/test/trainer_console/trainer_licence_model_test.dart": {
+    "mtime": 1787313840.9939613,
+    "seen": 1787727623.9725747,
+    "ast_hash": "6c146f8d97809692afb4b6cf6a77ed7b",
+    "semantic_hash": "6c146f8d97809692afb4b6cf6a77ed7b"
+  },
+  "fittnes_tracker/test/trainer_console/workout_builder_screen_test.dart": {
+    "mtime": 1787313840.9939613,
+    "seen": 1787727623.9725754,
+    "ast_hash": "46b0f15b4a4629ada3c315e5beade689",
+    "semantic_hash": "46b0f15b4a4629ada3c315e5beade689"
+  },
+  "fittnes_tracker/tool/generate_seeds.py": {
+    "mtime": 1787571807.9703808,
+    "seen": 1787727623.972576,
+    "ast_hash": "a85d665b8a637268481f3f1c0ccc9ff9",
+    "semantic_hash": "a85d665b8a637268481f3f1c0ccc9ff9"
+  },
+  "fittnes_tracker/tool/translate_exercises.py": {
+    "mtime": 1784267079.518693,
+    "seen": 1787727623.9725769,
+    "ast_hash": "2508a8d527ef3e36a6fa11b302e4e2ff",
+    "semantic_hash": "2508a8d527ef3e36a6fa11b302e4e2ff"
+  },
+  "fittnes_tracker/tool/translate_local.py": {
+    "mtime": 1784267079.518693,
+    "seen": 1787727623.9725776,
+    "ast_hash": "ce78a929b5da849e4deb1d8a62f0580c",
+    "semantic_hash": "ce78a929b5da849e4deb1d8a62f0580c"
+  },
+  "fittnes_tracker/tool/translations_de.json": {
+    "mtime": 1784267079.518693,
+    "seen": 1787727623.9725783,
+    "ast_hash": "dad332ae9e7c46522f5c5f0944e932fd",
+    "semantic_hash": "dad332ae9e7c46522f5c5f0944e932fd"
+  },
+  "fittnes_tracker/web/manifest.json": {
+    "mtime": 1784267079.5292618,
+    "seen": 1787727623.9725788,
+    "ast_hash": "c524e305167de7cb5c32fbde13877510",
+    "semantic_hash": "c524e305167de7cb5c32fbde13877510"
+  },
+  "fittnes_tracker/windows/flutter/generated_plugin_registrant.cc": {
+    "mtime": 1787725832.7469034,
+    "seen": 1787727623.9725795,
+    "ast_hash": "5ac7ebf217995986fa35c1bcf3df1903",
+    "semantic_hash": "5ac7ebf217995986fa35c1bcf3df1903"
+  },
+  "fittnes_tracker/windows/flutter/generated_plugin_registrant.h": {
+    "mtime": 1787725832.748243,
+    "seen": 1787727623.9725802,
+    "ast_hash": "0c3df6700414e7f332dfa2582a1ae29e",
+    "semantic_hash": "0c3df6700414e7f332dfa2582a1ae29e"
+  },
+  "fittnes_tracker/windows/runner/flutter_window.cpp": {
+    "mtime": 1784267079.579207,
+    "seen": 1787727623.972581,
+    "ast_hash": "2f463f9b7da67a2d692a012f9ea85e0c",
+    "semantic_hash": "2f463f9b7da67a2d692a012f9ea85e0c"
+  },
+  "fittnes_tracker/windows/runner/flutter_window.h": {
+    "mtime": 1784267079.579207,
+    "seen": 1787727623.9725814,
+    "ast_hash": "7defcc89d4a26d56e801241d624d48fb",
+    "semantic_hash": "7defcc89d4a26d56e801241d624d48fb"
+  },
+  "fittnes_tracker/windows/runner/main.cpp": {
+    "mtime": 1784267079.579207,
+    "seen": 1787727623.9725823,
+    "ast_hash": "7ac188162ef054ab344f2be1d2609c45",
+    "semantic_hash": "7ac188162ef054ab344f2be1d2609c45"
+  },
+  "fittnes_tracker/windows/runner/resource.h": {
+    "mtime": 1784267079.579207,
+    "seen": 1787727623.9725828,
+    "ast_hash": "1ade5dd15e613479a15e8832ed276f2b",
+    "semantic_hash": "1ade5dd15e613479a15e8832ed276f2b"
+  },
+  "fittnes_tracker/windows/runner/utils.cpp": {
+    "mtime": 1784267079.579207,
+    "seen": 1787727623.9725838,
+    "ast_hash": "432461b09d862a2f8dadf380ff0e34e5",
+    "semantic_hash": "432461b09d862a2f8dadf380ff0e34e5"
+  },
+  "fittnes_tracker/windows/runner/utils.h": {
+    "mtime": 1784267079.579207,
+    "seen": 1787727623.9725845,
+    "ast_hash": "fd81e143f5614eb6fd75efe539002853",
+    "semantic_hash": "fd81e143f5614eb6fd75efe539002853"
+  },
+  "fittnes_tracker/windows/runner/win32_window.cpp": {
+    "mtime": 1784267079.579207,
+    "seen": 1787727623.9725852,
+    "ast_hash": "571eb8234dbc2661be03aa5f2a4d2fca",
+    "semantic_hash": "571eb8234dbc2661be03aa5f2a4d2fca"
+  },
+  "fittnes_tracker/windows/runner/win32_window.h": {
+    "mtime": 1784267079.579207,
+    "seen": 1787727623.9725857,
+    "ast_hash": "7569387d58711ab975940f4df3b4bcda",
+    "semantic_hash": "7569387d58711ab975940f4df3b4bcda"
+  },
+  "skills-lock.json": {
+    "mtime": 1787313840.9967496,
+    "seen": 1787727623.9725864,
+    "ast_hash": "5af034e6373f7aac01a7e6b6604e376b",
+    "semantic_hash": "5af034e6373f7aac01a7e6b6604e376b"
+  },
+  ".agents/skills/design-taste-frontend/SKILL.md": {
+    "mtime": 1787313840.8118188,
+    "seen": 1787727623.972587,
+    "ast_hash": "648c8bf98f84fbe7f14bf2da035c57fe",
+    "semantic_hash": "648c8bf98f84fbe7f14bf2da035c57fe"
+  },
+  "CHANGELOG.md": {
+    "mtime": 1787725803.3313649,
+    "seen": 1787727623.9725878,
+    "ast_hash": "3cdcf82067de03b74af94ffd41fe4bb8",
+    "semantic_hash": "3cdcf82067de03b74af94ffd41fe4bb8"
+  },
+  "CLAUDE.md": {
+    "mtime": 1787725803.3313649,
+    "seen": 1787727623.9725885,
+    "ast_hash": "8f6b251546a75635d8174b6a04c2eb15",
+    "semantic_hash": "8f6b251546a75635d8174b6a04c2eb15"
+  },
+  "PLAY_NOTES.md": {
+    "mtime": 1787725803.3418887,
+    "seen": 1787727623.9725893,
+    "ast_hash": "c32d73a805b2d3bbd2416044f8700a3f",
+    "semantic_hash": "c32d73a805b2d3bbd2416044f8700a3f"
+  },
+  "README.md": {
+    "mtime": 1784267079.4011965,
+    "seen": 1787727623.9725897,
+    "ast_hash": "012e650dacd2d32ac2efe8318f9273ed",
+    "semantic_hash": "012e650dacd2d32ac2efe8318f9273ed"
+  },
+  "chat-feature-roadmap.md": {
+    "mtime": 1787313840.853896,
+    "seen": 1787727623.9725907,
+    "ast_hash": "c54b37a7e1a448d93dda714acbea6739",
+    "semantic_hash": "c54b37a7e1a448d93dda714acbea6739"
+  },
+  "chat-flutter-roadmap.md": {
+    "mtime": 1787313840.8552606,
+    "seen": 1787727623.9725914,
+    "ast_hash": "46728747d53413b2b1f159784b01f0c8",
+    "semantic_hash": "46728747d53413b2b1f159784b01f0c8"
+  },
+  "fittnes_tracker/README.md": {
+    "mtime": 1784267079.406221,
+    "seen": 1787727623.972592,
+    "ast_hash": "012e650dacd2d32ac2efe8318f9273ed",
+    "semantic_hash": "012e650dacd2d32ac2efe8318f9273ed"
+  },
+  "fittnes_tracker/analysis_options.yaml": {
+    "mtime": 1787313840.8593552,
+    "seen": 1787727623.9725926,
+    "ast_hash": "9ec7b1eff0fd95a9d2922aae93ff8d36",
+    "semantic_hash": "9ec7b1eff0fd95a9d2922aae93ff8d36"
+  },
+  "fittnes_tracker/assets/fonts/README.md": {
+    "mtime": 1784267079.4368546,
+    "seen": 1787727623.9725933,
+    "ast_hash": "221e18f9203d8d4b0d834dfd555952f3",
+    "semantic_hash": "221e18f9203d8d4b0d834dfd555952f3"
+  },
+  "fittnes_tracker/build-diagnostics/summary.txt": {
+    "mtime": 1784267079.4368546,
+    "seen": 1787727623.9725945,
+    "ast_hash": "8fd911b96fc072f137948618b299f96d",
+    "semantic_hash": "8fd911b96fc072f137948618b299f96d"
+  },
+  "fittnes_tracker/devtools_options.yaml": {
+    "mtime": 1784267079.4368546,
+    "seen": 1787727623.9725952,
+    "ast_hash": "e038393f28f58738b466dcf4b736a0cd",
+    "semantic_hash": "e038393f28f58738b466dcf4b736a0cd"
+  },
+  "fittnes_tracker/flutter_launcher_icons.yaml": {
+    "mtime": 1784267079.4526494,
+    "seen": 1787727623.972596,
+    "ast_hash": "bfb6467d33ca36719db5a40a92be1040",
+    "semantic_hash": "bfb6467d33ca36719db5a40a92be1040"
+  },
+  "fittnes_tracker/flutter_native_splash.yaml": {
+    "mtime": 1784267079.4526494,
+    "seen": 1787727623.9725964,
+    "ast_hash": "ac0b719015b040dcd11f69af3e12a5c2",
+    "semantic_hash": "ac0b719015b040dcd11f69af3e12a5c2"
+  },
+  "fittnes_tracker/l10n.yaml": {
+    "mtime": 1784267079.4683273,
+    "seen": 1787727623.972597,
+    "ast_hash": "78e7d200bb3bab6585db02e8ce5af10e",
+    "semantic_hash": "78e7d200bb3bab6585db02e8ce5af10e"
+  },
+  "fittnes_tracker/pubspec.yaml": {
+    "mtime": 1787725803.3679836,
+    "seen": 1787727623.9725978,
+    "ast_hash": "d8af66d91981bae7bf18d83e6e6032cb",
+    "semantic_hash": "d8af66d91981bae7bf18d83e6e6032cb"
+  },
+  "fittnes_tracker/untranslated.txt": {
+    "mtime": 1787725813.057588,
+    "seen": 1787727623.9725986,
+    "ast_hash": "99914b932bd37a50b983c5e7c90ae93b",
+    "semantic_hash": "99914b932bd37a50b983c5e7c90ae93b"
+  },
+  "fittnes_tracker/web/index.html": {
+    "mtime": 1784267079.5292618,
+    "seen": 1787727623.972599,
+    "ast_hash": "d993123a6fb496a3b6afd9a7b335d51b",
+    "semantic_hash": "d993123a6fb496a3b6afd9a7b335d51b"
+  },
+  "privacy-policy.html": {
+    "mtime": 1784267079.579207,
+    "seen": 1787727623.9725997,
+    "ast_hash": "74a5035af63a2d649e87a129204c2e7e",
+    "semantic_hash": "74a5035af63a2d649e87a129204c2e7e"
+  }
+}
