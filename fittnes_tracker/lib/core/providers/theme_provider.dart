@@ -29,6 +29,12 @@ class ThemeProvider with ChangeNotifier {
       brightness: Brightness.light,
       useMaterial3: true,
       fontFamily: 'Exo 2',
+      // Scaffold reads this, NOT colorScheme.background — which Material 3
+      // deprecated, so setting `background` alone silently did nothing and
+      // every page stayed #FFFFFF behind #FFFFFF cards. Caught by sampling
+      // the rendered pixels, not by a test: contrast_test.dart asserts the
+      // token *pair* is valid and cannot see whether the app uses it.
+      scaffoldBackgroundColor: ForgeColors.backgroundLight,
       colorScheme: ColorScheme.light(
         // The AA-safe variant, not the raw brand orange: colorScheme.primary
         // is what every FilledButton/FAB/selected-state fills with, and white
@@ -169,6 +175,7 @@ class ThemeProvider with ChangeNotifier {
       brightness: Brightness.dark,
       useMaterial3: true,
       fontFamily: 'Exo 2',
+      scaffoldBackgroundColor: ForgeColors.backgroundDark,
       colorScheme: ColorScheme.dark(
         primary: ForgeColors.forgeOrange,
         secondary: ForgeColors.forgeOrange,

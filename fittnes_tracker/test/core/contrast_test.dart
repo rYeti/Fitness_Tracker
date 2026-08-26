@@ -68,10 +68,22 @@ void main() {
   group('WCAG 1.4.11 — non-text UI components', () {
     test('input borders are visible against their own fill', () {
       // A border is the only thing marking where a field is, so it needs 3:1.
+      //
+      // Both light fills are asserted deliberately. Fields are filled two
+      // ways — the theme uses surfaceLight, onboardingFieldDecoration uses a
+      // tinted grey — and a border sized against white alone still measured
+      // 2.48 on the tinted one, so checking a single fill would have passed
+      // a border that is invisible on four screens.
       expectContrast(
         ForgeColors.borderLight,
         ForgeColors.surfaceLight,
         atLeast: 3.0,
+      );
+      expectContrast(
+        ForgeColors.borderLight,
+        ForgeColors.inputFillLight,
+        atLeast: 3.0,
+        because: 'onboardingFieldDecoration fills with this, not surfaceLight',
       );
       expectContrast(
         ForgeColors.borderDark,
@@ -90,6 +102,31 @@ void main() {
         atLeast: 1.05,
         because: 'a card must be distinguishable from the page without relying '
             'on elevation alone',
+      );
+    });
+
+    test('the themes actually apply the page background they declare', () {
+      // Asserting the token pair is not enough, and this is the exact hole
+      // that let the first attempt at this fix ship as a no-op: the page
+      // colour was set on ColorScheme.background, which Material 3 deprecated
+      // and Scaffold no longer reads, so every page stayed #FFFFFF while the
+      // pair-level assertion above passed. Only sampling the rendered pixels
+      // caught it. This test closes that gap.
+      expect(
+        themeProvider.lightTheme.scaffoldBackgroundColor,
+        ForgeColors.backgroundLight,
+        reason: 'Scaffold reads scaffoldBackgroundColor, not '
+            'colorScheme.background',
+      );
+      expect(
+        themeProvider.darkTheme.scaffoldBackgroundColor,
+        ForgeColors.backgroundDark,
+      );
+      // And the card must differ from what is behind it, as rendered.
+      expectContrast(
+        themeProvider.lightTheme.cardTheme.color!,
+        themeProvider.lightTheme.scaffoldBackgroundColor,
+        atLeast: 1.05,
       );
     });
   });

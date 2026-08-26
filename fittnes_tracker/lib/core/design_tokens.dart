@@ -42,8 +42,21 @@ abstract final class ForgeColors {
   /// it is a non-text UI component under WCAG 1.4.11 and needs 3:1. The old
   /// values (`#E0E0E0` on white, `#404040` on the dark card) measured 1.32
   /// and 1.35 — roughly a quarter of the requirement.
-  static const borderLight = Color(0xFF949494);
+  ///
+  /// [borderLight] is sized against the *darkest* fill it sits on, not the
+  /// lightest. Fields are filled two different ways: the theme fills with
+  /// [surfaceLight], while `onboardingFieldDecoration` fills with `onSurface`
+  /// at 7% alpha — about `#E8E8E8`. A value picked against white alone
+  /// measured 3.03 there but only 2.48 on the tinted fill, which is how the
+  /// first attempt still failed on the login screen after the token changed.
+  /// `#808080` clears 3:1 on both (3.95 on white, 3.22 on `#E8E8E8`).
+  static const borderLight = Color(0xFF808080);
   static const borderDark = Color(0xFF7A7A7A);
+
+  /// The tinted fill `onboardingFieldDecoration` uses, named so
+  /// `contrast_test.dart` can assert against it rather than assuming every
+  /// field is filled with [surfaceLight].
+  static const inputFillLight = Color(0xFFE8E8E8);
 
   static const proteinColor = Color(0xFFE53935);
   static const carbsColor = Color(0xFF1E88E5);
