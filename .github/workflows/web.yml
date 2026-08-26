@@ -30,12 +30,41 @@ jobs:
 
       - run: flutter test
 
-      - run: flutter build web --release
+      # --no-web-resources-cdn bundles CanvasKit into the output instead of
+      # fetching it from gstatic.com at boot. Without it the app cannot start
+      # on any machine that cannot reach Google's CDN — including the E2E job
+      # below, which is how this was found.
+      - run: flutter build web --release --no-web-resources-cdn
 
       - uses: actions/upload-artifact@v4
         with:
           name: trainer-console-web
           path: fittnes_tracker/build/web
+          retention-days: 14
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+
+      - name: Install E2E dependencies
+        working-directory: e2e
+        run: npm ci
+
+      - name: Install Playwright browser
+        working-directory: e2e
+        run: npx playwright install --with-deps chromium
+
+      - name: E2E against the built bundle
+        working-directory: e2e
+        run: npx playwright test
+
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: e2e/playwright-report
           retention-days: 14
 
       # Deploy step intentionally omitted: the host isn't chosen yet. The
