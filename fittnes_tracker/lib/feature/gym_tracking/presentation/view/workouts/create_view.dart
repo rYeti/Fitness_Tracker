@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart' as drift hide Column;
 import 'dart:convert';
+import 'package:ForgeForm/core/forge_motion.dart';
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/di/service_locator.dart';
 import 'package:ForgeForm/core/providers/access_provider.dart';
@@ -1902,13 +1903,13 @@ class _AddDaySpeedDialState extends State<_AddDaySpeedDial>
   void initState() {
     super.initState();
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 200),
+      duration: ForgeMotion.standard,
       vsync: this,
     );
 
     _scaleAnimation = CurvedAnimation(
       parent: _animationController,
-      curve: Curves.easeOut,
+      curve: ForgeMotion.curve,
     );
 
     _rotationAnimation = Tween<double>(
@@ -1917,6 +1918,14 @@ class _AddDaySpeedDialState extends State<_AddDaySpeedDial>
     ).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
     );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // AnimationController is built in initState, before MediaQuery exists, so
+    // the reduce-motion setting can only be applied once dependencies resolve.
+    _animationController.duration = ForgeMotion.of(context);
   }
 
   @override

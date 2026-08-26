@@ -1,3 +1,4 @@
+import 'package:ForgeForm/core/forge_motion.dart';
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/providers/access_provider.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
@@ -239,7 +240,7 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
           const Spacer(),
           TweenAnimationBuilder<double>(
             tween: Tween<double>(begin: 0, end: numericValue),
-            duration: const Duration(milliseconds: 250),
+            duration: ForgeMotion.of(context, ForgeMotion.emphasis),
             builder: (context, value, child) {
               final formatted =
                   value >= 10

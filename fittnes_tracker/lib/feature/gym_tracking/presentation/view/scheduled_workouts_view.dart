@@ -1,3 +1,4 @@
+import 'package:ForgeForm/core/forge_motion.dart';
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/di/service_locator.dart';
 import 'package:ForgeForm/feature/gym_tracking/presentation/providers/workout_provider.dart';
@@ -289,7 +290,7 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
                   ),
                   // Expandable calendar grid
                   AnimatedSize(
-                    duration: const Duration(milliseconds: 250),
+                    duration: ForgeMotion.of(context, ForgeMotion.emphasis),
                     curve: Curves.easeInOut,
                     child:
                         _isCalendarExpanded
@@ -1004,7 +1005,7 @@ class _WorkoutCalendar extends StatelessWidget {
               return GestureDetector(
                 onTap: inMonth ? () => onDayTapped(dayNorm) : null,
                 child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
+                  duration: ForgeMotion.of(context, ForgeMotion.quick),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color:

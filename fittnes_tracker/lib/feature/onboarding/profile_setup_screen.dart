@@ -1,3 +1,4 @@
+import 'package:ForgeForm/core/forge_motion.dart';
 import 'package:ForgeForm/core/widgets/form_pane.dart';
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/providers/enums.dart';
@@ -298,7 +299,7 @@ class _ProfileSetupProgressBar extends StatelessWidget {
         children: List.generate(total, (i) {
           return Expanded(
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
+              duration: ForgeMotion.of(context, ForgeMotion.emphasis),
               margin: const EdgeInsets.symmetric(horizontal: 3),
               height: 4,
               decoration: BoxDecoration(
