@@ -69,8 +69,45 @@ public class ExerciseRepository : IExerciseRepository
     public async Task<List<Exercise>> GetAllExercisesAsync(Guid userId)
     {
         return await _context.Exercise
+            .AsNoTracking()
             .Where(e => e.UserId == null || e.UserId == userId)
             .ToListAsync();
+    }
+
+    /// <inheritdoc/>
+    public async Task<Dictionary<Guid, string>> GetNamesByIdsAsync(IReadOnlyCollection<Guid> exerciseIds)
+    {
+        if (exerciseIds.Count == 0) return [];
+
+        var ids = exerciseIds.ToList();
+        var rows = await _context.Exercise
+            .AsNoTracking()
+            .Where(e => ids.Contains(e.Id))
+            .Select(e => new { e.Id, e.Name })
+            .ToListAsync();
+
+        return rows.ToDictionary(r => r.Id, r => r.Name);
+    }
+
+    /// <inheritdoc/>
+    public async Task<Dictionary<Guid, string>> GetNamesByWorkoutExerciseIdsAsync(IReadOnlyCollection<Guid> workoutExerciseIds)
+    {
+        if (workoutExerciseIds.Count == 0) return [];
+
+        var ids = workoutExerciseIds.ToList();
+        // An explicit join rather than a navigation: WorkoutExercise.ExerciseId carries no
+        // foreign key (exercises can be seeded client-side), so there is nothing to navigate.
+        var rows = await (
+            from we in _context.WorkoutExercises.AsNoTracking()
+            where ids.Contains(we.Id)
+            join e in _context.Exercise.AsNoTracking() on we.ExerciseId equals e.Id
+            select new { WorkoutExerciseId = we.Id, e.Name })
+            .ToListAsync();
+
+        // An inner join can't produce duplicate keys here — Exercise.Id is the primary key —
+        // but a workout-exercise row whose ExerciseId resolves to nothing simply drops out,
+        // which is what callers' GetValueOrDefault(id, "") already expects.
+        return rows.ToDictionary(r => r.WorkoutExerciseId, r => r.Name);
     }
 
 }

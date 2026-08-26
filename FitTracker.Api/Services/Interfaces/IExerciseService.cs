@@ -15,6 +15,12 @@ public interface IExerciseService
     /// <param name="userId">The ID of the requesting user.</param>
     Task<List<ExerciseResponseDto>> GetAllExercisesAsync(Guid userId);
 
+    /// <summary>The names of the given exercises, keyed by exercise id.</summary>
+    Task<Dictionary<Guid, string>> GetNamesByIdsAsync(IReadOnlyCollection<Guid> exerciseIds);
+
+    /// <summary>The exercise name behind each of the given <c>WorkoutExercise</c> ids.</summary>
+    Task<Dictionary<Guid, string>> GetNamesByWorkoutExerciseIdsAsync(IReadOnlyCollection<Guid> workoutExerciseIds);
+
     /// <summary>Updates an existing exercise owned by the specified user.</summary>
     /// <param name="id">The ID of the exercise to update.</param>
     /// <param name="userId">The ID of the user who owns the exercise.</param>

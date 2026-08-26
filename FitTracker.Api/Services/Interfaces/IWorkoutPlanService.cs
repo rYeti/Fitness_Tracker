@@ -9,6 +9,10 @@ public interface IWorkoutPlanService
     /// <param name="userId">The user's ID.</param>
     Task<List<WorkoutPlanResponseDto>> GetUserPlansAsync(Guid userId);
 
+    /// <summary>The name of each client's active plan, keyed by client id. Clients with no
+    /// active plan are absent.</summary>
+    Task<Dictionary<Guid, string>> GetActivePlanNamesAsync(IReadOnlyCollection<Guid> userIds);
+
     /// <summary>Returns a single workout plan belonging to the specified user, including its member workout IDs.</summary>
     /// <param name="id">The ID of the plan to retrieve.</param>
     /// <param name="userId">The ID of the user who owns the plan.</param>

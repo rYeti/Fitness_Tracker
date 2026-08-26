@@ -10,6 +10,13 @@ public interface IWorkoutPlanRepository
     /// <param name="userId">The user's ID.</param>
     Task<List<WorkoutPlan>> GetUserPlansAsync(Guid userId);
 
+    /// <summary>The name of each client's active plan, keyed by client id. Clients with no
+    /// active plan are absent.</summary>
+    /// <remarks>Where a client somehow holds more than one active plan, the most recently
+    /// created wins. Picking the first row the database happened to return, as the roster
+    /// used to, meant the label could change between two identical requests.</remarks>
+    Task<Dictionary<Guid, string>> GetActivePlanNamesAsync(IReadOnlyCollection<Guid> userIds);
+
     /// <summary>Returns a single workout plan belonging to the specified user, including its member workouts.</summary>
     /// <param name="id">The ID of the plan to retrieve.</param>
     /// <param name="userId">The ID of the user who owns the plan.</param>

@@ -26,103 +26,143 @@ public class TrainerConsoleService(
 
     private readonly IExerciseService _exerciseService = exerciseService;
 
-    /// <inheritdoc/>
-    public async Task<TrainerDashboardKpisDto> GetDashboardKpisAsync(Guid trainerId)
+    /// <summary>The Monday of the week containing <paramref name="today"/>.</summary>
+    /// <remarks>The obvious spelling, <c>AddDays(-(int)DayOfWeek + 1)</c>, is wrong on Sunday:
+    /// <see cref="DayOfWeek.Sunday"/> is 0, so it lands on tomorrow and the whole week reads as
+    /// empty. Shifting by 6 first makes Monday the zero point.</remarks>
+    private static DateTime WeekStartFor(DateTime today) =>
+        today.Date.AddDays(-(((int)today.DayOfWeek + 6) % 7));
+
+    /// <summary>Everything the Dashboard needs about a trainer's roster, gathered once.</summary>
+    private sealed record RosterAggregate(
+        List<TrainerRosterEntryDto> Roster,
+        int CompletedThisWeek,
+        double AvgAdherencePercent);
+
+    /// <summary>Builds the roster rows and the KPI totals from one set of queries.</summary>
+    /// <remarks>
+    /// This used to be two <c>foreach</c> loops over the roster — one per endpoint — each doing
+    /// two awaited round trips per client, each of which loaded every session that client had
+    /// ever logged with every exercise and every set, so that a 28-day count and one MAX could be
+    /// taken in memory. A dashboard paint cost 4N+2 queries and materialised the whole roster's
+    /// training history twice. It is now four queries, whatever the roster's size, and the
+    /// database does the counting.
+    ///
+    /// The two endpoints still exist separately (published clients call both, and the Dashboard
+    /// wants them to resolve independently), but they are computed from one snapshot here so the
+    /// two halves of one screen can never disagree about what "now" is.
+    /// </remarks>
+    private async Task<RosterAggregate> BuildRosterAggregateAsync(Guid trainerId)
     {
         var clients = await _trainerClientService.GetClientsAsync(trainerId);
-        var weekStart = DateTime.UtcNow.Date.AddDays(-(int)DateTime.UtcNow.DayOfWeek + 1); // Monday
-        int totalCompletedThisWeek = 0;
-        double adherenceSum = 0;
-        int clientsWithPlannedSessions = 0;
+        if (clients.Count == 0) return new RosterAggregate([], 0, 0);
 
-        foreach (var client in clients)
+        // Read the clock once. Two reads either side of midnight disagree, and the roster and
+        // the KPIs beside it would then be measuring different weeks.
+        var today = DateTime.UtcNow.Date;
+        var weekStart = WeekStartFor(today);
+        var weekEnd = weekStart.AddDays(7);
+        // Trailing 4 weeks rather than the current week alone: a Monday-morning roster would
+        // otherwise show every client at 0%.
+        var windowStart = today.AddDays(-28);
+        // Exclusive, and a day past today, so a session logged this afternoon still counts.
+        var windowEnd = today.AddDays(1);
+
+        var clientIds = clients.Select(c => c.ClientId).ToList();
+
+        var stats = (await _scheduledWorkoutService.GetClientTrainingStatsAsync(
+                clientIds, windowStart, windowEnd, weekStart, weekEnd))
+            .ToDictionary(s => s.ClientId);
+        var lastSessions = await _scheduledWorkoutService.GetLastCompletedSessionDatesAsync(clientIds);
+        var planNames = await _workoutPlanService.GetActivePlanNamesAsync(clientIds);
+
+        var roster = clients.Select(client =>
         {
-            var scheduled = await GetCurrentProgrammeSessionsAsync(client.ClientId);
-            var thisWeek = scheduled.Where(w => w.ScheduledDate >= weekStart && w.ScheduledDate < weekStart.AddDays(7)).ToList();
-            var planned = thisWeek.Count;
-            var completed = thisWeek.Count(w => w.IsCompleted);
+            // A client with nothing scheduled in the window has no row in `stats` at all.
+            // That is the point: no scheduled sessions means "no data", not "0% adherent".
+            var hasStats = stats.TryGetValue(client.ClientId, out var s);
 
-            totalCompletedThisWeek += completed;
-            if (planned > 0)
-            {
-                adherenceSum += (double)completed / planned;
-                clientsWithPlannedSessions++;
-            }
-        }
-
-        var kpis = new TrainerDashboardKpisDto()
-        {
-            ActiveClientCount = clients.Count,
-            SessionsThisWeek = totalCompletedThisWeek,
-            AvgAdherencePercent = clientsWithPlannedSessions > 0 ? (adherenceSum / clientsWithPlannedSessions) * 100 : 0,
-        };
-
-        return kpis;
-    }
-
-    /// <inheritdoc/>
-    public async Task<List<TrainerRosterEntryDto>> GetRosterAsync(Guid trainerId)
-    {
-        var clients = await _trainerClientService.GetClientsAsync(trainerId);
-        // Trailing 4 weeks rather than the current week alone: a Monday-morning
-        // roster would otherwise show every client at 0%.
-        var windowStart = DateTime.UtcNow.Date.AddDays(-28);
-
-        var roster = new List<TrainerRosterEntryDto>();
-        foreach (var client in clients)
-        {
-            var plans = await _workoutPlanService.GetUserPlansAsync(client.ClientId);
-            var activePlan = plans.FirstOrDefault(p => p.IsActive);
-
-            var scheduled = FilterToCurrentProgramme(
-                await _scheduledWorkoutService.GetUserScheduledWorkoutsAsync(client.ClientId),
-                plans);
-            var window = scheduled
-                .Where(w => w.ScheduledDate >= windowStart && w.ScheduledDate.Date <= DateTime.UtcNow.Date)
-                .ToList();
-            var completed = window.Count(w => w.IsCompleted);
-
-            roster.Add(new TrainerRosterEntryDto
+            return new TrainerRosterEntryDto
             {
                 ClientId = client.ClientId,
                 ClientName = client.ClientName,
-                ProgramLabel = activePlan?.Name,
-                // No scheduled sessions means "no data", not "0% adherent".
-                AdherencePercent = window.Count > 0
-                    ? (double)completed / window.Count * 100
+                ProgramLabel = planNames.GetValueOrDefault(client.ClientId),
+                AdherencePercent = hasStats && s.PlannedInWindow > 0
+                    ? (double)s.CompletedInWindow / s.PlannedInWindow * 100
                     : null,
-                LastSessionDate = scheduled
-                    .Where(w => w.IsCompleted)
-                    .OrderByDescending(w => w.ScheduledDate)
-                    .Select(w => (DateTime?)w.ScheduledDate)
-                    .FirstOrDefault(),
-            });
-        }
+                LastSessionDate = lastSessions.TryGetValue(client.ClientId, out var last)
+                    ? last
+                    : null,
+            };
+        }).ToList();
 
-        return roster;
+        var completedThisWeek = stats.Values.Sum(s => s.CompletedThisWeek);
+        // Averaged over the clients who actually had something scheduled, so a client with an
+        // empty week doesn't drag the number down as if they had skipped it.
+        var scheduledThisWeek = stats.Values.Where(s => s.PlannedThisWeek > 0).ToList();
+        var avgAdherence = scheduledThisWeek.Count > 0
+            ? scheduledThisWeek.Average(s => (double)s.CompletedThisWeek / s.PlannedThisWeek) * 100
+            : 0;
+
+        return new RosterAggregate(roster, completedThisWeek, avgAdherence);
     }
+
+    /// <inheritdoc/>
+    public async Task<TrainerDashboardKpisDto> GetDashboardKpisAsync(Guid trainerId)
+    {
+        var aggregate = await BuildRosterAggregateAsync(trainerId);
+
+        return new TrainerDashboardKpisDto
+        {
+            ActiveClientCount = aggregate.Roster.Count,
+            SessionsThisWeek = aggregate.CompletedThisWeek,
+            AvgAdherencePercent = aggregate.AvgAdherencePercent,
+        };
+    }
+
+    /// <inheritdoc/>
+    public async Task<List<TrainerRosterEntryDto>> GetRosterAsync(Guid trainerId) =>
+        (await BuildRosterAggregateAsync(trainerId)).Roster;
 
     /// <inheritdoc/>
     public async Task<List<WeightTrackingResponseDto>?> GetClientWeightHistoryAsync(Guid trainerId, Guid clientId)
     {
         var isTrainer = await _trainerClientService.IsActiveTrainerOfAsync(trainerId, clientId);
         if (!isTrainer) return null;
-        return await _weightTrackingService.GetWeightLogs(clientId);
 
+        // A year of weigh-ins is more than the trend chart can usefully draw, and far less than
+        // "every weigh-in this account has ever recorded", which is what this used to return.
+        return await _weightTrackingService.GetWeightLogsSince(
+            clientId, DateTime.UtcNow.Date.AddDays(-WeightHistoryDays));
     }
+
+    /// <summary>How far back the Client Detail weight trend reaches.</summary>
+    private const int WeightHistoryDays = 365;
+
+    /// <summary>How many weeks of attendance the Client Detail screen shows.</summary>
+    private const int AttendanceWeeks = 12;
 
     /// <inheritdoc/>
     public async Task<ClientWorkoutSummaryDto?> GetClientWorkoutSummaryAsync(Guid trainerId, Guid clientId)
     {
         var isTrainer = await _trainerClientService.IsActiveTrainerOfAsync(trainerId, clientId);
         if (!isTrainer) return null;
-        var weekStart = DateTime.UtcNow.Date.AddDays(-(int)DateTime.UtcNow.DayOfWeek + 1);
-        var attendanceWeek = new List<AttendanceWeekDto>();
+
+        var today = DateTime.UtcNow.Date;
+        var weekStart = WeekStartFor(today);
+        // The screen reports 12 weeks, so read 12 weeks. This used to load the client's entire
+        // training history — every session, exercise and set they had ever logged — and then
+        // slice a quarter of a year out of it in memory.
+        var rangeStart = weekStart.AddDays(-7 * (AttendanceWeeks - 1));
+        var rangeEnd = weekStart.AddDays(7);
+
         var currentClientPlan = await _workoutPlanService.GetUserPlansAsync(clientId);
         var scheduled = FilterToCurrentProgramme(
-            await _scheduledWorkoutService.GetUserScheduledWorkoutsAsync(clientId),
+            await _scheduledWorkoutService.GetUserScheduledWorkoutsInRangeAsync(clientId, rangeStart, rangeEnd),
             currentClientPlan);
-        for (var i = 0; i < 12; i++)
+
+        var attendanceWeek = new List<AttendanceWeekDto>();
+        for (var i = 0; i < AttendanceWeeks; i++)
         {
             // Each iteration gets its own week window, shifted `i` weeks back from
             // the current week — i=0 is this week, i=1 is last week, etc. — instead
@@ -131,16 +171,15 @@ public class TrainerConsoleService(
             var windowStart = weekStart.AddDays(-7 * i);
             var windowEnd = windowStart.AddDays(7);
             var thisWeek = scheduled.Where(w => w.ScheduledDate >= windowStart && w.ScheduledDate < windowEnd).ToList();
-            var planned = thisWeek.Count;
-            var completed = thisWeek.Count(w => w.IsCompleted);
-            var attendance = new AttendanceWeekDto
+
+            attendanceWeek.Add(new AttendanceWeekDto
             {
-                CompletedSessions = completed,
-                PlannedSessions = planned,
-                WeekStart = windowStart
-            };
-            attendanceWeek.Add(attendance);
+                CompletedSessions = thisWeek.Count(w => w.IsCompleted),
+                PlannedSessions = thisWeek.Count,
+                WeekStart = windowStart,
+            });
         }
+
         var activePlan = currentClientPlan.FirstOrDefault(p => p.IsActive == true);
 
         // Two-argument SelectMany overloads carry the outer item along as you
@@ -156,36 +195,28 @@ public class TrainerConsoleService(
             .Where(p => p.Set.IsCompleted)
             .ToList();
 
-        var groupedByExercise = exerciseSetPairs.GroupBy(p => p.ExerciseId);
-        var maxWeights = new List<(Guid ExerciseId, double? Weight)>();
-        var strengthProgression = new List<StrengthProgressionDto>();
-        var exerciseNamesById = (await _exerciseService.GetAllExercisesAsync(clientId)).ToDictionary(e => e.id, e => e.Name);
+        var groupedByExercise = exerciseSetPairs.GroupBy(p => p.ExerciseId).ToList();
 
+        // Keyed by WorkoutExercise id, because that is what a logged set is stamped against.
+        // The old lookup was keyed by Exercise id and queried with a WorkoutExercise id, so it
+        // never matched and every row on this chart was labelled with an empty string.
+        var exerciseNamesById = await _exerciseService.GetNamesByWorkoutExerciseIdsAsync(
+            [.. groupedByExercise.Select(g => g.Key)]);
+
+        var strengthProgression = new List<StrengthProgressionDto>();
         foreach (var exercise in groupedByExercise)
         {
-            var exerciseId = exercise.Key;
-            var lastWeight = exercise
-            .OrderByDescending(e => e.date)
-            .Select(e => e.Set.Weight)
-            .FirstOrDefault();
+            var byDate = exercise.OrderByDescending(e => e.date).Select(e => e.Set.Weight).ToList();
+            var lastWeight = byDate.FirstOrDefault();
+            var preWeight = byDate.Skip(1).FirstOrDefault();
 
-            var preWeight = exercise
-            .OrderByDescending(e => e.date)
-            .Select(e => e.Set.Weight)
-            .Skip(1)
-            .FirstOrDefault();
-            var exerciseName = exerciseNamesById.GetValueOrDefault(exerciseId, "");
-
-
-            maxWeights.Add((exerciseId, lastWeight));
-            var strenght = new StrengthProgressionDto()
+            strengthProgression.Add(new StrengthProgressionDto
             {
-                ExerciseId = exerciseId,
+                ExerciseId = exercise.Key,
                 CurrentWeight = lastWeight ?? 0,
                 DeltaFromPrevious = (lastWeight - preWeight) ?? 0,
-                ExerciseName = exerciseName ,
-            };
-            strengthProgression.Add(strenght);
+                ExerciseName = exerciseNamesById.GetValueOrDefault(exercise.Key, ""),
+            });
         }
 
         return new ClientWorkoutSummaryDto
@@ -201,12 +232,17 @@ public class TrainerConsoleService(
     {
         var isTrainer = await _trainerClientService.IsActiveTrainerOfAsync(trainerId, clientId);
         if (!isTrainer) return null;
-        var scheduled = await _scheduledWorkoutService.GetUserScheduledWorkoutsAsync(clientId);
-        var scheduledDate = scheduled.FirstOrDefault(s => s.ScheduledDate.Date == date.Date);
+
+        // One day asked for, one day read. This used to load every session the client had ever
+        // logged and then pick the matching date out of the list.
+        var day = date.Date;
+        var scheduled = await _scheduledWorkoutService.GetUserScheduledWorkoutsInRangeAsync(
+            clientId, day, day.AddDays(1));
+
         return new ClientWorkoutHistoryDto()
         {
             Date = date,
-            ScheduledWorkout = scheduledDate,
+            ScheduledWorkout = scheduled.FirstOrDefault(),
         };
     }
 
@@ -216,38 +252,50 @@ public class TrainerConsoleService(
         var isTrainer = await _trainerClientService.IsActiveTrainerOfAsync(trainerId, clientId);
         if (!isTrainer) return null;
 
-        var scheduled = await GetCurrentProgrammeSessionsAsync(clientId);
-        if (scheduled.Count == 0) return [];
-
-        // Name lookups, fetched once rather than per session/exercise.
-        // WorkoutExercise entries are keyed by their own Id, which is what
-        // ScheduledWorkoutExercise.WorkoutExerciseId points at.
-        var workouts = await _workoutService.GetUserWorkoutsAsync(clientId);
-        var workoutsById = workouts.ToDictionary(w => w.Id);
-        var workoutExercisesById = workouts
-            .SelectMany(w => w.Exercises)
-            .ToDictionary(e => e.Id);
-        var exerciseNamesById = (await _exerciseService.GetAllExercisesAsync(clientId))
-            .ToDictionary(e => e.id, e => e.Name);
-
         // History means what's already happened — a workout scheduled for next week
         // has nothing logged against it yet and would otherwise sort to the top of a
         // newest-first list and read as an unlogged session.
         var today = DateTime.UtcNow.Date;
 
+        // Read `count` sessions, not all of them. This used to load the client's whole
+        // history, build the full prescribed-vs-logged graph for every past session, and
+        // then keep the newest ten.
+        var page = await _scheduledWorkoutService.GetRecentSessionsAsync(clientId, today.AddDays(1), count);
+        if (page.Count == 0) return [];
+
+        // Name and prescription lookups, fetched once for the page rather than per session.
+        // WorkoutExercise entries are keyed by their own Id, which is what
+        // ScheduledWorkoutExercise.WorkoutExerciseId points at.
+        var workoutExerciseIds = page.SelectMany(w => w.Exercises).Select(e => e.WorkoutExerciseId).Distinct().ToList();
+        var workoutNamesById = await _workoutService.GetNamesByIdsAsync(
+            [.. page.Select(w => w.WorkoutId).Distinct()]);
+        var workoutExercisesById = (await _workoutService.GetExercisesByIdsAsync(workoutExerciseIds))
+            .ToDictionary(e => e.Id);
+
         // PR detection needs "best weight before this session", so walk oldest-first
-        // and carry a running max per exercise. Reversed to newest-first at the end.
-        var chronological = scheduled
-            .Where(w => w.ScheduledDate.Date <= today)
-            .OrderBy(w => w.ScheduledDate)
+        // and carry a running max per exercise.
+        var chronological = page.OrderBy(w => w.ScheduledDate).ToList();
+
+        // Seeded with the client's bests from before this page, so that reading ten sessions
+        // still compares each lift against their whole career. Without it a bounded page would
+        // report the first time an exercise appears *on the page* as a personal record.
+        var bestWeightByExercise = await _scheduledWorkoutService.GetBestWeightsBeforeAsync(
+            clientId, chronological[0].ScheduledDate);
+
+        var effectiveExerciseIds = page
+            .SelectMany(w => w.Exercises)
+            .Select(e => e.OverrideExerciseId
+                ?? (workoutExercisesById.TryGetValue(e.WorkoutExerciseId, out var t) ? t.ExerciseId : (Guid?)null))
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .Distinct()
             .ToList();
-        var bestWeightByExercise = new Dictionary<Guid, double>();
+        var exerciseNamesById = await _exerciseService.GetNamesByIdsAsync(effectiveExerciseIds);
+
         var sessions = new List<ClientSessionSummaryDto>();
 
         foreach (var workout in chronological)
         {
-            workoutsById.TryGetValue(workout.WorkoutId, out var template);
-
             var exerciseLogs = new List<SessionExerciseLogDto>();
             double totalVolume = 0;
             var rpes = new List<int>();
@@ -359,7 +407,7 @@ public class TrainerConsoleService(
             {
                 ScheduledWorkoutId = workout.Id,
                 Date = workout.ScheduledDate,
-                WorkoutName = template?.Name ?? "",
+                WorkoutName = workoutNamesById.GetValueOrDefault(workout.WorkoutId, ""),
                 Status = DeriveStatus(workout),
                 IsPr = sessionHasPr,
                 TotalVolume = totalVolume,
@@ -369,20 +417,12 @@ public class TrainerConsoleService(
             });
         }
 
+        // The walk had to run oldest-first for the running personal-record max; the screen
+        // lists newest-first.
         sessions.Reverse();
-        return sessions.Take(count).ToList();
+        return sessions;
     }
 
-    /// <summary>A client's scheduled sessions with the leftovers of abandoned plans removed —
-    /// see <see cref="FilterToCurrentProgramme"/>.</summary>
-    private async Task<List<ScheduledWorkoutResponseDto>> GetCurrentProgrammeSessionsAsync(Guid clientId)
-    {
-        var scheduled = await _scheduledWorkoutService.GetUserScheduledWorkoutsAsync(clientId);
-        if (scheduled.Count == 0) return scheduled;
-
-        var plans = await _workoutPlanService.GetUserPlansAsync(clientId);
-        return FilterToCurrentProgramme(scheduled, plans);
-    }
 
     /// <summary>Drops the sessions a client is no longer on the hook for, so that every
     /// trainer-facing count and list is drawn from the same set of sessions.</summary>
@@ -441,17 +481,6 @@ public class TrainerConsoleService(
         var settings = await _userSettingsService.GetSettingsAsync(clientId);
         var calorieGoal = settings?.DailyCalorieGoal ?? 0;
 
-        // MealFoodEntryResponseDto only carries a FoodItemId, not the nutrition
-        // values themselves — build a lookup once so we're not re-fetching the
-        // client's whole food-item catalog for every meal we total up below.
-        var foodItems = await _foodItemService.GetUserFoodItemsAsync(clientId);
-        var foodItemsById = foodItems.ToDictionary(f => f.Id);
-
-        int TotalCalories(List<MealResponseDto> meals) =>
-            meals
-                .SelectMany(m => m.FoodEntries)
-                .Sum(entry => foodItemsById.TryGetValue(entry.FoodItemId, out var food) ? food.Calories : 0);
-
         // One round trip for the whole trend window, bucketed by day here — the
         // seven days used to be seven sequential queries.
         var requestedDay = MealDayWindow.DayFor(date);
@@ -459,6 +488,24 @@ public class TrainerConsoleService(
         var mealsByDay = (await _mealService.GetMealsInRangeAsync(clientId, trendDays.Last(), requestedDay))
             .GroupBy(meal => MealDayWindow.DayOf(meal.Date))
             .ToDictionary(group => group.Key, group => group.ToList());
+
+        // MealFoodEntryResponseDto only carries a FoodItemId, not the nutrition values
+        // themselves, so the entries have to be resolved against the catalogue. Fetched by id
+        // once for the whole window: this used to pull the client's entire food library to
+        // resolve seven days of meals.
+        var referencedFoodIds = mealsByDay.Values
+            .SelectMany(meals => meals)
+            .SelectMany(meal => meal.FoodEntries)
+            .Select(entry => entry.FoodItemId)
+            .Distinct()
+            .ToList();
+        var foodItemsById = (await _foodItemService.GetFoodItemsByIdsAsync(clientId, referencedFoodIds))
+            .ToDictionary(f => f.Id);
+
+        int TotalCalories(List<MealResponseDto> meals) =>
+            meals
+                .SelectMany(m => m.FoodEntries)
+                .Sum(entry => foodItemsById.TryGetValue(entry.FoodItemId, out var food) ? food.Calories : 0);
 
         var noMeals = new List<MealResponseDto>();
         var todaysMeals = mealsByDay.GetValueOrDefault(requestedDay, noMeals);

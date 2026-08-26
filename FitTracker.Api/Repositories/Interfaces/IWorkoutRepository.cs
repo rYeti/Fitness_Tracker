@@ -10,6 +10,16 @@ public interface IWorkoutRepository
     /// <param name="userId">The user's ID.</param>
     Task<List<Workout>> GetUserWorkoutsAsync(Guid userId);
 
+    /// <summary>The names of the given workouts, keyed by workout id.</summary>
+    Task<Dictionary<Guid, string>> GetNamesByIdsAsync(IReadOnlyCollection<Guid> workoutIds);
+
+    /// <summary>Returns the given workout-exercise entries with their set templates.</summary>
+    /// <remarks>Looked up by their own ids rather than through their workouts, because a
+    /// scheduled session can reference an entry that has since been retired, or that belongs to
+    /// a workout the session is no longer pointed at — both of which the caller has to be able
+    /// to tell apart from an entry that simply doesn't exist.</remarks>
+    Task<List<WorkoutExercise>> GetExercisesByIdsAsync(IReadOnlyCollection<Guid> workoutExerciseIds);
+
     /// <summary>Returns a single workout belonging to the specified user, including its exercises and set templates.</summary>
     /// <param name="id">The ID of the workout to retrieve.</param>
     /// <param name="userId">The ID of the user who owns the workout.</param>

@@ -8,6 +8,10 @@ public interface IFoodItemService
     /// <summary>Returns all food items belonging to the specified user.</summary>
     Task<List<FoodItemResponseDto>> GetUserFoodItemsAsync(Guid userId);
 
+    /// <summary>Returns the user's food items with the given ids. Ids that don't resolve are
+    /// absent from the result.</summary>
+    Task<List<FoodItemResponseDto>> GetFoodItemsByIdsAsync(Guid userId, IReadOnlyCollection<Guid> ids);
+
     /// <summary>Returns a single food item by ID, scoped to the specified user.</summary>
     Task<FoodItemResponseDto?> GetFoodItemByIdAsync(Guid id, Guid userId);
 

@@ -25,6 +25,10 @@ public class WorkoutPlanService : IWorkoutPlanService
     }
 
     /// <inheritdoc/>
+    public Task<Dictionary<Guid, string>> GetActivePlanNamesAsync(IReadOnlyCollection<Guid> userIds) =>
+        _planRepository.GetActivePlanNamesAsync(userIds);
+
+    /// <inheritdoc/>
     public async Task<WorkoutPlanResponseDto?> GetPlanByIdAsync(Guid id, Guid userId)
     {
         var plan = await _planRepository.GetPlanByIdAsync(id, userId);

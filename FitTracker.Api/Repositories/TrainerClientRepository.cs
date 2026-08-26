@@ -148,6 +148,7 @@ public class TrainerClientRepository(AppDbContext context) : ITrainerClientRepos
     /// <summary>Returns the trainer's active clients.</summary>
     public async Task<List<TrainerClient>> GetClientsAsync(Guid trainerId) =>
         await _context.TrainerClients
+            .AsNoTracking()
             .Include(t => t.Client)
             .Where(t => t.TrainerId == trainerId && t.Status == TrainerClientStatus.Active)
             .ToListAsync();

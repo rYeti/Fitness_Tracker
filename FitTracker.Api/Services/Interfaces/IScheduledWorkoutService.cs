@@ -1,4 +1,5 @@
 using FitTracker.Api.DTOs;
+using FitTracker.Api.Repositories;
 
 namespace FitTracker.Api.Services.Interfaces;
 
@@ -8,6 +9,32 @@ public interface IScheduledWorkoutService
     /// <summary>Returns all scheduled workouts belonging to the specified user.</summary>
     /// <param name="userId">The user's ID.</param>
     Task<List<ScheduledWorkoutResponseDto>> GetUserScheduledWorkoutsAsync(Guid userId);
+
+    /// <summary>Returns the user's scheduled workouts falling in <c>[from, to)</c>.</summary>
+    /// <remarks>Prefer this to <see cref="GetUserScheduledWorkoutsAsync"/> whenever the caller
+    /// only reports on a window — the unbounded read loads every session the user has ever
+    /// logged, with every exercise and set.</remarks>
+    Task<List<ScheduledWorkoutResponseDto>> GetUserScheduledWorkoutsInRangeAsync(Guid userId, DateTime from, DateTime to);
+
+    /// <summary>Aggregates several clients' session counts for the Trainer Console dashboard,
+    /// in one grouped query. Clients with nothing scheduled in the window are absent.</summary>
+    Task<List<ClientTrainingStats>> GetClientTrainingStatsAsync(
+        IReadOnlyCollection<Guid> clientIds,
+        DateTime windowStart,
+        DateTime windowEnd,
+        DateTime weekStart,
+        DateTime weekEnd);
+
+    /// <summary>The date of each client's most recent completed session, keyed by client id.</summary>
+    Task<Dictionary<Guid, DateTime>> GetLastCompletedSessionDatesAsync(IReadOnlyCollection<Guid> clientIds);
+
+    /// <summary>The user's most recent <paramref name="count"/> current-programme sessions starting
+    /// before <paramref name="notAfter"/> (exclusive), newest first.</summary>
+    Task<List<ScheduledWorkoutResponseDto>> GetRecentSessionsAsync(Guid userId, DateTime notAfter, int count);
+
+    /// <summary>The heaviest completed set weight per exercise before <paramref name="before"/>,
+    /// used to seed personal-record detection over a bounded page of sessions.</summary>
+    Task<Dictionary<Guid, double>> GetBestWeightsBeforeAsync(Guid userId, DateTime before);
 
     /// <summary>Returns a single scheduled workout owned by the specified user, including its exercises and sets.</summary>
     /// <param name="id">The ID of the scheduled workout to retrieve.</param>

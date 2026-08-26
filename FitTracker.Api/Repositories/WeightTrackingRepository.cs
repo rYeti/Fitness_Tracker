@@ -20,7 +20,17 @@ public class WeightTrackingRepository(AppDbContext context) : IWeightTrackingRep
     /// <inheritdoc/>
     public async Task<List<WeightTracking>> GetWeightTrackingsAsync(Guid id)
     {
-        return await _context.WeightTrackings.Where(w => w.UserId == id).ToListAsync();
+        return await _context.WeightTrackings.AsNoTracking().Where(w => w.UserId == id).ToListAsync();
+    }
+
+    /// <inheritdoc/>
+    public async Task<List<WeightTracking>> GetWeightTrackingsSinceAsync(Guid id, DateTime from)
+    {
+        return await _context.WeightTrackings
+            .AsNoTracking()
+            .Where(w => w.UserId == id && w.Date >= from)
+            .OrderBy(w => w.Date)
+            .ToListAsync();
     }
 
     /// <inheritdoc/>
