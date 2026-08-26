@@ -19,3 +19,6 @@ appsettings.Production.json
 # OS
 .DS_Store
 Thumbs.db
+
+# graphify knowledge graph (rebuild locally with `graphify update .`)
+graphify-out/

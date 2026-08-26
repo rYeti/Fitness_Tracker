@@ -16,6 +16,7 @@ ForgeForm is a Flutter fitness app with an ASP.NET Core backend (JWT/OAuth/RBAC 
 - `docs/sync-account-switch-duplication.md` — why switching accounts brought workouts back with duplicated exercises and sets and with deleted exercises restored, and the rule it leaves behind. **Read before touching `SyncService`, `saveCompleteWorkout`, or anything that decides whether a row needs pushing** — the pull skips any workout it already holds locally, so it cannot see drift, and an account switch is the only thing that empties the cache and makes the server's copy visible. A `syncStatus` left unchanged is an edit that never leaves the device.
 - `docs/e2e-playwright.md` — the Playwright suite in `e2e/` that runs a real browser against the built web bundle, and the CDN dependency it uncovered. **Read before touching `.github/workflows/web.yml`, the web build flags, or anything under `e2e/`** — Flutter web paints the whole app into a canvas, so the accessibility tree is the only thing a test (or a screen reader) can see, and `--no-web-resources-cdn` is what stops the bundle fetching its engine from `gstatic.com` at startup.
 - `docs/trainer-session-review.md` — why the console showed a client more training than they had, and the rule it leaves behind. **Read before touching scheduled workouts, workout exercises or set templates on either side of the API** — those tables record what was true at a point in time, and reading them as the present broke Session Review three separate ways.
+- `docs/graphify-knowledge-graph.md` — the Graphify knowledge graph wired into this repo (`/graphify` skill, the always-on block below, the `PreToolUse` hooks). **Read before touching `.claude/settings.json` or re-running the Graphify installer** — the installer bakes a machine-local absolute path into the hook, the committed hooks deliberately do not, and a graph nobody has run `graphify update .` against answers confidently from a snapshot of the repo that no longer exists.
 
 ## Design mockup handling — IMPORTANT
 `design/trainer_console/design_handoff_trainer_console/Trainer Console.dc.html` is a **high-fidelity reference prototype, not production code**:
@@ -134,3 +135,13 @@ Every planning phase ends with a **detailed written explanation of the implement
 - **How it reads:** narrative prose that can be read on its own, with tables and diagrams where they earn their place. Not a bullet-point restatement of the diff. Line references point at the commit that introduces the document.
 - **The model to follow:** `docs/chat-architecture.md` — match its depth, tone and structure.
 - **Not a substitute:** `CHANGELOG.md` records *what changed*; this explains *why it was wrong and how not to write it again*. Both get written.
+
+## graphify
+
+This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+
+Rules:
+- For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
+- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
+- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
+- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
