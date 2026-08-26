@@ -1,6 +1,8 @@
 import 'dart:math' show min, max;
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
+
+import 'package:ForgeForm/feature/progress/domain/progress_ranges.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -12,8 +14,6 @@ import 'package:ForgeForm/core/providers/access_provider.dart';
 import 'package:ForgeForm/feature/food_tracking/data/adaptive_tdee_service.dart';
 import 'package:ForgeForm/feature/premium/paywall_launcher.dart';
 import 'package:ForgeForm/feature/premium/premium_gate.dart';
-
-enum TimeRange { week, month, threeMonths, allTime, custom }
 
 final globalProgressKey = GlobalKey<_ProgressScreenState>();
 
@@ -66,28 +66,14 @@ class _ProgressScreenState extends State<ProgressScreen>
     super.dispose();
   }
 
-  DateTime _rangeStart(TimeRange range, DateTime? customStart) {
-    final hasPremium = context.read<AccessProvider>().hasPremiumAccess;
-    // Free tier gets up to 90 days of history; all-time and custom ranges
-    // are premium (depth gate — the range chips enforce the same split).
-    if (!hasPremium &&
-        (range == TimeRange.allTime || range == TimeRange.custom)) {
-      return DateTime.now().subtract(const Duration(days: 89));
-    }
-    if (range == TimeRange.custom && customStart != null) return customStart;
-    final now = DateTime.now();
-    // n - 1, because the range is inclusive of both today and the start day.
-    // Subtracting the full period gave n + 1 days: "last 7 days" spanned 8,
-    // which is why day counters read 5/8 instead of 5/7 and why every average
-    // was taken over one day too many.
-    switch (range) {
-      case TimeRange.week:        return now.subtract(const Duration(days: 6));
-      case TimeRange.month:       return now.subtract(const Duration(days: 29));
-      case TimeRange.threeMonths: return now.subtract(const Duration(days: 89));
-      case TimeRange.allTime:     return DateTime(2000);
-      case TimeRange.custom:      return now.subtract(const Duration(days: 29));
-    }
-  }
+  /// The premium flag is the only thing this needs a context for; the date
+  /// arithmetic itself lives in the domain, where it can be tested.
+  DateTime _rangeStart(TimeRange range, DateTime? customStart) => rangeStart(
+        range,
+        hasPremium: context.read<AccessProvider>().hasPremiumAccess,
+        now: DateTime.now(),
+        customStart: customStart,
+      );
 
   Future<void> _loadProgressData() async {
     await Future.wait([_loadGymData(), _loadNutritionData()]);
@@ -226,56 +212,24 @@ class _ProgressScreenState extends State<ProgressScreen>
     return progressList;
   }
 
-  Future<WorkoutFrequencyData> _loadWorkoutFrequency(AppDatabase db, DateTime startDate, DateTime endDate) async {
+  Future<WorkoutFrequencyData> _loadWorkoutFrequency(
+    AppDatabase db,
+    DateTime startDate,
+    DateTime endDate,
+  ) async {
     final completedWorkouts =
         await (db.select(db.scheduledWorkoutTable)
               ..where((t) => t.isCompleted.equals(true))
               ..where((t) => t.scheduledDate.isBiggerOrEqualValue(startDate))
               ..where((t) => t.scheduledDate.isSmallerOrEqualValue(endDate))
+              // summariseFrequency walks these in order; the ascending sort is
+              // its precondition, not a display preference.
               ..orderBy([(t) => OrderingTerm.asc(t.scheduledDate)]))
             .get();
 
-    final Map<int, int> weeklyWorkouts = {};
-    int currentStreak = 0;
-    int longestStreak = 0;
-    DateTime? lastWorkoutDate;
-
-    for (final workout in completedWorkouts) {
-      final weekNumber = _getWeekNumber(workout.scheduledDate);
-      weeklyWorkouts[weekNumber] = (weeklyWorkouts[weekNumber] ?? 0) + 1;
-
-      if (lastWorkoutDate == null) {
-        currentStreak = 1;
-      } else {
-        final daysDiff =
-            workout.scheduledDate.difference(lastWorkoutDate).inDays;
-        if (daysDiff <= 2) {
-          currentStreak++;
-        } else {
-          if (currentStreak > longestStreak) longestStreak = currentStreak;
-          currentStreak = 1;
-        }
-      }
-
-      lastWorkoutDate = workout.scheduledDate;
-    }
-
-    if (currentStreak > longestStreak) longestStreak = currentStreak;
-
-    final isStreakActive =
-        lastWorkoutDate != null &&
-        DateTime.now().difference(lastWorkoutDate).inDays <= 2;
-
-    return WorkoutFrequencyData(
-      totalWorkouts: completedWorkouts.length,
-      weeklyWorkouts: weeklyWorkouts,
-      currentStreak: isStreakActive ? currentStreak : 0,
-      longestStreak: longestStreak,
-      averagePerWeek:
-          weeklyWorkouts.isEmpty
-              ? 0
-              : weeklyWorkouts.values.reduce((a, b) => a + b) /
-                  weeklyWorkouts.length,
+    return summariseFrequency(
+      completedWorkouts.map((w) => w.scheduledDate).toList(),
+      now: DateTime.now(),
     );
   }
 
@@ -321,20 +275,6 @@ class _ProgressScreenState extends State<ProgressScreen>
     );
 
     return records;
-  }
-
-  /// A week key that is unique across years and sorts chronologically.
-  ///
-  /// This used to return the week index within its own year, so week 5 of two
-  /// different years landed in the same bucket — merging their calories into
-  /// one trend point, and inflating the workouts-per-week average by counting
-  /// two years' sessions as one week. Only reachable from the multi-year
-  /// ranges ("All time"), but wrong wherever it happened.
-  int _getWeekNumber(DateTime date) {
-    final startOfYear = DateTime(date.year, 1, 1);
-    final days = date.difference(startOfYear).inDays;
-    final weekOfYear = (days / 7).floor();
-    return date.year * 100 + weekOfYear;
   }
 
   @override
@@ -866,7 +806,7 @@ class _ProgressScreenState extends State<ProgressScreen>
     if (useWeekly) {
       final Map<int, List<DailyNutritionData>> byWeek = {};
       for (final d in _dailyData) {
-        byWeek.putIfAbsent(_getWeekNumber(d.date), () => []).add(d);
+        byWeek.putIfAbsent(weekKey(d.date), () => []).add(d);
       }
       final sortedKeys = byWeek.keys.toList()..sort();
       points = sortedKeys.map((k) {
@@ -1243,7 +1183,7 @@ class _ProgressScreenState extends State<ProgressScreen>
     final Map<int, List<DailyNutritionData>> weeklyData = {};
 
     for (final day in _dailyData) {
-      final weekNum = _getWeekNumber(day.date);
+      final weekNum = weekKey(day.date);
       weeklyData.putIfAbsent(weekNum, () => []).add(day);
     }
 
@@ -1568,22 +1508,6 @@ class ExerciseSessionData {
     required this.totalReps,
     required this.setCount,
     required this.reps,
-  });
-}
-
-class WorkoutFrequencyData {
-  final int totalWorkouts;
-  final Map<int, int> weeklyWorkouts;
-  final int currentStreak;
-  final int longestStreak;
-  final double averagePerWeek;
-
-  WorkoutFrequencyData({
-    required this.totalWorkouts,
-    required this.weeklyWorkouts,
-    required this.currentStreak,
-    required this.longestStreak,
-    required this.averagePerWeek,
   });
 }
 
