@@ -711,7 +711,7 @@ and pixel sampling of the rebuilt web bundle.
 | `StatusBadge` bad, **dark** | 4.34 | **5.6** | dark lerp deepened 0.35 → 0.45 |
 | light input border on its fill | 1.32 | **3.22** | `borderLight` `#808080` |
 | dark input border on its fill | 1.35 | **3.25** | `borderDark` `#7A7A7A` |
-| a light card against the page behind it | 1.00 | **1.09** | page moved to the spec'd `#F5F5F5` |
+| a light card against the page behind it | 1.00 | **1.09** | page moved to the spec'd `#F5F5F5` — and seven console Scaffolds stopped overriding it (§11b) |
 
 Two of those rows were not in the review at all, and both were found by the
 test rather than by reading:
@@ -748,6 +748,20 @@ through `onboardingFieldDecoration`, which constructs its own `OutlineInputBorde
 and never reads the theme at all. The token changed, the theme changed, and the
 screens most likely to be a user's first did not.
 
+**And seven console screens named their own page colour.** This one was found
+last, by re-sampling the rebuilt bundle rather than by reading anything. Every
+Trainer Console screen set its Scaffold background to
+`colorScheme.surfaceContainerLowest`, which in a light Material 3 scheme is
+`#FFFFFF` — the same white the cards are. The dashboard measured **1.00:1**
+card-against-page in the rendered screenshot, the exact defect §4 identified,
+on the surface `CLAUDE.md` calls the trainer's workstation. Removing the
+override took it to **1.09:1**.
+
+Three instances, one shape: **the token was right and something downstream
+never asked for it.** A deprecated field, a decoration helper that builds its
+own border, and seven Scaffolds that name their own colour. None is detectable
+by reading the theme, because in each case the theme is correct.
+
 `test/core/contrast_test.dart` now asserts that the theme *applies* the token,
 not merely that the token pairs are sound:
 
@@ -762,6 +776,21 @@ expect(
 That is a small assertion carrying a general rule. A design-token test has two
 halves — *is this pair legible*, and *does the product use this pair* — and
 only the first one is easy. The second is the one that catches a deprecation.
+
+The console case needed the assertion pointed the other way round, at the pair
+that must *not* work:
+
+```dart
+expect(
+  _contrastRatio(light.surfaceContainerLowest, light.surface),
+  lessThan(1.05),
+  reason: 'if these ever differ enough to separate, this test can go — '
+      'until then, a screen setting it as its page colour is a bug',
+);
+```
+
+A theme-level guarantee needs a test that fails when a screen opts out of it,
+and opting out is not something a screen announces.
 
 ### 11c. Routing: two bugs I introduced, both found by a browser
 
@@ -892,8 +921,9 @@ the third leg, and the three only work together:
 
 Skip the first and you never see the 1,384px-wide login form. Skip the second
 and you file three correct behaviours as bugs, as §10 did. Skip the third and
-you ship two green no-ops, as §11b did — a background that was never painted
-and a border on four screens that never read the theme.
+you ship three green no-ops, as §11b did — a background that was never painted,
+a border on four screens that never read the theme, and a page colour seven
+console screens overrode with white.
 
 The unifying property is that **none of the defects in this review were
 type errors.** Not one would be caught by a compiler, an analyzer, or a widget
