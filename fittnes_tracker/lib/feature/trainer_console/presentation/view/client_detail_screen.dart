@@ -177,7 +177,7 @@ class _StatsRow extends StatelessWidget {
         icon: Icons.trending_up_rounded,
         accentColor: ForgeColors.statusOk,
         value: adherence == null ? '—' : '${adherence.round()}%',
-        label: l10n.adherence,
+        label: l10n.adherence28d,
       ),
       StatTile(
         icon: Icons.monitor_weight_outlined,

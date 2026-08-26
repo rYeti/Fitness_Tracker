@@ -5947,6 +5947,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No target set'**
   String get noCalorieTarget;
+
+  /// No description provided for @kpiAvgAdherenceThisWeek.
+  ///
+  /// In en, this message translates to:
+  /// **'Avg adherence, this week'**
+  String get kpiAvgAdherenceThisWeek;
+
+  /// No description provided for @rosterColumnAdherence28d.
+  ///
+  /// In en, this message translates to:
+  /// **'ADHERENCE (28D)'**
+  String get rosterColumnAdherence28d;
+
+  /// No description provided for @adherence28d.
+  ///
+  /// In en, this message translates to:
+  /// **'Adherence, last 28 days'**
+  String get adherence28d;
 }
 
 class _AppLocalizationsDelegate

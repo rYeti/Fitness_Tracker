@@ -3356,4 +3356,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get noCalorieTarget => 'No target set';
+
+  @override
+  String get kpiAvgAdherenceThisWeek => 'Avg adherence, this week';
+
+  @override
+  String get rosterColumnAdherence28d => 'ADHERENCE (28D)';
+
+  @override
+  String get adherence28d => 'Adherence, last 28 days';
 }

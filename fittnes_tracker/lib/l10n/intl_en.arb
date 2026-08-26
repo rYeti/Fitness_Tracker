@@ -2380,5 +2380,11 @@
   "pickDate": "Choose a date",
   "@pickDate": {},
   "noCalorieTarget": "No target set",
-  "@noCalorieTarget": {}
+  "@noCalorieTarget": {},
+  "kpiAvgAdherenceThisWeek": "Avg adherence, this week",
+  "@kpiAvgAdherenceThisWeek": {},
+  "rosterColumnAdherence28d": "ADHERENCE (28D)",
+  "@rosterColumnAdherence28d": {},
+  "adherence28d": "Adherence, last 28 days",
+  "@adherence28d": {}
 }

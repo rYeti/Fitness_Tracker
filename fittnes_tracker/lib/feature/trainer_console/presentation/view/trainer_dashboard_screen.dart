@@ -402,7 +402,11 @@ class _KpiRow extends StatelessWidget {
         icon: Icons.trending_up_rounded,
         accentColor: ForgeColors.statusOk,
         value: '${kpis.avgAdherencePercent.round()}%',
-        label: l10n.kpiAvgAdherence,
+        // Named window. This tile averages the *current week* while the
+        // client cards below it show a trailing 28 days, so an unqualified
+        // "Avg adherence" read 100% directly above clients scoring 92% and
+        // 80%. Both figures are right; only the labels were ambiguous.
+        label: l10n.kpiAvgAdherenceThisWeek,
       ),
       StatTile(
         icon: Icons.fitness_center_rounded,
@@ -651,7 +655,7 @@ class _RosterTable extends StatelessWidget {
                 ),
                 Expanded(
                   flex: 2,
-                  child: Text(l10n.rosterColumnAdherence, style: muted),
+                  child: Text(l10n.rosterColumnAdherence28d, style: muted),
                 ),
                 Expanded(
                   flex: 2,

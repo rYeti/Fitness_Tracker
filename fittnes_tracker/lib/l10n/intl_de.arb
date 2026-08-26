@@ -1641,5 +1641,11 @@
   "pickDate": "Datum wählen",
   "@pickDate": {},
   "noCalorieTarget": "Kein Ziel festgelegt",
-  "@noCalorieTarget": {}
+  "@noCalorieTarget": {},
+  "kpiAvgAdherenceThisWeek": "Ø Adhärenz, diese Woche",
+  "@kpiAvgAdherenceThisWeek": {},
+  "rosterColumnAdherence28d": "ADHÄRENZ (28 T)",
+  "@rosterColumnAdherence28d": {},
+  "adherence28d": "Adhärenz, letzte 28 Tage",
+  "@adherence28d": {}
 }
