@@ -15,6 +15,7 @@ import 'package:ForgeForm/feature/food_tracking/data/adaptive_tdee_service.dart'
 import 'package:ForgeForm/feature/premium/paywall_launcher.dart';
 import 'package:ForgeForm/feature/premium/premium_gate.dart';
 import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
+import 'package:ForgeForm/core/widgets/app_widgets.dart';
 
 final globalProgressKey = GlobalKey<_ProgressScreenState>();
 
@@ -34,12 +35,14 @@ class _ProgressScreenState extends State<ProgressScreen>
   DateTime? _gymCustomStart;
   DateTime? _gymCustomEnd;
   bool _gymLoading = true;
+  Object? _gymError;
 
   // Nutrition tab state
   TimeRange _nutritionRange = TimeRange.week;
   DateTime? _nutritionCustomStart;
   DateTime? _nutritionCustomEnd;
   bool _nutritionLoading = true;
+  Object? _nutritionError;
 
   // Gym data
   List<ExerciseProgressData> _exerciseProgress = [];
@@ -89,7 +92,10 @@ class _ProgressScreenState extends State<ProgressScreen>
   void reloadNutritionData() => _loadNutritionData();
 
   Future<void> _loadGymData() async {
-    setState(() => _gymLoading = true);
+    setState(() {
+      _gymLoading = true;
+      _gymError = null;
+    });
     try {
       final db = context.read<AppDatabase>();
       final startDate = _rangeStart(_gymRange, _gymCustomStart);
@@ -104,17 +110,23 @@ class _ProgressScreenState extends State<ProgressScreen>
         });
       }
     } catch (e) {
+      // A SnackBar and then an empty chart: the message is gone in four
+      // seconds and what is left says the trainee has no history. The error
+      // is kept and rendered where the chart would be, with a way back.
       if (mounted) {
-        setState(() => _gymLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context)!.errorLoadingProgress(e))),
-        );
+        setState(() {
+          _gymLoading = false;
+          _gymError = e;
+        });
       }
     }
   }
 
   Future<void> _loadNutritionData() async {
-    setState(() => _nutritionLoading = true);
+    setState(() {
+      _nutritionLoading = true;
+      _nutritionError = null;
+    });
     try {
       final db = context.read<AppDatabase>();
       await db.mealDao.deduplicateMeals();
@@ -130,11 +142,14 @@ class _ProgressScreenState extends State<ProgressScreen>
         });
       }
     } catch (e) {
+      // A SnackBar and then an empty chart: the message is gone in four
+      // seconds and what is left says the trainee has no history. The error
+      // is kept and rendered where the chart would be, with a way back.
       if (mounted) {
-        setState(() => _nutritionLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context)!.errorLoadingProgress(e))),
-        );
+        setState(() {
+          _nutritionLoading = false;
+          _nutritionError = e;
+        });
       }
     }
   }
@@ -312,7 +327,13 @@ class _ProgressScreenState extends State<ProgressScreen>
   // === GYM TAB ===
 
   Widget _buildGymTab(ThemeData theme) {
-    if (_gymLoading) return const Center(child: CircularProgressIndicator());
+    if (_gymLoading) return const LoadingSkeleton(rows: 4);
+    if (_gymError != null) {
+      return ErrorStateView(
+        message: AppLocalizations.of(context)!.errorLoadingProgress(_gymError!),
+        onRetry: _loadProgressData,
+      );
+    }
     return RefreshIndicator(
       onRefresh: _loadGymData,
       child: SingleChildScrollView(
@@ -615,7 +636,15 @@ class _ProgressScreenState extends State<ProgressScreen>
   // === NUTRITION TAB ===
 
   Widget _buildNutritionTab(ThemeData theme) {
-    if (_nutritionLoading) return const Center(child: CircularProgressIndicator());
+    if (_nutritionLoading) return const LoadingSkeleton(rows: 4);
+    if (_nutritionError != null) {
+      return ErrorStateView(
+        message: AppLocalizations.of(
+          context,
+        )!.errorLoadingProgress(_nutritionError!),
+        onRetry: _loadNutritionData,
+      );
+    }
     final calorieGoal = context.watch<UserGoalsProvider>().calorieGoal;
 
     return RefreshIndicator(
@@ -1424,41 +1453,15 @@ class _ProgressScreenState extends State<ProgressScreen>
     );
   }
 
+  /// `theme` is still taken so the four call sites need no edit; EmptyStateView
+  /// reads the scheme itself.
   Widget _buildEmptyState(
     ThemeData theme,
     IconData icon,
     String title,
     String subtitle,
   ) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          children: [
-            Icon(
-              icon,
-              size: 64,
-              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              style: theme.textTheme.titleMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              subtitle,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
+    return EmptyStateView(icon: icon, title: title, message: subtitle);
   }
 }
 

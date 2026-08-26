@@ -17,6 +17,7 @@ import 'package:provider/provider.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:ForgeForm/feature/gym_tracking/data/models/set_template.dart';
 import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
+import 'package:ForgeForm/core/widgets/app_widgets.dart';
 
 class CreateWorkoutView extends StatefulWidget {
   final List<DateTime>? selectedDates;
@@ -825,34 +826,13 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
     );
   }
 
+  /// `theme` is still taken so the call sites need no edit; EmptyStateView
+  /// reads the scheme itself.
   Widget _buildEmptyState(ThemeData theme, AppLocalizations l10n) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.event_available,
-            size: 64,
-            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            l10n.noWorkoutsAddedYet,
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            l10n.addWorkoutsToBuildCycle,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
+    return EmptyStateView(
+      icon: Icons.event_available,
+      title: l10n.noWorkoutsAddedYet,
+      message: l10n.addWorkoutsToBuildCycle,
     );
   }
 
@@ -1498,32 +1478,13 @@ class _WorkoutDetailsScreenState extends State<_WorkoutDetailsScreen> {
     );
   }
 
+  /// `theme` is still taken so the call sites need no edit; EmptyStateView
+  /// reads the scheme itself.
   Widget _buildEmptyState(ThemeData theme, AppLocalizations l10n) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.fitness_center,
-            size: 64,
-            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            l10n.noExercisesYet,
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            l10n.tapButtonToAddExercises,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
+    return EmptyStateView(
+      icon: Icons.fitness_center,
+      title: l10n.noExercisesYet,
+      message: l10n.tapButtonToAddExercises,
     );
   }
 

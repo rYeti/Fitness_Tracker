@@ -908,6 +908,12 @@ abstract class AppLocalizations {
   /// **'No workouts found'**
   String get noWorkoutsFound;
 
+  /// No description provided for @createFirstWorkoutHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Build a plan once, then schedule it as often as you like.'**
+  String get createFirstWorkoutHint;
+
   /// No description provided for @setWeightGoal.
   ///
   /// In en, this message translates to:
@@ -1339,6 +1345,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No templates found'**
   String get noTemplatesFound;
+
+  /// No description provided for @createTemplateHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Save a meal you log often and add it in one tap.'**
+  String get createTemplateHint;
 
   /// No description provided for @saveTemplate.
   ///

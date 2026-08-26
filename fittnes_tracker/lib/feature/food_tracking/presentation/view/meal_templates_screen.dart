@@ -13,6 +13,7 @@ import 'food_tracking_screen.dart';
 import 'create_meal_template_screen.dart';
 import 'edit_meal_template_screen.dart';
 import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
+import 'package:ForgeForm/core/widgets/app_widgets.dart';
 
 class MealTemplatesScreen extends StatefulWidget {
   const MealTemplatesScreen({Key? key}) : super(key: key);
@@ -122,64 +123,48 @@ class _TemplateListTabState extends State<TemplateListTab>
             );
           }
           if (snapshot.hasError) {
-            return Center(child: Text(AppLocalizations.of(context)!.failedToLoadData(snapshot.error ?? '')));
+            // A sentence with no way out of it: this used to be a centred
+            // line of text, so a trainee whose load failed had nothing to
+            // tap. The rebuild re-runs the future, which is the retry.
+            return ErrorStateView(
+              message: AppLocalizations.of(
+                context,
+              )!.failedToLoadData(snapshot.error ?? ''),
+              onRetry: () => setState(() {}),
+            );
           }
           final templates = snapshot.data ?? [];
           if (templates.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.receipt_long_outlined, size: 48, color: muted),
-                  const SizedBox(height: 16),
-                  Text(
-                    AppLocalizations.of(context)!.noTemplatesFound,
-                    style: TextStyle(
-                      fontFamily: 'Exo 2',
-                      fontSize: 15,
-                      color: muted,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  FilledButton(
-                    onPressed: () async {
-                      final hasPremium = context.read<AccessProvider>().hasPremiumAccess;
-                      if (!hasPremium) {
-                        final repo = context.read<MealTemplateRepository>();
-                        final all = await repo.getAllTemplates();
-                        if (!context.mounted) return;
-                        if (all.length >= 3) {
-                          openPaywall(context);
-                          return;
-                        }
-                      }
-                      if (!context.mounted) return;
-                      final result = await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder:
-                              (context) => CreateMealTemplateScreen(
-                                initialCategory: widget.category,
-                              ),
-                        ),
-                      );
-                      if (result == true && mounted) setState(() {});
-                    },
-                    style: FilledButton.styleFrom(
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8.0),
+            return EmptyStateView(
+              icon: Icons.receipt_long_outlined,
+              title: AppLocalizations.of(context)!.noTemplatesFound,
+              message: AppLocalizations.of(context)!.createTemplateHint,
+              action: FilledButton(
+                onPressed: () async {
+                  final hasPremium = context
+                      .read<AccessProvider>()
+                      .hasPremiumAccess;
+                  if (!hasPremium) {
+                    final repo = context.read<MealTemplateRepository>();
+                    final all = await repo.getAllTemplates();
+                    if (!context.mounted) return;
+                    if (all.length >= 3) {
+                      openPaywall(context);
+                      return;
+                    }
+                  }
+                  if (!context.mounted) return;
+                  final result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => CreateMealTemplateScreen(
+                        initialCategory: widget.category,
                       ),
                     ),
-                    child: Text(
-                      AppLocalizations.of(context)!.createTemplate,
-                      style: TextStyle(
-                        fontFamily: 'Exo 2',
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ],
+                  );
+                  if (result == true && mounted) setState(() {});
+                },
+                child: Text(AppLocalizations.of(context)!.createTemplate),
               ),
             );
           }

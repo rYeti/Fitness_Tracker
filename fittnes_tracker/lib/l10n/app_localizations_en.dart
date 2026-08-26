@@ -454,6 +454,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noWorkoutsFound => 'No workouts found';
 
   @override
+  String get createFirstWorkoutHint =>
+      'Build a plan once, then schedule it as often as you like.';
+
+  @override
   String get setWeightGoal => 'Set Weight Goals';
 
   @override
@@ -681,6 +685,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get noTemplatesFound => 'No templates found';
+
+  @override
+  String get createTemplateHint =>
+      'Save a meal you log often and add it in one tap.';
 
   @override
   String get saveTemplate => 'Save Template';

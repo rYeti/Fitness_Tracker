@@ -236,54 +236,14 @@ class WeightTrackingScreen extends StatelessWidget {
 
   Widget _buildEmptyState(BuildContext context, WeightProvider provider) {
     final l10n = AppLocalizations.of(context)!;
-    final colorScheme = Theme.of(context).colorScheme;
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.monitor_weight_outlined,
-            size: 64,
-            color: colorScheme.onSurface.withValues(alpha: 0.55),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            l10n.noWeightRecordsYet,
-            style: TextStyle(
-              fontFamily: 'Montserrat',
-              fontWeight: FontWeight.w700,
-              fontSize: 16,
-              color: colorScheme.onSurface,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            l10n.addWeightRecord,
-            style: TextStyle(
-              fontFamily: 'Exo 2',
-              fontSize: 13,
-              color: colorScheme.onSurface.withValues(alpha: 0.55),
-            ),
-          ),
-          const SizedBox(height: 24),
-          FilledButton.icon(
-            onPressed: () => _showAddEditWeightDialog(context, provider),
-            icon: const Icon(Icons.add),
-            label: Text(
-              l10n.addWeight,
-              style: const TextStyle(
-                fontFamily: 'Exo 2',
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            style: FilledButton.styleFrom(
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8.0),
-              ),
-            ),
-          ),
-        ],
+    return EmptyStateView(
+      icon: Icons.monitor_weight_outlined,
+      title: l10n.noWeightRecordsYet,
+      message: l10n.addWeightRecord,
+      action: FilledButton.icon(
+        onPressed: () => _showAddEditWeightDialog(context, provider),
+        icon: const Icon(Icons.add),
+        label: Text(l10n.addWeight),
       ),
     );
   }

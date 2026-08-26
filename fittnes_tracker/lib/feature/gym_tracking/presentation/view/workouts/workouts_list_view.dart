@@ -14,6 +14,7 @@ import 'package:drift/drift.dart' as drift;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
+import 'package:ForgeForm/core/widgets/app_widgets.dart';
 
 class WorkoutsListView extends StatefulWidget {
   const WorkoutsListView({super.key});
@@ -392,36 +393,32 @@ class WorkoutsListViewState extends State<WorkoutsListView> {
           if (provider.loading) {
             return const Center(child: CircularProgressIndicator());
           }
+          // Before the empty check, not after: a failed load also has no
+          // plans, and answering it with "create your first workout" tells a
+          // trainee their workouts are gone.
+          if (provider.error != null) {
+            return ErrorStateView(
+              message: l10n.failedToLoadData(provider.error!),
+              onRetry: provider.loadCompletePlans,
+            );
+          }
           if (provider.plans.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(
-                    Icons.fitness_center,
-                    size: 64,
-                    color: Colors.grey,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    l10n.noWorkoutsFound,
-                    style: const TextStyle(fontSize: 18, color: Colors.grey),
-                  ),
-                  const SizedBox(height: 24),
-                  FilledButton.icon(
-                    onPressed: () async {
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => CreateWorkoutView()),
-                      );
-                      if (mounted) {
-                        provider.loadCompletePlans();
-                      }
-                    },
-                    icon: const Icon(Icons.add),
-                    label: Text(l10n.createFirstWorkout),
-                  ),
-                ],
+            return EmptyStateView(
+              icon: Icons.fitness_center,
+              title: l10n.noWorkoutsFound,
+              message: l10n.createFirstWorkoutHint,
+              action: FilledButton.icon(
+                onPressed: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => CreateWorkoutView()),
+                  );
+                  if (mounted) {
+                    provider.loadCompletePlans();
+                  }
+                },
+                icon: const Icon(Icons.add),
+                label: Text(l10n.createFirstWorkout),
               ),
             );
           }
