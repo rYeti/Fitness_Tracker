@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:ForgeForm/core/widgets/form_pane.dart';
 import 'package:ForgeForm/core/di/service_locator.dart';
 import 'package:ForgeForm/core/services/push_service.dart';
 import 'package:ForgeForm/core/app_database.dart';
@@ -165,296 +166,309 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 28),
-          child: Form(
-            key: _formKey,
-            child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 48),
-
-              // Header
-              Column(
+          child: FormPane(
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Container(
-                    width: 72,
-                    height: 72,
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primaryContainer,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Icon(
-                      Icons.person_add_outlined,
-                      size: 40,
-                      color: theme.colorScheme.onPrimaryContainer,
-                    ),
+                  const SizedBox(height: 48),
+
+                  // Header
+                  Column(
+                    children: [
+                      Container(
+                        width: 72,
+                        height: 72,
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primaryContainer,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Icon(
+                          Icons.person_add_outlined,
+                          size: 40,
+                          color: theme.colorScheme.onPrimaryContainer,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        l10n.createYourAccount,
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 36),
+
+                  // First / Last name row
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: _firstNameController,
+                          decoration: onboardingFieldDecoration(
+                            context,
+                            l10n.firstName,
+                          ),
+                          textInputAction: TextInputAction.next,
+                          textCapitalization: TextCapitalization.words,
+                          maxLength: 100,
+                          validator:
+                              (value) =>
+                                  (value == null || value.trim().isEmpty)
+                                      ? l10n.fieldRequired
+                                      : null,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextFormField(
+                          controller: _lastNameController,
+                          decoration: onboardingFieldDecoration(
+                            context,
+                            l10n.lastName,
+                          ),
+                          textInputAction: TextInputAction.next,
+                          textCapitalization: TextCapitalization.words,
+                          maxLength: 100,
+                          validator:
+                              (value) =>
+                                  (value == null || value.trim().isEmpty)
+                                      ? l10n.fieldRequired
+                                      : null,
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 16),
-                  Text(
-                    l10n.createYourAccount,
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
 
-              const SizedBox(height: 36),
-
-              // First / Last name row
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _firstNameController,
-                      decoration: onboardingFieldDecoration(
-                        context,
-                        l10n.firstName,
-                      ),
-                      textInputAction: TextInputAction.next,
-                      textCapitalization: TextCapitalization.words,
-                      maxLength: 100,
-                      validator: (value) =>
-                          (value == null || value.trim().isEmpty)
-                              ? l10n.fieldRequired
-                              : null,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextFormField(
-                      controller: _lastNameController,
-                      decoration: onboardingFieldDecoration(
-                        context,
-                        l10n.lastName,
-                      ),
-                      textInputAction: TextInputAction.next,
-                      textCapitalization: TextCapitalization.words,
-                      maxLength: 100,
-                      validator: (value) =>
-                          (value == null || value.trim().isEmpty)
-                              ? l10n.fieldRequired
-                              : null,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              TextFormField(
-                controller: _usernameController,
-                decoration: onboardingFieldDecoration(context, l10n.username),
-                textInputAction: TextInputAction.next,
-                maxLength: 100,
-                validator: (value) =>
-                    (value == null || value.trim().isEmpty)
-                        ? l10n.fieldRequired
-                        : null,
-              ),
-              const SizedBox(height: 16),
-
-              TextFormField(
-                controller: _emailController,
-                decoration: onboardingFieldDecoration(context, l10n.email),
-                textInputAction: TextInputAction.next,
-                keyboardType: TextInputType.emailAddress,
-                maxLength: 254,
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return l10n.fieldRequired;
-                  }
-                  if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(value.trim())) {
-                    return l10n.invalidEmailFormat;
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-
-              TextFormField(
-                controller: _passwordController,
-                decoration: onboardingFieldDecoration(
-                  context,
-                  l10n.password,
-                ).copyWith(
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscurePassword
-                          ? Icons.visibility_outlined
-                          : Icons.visibility_off_outlined,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                    onPressed:
-                        () => setState(
-                          () => _obscurePassword = !_obscurePassword,
-                        ),
-                  ),
-                ),
-                obscureText: _obscurePassword,
-                textInputAction: TextInputAction.next,
-                validator: (value) =>
-                    (value == null || value.length < 8)
-                        ? l10n.passwordTooShort
-                        : null,
-              ),
-              const SizedBox(height: 16),
-
-              TextFormField(
-                controller: _confirmPasswordController,
-                decoration: onboardingFieldDecoration(
-                  context,
-                  l10n.confirmPassword,
-                ).copyWith(
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscureConfirm
-                          ? Icons.visibility_outlined
-                          : Icons.visibility_off_outlined,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                    onPressed:
-                        () =>
-                            setState(() => _obscureConfirm = !_obscureConfirm),
-                  ),
-                ),
-                obscureText: _obscureConfirm,
-                validator: (value) =>
-                    (value == null || value.isEmpty)
-                        ? l10n.fieldRequired
-                        : null,
-                textInputAction: TextInputAction.done,
-              ),
-              const SizedBox(height: 16),
-
-              // Date of birth picker
-              GestureDetector(
-                onTap: () => _pickDate(context),
-                child: AbsorbPointer(
-                  child: TextField(
+                  TextFormField(
+                    controller: _usernameController,
                     decoration: onboardingFieldDecoration(
                       context,
-                      l10n.dateOfBirth,
+                      l10n.username,
+                    ),
+                    textInputAction: TextInputAction.next,
+                    maxLength: 100,
+                    validator:
+                        (value) =>
+                            (value == null || value.trim().isEmpty)
+                                ? l10n.fieldRequired
+                                : null,
+                  ),
+                  const SizedBox(height: 16),
+
+                  TextFormField(
+                    controller: _emailController,
+                    decoration: onboardingFieldDecoration(context, l10n.email),
+                    textInputAction: TextInputAction.next,
+                    keyboardType: TextInputType.emailAddress,
+                    maxLength: 254,
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return l10n.fieldRequired;
+                      }
+                      if (!RegExp(
+                        r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
+                      ).hasMatch(value.trim())) {
+                        return l10n.invalidEmailFormat;
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+
+                  TextFormField(
+                    controller: _passwordController,
+                    decoration: onboardingFieldDecoration(
+                      context,
+                      l10n.password,
                     ).copyWith(
-                      hintText: l10n.selectDateOfBirth,
-                      suffixIcon: Icon(
-                        Icons.calendar_today_outlined,
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscurePassword
+                              ? Icons.visibility_outlined
+                              : Icons.visibility_off_outlined,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                        onPressed:
+                            () => setState(
+                              () => _obscurePassword = !_obscurePassword,
+                            ),
+                      ),
+                    ),
+                    obscureText: _obscurePassword,
+                    textInputAction: TextInputAction.next,
+                    validator:
+                        (value) =>
+                            (value == null || value.length < 8)
+                                ? l10n.passwordTooShort
+                                : null,
+                  ),
+                  const SizedBox(height: 16),
+
+                  TextFormField(
+                    controller: _confirmPasswordController,
+                    decoration: onboardingFieldDecoration(
+                      context,
+                      l10n.confirmPassword,
+                    ).copyWith(
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscureConfirm
+                              ? Icons.visibility_outlined
+                              : Icons.visibility_off_outlined,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                        onPressed:
+                            () => setState(
+                              () => _obscureConfirm = !_obscureConfirm,
+                            ),
+                      ),
+                    ),
+                    obscureText: _obscureConfirm,
+                    validator:
+                        (value) =>
+                            (value == null || value.isEmpty)
+                                ? l10n.fieldRequired
+                                : null,
+                    textInputAction: TextInputAction.done,
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Date of birth picker
+                  GestureDetector(
+                    onTap: () => _pickDate(context),
+                    child: AbsorbPointer(
+                      child: TextField(
+                        decoration: onboardingFieldDecoration(
+                          context,
+                          l10n.dateOfBirth,
+                        ).copyWith(
+                          hintText: l10n.selectDateOfBirth,
+                          suffixIcon: Icon(
+                            Icons.calendar_today_outlined,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        controller: TextEditingController(
+                          text:
+                              _selectedDate != null
+                                  ? DateFormat.yMMMd().format(_selectedDate!)
+                                  : '',
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // Account type. A trainer account is the only route to the
+                  // Trainer Console, and the choice is permanent — hence the note
+                  // rather than a silent segmented control.
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      l10n.accountType,
+                      style: theme.textTheme.labelLarge?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
-                    controller: TextEditingController(
-                      text:
-                          _selectedDate != null
-                              ? DateFormat.yMMMd().format(_selectedDate!)
-                              : '',
+                  ),
+                  const SizedBox(height: 8),
+                  SegmentedButton<AccountType>(
+                    segments: [
+                      ButtonSegment(
+                        value: AccountType.trainee,
+                        icon: const Icon(Icons.person_outline),
+                        label: Text(l10n.accountTypeTrainee),
+                        tooltip: l10n.accountTypeTrainee,
+                      ),
+                      ButtonSegment(
+                        value: AccountType.trainer,
+                        icon: const Icon(Icons.groups_outlined),
+                        label: Text(l10n.accountTypeTrainer),
+                        tooltip: l10n.accountTypeTrainer,
+                      ),
+                    ],
+                    selected: {_accountType},
+                    onSelectionChanged:
+                        (selection) =>
+                            setState(() => _accountType = selection.first),
+                    style: SegmentedButton.styleFrom(
+                      minimumSize: const Size(0, 48),
                     ),
                   ),
-                ),
-              ),
-
-              const SizedBox(height: 24),
-
-              // Account type. A trainer account is the only route to the
-              // Trainer Console, and the choice is permanent — hence the note
-              // rather than a silent segmented control.
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  l10n.accountType,
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              SegmentedButton<AccountType>(
-                segments: [
-                  ButtonSegment(
-                    value: AccountType.trainee,
-                    icon: const Icon(Icons.person_outline),
-                    label: Text(l10n.accountTypeTrainee),
-                    tooltip: l10n.accountTypeTrainee,
-                  ),
-                  ButtonSegment(
-                    value: AccountType.trainer,
-                    icon: const Icon(Icons.groups_outlined),
-                    label: Text(l10n.accountTypeTrainer),
-                    tooltip: l10n.accountTypeTrainer,
-                  ),
-                ],
-                selected: {_accountType},
-                onSelectionChanged: (selection) =>
-                    setState(() => _accountType = selection.first),
-                style: SegmentedButton.styleFrom(
-                  minimumSize: const Size(0, 48),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                l10n.accountTypeLockedNote,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-
-              const SizedBox(height: 32),
-
-              FilledButton(
-                onPressed: authState.isLoading ? null : () => _submit(l10n),
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child:
-                    authState.isLoading
-                        ? SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: theme.colorScheme.onPrimary,
-                          ),
-                        )
-                        : Text(
-                          l10n.register,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-              ),
-
-              const SizedBox(height: 24),
-
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
+                  const SizedBox(height: 8),
                   Text(
-                    l10n.alreadyHaveAccount,
-                    style: theme.textTheme.bodyMedium?.copyWith(
+                    l10n.accountTypeLockedNote,
+                    style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 6),
-                    ),
-                    child: Text(
-                      l10n.login,
-                      style: TextStyle(
-                        color: theme.colorScheme.primary,
-                        fontWeight: FontWeight.w600,
+
+                  const SizedBox(height: 32),
+
+                  FilledButton(
+                    onPressed: authState.isLoading ? null : () => _submit(l10n),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
                     ),
+                    child:
+                        authState.isLoading
+                            ? SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: theme.colorScheme.onPrimary,
+                              ),
+                            )
+                            : Text(
+                              l10n.register,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                   ),
+
+                  const SizedBox(height: 24),
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        l10n.alreadyHaveAccount,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 6),
+                        ),
+                        child: Text(
+                          l10n.login,
+                          style: TextStyle(
+                            color: theme.colorScheme.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 24),
                 ],
               ),
-
-              const SizedBox(height: 24),
-            ],
-          ),
+            ),
           ),
         ),
       ),

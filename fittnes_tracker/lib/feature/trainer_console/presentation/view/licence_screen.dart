@@ -97,7 +97,7 @@ class _LicenceBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDesktop = MediaQuery.of(context).size.width > 1024;
+    final isDesktop = Breakpoints.isDesktop(context);
     final l10n = AppLocalizations.of(context)!;
 
     return SingleChildScrollView(

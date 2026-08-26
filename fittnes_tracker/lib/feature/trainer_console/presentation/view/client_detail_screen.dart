@@ -73,7 +73,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
       value: _provider,
       child: Consumer<ClientDetailProvider>(
         builder: (context, provider, _) {
-          final isDesktop = MediaQuery.of(context).size.width > 1024;
+          final isDesktop = Breakpoints.isDesktop(context);
 
           return Scaffold(
             backgroundColor: colors.surfaceContainerLowest,

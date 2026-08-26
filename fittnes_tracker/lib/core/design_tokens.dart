@@ -55,3 +55,31 @@ abstract final class ForgeColors {
   static const statusWarn = Color(0xFFFFA000);
   static const statusBad = Color(0xFFE53935);
 }
+
+/// Responsive breakpoints (CLAUDE.md "Layout & spacing": mobile `<600`,
+/// tablet `600–1024`, desktop `>1024`).
+///
+/// Named because `> 1024` was copy-pasted across eight Trainer Console files
+/// and was the only breakpoint literal in the codebase — which is why the
+/// 600–1024 band renders the phone layout on a tablet-width browser, with the
+/// bottom tab bar and ~250px of dead space above it. Having the tablet bound
+/// exist as a name is the precondition for ever handling that band.
+abstract final class Breakpoints {
+  /// Below this is a phone.
+  static const double mobile = 600;
+
+  /// Above this is a desktop: the Trainer Console shows its sidebar here.
+  static const double desktop = 1024;
+
+  /// Widest a single column of form fields should get. Login, Register and
+  /// profile setup had no constraint at all and rendered 1,384px-wide inputs
+  /// on a 1440px viewport — a phone layout stretched across a monitor, on the
+  /// surface CLAUDE.md calls the trainer's workstation.
+  static const double formMaxWidth = 480;
+
+  static bool isDesktop(BuildContext context) =>
+      MediaQuery.sizeOf(context).width > desktop;
+
+  static bool isMobile(BuildContext context) =>
+      MediaQuery.sizeOf(context).width < mobile;
+}

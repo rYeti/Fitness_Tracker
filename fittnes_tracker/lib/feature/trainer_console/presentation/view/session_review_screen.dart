@@ -77,7 +77,7 @@ class _SessionReviewScreenState extends State<SessionReviewScreen> {
           );
 
           final client = activeClient.activeClient;
-          final isDesktop = MediaQuery.of(context).size.width > 1024;
+          final isDesktop = Breakpoints.isDesktop(context);
           final padding = isDesktop ? 32.0 : 16.0;
 
           return Scaffold(

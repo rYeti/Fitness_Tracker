@@ -75,7 +75,7 @@ class _TrainerDashboardScreenState extends State<TrainerDashboardScreen> {
       child: Consumer3<TrainerConsoleProvider, TrainerLicenceProvider,
           ActiveClientProvider>(
         builder: (context, provider, licence, activeClient, _) {
-          final isDesktop = MediaQuery.of(context).size.width > 1024;
+          final isDesktop = Breakpoints.isDesktop(context);
           final padding = isDesktop ? 32.0 : 16.0;
 
           return Scaffold(

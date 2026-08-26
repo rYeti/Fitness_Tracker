@@ -68,7 +68,7 @@ class _WorkoutBuilderScreenState extends State<WorkoutBuilderScreen> {
           );
 
           final colors = Theme.of(context).colorScheme;
-          final isDesktop = MediaQuery.of(context).size.width > 1024;
+          final isDesktop = Breakpoints.isDesktop(context);
           final client = activeClient.activeClient;
 
           return Scaffold(

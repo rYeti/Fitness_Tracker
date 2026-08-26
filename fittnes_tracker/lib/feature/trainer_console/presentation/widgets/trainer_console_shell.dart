@@ -74,7 +74,7 @@ class TrainerConsoleShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDesktop = MediaQuery.of(context).size.width > 1024;
+    final isDesktop = Breakpoints.isDesktop(context);
 
     // Nullable on purpose: TrainerConsoleHome only registers a ChatProvider when
     // the chat stack could be built, and the other four sections have nothing to

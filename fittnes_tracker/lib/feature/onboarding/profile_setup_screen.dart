@@ -1,3 +1,4 @@
+import 'package:ForgeForm/core/widgets/form_pane.dart';
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/providers/enums.dart';
 import 'package:ForgeForm/core/providers/user_goals_provider.dart';
@@ -83,8 +84,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   void _recalculate() {
     final age = int.tryParse(_ageController.text.trim()) ?? 0;
     final height =
-        double.tryParse(_heightController.text.trim().replaceAll(',', '.')) ?? 0;
-    final weight = double.tryParse(
+        double.tryParse(_heightController.text.trim().replaceAll(',', '.')) ??
+        0;
+    final weight =
+        double.tryParse(
           _currentWeightController.text.trim().replaceAll(',', '.'),
         ) ??
         70;
@@ -146,9 +149,9 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   Future<void> _skip() async {
     await ProfileSetupPrefs.markComplete(widget.userId);
     if (!mounted) return;
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: widget.onDone),
-    );
+    Navigator.of(
+      context,
+    ).pushReplacement(MaterialPageRoute(builder: widget.onDone));
   }
 
   Future<void> _finish() async {
@@ -195,9 +198,9 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       await provider.reload();
 
       if (!mounted) return;
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: widget.onDone),
-      );
+      Navigator.of(
+        context,
+      ).pushReplacement(MaterialPageRoute(builder: widget.onDone));
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -228,10 +231,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                 child: Text(l10n.profileSetupSkip),
               ),
             ),
-            _ProfileSetupProgressBar(
-              current: _currentPage,
-              total: _totalPages,
-            ),
+            _ProfileSetupProgressBar(current: _currentPage, total: _totalPages),
             Expanded(
               child: PageView(
                 controller: _pageController,
@@ -247,12 +247,15 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                   ),
                   _GoalsPage(
                     activity: _activity,
-                    onActivityChanged: (v) => setState(
-                      () => _activity = v ?? ActivityLevel.moderatelyActive,
-                    ),
+                    onActivityChanged:
+                        (v) => setState(
+                          () => _activity = v ?? ActivityLevel.moderatelyActive,
+                        ),
                     goalType: _goalType,
-                    onGoalTypeChanged: (v) =>
-                        setState(() => _goalType = v ?? GoalType.maintenance),
+                    onGoalTypeChanged:
+                        (v) => setState(
+                          () => _goalType = v ?? GoalType.maintenance,
+                        ),
                     currentWeightController: _currentWeightController,
                     goalWeightController: _goalWeightController,
                   ),
@@ -420,51 +423,54 @@ class _ProfilePage extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _OnboardingPageHeader(
-            title: l10n.onboardingProfileTitle,
-            subtitle: l10n.onboardingProfileSubtitle,
-          ),
-          const SizedBox(height: 24),
-          TextField(
-            controller: nameController,
-            textCapitalization: TextCapitalization.words,
-            decoration: onboardingFieldDecoration(context, l10n.nameLabel),
-          ),
-          const SizedBox(height: 14),
-          TextField(
-            controller: ageController,
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            decoration: onboardingFieldDecoration(context, l10n.age),
-          ),
-          const SizedBox(height: 14),
-          TextField(
-            controller: heightController,
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            decoration: onboardingFieldDecoration(context, l10n.heightCm),
-          ),
-          const SizedBox(height: 14),
-          DropdownButtonFormField<Sex>(
-            value: sex,
-            isExpanded: true,
-            decoration: onboardingFieldDecoration(context, l10n.sex),
-            items:
-                Sex.values
-                    .map(
-                      (s) => DropdownMenuItem(
-                        value: s,
-                        child: Text(s.localized(context)),
-                      ),
-                    )
-                    .toList(),
-            onChanged: onSexChanged,
-          ),
-        ],
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      child: FormPane(
+        horizontalPadding: 24,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _OnboardingPageHeader(
+              title: l10n.onboardingProfileTitle,
+              subtitle: l10n.onboardingProfileSubtitle,
+            ),
+            const SizedBox(height: 24),
+            TextField(
+              controller: nameController,
+              textCapitalization: TextCapitalization.words,
+              decoration: onboardingFieldDecoration(context, l10n.nameLabel),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: ageController,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: onboardingFieldDecoration(context, l10n.age),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: heightController,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: onboardingFieldDecoration(context, l10n.heightCm),
+            ),
+            const SizedBox(height: 14),
+            DropdownButtonFormField<Sex>(
+              value: sex,
+              isExpanded: true,
+              decoration: onboardingFieldDecoration(context, l10n.sex),
+              items:
+                  Sex.values
+                      .map(
+                        (s) => DropdownMenuItem(
+                          value: s,
+                          child: Text(s.localized(context)),
+                        ),
+                      )
+                      .toList(),
+              onChanged: onSexChanged,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -494,65 +500,72 @@ class _GoalsPage extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _OnboardingPageHeader(
-            title: l10n.onboardingGoalsTitle,
-            subtitle: l10n.onboardingGoalsSubtitle,
-          ),
-          const SizedBox(height: 24),
-          DropdownButtonFormField<ActivityLevel>(
-            value: activity,
-            isExpanded: true,
-            decoration: onboardingFieldDecoration(context, l10n.activity),
-            items:
-                ActivityLevel.values
-                    .map(
-                      (a) => DropdownMenuItem(
-                        value: a,
-                        child: Text(a.localized(context)),
-                      ),
-                    )
-                    .toList(),
-            onChanged: onActivityChanged,
-          ),
-          const SizedBox(height: 14),
-          DropdownButtonFormField<GoalType>(
-            value: goalType,
-            isExpanded: true,
-            decoration: onboardingFieldDecoration(context, l10n.goal),
-            items:
-                GoalType.values
-                    .map(
-                      (g) => DropdownMenuItem(
-                        value: g,
-                        child: Text(g.localized(context)),
-                      ),
-                    )
-                    .toList(),
-            onChanged: onGoalTypeChanged,
-          ),
-          const SizedBox(height: 14),
-          TextField(
-            controller: currentWeightController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: onboardingFieldDecoration(
-              context,
-              '${l10n.currentWeight} (${l10n.kg})',
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      child: FormPane(
+        horizontalPadding: 24,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _OnboardingPageHeader(
+              title: l10n.onboardingGoalsTitle,
+              subtitle: l10n.onboardingGoalsSubtitle,
             ),
-          ),
-          const SizedBox(height: 14),
-          TextField(
-            controller: goalWeightController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: onboardingFieldDecoration(
-              context,
-              '${l10n.goalWeight} (${l10n.kg})',
+            const SizedBox(height: 24),
+            DropdownButtonFormField<ActivityLevel>(
+              value: activity,
+              isExpanded: true,
+              decoration: onboardingFieldDecoration(context, l10n.activity),
+              items:
+                  ActivityLevel.values
+                      .map(
+                        (a) => DropdownMenuItem(
+                          value: a,
+                          child: Text(a.localized(context)),
+                        ),
+                      )
+                      .toList(),
+              onChanged: onActivityChanged,
             ),
-          ),
-        ],
+            const SizedBox(height: 14),
+            DropdownButtonFormField<GoalType>(
+              value: goalType,
+              isExpanded: true,
+              decoration: onboardingFieldDecoration(context, l10n.goal),
+              items:
+                  GoalType.values
+                      .map(
+                        (g) => DropdownMenuItem(
+                          value: g,
+                          child: Text(g.localized(context)),
+                        ),
+                      )
+                      .toList(),
+              onChanged: onGoalTypeChanged,
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: currentWeightController,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              decoration: onboardingFieldDecoration(
+                context,
+                '${l10n.currentWeight} (${l10n.kg})',
+              ),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: goalWeightController,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              decoration: onboardingFieldDecoration(
+                context,
+                '${l10n.goalWeight} (${l10n.kg})',
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -575,77 +588,80 @@ class _SummaryPage extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _OnboardingPageHeader(title: l10n.onboardingSummaryTitle),
-          const SizedBox(height: 28),
-          // Calorie highlight card
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: cs.primary.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: cs.primary.withValues(alpha: 0.20)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.local_fire_department,
-                      color: cs.primary,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      l10n.onboardingSummaryCaloriesLabel,
-                      style: TextStyle(
-                        fontFamily: 'Exo 2',
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: cs.onSurface.withValues(alpha: 0.65),
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      child: FormPane(
+        horizontalPadding: 24,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _OnboardingPageHeader(title: l10n.onboardingSummaryTitle),
+            const SizedBox(height: 28),
+            // Calorie highlight card
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: cs.primary.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: cs.primary.withValues(alpha: 0.20)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.local_fire_department,
+                        color: cs.primary,
+                        size: 20,
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  '$calculatedCalories kcal',
-                  style: TextStyle(
-                    fontFamily: 'Montserrat',
-                    fontWeight: FontWeight.w800,
-                    fontSize: 32,
-                    color: cs.primary,
+                      const SizedBox(width: 8),
+                      Text(
+                        l10n.onboardingSummaryCaloriesLabel,
+                        style: TextStyle(
+                          fontFamily: 'Exo 2',
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: cs.onSurface.withValues(alpha: 0.65),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 10),
+                  Text(
+                    '$calculatedCalories kcal',
+                    style: TextStyle(
+                      fontFamily: 'Montserrat',
+                      fontWeight: FontWeight.w800,
+                      fontSize: 32,
+                      color: cs.primary,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 20),
-          // Editable field — same pattern as Settings screen
-          TextField(
-            controller: calorieController,
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            decoration: onboardingFieldDecoration(
-              context,
-              l10n.dailyCalorieGoal,
+            const SizedBox(height: 20),
+            // Editable field — same pattern as Settings screen
+            TextField(
+              controller: calorieController,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: onboardingFieldDecoration(
+                context,
+                l10n.dailyCalorieGoal,
+              ),
             ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            l10n.onboardingSummaryCaloriesLabel,
-            style: TextStyle(
-              fontFamily: 'Exo 2',
-              fontSize: 12,
-              color: cs.onSurface.withValues(alpha: 0.45),
+            const SizedBox(height: 10),
+            Text(
+              l10n.onboardingSummaryCaloriesLabel,
+              style: TextStyle(
+                fontFamily: 'Exo 2',
+                fontSize: 12,
+                color: cs.onSurface.withValues(alpha: 0.45),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
