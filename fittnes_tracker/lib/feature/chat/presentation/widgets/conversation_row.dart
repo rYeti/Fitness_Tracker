@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:ForgeForm/core/design_tokens.dart';
+import 'package:ForgeForm/feature/chat/domain/chat_timestamps.dart';
 import 'package:ForgeForm/feature/chat/domain/models/conversation_summary.dart';
 import 'package:ForgeForm/feature/chat/presentation/widgets/unread_badge.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/client_avatar.dart';
@@ -122,21 +123,8 @@ class ConversationRow extends StatelessWidget {
   }
 
   /// Time for today, weekday inside the last week, date beyond that — the
-  /// resolution a reader actually needs at each distance.
-  static String _timeLabel(DateTime at) {
-    final local = at.toLocal();
-    final now = DateTime.now();
-    final sameDay =
-        local.year == now.year && local.month == now.month && local.day == now.day;
-    if (sameDay) {
-      final hour = local.hour.toString().padLeft(2, '0');
-      final minute = local.minute.toString().padLeft(2, '0');
-      return '$hour:$minute';
-    }
-    if (now.difference(local).inDays < 7) {
-      const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-      return days[local.weekday - 1];
-    }
-    return '${local.day}/${local.month}';
-  }
+  /// resolution a reader actually needs at each distance. Shared with the
+  /// thread's own timestamps so the two cannot disagree about what day a
+  /// message landed on.
+  static String _timeLabel(DateTime at) => ChatTimestamps.listLabel(at);
 }

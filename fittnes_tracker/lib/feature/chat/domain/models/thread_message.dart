@@ -1,5 +1,6 @@
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/providers/enums.dart';
+import 'package:ForgeForm/feature/chat/domain/chat_timestamps.dart';
 import 'package:ForgeForm/feature/chat/domain/models/chat_message.dart';
 
 /// One bubble in a thread, whatever it was built from.
@@ -67,7 +68,7 @@ class ThreadMessage {
     return ThreadMessage(
       messageId: row.messageId,
       body: row.body,
-      timestamp: row.createdAt,
+      timestamp: ChatTimestamps.sanitize(row.createdAt),
       isMine: true,
       status: ChatMessageStatus.values[row.chatMessageStatus],
     );
