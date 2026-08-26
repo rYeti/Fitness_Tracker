@@ -1,4 +1,7 @@
 import 'package:ForgeForm/core/app_database.dart';
+import 'package:flutter_web_plugins/url_strategy.dart';
+import 'package:ForgeForm/core/app_router.dart';
+import 'package:go_router/go_router.dart';
 import 'package:ForgeForm/core/dao/meal_template_dao.dart';
 import 'package:ForgeForm/core/network/api_client.dart';
 import 'package:ForgeForm/core/network/secure_token_storage.dart';
@@ -56,7 +59,12 @@ const _backgroundSyncTask = 'com.forgeform.dailySync';
 
 /// Top-level so both [MyApp]'s [MaterialApp] and the auth-expired listener
 /// registered in [main] can reach the active [NavigatorState].
-final navigatorKey = GlobalKey<NavigatorState>();
+/// Kept as an alias so the auth-expiry and deep-link paths below read the
+/// same as before; the key itself is owned by the router.
+final navigatorKey = AppRouter.navigatorKey;
+
+/// The root Riverpod container, assigned once in [main].
+late final ProviderContainer rootContainer;
 
 /// Top-level callback required by workmanager — runs in a separate isolate.
 @pragma('vm:entry-point')
@@ -98,6 +106,13 @@ void _backgroundSyncDispatcher() {
 }
 
 void main() async {
+  // Real paths rather than #-fragment URLs. Without this the console's
+  // sections would be bookmarkable only as `/#/console/nutrition`, which is
+  // not a URL anyone would paste to a colleague. The static host already
+  // rewrites unknown paths to /index.html (CLAUDE.md, "Web support"), which
+  // is the server-side half of this working.
+  usePathUrlStrategy();
+
   WidgetsFlutterBinding.ensureInitialized();
   FlutterNativeSplash.preserve(
     widgetsBinding: WidgetsFlutterBinding.ensureInitialized(),
@@ -162,6 +177,10 @@ void main() async {
   final container = ProviderContainer(
     overrides: [serverUrlProvider.overrideWith((ref) => serverUrlDefault)],
   );
+  // Held globally so the router's redirect can read auth state: a redirect
+  // runs before any of this app's widgets, so it has no BuildContext to look
+  // the container up from.
+  rootContainer = container;
   await container.read(authProvider.notifier).restoreSession();
 
   // If a silent token refresh later fails mid-session (refresh token expired
@@ -393,6 +412,14 @@ void _openChatFor(ChatNotificationTarget target) {
 }
 
 class _MyAppState extends State<MyApp> {
+  // The callback reads the auth provider on every redirect rather than
+  // capturing widget.hasToken, which is only true of the moment the app
+  // started.
+  late final GoRouter _router = AppRouter.build(
+    isSignedIn: () =>
+        rootContainer.read(authProvider).user != null || widget.hasToken,
+  );
+
   StreamSubscription<Uri>? _linkSub;
   String? _pendingResetToken;
 
@@ -441,8 +468,8 @@ class _MyAppState extends State<MyApp> {
     final themeProvider = provider.Provider.of<ThemeProvider>(context);
     final localeProvider = provider.Provider.of<LocaleProvider>(context);
 
-    return MaterialApp(
-      navigatorKey: navigatorKey,
+    return MaterialApp.router(
+      routerConfig: _router,
       debugShowCheckedModeBanner: false,
       locale: localeProvider.locale,
       localizationsDelegates: [
@@ -462,58 +489,6 @@ class _MyAppState extends State<MyApp> {
           value: isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
           child: child!,
         );
-      },
-      // Signed out, the welcome screen *is* the home — it carries both Sign in
-      // and Create account, so there's no flag deciding whether to show it.
-      // Web goes straight to login instead: that surface is the Trainer
-      // Console, and a consumer pitch for calorie tracking has no place in
-      // front of it.
-      home:
-          widget.hasToken
-              ? const PostAuthHome()
-              : kIsWeb
-              ? const LoginScreen()
-              : const WelcomeScreen(),
-
-      onGenerateRoute: (settings) {
-        if (settings.name == '/add-food') {
-          final args = settings.arguments as Map<String, dynamic>;
-          return MaterialPageRoute(
-            builder: (context) => FoodAddScreen(category: args['category']),
-          );
-        }
-
-        if (settings.name == '/dashboard') {
-          return MaterialPageRoute(builder: (_) => const DashboardScreen());
-        }
-
-        if (settings.name == '/settings') {
-          return MaterialPageRoute(builder: (_) => const SettingsScreen());
-        }
-
-        if (settings.name == '/weight-tracking') {
-          return MaterialPageRoute(
-            builder: (_) => const WeightTrackingScreen(),
-          );
-        }
-
-        if (settings.name == '/weight-goals') {
-          return MaterialPageRoute(builder: (_) => const WeightGoalScreen());
-        }
-
-        if (settings.name == '/meal-templates') {
-          return MaterialPageRoute(builder: (_) => const MealTemplatesScreen());
-        }
-
-        // Pushed from Settings (trainers only) — the gate re-checks the role
-        // itself so a deep link can't bypass the entry point. No
-        // onExitConsole: this is a pushed route, so back already returns to
-        // the trainee app.
-        if (settings.name == '/trainer-console') {
-          return MaterialPageRoute(builder: (_) => const TrainerConsoleGate());
-        }
-
-        return MaterialPageRoute(builder: (_) => const HomeScreen());
       },
     );
   }
@@ -538,7 +513,11 @@ class _MyAppState extends State<MyApp> {
 /// trainer is also a ForgeForm user, so leaving the console has to be possible
 /// without signing out.
 class PostAuthHome extends StatefulWidget {
-  const PostAuthHome({super.key});
+  /// Which console section a deep link asked for. Null means "wherever the
+  /// console starts by default" — a cold start at `/`.
+  final TrainerConsoleRoute? initialConsoleRoute;
+
+  const PostAuthHome({super.key, this.initialConsoleRoute});
 
   @override
   State<PostAuthHome> createState() => _PostAuthHomeState();
@@ -553,6 +532,8 @@ class _PostAuthHomeState extends State<PostAuthHome> {
       // Everyone who isn't a trainer gets the normal app rather than a
       // "trainer access only" wall — the gate is the router here, not a bouncer.
       fallback: const HomeScreen(),
+      initialRoute:
+          widget.initialConsoleRoute ?? TrainerConsoleRoute.dashboard,
       onExitConsole: () => setState(() => _showTraineeApp = true),
     );
   }
