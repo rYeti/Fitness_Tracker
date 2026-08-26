@@ -405,3 +405,205 @@ The pairing matters more than either half: the render says *where* to look, the
 source says *what the value is and where it comes from*. A design review that
 runs only one of them will confidently miss half its findings — and the half it
 misses is invisible precisely because that method cannot see it.
+
+---
+
+## 9. Running the API: what the authenticated screens showed
+
+§8 could only reach Login, Register and Forgot Password, because no backend
+was running. This section covers the rest. The ASP.NET API was brought up
+against a local PostgreSQL, seeded with a realistic roster through its own
+endpoints, and every reachable screen was driven with Playwright at 1440 /
+800 / 390 in both themes.
+
+**Nothing was created against, and no traffic sent to, the production API.**
+`auth_provider.dart:244` hardcodes the Cloud Run URL, so the review build was
+pointed at `localhost` and the constant reverted afterwards.
+
+### 9a. First, a correction
+
+§8c reported that the Trainer Console's mobile bottom navigation exposed
+unnamed controls. **That was wrong, and the fault was in the probe, not the
+app.** Dumping the tree properly at 800px:
+
+```
+role="tablist"
+role="tab" label="Home"       role="tab" label="Chat"
+role="tab" label="Workouts"   role="tab" label="Nutrition"
+role="tab" label="Review"
+```
+
+The earlier query selected `flt-semantics[role="button"]`; tabs are not
+buttons, so the selector excluded exactly the elements it claimed were
+missing. A screen-reader user navigates the console on mobile without
+difficulty. The lesson is worth keeping: **an accessibility check that filters
+by role can manufacture the defect it reports.**
+
+### 9b. The trainer and the client see different calorie targets
+
+The sharpest defect found, and it needed both surfaces rendered against one
+account to see at all.
+
+On the same day, for the same person:
+
+| Surface | Shows |
+|---|---|
+| Trainee app, Food screen | **1733 / 2000 kcal** |
+| Trainer Console, Nutrition | **Target 0 kcal** |
+
+Both defaults agree that a calorie goal starts at 2000 — `UserSettings.cs:13`
+(`DailyCalorieGoal { get; set; } = 2000`) server-side, and
+`food_tables.dart:35` (`withDefault(const Constant(2000))`) in the client's
+local Drift table. But the console's read does not:
+
+```csharp
+// TrainerConsoleService.cs:482
+var calorieGoal = settings?.DailyCalorieGoal ?? 0;
+```
+
+For a client who has never opened settings, no `UserSettings` row exists yet,
+and the `?? 0` substitutes a value that contradicts both defaults. The
+consequences run further than one number: the calorie ring renders with **no
+filled arc at all** (sampled: only `#EAEAEA` track and `#333333` text — zero
+brand-orange pixels), and the "Calories vs. target" chart classifies every day
+against a target of zero.
+
+Neither side is wrong when read alone, which is why no test catches it. The
+defect is the *disagreement*, and a disagreement has no single home in the
+code. The one-line fix is `?? 2000`; the durable fix is one shared constant,
+since the value is currently written out in three places.
+
+### 9c. "Avg adherence" means two different things, eight pixels apart
+
+The dashboard shows a KPI tile reading **Avg adherence 100%** directly above
+client cards reading **92%**, **80%** and **No data**.
+
+Both numbers are computed correctly, and the code says why:
+
+| Figure | Window | Source |
+|---|---|---|
+| Client card adherence | trailing **28 days** | `TrainerConsoleService.cs:67` |
+| KPI "Avg adherence" | **current week only** | `TrainerConsoleService.cs:101–104` |
+
+The comments are thoughtful — a Monday-morning roster would otherwise show
+every client at 0%, and a client with an empty week shouldn't drag the average
+down. Both decisions are right. **The defect is presentational:** two windows
+share one word, sit adjacent, and nothing on screen distinguishes them. A
+trainer reads an average of 100% over clients scoring 92 and 80.
+
+The fix is copy, not logic — name the window on both ("Avg adherence, this
+week" / "28-day adherence"). Session Review compounds it with a third count:
+"10 sessions, 9 completed, 1 missed" for a client the roster scored 11/12.
+
+### 9d. The accessibility gap, finally measured
+
+§6 inferred this from grep counts. Rendering settles it. Unnamed interactive
+controls in the accessibility tree, per screen:
+
+| Surface | Screen | Unnamed controls |
+|---|---|---:|
+| **Console** | Dashboard, Messages, Builder, Nutrition, Session Review | **0** each |
+| Trainee | Food | **20** |
+| Trainee | Gym | 2 |
+| Trainee | Dashboard | 1 |
+| Trainee | Progress | 1 |
+| Trainee | Profile | 0 |
+
+The 20 on Food are, by position: two app-bar icons, one `+` per meal category,
+and a **pencil and a trash icon on every food row**. A screen-reader user
+hears "button" for every edit and every *delete* — an unlabelled destructive
+action, repeated once per food logged.
+
+What makes it a near-miss rather than neglect: the food rows themselves are
+labelled beautifully — `"Greek Yoghurt 0% / 59 kcal · Protein: 10g · Carbs: 4g
+· Fat: 0g"`. Someone thought carefully about the content and never came back
+for the icons.
+
+The same controls fail two more rules at once: they measure **40×40** against
+the 44×44 minimum, and the pencil/trash pair sits at x=1328 and x=1368 —
+**adjacent with no gap**, against the 8px minimum.
+
+The two surfaces also disagree about what a tab is. The console uses
+`role="tab"` inside a `role="tablist"`. The trainee app uses `role="button"`
+with the position hand-written into the label (`"Dashboard\nTab 1 of 5"`) —
+doing manually, and only in the label, what the semantic role provides for
+free.
+
+### 9e. Dark theme verified — the light theme really is the problem
+
+§1 claimed from arithmetic that dark mode passes and light mode carries the
+failures. Measured off the rendered dark screens:
+
+| Pair | Measured | Predicted in §1 |
+|---|---:|---:|
+| `#FF6B3E` on `#2C2C2C` | **4.94** | 4.94 |
+| `#FFFFFF` body text on `#2C2C2C` | 13.97 | — |
+
+The prediction and the pixels agree to two decimal places again. Dark mode is
+sound; every contrast fix in §1–§3 is a light-theme change.
+
+Rendering did add one thing arithmetic missed. Card-versus-background
+separation:
+
+| Theme | Page | Card | Separation |
+|---|---|---|---:|
+| Dark | `#1E1E1E` | `#2C2C2C` | 1.19 |
+| **Light** | `#FFFFFF` | `#FFFFFF` | **1.00** |
+
+In light mode the cards are *the same colour as the page*. The only thing
+making a card look like a card is its 2dp drop shadow — which is precisely the
+M2 elevation §C2 proposes replacing with tonal surfaces. That change cannot
+simply delete the shadow: at 1.00 separation there would be nothing left. The
+spec'd `#F5F5F5` page background has to arrive in the same commit.
+
+### 9f. The full-bleed layout is systemic
+
+§8b found Login and Register rendering ~1,384px-wide fields at 1440px. The
+profile-setup questionnaire does the same. Three screen families, one cause:
+no `maxWidth` container anywhere on the trainee/auth surface. The Trainer
+Console, by contrast, constrains its content properly — further evidence for
+§C's "two design philosophies" reading.
+
+The console's own gap is the **600–1024px band**: at 800×1000 it renders the
+phone layout — bottom tab bar, no sidebar, ~250px of dead space — because
+`>1024` is the only breakpoint in the codebase. The card grid reflows to two
+columns, so it is specifically the navigation chrome that never adapts.
+
+### 9g. Two API robustness notes, found by accident
+
+Neither is a design finding, both are real:
+
+- **`GET /api/TrainerConsole/{id}/nutrition-summary` 500s on a missing
+  `date`.** The parameter is `[FromQuery] DateTime date` — non-nullable, no
+  validation — so an absent value binds to `DateTime.MinValue` and the
+  seven-day window underflows: `ArgumentOutOfRangeException` from
+  `AddTicks`, returned as an unhandled 500 with a stack trace. A missing
+  required parameter should be a 400. `docs/chat-timestamps.md` already
+  records this family of bug: *a pre-epoch date is missing data, not history.*
+- **`FitTracker.Api/obj/` is tracked in git.** Any contributor running
+  `dotnet build` dirties `project.assets.json` and the generated nuget props.
+  It should be ignored.
+
+### 9h. Notes for anyone testing this app in a browser
+
+Two behaviours cost real time and are worth writing down. **Typing into a
+Flutter canvas drops characters**, and a dropped character in a password field
+is indistinguishable from a wrong password — both surface as a 401. The
+harness now types, reads the value back, and retypes on mismatch. Separately,
+the API rate-limits auth at **5 requests per window**, which also presents as
+a failed login. Between them, "the login is broken" was the wrong conclusion
+three times.
+
+### What the second method was worth
+
+§8 closed by saying source reading and rendering find disjoint defects. The
+authenticated pass sharpens that: the three most valuable findings here —
+the calorie-target disagreement (9b), the two-window adherence label (9c), and
+the light-theme card separation (9e) — are all **contradictions between two
+correct things**. A grep sees one side. A unit test sees one side. Only
+rendering both surfaces, against one account, with real data in the database,
+puts the two halves on screen at the same time where the contradiction is
+obvious.
+
+That is the argument for seeding realistically rather than minimally. With an
+empty database every one of these reads as a harmless zero.
