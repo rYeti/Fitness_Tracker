@@ -319,17 +319,31 @@ class AccessProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// One [Dio] per base URL, kept for the process's lifetime.
+  ///
+  /// A fresh Dio means a fresh HttpClient, which means a fresh TCP connection and TLS
+  /// handshake — paid on a call that gates the Trainer Console's first paint, and paid
+  /// again on every refresh. Reusing it keeps the connection alive; the bearer token
+  /// stays a per-request header because the caller supplies it, not this class.
+  static final Map<String, Dio> _statusClients = {};
+
+  static Dio _statusClient(String baseUrl) => _statusClients.putIfAbsent(
+    baseUrl,
+    () => Dio(
+      BaseOptions(
+        baseUrl: baseUrl,
+        connectTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 10),
+      ),
+    ),
+  );
+
   Future<void> _checkTrainerClient(String baseUrl, String token) async {
     try {
-      final dio = Dio(
-        BaseOptions(
-          baseUrl: baseUrl,
-          headers: {'Authorization': 'Bearer $token'},
-          connectTimeout: const Duration(seconds: 10),
-          receiveTimeout: const Duration(seconds: 10),
-        ),
+      final response = await _statusClient(baseUrl).get(
+        'api/TrainerClient/status',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
-      final response = await dio.get('api/TrainerClient/status');
       applyStatusPayload(response.data as Map<String, dynamic>);
     } catch (_) {
       // Keep cached value on failure.

@@ -61,13 +61,24 @@ class TrainerRosterEntry {
     );
   }
 
+  /// Up to two letters ("Robert Meyer" → "RM", "Robert" → "R"), matching the
+  /// avatars in the design handoff.
   String get initials {
-    final parts =
-        clientName.split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+    final parts = _nameParts;
     if (parts.isEmpty) return '?';
     if (parts.length == 1) return parts.first[0].toUpperCase();
     return (parts.first[0] + parts.last[0]).toUpperCase();
   }
+
+  /// First name alone, for the copy that addresses the client directly
+  /// ("Robert didn't record this session").
+  String get firstName {
+    final parts = _nameParts;
+    return parts.isEmpty ? clientName : parts.first;
+  }
+
+  List<String> get _nameParts =>
+      clientName.split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
 }
 
 class AttendanceWeek {

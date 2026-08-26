@@ -26,34 +26,55 @@ class ClientDetailProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   ConsoleError? get error => _error;
 
-  /// Fetches the three sources this screen composes in parallel — they're
-  /// independent endpoints and the screen shows them together.
+  /// Whether any of the three sections came back. Lets the screen show what did load
+  /// instead of blanking on a single failed endpoint.
+  bool get hasAnyData =>
+      _workoutSummary != null || _weightHistory.isNotEmpty || _nutrition != null;
+
+  /// Fetches the three sources this screen composes, in parallel and
+  /// independently of each other.
+  ///
+  /// Each settles on its own: one endpoint failing costs its own section and nothing
+  /// else. A single `Future.wait` with one try/catch used to mean any one of the three
+  /// blanked the whole screen — a nutrition outage hid the client's training — and left
+  /// the log as the only record of which had failed.
   Future<void> load() async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
+    await Future.wait([
+      _loadSection(
+        'workout summary',
+        () async => _workoutSummary = await _repository.getClientWorkoutSummary(clientId),
+      ),
+      _loadSection(
+        'weight history',
+        () async => _weightHistory = await _repository.getClientWeightHistory(clientId),
+      ),
+      _loadSection(
+        'nutrition summary',
+        () async => _nutrition =
+            await _repository.getClientNutritionSummary(clientId, DateTime.now()),
+      ),
+    ]);
+
+    _isLoading = false;
+    notifyListeners();
+  }
+
+  /// Runs one section's fetch, recording a failure without letting it take the others
+  /// down. [what] only ever reaches the log — the trainer sees the screen's error state.
+  Future<void> _loadSection(String what, Future<void> Function() fetch) async {
     try {
-      final results = await Future.wait([
-        _repository.getClientWorkoutSummary(clientId),
-        _repository.getClientWeightHistory(clientId),
-        _repository.getClientNutritionSummary(clientId, DateTime.now()),
-      ]);
-      _workoutSummary = results[0] as ClientWorkoutSummary;
-      _weightHistory = results[1] as List<ClientWeightEntry>;
-      _nutrition = results[2] as ClientNutritionSummary;
+      await fetch();
     } catch (e, stackTrace) {
-      // Any one of the three failing blanks the whole screen, so the log is the
-      // only thing that says which.
       _logger.e(
-        'Client detail failed for client $clientId',
+        'Client detail $what failed for client $clientId',
         error: e,
         stackTrace: stackTrace,
       );
       _error = ConsoleError.loadClientDetail;
-    } finally {
-      _isLoading = false;
-      notifyListeners();
     }
   }
 

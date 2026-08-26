@@ -10,6 +10,60 @@ public interface IScheduledWorkoutRepository
     /// <param name="userId">The user's ID.</param>
     Task<List<ScheduledWorkout>> GetUserScheduledWorkoutsAsync(Guid userId);
 
+    /// <summary>Returns the specified user's scheduled workouts falling in <c>[from, to)</c>,
+    /// including their exercises and sets.</summary>
+    /// <remarks>Prefer this over <see cref="GetUserScheduledWorkoutsAsync"/> wherever the caller
+    /// only reports on a window. The unbounded version loads every session the user has ever
+    /// logged, with every exercise and every set, which is the cost the Trainer Console was
+    /// paying to render a four-week adherence figure.</remarks>
+    /// <param name="userId">The user's ID.</param>
+    /// <param name="from">Inclusive start of the window.</param>
+    /// <param name="to">Exclusive end of the window.</param>
+    Task<List<ScheduledWorkout>> GetUserScheduledWorkoutsInRangeAsync(Guid userId, DateTime from, DateTime to);
+
+    /// <summary>Aggregates session counts for several clients at once, for the Trainer Console
+    /// dashboard.</summary>
+    /// <remarks>
+    /// One grouped query for the whole roster, rather than one full-history read per client.
+    /// Only sessions in the client's current programme are counted — the same rule as
+    /// <c>TrainerConsoleService.FilterToCurrentProgramme</c>, expressed in SQL here.
+    ///
+    /// Clients with no sessions in the window are absent from the result rather than present
+    /// with zeroes; callers must treat a missing row as "no data".
+    /// </remarks>
+    /// <param name="clientIds">The clients to aggregate. An empty list returns an empty result
+    /// without querying.</param>
+    /// <param name="windowStart">Inclusive start of the adherence window.</param>
+    /// <param name="windowEnd">Exclusive end of the adherence window. Pass the start of the day
+    /// after the last day that counts — a session logged at 18:00 today is still today's.</param>
+    /// <param name="weekStart">Inclusive start of the current week.</param>
+    /// <param name="weekEnd">Exclusive end of the current week.</param>
+    Task<List<ClientTrainingStats>> GetClientTrainingStatsAsync(
+        IReadOnlyCollection<Guid> clientIds,
+        DateTime windowStart,
+        DateTime windowEnd,
+        DateTime weekStart,
+        DateTime weekEnd);
+
+    /// <summary>The date of each client's most recent completed session, keyed by client id.
+    /// Clients who have never completed one are absent.</summary>
+    Task<Dictionary<Guid, DateTime>> GetLastCompletedSessionDatesAsync(IReadOnlyCollection<Guid> clientIds);
+
+    /// <summary>Returns the user's most recent <paramref name="count"/> sessions that are in their
+    /// current programme and start before <paramref name="notAfter"/>, newest first, with exercises
+    /// and sets. Pass the start of the day after the last day that counts.</summary>
+    /// <remarks>Bounding happens in SQL. Session Review used to build a full DTO graph for every
+    /// session the client had ever done and then keep the newest ten.</remarks>
+    Task<List<ScheduledWorkout>> GetRecentSessionsAsync(Guid userId, DateTime notAfter, int count);
+
+    /// <summary>The heaviest completed set weight per exercise across the user's sessions strictly
+    /// before <paramref name="before"/>, keyed by the exercise the set was logged against.</summary>
+    /// <remarks>Seeds Session Review's personal-record detection so that reading a bounded page of
+    /// sessions still compares each lift against the client's whole career, not just the page.
+    /// Keyed by the effective exercise — an override where the client substituted one, otherwise
+    /// the programmed exercise — matching how the session walk attributes a lift.</remarks>
+    Task<Dictionary<Guid, double>> GetBestWeightsBeforeAsync(Guid userId, DateTime before);
+
     /// <summary>Returns a single scheduled workout owned by the specified user, including its exercises and sets.</summary>
     /// <param name="id">The ID of the scheduled workout to retrieve.</param>
     /// <param name="userId">The ID of the user who must own the underlying workout.</param>

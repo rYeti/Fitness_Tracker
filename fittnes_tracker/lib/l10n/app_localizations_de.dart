@@ -2452,6 +2452,12 @@ class AppLocalizationsDe extends AppLocalizations {
   String get dashboardLoading => 'Dashboard wird geladen';
 
   @override
+  String get rosterLoading => 'Kunden werden geladen';
+
+  @override
+  String get kpisLoading => 'Übersicht wird geladen';
+
+  @override
   String get clientsHeading => 'Kunden';
 
   @override

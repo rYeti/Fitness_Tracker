@@ -1,5 +1,6 @@
 using FitTracker.Api.DTOs;
 using FitTracker.Api.Models;
+using FitTracker.Api.Repositories;
 using FitTracker.Api.Repositories.Interfaces;
 using FitTracker.Api.Services.Interfaces;
 
@@ -23,6 +24,37 @@ public class ScheduledWorkoutService : IScheduledWorkoutService
         var items = await _scheduledRepository.GetUserScheduledWorkoutsAsync(userId);
         return [.. items.Select(ToDto)];
     }
+
+    /// <inheritdoc/>
+    public async Task<List<ScheduledWorkoutResponseDto>> GetUserScheduledWorkoutsInRangeAsync(Guid userId, DateTime from, DateTime to)
+    {
+        var items = await _scheduledRepository.GetUserScheduledWorkoutsInRangeAsync(userId, from, to);
+        return [.. items.Select(ToDto)];
+    }
+
+    /// <inheritdoc/>
+    public Task<List<ClientTrainingStats>> GetClientTrainingStatsAsync(
+        IReadOnlyCollection<Guid> clientIds,
+        DateTime windowStart,
+        DateTime windowEnd,
+        DateTime weekStart,
+        DateTime weekEnd) =>
+        _scheduledRepository.GetClientTrainingStatsAsync(clientIds, windowStart, windowEnd, weekStart, weekEnd);
+
+    /// <inheritdoc/>
+    public Task<Dictionary<Guid, DateTime>> GetLastCompletedSessionDatesAsync(IReadOnlyCollection<Guid> clientIds) =>
+        _scheduledRepository.GetLastCompletedSessionDatesAsync(clientIds);
+
+    /// <inheritdoc/>
+    public async Task<List<ScheduledWorkoutResponseDto>> GetRecentSessionsAsync(Guid userId, DateTime notAfter, int count)
+    {
+        var items = await _scheduledRepository.GetRecentSessionsAsync(userId, notAfter, count);
+        return [.. items.Select(ToDto)];
+    }
+
+    /// <inheritdoc/>
+    public Task<Dictionary<Guid, double>> GetBestWeightsBeforeAsync(Guid userId, DateTime before) =>
+        _scheduledRepository.GetBestWeightsBeforeAsync(userId, before);
 
     /// <inheritdoc/>
     public async Task<ScheduledWorkoutResponseDto?> GetScheduledWorkoutByIdAsync(Guid id, Guid userId)

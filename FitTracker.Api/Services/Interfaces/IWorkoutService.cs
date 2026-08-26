@@ -10,6 +10,12 @@ public interface IWorkoutService
     /// <param name="userId">The user's ID.</param>
     Task<List<WorkoutResponseDto>> GetUserWorkoutsAsync(Guid userId);
 
+    /// <summary>The names of the given workouts, keyed by workout id.</summary>
+    Task<Dictionary<Guid, string>> GetNamesByIdsAsync(IReadOnlyCollection<Guid> workoutIds);
+
+    /// <summary>Returns the given workout-exercise entries, with their set templates.</summary>
+    Task<List<WorkoutExerciseResponseDto>> GetExercisesByIdsAsync(IReadOnlyCollection<Guid> workoutExerciseIds);
+
     /// <summary>Returns a single workout belonging to the specified user, including its exercises and set templates.</summary>
     /// <param name="id">The ID of the workout to retrieve.</param>
     /// <param name="userId">The ID of the user who owns the workout.</param>

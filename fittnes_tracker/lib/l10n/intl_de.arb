@@ -1376,6 +1376,8 @@
   "accountTypeTrainer": "Ich betreue Kunden",
   "accountTypeLockedNote": "Ein Trainerkonto öffnet die Trainer-Konsole. Das lässt sich später nicht ändern — ein bestehendes Konto kann nicht umgestellt werden.",
   "dashboardLoading": "Dashboard wird geladen",
+  "rosterLoading": "Kunden werden geladen",
+  "kpisLoading": "Übersicht wird geladen",
   "clientsHeading": "Kunden",
   "kpiActiveClients": "Aktive Kunden",
   "kpiAvgAdherence": "Ø Planerfüllung",

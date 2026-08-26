@@ -4472,6 +4472,18 @@ abstract class AppLocalizations {
   /// **'Loading dashboard'**
   String get dashboardLoading;
 
+  /// No description provided for @rosterLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading clients'**
+  String get rosterLoading;
+
+  /// No description provided for @kpisLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading summary'**
+  String get kpisLoading;
+
   /// No description provided for @clientsHeading.
   ///
   /// In en, this message translates to:

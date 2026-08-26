@@ -10,7 +10,19 @@ public class FoodItemRepository(AppDbContext context) : IFoodItemRepository
 {
     /// <inheritdoc/>
     public Task<List<FoodItem>> GetUserFoodItemsAsync(Guid userId) =>
-        context.FoodItems.Where(f => f.UserId == userId).ToListAsync();
+        context.FoodItems.AsNoTracking().Where(f => f.UserId == userId).ToListAsync();
+
+    /// <inheritdoc/>
+    public Task<List<FoodItem>> GetFoodItemsByIdsAsync(Guid userId, IReadOnlyCollection<Guid> ids)
+    {
+        if (ids.Count == 0) return Task.FromResult(new List<FoodItem>());
+
+        var wanted = ids.ToList();
+        return context.FoodItems
+            .AsNoTracking()
+            .Where(f => f.UserId == userId && wanted.Contains(f.Id))
+            .ToListAsync();
+    }
 
     /// <inheritdoc/>
     public Task<FoodItem?> GetFoodItemByIdAsync(Guid id, Guid userId) =>

@@ -59,6 +59,25 @@ public class WeightTrackingService : IWeightTrackingService
     }
 
     /// <inheritdoc/>
+    public async Task<List<WeightTrackingResponseDto>?> GetWeightLogsSince(Guid userId, DateTime from)
+    {
+        if (Guid.Empty == userId)
+        {
+            return null;
+        }
+
+        var weightLogs = await _weightRepository.GetWeightTrackingsSinceAsync(userId, from);
+
+        return weightLogs.Select(w => new WeightTrackingResponseDto
+        {
+            Id = w.Id,
+            Date = w.Date,
+            Weight = w.Weight,
+            Note = w.Note
+        }).ToList();
+    }
+
+    /// <inheritdoc/>
     public async Task<WeightTrackingResponseDto?> UpdateWeightAsync(Guid id, Guid userId, WeightTrackingRequestDto weightTrackingRequestDto)
     {
         if (Guid.Empty == id)

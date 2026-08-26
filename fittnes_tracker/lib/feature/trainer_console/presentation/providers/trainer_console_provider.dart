@@ -5,21 +5,26 @@ import 'package:ForgeForm/feature/trainer_console/domain/models/console_error.da
 
 enum RosterLayout { grid, table }
 
-/// Drives the Dashboard roster + KPIs. Not the client-switcher shared state
-/// used by Chat/Builder/Nutrition/Session Review — that's ActiveClientProvider.
+/// Drives the Dashboard's KPI row and its grid/table toggle.
+///
+/// It does *not* own the roster. The roster is the client-switcher's list, which lives in
+/// ActiveClientProvider at the app-shell level, and the Dashboard renders from there — one
+/// request for one list, rather than the two this used to make.
+///
+/// Keeping the KPIs separate is the point rather than an accident: they load independently
+/// of the roster, so the trainer sees their clients as soon as that request lands instead
+/// of waiting on a `Future.wait` for both.
 class TrainerConsoleProvider extends ChangeNotifier {
   final TrainerConsoleRepository _repository;
 
   TrainerConsoleProvider({TrainerConsoleRepository? repository})
     : _repository = repository ?? TrainerConsoleRepository();
 
-  List<TrainerRosterEntry> _roster = [];
   TrainerDashboardKpis? _kpis;
   bool _isLoading = false;
   ConsoleError? _error;
   RosterLayout _layout = RosterLayout.grid;
 
-  List<TrainerRosterEntry> get roster => _roster;
   TrainerDashboardKpis? get kpis => _kpis;
   bool get isLoading => _isLoading;
   ConsoleError? get error => _error;
@@ -31,20 +36,13 @@ class TrainerConsoleProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Loads roster and KPIs together — the Dashboard shows both at once, so
-  /// two separate spinners would just make it flicker twice.
   Future<void> load() async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      final results = await Future.wait([
-        _repository.getRosterWithStats(),
-        _repository.getDashboardKpis(),
-      ]);
-      _roster = results[0] as List<TrainerRosterEntry>;
-      _kpis = results[1] as TrainerDashboardKpis;
+      _kpis = await _repository.getDashboardKpis();
     } catch (_) {
       _error = ConsoleError.loadDashboard;
     } finally {

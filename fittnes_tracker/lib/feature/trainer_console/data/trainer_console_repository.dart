@@ -1,5 +1,4 @@
 import 'package:ForgeForm/feature/trainer_console/data/trainer_console_api.dart';
-import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_client_summary.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_console_models.dart';
 
 class TrainerConsoleRepository {
@@ -8,18 +7,10 @@ class TrainerConsoleRepository {
   TrainerConsoleRepository({TrainerConsoleApi? api})
     : _api = api ?? TrainerConsoleApi();
 
-  /// Active clients only — pending invites and revoked relationships don't
-  /// belong on the roster (see CLAUDE.md: gate on Status == Active).
-  Future<List<TrainerClientSummary>> getRoster() async {
-    final raw = await _api.fetchMyClients();
-    return raw
-        .map(TrainerClientSummary.fromJson)
-        .where((c) => c.status == 'Active')
-        .toList();
-  }
-
-  /// Roster with training stats for the Dashboard. The server already filters
-  /// to active relationships, so there's no status filter here.
+  /// The trainer's active clients with their training stats. The single roster read for
+  /// the whole console — the client switcher and the Dashboard both render from it.
+  ///
+  /// The server already filters to active relationships, so there's no status filter here.
   Future<List<TrainerRosterEntry>> getRosterWithStats() async {
     final raw = await _api.fetchRoster();
     return raw.map(TrainerRosterEntry.fromJson).toList();

@@ -22,9 +22,38 @@ public class WorkoutRepository : IWorkoutRepository
     public async Task<List<Workout>> GetUserWorkoutsAsync(Guid userId)
     {
         return await _context.Workouts
+            .AsNoTracking()
             .Where(w => w.UserId == userId)
             .Include(w => w.Exercises)
                 .ThenInclude(e => e.SetTemplates)
+            .ToListAsync();
+    }
+
+    /// <inheritdoc/>
+    public async Task<Dictionary<Guid, string>> GetNamesByIdsAsync(IReadOnlyCollection<Guid> workoutIds)
+    {
+        if (workoutIds.Count == 0) return [];
+
+        var ids = workoutIds.ToList();
+        var rows = await _context.Workouts
+            .AsNoTracking()
+            .Where(w => ids.Contains(w.Id))
+            .Select(w => new { w.Id, w.Name })
+            .ToListAsync();
+
+        return rows.ToDictionary(r => r.Id, r => r.Name);
+    }
+
+    /// <inheritdoc/>
+    public async Task<List<WorkoutExercise>> GetExercisesByIdsAsync(IReadOnlyCollection<Guid> workoutExerciseIds)
+    {
+        if (workoutExerciseIds.Count == 0) return [];
+
+        var ids = workoutExerciseIds.ToList();
+        return await _context.WorkoutExercises
+            .AsNoTracking()
+            .Where(e => ids.Contains(e.Id))
+            .Include(e => e.SetTemplates)
             .ToListAsync();
     }
 

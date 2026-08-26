@@ -22,6 +22,14 @@ public sealed class DbFixture : IDisposable
 
     public AppDbContext Db { get; }
 
+    /// <summary>Counts the SQL commands this fixture's context issues.</summary>
+    /// <remarks>Here so a test can assert the *shape* of a data-access path — "this endpoint
+    /// costs the same number of queries for ten clients as for one" — rather than its speed.
+    /// A timing assertion on CI is a flaky test; a query-count assertion is not, and it is the
+    /// assertion that would have caught the Trainer Console's N+1 while it was being written.
+    /// </remarks>
+    public QueryCounter Queries { get; } = new();
+
     public DbFixture()
     {
         _connection = new SqliteConnection("DataSource=:memory:");
@@ -29,6 +37,7 @@ public sealed class DbFixture : IDisposable
 
         var options = new DbContextOptionsBuilder<AppDbContext>()
             .UseSqlite(_connection)
+            .AddInterceptors(Queries)
             .Options;
 
         Db = new AppDbContext(options);
@@ -173,4 +182,99 @@ public sealed class DbFixture : IDisposable
         Db.Dispose();
         _connection.Dispose();
     }
+
+    /// <summary>Adds a workout (the template a session is generated from) for a user.</summary>
+    public Workout AddWorkout(Guid userId, string name = "Push Day")
+    {
+        var workout = new Workout { Id = Guid.NewGuid(), UserId = userId, Name = name };
+        Db.Workouts.Add(workout);
+        Db.SaveChanges();
+        return workout;
+    }
+
+    /// <summary>Adds a workout plan. Only the active flag and the name matter to the roster.</summary>
+    public WorkoutPlan AddPlan(Guid userId, string name, bool isActive, DateTime? createdAt = null)
+    {
+        var plan = new WorkoutPlan
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            Name = name,
+            IsActive = isActive,
+            CreatedAt = createdAt ?? DateTime.UtcNow,
+        };
+        Db.WorkoutPlans.Add(plan);
+        Db.SaveChanges();
+        return plan;
+    }
+
+    /// <summary>Schedules a session against a workout on a given date.</summary>
+    /// <param name="planId">The plan that generated it, or null for a hand-scheduled session.</param>
+    public ScheduledWorkout AddSession(
+        Guid workoutId,
+        DateTime date,
+        bool completed = false,
+        bool skipped = false,
+        Guid? planId = null)
+    {
+        var session = new ScheduledWorkout
+        {
+            Id = Guid.NewGuid(),
+            WorkoutId = workoutId,
+            WorkoutPlanId = planId,
+            ScheduledDate = date,
+            CreatedAt = DateTime.UtcNow,
+            IsCompleted = completed,
+            IsSkipped = skipped,
+        };
+        Db.ScheduledWorkouts.Add(session);
+        Db.SaveChanges();
+        return session;
+    }
+
+    /// <summary>Logs a set against a session, so it counts as work the client engaged with.</summary>
+    public WorkoutSet AddLoggedSet(
+        Guid sessionId,
+        Guid workoutExerciseId,
+        int setNumber = 1,
+        double? weight = null,
+        bool completed = true)
+    {
+        var entry = new ScheduledWorkoutExercise
+        {
+            Id = Guid.NewGuid(),
+            ScheduledWorkoutId = sessionId,
+            WorkoutExerciseId = workoutExerciseId,
+            IsCompleted = completed,
+        };
+        Db.ScheduledWorkoutExercises.Add(entry);
+
+        var set = new WorkoutSet
+        {
+            Id = Guid.NewGuid(),
+            ScheduledWorkoutExerciseId = entry.Id,
+            SetNumber = setNumber,
+            Weight = weight,
+            IsCompleted = completed,
+        };
+        Db.WorkoutSets.Add(set);
+        Db.SaveChanges();
+        return set;
+    }
+
+    /// <summary>Adds an exercise entry to a workout, which sessions then log sets against.</summary>
+    public WorkoutExercise AddWorkoutExercise(Guid workoutId, Guid exerciseId, int orderPosition = 0)
+    {
+        var entry = new WorkoutExercise
+        {
+            Id = Guid.NewGuid(),
+            WorkoutId = workoutId,
+            ExerciseId = exerciseId,
+            OrderPosition = orderPosition,
+        };
+        Db.WorkoutExercises.Add(entry);
+        Db.SaveChanges();
+        return entry;
+    }
+
 }

@@ -59,7 +59,6 @@ void main() {
     await _pump(
       tester,
       FakeTrainerConsoleRepository(
-        roster: [fakeClient()],
         rosterWithStats: [fakeRosterEntry()],
         nutrition: fakeNutrition(),
       ),
@@ -78,7 +77,6 @@ void main() {
     await _pump(
       tester,
       FakeTrainerConsoleRepository(
-        roster: [fakeClient()],
         rosterWithStats: [fakeRosterEntry()],
         nutrition: fakeNutrition(),
       ),
@@ -94,7 +92,6 @@ void main() {
     await _pump(
       tester,
       FakeTrainerConsoleRepository(
-        roster: [fakeClient()],
         rosterWithStats: [fakeRosterEntry()],
         nutrition: fakeNutrition(),
       ),
@@ -114,7 +111,6 @@ void main() {
     await _pump(
       tester,
       FakeTrainerConsoleRepository(
-        roster: [fakeClient()],
         rosterWithStats: [fakeRosterEntry()],
         nutrition: fakeNutrition(),
       ),
@@ -134,8 +130,10 @@ void main() {
     await _pump(
       tester,
       FakeTrainerConsoleRepository(
-        roster: [fakeClient(), fakeClient(id: 'c2', name: 'Ana Silva')],
-        rosterWithStats: [fakeRosterEntry()],
+        rosterWithStats: [
+          fakeRosterEntry(),
+          fakeRosterEntry(id: 'c2', name: 'Ana Silva'),
+        ],
         nutrition: fakeNutrition(),
       ),
     );
@@ -173,7 +171,6 @@ void main() {
     await _pump(
       tester,
       FakeTrainerConsoleRepository(
-        roster: [fakeClient()],
         rosterWithStats: [fakeRosterEntry()],
         nutrition: fakeNutrition(),
       ),
@@ -194,7 +191,6 @@ void main() {
     await _pump(
       tester,
       FakeTrainerConsoleRepository(
-        roster: [fakeClient()],
         rosterWithStats: [fakeRosterEntry()],
         nutrition: fakeNutrition(),
       ),
@@ -211,7 +207,6 @@ void main() {
     await _pump(
       tester,
       FakeTrainerConsoleRepository(
-        roster: [fakeClient()],
         rosterWithStats: [fakeRosterEntry()],
         nutrition: fakeNutrition(),
       ),
@@ -232,7 +227,6 @@ void main() {
     await _pump(
       tester,
       FakeTrainerConsoleRepository(
-        roster: [fakeClient()],
         rosterWithStats: [fakeRosterEntry()],
         nutrition: fakeNutrition(),
       ),
@@ -245,4 +239,54 @@ void main() {
     expect(find.widgetWithText(UnreadBadge, '99+'), findsOneWidget);
   });
 
+  group('what fetches on open', _lazyMountTests);
+}
+
+/// Which sections reach for the network, and when.
+///
+/// The shell used to be a plain [IndexedStack], which builds every child immediately — so
+/// opening the console mounted all five sections and each fired its own loads for a screen
+/// nobody was looking at. These pin both halves of what replaced it: nothing fetches until
+/// its section is opened, and opening it twice still only fetches once.
+void _lazyMountTests() {
+  testWidgets('only the dashboard fetches when the console opens', (
+    tester,
+  ) async {
+    final repository = FakeTrainerConsoleRepository(
+      rosterWithStats: [fakeRosterEntry()],
+      nutrition: fakeNutrition(),
+    );
+    await _pump(tester, repository);
+    await tester.pumpAndSettle();
+
+    expect(repository.calls['roster'], 1);
+    expect(repository.calls['kpis'], 1);
+    // Nutrition and Session Review are behind their own tabs.
+    expect(repository.calls['nutrition'], isNull);
+    expect(repository.calls['sessions'], isNull);
+  });
+
+  testWidgets('opening a section fetches it, and returning to it does not', (
+    tester,
+  ) async {
+    final repository = FakeTrainerConsoleRepository(
+      rosterWithStats: [fakeRosterEntry()],
+      nutrition: fakeNutrition(),
+    );
+    await _pump(tester, repository);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Nutrition').first);
+    await tester.pumpAndSettle();
+    expect(repository.calls['nutrition'], 1);
+
+    // Away and back. The section stays mounted, which is the half of IndexedStack's
+    // behaviour that was always wanted — switching tabs must not re-fetch.
+    await tester.tap(find.text('Dashboard').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Nutrition').first);
+    await tester.pumpAndSettle();
+
+    expect(repository.calls['nutrition'], 1);
+  });
 }

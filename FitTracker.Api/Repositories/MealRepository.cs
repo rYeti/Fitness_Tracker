@@ -20,6 +20,7 @@ public class MealRepository(AppDbContext context) : IMealRepository
         // window is centred on the day rather than running midnight to midnight.
         var (start, end) = MealDayWindow.ForRange(firstDay, lastDay);
         return context.Meals
+            .AsNoTracking()
             .Where(m => m.UserId == userId && m.Date >= start && m.Date < end)
             .Include(m => m.FoodEntries)
             .ToListAsync();

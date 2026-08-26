@@ -52,6 +52,14 @@ public class ExerciseService : IExerciseService
     }
 
     /// <inheritdoc/>
+    public Task<Dictionary<Guid, string>> GetNamesByIdsAsync(IReadOnlyCollection<Guid> exerciseIds) =>
+        _exerciseRepository.GetNamesByIdsAsync(exerciseIds);
+
+    /// <inheritdoc/>
+    public Task<Dictionary<Guid, string>> GetNamesByWorkoutExerciseIdsAsync(IReadOnlyCollection<Guid> workoutExerciseIds) =>
+        _exerciseRepository.GetNamesByWorkoutExerciseIdsAsync(workoutExerciseIds);
+
+    /// <inheritdoc/>
     public async Task<List<ExerciseResponseDto>> GetUserExercisesAsync(Guid id)
     {
         var exercises = await _exerciseRepository.GetUserExercisesAsync(id);

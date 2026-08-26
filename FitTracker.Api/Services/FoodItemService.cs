@@ -16,6 +16,13 @@ public class FoodItemService(IFoodItemRepository repository) : IFoodItemService
     }
 
     /// <inheritdoc/>
+    public async Task<List<FoodItemResponseDto>> GetFoodItemsByIdsAsync(Guid userId, IReadOnlyCollection<Guid> ids)
+    {
+        var items = await repository.GetFoodItemsByIdsAsync(userId, ids);
+        return [.. items.Select(ToDto)];
+    }
+
+    /// <inheritdoc/>
     public async Task<FoodItemResponseDto?> GetFoodItemByIdAsync(Guid id, Guid userId)
     {
         var item = await repository.GetFoodItemByIdAsync(id, userId);

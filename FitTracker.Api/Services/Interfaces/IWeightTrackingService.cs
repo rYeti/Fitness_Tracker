@@ -16,6 +16,9 @@ public interface IWeightTrackingService
     /// <param name="userId">The user's ID.</param>
     Task<List<WeightTrackingResponseDto>?> GetWeightLogs(Guid userId);
 
+    /// <summary>The user's weigh-ins on or after <paramref name="from"/>, oldest first.</summary>
+    Task<List<WeightTrackingResponseDto>?> GetWeightLogsSince(Guid userId, DateTime from);
+
     /// <summary>Updates an existing weight entry owned by the specified user.</summary>
     /// <param name="id">The ID of the entry to update.</param>
     /// <param name="userId">The ID of the user who owns the entry.</param>

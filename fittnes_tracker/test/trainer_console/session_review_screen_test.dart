@@ -48,7 +48,7 @@ void main() {
   ) async {
     await _pump(
       tester,
-      FakeTrainerConsoleRepository(roster: [fakeClient()]),
+      FakeTrainerConsoleRepository(rosterWithStats: [fakeRosterEntry()]),
     );
     await tester.pumpAndSettle();
 
@@ -63,7 +63,7 @@ void main() {
     await _pump(
       tester,
       FakeTrainerConsoleRepository(
-        roster: [fakeClient()],
+        rosterWithStats: [fakeRosterEntry()],
         throwOnSessions: true,
       ),
     );
@@ -78,7 +78,7 @@ void main() {
     await _pump(
       tester,
       FakeTrainerConsoleRepository(
-        roster: [fakeClient()],
+        rosterWithStats: [fakeRosterEntry()],
         sessions: [fakeSession()],
         gate: gate,
       ),
@@ -98,7 +98,7 @@ void main() {
     await _pump(
       tester,
       FakeTrainerConsoleRepository(
-        roster: [fakeClient()],
+        rosterWithStats: [fakeRosterEntry()],
         sessions: [
           fakeSession(note: 'Felt strong today'),
           fakeSession(
@@ -125,7 +125,7 @@ void main() {
     await _pump(
       tester,
       FakeTrainerConsoleRepository(
-        roster: [fakeClient()],
+        rosterWithStats: [fakeRosterEntry()],
         sessions: [
           fakeSession(),
           fakeSession(
@@ -151,7 +151,7 @@ void main() {
     await _pump(
       tester,
       FakeTrainerConsoleRepository(
-        roster: [fakeClient()],
+        rosterWithStats: [fakeRosterEntry()],
         sessions: [
           fakeSession(
             exercises: [
@@ -209,7 +209,7 @@ void main() {
     await _pump(
       tester,
       FakeTrainerConsoleRepository(
-        roster: [fakeClient()],
+        rosterWithStats: [fakeRosterEntry()],
         sessions: [fakeSession()],
       ),
       size: const Size(420, 900),

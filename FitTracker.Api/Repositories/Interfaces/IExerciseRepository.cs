@@ -10,6 +10,22 @@ public interface IExerciseRepository
     /// <param name="id">The user's ID.</param>
     Task<List<Exercise>> GetUserExercisesAsync(Guid id);
 
+    /// <summary>The names of the given exercises, keyed by exercise id. Ids that don't resolve
+    /// are simply absent.</summary>
+    /// <remarks>The Trainer Console needs nothing but names, and used to get them by loading the
+    /// entire global exercise catalogue as full entities — descriptions, image URLs, muscle
+    /// groups — mapping every row to a DTO and keeping one string per row.
+    ///
+    /// Missing ids are expected, not an error: exercises may be seeded on the device, so a
+    /// <c>WorkoutExercise.ExerciseId</c> is an opaque reference with no foreign key behind it.</remarks>
+    Task<Dictionary<Guid, string>> GetNamesByIdsAsync(IReadOnlyCollection<Guid> exerciseIds);
+
+    /// <summary>The exercise name behind each of the given <c>WorkoutExercise</c> ids.</summary>
+    /// <remarks>Saves callers holding a scheduled session — which references the workout-exercise
+    /// entry, not the exercise definition — from loading the user's whole workout library just to
+    /// walk one id to the next.</remarks>
+    Task<Dictionary<Guid, string>> GetNamesByWorkoutExerciseIdsAsync(IReadOnlyCollection<Guid> workoutExerciseIds);
+
     /// <summary>Updates an existing exercise owned by the specified user.</summary>
     /// <param name="exercise">The updated exercise data.</param>
     /// <param name="userId">The ID of the user who owns the exercise.</param>

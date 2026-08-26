@@ -22,9 +22,30 @@ public class WorkoutPlanRepository : IWorkoutPlanRepository
     public async Task<List<WorkoutPlan>> GetUserPlansAsync(Guid userId)
     {
         return await _context.WorkoutPlans
+            .AsNoTracking()
             .Where(p => p.UserId == userId)
             .Include(p => p.PlanWorkouts)
             .ToListAsync();
+    }
+
+    /// <inheritdoc/>
+    public async Task<Dictionary<Guid, string>> GetActivePlanNamesAsync(IReadOnlyCollection<Guid> userIds)
+    {
+        if (userIds.Count == 0) return [];
+
+        var ids = userIds.ToList();
+        var rows = await _context.WorkoutPlans
+            .AsNoTracking()
+            .Where(p => ids.Contains(p.UserId) && p.IsActive)
+            .OrderByDescending(p => p.CreatedAt)
+            .Select(p => new { p.UserId, p.Name })
+            .ToListAsync();
+
+        // Folded here rather than in SQL: First() inside a GroupBy projection doesn't
+        // translate, and there are only ever a handful of active plans per user.
+        return rows
+            .GroupBy(r => r.UserId)
+            .ToDictionary(g => g.Key, g => g.First().Name);
     }
 
     /// <inheritdoc/>

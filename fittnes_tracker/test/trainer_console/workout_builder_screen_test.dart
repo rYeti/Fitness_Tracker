@@ -49,7 +49,7 @@ void main() {
   testWidgets('a client with no plan lands in the create flow', (tester) async {
     await _pump(
       tester,
-      FakeTrainerConsoleRepository(roster: [fakeClient()]),
+      FakeTrainerConsoleRepository(rosterWithStats: [fakeRosterEntry()]),
     );
     await tester.pumpAndSettle();
 
@@ -61,7 +61,7 @@ void main() {
     await _pump(
       tester,
       FakeTrainerConsoleRepository(
-        roster: [fakeClient()],
+        rosterWithStats: [fakeRosterEntry()],
         workoutSummary: _summaryWithPlan(),
       ),
     );
@@ -76,7 +76,7 @@ void main() {
   testWidgets('submitting an empty name is rejected before any request', (
     tester,
   ) async {
-    final repository = FakeTrainerConsoleRepository(roster: [fakeClient()]);
+    final repository = FakeTrainerConsoleRepository(rosterWithStats: [fakeRosterEntry()]);
     await _pump(tester, repository);
     await tester.pumpAndSettle();
 
@@ -88,7 +88,7 @@ void main() {
   });
 
   testWidgets('creating a plan sends the name and confirms', (tester) async {
-    final repository = FakeTrainerConsoleRepository(roster: [fakeClient()]);
+    final repository = FakeTrainerConsoleRepository(rosterWithStats: [fakeRosterEntry()]);
     await _pump(tester, repository);
     await tester.pumpAndSettle();
 
@@ -108,7 +108,7 @@ void main() {
     await _pump(
       tester,
       FakeTrainerConsoleRepository(
-        roster: [fakeClient()],
+        rosterWithStats: [fakeRosterEntry()],
         templates: const [
           WorkoutPlanTemplateSummary(
             id: 'tpl-1',

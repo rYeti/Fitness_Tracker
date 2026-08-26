@@ -168,6 +168,11 @@ public class AppDbContext : DbContext
                   .WithMany(p => p.ScheduledWorkouts)
                   .HasForeignKey(sw => sw.WorkoutPlanId)
                   .OnDelete(DeleteBehavior.SetNull);
+            // Every trainer-facing read of a client's sessions joins Workouts (filtered by
+            // UserId) and then range-scans the date. The convention index is on WorkoutId
+            // alone, which leaves the date range filtering every session the client has ever
+            // logged.
+            entity.HasIndex(sw => new { sw.WorkoutId, sw.ScheduledDate });
         });
 
         modelBuilder.Entity<ScheduledWorkoutExercise>(entity =>
@@ -208,6 +213,9 @@ public class AppDbContext : DbContext
                   .WithMany()
                   .HasForeignKey(m => m.UserId)
                   .OnDelete(DeleteBehavior.Cascade);
+            // The nutrition summary reads a seven-day window for one user; this is exactly
+            // the pair it filters on.
+            entity.HasIndex(m => new { m.UserId, m.Date });
             // FoodItemId is an opaque client-side reference — no FK enforced
         });
 
@@ -263,6 +271,8 @@ public class AppDbContext : DbContext
                   .IsRequired(false)
                   .OnDelete(DeleteBehavior.Restrict);
             entity.HasIndex(t => t.InviteCode).IsUnique();
+            // Both the roster read and the seat count filter on exactly this pair.
+            entity.HasIndex(t => new { t.TrainerId, t.Status });
         });
 
         modelBuilder.Entity<TrainerLicence>(entity =>

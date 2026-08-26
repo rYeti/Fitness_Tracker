@@ -3,7 +3,6 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/feature/trainer_console/data/trainer_console_repository.dart';
-import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_client_summary.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_console_models.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/active_client_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/session_review_provider.dart';
@@ -119,7 +118,7 @@ class _SessionReviewScreenState extends State<SessionReviewScreen> {
 // ---------------------------------------------------------------------------
 
 class _Header extends StatelessWidget {
-  final TrainerClientSummary? client;
+  final TrainerRosterEntry? client;
   final SessionReviewProvider review;
   final bool isDesktop;
 
@@ -203,7 +202,7 @@ class _Header extends StatelessWidget {
 
 /// Routes between the four required states, then the desktop/mobile layouts.
 class _Body extends StatelessWidget {
-  final TrainerClientSummary? client;
+  final TrainerRosterEntry? client;
   final ActiveClientProvider activeClient;
   final SessionReviewProvider review;
   final bool isDesktop;
@@ -545,7 +544,7 @@ class _SessionTabs extends StatelessWidget {
 
 class _SessionDetail extends StatelessWidget {
   final ClientSessionSummary session;
-  final TrainerClientSummary client;
+  final TrainerRosterEntry client;
 
   const _SessionDetail({required this.session, required this.client});
 

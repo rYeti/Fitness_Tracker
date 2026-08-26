@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:ForgeForm/core/design_tokens.dart';
-import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_client_summary.dart';
+import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_console_models.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/active_client_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/client_avatar.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
@@ -118,7 +118,7 @@ class ClientSwitcher extends StatelessWidget {
 }
 
 class _ClientPickerSheet extends StatelessWidget {
-  final List<TrainerClientSummary> clients;
+  final List<TrainerRosterEntry> clients;
   final String? activeClientId;
 
   const _ClientPickerSheet({

@@ -15,6 +15,11 @@ public interface IWeightTrackingRepository
     /// <param name="id">The user's ID.</param>
     Task<List<WeightTracking>> GetWeightTrackingsAsync(Guid id);
 
+    /// <summary>The user's weigh-ins on or after <paramref name="from"/>, oldest first.</summary>
+    /// <remarks>The unbounded version returns every weigh-in ever recorded, in whatever order
+    /// the database chose. Trainer-facing charts want a window and a defined order.</remarks>
+    Task<List<WeightTracking>> GetWeightTrackingsSinceAsync(Guid id, DateTime from);
+
     /// <summary>Persists a new weight tracking entry.</summary>
     /// <param name="weightTracking">The entry to create.</param>
     /// <returns>The newly created entry.</returns>
