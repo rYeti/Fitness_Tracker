@@ -24,9 +24,11 @@ See `docs/android-release.md`.
 
 ## Unreleased
 
-The Trainer Console now opens far faster: it no longer reads a client's whole training history to draw the dashboard, and it loads only the section you are looking at. Your client list appears as soon as it is ready.
+Text, buttons and status badges are much easier to read in the light theme, and text fields now have a visible outline.
 
-Chat messages now show the time they were sent, and the date above each day of messages is correct — it could read 01/01/0001 or name the wrong day.
+The Trainer Console opens far faster, loads only the section you are looking at, and now has real web addresses, so back and bookmarks work.
+
+Chat messages show the time they were sent, and each day's date is correct — it could read 01/01/0001.
 
 Also fixed: the dashboard showed zero sessions every Sunday, and exercise names were missing from the strength chart.
 

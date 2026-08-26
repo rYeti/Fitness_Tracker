@@ -678,3 +678,229 @@ method source reading can't replace. Both halves of that are true, and the
 order matters: **render to find where to look, read to find out what is
 actually wrong.** Stopping after the first step produces exactly these three
 findings.
+
+---
+
+## 11. Remediation: what was actually fixed
+
+Sections 1–10 are the review. This section is the record of acting on it —
+seventeen commits on `claude/frontend-design-review-nfidbk`, what each measured
+before and after, and the four times the work itself proved a finding wrong.
+
+The review's own conclusion (§10) was *render to find where to look, read to
+find out what is actually wrong*. Fixing added a third step that neither of
+those covers, and it is the one worth taking away: **a green test proves the
+thing you asserted, not the thing you shipped.** Two fixes here passed a new,
+purpose-built test suite while rendering as complete no-ops. Only re-sampling
+the pixels caught them.
+
+### 11a. Contrast: the numbers, before and after
+
+The light theme carried every failure §1–3 found. It now clears WCAG AA at
+every pair, verified two ways — arithmetic in `test/core/contrast_test.dart`,
+and pixel sampling of the rebuilt web bundle.
+
+| Pair | Before | After | Mechanism |
+|---|---:|---:|---|
+| white on primary (every filled button, FAB) | 2.83 | **5.32** | `forgeOrangeOnLight` `#B24B2B` |
+| orange as text/icon on a card | 2.83 | **5.32** | same token |
+| orange on the page background | 2.59 | **4.88** | same token |
+| `StatusBadge` ok on its own tint | 2.86 | **5.21** | light lerp toward black, 0.30 |
+| `StatusBadge` warn on its own tint | 1.85 | **4.71** | light lerp 0.40 — amber starts far brighter |
+| `StatusBadge` bad on its own tint | 3.46 | **5.00** | light lerp 0.30 |
+| `StatusBadge` bad, **dark** | 4.34 | **5.6** | dark lerp deepened 0.35 → 0.45 |
+| light input border on its fill | 1.32 | **3.22** | `borderLight` `#808080` |
+| dark input border on its fill | 1.35 | **3.25** | `borderDark` `#7A7A7A` |
+| a light card against the page behind it | 1.00 | **1.09** | page moved to the spec'd `#F5F5F5` |
+
+Two of those rows were not in the review at all, and both were found by the
+test rather than by reading:
+
+- **The dark `StatusBadge` was also failing.** §2 measured the light lerp and
+  stopped there. Asserting both brightnesses in the same loop immediately
+  showed `bad` at 4.34 in dark — a pre-existing failure the review missed
+  because it only looked where it expected to find something.
+- **The first `forgeOrangeOnLight` was wrong.** `#BF502E` cleared 4.75 on white
+  and **4.36** on `#F5F5F5`. My own doc comment recorded 4.38 while the
+  assertion demanded 4.5 — I had written down a failing number and not
+  noticed it was failing. Deepened to `#B24B2B`.
+
+A third came from sizing a colour against the wrong surface. `borderLight`
+was chosen at `#949494` for 3.03 on white — but four screens fill their fields
+through `onboardingFieldDecoration`, which uses a tinted `#E8E8E8`, where the
+same border measures **2.48**. The test now asserts both fills, because a
+border checked against one fill is a border unverified on the other.
+
+### 11b. The two fixes that did nothing
+
+Both shipped green. Neither changed a pixel.
+
+**`ColorScheme.background` is not what a page is painted with.** Fix 4 set the
+light page background to `#F5F5F5` there. Material 3 deprecated that field and
+`Scaffold` reads `scaffoldBackgroundColor`; every page stayed `#FFFFFF`, so
+cards still measured 1.00 against the page — the exact defect being fixed —
+while a test asserting `surfaceLight` against `backgroundLight` passed, because
+*those two tokens* are a fine pair. The assertion was true and irrelevant.
+
+**Four screens never consult `inputDecorationTheme`.** The border fix went into
+the theme. Login, register, settings and onboarding build their decoration
+through `onboardingFieldDecoration`, which constructs its own `OutlineInputBorder`
+and never reads the theme at all. The token changed, the theme changed, and the
+screens most likely to be a user's first did not.
+
+`test/core/contrast_test.dart` now asserts that the theme *applies* the token,
+not merely that the token pairs are sound:
+
+```dart
+expect(
+  themeProvider.lightTheme.scaffoldBackgroundColor,
+  ForgeColors.backgroundLight,
+  reason: 'Scaffold reads scaffoldBackgroundColor, not colorScheme.background',
+);
+```
+
+That is a small assertion carrying a general rule. A design-token test has two
+halves — *is this pair legible*, and *does the product use this pair* — and
+only the first one is easy. The second is the one that catches a deprecation.
+
+### 11c. Routing: two bugs I introduced, both found by a browser
+
+Step 11 (`go_router` + `usePathUrlStrategy`) was flagged in the plan as the
+highest-risk item, for a documented reason: `CLAUDE.md` records that the
+authenticated landing path has already produced one bug — *"that bug dropped
+web trainers into the trainee app"* — and it did so because the landing
+decision got duplicated. I then reproduced that exact mistake twice.
+
+1. **`/console/:section` had no auth check.** The signed-out branch lived on
+   the `/` builder only, so a signed-out visitor deep-linking to
+   `/console/nutrition` still got `PostAuthHome`; `ProfileSetupGate` waited
+   forever for a user id that never arrived and the page sat on a spinner.
+   Fixed with a single top-level `redirect` — the one construct in `go_router`
+   that *cannot* be duplicated per route.
+2. **The redirect captured auth state at build time.** `AppRouter.build` took
+   a `bool hasToken`, which is the state at app start. After a successful login
+   it still read false, so every console navigation bounced back to `/` and the
+   address bar never moved. It now takes `bool Function() isSignedIn`.
+
+Neither is visible in a diff and neither breaks a test: the first needs a
+signed-out deep link, the second needs a session that changes state mid-run.
+Both took about a minute to find by driving a real browser at the built bundle.
+This is the clearest case in the whole exercise for the review's §8 argument —
+rendering is not a nicer way to check what you already know, it reaches a
+different class of defect.
+
+### 11d. Extraction: the numbers, and where it stopped
+
+The plan's step 13 was "split the five god files". Measuring them changed the
+scope, and the measurement is the argument:
+
+| File | Lines | Classes | `State` classes | Tests referencing it |
+|---|---:|---:|---:|---:|
+| `active_workout_view.dart` | 2,831 | 4 | 1 | **0** |
+| `create_view.dart` | 2,058 | 9 | 4 | **0** |
+| `edit_view.dart` | 1,762 | 2 | 1 | **0** |
+| `progress_dashboard_view.dart` | 1,621 | 7 | 1 | **0** |
+| `food_add_screen.dart` | 1,582 | 2 | 1 | **0** |
+
+These are not files containing many things that want separating; each is
+mostly *one enormous `State`*. Splitting them means decomposing a stateful
+widget with no test coverage — on the screens for logging a live workout and
+building one. The only safety net is `flutter analyze` proving it compiles,
+and compiling is not the property at risk.
+
+That hazard was not hypothetical. Earlier in this same branch, a regex meant
+for `create_view`'s animation controller matched **the wrong `initState`** —
+the file has four — and inserted a `didChangeDependencies` into a class with
+no controller. It compiled far enough to fail somewhere else entirely.
+
+So the scope narrowed to what is safe without tests: **extract the pure
+helpers, and test them on the way out.** Two extractions landed, both chosen
+because they are pure, error-prone, and had already been wrong:
+
+| Extracted to | From | Tests |
+|---|---|---:|
+| `feature/food_tracking/domain/food_search_ranking.dart` | `food_add_screen.dart` | 30 |
+| `feature/progress/domain/progress_ranges.dart` | `progress_dashboard_view.dart` | 19 |
+
+Both share the property that makes untested pure logic dangerous: **a wrong
+answer is a plausible one.** A missing entry in a diacritic fold map, a
+Levenshtein bound off by one, a range that spans 8 days instead of 7, a week
+key that collides across years — none of these crash, none fail to compile,
+and each produces a number or an ordering the user cannot check. Two of the
+five functions in `progress_ranges.dart` carry a comment describing a bug of
+exactly that kind that reached production.
+
+Writing the tests surfaced one thing worth recording as behaviour rather than
+fixing: `nameScore`'s word-boundary band returns a flat **15** regardless of
+where the match sits or how long the name is, so `"Whole milk"` and
+`"Coconut milk drink powder"` tie on the query `milk`. Every other band pays
+for distance. The sensible order is recovered downstream by the sort's
+shorter-name tiebreaker — by accident, not design. It is pinned as a test with
+that explanation, because a refactor is the wrong place to retune ranking.
+
+**Splitting the `State` classes is still worth doing.** It is deferred, not
+dismissed, and the order is the point: those screens need tests first, and
+that is its own piece of work rather than a step in this one.
+
+### 11e. Scale snapping: two populations, one of them not a mistake
+
+The review counted "~176 off-grid spacing values". Sorting them showed that
+figure is really two different things:
+
+| Values | Count | What they are | Action |
+|---|---:|---|---|
+| `5, 7, 9, 11, 13, 18` | 19 | genuinely arbitrary — literally what `CLAUDE.md` names | **snapped** |
+| `2, 6, 10, 14` | 144 | half-steps: an icon-to-label gap, a badge's inner padding | left alone |
+| `8.5, 9.5, 10.5, 11.5` (font) | 22 | arbitrary fractional sizes | **rounded** |
+| `10, 11` (font) | 30 | badge and caption sizes | left alone |
+
+Snapping the 144 would not be a cleanup, it would be a redesign.
+`SizedBox(width: 2)` between an icon and its label is a deliberate hairline;
+forcing it to 4 doubles it, at 144 sites, on screens with no tests. **144
+consistent fine adjustments across a product is a convention someone applied,
+not 144 independent errors** — and normalising them would leave the product's
+spacing measurably *less* consistent than it is today.
+
+The same reasoning spares the 30 sub-12px font sizes: `CLAUDE.md`'s rule is
+"text under 12px **body**", and a `StatusBadge` label is a chip, not body text.
+
+This leaves a real gap between the code and the conventions, and closing it
+belongs at the conventions end: **`CLAUDE.md`'s spacing scale should record the
+2px half-step.** That is a recommendation, not a change made here — the
+conventions are the owner's, and editing them to match the code is backwards.
+
+### 11f. What is now covered that was not
+
+| | Before | After |
+|---|---:|---:|
+| Tests | 317 | **365** |
+| Contrast pairs asserted | 0 | 14 sites, several looping over both themes |
+| Reduced-motion sites honoured | 1 of 10 | **10 of 10** |
+| Raw `Colors.red/green/orange` | 68 | 0 |
+| Shared widgets in `core/widgets/` | 0 | 9 |
+| Breakpoint literals (`1024`) | 8 copies | 1 (`Breakpoints`) |
+| Console sections with a URL | 0 of 5 | **5 of 5** |
+| Pure helpers extracted and tested | 0 | 10 functions, 48 tests |
+
+### 11g. The lesson, restated
+
+§8 argued for rendering; §10 argued for reading the source; this section adds
+the third leg, and the three only work together:
+
+> **Render to find where to look. Read the source to find out what is actually
+> wrong. Then re-render to prove the fix reached the screen.**
+
+Skip the first and you never see the 1,384px-wide login form. Skip the second
+and you file three correct behaviours as bugs, as §10 did. Skip the third and
+you ship two green no-ops, as §11b did — a background that was never painted
+and a border on four screens that never read the theme.
+
+The unifying property is that **none of the defects in this review were
+type errors.** Not one would be caught by a compiler, an analyzer, or a widget
+test asserting that something rendered. Contrast is a property of a *pair*
+that no single file holds; a URL is a property of *navigation over time*;
+reduced motion is a property of a *setting nobody has turned on*. Each needs a
+place where the whole property can be named, and the durable output of this
+work is not the fixed colours — it is the three files where those properties
+finally have somewhere to live: `test/core/contrast_test.dart`,
+`lib/core/forge_motion.dart`, and `lib/core/app_router.dart`.
