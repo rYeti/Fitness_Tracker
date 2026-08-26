@@ -442,155 +442,155 @@ class _EditSingleWorkoutViewState extends State<EditSingleWorkoutView> {
     final theme = Theme.of(context);
 
     if (_loading) {
-      return SafeArea(child: Scaffold(
-        appBar: ForgeAppBar(
-          title: l10n.editWorkout,
-        ),
-        body: const Center(child: CircularProgressIndicator()),
-      ));
-    }
-
-    return SafeArea(child: Scaffold(
+      return Scaffold(
       appBar: ForgeAppBar(
         title: l10n.editWorkout,
-        actions: [
-          if (_supersetPickIndex != null)
-            TextButton(
-              onPressed: () => setState(() => _supersetPickIndex = null),
-              child: Text(l10n.cancel, style: TextStyle(color: theme.colorScheme.error)),
+      ),
+      body: const Center(child: CircularProgressIndicator()),
+    );
+    }
+
+    return Scaffold(
+    appBar: ForgeAppBar(
+      title: l10n.editWorkout,
+      actions: [
+        if (_supersetPickIndex != null)
+          TextButton(
+            onPressed: () => setState(() => _supersetPickIndex = null),
+            child: Text(l10n.cancel, style: TextStyle(color: theme.colorScheme.error)),
+          ),
+        if (_saving)
+          const Padding(
+            padding: EdgeInsets.all(16.0),
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
             ),
-          if (_saving)
-            const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
+          )
+        else
+          IconButton(icon: const Icon(Icons.save), onPressed: _saveWorkout),
+      ],
+    ),
+    body: Form(
+      key: _formKey,
+      child: CustomScrollView(
+        slivers: [
+          // ── Form fields ───────────────────────────────────────────────
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                TextFormField(
+                  controller: _nameController,
+                  decoration: InputDecoration(labelText: l10n.workoutName),
+                  validator: (value) {
+                    if (value?.isEmpty ?? true) {
+                      return l10n.pleaseEnterWorkoutName;
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _descriptionController,
+                  decoration: InputDecoration(labelText: l10n.description),
+                  maxLines: 3,
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<WorkoutDifficulty>(
+                  value: _difficulty,
+                  decoration: InputDecoration(labelText: l10n.difficulty),
+                  items: WorkoutDifficulty.values.map((difficulty) {
+                    return DropdownMenuItem(
+                      value: difficulty,
+                      child: Text(difficulty.name),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    if (value != null) setState(() => _difficulty = value);
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _durationController,
+                  decoration: InputDecoration(
+                    labelText: l10n.duration,
+                    suffixText: l10n.minutesSuffix,
+                  ),
+                  keyboardType: TextInputType.number,
+                  validator: (value) {
+                    if (value?.isEmpty ?? true) {
+                      return l10n.pleaseEnterDuration;
+                    }
+                    final duration = int.tryParse(value!);
+                    if (duration == null || duration <= 0) {
+                      return l10n.pleaseEnterValidDuration;
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  l10n.exercises,
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                if (_supersetPickIndex != null)
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      l10n.supersetPickHint,
+                      style: TextStyle(color: theme.colorScheme.onPrimaryContainer),
+                    ),
+                  ),
+                if (_workout?.exercises.isEmpty ?? true)
+                  Text(l10n.noExercisesInWorkout),
+              ]),
+            ),
+          ),
+
+          // ── Reorderable exercise list ─────────────────────────────────
+          if (_workout?.exercises.isNotEmpty ?? false)
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              sliver: SliverReorderableList(
+                itemCount: _workout!.exercises.length,
+                onReorder: _onReorderExercises,
+                onReorderStart: (_) => setState(() => _isReordering = true),
+                onReorderEnd: (_) {
+                  Future.delayed(const Duration(milliseconds: 300), () {
+                    if (mounted) setState(() => _isReordering = false);
+                  });
+                },
+                itemBuilder: (ctx, index) {
+                  final items = _buildExerciseItems(theme, l10n);
+                  return items[index];
+                },
               ),
-            )
-          else
-            IconButton(icon: const Icon(Icons.save), onPressed: _saveWorkout),
+            ),
+
+          // ── Add exercise button ───────────────────────────────────────
+          SliverPadding(
+            padding: const EdgeInsets.all(16),
+            sliver: SliverToBoxAdapter(
+              child: FilledButton.icon(
+                onPressed: _addExercise,
+                icon: const Icon(Icons.add),
+                label: Text(l10n.addExercise),
+              ),
+            ),
+          ),
         ],
       ),
-      body: Form(
-        key: _formKey,
-        child: CustomScrollView(
-          slivers: [
-            // ── Form fields ───────────────────────────────────────────────
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-              sliver: SliverList(
-                delegate: SliverChildListDelegate([
-                  TextFormField(
-                    controller: _nameController,
-                    decoration: InputDecoration(labelText: l10n.workoutName),
-                    validator: (value) {
-                      if (value?.isEmpty ?? true) {
-                        return l10n.pleaseEnterWorkoutName;
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _descriptionController,
-                    decoration: InputDecoration(labelText: l10n.description),
-                    maxLines: 3,
-                  ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<WorkoutDifficulty>(
-                    value: _difficulty,
-                    decoration: InputDecoration(labelText: l10n.difficulty),
-                    items: WorkoutDifficulty.values.map((difficulty) {
-                      return DropdownMenuItem(
-                        value: difficulty,
-                        child: Text(difficulty.name),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      if (value != null) setState(() => _difficulty = value);
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _durationController,
-                    decoration: InputDecoration(
-                      labelText: l10n.duration,
-                      suffixText: l10n.minutesSuffix,
-                    ),
-                    keyboardType: TextInputType.number,
-                    validator: (value) {
-                      if (value?.isEmpty ?? true) {
-                        return l10n.pleaseEnterDuration;
-                      }
-                      final duration = int.tryParse(value!);
-                      if (duration == null || duration <= 0) {
-                        return l10n.pleaseEnterValidDuration;
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    l10n.exercises,
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  if (_supersetPickIndex != null)
-                    Container(
-                      width: double.infinity,
-                      margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.primaryContainer,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        l10n.supersetPickHint,
-                        style: TextStyle(color: theme.colorScheme.onPrimaryContainer),
-                      ),
-                    ),
-                  if (_workout?.exercises.isEmpty ?? true)
-                    Text(l10n.noExercisesInWorkout),
-                ]),
-              ),
-            ),
-
-            // ── Reorderable exercise list ─────────────────────────────────
-            if (_workout?.exercises.isNotEmpty ?? false)
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                sliver: SliverReorderableList(
-                  itemCount: _workout!.exercises.length,
-                  onReorder: _onReorderExercises,
-                  onReorderStart: (_) => setState(() => _isReordering = true),
-                  onReorderEnd: (_) {
-                    Future.delayed(const Duration(milliseconds: 300), () {
-                      if (mounted) setState(() => _isReordering = false);
-                    });
-                  },
-                  itemBuilder: (ctx, index) {
-                    final items = _buildExerciseItems(theme, l10n);
-                    return items[index];
-                  },
-                ),
-              ),
-
-            // ── Add exercise button ───────────────────────────────────────
-            SliverPadding(
-              padding: const EdgeInsets.all(16),
-              sliver: SliverToBoxAdapter(
-                child: FilledButton.icon(
-                  onPressed: _addExercise,
-                  icon: const Icon(Icons.add),
-                  label: Text(l10n.addExercise),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    ));
+    ),
+  );
   }
 
   List<Widget> _buildExerciseItems(ThemeData theme, AppLocalizations l10n) {

@@ -68,7 +68,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           child: Padding(
-            padding: const EdgeInsets.all(16.0),
+            // The extra bottom padding clears the SpeedDial, which floats
+            // over the scroll view rather than displacing it.
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

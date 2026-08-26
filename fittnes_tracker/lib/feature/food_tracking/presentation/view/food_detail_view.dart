@@ -136,45 +136,43 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Scaffold(
-        appBar: ForgeAppBar(
-          title: AppLocalizations.of(context)!.foodDetails,
-        ),
-        body: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Food Name
-                Text(
-                  widget.foodItem.name,
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
+    return Scaffold(
+      appBar: ForgeAppBar(
+        title: AppLocalizations.of(context)!.foodDetails,
+      ),
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Food Name
+              Text(
+                widget.foodItem.name,
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
                 ),
+              ),
+              const SizedBox(height: 16),
+
+              // Original Nutrition Card
+              _buildNutritionCard(),
+              const SizedBox(height: 16),
+
+              // Portion Size and Calculated Values Card
+              _buildPortionMarcroCalc(),
+              const SizedBox(height: 16),
+
+              // Extended nutrients (premium)
+              if (widget.foodItem.extendedNutrients != null)
+                _buildExtendedNutrientsCard(),
+              if (widget.foodItem.extendedNutrients != null)
                 const SizedBox(height: 16),
 
-                // Original Nutrition Card
-                _buildNutritionCard(),
-                const SizedBox(height: 16),
-
-                // Portion Size and Calculated Values Card
-                _buildPortionMarcroCalc(),
-                const SizedBox(height: 16),
-
-                // Extended nutrients (premium)
-                if (widget.foodItem.extendedNutrients != null)
-                  _buildExtendedNutrientsCard(),
-                if (widget.foodItem.extendedNutrients != null)
-                  const SizedBox(height: 16),
-
-                // Add to Meal Section
-                _buildAddToMealSection(),
-              ],
-            ),
+              // Add to Meal Section
+              _buildAddToMealSection(),
+            ],
           ),
         ),
       ),

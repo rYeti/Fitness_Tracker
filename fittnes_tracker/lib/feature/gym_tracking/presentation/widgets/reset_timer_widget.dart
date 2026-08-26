@@ -252,19 +252,23 @@ void showRestTimer(BuildContext context, {int defaultSeconds = 90}) {
     context: context,
     backgroundColor: Colors.transparent,
     builder:
-        (context) => Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: RestTimerWidget(
-            defaultSeconds: defaultSeconds,
-            onTimerComplete: () {
-              final l10n = AppLocalizations.of(context)!;
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(l10n.restTimeComplete),
-                  duration: const Duration(seconds: 2),
-                ),
-              );
-            },
+        // The one modal sheet in the app without a SafeArea: on a phone using
+        // gesture navigation its controls sat under the home indicator.
+        (context) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: RestTimerWidget(
+              defaultSeconds: defaultSeconds,
+              onTimerComplete: () {
+                final l10n = AppLocalizations.of(context)!;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(l10n.restTimeComplete),
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              },
+            ),
           ),
         ),
   );

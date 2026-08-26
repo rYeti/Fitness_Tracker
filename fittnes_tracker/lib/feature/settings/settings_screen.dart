@@ -321,15 +321,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final isTrainerClient = context.watch<AccessProvider>().isTrainerClient;
 
     if (!calorieGoalProvider.isLoaded) {
-      return SafeArea(
-        child: Scaffold(
-          backgroundColor: colorScheme.surface,
-          appBar: ForgeAppBar(
-            title: l10n.settings,
-          ),
-          body: Center(
-            child: CircularProgressIndicator(color: colorScheme.primary),
-          ),
+      return Scaffold(
+        backgroundColor: colorScheme.surface,
+        appBar: ForgeAppBar(
+          title: l10n.settings,
+        ),
+        body: Center(
+          child: CircularProgressIndicator(color: colorScheme.primary),
         ),
       );
     }
@@ -339,520 +337,646 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _initialized = true;
     }
 
-    return SafeArea(
-      child: Scaffold(
-        backgroundColor: colorScheme.surface,
-        appBar: ForgeAppBar(
-          title: l10n.settings,
-        ),
-        body: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // ── Premium banner ────────────────────────────────────────
-                if (!hasPremium) ...[
-                  _GoPremiumBanner(),
-                  const SizedBox(height: 16),
-                ],
-
-                // ── Account ───────────────────────────────────────────────
-                _SectionLabel(l10n.accountSettings),
-                Card(
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(color: colorScheme.outlineVariant),
-                  ),
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: colorScheme.primaryContainer,
-                      child: Icon(
-                        Icons.person_outline,
-                        color: colorScheme.onPrimaryContainer,
-                      ),
-                    ),
-                    title: Text(l10n.accountSettings),
-                    subtitle: Text('${l10n.profile} · ${l10n.security}'),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap:
-                        () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const UserSettingsScreen(),
-                          ),
-                        ),
-                  ),
-                ),
-
-                // ── Your coach ────────────────────────────────────────────
-                // Chat lives here rather than in the bottom bar: that bar is
-                // `type: fixed` with five items already, and a sixth crowds it
-                // badly on a phone.
-                if (isTrainerClient) ...[
-                  const SizedBox(height: 12),
-                  Card(
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      side: BorderSide(color: colorScheme.outlineVariant),
-                    ),
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: colorScheme.primaryContainer,
-                        child: Icon(
-                          Icons.forum_outlined,
-                          color: colorScheme.onPrimaryContainer,
-                        ),
-                      ),
-                      title: Text(l10n.coachChat),
-                      subtitle: Text(l10n.coachChatSubtitle),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const CoachChatEntry(),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-
-                // ── Trainer Console ───────────────────────────────────────
-                // Only trainers see this; the route's gate re-checks the role
-                // anyway, so this is discovery rather than enforcement.
-                if (isTrainer) ...[
-                  const SizedBox(height: 12),
-                  Card(
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      side: BorderSide(color: colorScheme.outlineVariant),
-                    ),
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: colorScheme.primaryContainer,
-                        child: Icon(
-                          Icons.groups_outlined,
-                          color: colorScheme.onPrimaryContainer,
-                        ),
-                      ),
-                      title: Text(l10n.trainerConsole),
-                      subtitle: Text(l10n.trainerConsoleSubtitle),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () =>
-                          Navigator.pushNamed(context, '/trainer-console'),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Card(
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      side: BorderSide(color: colorScheme.outlineVariant),
-                    ),
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: colorScheme.primaryContainer,
-                        child: Icon(
-                          Icons.workspace_premium_outlined,
-                          color: colorScheme.onPrimaryContainer,
-                        ),
-                      ),
-                      title: Text(l10n.yourPlan),
-                      subtitle: Text(l10n.yourPlanSubtitle),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute<void>(
-                          builder: (_) => const LicenceScreen(),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-
-                // ── Joining a trainer ─────────────────────────────────────
-                // There is deliberately no "become a trainer" entry here. That
-                // card used to open the plan screen, whose load provisioned a
-                // Free licence — so an ordinary user tapping it once became a
-                // permanent trainer. Trainer is now an account type chosen at
-                // registration, and an existing account can't convert.
-                if (!isTrainerClient) ...[
-                  const SizedBox(height: 12),
-                  Card(
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      side: BorderSide(color: colorScheme.outlineVariant),
-                    ),
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: colorScheme.primaryContainer,
-                        child: Icon(
-                          Icons.link,
-                          color: colorScheme.onPrimaryContainer,
-                        ),
-                      ),
-                      title: Text(l10n.joinATrainer),
-                      subtitle: Text(l10n.joinATrainerSubtitle),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute<void>(
-                          builder: (_) => const JoinTrainerScreen(),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-
-                const SizedBox(height: 12),
-
-                // ── Training ──────────────────────────────────────────────
-                Card(
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(color: colorScheme.outlineVariant),
-                  ),
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: colorScheme.primaryContainer,
-                      child: Icon(
-                        Icons.fitness_center,
-                        color: colorScheme.onPrimaryContainer,
-                      ),
-                    ),
-                    title: Text(l10n.exercises),
-                    subtitle: Text(l10n.exercisesSubtitle),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap:
-                        () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const ExerciseManagementScreen(),
-                          ),
-                        ),
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // ── Fitness Profile ───────────────────────────────────────
-                _SectionLabel(l10n.profile),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: _nameController,
-                  decoration: _fieldDecoration(l10n.nameLabel),
-                  textCapitalization: TextCapitalization.words,
-                ),
-                const SizedBox(height: 10),
-                TextFormField(
-                  controller: _ageController,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  decoration: _fieldDecoration(l10n.age),
-                  validator: (v) {
-                    if (v == null || v.trim().isEmpty)
-                      return l10n.pleaseEnterValidAgeAndHeight;
-                    if ((int.tryParse(v.trim()) ?? 0) <= 0)
-                      return l10n.pleaseEnterValidAgeAndHeight;
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 10),
-                TextFormField(
-                  controller: _heightController,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  decoration: _fieldDecoration(l10n.heightCm),
-                  validator: (v) {
-                    if (v == null || v.trim().isEmpty)
-                      return l10n.pleaseEnterValidAgeAndHeight;
-                    if ((int.tryParse(v.trim()) ?? 0) <= 0)
-                      return l10n.pleaseEnterValidAgeAndHeight;
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 10),
-                DropdownButtonFormField<Sex>(
-                  value: _sex,
-                  decoration: _fieldDecoration(l10n.sex),
-                  items:
-                      Sex.values
-                          .map(
-                            (s) => DropdownMenuItem(
-                              value: s,
-                              child: Text(s.localized(context)),
-                            ),
-                          )
-                          .toList(),
-                  onChanged: (v) => setState(() => _sex = v ?? Sex.male),
-                ),
-                const SizedBox(height: 10),
-                DropdownButtonFormField<ActivityLevel>(
-                  value: _activity,
-                  decoration: _fieldDecoration(l10n.activity),
-                  items:
-                      ActivityLevel.values
-                          .map(
-                            (a) => DropdownMenuItem(
-                              value: a,
-                              child: Text(a.localized(context)),
-                            ),
-                          )
-                          .toList(),
-                  onChanged:
-                      (v) => setState(
-                        () => _activity = v ?? ActivityLevel.sedentary,
-                      ),
-                ),
-                const SizedBox(height: 10),
-                DropdownButtonFormField<GoalType>(
-                  value: _goalType,
-                  decoration: _fieldDecoration(l10n.goal),
-                  items:
-                      GoalType.values
-                          .map(
-                            (g) => DropdownMenuItem(
-                              value: g,
-                              child: Text(g.localized(context)),
-                            ),
-                          )
-                          .toList(),
-                  onChanged:
-                      (v) =>
-                          setState(() => _goalType = v ?? GoalType.maintenance),
-                ),
-                const SizedBox(height: 10),
-                TextFormField(
-                  controller: _calorieGoalController,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  decoration: _fieldDecoration(l10n.dailyCalorieGoal),
-                  validator: (v) {
-                    if (v == null || v.trim().isEmpty) {
-                      return l10n.pleaseEnterValidNumber;
-                    }
-                    if (int.tryParse(v.trim()) == null) {
-                      return l10n.pleaseEnterValidNumber;
-                    }
-                    return null;
-                  },
-                ),
+    return Scaffold(
+      backgroundColor: colorScheme.surface,
+      appBar: ForgeAppBar(
+        title: l10n.settings,
+      ),
+      body: SingleChildScrollView(
+        // Bottom padding is not symmetric with the top: the last field ends
+        // at the bottom navigation bar, and 8px of clearance reads as the
+        // field being clipped by it.
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // ── Premium banner ────────────────────────────────────────
+              if (!hasPremium) ...[
+                _GoPremiumBanner(),
                 const SizedBox(height: 16),
-                _saveButton(
-                  label: l10n.calculateAndSave,
-                  isLoading: _isCalculating,
-                  onPressed: () async {
+              ],
+
+              // ── Account ───────────────────────────────────────────────
+              _SectionLabel(l10n.accountSettings),
+              Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: colorScheme.outlineVariant),
+                ),
+                child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: colorScheme.primaryContainer,
+                    child: Icon(
+                      Icons.person_outline,
+                      color: colorScheme.onPrimaryContainer,
+                    ),
+                  ),
+                  title: Text(l10n.accountSettings),
+                  subtitle: Text('${l10n.profile} · ${l10n.security}'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap:
+                      () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const UserSettingsScreen(),
+                        ),
+                      ),
+                ),
+              ),
+
+              // ── Your coach ────────────────────────────────────────────
+              // Chat lives here rather than in the bottom bar: that bar is
+              // `type: fixed` with five items already, and a sixth crowds it
+              // badly on a phone.
+              if (isTrainerClient) ...[
+                const SizedBox(height: 12),
+                Card(
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: colorScheme.outlineVariant),
+                  ),
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: colorScheme.primaryContainer,
+                      child: Icon(
+                        Icons.forum_outlined,
+                        color: colorScheme.onPrimaryContainer,
+                      ),
+                    ),
+                    title: Text(l10n.coachChat),
+                    subtitle: Text(l10n.coachChatSubtitle),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const CoachChatEntry(),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+
+              // ── Trainer Console ───────────────────────────────────────
+              // Only trainers see this; the route's gate re-checks the role
+              // anyway, so this is discovery rather than enforcement.
+              if (isTrainer) ...[
+                const SizedBox(height: 12),
+                Card(
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: colorScheme.outlineVariant),
+                  ),
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: colorScheme.primaryContainer,
+                      child: Icon(
+                        Icons.groups_outlined,
+                        color: colorScheme.onPrimaryContainer,
+                      ),
+                    ),
+                    title: Text(l10n.trainerConsole),
+                    subtitle: Text(l10n.trainerConsoleSubtitle),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () =>
+                        Navigator.pushNamed(context, '/trainer-console'),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Card(
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: colorScheme.outlineVariant),
+                  ),
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: colorScheme.primaryContainer,
+                      child: Icon(
+                        Icons.workspace_premium_outlined,
+                        color: colorScheme.onPrimaryContainer,
+                      ),
+                    ),
+                    title: Text(l10n.yourPlan),
+                    subtitle: Text(l10n.yourPlanSubtitle),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => const LicenceScreen(),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+
+              // ── Joining a trainer ─────────────────────────────────────
+              // There is deliberately no "become a trainer" entry here. That
+              // card used to open the plan screen, whose load provisioned a
+              // Free licence — so an ordinary user tapping it once became a
+              // permanent trainer. Trainer is now an account type chosen at
+              // registration, and an existing account can't convert.
+              if (!isTrainerClient) ...[
+                const SizedBox(height: 12),
+                Card(
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: colorScheme.outlineVariant),
+                  ),
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: colorScheme.primaryContainer,
+                      child: Icon(
+                        Icons.link,
+                        color: colorScheme.onPrimaryContainer,
+                      ),
+                    ),
+                    title: Text(l10n.joinATrainer),
+                    subtitle: Text(l10n.joinATrainerSubtitle),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => const JoinTrainerScreen(),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+
+              const SizedBox(height: 12),
+
+              // ── Training ──────────────────────────────────────────────
+              Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: colorScheme.outlineVariant),
+                ),
+                child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: colorScheme.primaryContainer,
+                    child: Icon(
+                      Icons.fitness_center,
+                      color: colorScheme.onPrimaryContainer,
+                    ),
+                  ),
+                  title: Text(l10n.exercises),
+                  subtitle: Text(l10n.exercisesSubtitle),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap:
+                      () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const ExerciseManagementScreen(),
+                        ),
+                      ),
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // ── Fitness Profile ───────────────────────────────────────
+              _SectionLabel(l10n.profile),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _nameController,
+                decoration: _fieldDecoration(l10n.nameLabel),
+                textCapitalization: TextCapitalization.words,
+              ),
+              const SizedBox(height: 10),
+              TextFormField(
+                controller: _ageController,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: _fieldDecoration(l10n.age),
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty)
+                    return l10n.pleaseEnterValidAgeAndHeight;
+                  if ((int.tryParse(v.trim()) ?? 0) <= 0)
+                    return l10n.pleaseEnterValidAgeAndHeight;
+                  return null;
+                },
+              ),
+              const SizedBox(height: 10),
+              TextFormField(
+                controller: _heightController,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: _fieldDecoration(l10n.heightCm),
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty)
+                    return l10n.pleaseEnterValidAgeAndHeight;
+                  if ((int.tryParse(v.trim()) ?? 0) <= 0)
+                    return l10n.pleaseEnterValidAgeAndHeight;
+                  return null;
+                },
+              ),
+              const SizedBox(height: 10),
+              DropdownButtonFormField<Sex>(
+                value: _sex,
+                decoration: _fieldDecoration(l10n.sex),
+                items:
+                    Sex.values
+                        .map(
+                          (s) => DropdownMenuItem(
+                            value: s,
+                            child: Text(s.localized(context)),
+                          ),
+                        )
+                        .toList(),
+                onChanged: (v) => setState(() => _sex = v ?? Sex.male),
+              ),
+              const SizedBox(height: 10),
+              DropdownButtonFormField<ActivityLevel>(
+                value: _activity,
+                decoration: _fieldDecoration(l10n.activity),
+                items:
+                    ActivityLevel.values
+                        .map(
+                          (a) => DropdownMenuItem(
+                            value: a,
+                            child: Text(a.localized(context)),
+                          ),
+                        )
+                        .toList(),
+                onChanged:
+                    (v) => setState(
+                      () => _activity = v ?? ActivityLevel.sedentary,
+                    ),
+              ),
+              const SizedBox(height: 10),
+              DropdownButtonFormField<GoalType>(
+                value: _goalType,
+                decoration: _fieldDecoration(l10n.goal),
+                items:
+                    GoalType.values
+                        .map(
+                          (g) => DropdownMenuItem(
+                            value: g,
+                            child: Text(g.localized(context)),
+                          ),
+                        )
+                        .toList(),
+                onChanged:
+                    (v) =>
+                        setState(() => _goalType = v ?? GoalType.maintenance),
+              ),
+              const SizedBox(height: 10),
+              TextFormField(
+                controller: _calorieGoalController,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: _fieldDecoration(l10n.dailyCalorieGoal),
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) {
+                    return l10n.pleaseEnterValidNumber;
+                  }
+                  if (int.tryParse(v.trim()) == null) {
+                    return l10n.pleaseEnterValidNumber;
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              _saveButton(
+                label: l10n.calculateAndSave,
+                isLoading: _isCalculating,
+                onPressed: () async {
+                  final age = int.tryParse(_ageController.text.trim());
+                  final height = int.tryParse(_heightController.text.trim());
+                  if (age == null || height == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(l10n.pleaseEnterValidAgeAndHeight),
+                      ),
+                    );
+                    return;
+                  }
+                  setState(() => _isCalculating = true);
+                  final provider = Provider.of<UserGoalsProvider>(
+                    context,
+                    listen: false,
+                  );
+                  final weightKg = provider.currentWeight;
+                  final kcal = provider.calculateCalorieTarget(
+                    sex: _sex,
+                    age: age,
+                    heightCm: height.toDouble(),
+                    weightKg: weightKg,
+                    activity: _activity,
+                    goal: _goalType,
+                  );
+                  try {
+                    await provider.db.userSettingsDao.updateProfile(
+                      name: _nameController.text.trim(),
+                      age: age,
+                      heightCm: height,
+                      sex: _sex.name,
+                      activityLevel: ActivityLevel.values.indexOf(_activity),
+                      goalType: GoalType.values.indexOf(_goalType),
+                    );
+                    await provider.saveCalorieGoal(kcal);
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(l10n.failedToSaveProfile(e))),
+                      );
+                    }
+                  } finally {
+                    if (mounted) setState(() => _isCalculating = false);
+                  }
+                  if (!mounted) return;
+                  _calorieGoalController.text = kcal.toString();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(l10n.calculateAndSave)),
+                  );
+                },
+              ),
+              const SizedBox(height: 10),
+              _saveButton(
+                label: l10n.save,
+                isLoading: _isSaving,
+                onPressed: () async {
+                  FocusScope.of(context).unfocus();
+                  final text = _calorieGoalController.text.trim();
+                  final newGoal = int.tryParse(text);
+                  if (newGoal == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(l10n.pleaseEnterValidNumber)),
+                    );
+                    return;
+                  }
+                  setState(() => _isSaving = true);
+                  var success = false;
+                  try {
                     final age = int.tryParse(_ageController.text.trim());
-                    final height = int.tryParse(_heightController.text.trim());
-                    if (age == null || height == null) {
+                    final height = int.tryParse(
+                      _heightController.text.trim(),
+                    );
+                    if (age != null && height != null) {
+                      await calorieGoalProvider.db.userSettingsDao
+                          .updateProfile(
+                            name: _nameController.text.trim(),
+                            age: age,
+                            heightCm: height,
+                            sex: _sex.name,
+                            activityLevel: ActivityLevel.values.indexOf(
+                              _activity,
+                            ),
+                            goalType: GoalType.values.indexOf(_goalType),
+                          );
+                    }
+                    await calorieGoalProvider.saveCalorieGoal(newGoal);
+                    success = true;
+                  } catch (e) {
+                    if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text(l10n.pleaseEnterValidAgeAndHeight),
+                          content: Text(l10n.failedToUpdateCalorieGoal(e)),
                         ),
                       );
-                      return;
                     }
-                    setState(() => _isCalculating = true);
-                    final provider = Provider.of<UserGoalsProvider>(
-                      context,
-                      listen: false,
-                    );
-                    final weightKg = provider.currentWeight;
-                    final kcal = provider.calculateCalorieTarget(
-                      sex: _sex,
-                      age: age,
-                      heightCm: height.toDouble(),
-                      weightKg: weightKg,
-                      activity: _activity,
-                      goal: _goalType,
-                    );
-                    try {
-                      await provider.db.userSettingsDao.updateProfile(
-                        name: _nameController.text.trim(),
-                        age: age,
-                        heightCm: height,
-                        sex: _sex.name,
-                        activityLevel: ActivityLevel.values.indexOf(_activity),
-                        goalType: GoalType.values.indexOf(_goalType),
-                      );
-                      await provider.saveCalorieGoal(kcal);
-                    } catch (e) {
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(l10n.failedToSaveProfile(e))),
-                        );
-                      }
-                    } finally {
-                      if (mounted) setState(() => _isCalculating = false);
-                    }
-                    if (!mounted) return;
-                    _calorieGoalController.text = kcal.toString();
+                  } finally {
+                    if (mounted) setState(() => _isSaving = false);
+                  }
+                  if (success && mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(l10n.calculateAndSave)),
+                      SnackBar(content: Text(l10n.saveCalorieGoal)),
                     );
-                  },
+                  }
+                },
+                secondary: true,
+              ),
+
+              const SizedBox(height: 24),
+
+              // ── Appearance ────────────────────────────────────────────
+              _SectionLabel(l10n.appearance),
+              Card(
+                elevation: 0,
+                clipBehavior: Clip.antiAlias,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: colorScheme.outlineVariant),
                 ),
-                const SizedBox(height: 10),
-                _saveButton(
-                  label: l10n.save,
-                  isLoading: _isSaving,
-                  onPressed: () async {
-                    FocusScope.of(context).unfocus();
-                    final text = _calorieGoalController.text.trim();
-                    final newGoal = int.tryParse(text);
-                    if (newGoal == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(l10n.pleaseEnterValidNumber)),
-                      );
-                      return;
-                    }
-                    setState(() => _isSaving = true);
-                    var success = false;
-                    try {
-                      final age = int.tryParse(_ageController.text.trim());
-                      final height = int.tryParse(
-                        _heightController.text.trim(),
-                      );
-                      if (age != null && height != null) {
-                        await calorieGoalProvider.db.userSettingsDao
-                            .updateProfile(
-                              name: _nameController.text.trim(),
-                              age: age,
-                              heightCm: height,
-                              sex: _sex.name,
-                              activityLevel: ActivityLevel.values.indexOf(
-                                _activity,
-                              ),
-                              goalType: GoalType.values.indexOf(_goalType),
-                            );
-                      }
-                      await calorieGoalProvider.saveCalorieGoal(newGoal);
-                      success = true;
-                    } catch (e) {
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(l10n.failedToUpdateCalorieGoal(e)),
+                child: Column(
+                  children: [
+                    SwitchListTile(
+                      secondary: Icon(
+                        isDark ? Icons.dark_mode : Icons.light_mode,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                      title: Text(isDark ? l10n.darkMode : l10n.lightMode),
+                      value: isDark,
+                      onChanged: (_) => themeProvider.toggleTheme(),
+                    ),
+                    Divider(height: 1, indent: 16, endIndent: 16),
+                    ListTile(
+                      leading: Icon(
+                        Icons.language,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                      title: Text(l10n.language),
+                      trailing: DropdownButton<String?>(
+                        value: localeProvider.locale?.languageCode,
+                        underline: const SizedBox(),
+                        items: [
+                          DropdownMenuItem(
+                            value: null,
+                            child: Text(l10n.languageSystem),
                           ),
-                        );
-                      }
-                    } finally {
-                      if (mounted) setState(() => _isSaving = false);
-                    }
-                    if (success && mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(l10n.saveCalorieGoal)),
-                      );
-                    }
-                  },
-                  secondary: true,
-                ),
-
-                const SizedBox(height: 24),
-
-                // ── Appearance ────────────────────────────────────────────
-                _SectionLabel(l10n.appearance),
-                Card(
-                  elevation: 0,
-                  clipBehavior: Clip.antiAlias,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(color: colorScheme.outlineVariant),
-                  ),
-                  child: Column(
-                    children: [
-                      SwitchListTile(
+                          DropdownMenuItem(
+                            value: 'en',
+                            child: Text(l10n.languageEnglish),
+                          ),
+                          DropdownMenuItem(
+                            value: 'de',
+                            child: Text(l10n.languageGerman),
+                          ),
+                        ],
+                        onChanged:
+                            (code) => localeProvider.setLocale(
+                              code == null ? null : Locale(code),
+                            ),
+                      ),
+                    ),
+                    Divider(height: 1, indent: 16, endIndent: 16),
+                    PremiumGate(
+                      child: SwitchListTile(
                         secondary: Icon(
-                          isDark ? Icons.dark_mode : Icons.light_mode,
+                          Icons.timer_outlined,
                           color: colorScheme.onSurfaceVariant,
                         ),
-                        title: Text(isDark ? l10n.darkMode : l10n.lightMode),
-                        value: isDark,
-                        onChanged: (_) => themeProvider.toggleTheme(),
+                        title: Text(l10n.restTimerSetting),
+                        subtitle: Text(l10n.restTimerSettingSubtitle),
+                        value: _restTimerEnabled,
+                        onChanged: (value) {
+                          setState(() => _restTimerEnabled = value);
+                          _saveRestTimerPreference(value);
+                        },
                       ),
-                      Divider(height: 1, indent: 16, endIndent: 16),
-                      ListTile(
-                        leading: Icon(
-                          Icons.language,
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                        title: Text(l10n.language),
-                        trailing: DropdownButton<String?>(
-                          value: localeProvider.locale?.languageCode,
-                          underline: const SizedBox(),
-                          items: [
-                            DropdownMenuItem(
-                              value: null,
-                              child: Text(l10n.languageSystem),
-                            ),
-                            DropdownMenuItem(
-                              value: 'en',
-                              child: Text(l10n.languageEnglish),
-                            ),
-                            DropdownMenuItem(
-                              value: 'de',
-                              child: Text(l10n.languageGerman),
-                            ),
-                          ],
-                          onChanged:
-                              (code) => localeProvider.setLocale(
-                                code == null ? null : Locale(code),
-                              ),
-                        ),
+                    ),
+                    Divider(height: 1, indent: 16, endIndent: 16),
+                    SwitchListTile(
+                      secondary: Icon(
+                        Icons.speed,
+                        color: colorScheme.onSurfaceVariant,
                       ),
-                      Divider(height: 1, indent: 16, endIndent: 16),
-                      PremiumGate(
-                        child: SwitchListTile(
-                          secondary: Icon(
-                            Icons.timer_outlined,
+                      title: Text(l10n.rpeTrackingSetting),
+                      subtitle: Text(l10n.rpeTrackingSettingSubtitle),
+                      value: _rpeTrackingEnabled,
+                      onChanged: (value) {
+                        setState(() => _rpeTrackingEnabled = value);
+                        _saveRpeTrackingPreference(value);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // ── Sync ──────────────────────────────────────────────────
+              _SectionLabel(l10n.syncSectionLabel),
+              Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: colorScheme.outlineVariant),
+                ),
+                child: ListTile(
+                  leading:
+                      _isSyncing
+                          ? SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: colorScheme.primary,
+                            ),
+                          )
+                          : Icon(
+                            Icons.sync,
                             color: colorScheme.onSurfaceVariant,
                           ),
-                          title: Text(l10n.restTimerSetting),
-                          subtitle: Text(l10n.restTimerSettingSubtitle),
-                          value: _restTimerEnabled,
-                          onChanged: (value) {
-                            setState(() => _restTimerEnabled = value);
-                            _saveRestTimerPreference(value);
-                          },
-                        ),
-                      ),
-                      Divider(height: 1, indent: 16, endIndent: 16),
-                      SwitchListTile(
-                        secondary: Icon(
-                          Icons.speed,
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                        title: Text(l10n.rpeTrackingSetting),
-                        subtitle: Text(l10n.rpeTrackingSettingSubtitle),
-                        value: _rpeTrackingEnabled,
-                        onChanged: (value) {
-                          setState(() => _rpeTrackingEnabled = value);
-                          _saveRpeTrackingPreference(value);
-                        },
-                      ),
-                    ],
-                  ),
+                  title: Text(l10n.syncNow),
+                  subtitle: Text(l10n.syncNowSubtitle),
+                  onTap: _isSyncing ? null : _runSync,
                 ),
+              ),
+              const SizedBox(height: 8),
+              Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: colorScheme.outlineVariant),
+                ),
+                child: ListTile(
+                  leading:
+                      _isPulling
+                          ? SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: colorScheme.primary,
+                            ),
+                          )
+                          : Icon(
+                            Icons.cloud_download_outlined,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                  title: Text(l10n.restoreFromServer),
+                  subtitle: Text(l10n.restoreFromServerSubtitle),
+                  onTap: _isPulling ? null : _runPull,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: colorScheme.outlineVariant),
+                ),
+                child: ListTile(
+                  leading:
+                      _isRestoringPurchases
+                          ? SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: colorScheme.primary,
+                            ),
+                          )
+                          : Icon(
+                            Icons.shopping_bag_outlined,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                  title: Text(l10n.paywallRestorePurchases),
+                  onTap: _isRestoringPurchases ? null : _runRestorePurchases,
+                ),
+              ),
 
-                const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-                // ── Sync ──────────────────────────────────────────────────
-                _SectionLabel(l10n.syncSectionLabel),
-                Card(
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(color: colorScheme.outlineVariant),
-                  ),
-                  child: ListTile(
-                    leading:
-                        _isSyncing
-                            ? SizedBox(
+              // ── Data export (free for everyone) ───────────────────────
+              _SectionLabel(l10n.exportSectionLabel),
+              Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: colorScheme.outlineVariant),
+                ),
+                child: Column(
+                  children: [
+                    ListTile(
+                      leading: Icon(
+                        Icons.fitness_center,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                      title: Text(l10n.exportWorkoutsCsv),
+                      onTap: _isExporting
+                          ? null
+                          : () => _runExport(
+                                (e) => e.exportWorkoutsCsv(),
+                                'forgeform_workouts_$_exportDateSuffix.csv',
+                              ),
+                    ),
+                    ListTile(
+                      leading: Icon(
+                        Icons.monitor_weight_outlined,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                      title: Text(l10n.exportWeightCsv),
+                      onTap: _isExporting
+                          ? null
+                          : () => _runExport(
+                                (e) => e.exportWeightCsv(),
+                                'forgeform_weight_$_exportDateSuffix.csv',
+                              ),
+                    ),
+                    ListTile(
+                      leading: Icon(
+                        Icons.restaurant_outlined,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                      title: Text(l10n.exportNutritionCsv),
+                      onTap: _isExporting
+                          ? null
+                          : () => _runExport(
+                                (e) => e.exportNutritionCsv(),
+                                'forgeform_nutrition_$_exportDateSuffix.csv',
+                              ),
+                    ),
+                    ListTile(
+                      leading: _isExporting
+                          ? SizedBox(
                               width: 24,
                               height: 24,
                               child: CircularProgressIndicator(
@@ -860,330 +984,205 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 color: colorScheme.primary,
                               ),
                             )
-                            : Icon(
-                              Icons.sync,
+                          : Icon(
+                              Icons.data_object,
                               color: colorScheme.onSurfaceVariant,
                             ),
-                    title: Text(l10n.syncNow),
-                    subtitle: Text(l10n.syncNowSubtitle),
-                    onTap: _isSyncing ? null : _runSync,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Card(
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(color: colorScheme.outlineVariant),
-                  ),
-                  child: ListTile(
-                    leading:
-                        _isPulling
-                            ? SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: colorScheme.primary,
+                      title: Text(l10n.exportFullJson),
+                      subtitle: Text(l10n.exportFullJsonHint),
+                      onTap: _isExporting
+                          ? null
+                          : () => _runExport(
+                                (e) => e.exportFullJson(),
+                                'forgeform_backup_$_exportDateSuffix.json',
                               ),
-                            )
-                            : Icon(
-                              Icons.cloud_download_outlined,
-                              color: colorScheme.onSurfaceVariant,
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // ── Account actions ───────────────────────────────────────
+              Consumer(
+                builder: (context, ref, _) {
+                  return Card(
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(color: colorScheme.outlineVariant),
+                    ),
+                    child: ListTile(
+                      leading: Icon(Icons.logout, color: colorScheme.error),
+                      title: Text(
+                        l10n.signOut,
+                        style: TextStyle(color: colorScheme.error),
+                      ),
+                      onTap: () async {
+                        final signedOut = await confirmAndSignOut(
+                          context,
+                          ref,
+                        );
+                        if (signedOut && context.mounted) {
+                          Navigator.of(context).pushAndRemoveUntil(
+                            MaterialPageRoute(
+                              builder: (_) => const auth_login.LoginScreen(),
                             ),
-                    title: Text(l10n.restoreFromServer),
-                    subtitle: Text(l10n.restoreFromServerSubtitle),
-                    onTap: _isPulling ? null : _runPull,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Card(
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(color: colorScheme.outlineVariant),
-                  ),
-                  child: ListTile(
-                    leading:
-                        _isRestoringPurchases
-                            ? SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: colorScheme.primary,
-                              ),
-                            )
-                            : Icon(
-                              Icons.shopping_bag_outlined,
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                    title: Text(l10n.paywallRestorePurchases),
-                    onTap: _isRestoringPurchases ? null : _runRestorePurchases,
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-
-                // ── Data export (free for everyone) ───────────────────────
-                _SectionLabel(l10n.exportSectionLabel),
-                Card(
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(color: colorScheme.outlineVariant),
-                  ),
-                  child: Column(
-                    children: [
-                      ListTile(
-                        leading: Icon(
-                          Icons.fitness_center,
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                        title: Text(l10n.exportWorkoutsCsv),
-                        onTap: _isExporting
-                            ? null
-                            : () => _runExport(
-                                  (e) => e.exportWorkoutsCsv(),
-                                  'forgeform_workouts_$_exportDateSuffix.csv',
-                                ),
-                      ),
-                      ListTile(
-                        leading: Icon(
-                          Icons.monitor_weight_outlined,
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                        title: Text(l10n.exportWeightCsv),
-                        onTap: _isExporting
-                            ? null
-                            : () => _runExport(
-                                  (e) => e.exportWeightCsv(),
-                                  'forgeform_weight_$_exportDateSuffix.csv',
-                                ),
-                      ),
-                      ListTile(
-                        leading: Icon(
-                          Icons.restaurant_outlined,
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                        title: Text(l10n.exportNutritionCsv),
-                        onTap: _isExporting
-                            ? null
-                            : () => _runExport(
-                                  (e) => e.exportNutritionCsv(),
-                                  'forgeform_nutrition_$_exportDateSuffix.csv',
-                                ),
-                      ),
-                      ListTile(
-                        leading: _isExporting
-                            ? SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: colorScheme.primary,
-                                ),
-                              )
-                            : Icon(
-                                Icons.data_object,
-                                color: colorScheme.onSurfaceVariant,
-                              ),
-                        title: Text(l10n.exportFullJson),
-                        subtitle: Text(l10n.exportFullJsonHint),
-                        onTap: _isExporting
-                            ? null
-                            : () => _runExport(
-                                  (e) => e.exportFullJson(),
-                                  'forgeform_backup_$_exportDateSuffix.json',
-                                ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-
-                // ── Account actions ───────────────────────────────────────
-                Consumer(
-                  builder: (context, ref, _) {
-                    return Card(
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(color: colorScheme.outlineVariant),
-                      ),
-                      child: ListTile(
-                        leading: Icon(Icons.logout, color: colorScheme.error),
-                        title: Text(
-                          l10n.signOut,
-                          style: TextStyle(color: colorScheme.error),
-                        ),
-                        onTap: () async {
-                          final signedOut = await confirmAndSignOut(
-                            context,
-                            ref,
+                            (_) => false,
                           );
-                          if (signedOut && context.mounted) {
-                            Navigator.of(context).pushAndRemoveUntil(
-                              MaterialPageRoute(
-                                builder: (_) => const auth_login.LoginScreen(),
-                              ),
-                              (_) => false,
-                            );
-                          }
-                        },
-                      ),
-                    );
-                  },
-                ),
+                        }
+                      },
+                    ),
+                  );
+                },
+              ),
 
-                const SizedBox(height: 8),
+              const SizedBox(height: 8),
 
-                // ── Delete account ────────────────────────────────────────
-                Consumer(
-                  builder: (context, ref, _) {
-                    return Card(
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(color: colorScheme.outlineVariant),
+              // ── Delete account ────────────────────────────────────────
+              Consumer(
+                builder: (context, ref, _) {
+                  return Card(
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(color: colorScheme.outlineVariant),
+                    ),
+                    child: ListTile(
+                      leading: Icon(
+                        Icons.delete_forever,
+                        color: colorScheme.error,
                       ),
-                      child: ListTile(
-                        leading: Icon(
-                          Icons.delete_forever,
-                          color: colorScheme.error,
-                        ),
-                        title: Text(
-                          l10n.deleteAccount,
-                          style: TextStyle(color: colorScheme.error),
-                        ),
-                        onTap: () async {
-                          final passwordController = TextEditingController();
-                          final confirmed = await showDialog<bool>(
-                            context: context,
-                            builder:
-                                (_) => AlertDialog(
-                                  title: Text(l10n.deleteAccount),
-                                  content: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(l10n.deleteAccountWarning),
-                                      const SizedBox(height: 16),
-                                      TextField(
-                                        controller: passwordController,
-                                        obscureText: true,
-                                        decoration: InputDecoration(
-                                          labelText: l10n.password,
-                                          border: const OutlineInputBorder(),
-                                        ),
+                      title: Text(
+                        l10n.deleteAccount,
+                        style: TextStyle(color: colorScheme.error),
+                      ),
+                      onTap: () async {
+                        final passwordController = TextEditingController();
+                        final confirmed = await showDialog<bool>(
+                          context: context,
+                          builder:
+                              (_) => AlertDialog(
+                                title: Text(l10n.deleteAccount),
+                                content: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    Text(l10n.deleteAccountWarning),
+                                    const SizedBox(height: 16),
+                                    TextField(
+                                      controller: passwordController,
+                                      obscureText: true,
+                                      decoration: InputDecoration(
+                                        labelText: l10n.password,
+                                        border: const OutlineInputBorder(),
                                       ),
-                                    ],
-                                  ),
-                                  actions: [
-                                    TextButton(
-                                      onPressed:
-                                          () => Navigator.pop(context, false),
-                                      child: Text(l10n.cancel),
-                                    ),
-                                    TextButton(
-                                      onPressed:
-                                          () => Navigator.pop(context, true),
-                                      style: TextButton.styleFrom(
-                                        foregroundColor: colorScheme.error,
-                                      ),
-                                      child: Text(l10n.deleteAccount),
                                     ),
                                   ],
                                 ),
-                          );
-                          if (confirmed == true && context.mounted) {
-                            final token = ref.read(authProvider).user?.token;
-                            if (token == null) return;
-                            final access = context.read<AccessProvider>();
-                            try {
-                              final serverUrl = ref.read(serverUrlProvider);
-                              final repo = AuthRepository(
-                                ApiClient(baseUrl: serverUrl),
-                              );
-                              await repo.deleteAccount(
-                                token: token,
-                                password: passwordController.text,
-                              );
-                              await access.reset();
-                              await ref.read(authProvider.notifier).logout();
-                              if (context.mounted) {
-                                Navigator.of(context).pushAndRemoveUntil(
-                                  MaterialPageRoute(
-                                    builder:
-                                        (_) => const auth_login.LoginScreen(),
+                                actions: [
+                                  TextButton(
+                                    onPressed:
+                                        () => Navigator.pop(context, false),
+                                    child: Text(l10n.cancel),
                                   ),
-                                  (_) => false,
-                                );
-                              }
-                            } catch (_) {
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(l10n.deleteAccountError),
+                                  TextButton(
+                                    onPressed:
+                                        () => Navigator.pop(context, true),
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: colorScheme.error,
+                                    ),
+                                    child: Text(l10n.deleteAccount),
                                   ),
-                                );
-                              }
+                                ],
+                              ),
+                        );
+                        if (confirmed == true && context.mounted) {
+                          final token = ref.read(authProvider).user?.token;
+                          if (token == null) return;
+                          final access = context.read<AccessProvider>();
+                          try {
+                            final serverUrl = ref.read(serverUrlProvider);
+                            final repo = AuthRepository(
+                              ApiClient(baseUrl: serverUrl),
+                            );
+                            await repo.deleteAccount(
+                              token: token,
+                              password: passwordController.text,
+                            );
+                            await access.reset();
+                            await ref.read(authProvider.notifier).logout();
+                            if (context.mounted) {
+                              Navigator.of(context).pushAndRemoveUntil(
+                                MaterialPageRoute(
+                                  builder:
+                                      (_) => const auth_login.LoginScreen(),
+                                ),
+                                (_) => false,
+                              );
+                            }
+                          } catch (_) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(l10n.deleteAccountError),
+                                ),
+                              );
                             }
                           }
-                        },
-                      ),
-                    );
-                  },
-                ),
+                        }
+                      },
+                    ),
+                  );
+                },
+              ),
 
-                const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-                Center(
-                  child: GestureDetector(
-                    onTap:
-                        () => launchUrl(
-                          Uri.parse('https://forgefrom.netlify.app/'),
-                        ),
-                    child: Text(
-                      'forgefrom.netlify.app',
-                      style: TextStyle(
-                        fontFamily: 'Exo 2',
-                        fontSize: 13,
-                        color: Theme.of(context).colorScheme.primary,
-                        decoration: TextDecoration.underline,
-                        decorationColor: Theme.of(context).colorScheme.primary,
+              Center(
+                child: GestureDetector(
+                  onTap:
+                      () => launchUrl(
+                        Uri.parse('https://forgefrom.netlify.app/'),
                       ),
+                  child: Text(
+                    'forgefrom.netlify.app',
+                    style: TextStyle(
+                      fontFamily: 'Exo 2',
+                      fontSize: 13,
+                      color: Theme.of(context).colorScheme.primary,
+                      decoration: TextDecoration.underline,
+                      decorationColor: Theme.of(context).colorScheme.primary,
                     ),
                   ),
                 ),
+              ),
 
-                const SizedBox(height: 8),
+              const SizedBox(height: 8),
 
-                Center(
-                  child: GestureDetector(
-                    onTap:
-                        () => launchUrl(
-                          Uri.parse('https://forgefrom.netlify.app/privacy-policy'),
-                          mode: LaunchMode.externalApplication,
-                        ),
-                    child: Text(
-                      'Privacy Policy',
-                      style: TextStyle(
-                        fontFamily: 'Exo 2',
-                        fontSize: 13,
-                        color: Theme.of(context).colorScheme.primary,
-                        decoration: TextDecoration.underline,
-                        decorationColor: Theme.of(context).colorScheme.primary,
+              Center(
+                child: GestureDetector(
+                  onTap:
+                      () => launchUrl(
+                        Uri.parse('https://forgefrom.netlify.app/privacy-policy'),
+                        mode: LaunchMode.externalApplication,
                       ),
+                  child: Text(
+                    'Privacy Policy',
+                    style: TextStyle(
+                      fontFamily: 'Exo 2',
+                      fontSize: 13,
+                      color: Theme.of(context).colorScheme.primary,
+                      decoration: TextDecoration.underline,
+                      decorationColor: Theme.of(context).colorScheme.primary,
                     ),
                   ),
                 ),
+              ),
 
-                const SizedBox(height: 16),
-              ],
-            ),
+              const SizedBox(height: 16),
+            ],
           ),
         ),
       ),
