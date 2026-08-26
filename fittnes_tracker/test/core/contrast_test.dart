@@ -153,6 +153,23 @@ void main() {
       );
     });
 
+    test('surfaceContainerLowest is not a page colour in a light scheme', () {
+      // Seven console screens set it as their Scaffold background. It is
+      // #FFFFFF in a light M3 scheme — the same white the cards are — so the
+      // page-background fix reached the trainee app and stopped at the console
+      // door, and cards there stayed separated by nothing but a shadow. This
+      // is the third fix on this branch that a theme-level change did not
+      // reach, and the pattern is always the same: the token is right, and
+      // something downstream never asks for it.
+      final light = themeProvider.lightTheme.colorScheme;
+      expect(
+        _contrastRatio(light.surfaceContainerLowest, light.surface),
+        lessThan(1.05),
+        reason: 'if these ever differ enough to separate, this test can go — '
+            'until then, a screen setting it as its page colour is a bug',
+      );
+    });
+
     test('the themes actually apply the page background they declare', () {
       // Asserting the token pair is not enough, and this is the exact hole
       // that let the first attempt at this fix ship as a no-op: the page

@@ -59,7 +59,6 @@ class _MessagesScreenState extends State<MessagesScreen> {
     final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
       body: SafeArea(
         child: Consumer<ChatProvider>(
           builder: (context, chat, _) {

@@ -67,12 +67,10 @@ class _WorkoutBuilderScreenState extends State<WorkoutBuilderScreen> {
             (_) => _syncToActiveClient(),
           );
 
-          final colors = Theme.of(context).colorScheme;
           final isDesktop = Breakpoints.isDesktop(context);
           final client = activeClient.activeClient;
 
           return Scaffold(
-            backgroundColor: colors.surfaceContainerLowest,
             body: SafeArea(
               child: Padding(
                 padding: EdgeInsets.all(isDesktop ? 32 : 16),

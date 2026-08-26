@@ -204,7 +204,6 @@ class _ChatUnavailable extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
       body: SafeArea(
         child: EmptyStateView(
           icon: Icons.forum_outlined,

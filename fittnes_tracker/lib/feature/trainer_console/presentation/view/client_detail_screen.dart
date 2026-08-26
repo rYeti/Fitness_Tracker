@@ -67,8 +67,6 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-
     return ChangeNotifierProvider<ClientDetailProvider>.value(
       value: _provider,
       child: Consumer<ClientDetailProvider>(
@@ -76,7 +74,6 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
           final isDesktop = Breakpoints.isDesktop(context);
 
           return Scaffold(
-            backgroundColor: colors.surfaceContainerLowest,
             appBar: AppBar(
               title: Row(
                 children: [

@@ -81,7 +81,6 @@ class _SessionReviewScreenState extends State<SessionReviewScreen> {
           final padding = isDesktop ? 32.0 : 16.0;
 
           return Scaffold(
-            backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
             body: SafeArea(
               child: Padding(
                 padding: EdgeInsets.all(padding),
