@@ -2378,5 +2378,7 @@
     }
   },
   "pickDate": "Choose a date",
-  "@pickDate": {}
+  "@pickDate": {},
+  "noCalorieTarget": "No target set",
+  "@noCalorieTarget": {}
 }

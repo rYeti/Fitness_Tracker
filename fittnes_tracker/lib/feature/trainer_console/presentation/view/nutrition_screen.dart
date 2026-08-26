@@ -604,7 +604,11 @@ class _TrendCard extends StatelessWidget {
               _LegendDot(color: ForgeColors.statusBad, label: l10n.overTarget),
               const Spacer(),
               Text(
-                l10n.targetCalories(trend.last.goal),
+                // The ring beside this already says "no goal set" when there
+                // is none; saying "Target 0 kcal" here contradicted it.
+                trend.last.goal > 0
+                    ? l10n.targetCalories(trend.last.goal)
+                    : l10n.noCalorieTarget,
                 style: TextStyle(
                   fontFamily: 'Exo 2',
                   fontSize: 11.5,

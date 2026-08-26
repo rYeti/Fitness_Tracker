@@ -3387,4 +3387,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get pickDate => 'Datum wählen';
+
+  @override
+  String get noCalorieTarget => 'Kein Ziel festgelegt';
 }

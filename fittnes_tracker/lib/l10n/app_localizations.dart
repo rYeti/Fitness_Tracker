@@ -5941,6 +5941,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Choose a date'**
   String get pickDate;
+
+  /// No description provided for @noCalorieTarget.
+  ///
+  /// In en, this message translates to:
+  /// **'No target set'**
+  String get noCalorieTarget;
 }
 
 class _AppLocalizationsDelegate

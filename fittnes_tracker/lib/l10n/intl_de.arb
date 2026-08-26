@@ -1639,5 +1639,7 @@
     }
   },
   "pickDate": "Datum wählen",
-  "@pickDate": {}
+  "@pickDate": {},
+  "noCalorieTarget": "Kein Ziel festgelegt",
+  "@noCalorieTarget": {}
 }

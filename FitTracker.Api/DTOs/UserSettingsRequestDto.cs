@@ -7,7 +7,7 @@ public class UserSettingsRequestDto
 {
     /// <summary>The user's daily calorie target (kcal).</summary>
     [Range(500, 20000)]
-    public int DailyCalorieGoal { get; set; } = 2000;
+    public int DailyCalorieGoal { get; set; } = Models.UserSettings.DefaultDailyCalorieGoal;
 
     /// <summary>The UI theme preference ("light" or "dark").</summary>
     [Required, RegularExpression("^(light|dark)$")]
