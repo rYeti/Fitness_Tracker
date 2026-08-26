@@ -14,6 +14,20 @@ class ClientAvatar extends StatelessWidget {
     this.size = 40,
   });
 
+  /// Up to two letters ("Robert Meyer" -> "RM"), matching the avatars in the
+  /// design handoff.
+  ///
+  /// Written four times over before it lived here — in the coach chat header,
+  /// the console's client detail, the account screen and `ConversationSummary`
+  /// — with four slightly different answers for an empty name. It belongs next
+  /// to the widget that renders the result.
+  static String initialsFor(String name) {
+    final parts = name.split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+    if (parts.isEmpty) return '?';
+    if (parts.length == 1) return parts.first[0].toUpperCase();
+    return (parts.first[0] + parts.last[0]).toUpperCase();
+  }
+
   /// Deliberately excludes Forge Orange: the brand accent means "active/
   /// selected" everywhere else in the console, so an avatar that happened to
   /// land on it would read as a selection state.

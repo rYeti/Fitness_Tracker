@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
+import 'package:ForgeForm/core/widgets/client_avatar.dart';
 
 class UserSettingsScreen extends ConsumerStatefulWidget {
   const UserSettingsScreen({super.key});
@@ -159,9 +160,9 @@ class _UserSettingsScreenState extends ConsumerState<UserSettingsScreen> {
 
     if (user == null) return const SizedBox.shrink();
 
-    final initials =
-        '${user.firstName.isNotEmpty ? user.firstName[0] : ''}${user.lastName.isNotEmpty ? user.lastName[0] : ''}'
-            .toUpperCase();
+    final initials = ClientAvatar.initialsFor(
+      '${user.firstName} ${user.lastName}',
+    );
 
     return Scaffold(
       appBar: ForgeAppBar(

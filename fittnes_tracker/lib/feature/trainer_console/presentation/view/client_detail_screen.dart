@@ -55,15 +55,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
     super.dispose();
   }
 
-  String get _initials {
-    final parts = widget.clientName
-        .split(RegExp(r'\s+'))
-        .where((p) => p.isNotEmpty)
-        .toList();
-    if (parts.isEmpty) return '?';
-    if (parts.length == 1) return parts.first[0].toUpperCase();
-    return (parts.first[0] + parts.last[0]).toUpperCase();
-  }
+  String get _initials => ClientAvatar.initialsFor(widget.clientName);
 
   @override
   Widget build(BuildContext context) {

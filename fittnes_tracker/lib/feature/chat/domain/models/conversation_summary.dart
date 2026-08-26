@@ -1,4 +1,5 @@
 import 'package:ForgeForm/feature/chat/domain/chat_timestamps.dart';
+import 'package:ForgeForm/core/widgets/client_avatar.dart';
 
 /// One row in the Chat conversation list — who the thread is with, plus the last
 /// message's preview. See design handoff README section 3 ("Messages") for the
@@ -55,13 +56,7 @@ class ConversationSummary {
 
   /// Up to two letters ("Robert Meyer" -> "RM"), matching the avatars in the
   /// design handoff. Derived rather than stored so it cannot drift from the name.
-  String get initials {
-    final parts =
-        clientName.split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
-    if (parts.isEmpty) return '?';
-    if (parts.length == 1) return parts.first[0].toUpperCase();
-    return (parts.first[0] + parts.last[0]).toUpperCase();
-  }
+  String get initials => ClientAvatar.initialsFor(clientName);
 
   bool get hasUnread => unreadCount > 0;
 }
