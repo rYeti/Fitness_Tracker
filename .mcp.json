@@ -4,7 +4,9 @@
       "command": "npx",
       "args": [
         "playwright",
-        "run-test-mcp-server"
+        "run-test-mcp-server",
+        "--config",
+        "e2e"
       ]
     }
   }
