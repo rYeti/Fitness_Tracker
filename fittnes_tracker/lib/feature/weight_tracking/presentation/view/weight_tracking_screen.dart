@@ -6,6 +6,7 @@ import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
 
 class WeightTrackingScreen extends StatelessWidget {
   const WeightTrackingScreen({Key? key}) : super(key: key);
@@ -17,31 +18,8 @@ class WeightTrackingScreen extends StatelessWidget {
     return SafeArea(
       child: Scaffold(
         backgroundColor: colorScheme.surface,
-        appBar: AppBar(
-          title: RichText(
-            text: const TextSpan(
-              children: [
-                TextSpan(
-                  text: 'Forge',
-                  style: TextStyle(
-                    fontFamily: 'Montserrat',
-                    fontWeight: FontWeight.w800,
-                    fontSize: 20,
-                    color: Color(0xFFFF6B3E),
-                  ),
-                ),
-                TextSpan(
-                  text: 'Form',
-                  style: TextStyle(
-                    fontFamily: 'Montserrat',
-                    fontWeight: FontWeight.w800,
-                    fontSize: 20,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
-            ),
-          ),
+        appBar: ForgeAppBar(
+          title: l10n.weight,
           actions: [
             IconButton(
               icon: const Icon(Icons.flag, color: Colors.white),

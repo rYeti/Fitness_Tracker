@@ -20,6 +20,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:provider/provider.dart' as provider;
 import 'package:workmanager/workmanager.dart';
 import 'core/di/service_locator.dart';
+import 'core/widgets/forge_nav_bar.dart';
 import 'core/widgets/lazy_indexed_stack.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/push_service.dart';
@@ -698,36 +699,37 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ),
         ],
       ),
-      bottomNavigationBar: BottomNavigationBar(
-          currentIndex: _selectedIndex,
-          onTap: _onTabTapped,
-          selectedItemColor: Theme.of(context).colorScheme.primary,
-          unselectedItemColor: Colors.grey,
-          backgroundColor: Theme.of(context).colorScheme.surface,
-          type: BottomNavigationBarType.fixed,
-          items: [
-            BottomNavigationBarItem(
-              icon: const Icon(Icons.dashboard),
-              label: AppLocalizations.of(context)!.dashboard,
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.restaurant),
-              label: AppLocalizations.of(context)!.food,
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.fitness_center),
-              label: AppLocalizations.of(context)!.gym,
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.bar_chart),
-              label: AppLocalizations.of(context)!.progress,
-            ),
-            BottomNavigationBarItem(
-              icon: const Icon(Icons.person_outline),
-              label: AppLocalizations.of(context)!.profile,
-            ),
-          ],
-        ),
+      bottomNavigationBar: ForgeNavBar(
+        selectedIndex: _selectedIndex,
+        onSelected: _onTabTapped,
+        destinations: [
+          ForgeNavDestination(
+            label: AppLocalizations.of(context)!.dashboard,
+            icon: Icons.dashboard_outlined,
+            activeIcon: Icons.dashboard_rounded,
+          ),
+          ForgeNavDestination(
+            label: AppLocalizations.of(context)!.food,
+            icon: Icons.restaurant_outlined,
+            activeIcon: Icons.restaurant_rounded,
+          ),
+          ForgeNavDestination(
+            label: AppLocalizations.of(context)!.gym,
+            icon: Icons.fitness_center_outlined,
+            activeIcon: Icons.fitness_center_rounded,
+          ),
+          ForgeNavDestination(
+            label: AppLocalizations.of(context)!.progress,
+            icon: Icons.bar_chart_outlined,
+            activeIcon: Icons.bar_chart_rounded,
+          ),
+          ForgeNavDestination(
+            label: AppLocalizations.of(context)!.profile,
+            icon: Icons.person_outline,
+            activeIcon: Icons.person_rounded,
+          ),
+        ],
+      ),
     );
   }
 

@@ -129,6 +129,27 @@ class ThemeProvider with ChangeNotifier {
           ),
         ),
       ),
+      navigationBarTheme: NavigationBarThemeData(
+        // The M3 default indicator derives from `secondaryContainer`, which
+        // with Forge Orange as `secondary` comes out solid orange — leaving
+        // the orange selected glyph invisible on top of it. A 16% tint of the
+        // same hue keeps the glyph readable against it.
+        indicatorColor: ForgeColors.forgeOrange.withValues(alpha: 0.16),
+        backgroundColor: ForgeColors.surfaceLight,
+        elevation: 0,
+        labelTextStyle: WidgetStateProperty.resolveWith(
+          (states) => TextStyle(
+            fontFamily: 'Exo 2',
+            fontSize: 12,
+            fontWeight: states.contains(WidgetState.selected)
+                ? FontWeight.w700
+                : FontWeight.w600,
+            color: states.contains(WidgetState.selected)
+                ? ForgeColors.forgeOrangeOnLight
+                : const Color(0xFF5F5F5F),
+          ),
+        ),
+      ),
       appBarTheme: AppBarTheme(
         elevation: 0,
         backgroundColor: ForgeColors.charcoal,
@@ -267,6 +288,27 @@ class ThemeProvider with ChangeNotifier {
             fontFamily: 'Exo 2',
             fontWeight: FontWeight.w600,
             fontSize: 16,
+          ),
+        ),
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        // The M3 default indicator derives from `secondaryContainer`, which
+        // with Forge Orange as `secondary` comes out solid orange — leaving
+        // the orange selected glyph invisible on top of it. A 16% tint of the
+        // same hue keeps the glyph readable against it.
+        indicatorColor: ForgeColors.forgeOrange.withValues(alpha: 0.16),
+        backgroundColor: ForgeColors.surfaceDark,
+        elevation: 0,
+        labelTextStyle: WidgetStateProperty.resolveWith(
+          (states) => TextStyle(
+            fontFamily: 'Exo 2',
+            fontSize: 12,
+            fontWeight: states.contains(WidgetState.selected)
+                ? FontWeight.w700
+                : FontWeight.w600,
+            color: states.contains(WidgetState.selected)
+                ? ForgeColors.forgeOrange
+                : Colors.white70,
           ),
         ),
       ),

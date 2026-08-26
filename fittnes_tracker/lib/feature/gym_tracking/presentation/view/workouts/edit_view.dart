@@ -12,6 +12,7 @@ import 'package:ForgeForm/feature/workout_planning/data/models/workout_set.dart'
 import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:flutter/material.dart';
+import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
 
 class EditWorkoutView extends StatefulWidget {
   final int? planId;
@@ -314,10 +315,8 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
     final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          isEditingSinglePlan ? l10n.editWorkoutsTitle : l10n.workouts,
-        ),
+      appBar: ForgeAppBar(
+        title: isEditingSinglePlan ? l10n.editWorkoutsTitle : l10n.workouts,
         actions:
             isEditingSinglePlan
                 ? [

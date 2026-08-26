@@ -10,6 +10,7 @@ import '../../data/models/extended_nutrients.dart';
 import '../../data/models/food_item_model.dart';
 import '../../data/models/portion_option.dart';
 import '../../data/repositories/nutrition_repository.dart';
+import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
 
 class FoodDetailsScreen extends StatefulWidget {
   final FoodItemModel foodItem;
@@ -137,7 +138,9 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
   Widget build(BuildContext context) {
     return SafeArea(
       child: Scaffold(
-        appBar: AppBar(title: Text(AppLocalizations.of(context)!.foodDetails)),
+        appBar: ForgeAppBar(
+          title: AppLocalizations.of(context)!.foodDetails,
+        ),
         body: SingleChildScrollView(
           child: Padding(
             padding: const EdgeInsets.all(16.0),

@@ -7,6 +7,7 @@ import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
 
 class UserSettingsScreen extends ConsumerStatefulWidget {
   const UserSettingsScreen({super.key});
@@ -163,8 +164,8 @@ class _UserSettingsScreenState extends ConsumerState<UserSettingsScreen> {
             .toUpperCase();
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(l10n.accountSettings),
+      appBar: ForgeAppBar(
+        title: l10n.accountSettings,
         actions: [
           if (_profileDirty)
             TextButton(

@@ -10,6 +10,7 @@ import 'package:ForgeForm/feature/auth/presentation/providers/auth_provider.dart
 import 'package:ForgeForm/feature/trainer_console/data/trainer_licence_repository.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_licence.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
+import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
 
 /// Where a trainee redeems the code their trainer gave them.
 class JoinTrainerScreen extends StatefulWidget {
@@ -61,14 +62,8 @@ class _JoinTrainerScreenState extends State<JoinTrainerScreen> {
     final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(l10n.joinTrainerTitle),
-        titleTextStyle: const TextStyle(
-          fontFamily: 'Montserrat',
-          fontWeight: FontWeight.bold,
-          fontSize: 17,
-          color: Colors.white,
-        ),
+      appBar: ForgeAppBar(
+        title: l10n.joinTrainerTitle,
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),

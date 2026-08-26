@@ -13,6 +13,7 @@ import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
 
 class WorkoutsListView extends StatefulWidget {
   const WorkoutsListView({super.key});
@@ -383,7 +384,9 @@ class WorkoutsListViewState extends State<WorkoutsListView> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.workouts)),
+      appBar: ForgeAppBar(
+        title: l10n.workouts,
+      ),
       body: Consumer<WorkoutProvider>(
         builder: (context, provider, _) {
           if (provider.loading) {

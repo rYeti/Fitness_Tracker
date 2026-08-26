@@ -11,6 +11,7 @@ import '../../../core/providers/user_goals_provider.dart';
 import 'package:flutter_speed_dial/flutter_speed_dial.dart';
 import '../widgets/dashboard_weight_card.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
+import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
 
 // Global key so other tabs (e.g. Food) can trigger a refresh after mutating
 // nutrition data — DashboardScreen is kept alive inside an IndexedStack, so
@@ -57,31 +58,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
-      appBar: AppBar(
-        title: RichText(
-          text: const TextSpan(
-            children: [
-              TextSpan(
-                text: 'Forge',
-                style: TextStyle(
-                  fontFamily: 'Montserrat',
-                  fontWeight: FontWeight.w800,
-                  fontSize: 20,
-                  color: ForgeColors.forgeOrange,
-                ),
-              ),
-              TextSpan(
-                text: 'Form',
-                style: TextStyle(
-                  fontFamily: 'Montserrat',
-                  fontWeight: FontWeight.w800,
-                  fontSize: 20,
-                  color: Colors.white,
-                ),
-              ),
-            ],
-          ),
-        ),
+      appBar: ForgeAppBar(
+        title: l10n.dashboard,
         actions: const [],
       ),
       body: RefreshIndicator(

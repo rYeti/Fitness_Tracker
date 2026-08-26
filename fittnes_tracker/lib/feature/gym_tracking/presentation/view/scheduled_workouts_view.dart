@@ -16,6 +16,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/scheduled_workout_provider.dart'; // Import the new ActiveWorkoutScreen
 import '../view/workouts/active_workout_view.dart';
+import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
 
 class ScheduledWorkoutsView extends StatefulWidget {
   const ScheduledWorkoutsView({super.key});
@@ -157,31 +158,8 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
       key: ValueKey(_rebuildKey),
       builder: (context, provider, _) {
         return Scaffold(
-          appBar: AppBar(
-            title: RichText(
-              text: const TextSpan(
-                children: [
-                  TextSpan(
-                    text: 'Forge',
-                    style: TextStyle(
-                      fontFamily: 'Montserrat',
-                      fontWeight: FontWeight.w800,
-                      fontSize: 20,
-                      color: Color(0xFFFF6B3E),
-                    ),
-                  ),
-                  TextSpan(
-                    text: 'Form',
-                    style: TextStyle(
-                      fontFamily: 'Montserrat',
-                      fontWeight: FontWeight.w800,
-                      fontSize: 20,
-                      color: Colors.white,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+          appBar: ForgeAppBar(
+            title: AppLocalizations.of(context)!.gym,
             actions: [
               IconButton(
                 tooltip: l10n.seedWorkoutTemplates,

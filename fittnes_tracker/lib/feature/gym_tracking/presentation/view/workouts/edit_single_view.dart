@@ -11,6 +11,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter/foundation.dart';
 import 'package:ForgeForm/feature/gym_tracking/presentation/providers/scheduled_workout_provider.dart';
 import 'package:ForgeForm/feature/gym_tracking/presentation/widgets/exercise_selection_modal.dart';
+import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
 
 class EditSingleWorkoutView extends StatefulWidget {
   final int workoutId;
@@ -442,14 +443,16 @@ class _EditSingleWorkoutViewState extends State<EditSingleWorkoutView> {
 
     if (_loading) {
       return SafeArea(child: Scaffold(
-        appBar: AppBar(title: Text(l10n.editWorkout)),
+        appBar: ForgeAppBar(
+          title: l10n.editWorkout,
+        ),
         body: const Center(child: CircularProgressIndicator()),
       ));
     }
 
     return SafeArea(child: Scaffold(
-      appBar: AppBar(
-        title: Text(l10n.editWorkout),
+      appBar: ForgeAppBar(
+        title: l10n.editWorkout,
         actions: [
           if (_supersetPickIndex != null)
             TextButton(

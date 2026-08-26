@@ -16,6 +16,7 @@ import '../../data/repositories/nutrition_repository.dart';
 import '../../domain/food_search_ranking.dart';
 import 'barcode_scanner_view.dart';
 import 'food_detail_view.dart';
+import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
 
 class FoodAddScreen extends StatefulWidget {
   final String category;
@@ -944,18 +945,10 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
     return SafeArea(
       child: Scaffold(
         backgroundColor: colorScheme.surface,
-        appBar: AppBar(
-          title: Text(
-            AppLocalizations.of(
+        appBar: ForgeAppBar(
+          title: AppLocalizations.of(
               context,
             )!.addFood(_localizedMealLabel(widget.category, context)),
-            style: const TextStyle(
-              fontFamily: 'Montserrat',
-              fontWeight: FontWeight.w700,
-              fontSize: 17,
-              color: Colors.white,
-            ),
-          ),
         ),
         body: SingleChildScrollView(
           child: Column(

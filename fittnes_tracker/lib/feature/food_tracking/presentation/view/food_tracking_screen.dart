@@ -11,6 +11,7 @@ import '../../data/models/food_item_model.dart';
 import '../../data/repositories/nutrition_repository.dart';
 import 'food_add_screen.dart';
 import 'food_detail_view.dart';
+import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
 
 // Create a global key to access the FoodTrackingScreen state
 final globalFoodTrackingKey = GlobalKey<_FoodTrackingScreenState>();
@@ -197,37 +198,14 @@ class _FoodTrackingScreenState extends State<FoodTrackingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: ForgeAppBar(
+        title: AppLocalizations.of(context)!.food,
         bottom: _isLoading
             ? const PreferredSize(
                 preferredSize: Size.fromHeight(2),
                 child: LinearProgressIndicator(),
               )
             : null,
-        title: RichText(
-          text: const TextSpan(
-            children: [
-              TextSpan(
-                text: 'Forge',
-                style: TextStyle(
-                  fontFamily: 'Montserrat',
-                  fontWeight: FontWeight.w800,
-                  fontSize: 20,
-                  color: Color(0xFFFF6B3E),
-                ),
-              ),
-              TextSpan(
-                text: 'Form',
-                style: TextStyle(
-                  fontFamily: 'Montserrat',
-                  fontWeight: FontWeight.w800,
-                  fontSize: 20,
-                  color: Colors.white,
-                ),
-              ),
-            ],
-          ),
-        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.restaurant_menu, color: Colors.white),

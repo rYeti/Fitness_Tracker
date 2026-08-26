@@ -34,6 +34,7 @@ import 'package:ForgeForm/feature/premium/premium_gate.dart';
 import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/feature/trainer/presentation/view/join_trainer_screen.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/view/licence_screen.dart';
+import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
 
 extension SexLocalizations on Sex {
   String localized(BuildContext ctx) {
@@ -323,16 +324,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       return SafeArea(
         child: Scaffold(
           backgroundColor: colorScheme.surface,
-          appBar: AppBar(
-            title: Text(
-              l10n.settings,
-              style: const TextStyle(
-                fontFamily: 'Montserrat',
-                fontWeight: FontWeight.w700,
-                fontSize: 17,
-                color: Colors.white,
-              ),
-            ),
+          appBar: ForgeAppBar(
+            title: l10n.settings,
           ),
           body: Center(
             child: CircularProgressIndicator(color: colorScheme.primary),
@@ -349,16 +342,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return SafeArea(
       child: Scaffold(
         backgroundColor: colorScheme.surface,
-        appBar: AppBar(
-          title: Text(
-            l10n.settings,
-            style: const TextStyle(
-              fontFamily: 'Montserrat',
-              fontWeight: FontWeight.w700,
-              fontSize: 17,
-              color: Colors.white,
-            ),
-          ),
+        appBar: ForgeAppBar(
+          title: l10n.settings,
         ),
         body: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

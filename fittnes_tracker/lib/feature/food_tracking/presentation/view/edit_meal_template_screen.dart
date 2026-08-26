@@ -5,6 +5,7 @@ import '../../data/models/food_item_model.dart';
 import '../../data/models/meal_template.dart';
 import '../../data/repositories/meal_template_repository.dart';
 import 'food_add_screen.dart';
+import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
 
 class EditMealTemplateScreen extends StatefulWidget {
   final MealTemplate template;
@@ -52,19 +53,8 @@ class _EditMealTemplateScreenState extends State<EditMealTemplateScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF333333),
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: Text(
-          l10n.editMealTemplate,
-          style: const TextStyle(
-            fontFamily: 'Montserrat',
-            fontWeight: FontWeight.w700,
-            fontSize: 17,
-            color: Colors.white,
-          ),
-        ),
+      appBar: ForgeAppBar(
+        title: l10n.editMealTemplate,
       ),
       body: Form(
         key: _formKey,

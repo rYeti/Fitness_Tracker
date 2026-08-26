@@ -2,6 +2,7 @@ import 'package:ForgeForm/core/providers/user_goals_provider.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
 
 class WeightGoalScreen extends StatefulWidget {
   const WeightGoalScreen({Key? key}) : super(key: key);
@@ -52,19 +53,8 @@ class _WeightGoalScreenState extends State<WeightGoalScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF333333),
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: Text(
-          l10n.weightGoals,
-          style: const TextStyle(
-            fontFamily: 'Montserrat',
-            fontWeight: FontWeight.w700,
-            fontSize: 17,
-            color: Colors.white,
-          ),
-        ),
+      appBar: ForgeAppBar(
+        title: l10n.weightGoals,
       ),
       body: Consumer<UserGoalsProvider>(
         builder: (context, provider, _) {

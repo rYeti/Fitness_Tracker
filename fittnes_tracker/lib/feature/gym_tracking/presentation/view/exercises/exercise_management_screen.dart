@@ -3,6 +3,7 @@ import 'package:ForgeForm/feature/workout_planning/data/models/exercise.dart';
 import 'package:ForgeForm/feature/gym_tracking/presentation/widgets/exercise_form_sheet.dart';
 import 'package:ForgeForm/feature/gym_tracking/presentation/widgets/exercise_list_view.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
+import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
 
 /// Standalone screen for browsing, creating, editing and deleting exercises.
 ///
@@ -64,8 +65,8 @@ class _ExerciseManagementScreenState extends State<ExerciseManagementScreen>
 
     return SafeArea(
       child: Scaffold(
-        appBar: AppBar(
-          title: Text(l10n.exercises),
+        appBar: ForgeAppBar(
+          title: l10n.exercises,
           bottom: TabBar(
             controller: _tabController,
             isScrollable: true,

@@ -14,6 +14,7 @@ import 'package:ForgeForm/core/providers/access_provider.dart';
 import 'package:ForgeForm/feature/food_tracking/data/adaptive_tdee_service.dart';
 import 'package:ForgeForm/feature/premium/paywall_launcher.dart';
 import 'package:ForgeForm/feature/premium/premium_gate.dart';
+import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
 
 final globalProgressKey = GlobalKey<_ProgressScreenState>();
 
@@ -282,30 +283,17 @@ class _ProgressScreenState extends State<ProgressScreen>
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: RichText(
-          text: const TextSpan(
-            children: [
-              TextSpan(
-                text: 'Forge',
-                style: TextStyle(
-                  fontFamily: 'Montserrat',
-                  fontWeight: FontWeight.w800,
-                  fontSize: 20,
-                  color: Color(0xFFFF6B3E),
-                ),
-              ),
-              TextSpan(
-                text: 'Form',
-                style: TextStyle(
-                  fontFamily: 'Montserrat',
-                  fontWeight: FontWeight.w800,
-                  fontSize: 20,
-                  color: Colors.white,
-                ),
-              ),
-            ],
-          ),
+      appBar: ForgeAppBar(
+        title: AppLocalizations.of(context)!.progress,
+        bottom: TabBar(
+          controller: _tabController,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white60,
+          indicatorColor: ForgeColors.forgeOrange,
+          tabs: [
+            Tab(text: AppLocalizations.of(context)!.gym),
+            Tab(text: AppLocalizations.of(context)!.nutrition),
+          ],
         ),
         actions: [
           IconButton(
@@ -313,16 +301,6 @@ class _ProgressScreenState extends State<ProgressScreen>
             onPressed: _loadProgressData,
           ),
         ],
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white60,
-          indicatorColor: Color(0xFFFF6B3E),
-          tabs: [
-            Tab(text: AppLocalizations.of(context)!.gym),
-            Tab(text: AppLocalizations.of(context)!.nutrition),
-          ],
-        ),
       ),
       body: TabBarView(
         controller: _tabController,

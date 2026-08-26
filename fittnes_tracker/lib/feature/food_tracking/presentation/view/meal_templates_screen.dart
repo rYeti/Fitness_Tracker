@@ -12,6 +12,7 @@ import '../../data/repositories/nutrition_repository.dart';
 import 'food_tracking_screen.dart';
 import 'create_meal_template_screen.dart';
 import 'edit_meal_template_screen.dart';
+import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
 
 class MealTemplatesScreen extends StatefulWidget {
   const MealTemplatesScreen({Key? key}) : super(key: key);
@@ -31,16 +32,8 @@ class _MealTemplatesScreenState extends State<MealTemplatesScreen> {
       length: 4,
       child: Scaffold(
         backgroundColor: colorScheme.surface,
-        appBar: AppBar(
-          title: Text(
-            AppLocalizations.of(context)!.mealTemplates,
-            style: TextStyle(
-              fontFamily: 'Montserrat',
-              fontWeight: FontWeight.w700,
-              fontSize: 17,
-              color: Colors.white,
-            ),
-          ),
+        appBar: ForgeAppBar(
+          title: AppLocalizations.of(context)!.mealTemplates,
           bottom: TabBar(
             labelColor: colorScheme.primary,
             unselectedLabelColor: Colors.white54,

@@ -16,6 +16,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:ForgeForm/feature/gym_tracking/data/models/set_template.dart';
+import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
 
 class CreateWorkoutView extends StatefulWidget {
   final List<DateTime>? selectedDates;
@@ -49,7 +50,9 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.createWorkout), elevation: 0),
+      appBar: ForgeAppBar(
+        title: l10n.createWorkout,
+      ),
       body: Column(
         children: [
           // Progress indicator
@@ -1389,8 +1392,8 @@ class _WorkoutDetailsScreenState extends State<_WorkoutDetailsScreen> {
         if (didPop) widget.onExercisesChanged(_exercises);
       },
       child: Scaffold(
-        appBar: AppBar(
-          title: Text(widget.workoutName),
+        appBar: ForgeAppBar(
+          title: widget.workoutName,
           actions: [
             if (_supersetPickIndex != null)
               TextButton(

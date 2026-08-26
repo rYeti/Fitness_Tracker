@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../data/repositories/nutrition_repository.dart';
 import 'package:drift/drift.dart' as drift;
+import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
 
 class FoodSearchScreen extends StatefulWidget {
   final bool allowMultipleSelection;
@@ -259,8 +260,12 @@ class _FoodSearchScreenState extends State<FoodSearchScreen>
 
     final l10n = AppLocalizations.of(context)!;
     return Scaffold(
-      appBar: AppBar(
-        title: Text(l10n.selectFood),
+      appBar: ForgeAppBar(
+        title: l10n.selectFood,
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: [Tab(text: l10n.myFoods), Tab(text: l10n.searchOnlineTab)],
+        ),
         actions:
             widget.allowMultipleSelection && _selectedItems.isNotEmpty
                 ? [
@@ -270,10 +275,6 @@ class _FoodSearchScreenState extends State<FoodSearchScreen>
                   ),
                 ]
                 : null,
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: [Tab(text: l10n.myFoods), Tab(text: l10n.searchOnlineTab)],
-        ),
       ),
       body: Column(
         children: [

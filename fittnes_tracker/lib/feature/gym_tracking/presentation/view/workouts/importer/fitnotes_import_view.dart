@@ -7,6 +7,7 @@ import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
 
 /// Preview data computed from a parsed CSV before the actual import runs.
 class _PreviewData {
@@ -208,7 +209,9 @@ class _FitNotesImportViewState extends State<FitNotesImportView> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.importFitNotes)),
+      appBar: ForgeAppBar(
+        title: l10n.importFitNotes,
+      ),
       body: switch (_state) {
         _ImportState.idle || _ImportState.loadingPreview => _buildIdleBody(l10n, theme),
         _ImportState.preview => _buildPreviewBody(l10n, theme),
