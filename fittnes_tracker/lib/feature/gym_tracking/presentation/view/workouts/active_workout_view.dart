@@ -1013,7 +1013,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 24),
-                ElevatedButton.icon(
+                FilledButton.icon(
                   onPressed: () => Navigator.pop(context),
                   icon: const Icon(Icons.arrow_back),
                   label: Text(l10n.goBack),
@@ -1956,7 +1956,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
           children: [
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton.icon(
+              child: FilledButton.icon(
                 onPressed:
                     _isSaving
                         ? null
@@ -1976,7 +1976,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                       : l10n.nextSet,
                   style: const TextStyle(fontSize: 18),
                 ),
-                style: ElevatedButton.styleFrom(
+                style: FilledButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 18),
                   backgroundColor:
                       isLastSet && isLastExercise
@@ -2792,11 +2792,11 @@ class WorkoutSummaryDialog extends StatelessWidget {
               padding: const EdgeInsets.all(20),
               child: SizedBox(
                 width: double.infinity,
-                child: ElevatedButton.icon(
+                child: FilledButton.icon(
                   onPressed: () => Navigator.pop(context, true),
                   icon: const Icon(Icons.check),
                   label: Text(l10n.done),
-                  style: ElevatedButton.styleFrom(
+                  style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
                 ),

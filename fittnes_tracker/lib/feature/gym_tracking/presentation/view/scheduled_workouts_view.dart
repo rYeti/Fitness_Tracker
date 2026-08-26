@@ -656,22 +656,22 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
                             ),
                             const SizedBox(width: 8),
                             Expanded(
-                              child: ElevatedButton.icon(
+                              child: FilledButton.icon(
                                 onPressed: () => _editCompletedWorkout(item),
                                 icon: const Icon(Icons.edit),
                                 label: Text(l10n.edit),
-                                style: ElevatedButton.styleFrom(
+                                style: FilledButton.styleFrom(
                                   backgroundColor: theme.colorScheme.primary,
                                 ),
                               ),
                             ),
                           ],
                         )
-                        : ElevatedButton.icon(
+                        : FilledButton.icon(
                           onPressed: () => _startWorkout(item),
                           icon: const Icon(Icons.play_arrow),
                           label: Text(l10n.startWorkout),
-                          style: ElevatedButton.styleFrom(
+                          style: FilledButton.styleFrom(
                             minimumSize: const Size(double.infinity, 48),
                             backgroundColor: theme.colorScheme.primary,
                           ),

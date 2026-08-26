@@ -148,7 +148,7 @@ class _TemplateListTabState extends State<TemplateListTab>
                     ),
                   ),
                   const SizedBox(height: 16),
-                  ElevatedButton(
+                  FilledButton(
                     onPressed: () async {
                       final hasPremium = context.read<AccessProvider>().hasPremiumAccess;
                       if (!hasPremium) {
@@ -172,7 +172,7 @@ class _TemplateListTabState extends State<TemplateListTab>
                       );
                       if (result == true && mounted) setState(() {});
                     },
-                    style: ElevatedButton.styleFrom(
+                    style: FilledButton.styleFrom(
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8.0),
@@ -558,9 +558,9 @@ class _PortionBottomSheetState extends State<_PortionBottomSheet> {
             const SizedBox(height: 16),
 
             // log button
-            ElevatedButton(
+            FilledButton(
               onPressed: _log,
-              style: ElevatedButton.styleFrom(
+              style: FilledButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 backgroundColor: colorScheme.primary,
                 foregroundColor: colorScheme.onPrimary,

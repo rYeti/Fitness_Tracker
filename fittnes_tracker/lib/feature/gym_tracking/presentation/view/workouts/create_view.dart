@@ -193,7 +193,7 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
             if (_currentStep > 0) const SizedBox(width: 12),
             Expanded(
               flex: 2,
-              child: ElevatedButton.icon(
+              child: FilledButton.icon(
                 onPressed: _isSaving ? null : _nextOrSave,
                 icon: _isSaving
                     ? const SizedBox(
@@ -208,7 +208,7 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
                         _isLastStep ? Icons.check : Icons.arrow_forward,
                       ),
                 label: Text(_isLastStep ? l10n.save : l10n.next),
-                style: ElevatedButton.styleFrom(
+                style: FilledButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   backgroundColor:
                       _isLastStep

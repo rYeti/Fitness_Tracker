@@ -705,7 +705,7 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
                 ),
                 const SizedBox(height: 16),
                 if (templateWorkoutIds.isNotEmpty) ...[
-                  ElevatedButton.icon(
+                  FilledButton.icon(
                     onPressed:
                         () => _addTemplateWorkoutsFromScheduled(
                           plan.id!,
@@ -718,7 +718,7 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
                   ),
                   const SizedBox(height: 8),
                 ],
-                ElevatedButton.icon(
+                FilledButton.icon(
                   onPressed: () {
                     Navigator.of(context).pushReplacement(
                       MaterialPageRoute(
@@ -973,9 +973,9 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
                     ),
                     Column(
                       children: [
-                        ElevatedButton(
+                        FilledButton(
                           onPressed: () => _setActivePlan(plan.id!),
-                          style: ElevatedButton.styleFrom(
+                          style: FilledButton.styleFrom(
                             backgroundColor: isActive ? ForgeColors.statusOkFor(Theme.of(context).brightness) : null,
                             foregroundColor: isActive ? Colors.white : null,
                           ),
@@ -1039,7 +1039,7 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
                         style: const TextStyle(fontStyle: FontStyle.italic),
                       ),
                       const SizedBox(height: 8),
-                      ElevatedButton.icon(
+                      FilledButton.icon(
                         onPressed: () => _addWorkoutToPlanForSpecificPlan(plan),
                         icon: const Icon(Icons.add),
                         label: Text(AppLocalizations.of(context)!.addWorkout),

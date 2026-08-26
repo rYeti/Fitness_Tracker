@@ -383,7 +383,7 @@ class _FoodSearchScreenState extends State<FoodSearchScreen>
           const SizedBox(height: 8),
           Text(l10n.tryMoreGeneralTerms),
           const SizedBox(height: 16),
-          ElevatedButton(
+          FilledButton(
             onPressed: _performSearch,
             child: Text(l10n.tryAgain),
           ),
@@ -396,7 +396,7 @@ class _FoodSearchScreenState extends State<FoodSearchScreen>
         if (_searchResults.isEmpty && !_isSearching)
           Padding(
             padding: const EdgeInsets.all(8.0),
-            child: ElevatedButton(
+            child: FilledButton(
               onPressed: _performSearch,
               child: Text(AppLocalizations.of(context)!.searchOnline),
             ),

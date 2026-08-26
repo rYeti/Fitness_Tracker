@@ -369,9 +369,9 @@ class _ProfileSetupNavButtons extends StatelessWidget {
           else
             const SizedBox.shrink(),
           const Spacer(),
-          ElevatedButton(
+          FilledButton(
             onPressed: isSaving ? null : (isLast ? onFinish : onNext),
-            style: ElevatedButton.styleFrom(
+            style: FilledButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),

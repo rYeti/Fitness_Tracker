@@ -1212,9 +1212,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     bool secondary = false,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
-    return ElevatedButton(
+    return FilledButton(
       onPressed: isLoading ? null : onPressed,
-      style: ElevatedButton.styleFrom(
+      style: FilledButton.styleFrom(
         padding: const EdgeInsets.symmetric(vertical: 14),
         backgroundColor:
             secondary ? colorScheme.onSurface.withValues(alpha: 0.07) : null,
@@ -1290,9 +1290,9 @@ class _GoPremiumBanner extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          ElevatedButton(
+          FilledButton(
             onPressed: () => openPaywall(context),
-            style: ElevatedButton.styleFrom(
+            style: FilledButton.styleFrom(
               backgroundColor: ForgeColors.forgeOrange,
               foregroundColor: Colors.white,
               elevation: 0,

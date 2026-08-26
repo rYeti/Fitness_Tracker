@@ -142,9 +142,9 @@ class _CreateMealTemplateScreenState extends State<CreateMealTemplateScreen> {
             // List of selected foods
             ..._buildFoodsList(),
             const SizedBox(height: 24),
-            ElevatedButton(
+            FilledButton(
               onPressed: _saveTemplate,
-              style: ElevatedButton.styleFrom(
+              style: FilledButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 backgroundColor: Theme.of(context).colorScheme.primary,
                 foregroundColor: Colors.white,

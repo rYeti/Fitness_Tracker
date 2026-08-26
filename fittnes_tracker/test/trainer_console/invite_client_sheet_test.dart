@@ -70,8 +70,8 @@ void main() {
       );
       await pump(tester, repo);
 
-      final button = tester.widget<ElevatedButton>(
-        find.widgetWithText(ElevatedButton, 'Create invite code'),
+      final button = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'Create invite code'),
       );
       expect(button.onPressed, isNull);
       // Disabled without explanation is worse than not offering it at all.
@@ -91,8 +91,8 @@ void main() {
       );
       await pump(tester, repo);
 
-      final button = tester.widget<ElevatedButton>(
-        find.widgetWithText(ElevatedButton, 'Create invite code'),
+      final button = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'Create invite code'),
       );
       expect(button.onPressed, isNull);
       expect(find.text('Renew your licence to invite clients.'), findsOneWidget);

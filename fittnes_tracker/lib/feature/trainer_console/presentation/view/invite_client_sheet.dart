@@ -173,7 +173,7 @@ class _MintButton extends StatelessWidget {
           message: reason ?? l10n.createNewInviteCode,
           child: SizedBox(
             height: 48,
-            child: ElevatedButton.icon(
+            child: FilledButton.icon(
               onPressed: canInvite && !provider.isMinting
                   ? provider.createInvite
                   : null,

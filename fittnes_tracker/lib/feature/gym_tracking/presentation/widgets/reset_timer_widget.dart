@@ -182,11 +182,11 @@ class _RestTimerWidgetState extends State<RestTimerWidget>
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               if (!_isRunning) ...[
-                ElevatedButton.icon(
+                FilledButton.icon(
                   onPressed: _startTimer,
                   icon: const Icon(Icons.play_arrow),
                   label: Text(l10n.start),
-                  style: ElevatedButton.styleFrom(
+                  style: FilledButton.styleFrom(
                     backgroundColor: ForgeColors.statusOkFor(Theme.of(context).brightness),
                   ),
                 ),
@@ -197,11 +197,11 @@ class _RestTimerWidgetState extends State<RestTimerWidget>
                   label: Text(l10n.reset),
                 ),
               ] else ...[
-                ElevatedButton.icon(
+                FilledButton.icon(
                   onPressed: _stopTimer,
                   icon: const Icon(Icons.pause),
                   label: Text(l10n.pause),
-                  style: ElevatedButton.styleFrom(
+                  style: FilledButton.styleFrom(
                     backgroundColor: ForgeColors.statusWarnFor(Theme.of(context).brightness),
                   ),
                 ),

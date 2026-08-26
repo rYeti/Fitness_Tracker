@@ -102,13 +102,21 @@ class ThemeProvider with ChangeNotifier {
           color: Colors.white,
         ),
       ),
+      // Flat, separated by tone rather than a drop shadow — the Material 3
+      // treatment. This only works because scaffoldBackgroundColor is
+      // #F5F5F5: while the page was white, that 2dp shadow was the only thing
+      // making a white card visible, so removing it first would have erased
+      // the card entirely.
       cardTheme: CardThemeData(
-        elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: ForgeColors.charcoal.withValues(alpha: 0.08)),
+        ),
         color: ForgeColors.surfaceLight,
       ),
-      elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
           backgroundColor: ForgeColors.forgeOrangeOnLight,
           foregroundColor: Colors.white,
           elevation: 0,
@@ -142,7 +150,9 @@ class ThemeProvider with ChangeNotifier {
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: ForgeColors.forgeOrangeOnLight,
         foregroundColor: Colors.white,
-        elevation: 4,
+        // A FAB floats over content by definition, so tone alone cannot
+        // separate it — it keeps a lift, just an M3-sized one.
+        elevation: 2,
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
@@ -239,12 +249,15 @@ class ThemeProvider with ChangeNotifier {
         ),
       ),
       cardTheme: CardThemeData(
-        elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+        ),
         color: ForgeColors.cardDark,
       ),
-      elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
           backgroundColor: ForgeColors.forgeOrange,
           foregroundColor: Colors.white,
           elevation: 0,
@@ -278,7 +291,7 @@ class ThemeProvider with ChangeNotifier {
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: ForgeColors.forgeOrange,
         foregroundColor: Colors.white,
-        elevation: 4,
+        elevation: 2,
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,

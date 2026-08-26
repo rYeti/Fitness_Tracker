@@ -113,9 +113,9 @@ class _WeightGoalScreenState extends State<WeightGoalScreen> {
                 const SizedBox(height: 32),
                 SizedBox(
                   width: double.infinity,
-                  child: ElevatedButton(
+                  child: FilledButton(
                     onPressed: _saveWeightGoals,
-                    style: ElevatedButton.styleFrom(
+                    style: FilledButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
                     child: Text(l10n.saveWeightGoals),

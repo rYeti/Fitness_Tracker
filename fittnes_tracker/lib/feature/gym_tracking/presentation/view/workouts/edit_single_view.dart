@@ -577,7 +577,7 @@ class _EditSingleWorkoutViewState extends State<EditSingleWorkoutView> {
             SliverPadding(
               padding: const EdgeInsets.all(16),
               sliver: SliverToBoxAdapter(
-                child: ElevatedButton.icon(
+                child: FilledButton.icon(
                   onPressed: _addExercise,
                   icon: const Icon(Icons.add),
                   label: Text(l10n.addExercise),

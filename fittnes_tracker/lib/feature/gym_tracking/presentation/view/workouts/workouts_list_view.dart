@@ -157,7 +157,7 @@ class WorkoutsListViewState extends State<WorkoutsListView> {
                 onPressed: () => Navigator.pop(ctx),
                 child: Text(l10n.cancel),
               ),
-              ElevatedButton(
+              FilledButton(
                 onPressed: () {
                   final newName = controller.text.trim();
                   if (newName.isNotEmpty) {
@@ -346,9 +346,9 @@ class WorkoutsListViewState extends State<WorkoutsListView> {
                 onPressed: () => Navigator.pop(ctx, false),
                 child: Text(l10n.cancel),
               ),
-              ElevatedButton(
+              FilledButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                style: ElevatedButton.styleFrom(backgroundColor: ForgeColors.statusBadFor(Theme.of(context).brightness)),
+                style: FilledButton.styleFrom(backgroundColor: ForgeColors.statusBadFor(Theme.of(context).brightness)),
                 child: Text(l10n.delete),
               ),
             ],
@@ -405,7 +405,7 @@ class WorkoutsListViewState extends State<WorkoutsListView> {
                     style: const TextStyle(fontSize: 18, color: Colors.grey),
                   ),
                   const SizedBox(height: 24),
-                  ElevatedButton.icon(
+                  FilledButton.icon(
                     onPressed: () async {
                       await Navigator.push(
                         context,

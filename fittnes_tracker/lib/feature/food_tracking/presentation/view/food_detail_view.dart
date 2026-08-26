@@ -295,8 +295,8 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
               const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: ForgeColors.statusWarnFor(Theme.of(context).brightness)),
+                child: FilledButton(
+                  style: FilledButton.styleFrom(backgroundColor: ForgeColors.statusWarnFor(Theme.of(context).brightness)),
                   onPressed: () {},
                   child: Text(loc.upgradeToPremium,
                       style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -552,8 +552,8 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
         ),
         const SizedBox(height: 16),
         // Add to Daily Meal Log button - disabled if we're in template mode
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(
+        FilledButton(
+          style: FilledButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 16),
             backgroundColor: ForgeColors.statusOkFor(Theme.of(context).brightness),
             disabledBackgroundColor: Colors.grey.shade300,
@@ -627,8 +627,8 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
         ),
         const SizedBox(height: 12),
         // Add to Template button - disabled if we're not in template mode
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(
+        FilledButton(
+          style: FilledButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 16),
             backgroundColor: Colors.deepPurple,
             foregroundColor: Colors.white,

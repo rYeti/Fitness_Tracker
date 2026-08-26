@@ -277,7 +277,7 @@ class WeightTrackingScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 24),
-          ElevatedButton.icon(
+          FilledButton.icon(
             onPressed: () => _showAddEditWeightDialog(context, provider),
             icon: const Icon(Icons.add),
             label: Text(
@@ -287,7 +287,7 @@ class WeightTrackingScreen extends StatelessWidget {
                 fontWeight: FontWeight.w700,
               ),
             ),
-            style: ElevatedButton.styleFrom(
+            style: FilledButton.styleFrom(
               elevation: 0,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8.0),
@@ -519,9 +519,9 @@ class _AddEditWeightDialogState extends State<AddEditWeightDialog> {
           ),
           child: Text(l10n.cancel.toUpperCase()),
         ),
-        ElevatedButton(
+        FilledButton(
           onPressed: () => _saveWeight(isEditing, l10n),
-          style: ElevatedButton.styleFrom(
+          style: FilledButton.styleFrom(
             elevation: 0,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8.0),

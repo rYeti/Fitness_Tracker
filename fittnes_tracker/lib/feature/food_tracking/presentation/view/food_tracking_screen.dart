@@ -123,7 +123,7 @@ class _FoodTrackingScreenState extends State<FoodTrackingScreen> {
                     onPressed: () => Navigator.pop(ctx),
                     child: Text(l10n.cancel)),
                 const SizedBox(width: 8),
-                ElevatedButton(
+                FilledButton(
                   onPressed: () {
                     final v = int.tryParse(controller.text.trim());
                     if (v != null && v > 0) Navigator.pop(ctx, v);

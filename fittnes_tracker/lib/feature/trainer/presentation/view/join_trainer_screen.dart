@@ -139,8 +139,8 @@ class _JoinTrainerScreenState extends State<JoinTrainerScreen> {
             const SizedBox(height: 24),
             SizedBox(
               height: 48,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
+              child: FilledButton(
+                style: FilledButton.styleFrom(
                   backgroundColor: ForgeColors.forgeOrange,
                 ),
                 onPressed: _isLoading ? null : _submit,

@@ -192,7 +192,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
             Text(message, textAlign: TextAlign.center),
             if (showRetry) ...[
               const SizedBox(height: 24),
-              ElevatedButton(
+              FilledButton(
                 onPressed: _loadOffering,
                 child: Text(AppLocalizations.of(context)!.retry),
               ),
@@ -251,9 +251,9 @@ class _PaywallScreenState extends State<PaywallScreen> {
         const SizedBox(height: 16),
         SizedBox(
           width: double.infinity,
-          child: ElevatedButton(
+          child: FilledButton(
             onPressed: _isPurchasing ? null : _purchase,
-            style: ElevatedButton.styleFrom(
+            style: FilledButton.styleFrom(
               backgroundColor: _forgeOrange,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 16),

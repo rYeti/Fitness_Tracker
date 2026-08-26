@@ -581,7 +581,7 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
                       child: Text(l10n.cancel),
                     ),
                     const SizedBox(width: 8),
-                    ElevatedButton(
+                    FilledButton(
                       onPressed: () {
                         final v = int.tryParse(controller.text.trim());
                         if (v != null && v > 0) Navigator.pop(ctx, v);
@@ -1030,7 +1030,7 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
               ),
               child: Text(AppLocalizations.of(dialogContext)!.cancel),
             ),
-            ElevatedButton(
+            FilledButton(
               onPressed: () async {
                 if (formKey.currentState!.validate()) {
                   final id = await db.foodItemDao.insertFoodItem(
@@ -1046,7 +1046,7 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
                   if (dialogContext.mounted) Navigator.of(dialogContext).pop();
                 }
               },
-              style: ElevatedButton.styleFrom(
+              style: FilledButton.styleFrom(
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8.0),
@@ -1393,7 +1393,7 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
                               textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: 16),
-                            ElevatedButton.icon(
+                            FilledButton.icon(
                               onPressed: () {
                                 setState(() => _lastSearchQuery = '');
                                 _performSearch();
