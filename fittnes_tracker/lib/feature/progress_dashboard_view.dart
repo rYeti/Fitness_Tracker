@@ -482,7 +482,7 @@ class _ProgressScreenState extends State<ProgressScreen>
                     AppLocalizations.of(context)!.totalWorkouts,
                     _frequencyData!.totalWorkouts.toString(),
                     Icons.fitness_center,
-                    Colors.blue,
+                    ForgeColors.statusInfoFor(Theme.of(context).brightness),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -492,7 +492,7 @@ class _ProgressScreenState extends State<ProgressScreen>
                     AppLocalizations.of(context)!.avgPerWeek,
                     _frequencyData!.averagePerWeek.toStringAsFixed(1),
                     Icons.bar_chart,
-                    Colors.green,
+                    ForgeColors.statusOkFor(Theme.of(context).brightness),
                   ),
                 ),
               ],
@@ -507,7 +507,7 @@ class _ProgressScreenState extends State<ProgressScreen>
                     '${_frequencyData!.currentStreak} ${AppLocalizations.of(context)!.days}',
                     Icons.local_fire_department,
                     _frequencyData!.currentStreak > 0
-                        ? Colors.orange
+                        ? ForgeColors.statusWarnFor(Theme.of(context).brightness)
                         : Colors.grey,
                   ),
                 ),
@@ -518,7 +518,7 @@ class _ProgressScreenState extends State<ProgressScreen>
                     AppLocalizations.of(context)!.longestStreak,
                     '${_frequencyData!.longestStreak} ${AppLocalizations.of(context)!.days}',
                     Icons.emoji_events,
-                    Colors.amber,
+                    ForgeColors.statusWarnFor(Theme.of(context).brightness),
                   ),
                 ),
               ],
@@ -584,9 +584,9 @@ class _ProgressScreenState extends State<ProgressScreen>
                                               repsRange;
                               return Text(
                                 '${actualWeight.toStringAsFixed(1)}kg',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 10,
-                                  color: Colors.orange,
+                                  color: ForgeColors.statusWarnFor(Theme.of(context).brightness),
                                 ),
                               );
                             },
@@ -649,7 +649,7 @@ class _ProgressScreenState extends State<ProgressScreen>
                                 return FlSpot(e.key.toDouble(), normalized);
                               }).toList(),
                           isCurved: true,
-                          color: Colors.orange,
+                          color: ForgeColors.statusWarnFor(Theme.of(context).brightness),
                           barWidth: 3,
                           dotData: FlDotData(show: true),
                         ),
@@ -663,7 +663,7 @@ class _ProgressScreenState extends State<ProgressScreen>
                   children: [
                     _buildLegendItem(AppLocalizations.of(context)!.reps, theme.colorScheme.primary),
                     const SizedBox(width: 16),
-                    _buildLegendItem(AppLocalizations.of(context)!.weight, Colors.orange),
+                    _buildLegendItem(AppLocalizations.of(context)!.weight, ForgeColors.statusWarnFor(Theme.of(context).brightness)),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -807,7 +807,7 @@ class _ProgressScreenState extends State<ProgressScreen>
                     AppLocalizations.of(context)!.avgCalories,
                     avgCalories.toStringAsFixed(0),
                     Icons.local_fire_department,
-                    Colors.orange,
+                    ForgeColors.statusWarnFor(Theme.of(context).brightness),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -817,7 +817,7 @@ class _ProgressScreenState extends State<ProgressScreen>
                     AppLocalizations.of(context)!.daysOnTarget,
                     '$daysOnTarget/${_dailyData.length}',
                     Icons.check_circle,
-                    Colors.green,
+                    ForgeColors.statusOkFor(Theme.of(context).brightness),
                   ),
                 ),
               ],
@@ -1183,7 +1183,7 @@ class _ProgressScreenState extends State<ProgressScreen>
                             return FlSpot(e.key.toDouble(), e.value.weight);
                           }).toList(),
                       isCurved: true,
-                      color: Colors.green,
+                      color: ForgeColors.statusOkFor(Theme.of(context).brightness),
                       barWidth: 3,
                       dotData: FlDotData(show: true),
                     ),
@@ -1215,7 +1215,7 @@ class _ProgressScreenState extends State<ProgressScreen>
                         }).toList();
                       }(),
                       isCurved: true,
-                      color: Colors.orange,
+                      color: ForgeColors.statusWarnFor(Theme.of(context).brightness),
                       barWidth: 3,
                       dotData: FlDotData(show: true),
                     ),
@@ -1228,9 +1228,9 @@ class _ProgressScreenState extends State<ProgressScreen>
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _buildLegendItem(AppLocalizations.of(context)!.weight, Colors.green),
+                _buildLegendItem(AppLocalizations.of(context)!.weight, ForgeColors.statusOkFor(Theme.of(context).brightness)),
                 const SizedBox(width: 16),
-                _buildLegendItem(AppLocalizations.of(context)!.calories, Colors.orange),
+                _buildLegendItem(AppLocalizations.of(context)!.calories, ForgeColors.statusWarnFor(Theme.of(context).brightness)),
               ],
             ),
           ],

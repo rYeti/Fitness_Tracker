@@ -1,3 +1,4 @@
+import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/providers/access_provider.dart';
 import 'package:ForgeForm/core/utils/app_logger.dart';
@@ -392,7 +393,7 @@ class TemplateCard extends StatelessWidget {
                   repository.deleteMealTemplate(template.id!);
                   if (onDelete != null) onDelete!();
                 },
-                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                style: TextButton.styleFrom(foregroundColor: ForgeColors.statusBadFor(Theme.of(context).brightness)),
                 child: Text(AppLocalizations.of(context)!.delete),
               ),
             ],
@@ -649,7 +650,7 @@ class _PortionBottomSheetState extends State<_PortionBottomSheet> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(AppLocalizations.of(context)!.errorApplyingTemplate(e)),
-          backgroundColor: Colors.red,
+          backgroundColor: ForgeColors.statusBadFor(Theme.of(context).brightness),
         ),
       );
     }

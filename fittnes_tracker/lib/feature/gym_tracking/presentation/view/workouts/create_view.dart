@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart' as drift hide Column;
 import 'dart:convert';
+import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/core/forge_motion.dart';
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/di/service_locator.dart';
@@ -211,7 +212,7 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   backgroundColor:
                       _isLastStep
-                          ? Colors.green
+                          ? ForgeColors.statusOkFor(Theme.of(context).brightness)
                           : theme.colorScheme.primary,
                 ),
               ),

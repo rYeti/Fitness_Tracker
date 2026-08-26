@@ -1,3 +1,4 @@
+import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/core/forge_motion.dart';
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/di/service_locator.dart';
@@ -481,10 +482,10 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
                             isSkipped
                                 ? Colors.grey
                                 : isRestDay
-                                ? Colors.blue
+                                ? ForgeColors.statusInfoFor(Theme.of(context).brightness)
                                 : isCompleted
-                                ? Colors.green
-                                : Colors.orange,
+                                ? ForgeColors.statusOkFor(Theme.of(context).brightness)
+                                : ForgeColors.statusWarnFor(Theme.of(context).brightness),
                         size: 32,
                       ),
                       const SizedBox(width: 12),
@@ -523,9 +524,9 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
                         ),
                       ),
                       if (isCompleted)
-                        const Icon(
+                        Icon(
                           Icons.check_circle,
-                          color: Colors.green,
+                          color: ForgeColors.statusOkFor(Theme.of(context).brightness),
                           size: 32,
                         )
                       else
@@ -598,16 +599,16 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
                                   value: 'delete',
                                   child: Row(
                                     children: [
-                                      const Icon(
+                                      Icon(
                                         Icons.delete_outline,
                                         size: 18,
-                                        color: Colors.red,
+                                        color: ForgeColors.statusBadFor(Theme.of(context).brightness),
                                       ),
                                       const SizedBox(width: 8),
                                       Text(
                                         l10n.delete,
-                                        style: const TextStyle(
-                                          color: Colors.red,
+                                        style: TextStyle(
+                                          color: ForgeColors.statusBadFor(Theme.of(context).brightness),
                                         ),
                                       ),
                                     ],
@@ -714,7 +715,7 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
                 onPressed: () => Navigator.pop(ctx, true),
                 child: Text(
                   l10n.delete,
-                  style: const TextStyle(color: Colors.red),
+                  style: TextStyle(color: ForgeColors.statusBadFor(Theme.of(context).brightness)),
                 ),
               ),
             ],
@@ -746,7 +747,7 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
             '${newDate.year}-${newDate.month.toString().padLeft(2, '0')}-${newDate.day.toString().padLeft(2, '0')}',
           ),
         ),
-        backgroundColor: Colors.blue,
+        backgroundColor: ForgeColors.statusInfoFor(Theme.of(context).brightness),
       ),
     );
   }

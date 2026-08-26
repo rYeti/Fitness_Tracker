@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/utils/app_logger.dart';
 import 'package:ForgeForm/feature/workout_planning/data/models/workout_set.dart'
@@ -2354,16 +2355,16 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                                                     ),
                                                 child: Row(
                                                   children: [
-                                                    const Icon(
+                                                    Icon(
                                                       Icons.delete,
-                                                      color: Colors.red,
+                                                      color: ForgeColors.statusBadFor(Theme.of(context).brightness),
                                                     ),
                                                     const SizedBox(width: 8),
                                                     Flexible(
                                                       child: Text(
                                                         l10n.delete,
-                                                        style: const TextStyle(
-                                                          color: Colors.red,
+                                                        style: TextStyle(
+                                                          color: ForgeColors.statusBadFor(Theme.of(context).brightness),
                                                         ),
                                                       ),
                                                     ),

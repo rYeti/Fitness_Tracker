@@ -56,6 +56,54 @@ void main() {
     });
   });
 
+  group('WCAG AA — status tones as foreground', () {
+    // The raw tones are fills. As text on a light surface they measure 3.30,
+    // 2.04 and 4.23 — amber failing even the 3:1 icon bar — which is why the
+    // OnLight variants exist. 68 raw Colors.red/green/orange references
+    // across the trainee app used to sit at exactly those ratios.
+    const onLight = {
+      'ok': ForgeColors.statusOkOnLight,
+      'warn': ForgeColors.statusWarnOnLight,
+      'bad': ForgeColors.statusBadOnLight,
+      'info': ForgeColors.statusInfoOnLight,
+    };
+
+    test('every OnLight tone reads on both light surfaces', () {
+      onLight.forEach((name, colour) {
+        for (final bg in [
+          ForgeColors.surfaceLight,
+          ForgeColors.backgroundLight,
+        ]) {
+          expectContrast(colour, bg, atLeast: 4.5, because: name);
+        }
+      });
+    });
+
+    test('the raw tones still read on dark surfaces', () {
+      // Dark keeps the raw tones deliberately; if this fails, they were
+      // darkened somewhere they did not need to be.
+      for (final tone in [
+        ForgeColors.statusOk,
+        ForgeColors.statusWarn,
+        ForgeColors.statusBad,
+        ForgeColors.statusInfo,
+      ]) {
+        expectContrast(tone, ForgeColors.cardDark, atLeast: 3.0);
+      }
+    });
+
+    test('a snackbar fill carries white text', () {
+      // Snackbars are filled with the darkened tone in both themes because
+      // their label is always white — the raw green measured 3.30 there.
+      for (final fill in [
+        ForgeColors.statusOkOnLight,
+        ForgeColors.statusBadOnLight,
+      ]) {
+        expectContrast(const Color(0xFFFFFFFF), fill, atLeast: 4.5);
+      }
+    });
+  });
+
   group('WCAG AA — body text', () {
     test('onSurface reads on surface, both themes', () {
       for (final theme in [themeProvider.lightTheme, themeProvider.darkTheme]) {

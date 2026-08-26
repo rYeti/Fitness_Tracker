@@ -1,3 +1,4 @@
+import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/feature/weight_tracking/presentation/providers/weight_provider.dart';
 import 'package:ForgeForm/feature/weight_tracking/presentation/widgets/weight_chart.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
@@ -353,7 +354,7 @@ class WeightTrackingScreen extends StatelessWidget {
                   provider.deleteWeightRecord(id);
                   Navigator.pop(ctx);
                 },
-                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                style: TextButton.styleFrom(foregroundColor: ForgeColors.statusBadFor(Theme.of(context).brightness)),
                 child: Text(l10n.delete.toUpperCase()),
               ),
             ],

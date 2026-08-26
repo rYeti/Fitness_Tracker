@@ -1,3 +1,4 @@
+import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/core/forge_motion.dart';
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/providers/access_provider.dart';
@@ -194,25 +195,25 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
               AppLocalizations.of(context)!.calories,
               _calculatedCalories,
               'kcal',
-              Colors.orange,
+              ForgeColors.statusWarnFor(Theme.of(context).brightness),
             ),
             _buildNutrientRow(
               AppLocalizations.of(context)!.protein,
               _calculatedProtein,
               'g',
-              Colors.red,
+              ForgeColors.statusBadFor(Theme.of(context).brightness),
             ),
             _buildNutrientRow(
               AppLocalizations.of(context)!.carbs,
               _calculatedCarbs,
               'g',
-              Colors.blue,
+              ForgeColors.statusInfoFor(Theme.of(context).brightness),
             ),
             _buildNutrientRow(
               AppLocalizations.of(context)!.fat,
               _calculatedFat,
               'g',
-              Colors.green,
+              ForgeColors.statusOkFor(Theme.of(context).brightness),
             ),
           ],
         ),
@@ -281,7 +282,7 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
-                      color: Colors.amber,
+                      color: ForgeColors.statusWarnFor(Theme.of(context).brightness),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(loc.premiumBadge,
@@ -295,7 +296,7 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.amber),
+                  style: ElevatedButton.styleFrom(backgroundColor: ForgeColors.statusWarnFor(Theme.of(context).brightness)),
                   onPressed: () {},
                   child: Text(loc.upgradeToPremium,
                       style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -348,7 +349,7 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: Colors.amber,
+                    color: ForgeColors.statusWarnFor(Theme.of(context).brightness),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(loc.premiumBadge,
@@ -554,7 +555,7 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
         ElevatedButton(
           style: ElevatedButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 16),
-            backgroundColor: Colors.green,
+            backgroundColor: ForgeColors.statusOkFor(Theme.of(context).brightness),
             disabledBackgroundColor: Colors.grey.shade300,
             disabledForegroundColor: Colors.grey.shade600,
           ),
@@ -581,7 +582,7 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
                           content: Text(
                             '${widget.foodItem.name} (${grams.round()}g) ${AppLocalizations.of(context)!.addedSuccessfully}',
                           ),
-                          backgroundColor: Colors.green,
+                          backgroundColor: ForgeColors.statusOkFor(Theme.of(context).brightness),
                         ),
                       );
                       Navigator.pop(context, true);
@@ -610,7 +611,7 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
                             content: Text(
                               '${widget.foodItem.name} (${grams.round()}g) ${AppLocalizations.of(context)!.addedSuccessfully}',
                             ),
-                            backgroundColor: Colors.green,
+                            backgroundColor: ForgeColors.statusOkFor(Theme.of(context).brightness),
                           ),
                         );
                         Navigator.pop(context, true);

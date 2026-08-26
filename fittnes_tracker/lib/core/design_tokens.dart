@@ -64,9 +64,51 @@ abstract final class ForgeColors {
 
   /// Status tones (CLAUDE.md "Status tones: ok = green, warn = amber,
   /// bad = red"). Always pair with a label/icon — never color alone.
+  ///
+  /// These are *fill* colours — a badge wash, a progress bar, a chart bar.
+  /// On a light surface none of them can carry text: measured on white they
+  /// are 3.30, 2.04 and 4.23, and amber fails even the 3:1 icon bar. Use the
+  /// `OnLight` variants below for anything a reader has to read.
   static const statusOk = Color(0xFF43A047);
   static const statusWarn = Color(0xFFFFA000);
   static const statusBad = Color(0xFFE53935);
+
+  /// Status tones darkened for use as **foreground on light surfaces** —
+  /// text, icons, small labels. Same relationship [forgeOrangeOnLight] has to
+  /// [forgeOrange], and for the same reason: a brand or status hue tuned to
+  /// look right as a fill is almost never legible as 12px text on white.
+  ///
+  /// Each clears 4.5:1 against both light surfaces:
+  ///
+  /// | tone | on `#FFFFFF` | on [backgroundLight] |
+  /// |------|-------------:|---------------------:|
+  /// | ok   | 5.42         | 4.97                 |
+  /// | warn | 5.21         | 4.78                 |
+  /// | bad  | 6.11         | 5.60                 |
+  ///
+  /// Amber needs the deepest darkening because it starts far brighter than
+  /// the other two — the same asymmetry `StatusBadge` accounts for.
+  ///
+  /// Dark surfaces keep the raw tones: they measure 4.23–6.84 on [cardDark].
+  static const statusOkOnLight = Color(0xFF327835);
+  static const statusWarnOnLight = Color(0xFF996000);
+  static const statusBadOnLight = Color(0xFFB72E2A);
+
+  /// Informational — a scheduled or pending state, distinct from ok/warn/bad.
+  /// Reuses the carbs blue's hue but is a separate token: a macro colour and
+  /// a status colour drifting together would be a coincidence, not a rule.
+  static const statusInfo = Color(0xFF1E88E5);
+  static const statusInfoOnLight = Color(0xFF15669F);
+
+  /// The tone to use as a foreground for the current brightness.
+  static Color statusOkFor(Brightness b) =>
+      b == Brightness.dark ? statusOk : statusOkOnLight;
+  static Color statusWarnFor(Brightness b) =>
+      b == Brightness.dark ? statusWarn : statusWarnOnLight;
+  static Color statusBadFor(Brightness b) =>
+      b == Brightness.dark ? statusBad : statusBadOnLight;
+  static Color statusInfoFor(Brightness b) =>
+      b == Brightness.dark ? statusInfo : statusInfoOnLight;
 }
 
 /// Responsive breakpoints (CLAUDE.md "Layout & spacing": mobile `<600`,

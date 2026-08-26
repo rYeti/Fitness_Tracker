@@ -1,3 +1,4 @@
+import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/di/service_locator.dart';
 import 'package:ForgeForm/core/utils/app_logger.dart';
@@ -277,7 +278,7 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
             ),
             TextButton(
               onPressed: () => Navigator.of(context).pop(true),
-              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              style: TextButton.styleFrom(foregroundColor: ForgeColors.statusBadFor(Theme.of(context).brightness)),
               child: Text(l10n.remove),
             ),
           ],
@@ -541,7 +542,7 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
                   },
                 ),
                 IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
+                  icon: Icon(Icons.delete, color: ForgeColors.statusBadFor(Theme.of(context).brightness)),
                   tooltip:
                       AppLocalizations.of(
                         context,
@@ -583,7 +584,7 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.delete, size: 18, color: Colors.red),
+                icon: Icon(Icons.delete, size: 18, color: ForgeColors.statusBadFor(Theme.of(context).brightness)),
                 tooltip: AppLocalizations.of(context)!.removeExerciseTooltip,
                 onPressed: () => _removeExerciseFromWorkout(workout, exercise),
               ),
@@ -657,7 +658,7 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
                 onPressed: () => _editSet(workout, exercise, set),
               ),
               IconButton(
-                icon: const Icon(Icons.delete, size: 16, color: Colors.red),
+                icon: Icon(Icons.delete, size: 16, color: ForgeColors.statusBadFor(Theme.of(context).brightness)),
                 tooltip: AppLocalizations.of(context)!.removeSet,
                 onPressed: () => _removeSetFromExercise(workout, exercise, set),
               ),
@@ -805,7 +806,7 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
                         style: TextStyle(
                           fontSize: 12,
                           color:
-                              workout.isTemplate ? Colors.green : Colors.orange,
+                              workout.isTemplate ? ForgeColors.statusOkFor(Theme.of(context).brightness) : ForgeColors.statusWarnFor(Theme.of(context).brightness),
                         ),
                       ),
                     ],
@@ -954,7 +955,7 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
                                 vertical: 2,
                               ),
                               decoration: BoxDecoration(
-                                color: Colors.green,
+                                color: ForgeColors.statusOkFor(Theme.of(context).brightness),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Text(
@@ -975,7 +976,7 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
                         ElevatedButton(
                           onPressed: () => _setActivePlan(plan.id!),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: isActive ? Colors.green : null,
+                            backgroundColor: isActive ? ForgeColors.statusOkFor(Theme.of(context).brightness) : null,
                             foregroundColor: isActive ? Colors.white : null,
                           ),
                           child: Text(
@@ -1012,7 +1013,7 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
                               },
                             ),
                             IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red),
+                              icon: Icon(Icons.delete, color: ForgeColors.statusBadFor(Theme.of(context).brightness)),
                               tooltip:
                                   AppLocalizations.of(
                                     context,
@@ -1167,7 +1168,7 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
             ),
             TextButton(
               onPressed: () => Navigator.pop(context, true),
-              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              style: TextButton.styleFrom(foregroundColor: ForgeColors.statusBadFor(Theme.of(context).brightness)),
               child: Text(l10n.remove),
             ),
           ],
@@ -1278,7 +1279,7 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
             ),
             TextButton(
               onPressed: () => Navigator.pop(context, true),
-              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              style: TextButton.styleFrom(foregroundColor: ForgeColors.statusBadFor(Theme.of(context).brightness)),
               child: Text(l10n.remove),
             ),
           ],
@@ -1596,7 +1597,7 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
             ),
             TextButton(
               onPressed: () => Navigator.pop(context, true),
-              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              style: TextButton.styleFrom(foregroundColor: ForgeColors.statusBadFor(Theme.of(context).brightness)),
               child: Text(l10n.delete),
             ),
           ],
@@ -1696,7 +1697,7 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
                   },
                 ),
                 IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
+                  icon: Icon(Icons.delete, color: ForgeColors.statusBadFor(Theme.of(context).brightness)),
                   tooltip:
                       AppLocalizations.of(
                         context,
@@ -1731,7 +1732,7 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
             ),
             TextButton(
               onPressed: () => Navigator.pop(context, true),
-              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              style: TextButton.styleFrom(foregroundColor: ForgeColors.statusBadFor(Theme.of(context).brightness)),
               child: Text(l10n.remove),
             ),
           ],

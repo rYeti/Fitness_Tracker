@@ -1,3 +1,4 @@
+import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/di/service_locator.dart';
 import 'package:ForgeForm/core/providers/access_provider.dart';
@@ -75,7 +76,7 @@ class WorkoutsListViewState extends State<WorkoutsListView> {
                   Text(l10n.createFirstWorkout),
                   if (!hasPremium && planCount >= 1) ...[
                     const SizedBox(width: 6),
-                    const Icon(Icons.lock, size: 14, color: Colors.orange),
+                    Icon(Icons.lock, size: 14, color: ForgeColors.statusWarnFor(Theme.of(context).brightness)),
                   ],
                 ],
               ),
@@ -312,10 +313,10 @@ class WorkoutsListViewState extends State<WorkoutsListView> {
                 ),
                 const Divider(),
                 ListTile(
-                  leading: const Icon(Icons.delete, color: Colors.red),
+                  leading: Icon(Icons.delete, color: ForgeColors.statusBadFor(Theme.of(context).brightness)),
                   title: Text(
                     l10n.deleteWorkout,
-                    style: const TextStyle(color: Colors.red),
+                    style: TextStyle(color: ForgeColors.statusBadFor(Theme.of(context).brightness)),
                   ),
                   onTap: () {
                     Navigator.pop(ctx);
@@ -347,7 +348,7 @@ class WorkoutsListViewState extends State<WorkoutsListView> {
               ),
               ElevatedButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                style: ElevatedButton.styleFrom(backgroundColor: ForgeColors.statusBadFor(Theme.of(context).brightness)),
                 child: Text(l10n.delete),
               ),
             ],
@@ -464,14 +465,14 @@ class WorkoutsListViewState extends State<WorkoutsListView> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (_activePlanId == plan.id)
-                        const Icon(Icons.check_circle, color: Colors.green),
+                        Icon(Icons.check_circle, color: ForgeColors.statusOkFor(Theme.of(context).brightness)),
                       TextButton(
                         onPressed: () => _setActivePlan(plan.id!),
                         child: Text(
                           _activePlanId == plan.id ? l10n.active : l10n.setActive,
                           style: TextStyle(
                             color:
-                                _activePlanId == plan.id ? Colors.green : null,
+                                _activePlanId == plan.id ? ForgeColors.statusOkFor(Theme.of(context).brightness) : null,
                           ),
                         ),
                       ),

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:file_picker/file_picker.dart';
@@ -195,7 +196,7 @@ class _FitNotesImportViewState extends State<FitNotesImportView> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(AppLocalizations.of(context)!.importFailed(e)),
-          backgroundColor: Colors.red,
+          backgroundColor: ForgeColors.statusBadFor(Theme.of(context).brightness),
         ),
       );
     }

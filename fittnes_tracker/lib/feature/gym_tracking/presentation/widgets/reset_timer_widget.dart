@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
+import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 
 /// A countdown timer widget for rest periods between sets
@@ -161,7 +162,7 @@ class _RestTimerWidgetState extends State<RestTimerWidget>
                     backgroundColor: theme.colorScheme.surfaceVariant,
                     valueColor: AlwaysStoppedAnimation<Color>(
                       _remainingSeconds <= 10
-                          ? Colors.red
+                          ? ForgeColors.statusBadFor(Theme.of(context).brightness)
                           : theme.colorScheme.primary,
                     ),
                   ),
@@ -170,7 +171,7 @@ class _RestTimerWidgetState extends State<RestTimerWidget>
                   _formatTime(_remainingSeconds),
                   style: theme.textTheme.headlineMedium?.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: _remainingSeconds <= 10 ? Colors.red : null,
+                    color: _remainingSeconds <= 10 ? ForgeColors.statusBadFor(Theme.of(context).brightness) : null,
                   ),
                 ),
               ],
@@ -186,7 +187,7 @@ class _RestTimerWidgetState extends State<RestTimerWidget>
                   icon: const Icon(Icons.play_arrow),
                   label: Text(l10n.start),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
+                    backgroundColor: ForgeColors.statusOkFor(Theme.of(context).brightness),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -201,7 +202,7 @@ class _RestTimerWidgetState extends State<RestTimerWidget>
                   icon: const Icon(Icons.pause),
                   label: Text(l10n.pause),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange,
+                    backgroundColor: ForgeColors.statusWarnFor(Theme.of(context).brightness),
                   ),
                 ),
                 const SizedBox(width: 8),

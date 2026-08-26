@@ -1,4 +1,5 @@
 // lib/feature/presentation/view/food_add_screen.dart
+import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/utils/app_logger.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
@@ -640,7 +641,7 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('${item.name} (${newGramm}g) ${l10n.addedSuccessfully}'),
-        backgroundColor: Colors.green,
+        backgroundColor: ForgeColors.statusOkOnLight,
       ),
     );
   }
@@ -1075,7 +1076,7 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
         content: Text(
           '${newFood.name} ${AppLocalizations.of(context)!.addedSuccessfully}',
         ),
-        backgroundColor: Colors.green,
+        backgroundColor: ForgeColors.statusOkOnLight,
       ),
     );
   }

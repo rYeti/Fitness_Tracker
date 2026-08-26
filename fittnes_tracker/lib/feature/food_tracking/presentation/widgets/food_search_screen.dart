@@ -1,3 +1,4 @@
+import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
@@ -204,7 +205,7 @@ class _FoodSearchScreenState extends State<FoodSearchScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(l10n.foodAddedToYours(name)),
-          backgroundColor: Colors.green,
+          backgroundColor: ForgeColors.statusOkOnLight,
           duration: const Duration(seconds: 2),
         ),
       );
@@ -216,7 +217,7 @@ class _FoodSearchScreenState extends State<FoodSearchScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(l10n.errorAddingFood(e)),
-          backgroundColor: Colors.red,
+          backgroundColor: ForgeColors.statusBadOnLight,
         ),
       );
     }
