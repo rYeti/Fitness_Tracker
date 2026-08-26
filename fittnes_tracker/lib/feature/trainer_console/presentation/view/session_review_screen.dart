@@ -7,7 +7,7 @@ import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_console_
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/active_client_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/session_review_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/client_switcher.dart';
-import 'package:ForgeForm/feature/trainer_console/presentation/widgets/console_widgets.dart';
+import 'package:ForgeForm/core/widgets/app_widgets.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/status_badge.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/console_error.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
@@ -218,32 +218,32 @@ class _Body extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     if (activeClient.isLoading && activeClient.clients.isEmpty) {
-      return ConsoleSkeleton(semanticsLabel: l10n.sessionsLoading);
+      return LoadingSkeleton(semanticsLabel: l10n.sessionsLoading);
     }
     if (activeClient.error != null) {
-      return ConsoleErrorState(
+      return ErrorStateView(
         message: activeClient.error!.localizedMessage(l10n),
         onRetry: activeClient.loadClients,
       );
     }
     if (client == null) {
-      return ConsoleEmptyState(
+      return EmptyStateView(
         icon: Icons.group_outlined,
         title: l10n.rosterEmptyTitle,
         message: l10n.sessionReviewNoClientsBody,
       );
     }
     if (review.isLoading) {
-      return ConsoleSkeleton(semanticsLabel: l10n.sessionsLoading);
+      return LoadingSkeleton(semanticsLabel: l10n.sessionsLoading);
     }
     if (review.error != null) {
-      return ConsoleErrorState(
+      return ErrorStateView(
         message: review.error!.localizedMessage(l10n),
         onRetry: () => review.load(client!.clientId),
       );
     }
     if (review.sessions.isEmpty) {
-      return ConsoleEmptyState(
+      return EmptyStateView(
         icon: Icons.event_note_outlined,
         title: l10n.noSessionsLoggedTitle,
         message: l10n.noSessionsLoggedBody(client!.firstName),
@@ -323,7 +323,7 @@ class _HistoryList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    return ConsoleCard(
+    return AppCard(
       padding: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -556,7 +556,7 @@ class _SessionDetail extends StatelessWidget {
         _SessionHeroCard(session: session),
         const SizedBox(height: 14),
         if (session.isEmpty)
-          ConsoleEmptyState(
+          EmptyStateView(
             icon: Icons.event_busy_outlined,
             title: AppLocalizations.of(context)!.noWorkoutLoggedTitle,
             message: AppLocalizations.of(
@@ -587,7 +587,7 @@ class _SessionHeroCard extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final status = _statusDisplay(session.status, l10n);
 
-    return ConsoleCard(
+    return AppCard(
       radius: 16,
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -729,7 +729,7 @@ class _ExerciseCard extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final prescribed = exercise.prescribed?.summary;
 
-    return ConsoleCard(
+    return AppCard(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

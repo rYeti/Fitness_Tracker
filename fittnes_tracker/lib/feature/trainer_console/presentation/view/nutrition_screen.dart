@@ -8,7 +8,7 @@ import 'package:ForgeForm/feature/trainer_console/presentation/providers/active_
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/nutrition_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/calorie_ring.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/client_switcher.dart';
-import 'package:ForgeForm/feature/trainer_console/presentation/widgets/console_widgets.dart';
+import 'package:ForgeForm/core/widgets/app_widgets.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/macro_summary.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/meal_detail_sheet.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/console_error.dart';
@@ -254,27 +254,27 @@ class _Body extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     if (activeClient.isLoading && activeClient.clients.isEmpty) {
-      return ConsoleSkeleton(semanticsLabel: l10n.nutritionLoading);
+      return LoadingSkeleton(semanticsLabel: l10n.nutritionLoading);
     }
     if (activeClient.error != null) {
-      return ConsoleErrorState(
+      return ErrorStateView(
         message: activeClient.error!.localizedMessage(l10n),
         onRetry: activeClient.loadClients,
       );
     }
     final client = activeClient.activeClient;
     if (client == null) {
-      return ConsoleEmptyState(
+      return EmptyStateView(
         icon: Icons.group_outlined,
         title: l10n.rosterEmptyTitle,
         message: l10n.nutritionNoClientsBody,
       );
     }
     if (nutrition.isLoading) {
-      return ConsoleSkeleton(semanticsLabel: l10n.nutritionLoading);
+      return LoadingSkeleton(semanticsLabel: l10n.nutritionLoading);
     }
     if (nutrition.error != null) {
-      return ConsoleErrorState(
+      return ErrorStateView(
         message: nutrition.error!.localizedMessage(l10n),
         onRetry: () => nutrition.load(client.clientId),
       );
@@ -282,7 +282,7 @@ class _Body extends StatelessWidget {
 
     final summary = nutrition.summary;
     if (summary == null) {
-      return ConsoleSkeleton(semanticsLabel: l10n.nutritionLoading);
+      return LoadingSkeleton(semanticsLabel: l10n.nutritionLoading);
     }
 
     final ringCard = _RingCard(summary: summary);
@@ -331,7 +331,7 @@ class _RingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ConsoleCard(
+    return AppCard(
       radius: 16,
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -388,7 +388,7 @@ class _MealsCard extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
 
     if (summary.loggedMeals.isEmpty) {
-      return ConsoleEmptyState(
+      return EmptyStateView(
         icon: Icons.no_meals_outlined,
         title: l10n.nothingLogged,
         message: l10n.nothingLoggedBody(clientName),
@@ -404,11 +404,11 @@ class _MealsCard extends StatelessWidget {
           .compareTo(bi < 0 ? _categoryOrder.length : bi);
     });
 
-    return ConsoleCard(
+    return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ConsoleSectionTitle(title: l10n.mealsLogged),
+          SectionTitle(title: l10n.mealsLogged),
           for (final meal in meals) ...[
             _MealRow(meal: meal),
             if (meal != meals.last)
@@ -557,7 +557,7 @@ class _TrendCard extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
 
     if (trend.isEmpty) {
-      return ConsoleEmptyState(
+      return EmptyStateView(
         icon: Icons.bar_chart_outlined,
         title: l10n.noTrendYet,
         message: l10n.noTrendYetBody,
@@ -572,11 +572,11 @@ class _TrendCard extends StatelessWidget {
       ...trend.map((d) => d.goal),
     ].fold<int>(1, (a, b) => b > a ? b : a);
 
-    return ConsoleCard(
+    return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ConsoleSectionTitle(title: l10n.caloriesVsTarget),
+          SectionTitle(title: l10n.caloriesVsTarget),
           SizedBox(
             height: 150,
             child: Row(

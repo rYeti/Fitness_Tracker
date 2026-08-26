@@ -17,7 +17,7 @@ import 'package:ForgeForm/feature/trainer_console/presentation/view/nutrition_sc
 import 'package:ForgeForm/feature/trainer_console/presentation/view/session_review_screen.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/view/trainer_dashboard_screen.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/view/workout_builder_screen.dart';
-import 'package:ForgeForm/feature/trainer_console/presentation/widgets/console_widgets.dart';
+import 'package:ForgeForm/core/widgets/app_widgets.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/trainer_console_shell.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 
@@ -186,7 +186,7 @@ class _ChatUnavailable extends StatelessWidget {
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
       body: SafeArea(
-        child: ConsoleEmptyState(
+        child: EmptyStateView(
           icon: Icons.forum_outlined,
           title: l10n.chatUnavailable,
           message: l10n.chatUnavailableBody,

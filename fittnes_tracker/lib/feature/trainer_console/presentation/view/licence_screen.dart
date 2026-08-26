@@ -7,7 +7,7 @@ import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_licence.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/trainer_licence_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/view/invite_client_sheet.dart';
-import 'package:ForgeForm/feature/trainer_console/presentation/widgets/console_widgets.dart';
+import 'package:ForgeForm/core/widgets/app_widgets.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/licence_banner.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/seat_meter.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/console_error.dart';
@@ -53,7 +53,7 @@ class _LicenceScreenState extends State<LicenceScreen> {
             if (provider.isLoading) {
               return Padding(
                 padding: const EdgeInsets.all(16),
-                child: ConsoleSkeleton(
+                child: LoadingSkeleton(
                   rows: 3,
                   rowHeight: 96,
                   semanticsLabel: l10n.licenceLoadingLabel,
@@ -62,7 +62,7 @@ class _LicenceScreenState extends State<LicenceScreen> {
             }
 
             if (provider.error != null) {
-              return ConsoleErrorState(
+              return ErrorStateView(
                 message: provider.error!.localizedMessage(l10n),
                 onRetry: provider.load,
               );
@@ -74,7 +74,7 @@ class _LicenceScreenState extends State<LicenceScreen> {
             // button that silently made you a trainer is the bug being fixed.
             final licence = provider.licence;
             if (licence == null) {
-              return ConsoleEmptyState(
+              return EmptyStateView(
                 icon: Icons.lock_outline_rounded,
                 title: l10n.trainerAccessOnly,
                 message: l10n.trainerAccessOnlyBody,
@@ -117,8 +117,8 @@ class _LicenceBody extends StatelessWidget {
               ],
               _PlanCard(licence: licence, provider: provider),
               const SizedBox(height: 24),
-              ConsoleSectionTitle(title: l10n.clientsHeading),
-              ConsoleCard(
+              SectionTitle(title: l10n.clientsHeading),
+              AppCard(
                 padding: const EdgeInsets.all(24),
                 radius: 16,
                 child: Column(
@@ -138,7 +138,7 @@ class _LicenceBody extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 24),
-              ConsoleSectionTitle(title: l10n.changePlan),
+              SectionTitle(title: l10n.changePlan),
               for (final tier in const [
                 LicenceTier.solo,
                 LicenceTier.pro,
@@ -205,7 +205,7 @@ class _PlanCard extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     final l10n = AppLocalizations.of(context)!;
 
-    return ConsoleCard(
+    return AppCard(
       padding: const EdgeInsets.all(24),
       radius: 16,
       child: Column(
@@ -337,7 +337,7 @@ class _TierRow extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     final l10n = AppLocalizations.of(context)!;
 
-    return ConsoleCard(
+    return AppCard(
       onTap: isCurrent ? null : onSelect,
       child: Row(
         children: [

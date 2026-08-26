@@ -12,8 +12,8 @@ import 'package:ForgeForm/feature/trainer_console/presentation/view/invite_clien
 import 'package:ForgeForm/feature/trainer_console/presentation/view/licence_screen.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/licence_banner.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/seat_meter.dart';
-import 'package:ForgeForm/feature/trainer_console/presentation/widgets/client_avatar.dart';
-import 'package:ForgeForm/feature/trainer_console/presentation/widgets/console_widgets.dart';
+import 'package:ForgeForm/core/widgets/client_avatar.dart';
+import 'package:ForgeForm/core/widgets/app_widgets.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/stat_tile.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/status_badge.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
@@ -180,10 +180,10 @@ class _Body extends StatelessWidget {
           )
         else
           SizedBox(
-            // ConsoleSkeleton draws a card, so the box has to clear rowHeight plus the
+            // LoadingSkeleton draws a card, so the box has to clear rowHeight plus the
             // card's 16px padding either side plus its 11px bottom gap.
             height: 96,
-            child: ConsoleSkeleton(
+            child: LoadingSkeleton(
               rows: 1,
               rowHeight: 48,
               semanticsLabel: l10n.kpisLoading,
@@ -228,7 +228,7 @@ class _Body extends StatelessWidget {
   }
 }
 
-/// A failed KPI load, said in one line instead of the full-height [ConsoleErrorState].
+/// A failed KPI load, said in one line instead of the full-height [ErrorStateView].
 ///
 /// The KPI row is a strip, not a pane: giving it the tall centred error state would push
 /// the roster off a phone screen for the sake of three numbers that failed to load. The
@@ -244,7 +244,7 @@ class _KpiErrorStrip extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     final l10n = AppLocalizations.of(context)!;
 
-    return ConsoleCard(
+    return AppCard(
       child: Row(
         children: [
           Icon(
@@ -304,18 +304,18 @@ class _RosterSection extends StatelessWidget {
     final roster = activeClient.clients;
 
     if (activeClient.isLoading && roster.isEmpty) {
-      return ConsoleSkeleton(semanticsLabel: l10n.rosterLoading);
+      return LoadingSkeleton(semanticsLabel: l10n.rosterLoading);
     }
 
     if (activeClient.error != null && roster.isEmpty) {
-      return ConsoleErrorState(
+      return ErrorStateView(
         message: activeClient.error!.localizedMessage(l10n),
         onRetry: activeClient.loadClients,
       );
     }
 
     if (roster.isEmpty) {
-      return ConsoleEmptyState(
+      return EmptyStateView(
         icon: Icons.group_outlined,
         title: l10n.rosterEmptyTitle,
         message: l10n.rosterEmptyBody,
@@ -419,7 +419,7 @@ class _KpiRow extends StatelessWidget {
     return Row(
       children: [
         for (final tile in tiles) ...[
-          Expanded(child: ConsoleCard(child: tile)),
+          Expanded(child: AppCard(child: tile)),
           if (tile != tiles.last) const SizedBox(width: 12),
         ],
       ],
@@ -507,7 +507,7 @@ class _RosterCard extends StatelessWidget {
     final locale = Localizations.localeOf(context).toString();
     final adherence = entry.adherencePercent;
 
-    return ConsoleCard(
+    return AppCard(
       onTap: onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -637,7 +637,7 @@ class _RosterTable extends StatelessWidget {
       color: colors.onSurface.withValues(alpha: 0.55),
     );
 
-    return ConsoleCard(
+    return AppCard(
       padding: EdgeInsets.zero,
       child: Column(
         children: [

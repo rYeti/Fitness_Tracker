@@ -4,7 +4,7 @@ import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/feature/chat/domain/chat_timestamps.dart';
 import 'package:ForgeForm/feature/chat/domain/models/conversation_summary.dart';
 import 'package:ForgeForm/feature/chat/presentation/widgets/unread_badge.dart';
-import 'package:ForgeForm/feature/trainer_console/presentation/widgets/client_avatar.dart';
+import 'package:ForgeForm/core/widgets/client_avatar.dart';
 
 /// One row in the conversation list: avatar, name, time, truncated preview and
 /// an unread count. Shared by the console's list pane and any other surface that

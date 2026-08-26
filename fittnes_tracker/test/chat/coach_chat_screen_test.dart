@@ -12,7 +12,7 @@ import 'package:ForgeForm/feature/chat/data/chat_repository.dart';
 import 'package:ForgeForm/feature/chat/presentation/providers/chat_provider.dart';
 import 'package:ForgeForm/feature/chat/presentation/view/coach_chat_screen.dart';
 import 'package:ForgeForm/feature/chat/presentation/widgets/chat_composer.dart';
-import 'package:ForgeForm/feature/trainer_console/presentation/widgets/console_widgets.dart';
+import 'package:ForgeForm/core/widgets/app_widgets.dart';
 
 import 'fakes.dart';
 
@@ -115,7 +115,7 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.byType(ConsoleSkeleton), findsOneWidget);
+    expect(find.byType(LoadingSkeleton), findsOneWidget);
 
     gate.complete();
     await tester.pumpAndSettle();
@@ -182,6 +182,6 @@ void main() {
   testWidgets('a failed history load offers a retry', (tester) async {
     await pump(tester, api: FakeChatApi(throwOnHistory: true));
 
-    expect(find.byType(ConsoleErrorState), findsOneWidget);
+    expect(find.byType(ErrorStateView), findsOneWidget);
   });
 }

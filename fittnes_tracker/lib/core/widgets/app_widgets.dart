@@ -10,13 +10,13 @@ import 'package:ForgeForm/l10n/app_localizations.dart';
 
 /// Card chrome from the handoff: 12px radius (16 for hero cards), hairline
 /// border, soft shadow.
-class ConsoleCard extends StatelessWidget {
+class AppCard extends StatelessWidget {
   final Widget child;
   final EdgeInsets padding;
   final double radius;
   final VoidCallback? onTap;
 
-  const ConsoleCard({
+  const AppCard({
     super.key,
     required this.child,
     this.padding = const EdgeInsets.all(16),
@@ -59,11 +59,11 @@ class ConsoleCard extends StatelessWidget {
 }
 
 /// Section heading used above card groups.
-class ConsoleSectionTitle extends StatelessWidget {
+class SectionTitle extends StatelessWidget {
   final String title;
   final Widget? trailing;
 
-  const ConsoleSectionTitle({super.key, required this.title, this.trailing});
+  const SectionTitle({super.key, required this.title, this.trailing});
 
   @override
   Widget build(BuildContext context) {
@@ -92,7 +92,7 @@ class ConsoleSectionTitle extends StatelessWidget {
 
 /// Skeleton placeholder shaped like the content it replaces — per CLAUDE.md,
 /// never a bare spinner for anything above ~300ms.
-class ConsoleSkeleton extends StatelessWidget {
+class LoadingSkeleton extends StatelessWidget {
   final int rows;
   final double rowHeight;
 
@@ -101,7 +101,7 @@ class ConsoleSkeleton extends StatelessWidget {
   /// [build] because a localized default can't be a const constructor value.
   final String? semanticsLabel;
 
-  const ConsoleSkeleton({
+  const LoadingSkeleton({
     super.key,
     this.rows = 5,
     this.rowHeight = 64,
@@ -118,7 +118,7 @@ class ConsoleSkeleton extends StatelessWidget {
         itemCount: rows,
         itemBuilder: (context, index) => Padding(
           padding: const EdgeInsets.only(bottom: 11),
-          child: ConsoleCard(
+          child: AppCard(
             child: SizedBox(
               height: rowHeight,
               child: Column(
@@ -149,11 +149,11 @@ class ConsoleSkeleton extends StatelessWidget {
 }
 
 /// Inline, recoverable error — never a silent failure or a raw exception.
-class ConsoleErrorState extends StatelessWidget {
+class ErrorStateView extends StatelessWidget {
   final String message;
   final VoidCallback onRetry;
 
-  const ConsoleErrorState({
+  const ErrorStateView({
     super.key,
     required this.message,
     required this.onRetry,
@@ -197,7 +197,7 @@ class ConsoleErrorState extends StatelessWidget {
 }
 
 /// Icon + message (+ optional action) rather than a blank screen.
-class ConsoleEmptyState extends StatelessWidget {
+class EmptyStateView extends StatelessWidget {
   final IconData icon;
   final String title;
   final String message;
@@ -206,7 +206,7 @@ class ConsoleEmptyState extends StatelessWidget {
   /// Wraps the state in a card, for empty regions inside a populated screen.
   final bool inCard;
 
-  const ConsoleEmptyState({
+  const EmptyStateView({
     super.key,
     required this.icon,
     required this.title,
@@ -252,7 +252,7 @@ class ConsoleEmptyState extends StatelessWidget {
         child: Padding(padding: const EdgeInsets.all(24), child: content),
       );
     }
-    return ConsoleCard(
+    return AppCard(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 44),
       child: Center(child: content),
     );

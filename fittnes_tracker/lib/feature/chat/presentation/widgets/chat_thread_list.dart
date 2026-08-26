@@ -4,7 +4,7 @@ import 'package:ForgeForm/feature/chat/domain/models/thread_message.dart';
 import 'package:ForgeForm/feature/chat/presentation/providers/chat_provider.dart';
 import 'package:ForgeForm/feature/chat/presentation/widgets/chat_bubble.dart';
 import 'package:ForgeForm/feature/chat/presentation/widgets/chat_date_divider.dart';
-import 'package:ForgeForm/feature/trainer_console/presentation/widgets/console_widgets.dart';
+import 'package:ForgeForm/core/widgets/app_widgets.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 
 /// The message list, in all four of its states.
@@ -107,7 +107,7 @@ class _ChatThreadListState extends State<ChatThreadList> {
     if (chat.isThreadLoading) {
       return Padding(
         padding: const EdgeInsets.all(16),
-        child: ConsoleSkeleton(
+        child: LoadingSkeleton(
           rows: 4,
           rowHeight: 40,
           semanticsLabel: l10n.messagesLoading,
@@ -115,13 +115,13 @@ class _ChatThreadListState extends State<ChatThreadList> {
       );
     }
     if (chat.threadError != null) {
-      return ConsoleErrorState(
+      return ErrorStateView(
         message: l10n.coachChatLoadError,
         onRetry: widget.onRetry,
       );
     }
     if (chat.thread.isEmpty) {
-      return ConsoleEmptyState(
+      return EmptyStateView(
         icon: Icons.waving_hand_outlined,
         title: l10n.coachChatEmpty,
         message: widget.emptyMessage,

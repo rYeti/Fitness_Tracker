@@ -9,7 +9,7 @@ import 'package:ForgeForm/feature/chat/data/chat_repository.dart';
 import 'package:ForgeForm/feature/chat/data/signalr_hub_chat_client.dart';
 import 'package:ForgeForm/feature/chat/presentation/providers/chat_provider.dart';
 import 'package:ForgeForm/feature/chat/presentation/view/coach_chat_screen.dart';
-import 'package:ForgeForm/feature/trainer_console/presentation/widgets/console_widgets.dart';
+import 'package:ForgeForm/core/widgets/app_widgets.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 
 /// Owns the chat connection for the trainee app.
@@ -69,7 +69,7 @@ class _CoachChatEntryState extends State<CoachChatEntry> {
       return Scaffold(
         appBar: AppBar(title: Text(l10n.coachChat)),
         body: SafeArea(
-          child: ConsoleEmptyState(
+          child: EmptyStateView(
             icon: Icons.forum_outlined,
             title: l10n.chatUnavailable,
             message: l10n.chatUnavailableBody,
