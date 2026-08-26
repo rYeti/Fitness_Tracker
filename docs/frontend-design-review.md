@@ -607,3 +607,74 @@ obvious.
 
 That is the argument for seeding realistically rather than minimally. With an
 empty database every one of these reads as a harmless zero.
+
+---
+
+## 10. Corrections
+
+Planning the fixes meant reading the widgets properly rather than inferring
+them from a screenshot. That disproved three claims made above. They are
+corrected here rather than quietly edited, because the *reason* each was wrong
+is the useful part.
+
+### 10a. The calorie ring is not broken
+
+§9b called the unfilled ring a consequence of the calorie-goal defect. It
+isn't. `calorie_ring.dart` already handles a missing goal deliberately:
+
+```dart
+final hasGoal = kcalGoal > 0;
+final progress = hasGoal ? kcalConsumed / kcalGoal : 0.0;
+...
+final label = !hasGoal ? l10n.calorieRingNoGoal(kcalConsumed) : ...
+```
+
+It draws no arc, swaps the "Goal 2000" caption for a plain `kcal`, hides the
+remaining/over line entirely, and announces *"2512 kcal logged, no goal set"*
+to a screen reader. Every one of those is the right behaviour. What I
+photographed as a defect was a widget correctly reporting that there was
+nothing to measure against.
+
+### 10b. The chart legend is not lying either
+
+§9's note that "the legend describes a distinction the chart never draws" was
+wrong for the same reason. `isOverBudget` is:
+
+```dart
+bool get isOverBudget => goal > 0 && totalCalories > goal;
+```
+
+With no goal, no day *can* be over budget, so every bar is correctly the
+within-target orange. The chart is consistent with itself.
+
+### 10c. Food's app-bar icons are labelled
+
+§9d listed "two app-bar icons" among the unnamed controls on the Food screen.
+Both actually carry tooltips — `mealTemplates` and `refresh`
+(`food_tracking_screen.dart:233,240`). The two unnamed controls at that height
+are the **date-navigation arrows** (`:275,286`), which have none. The count of
+20 stands; two of them were misattributed.
+
+### What survives
+
+The calorie-goal defect itself (§9b) is untouched and still real: the API's
+`?? 0` makes the console believe a client has no goal when both the server
+model and the client default to 2000. What narrows is the blast radius. Three
+widgets handle "no goal" gracefully, so the visible damage is one string —
+`targetCalories: 'Target {goal} kcal'` rendering **"Target 0 kcal"** where the
+ring, eight centimetres away, already knows to say *"no goal set"*.
+
+### The lesson
+
+All three errors share a shape: **I inferred widget behaviour from a rendered
+screenshot instead of reading the widget.** The screenshot showed an empty
+ring, uniform bars and unlabelled icons — all true observations, all attributed
+to the wrong cause. Rendering tells you *what a screen looks like*; only the
+source tells you *why*, and a review that skips the second step will
+confidently file correct behaviour as a bug.
+
+That cuts against the conclusion of §8, which argued for rendering as the
+method source reading can't replace. Both halves of that are true, and the
+order matters: **render to find where to look, read to find out what is
+actually wrong.** Stopping after the first step produces exactly these three
+findings.
