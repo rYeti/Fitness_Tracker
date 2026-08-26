@@ -24,13 +24,15 @@ See `docs/android-release.md`.
 
 ## Unreleased
 
-Text, buttons and status badges are much easier to read in the light theme, and text fields now have a visible outline.
+One app, one look: the same navigation and title bars everywhere, and correct spacing at the top and bottom of every screen. Your avatar no longer covers the dashboard greeting.
 
-The Trainer Console opens far faster, loads only the section you are looking at, and now has real web addresses, so back and bookmarks work.
+A failed load now says so and offers a retry, instead of claiming you have no workouts.
 
-Chat messages show the time they were sent, and each day's date is correct — it could read 01/01/0001.
+Light theme text, buttons, badges and fields are easier to read.
 
-Also fixed: the dashboard showed zero sessions every Sunday, and exercise names were missing from the strength chart.
+The Trainer Console opens faster and has real web addresses.
+
+Chat messages show the time they were sent.
 
 ## 1.0.2+13
 
