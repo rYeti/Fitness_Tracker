@@ -21,11 +21,18 @@ class FakeTrainerConsoleRepository implements TrainerConsoleRepository {
   final bool throwOnNutrition;
   final bool throwOnRoster;
 
-  /// Completes only when a test says so, to hold a screen in loading. [gate] holds every
-  /// gated call; [kpiGate] holds only the KPI fetch, so a test can let the roster land
-  /// while the KPIs are still in flight — which is the whole point of the Dashboard's
-  /// per-section loading.
+  /// Completers that hold a fetch open so a test can look at a loading state.
+  ///
+  /// One per concern, deliberately. [gate] holds a *screen's own* client-scoped data —
+  /// sessions, nutrition, workout summary, templates. The roster and the KPIs have their
+  /// own, because they are shell-level and load independently of any one screen.
+  ///
+  /// The roster in particular must not sit behind [gate]: every per-client screen's
+  /// `_pump` **awaits** `ActiveClientProvider.loadClients()` before pumping the widget,
+  /// since there is nothing to render until an active client exists. A gate covering both
+  /// deadlocks those tests — the completer is only completed after `_pump` returns.
   final Completer<void>? gate;
+  final Completer<void>? rosterGate;
   final Completer<void>? kpiGate;
 
   /// How many times each fetch was made, so a test can assert that a section nobody has
@@ -48,6 +55,7 @@ class FakeTrainerConsoleRepository implements TrainerConsoleRepository {
     this.throwOnNutrition = false,
     this.throwOnRoster = false,
     this.gate,
+    this.rosterGate,
     this.kpiGate,
   });
 
@@ -56,7 +64,7 @@ class FakeTrainerConsoleRepository implements TrainerConsoleRepository {
   @override
   Future<List<TrainerRosterEntry>> getRosterWithStats() async {
     _record('roster');
-    if (gate != null) await gate!.future;
+    if (rosterGate != null) await rosterGate!.future;
     if (throwOnRoster) throw Exception('boom');
     return rosterWithStats;
   }
@@ -65,7 +73,6 @@ class FakeTrainerConsoleRepository implements TrainerConsoleRepository {
   Future<TrainerDashboardKpis> getDashboardKpis() async {
     _record('kpis');
     if (kpiGate != null) await kpiGate!.future;
-    if (gate != null) await gate!.future;
     if (throwOnDashboard) throw Exception('boom');
     return kpis ??
         const TrainerDashboardKpis(

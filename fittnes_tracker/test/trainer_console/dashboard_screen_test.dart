@@ -59,8 +59,14 @@ void main() {
   testWidgets('each section shows its own skeleton while it loads', (
     tester,
   ) async {
+    // Both sections held by one completer, but through their own gates: the roster and
+    // the KPIs are separate fetches now, and the fake keeps them separable so a test can
+    // hold either alone.
     final gate = Completer<void>();
-    await _pump(tester, FakeTrainerConsoleRepository(gate: gate));
+    await _pump(
+      tester,
+      FakeTrainerConsoleRepository(rosterGate: gate, kpiGate: gate),
+    );
     await tester.pump();
 
     expect(find.bySemanticsLabel('Loading clients'), findsOneWidget);
@@ -122,7 +128,10 @@ void main() {
     // Page chrome used to sit behind the same gate as the data, so a trainer waiting on
     // a slow roster could not do the one thing an empty console is for.
     final gate = Completer<void>();
-    await _pump(tester, FakeTrainerConsoleRepository(gate: gate));
+    await _pump(
+      tester,
+      FakeTrainerConsoleRepository(rosterGate: gate, kpiGate: gate),
+    );
     await tester.pump();
 
     expect(find.widgetWithText(OutlinedButton, 'Invite'), findsOneWidget);
