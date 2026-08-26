@@ -274,6 +274,7 @@ class _FoodTrackingScreenState extends State<FoodTrackingScreen> {
       children: [
         IconButton(
           icon: const Icon(Icons.arrow_back_ios, size: 18),
+          tooltip: l10n.previousDay,
           onPressed: _prevDay,
         ),
         TextButton(
@@ -281,10 +282,13 @@ class _FoodTrackingScreenState extends State<FoodTrackingScreen> {
           child: Text(
             dateFormat.format(_selectedDate),
             style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+            semanticsLabel:
+                '${dateFormat.format(_selectedDate)}. ${l10n.pickDate}',
           ),
         ),
         IconButton(
           icon: const Icon(Icons.arrow_forward_ios, size: 18),
+          tooltip: l10n.nextDay,
           onPressed: _nextDay,
         ),
         if (!_isToday)
@@ -505,12 +509,23 @@ class _FoodTrackingScreenState extends State<FoodTrackingScreen> {
                             loadNutritionData();
                             _refreshDashboard();
                           },
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const SizedBox(width: 8),
-                              const Icon(Icons.add, size: 22),
-                            ],
+                          // A bare "+" is the only affordance for adding food
+                          // to this category, so it has to say which category
+                          // it belongs to — there is one per meal and they are
+                          // otherwise indistinguishable.
+                          child: Tooltip(
+                            message: AppLocalizations.of(
+                              context,
+                            )!.addFoodToCategory(category),
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(
+                                minWidth: 44,
+                                minHeight: 44,
+                              ),
+                              child: const Center(
+                                child: Icon(Icons.add, size: 22),
+                              ),
+                            ),
                           ),
                         ),
                       ],
@@ -560,10 +575,36 @@ class _FoodTrackingScreenState extends State<FoodTrackingScreen> {
                                 children: [
                                   IconButton(
                                     icon: const Icon(Icons.edit, size: 18),
+                                    // Naming the food matters more here than
+                                    // anywhere else on the screen: a row of
+                                    // bare "Edit"/"Delete" buttons gives a
+                                    // screen-reader user no way to tell which
+                                    // meal entry they are about to change.
+                                    tooltip: AppLocalizations.of(
+                                      context,
+                                    )!.editFoodEntry(food.name),
+                                    // 44x44 per CLAUDE.md; IconButton's own
+                                    // default sits below it once the icon is
+                                    // shrunk to 18.
+                                    constraints: const BoxConstraints(
+                                      minWidth: 44,
+                                      minHeight: 44,
+                                    ),
                                     onPressed: () => _editPortion(category, food),
                                   ),
+                                  // Destructive and non-destructive actions
+                                  // were adjacent with no gap, so a mis-tap
+                                  // landed on delete.
+                                  const SizedBox(width: 8),
                                   IconButton(
                                     icon: const Icon(Icons.delete_outline),
+                                    tooltip: AppLocalizations.of(
+                                      context,
+                                    )!.deleteFoodEntry(food.name),
+                                    constraints: const BoxConstraints(
+                                      minWidth: 44,
+                                      minHeight: 44,
+                                    ),
                                     onPressed: () async {
                                       final l10n = AppLocalizations.of(context)!;
                                       final confirmed = await showDialog<bool>(

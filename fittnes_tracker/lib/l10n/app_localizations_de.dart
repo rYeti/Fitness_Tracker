@@ -1661,11 +1661,11 @@ class AppLocalizationsDe extends AppLocalizations {
       'Bist du sicher, dass du dich abmelden möchtest?';
 
   @override
-  String get signOutUnsyncedTitle => 'Nicht synchronisierte \u00c4nderungen';
+  String get signOutUnsyncedTitle => 'Nicht synchronisierte Änderungen';
 
   @override
   String signOutUnsyncedBody(int count) {
-    return '$count \u00c4nderungen haben den Server noch nicht erreicht. Beim Abmelden werden die lokalen Daten dieses Ger\u00e4ts gel\u00f6scht, sie gingen also verloren \u2014 einschlie\u00dflich gel\u00f6schter \u00dcbungen, die dadurch zur\u00fcckk\u00e4men.';
+    return '$count Änderungen haben den Server noch nicht erreicht. Beim Abmelden werden die lokalen Daten dieses Geräts gelöscht, sie gingen also verloren — einschließlich gelöschter Übungen, die dadurch zurückkämen.';
   }
 
   @override
@@ -3369,4 +3369,22 @@ class AppLocalizationsDe extends AppLocalizations {
   ) {
     return '$name, $calories kcal, Protein $protein g, Kohlenhydrate $carbs g, Fett $fat g';
   }
+
+  @override
+  String editFoodEntry(String food) {
+    return '$food bearbeiten';
+  }
+
+  @override
+  String deleteFoodEntry(String food) {
+    return '$food löschen';
+  }
+
+  @override
+  String addFoodToCategory(String category) {
+    return 'Lebensmittel zu $category hinzufügen';
+  }
+
+  @override
+  String get pickDate => 'Datum wählen';
 }

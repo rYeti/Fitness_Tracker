@@ -935,7 +935,7 @@
   "signOut": "Sign Out",
   "signOutConfirm": "Are you sure you want to sign out?",
   "signOutUnsyncedTitle": "Unsynced changes",
-  "signOutUnsyncedBody": "{count} changes haven't reached the server yet. Signing out clears this device's copy of your account, so they would be lost \u2014 including any exercises you deleted, which would come back.",
+  "signOutUnsyncedBody": "{count} changes haven't reached the server yet. Signing out clears this device's copy of your account, so they would be lost — including any exercises you deleted, which would come back.",
   "@signOutUnsyncedBody": {
     "placeholders": {
       "count": {
@@ -1760,8 +1760,12 @@
   "inviteFailureSeatLimitReachedDetailed": "Your plan covers {seatLimit} clients and all {seatsUsed} are in use. Upgrade or free up a seat.",
   "@inviteFailureSeatLimitReachedDetailed": {
     "placeholders": {
-      "seatsUsed": { "type": "int" },
-      "seatLimit": { "type": "int" }
+      "seatsUsed": {
+        "type": "int"
+      },
+      "seatLimit": {
+        "type": "int"
+      }
     }
   },
   "@inviteFailureNetwork": {},
@@ -2348,5 +2352,31 @@
         "type": "int"
       }
     }
-  }
+  },
+  "editFoodEntry": "Edit {food}",
+  "@editFoodEntry": {
+    "placeholders": {
+      "food": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteFoodEntry": "Delete {food}",
+  "@deleteFoodEntry": {
+    "placeholders": {
+      "food": {
+        "type": "String"
+      }
+    }
+  },
+  "addFoodToCategory": "Add food to {category}",
+  "@addFoodToCategory": {
+    "placeholders": {
+      "category": {
+        "type": "String"
+      }
+    }
+  },
+  "pickDate": "Choose a date",
+  "@pickDate": {}
 }

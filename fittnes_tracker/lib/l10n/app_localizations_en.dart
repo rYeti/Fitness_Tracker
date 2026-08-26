@@ -1653,7 +1653,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String signOutUnsyncedBody(int count) {
-    return '$count changes haven\'t reached the server yet. Signing out clears this device\'s copy of your account, so they would be lost \u2014 including any exercises you deleted, which would come back.';
+    return '$count changes haven\'t reached the server yet. Signing out clears this device\'s copy of your account, so they would be lost — including any exercises you deleted, which would come back.';
   }
 
   @override
@@ -3335,4 +3335,22 @@ class AppLocalizationsEn extends AppLocalizations {
   ) {
     return '$name, $calories kcal, protein ${protein}g, carbs ${carbs}g, fat ${fat}g';
   }
+
+  @override
+  String editFoodEntry(String food) {
+    return 'Edit $food';
+  }
+
+  @override
+  String deleteFoodEntry(String food) {
+    return 'Delete $food';
+  }
+
+  @override
+  String addFoodToCategory(String category) {
+    return 'Add food to $category';
+  }
+
+  @override
+  String get pickDate => 'Choose a date';
 }

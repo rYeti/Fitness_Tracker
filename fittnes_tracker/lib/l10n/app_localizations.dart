@@ -3101,7 +3101,7 @@ abstract class AppLocalizations {
   /// No description provided for @signOutUnsyncedBody.
   ///
   /// In en, this message translates to:
-  /// **'{count} changes haven\'t reached the server yet. Signing out clears this device\'s copy of your account, so they would be lost \u2014 including any exercises you deleted, which would come back.'**
+  /// **'{count} changes haven\'t reached the server yet. Signing out clears this device\'s copy of your account, so they would be lost — including any exercises you deleted, which would come back.'**
   String signOutUnsyncedBody(int count);
 
   /// No description provided for @signOutAnyway.
@@ -5917,6 +5917,30 @@ abstract class AppLocalizations {
     int carbs,
     int fat,
   );
+
+  /// No description provided for @editFoodEntry.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit {food}'**
+  String editFoodEntry(String food);
+
+  /// No description provided for @deleteFoodEntry.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete {food}'**
+  String deleteFoodEntry(String food);
+
+  /// No description provided for @addFoodToCategory.
+  ///
+  /// In en, this message translates to:
+  /// **'Add food to {category}'**
+  String addFoodToCategory(String category);
+
+  /// No description provided for @pickDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a date'**
+  String get pickDate;
 }
 
 class _AppLocalizationsDelegate
