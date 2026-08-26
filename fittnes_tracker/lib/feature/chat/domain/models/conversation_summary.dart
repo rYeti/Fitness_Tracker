@@ -1,3 +1,5 @@
+import 'package:ForgeForm/feature/chat/domain/chat_timestamps.dart';
+
 /// One row in the Chat conversation list — who the thread is with, plus the last
 /// message's preview. See design handoff README section 3 ("Messages") for the
 /// row spec (avatar, name, timestamp, truncated preview, unread dot).
@@ -25,12 +27,14 @@ class ConversationSummary {
   });
 
   factory ConversationSummary.fromJson(Map<String, dynamic> json) {
-    final lastAt = json['lastMessageAt'] as String?;
     return ConversationSummary(
       clientId: json['otherPartyId'] as String,
       clientName: json['otherPartyName'] as String? ?? '',
       lastMessagePreview: json['lastMessagePreview'] as String?,
-      lastMessageAt: lastAt == null ? null : DateTime.parse(lastAt),
+      // Null is a real state here — a relationship with no messages yet — so a
+      // timestamp that cannot be read stays null and the row simply shows no
+      // time, rather than claiming one.
+      lastMessageAt: ChatTimestamps.parseInstant(json['lastMessageAt']),
       unreadCount: json['unreadCount'] as int? ?? 0,
     );
   }

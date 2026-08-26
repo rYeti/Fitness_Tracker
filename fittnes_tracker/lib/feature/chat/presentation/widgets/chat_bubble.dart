@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/design_tokens.dart';
+import 'package:ForgeForm/feature/chat/domain/chat_timestamps.dart';
 import 'package:ForgeForm/feature/chat/domain/models/thread_message.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 
@@ -39,6 +40,11 @@ class ChatBubble extends StatelessWidget {
     final pending = message.status == ChatMessageStatus.pending;
     final failed = message.status == ChatMessageStatus.failed;
 
+    // Only a message the server has acknowledged has a real time to show. The
+    // other two states carry the moment this device queued them, which is not
+    // the same thing and must not be read as one.
+    final settled = !pending && !failed;
+
     final bubble = Container(
       constraints: const BoxConstraints(maxWidth: 420),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -65,7 +71,13 @@ class ChatBubble extends StatelessWidget {
         children: [
           Semantics(
             label: mine ? 'You said' : 'They said',
-            value: message.body ?? '',
+            // The time is part of what was said, not decoration: a screen reader
+            // gets no day divider and no small grey text, so without it a thread
+            // reads as one undated run of messages.
+            value: settled
+                ? '${message.body ?? ''}, '
+                    '${ChatTimestamps.accessibleLabel(message.timestamp)}'
+                : message.body ?? '',
             excludeSemantics: true,
             child: Opacity(
               // Dimmed rather than hidden: the message is real and the user
@@ -74,8 +86,19 @@ class ChatBubble extends StatelessWidget {
               child: bubble,
             ),
           ),
-          if (pending) const _SendingMarker(),
-          if (failed) _FailedMarker(onTap: () => onRetry?.call(message.messageId)),
+          // One line under the bubble, and only ever one thing on it: a settled
+          // message shows when it was sent, an unsettled one shows why it has no
+          // time yet. Pending deliberately shows no clock time — the moment the
+          // user pressed send is not the moment the message exists, and printing
+          // it would date a message the server may never have received.
+          if (pending)
+            const _SendingMarker()
+          else if (failed)
+            _FailedMarker(onTap: () => onRetry?.call(message.messageId))
+          else
+            // Excluded from the accessibility tree: the bubble's own semantic
+            // value already carries this time, spelled out with its day.
+            ExcludeSemantics(child: _MessageTime(at: message.timestamp)),
         ],
       ),
     );
@@ -96,6 +119,38 @@ class _SendingMarker extends StatelessWidget {
           Icons.schedule_rounded,
           size: 13,
           color: colors.onSurface.withValues(alpha: 0.5),
+        ),
+      ),
+    );
+  }
+}
+
+/// When a settled message was sent, in the reader's timezone.
+class _MessageTime extends StatelessWidget {
+  final DateTime at;
+
+  const _MessageTime({required this.at});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(top: 3, left: 2, right: 2),
+      child: Tooltip(
+        // The time alone stops being enough as soon as a thread is scrolled back
+        // past its day divider.
+        message: ChatTimestamps.accessibleLabel(at),
+        child: Text(
+          ChatTimestamps.timeOfDay(at),
+          style: TextStyle(
+            fontFamily: 'Exo 2',
+            fontSize: 10.5,
+            fontWeight: FontWeight.w500,
+            // 0.6 on the surface colour clears WCAG AA for this size against
+            // both themes' card backgrounds; the bubble's own colour is not
+            // behind it, so the orange/white pairing is not in play here.
+            color: colors.onSurface.withValues(alpha: 0.6),
+          ),
         ),
       ),
     );
