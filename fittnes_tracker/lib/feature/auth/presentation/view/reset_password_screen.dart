@@ -6,6 +6,7 @@ import 'package:ForgeForm/feature/onboarding/onboarding_screen.dart'
 import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:ForgeForm/core/widgets/form_pane.dart';
 
 class ResetPasswordScreen extends ConsumerStatefulWidget {
   final String token;
@@ -73,8 +74,9 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
       appBar: AppBar(title: Text(l10n.resetPasswordTitle)),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 28),
-          child: _success ? _successView(theme, l10n) : _form(theme, l10n),
+          child: FormPane(
+            child: _success ? _successView(theme, l10n) : _form(theme, l10n),
+          ),
         ),
       ),
     );

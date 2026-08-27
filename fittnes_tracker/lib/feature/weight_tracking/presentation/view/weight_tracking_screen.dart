@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
+import 'package:ForgeForm/core/widgets/content_pane.dart';
 
 class WeightTrackingScreen extends StatelessWidget {
   const WeightTrackingScreen({Key? key}) : super(key: key);
@@ -44,96 +45,35 @@ class WeightTrackingScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: Consumer<WeightProvider>(
-        builder: (context, weightProvider, _) {
-          final colorScheme = Theme.of(context).colorScheme;
-          // Four states, in the order they can occur. Loading uses a
-          // skeleton shaped like the rows it replaces rather than a bare
-          // spinner (CLAUDE.md), and the error branch comes *before* the
-          // empty check — a failed load used to fall through to "no records
-          // yet", which is a different and untrue statement.
-          if (weightProvider.isLoading) {
-            return LoadingSkeleton(
-              rows: 4,
-              semanticsLabel: l10n.consoleLoading,
-            );
-          }
-          if (weightProvider.hasError) {
-            return ErrorStateView(
-              message: l10n.couldNotLoadBody,
-              onRetry: weightProvider.retry,
-            );
-          }
-          final weightRecords = weightProvider.weightRecords;
-          if (weightRecords.isEmpty) {
-            return _buildEmptyState(context, weightProvider);
-          }
-          return Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerLow,
-                    borderRadius: BorderRadius.circular(12.0),
-                    border: Border.all(
-                      color: colorScheme.onSurface.withValues(alpha: 0.10),
-                      width: 0.5,
-                    ),
-                  ),
-                  padding: const EdgeInsets.all(14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        l10n.currentWeight,
-                        style: TextStyle(
-                          fontFamily: 'Exo 2',
-                          fontSize: 12,
-                          color: colorScheme.onSurface.withValues(
-                            alpha: 0.55,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          Text(
-                            '${weightProvider.latestWeightRecord?.weight.toStringAsFixed(1) ?? '--'} kg',
-                            style: TextStyle(
-                              fontFamily: 'Montserrat',
-                              fontWeight: FontWeight.w800,
-                              fontSize: 28,
-                              color: colorScheme.primary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerLow,
-                    borderRadius: BorderRadius.circular(12.0),
-                    border: Border.all(
-                      color: colorScheme.onSurface.withValues(alpha: 0.10),
-                      width: 0.5,
-                    ),
-                  ),
-                  padding: const EdgeInsets.all(14),
-                  child: SizedBox(
-                    height: 180,
-                    child: WeightChart(weightRecords: weightRecords),
-                  ),
-                ),
-              ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
+      body: ContentPane(
+        child: Consumer<WeightProvider>(
+          builder: (context, weightProvider, _) {
+            final colorScheme = Theme.of(context).colorScheme;
+            // Four states, in the order they can occur. Loading uses a
+            // skeleton shaped like the rows it replaces rather than a bare
+            // spinner (CLAUDE.md), and the error branch comes *before* the
+            // empty check — a failed load used to fall through to "no records
+            // yet", which is a different and untrue statement.
+            if (weightProvider.isLoading) {
+              return LoadingSkeleton(
+                rows: 4,
+                semanticsLabel: l10n.consoleLoading,
+              );
+            }
+            if (weightProvider.hasError) {
+              return ErrorStateView(
+                message: l10n.couldNotLoadBody,
+                onRetry: weightProvider.retry,
+              );
+            }
+            final weightRecords = weightProvider.weightRecords;
+            if (weightRecords.isEmpty) {
+              return _buildEmptyState(context, weightProvider);
+            }
+            return Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
                   child: Container(
                     decoration: BoxDecoration(
                       color: colorScheme.surfaceContainerLow,
@@ -143,86 +83,160 @@ class WeightTrackingScreen extends StatelessWidget {
                         width: 0.5,
                       ),
                     ),
-                    child: ListView.separated(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      itemCount: weightRecords.length,
-                      separatorBuilder:
-                          (_, __) => Divider(
-                            height: 0.5,
-                            thickness: 0.5,
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l10n.currentWeight,
+                          style: TextStyle(
+                            fontFamily: 'Exo 2',
+                            fontSize: 12,
                             color: colorScheme.onSurface.withValues(
-                              alpha: 0.10,
+                              alpha: 0.55,
                             ),
                           ),
-                      itemBuilder: (context, index) {
-                        final record = weightRecords[index];
-                        return ListTile(
-                          dense: true,
-                          title: Text(
-                            '${record.weight.toStringAsFixed(1)} kg',
-                            style: TextStyle(
-                              fontFamily: 'Montserrat',
-                              fontWeight: FontWeight.w700,
-                              fontSize: 14,
-                              color: colorScheme.onSurface,
-                            ),
-                          ),
-                          subtitle: Text(
-                            DateFormat('EEEE, MMMM d, y').format(record.date),
-                            style: TextStyle(
-                              fontFamily: 'Exo 2',
-                              fontSize: 11,
-                              color: colorScheme.onSurface.withValues(
-                                alpha: 0.55,
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            Text(
+                              '${weightProvider.latestWeightRecord?.weight.toStringAsFixed(1) ?? '--'} kg',
+                              style: TextStyle(
+                                fontFamily: 'Montserrat',
+                                fontWeight: FontWeight.w800,
+                                fontSize: 28,
+                                color: colorScheme.primary,
                               ),
                             ),
-                          ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: Icon(
-                                  Icons.edit,
-                                  size: 18,
-                                  color: colorScheme.onSurface.withValues(
-                                    alpha: 0.55,
-                                  ),
-                                ),
-                                onPressed:
-                                    () => _showAddEditWeightDialog(
-                                      context,
-                                      weightProvider,
-                                      record: record,
-                                    ),
-                              ),
-                              IconButton(
-                                icon: Icon(
-                                  Icons.delete_outline,
-                                  size: 18,
-                                  color: colorScheme.onSurface.withValues(
-                                    alpha: 0.55,
-                                  ),
-                                ),
-                                onPressed:
-                                    () => _confirmDelete(
-                                      context,
-                                      weightProvider,
-                                      record.id,
-                                    ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
+                          ],
+                        ),
+                      ],
                     ),
                   ),
                 ),
-              ),
-            ],
-          );
-        },
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerLow,
+                      borderRadius: BorderRadius.circular(12.0),
+                      border: Border.all(
+                        color: colorScheme.onSurface.withValues(alpha: 0.10),
+                        width: 0.5,
+                      ),
+                    ),
+                    padding: const EdgeInsets.all(14),
+                    child: SizedBox(
+                      height: 180,
+                      child: WeightChart(weightRecords: weightRecords),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceContainerLow,
+                        borderRadius: BorderRadius.circular(12.0),
+                        border: Border.all(
+                          color: colorScheme.onSurface.withValues(alpha: 0.10),
+                          width: 0.5,
+                        ),
+                      ),
+                      child: ListView.separated(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        itemCount: weightRecords.length,
+                        separatorBuilder:
+                            (_, __) => Divider(
+                              height: 0.5,
+                              thickness: 0.5,
+                              color: colorScheme.onSurface.withValues(
+                                alpha: 0.10,
+                              ),
+                            ),
+                        itemBuilder: (context, index) {
+                          final record = weightRecords[index];
+                          return ListTile(
+                            dense: true,
+                            title: Text(
+                              '${record.weight.toStringAsFixed(1)} kg',
+                              style: TextStyle(
+                                fontFamily: 'Montserrat',
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14,
+                                color: colorScheme.onSurface,
+                              ),
+                            ),
+                            subtitle: Text(
+                              DateFormat('EEEE, MMMM d, y').format(record.date),
+                              style: TextStyle(
+                                fontFamily: 'Exo 2',
+                                fontSize: 11,
+                                color: colorScheme.onSurface.withValues(
+                                  alpha: 0.55,
+                                ),
+                              ),
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  // Named with the record's own date: a column
+                                  // of bare "Edit" buttons gives a screen-reader
+                                  // user no way to tell which weight they are
+                                  // about to change.
+                                  tooltip:
+                                      '${l10n.editWeightRecord}, '
+                                      '${record.weight}kg',
+                                  icon: Icon(
+                                    Icons.edit,
+                                    size: 18,
+                                    color: colorScheme.onSurface.withValues(
+                                      alpha: 0.55,
+                                    ),
+                                  ),
+                                  onPressed:
+                                      () => _showAddEditWeightDialog(
+                                        context,
+                                        weightProvider,
+                                        record: record,
+                                      ),
+                                ),
+                                IconButton(
+                                  tooltip:
+                                      '${l10n.deleteWeightRecord}, '
+                                      '${record.weight}kg',
+                                  icon: Icon(
+                                    Icons.delete_outline,
+                                    size: 18,
+                                    color: colorScheme.onSurface.withValues(
+                                      alpha: 0.55,
+                                    ),
+                                  ),
+                                  onPressed:
+                                      () => _confirmDelete(
+                                        context,
+                                        weightProvider,
+                                        record.id,
+                                      ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
       ),
       floatingActionButton: FloatingActionButton(
+        tooltip: l10n.addWeight,
         onPressed:
             () => _showAddEditWeightDialog(
               context,

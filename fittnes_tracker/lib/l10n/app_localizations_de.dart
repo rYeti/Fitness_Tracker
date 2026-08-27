@@ -575,6 +575,19 @@ class AppLocalizationsDe extends AppLocalizations {
   String get addWeight => 'Gewicht hinzufügen';
 
   @override
+  String hideFromRecents(String name) {
+    return '$name aus den letzten entfernen';
+  }
+
+  @override
+  String quickAddFood(String name) {
+    return '$name schnell hinzufügen';
+  }
+
+  @override
+  String get createTemplateAction => 'Vorlage erstellen';
+
+  @override
   String get allTime => 'Gesamt';
 
   @override

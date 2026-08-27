@@ -347,7 +347,7 @@ abstract class AppLocalizations {
   /// No description provided for @addCustomFood.
   ///
   /// In en, this message translates to:
-  /// **'Add Custom Food'**
+  /// **'Add a custom food'**
   String get addCustomFood;
 
   /// No description provided for @foodName.
@@ -1129,6 +1129,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Add Weight'**
   String get addWeight;
+
+  /// No description provided for @hideFromRecents.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove {name} from recents'**
+  String hideFromRecents(String name);
+
+  /// No description provided for @quickAddFood.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick add {name}'**
+  String quickAddFood(String name);
+
+  /// No description provided for @createTemplateAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Create template'**
+  String get createTemplateAction;
 
   /// No description provided for @allTime.
   ///

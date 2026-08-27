@@ -144,7 +144,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cancel => 'Cancel';
 
   @override
-  String get addCustomFood => 'Add Custom Food';
+  String get addCustomFood => 'Add a custom food';
 
   @override
   String get foodName => 'Food Name';
@@ -572,6 +572,19 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get addWeight => 'Add Weight';
+
+  @override
+  String hideFromRecents(String name) {
+    return 'Remove $name from recents';
+  }
+
+  @override
+  String quickAddFood(String name) {
+    return 'Quick add $name';
+  }
+
+  @override
+  String get createTemplateAction => 'Create template';
 
   @override
   String get allTime => 'All Time';

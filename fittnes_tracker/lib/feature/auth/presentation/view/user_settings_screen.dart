@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
 import 'package:ForgeForm/core/widgets/client_avatar.dart';
+import 'package:ForgeForm/core/widgets/content_pane.dart';
 
 class UserSettingsScreen extends ConsumerStatefulWidget {
   const UserSettingsScreen({super.key});
@@ -181,9 +182,10 @@ class _UserSettingsScreenState extends ConsumerState<UserSettingsScreen> {
             ),
         ],
       ),
-      body: authState.isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView(
+      body: ContentPane(
+        child: authState.isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : ListView(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
               children: [
                 // Avatar + username header
@@ -376,6 +378,7 @@ class _UserSettingsScreenState extends ConsumerState<UserSettingsScreen> {
                 const SizedBox(height: 32),
               ],
             ),
+      )
     );
   }
 }

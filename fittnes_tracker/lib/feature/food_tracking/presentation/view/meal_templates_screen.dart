@@ -14,6 +14,7 @@ import 'create_meal_template_screen.dart';
 import 'edit_meal_template_screen.dart';
 import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
 import 'package:ForgeForm/core/widgets/app_widgets.dart';
+import 'package:ForgeForm/core/widgets/content_pane.dart';
 
 class MealTemplatesScreen extends StatefulWidget {
   const MealTemplatesScreen({Key? key}) : super(key: key);
@@ -52,15 +53,18 @@ class _MealTemplatesScreenState extends State<MealTemplatesScreen> {
             ],
           ),
         ),
-        body: TabBarView(
-          children: [
-            TemplateListTab(category: 'Breakfast'),
-            TemplateListTab(category: 'Lunch'),
-            TemplateListTab(category: 'Dinner'),
-            TemplateListTab(category: 'Snacks'),
-          ],
+        body: ContentPane(
+          child: TabBarView(
+            children: [
+              TemplateListTab(category: 'Breakfast'),
+              TemplateListTab(category: 'Lunch'),
+              TemplateListTab(category: 'Dinner'),
+              TemplateListTab(category: 'Snacks'),
+            ],
+          ),
         ),
         floatingActionButton: FloatingActionButton(
+          tooltip: AppLocalizations.of(context)!.createTemplateAction,
           onPressed: () async {
             final hasPremium = context.read<AccessProvider>().hasPremiumAccess;
             if (!hasPremium) {

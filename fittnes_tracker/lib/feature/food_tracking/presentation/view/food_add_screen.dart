@@ -17,6 +17,7 @@ import '../../domain/food_search_ranking.dart';
 import 'barcode_scanner_view.dart';
 import 'food_detail_view.dart';
 import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
+import 'package:ForgeForm/core/widgets/content_pane.dart';
 
 class FoodAddScreen extends StatefulWidget {
   final String category;
@@ -949,367 +950,376 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
             context,
           )!.addFood(_localizedMealLabel(widget.category, context)),
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _searchController,
-                      decoration: InputDecoration(
-                        labelText:
-                            AppLocalizations.of(context)!.searchForFood,
-                        filled: true,
-                        fillColor: colorScheme.surfaceContainerLow,
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            Icons.camera_alt_rounded,
-                            color: colorScheme.onSurface.withValues(
-                              alpha: 0.55,
-                            ),
-                          ),
-                          onPressed: _scanBarcode,
-                          tooltip: AppLocalizations.of(context)!.scanBarcode,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8.0),
-                          borderSide: BorderSide(
-                            color: colorScheme.onSurface.withValues(
-                              alpha: 0.10,
-                            ),
-                            width: 0.5,
-                          ),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8.0),
-                          borderSide: BorderSide(
-                            color: colorScheme.onSurface.withValues(
-                              alpha: 0.10,
-                            ),
-                            width: 0.5,
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8.0),
-                          borderSide: BorderSide(
-                            color: colorScheme.primary,
-                            width: 1,
-                          ),
-                        ),
-                      ),
-                      onChanged: (_) => _onSearchChanged(),
-                      onSubmitted: (_) => _performSearch(),
-                    ),
-                  ),
-                  IconButton(
-                    icon: Icon(
-                      Icons.tune,
-                      color:
-                          _sortField != FoodSortField.relevance
-                              ? colorScheme.primary
-                              : colorScheme.onSurface.withValues(alpha: 0.55),
-                    ),
-                    onPressed: _showSortDialog,
-                    tooltip: AppLocalizations.of(context)!.sortTooltip,
-                  ),
-                ],
-              ),
-            ),
-            if (_sortField != FoodSortField.relevance)
+      body: ContentPane(
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
-                child: Chip(
-                  label: Text(
-                    _sortLabel(AppLocalizations.of(context)!),
-                    style: TextStyle(
-                      fontSize: 12,
+                padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _searchController,
+                        decoration: InputDecoration(
+                          labelText:
+                              AppLocalizations.of(context)!.searchForFood,
+                          filled: true,
+                          fillColor: colorScheme.surfaceContainerLow,
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              Icons.camera_alt_rounded,
+                              color: colorScheme.onSurface.withValues(
+                                alpha: 0.55,
+                              ),
+                            ),
+                            onPressed: _scanBarcode,
+                            tooltip: AppLocalizations.of(context)!.scanBarcode,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8.0),
+                            borderSide: BorderSide(
+                              color: colorScheme.onSurface.withValues(
+                                alpha: 0.10,
+                              ),
+                              width: 0.5,
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8.0),
+                            borderSide: BorderSide(
+                              color: colorScheme.onSurface.withValues(
+                                alpha: 0.10,
+                              ),
+                              width: 0.5,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8.0),
+                            borderSide: BorderSide(
+                              color: colorScheme.primary,
+                              width: 1,
+                            ),
+                          ),
+                        ),
+                        onChanged: (_) => _onSearchChanged(),
+                        onSubmitted: (_) => _performSearch(),
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(
+                        Icons.tune,
+                        color:
+                            _sortField != FoodSortField.relevance
+                                ? colorScheme.primary
+                                : colorScheme.onSurface.withValues(alpha: 0.55),
+                      ),
+                      onPressed: _showSortDialog,
+                      tooltip: AppLocalizations.of(context)!.sortTooltip,
+                    ),
+                  ],
+                ),
+              ),
+              if (_sortField != FoodSortField.relevance)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+                  child: Chip(
+                    label: Text(
+                      _sortLabel(AppLocalizations.of(context)!),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: colorScheme.onPrimaryContainer,
+                      ),
+                    ),
+                    backgroundColor: colorScheme.primaryContainer,
+                    deleteIcon: Icon(
+                      Icons.close,
+                      size: 16,
                       color: colorScheme.onPrimaryContainer,
                     ),
-                  ),
-                  backgroundColor: colorScheme.primaryContainer,
-                  deleteIcon: Icon(
-                    Icons.close,
-                    size: 16,
-                    color: colorScheme.onPrimaryContainer,
-                  ),
-                  onDeleted: () => setState(() {
-                    _sortField = FoodSortField.relevance;
-                    _sortAscending = false;
-                  }),
-                  visualDensity: VisualDensity.compact,
-                  padding: EdgeInsets.zero,
-                ),
-              ),
-            if (_searchController.text.isEmpty && !_isSearching)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                child: Text(
-                  AppLocalizations.of(context)!.recentlyAdded,
-                  style: TextStyle(
-                    fontFamily: 'Montserrat',
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
-                    color: colorScheme.onSurface,
+                    onDeleted: () => setState(() {
+                      _sortField = FoodSortField.relevance;
+                      _sortAscending = false;
+                    }),
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
                   ),
                 ),
-              ),
-            Builder(
-              builder: (context) {
-                final hasQuery = _searchController.text.isNotEmpty;
+              if (_searchController.text.isEmpty && !_isSearching)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                  child: Text(
+                    AppLocalizations.of(context)!.recentlyAdded,
+                    style: TextStyle(
+                      fontFamily: 'Montserrat',
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                      color: colorScheme.onSurface,
+                    ),
+                  ),
+                ),
+              Builder(
+                builder: (context) {
+                  final hasQuery = _searchController.text.isNotEmpty;
 
-                // ── No query → recent foods ──────────────────────────────
-                if (!hasQuery) {
-                  return StreamBuilder<List<FoodItemData>>(
-                    stream: db.foodItemDao.watchVisibleFoodItems(),
-                    builder: (context, snapshot) {
-                      if (!snapshot.hasData) {
-                        return Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(32),
-                            child: CircularProgressIndicator(
-                              color: colorScheme.primary,
-                            ),
-                          ),
-                        );
-                      }
-                      // Deduplicate by name: keep the highest-id entry per name
-                      // so that the most-recently-added version appears once.
-                      final seen = <String, FoodItemData>{};
-                      for (final item in snapshot.data!) {
-                        final key = item.name.toLowerCase().trim();
-                        if (!seen.containsKey(key) ||
-                            item.id > seen[key]!.id) {
-                          seen[key] = item;
-                        }
-                      }
-                      final foodItems = _sortFoodItemData(seen.values.toList());
-                      return ListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: foodItems.length,
-                        itemBuilder: (context, index) {
-                          final item = foodItems[index];
-                          return _foodListTile(
-                            title: item.name,
-                            subtitle:
-                                '${item.calories} kcal | P: ${item.protein}g | C: ${item.carbs}g | F: ${item.fat}g',
-                            onTap: () async {
-                              await Navigator.push<bool>(
-                                context,
-                                MaterialPageRoute(
-                                  builder:
-                                      (context) => FoodDetailsScreen(
-                                        foodItem: FoodItemModel(
-                                          id: item.id,
-                                          name: item.name,
-                                          calories: item.calories,
-                                          protein: item.protein,
-                                          carbs: item.carbs,
-                                          fat: item.fat,
-                                          gramm: item.gramm,
-                                        ),
-                                        category: widget.category,
-                                        date: widget.date,
-                                      ),
-                                ),
-                              );
-                            },
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: Icon(
-                                    Icons.delete_outline,
-                                    color: colorScheme.error,
-                                    size: 20,
-                                  ),
-                                  onPressed:
-                                      () => db.foodItemDao.hideFromRecent(
-                                        item.name,
-                                      ),
-                                ),
-                                IconButton(
-                                  icon: Icon(
-                                    Icons.add,
-                                    color: colorScheme.primary,
-                                    size: 20,
-                                  ),
-                                  onPressed: () => _quickAddFromRecent(item),
-                                ),
-                              ],
+                  // ── No query → recent foods ──────────────────────────────
+                  if (!hasQuery) {
+                    return StreamBuilder<List<FoodItemData>>(
+                      stream: db.foodItemDao.watchVisibleFoodItems(),
+                      builder: (context, snapshot) {
+                        if (!snapshot.hasData) {
+                          return Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(32),
+                              child: CircularProgressIndicator(
+                                color: colorScheme.primary,
+                              ),
                             ),
                           );
-                        },
-                      );
-                    },
-                  );
-                }
+                        }
+                        // Deduplicate by name: keep the highest-id entry per name
+                        // so that the most-recently-added version appears once.
+                        final seen = <String, FoodItemData>{};
+                        for (final item in snapshot.data!) {
+                          final key = item.name.toLowerCase().trim();
+                          if (!seen.containsKey(key) ||
+                              item.id > seen[key]!.id) {
+                            seen[key] = item;
+                          }
+                        }
+                        final foodItems = _sortFoodItemData(seen.values.toList());
+                        return ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: foodItems.length,
+                          itemBuilder: (context, index) {
+                            final item = foodItems[index];
+                            return _foodListTile(
+                              title: item.name,
+                              subtitle:
+                                  '${item.calories} kcal | P: ${item.protein}g | C: ${item.carbs}g | F: ${item.fat}g',
+                              onTap: () async {
+                                await Navigator.push<bool>(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder:
+                                        (context) => FoodDetailsScreen(
+                                          foodItem: FoodItemModel(
+                                            id: item.id,
+                                            name: item.name,
+                                            calories: item.calories,
+                                            protein: item.protein,
+                                            carbs: item.carbs,
+                                            fat: item.fat,
+                                            gramm: item.gramm,
+                                          ),
+                                          category: widget.category,
+                                          date: widget.date,
+                                        ),
+                                  ),
+                                );
+                              },
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    tooltip: AppLocalizations.of(
+                                      context,
+                                    )!.hideFromRecents(item.name),
+                                    icon: Icon(
+                                      Icons.delete_outline,
+                                      color: colorScheme.error,
+                                      size: 20,
+                                    ),
+                                    onPressed:
+                                        () => db.foodItemDao.hideFromRecent(
+                                          item.name,
+                                        ),
+                                  ),
+                                  IconButton(
+                                    tooltip: AppLocalizations.of(
+                                      context,
+                                    )!.quickAddFood(item.name),
+                                    icon: Icon(
+                                      Icons.add,
+                                      color: colorScheme.primary,
+                                      size: 20,
+                                    ),
+                                    onPressed: () => _quickAddFromRecent(item),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    );
+                  }
 
-                final hasAny =
-                    _localResults.isNotEmpty || _apiResults.isNotEmpty;
+                  final hasAny =
+                      _localResults.isNotEmpty || _apiResults.isNotEmpty;
 
-                // ── Waiting with no results yet → full spinner ───────────
-                if (_isSearching && !hasAny) {
-                  return Center(
-                    child: Padding(
+                  // ── Waiting with no results yet → full spinner ───────────
+                  if (_isSearching && !hasAny) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(32),
+                        child: CircularProgressIndicator(
+                          color: colorScheme.primary,
+                        ),
+                      ),
+                    );
+                  }
+
+                  // ── Network failure ───────────────────────────────────────
+                  if (_searchFailed && !hasAny) {
+                    return Padding(
                       padding: const EdgeInsets.all(32),
-                      child: CircularProgressIndicator(
-                        color: colorScheme.primary,
-                      ),
-                    ),
-                  );
-                }
-
-                // ── Network failure ───────────────────────────────────────
-                if (_searchFailed && !hasAny) {
-                  return Padding(
-                    padding: const EdgeInsets.all(32),
-                    child: Center(
-                      child: Column(
-                        children: [
-                          Icon(
-                            Icons.wifi_off,
-                            size: 56,
-                            color: colorScheme.onSurface.withValues(
-                              alpha: 0.55,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            AppLocalizations.of(
-                              context,
-                            )!.couldNotReachFoodDatabase,
-                            style: TextStyle(
+                      child: Center(
+                        child: Column(
+                          children: [
+                            Icon(
+                              Icons.wifi_off,
+                              size: 56,
                               color: colorScheme.onSurface.withValues(
                                 alpha: 0.55,
                               ),
                             ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            _searchError,
-                            style: TextStyle(
-                              fontSize: 11,
+                            const SizedBox(height: 12),
+                            Text(
+                              AppLocalizations.of(
+                                context,
+                              )!.couldNotReachFoodDatabase,
+                              style: TextStyle(
+                                color: colorScheme.onSurface.withValues(
+                                  alpha: 0.55,
+                                ),
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              _searchError,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: colorScheme.onSurface.withValues(
+                                  alpha: 0.55,
+                                ),
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 16),
+                            FilledButton.icon(
+                              onPressed: () {
+                                setState(() => _lastSearchQuery = '');
+                                _performSearch();
+                              },
+                              icon: const Icon(Icons.refresh),
+                              label: Text(AppLocalizations.of(context)!.retry),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+
+                  // ── No results found ──────────────────────────────────────
+                  if (!_isSearching && !hasAny) {
+                    return Padding(
+                      padding: const EdgeInsets.all(32),
+                      child: Center(
+                        child: Column(
+                          children: [
+                            Icon(
+                              Icons.search_off,
+                              size: 56,
                               color: colorScheme.onSurface.withValues(
                                 alpha: 0.55,
                               ),
                             ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 16),
-                          FilledButton.icon(
-                            onPressed: () {
-                              setState(() => _lastSearchQuery = '');
-                              _performSearch();
-                            },
-                            icon: const Icon(Icons.refresh),
-                            label: Text(AppLocalizations.of(context)!.retry),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }
-
-                // ── No results found ──────────────────────────────────────
-                if (!_isSearching && !hasAny) {
-                  return Padding(
-                    padding: const EdgeInsets.all(32),
-                    child: Center(
-                      child: Column(
-                        children: [
-                          Icon(
-                            Icons.search_off,
-                            size: 56,
-                            color: colorScheme.onSurface.withValues(
-                              alpha: 0.55,
+                            const SizedBox(height: 12),
+                            Text(
+                              AppLocalizations.of(
+                                context,
+                              )!.noResultsFor(_searchController.text),
+                              style: TextStyle(
+                                color: colorScheme.onSurface.withValues(
+                                  alpha: 0.55,
+                                ),
+                              ),
+                              textAlign: TextAlign.center,
                             ),
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            AppLocalizations.of(
-                              context,
-                            )!.noResultsFor(_searchController.text),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+
+                  // ── Results: My Foods + Online Results sections ───────────
+                  Widget buildSection(
+                    String label,
+                    List<Map<String, dynamic>> items,
+                  ) {
+                    if (items.isEmpty) return const SizedBox.shrink();
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(14, 10, 14, 4),
+                          child: Text(
+                            label,
                             style: TextStyle(
+                              fontFamily: 'Montserrat',
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
                               color: colorScheme.onSurface.withValues(
                                 alpha: 0.55,
                               ),
                             ),
-                            textAlign: TextAlign.center,
                           ),
-                        ],
-                      ),
-                    ),
-                  );
-                }
+                        ),
+                        ...items.map(
+                          (result) => _foodListTile(
+                            title:
+                                itemName(result).isNotEmpty
+                                    ? itemName(result)
+                                    : 'Unknown',
+                            subtitle: _macroSubtitle(result),
+                            trailing:
+                                result['_source'] == 'verified'
+                                    ? _verifiedBadge(context)
+                                    : null,
+                            onTap: () => _selectFoodItem(result),
+                          ),
+                        ),
+                      ],
+                    );
+                  }
 
-                // ── Results: My Foods + Online Results sections ───────────
-                Widget buildSection(
-                  String label,
-                  List<Map<String, dynamic>> items,
-                ) {
-                  if (items.isEmpty) return const SizedBox.shrink();
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(14, 10, 14, 4),
-                        child: Text(
-                          label,
-                          style: TextStyle(
-                            fontFamily: 'Montserrat',
-                            fontWeight: FontWeight.w700,
-                            fontSize: 12,
-                            color: colorScheme.onSurface.withValues(
-                              alpha: 0.55,
-                            ),
-                          ),
-                        ),
+                      if (_isSearching)
+                        LinearProgressIndicator(color: colorScheme.primary),
+                      buildSection(
+                        AppLocalizations.of(context)!.myFoods,
+                        _sortResults(_localResults),
                       ),
-                      ...items.map(
-                        (result) => _foodListTile(
-                          title:
-                              itemName(result).isNotEmpty
-                                  ? itemName(result)
-                                  : 'Unknown',
-                          subtitle: _macroSubtitle(result),
-                          trailing:
-                              result['_source'] == 'verified'
-                                  ? _verifiedBadge(context)
-                                  : null,
-                          onTap: () => _selectFoodItem(result),
-                        ),
+                      buildSection(
+                        AppLocalizations.of(context)!.onlineResults,
+                        _sortResults(_apiResults),
                       ),
                     ],
                   );
-                }
-
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (_isSearching)
-                      LinearProgressIndicator(color: colorScheme.primary),
-                    buildSection(
-                      AppLocalizations.of(context)!.myFoods,
-                      _sortResults(_localResults),
-                    ),
-                    buildSection(
-                      AppLocalizations.of(context)!.onlineResults,
-                      _sortResults(_apiResults),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ],
+                },
+              ),
+            ],
+          ),
         ),
       ),
       floatingActionButton: FloatingActionButton(
+        tooltip: AppLocalizations.of(context)!.addCustomFood,
         onPressed: _addCustomFood,
         elevation: 2,
         child: const Icon(Icons.add),
