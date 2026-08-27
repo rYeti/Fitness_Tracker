@@ -34,12 +34,19 @@ abstract class ChatSignalRClient {
   /// SendMessageAsync returns) or throws/times out on failure — the caller
   /// (repository) decides what "no ack" means, this layer just reports it.
   ///
+  /// [body] is already ciphertext by the time it gets here, and [iv] and
+  /// [encryptionVersion] are what make it readable again. This layer does not
+  /// encrypt: it would need key material, and the whole point of keeping it thin
+  /// is that it holds nothing but the connection.
+  ///
   /// [otherPartyId] is the client's id when a trainer sends and the trainer's id
   /// when a client does; the hub resolves which side the caller is on.
   Future<ChatMessage> send({
     required String otherPartyId,
     required String messageId,
     required String body,
+    required String? iv,
+    required int encryptionVersion,
   });
 
   /// Broadcast stream — every `ReceiveMessage` for a joined group, including

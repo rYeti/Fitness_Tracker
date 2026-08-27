@@ -1,3 +1,5 @@
+using FitTracker.Api.DTOs;
+
 namespace FitTracker.Api.Services.Interfaces;
 
 /// <summary>
@@ -18,5 +20,9 @@ public interface IChatPushDispatcher
     /// Queues a notification to <paramref name="recipientId"/>. Returns
     /// immediately; delivery, failure and logging all happen elsewhere.
     /// </summary>
-    void Queue(Guid recipientId, Guid senderId, string? body);
+    /// <param name="body">
+    /// The encrypted body, forwarded verbatim. Nothing on this path decrypts,
+    /// truncates or logs it — the recipient's device is the only thing that can.
+    /// </param>
+    void Queue(Guid recipientId, Guid senderId, Guid messageId, EncryptedChatBody body);
 }

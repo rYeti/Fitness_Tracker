@@ -230,6 +230,14 @@ jobs:
 
       - run: flutter pub get
 
+      # webcrypto compiles BoringSSL through dart:ffi, and `flutter test` runs on
+      # the host VM rather than on a device — so the native library has to exist
+      # in this folder before the chat encryption tests can call it. Nothing else
+      # needs this: `flutter run`, the web build and `flutter test -p chrome` all
+      # use the browser or the platform's own crypto. Needs cmake and a C
+      # compiler, both of which ubuntu-latest already has.
+      - run: flutter pub run webcrypto:setup
+
       # A broken build should never reach testers.
       - run: flutter test
 

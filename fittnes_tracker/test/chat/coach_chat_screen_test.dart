@@ -47,6 +47,7 @@ void main() {
         db: db,
         api: api ?? FakeChatApi(),
         signalR: signalR,
+        crypto: FakeChatCrypto(),
       ),
     );
     final access = AccessProvider.withState(
@@ -93,7 +94,12 @@ void main() {
     addTearDown(tester.view.reset);
 
     final chat = ChatProvider(
-      repository: ChatRepository(db: db, api: FakeChatApi(gate: gate), signalR: signalR),
+      repository: ChatRepository(
+        db: db,
+        api: FakeChatApi(gate: gate),
+        signalR: signalR,
+        crypto: FakeChatCrypto(),
+      ),
     );
     final access = AccessProvider.withState(
       isTrainerClient: true,

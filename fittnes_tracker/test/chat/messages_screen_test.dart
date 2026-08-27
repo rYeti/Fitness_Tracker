@@ -70,6 +70,7 @@ void main() {
         db: db,
         api: api ?? FakeChatApi(),
         signalR: signalR,
+        crypto: FakeChatCrypto(),
       ),
     );
     final activeClient = ActiveClientProvider(

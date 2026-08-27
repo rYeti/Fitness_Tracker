@@ -1,11 +1,17 @@
 namespace FitTracker.Api.Services.Interfaces;
 
-/// <summary>One notification, in our vocabulary rather than a vendor's.</summary>
+/// <summary>One push, in our vocabulary rather than a vendor's.</summary>
 /// <param name="Data">
-/// Key/value payload the app reads on tap to decide where to navigate. Values are
-/// strings because that is all FCM carries.
+/// The entire payload. Values are strings because that is all FCM carries.
 /// </param>
-public record PushMessage(string Title, string Body, IReadOnlyDictionary<string, string> Data);
+/// <remarks>
+/// There is no Title or Body any more, and their absence is the point. A push
+/// used to carry a rendered notification, which meant this server had to be able
+/// to read the message to write one. It cannot, so it does not: the payload is
+/// data the recipient's own device decrypts and renders. See
+/// docs/chat-encryption.md for what that costs.
+/// </remarks>
+public record PushMessage(IReadOnlyDictionary<string, string> Data);
 
 /// <param name="DeadTokens">
 /// Tokens the transport rejected as permanently invalid — an uninstalled app or a

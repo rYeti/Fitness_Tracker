@@ -1,4 +1,5 @@
 using FitTracker.Api.Data;
+using FitTracker.Api.DTOs;
 using FitTracker.Api.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
@@ -37,7 +38,7 @@ public class ChatPushDispatcher(
     private readonly ILogger<ChatPushDispatcher> _logger = logger;
 
     /// <inheritdoc/>
-    public void Queue(Guid recipientId, Guid senderId, string? body)
+    public void Queue(Guid recipientId, Guid senderId, Guid messageId, EncryptedChatBody body)
     {
         _ = Task.Run(async () =>
         {
@@ -63,7 +64,7 @@ public class ChatPushDispatcher(
                 var push = provider.GetRequiredService<IPushNotificationService>();
                 // threadId is the sender: from the recipient's side of the
                 // conversation, the sender *is* the other party.
-                await push.SendChatMessageAsync(recipientId, senderName, body, senderId);
+                await push.SendChatMessageAsync(recipientId, senderName, messageId, body, senderId);
             }
             catch (Exception ex)
             {

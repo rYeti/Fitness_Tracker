@@ -5,6 +5,7 @@ import 'package:ForgeForm/feature/chat/domain/chat_timestamps.dart';
 import 'package:ForgeForm/feature/chat/domain/models/conversation_summary.dart';
 import 'package:ForgeForm/feature/chat/presentation/widgets/unread_badge.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/client_avatar.dart';
+import 'package:ForgeForm/l10n/app_localizations.dart';
 
 /// One row in the conversation list: avatar, name, time, truncated preview and
 /// an unread count. Shared by the console's list pane and any other surface that
@@ -28,7 +29,7 @@ class ConversationRow extends StatelessWidget {
     return Semantics(
       button: true,
       selected: selected,
-      label: _semanticsLabel,
+      label: _semanticsLabel(context),
       excludeSemantics: true,
       child: Material(
         color: selected
@@ -89,7 +90,7 @@ class ConversationRow extends StatelessWidget {
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        conversation.lastMessagePreview ?? 'No messages yet',
+                        _preview(context),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -113,11 +114,34 @@ class ConversationRow extends StatelessWidget {
     );
   }
 
-  String get _semanticsLabel {
+  /// What this row says the last message was.
+  ///
+  /// Three cases, not two. A thread with no messages says so; a thread whose
+  /// last message this device cannot decrypt says "New message", because
+  /// something *was* said and the row must not claim otherwise; and everything
+  /// else shows the text.
+  ///
+  /// The unreadable case is told apart from the empty one by the timestamp: a
+  /// conversation that has never been used has no [ConversationSummary.lastMessageAt]
+  /// either, and one that has is simply unreadable here.
+  String _preview(BuildContext context) {
+    final preview = conversation.lastMessagePreview;
+    if (preview != null) return preview;
+
+    return conversation.lastMessageAt == null
+        ? 'No messages yet'
+        : AppLocalizations.of(context)!.chatNewMessage;
+  }
+
+  String _semanticsLabel(BuildContext context) {
     final unread = conversation.hasUnread
         ? ', ${conversation.unreadCount} unread'
         : '';
-    final preview = conversation.lastMessagePreview;
+    // Reads out whatever the row draws, including the unreadable fallback: a
+    // screen reader user must not be told a conversation is empty when the
+    // sighted one beside them can see it is not.
+    final preview =
+        conversation.lastMessageAt == null ? null : _preview(context);
     return '${conversation.clientName}$unread'
         '${preview == null ? '' : ', last message: $preview'}';
   }
