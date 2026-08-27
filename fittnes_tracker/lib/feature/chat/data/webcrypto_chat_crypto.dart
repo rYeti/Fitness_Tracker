@@ -13,9 +13,11 @@ import 'package:ForgeForm/feature/chat/domain/chat_crypto.dart';
 /// halves, which is why nothing has to be encrypted twice: the sender can read
 /// their own messages back without a second copy encrypted to themselves.
 class WebCryptoChatCrypto implements ChatCrypto {
-  /// 96 bits, the size AES-GCM is specified for. A different length still
-  /// works and is measurably worse, which is the sort of thing that never
-  /// shows up in a test.
+  /// 96 bits — the IV length AES-GCM is specified for.
+  ///
+  /// Any other length is accepted by the implementation and quietly weaker,
+  /// because GCM has to hash a non-96-bit IV down to 96 bits first. Nothing
+  /// fails, nothing warns, and every message still decrypts.
   static const _ivLength = 12;
 
   final ChatKeyStore _keys;

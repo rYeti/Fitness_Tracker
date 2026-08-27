@@ -669,6 +669,65 @@ void main() {
       expect(signalR.sent, isEmpty);
     });
 
+    test('a peer who reinstalled is re-fetched once and the thread recovers',
+        () async {
+      // Their published key changed and this device is still holding the one it
+      // cached, so everything they send fails against it. Nothing else would go
+      // and look: the cache is wrong, not stale.
+      crypto.undecryptablePeers.add(otherParty);
+      final repository = build(
+        api: FakeChatApi(history: {
+          otherParty: [
+            messageJson(
+              id: 'after-their-reinstall',
+              body: 'enc:new phone, who dis',
+              iv: 'iv-7',
+              encryptionVersion: 1,
+              senderId: otherParty,
+              clientId: otherParty,
+            ),
+          ],
+        }),
+      );
+      await repository.openThread(otherParty);
+
+      final thread = await repository.loadThread(otherParty);
+
+      // FakeChatCrypto.forget clears the peer, so the retry succeeds — which is
+      // exactly what a real re-fetch of their new public key does.
+      expect(crypto.forgotten, [otherParty]);
+      expect(thread.single.body, 'new phone, who dis');
+    });
+
+    test('a genuinely unreadable thread re-fetches once, not once per message',
+        () async {
+      // The common case: messages encrypted to a key that no longer exists
+      // anywhere. Retrying per bubble would turn scrolling old history into one
+      // key fetch per line.
+      final repository = build(
+        api: FakeChatApi(history: {
+          otherParty: [
+            for (var i = 0; i < 3; i++)
+              messageJson(
+                id: 'lost-$i',
+                body: 'not-our-ciphertext',
+                iv: 'iv-$i',
+                encryptionVersion: 1,
+                senderId: otherParty,
+                clientId: otherParty,
+                sentAt: DateTime.utc(2026, 8, 1, 9 + i),
+              ),
+          ],
+        }),
+      );
+      await repository.openThread(otherParty);
+
+      final thread = await repository.loadThread(otherParty);
+
+      expect(crypto.forgotten, [otherParty]);
+      expect(thread.every((m) => m.isUndecryptable), isTrue);
+    });
+
     test('conversation previews are decrypted', () async {
       final repository = build(
         api: FakeChatApi(conversations: [

@@ -57,6 +57,10 @@ class ChatRepository {
   /// second [watchConversations] doesn't re-join a group needlessly.
   final Set<String> _watchedThreads = {};
 
+  /// Peers whose public key has already been re-fetched once after a decryption
+  /// failure. See [_decrypt].
+  final Set<String> _refetchedPeers = {};
+
   /// Resend attempts per message id, for the bounded retry in [replayPending].
   ///
   /// In memory rather than a column: a counter that resets when the app restarts
@@ -561,12 +565,39 @@ class ChatRepository {
     // works: the message is real and this device cannot read it.
     if (otherPartyId == null) return message.decrypted(null);
 
-    final plaintext = await _crypto.decrypt(
-      otherPartyId: otherPartyId,
+    // Copied into a local before the closure below captures it, so the
+    // non-null-ness is a property of the local rather than of a promotion the
+    // closure has to preserve.
+    final peer = otherPartyId;
+
+    Future<String?> attempt() => _crypto.decrypt(
+      otherPartyId: peer,
       ciphertext: message.body,
       iv: message.iv,
       version: message.encryptionVersion,
     );
+
+    var plaintext = await attempt();
+
+    // One retry against a freshly fetched peer key, and only one, the first time
+    // this thread sees a failure.
+    //
+    // This is the recovery path for a peer who reinstalled: they published a new
+    // public key, this device is still holding the one it cached, and *every*
+    // message they send from now on fails against it. Without this the thread
+    // never recovers on its own — the cache is only wrong, never stale, so
+    // nothing else would ever go and look.
+    //
+    // Bounded by [_refetchedPeers] because the far more common cause of a
+    // failure is a message genuinely encrypted to a key that no longer exists
+    // anywhere. Retrying per message would turn scrolling through old history
+    // into one key fetch per bubble.
+    if (plaintext == null &&
+        message.body != null &&
+        _refetchedPeers.add(peer)) {
+      await _crypto.forget(peer);
+      plaintext = await attempt();
+    }
 
     return message.decrypted(plaintext);
   }

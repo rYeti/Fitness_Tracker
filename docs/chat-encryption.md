@@ -191,6 +191,30 @@ There is a second reason not to distinguish the failures. Telling a caller
 nothing different for the app to do about any of them. The user gets one
 message, because there is one situation: this device cannot read this.
 
+### The one failure that is recoverable, and how it recovers
+
+Most decryption failures are permanent: the key that could read that body does
+not exist anywhere any more. One is not, and it is the one that would otherwise
+be worst.
+
+When a peer reinstalls, they publish a new public key. This device is still
+holding the one it cached, so *every* message they send from that moment on
+fails to decrypt — not one bubble, all of them, for ever. Nothing else in the
+system would go and look, because the cached key is not stale in any way a cache
+can detect. It is simply wrong.
+
+So `_decrypt` retries exactly once per peer per session: on the first failure it
+calls `ChatCrypto.forget`, which drops both the derived secret and the stored
+public key, and tries again against a freshly fetched one. `ChatCrypto.forget`
+has to clear both layers — dropping the derived secret while leaving the stale
+public JWK behind re-derives the identical useless secret, which is a cache
+invalidation that looks like it worked.
+
+The bound matters as much as the retry. The common cause of a decryption failure
+is a message genuinely encrypted to a key nobody has any more, and retrying per
+message would turn scrolling through old history into one network round trip per
+bubble.
+
 ### The eighth screen state
 
 `docs/chat-architecture.md` §10 catalogues seven states a chat screen has. There

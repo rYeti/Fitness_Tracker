@@ -40,7 +40,12 @@ Future<ChatPushContent> decodeChatPush(
   Map<String, dynamic> data, {
   required bool allowNetwork,
 }) async {
-  final title = _stringOr(data['senderName'], await _newMessageLabel());
+  // Loaded once. It is both the title's fallback and the body's, and resolving a
+  // locale delegate twice per notification to say the same two words is waste on
+  // a path that runs while the phone is asleep.
+  final newMessage = await _newMessageLabel();
+
+  final title = _stringOr(data['senderName'], newMessage);
   final threadId = data['threadId'] as String?;
 
   final ciphertext = data['ciphertext'] as String?;
@@ -51,16 +56,10 @@ Future<ChatPushContent> decodeChatPush(
   // the message was too long to fit in FCM's payload budget and cannot be
   // truncated the way a plaintext preview once was. See PushNotificationService.
   if (ciphertext == null || threadId == null) {
-    return ChatPushContent(
-      title: title,
-      body: await _newMessageLabel(),
-      threadId: threadId,
-    );
+    return ChatPushContent(title: title, body: newMessage, threadId: threadId);
   }
 
-  final keys = allowNetwork
-      ? ChatKeyStore()
-      : ChatKeyStore.cacheOnly();
+  final keys = allowNetwork ? ChatKeyStore() : ChatKeyStore.cacheOnly();
 
   final plaintext = await WebCryptoChatCrypto(keys: keys).decrypt(
     // The push arrives at the recipient, so the other party is whoever sent it
@@ -73,7 +72,7 @@ Future<ChatPushContent> decodeChatPush(
 
   return ChatPushContent(
     title: title,
-    body: plaintext ?? await _newMessageLabel(),
+    body: plaintext ?? newMessage,
     threadId: threadId,
   );
 }
