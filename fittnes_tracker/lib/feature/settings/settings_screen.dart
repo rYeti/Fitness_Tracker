@@ -35,6 +35,7 @@ import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/feature/trainer/presentation/view/join_trainer_screen.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/view/licence_screen.dart';
 import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
+import 'package:ForgeForm/core/widgets/content_pane.dart';
 
 extension SexLocalizations on Sex {
   String localized(BuildContext ctx) {
@@ -342,7 +343,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       appBar: ForgeAppBar(
         title: l10n.settings,
       ),
-      body: SingleChildScrollView(
+      body: ContentPane(
+        child: SingleChildScrollView(
         // Bottom padding is not symmetric with the top: the last field ends
         // at the bottom navigation bar, and 8px of clearance reads as the
         // field being clipped by it.
@@ -1186,6 +1188,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
       ),
+      )
     );
   }
 

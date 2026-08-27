@@ -155,6 +155,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     l10n.password,
                   ).copyWith(
                     suffixIcon: IconButton(
+                      // Tracks the state rather than naming the control: a
+                      // toggle that always announces "Show password" says the
+                      // opposite of what it does half the time.
+                      tooltip: _obscurePassword
+                          ? l10n.showPassword
+                          : l10n.hidePassword,
                       icon: Icon(
                         _obscurePassword
                             ? Icons.visibility_outlined

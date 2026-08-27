@@ -12,6 +12,7 @@ import '../widgets/dashboard_weight_card.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
 import 'package:ForgeForm/feature/dashboard/widgets/greeting_card.dart';
+import 'package:ForgeForm/core/widgets/content_pane.dart';
 
 // Global key so other tabs (e.g. Food) can trigger a refresh after mutating
 // nutrition data — DashboardScreen is kept alive inside an IndexedStack, so
@@ -67,32 +68,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
         onRefresh: _loadDashboardData,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          child: Padding(
-            // The extra bottom padding clears the SpeedDial, which floats
-            // over the scroll view rather than displacing it.
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                GreetingCard(
-                  name: goalsProvider.name,
-                  todayCalories: _todayCalories,
-                  calorieGoal: goalsProvider.dailyCalorieGoal,
-                  weekCompleted: _weekCompleted,
-                  weekTotal: _weekTotal,
-                  allTimeCompleted: _allTimeCompleted,
-                ),
-                const SizedBox(height: 8),
-                _todayWorkout(),
-                const SizedBox(height: 8),
-                _buildWeightProgress(goalsProvider),
-                const SizedBox(height: 16),
-              ],
+          child: ContentPane(
+            child: Padding(
+              // The extra bottom padding clears the SpeedDial, which floats
+              // over the scroll view rather than displacing it.
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  GreetingCard(
+                    name: goalsProvider.name,
+                    todayCalories: _todayCalories,
+                    calorieGoal: goalsProvider.dailyCalorieGoal,
+                    weekCompleted: _weekCompleted,
+                    weekTotal: _weekTotal,
+                    allTimeCompleted: _allTimeCompleted,
+                  ),
+                  const SizedBox(height: 8),
+                  _todayWorkout(),
+                  const SizedBox(height: 8),
+                  _buildWeightProgress(goalsProvider),
+                  const SizedBox(height: 16),
+                ],
+              ),
             ),
           ),
         ),
       ),
       floatingActionButton: SpeedDial(
+        // The one control on this screen a screen reader could not name. It is
+        // also the only way to log anything from here, so "button" was the
+        // whole announcement for the screen's primary action.
+        tooltip: l10n.quickAdd,
         animatedIcon: AnimatedIcons.menu_close,
         spacing: 12,
         spaceBetweenChildren: 8,

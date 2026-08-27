@@ -132,6 +132,21 @@ abstract final class Breakpoints {
   /// surface CLAUDE.md calls the trainer's workstation.
   static const double formMaxWidth = 480;
 
+  /// Widest a page of content should get before it is centred instead.
+  ///
+  /// The Trainer Console never needed this: its screens are card grids that
+  /// reflow, so its widest control is about 15% of a 1440px viewport. The
+  /// trainee app is single-column lists and full-width cards with no
+  /// constraint anywhere, and measures **97.8%** of the same viewport — a
+  /// phone layout stretched across a monitor. That reads worst on Food, where
+  /// a row's name sits at x=33 and its own edit and delete controls sit at
+  /// x=1334, about 1,300px away from the thing they act on.
+  ///
+  /// Wider than [formMaxWidth] on purpose: a column of inputs wants to be
+  /// narrow, but a list of meals with macros, or a chart, has real content to
+  /// spend the width on.
+  static const double contentMaxWidth = 840;
+
   static bool isDesktop(BuildContext context) =>
       MediaQuery.sizeOf(context).width > desktop;
 

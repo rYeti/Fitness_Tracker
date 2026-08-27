@@ -63,6 +63,15 @@ class AppLocalizationsDe extends AppLocalizations {
   String get refresh => 'Aktualisieren';
 
   @override
+  String get showPassword => 'Passwort anzeigen';
+
+  @override
+  String get hidePassword => 'Passwort verbergen';
+
+  @override
+  String get quickAdd => 'Schnell hinzufügen';
+
+  @override
   String get age => 'Alter';
 
   @override

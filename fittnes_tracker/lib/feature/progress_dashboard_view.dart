@@ -16,6 +16,7 @@ import 'package:ForgeForm/feature/premium/paywall_launcher.dart';
 import 'package:ForgeForm/feature/premium/premium_gate.dart';
 import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
 import 'package:ForgeForm/core/widgets/app_widgets.dart';
+import 'package:ForgeForm/core/widgets/content_pane.dart';
 
 final globalProgressKey = GlobalKey<_ProgressScreenState>();
 
@@ -312,15 +313,18 @@ class _ProgressScreenState extends State<ProgressScreen>
         ),
         actions: [
           IconButton(
+            tooltip: AppLocalizations.of(context)!.refresh,
             icon: const Icon(Icons.refresh),
             onPressed: _loadProgressData,
           ),
         ],
       ),
-      body: TabBarView(
+      body: ContentPane(
+        child: TabBarView(
         controller: _tabController,
         children: [_buildGymTab(theme), _buildNutritionTab(theme)],
       ),
+      )
     );
   }
 

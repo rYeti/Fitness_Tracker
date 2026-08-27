@@ -17,6 +17,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/scheduled_workout_provider.dart'; // Import the new ActiveWorkoutScreen
 import '../view/workouts/active_workout_view.dart';
 import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
+import 'package:ForgeForm/core/widgets/content_pane.dart';
 
 class ScheduledWorkoutsView extends StatefulWidget {
   const ScheduledWorkoutsView({super.key});
@@ -195,7 +196,8 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
               ),
             ],
           ),
-          body: Column(
+          body: ContentPane(
+            child: Column(
             children: [
               // ── Collapsible calendar ──────────────────────────────────
               Column(
@@ -225,6 +227,7 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
                           ),
                           const Spacer(),
                           IconButton(
+                            tooltip: l10n.previousDay,
                             icon: const Icon(Icons.arrow_back, size: 18),
                             visualDensity: VisualDensity.compact,
                             onPressed:
@@ -247,6 +250,7 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
                             child: Text(l10n.today),
                           ),
                           IconButton(
+                            tooltip: l10n.nextDay,
                             icon: const Icon(Icons.arrow_forward, size: 18),
                             visualDensity: VisualDensity.compact,
                             onPressed:
@@ -330,6 +334,7 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
                         ),
               ),
             ],
+            ),
           ),
           floatingActionButton: FloatingActionButton(
             tooltip: l10n.createOrEditWorkouts,

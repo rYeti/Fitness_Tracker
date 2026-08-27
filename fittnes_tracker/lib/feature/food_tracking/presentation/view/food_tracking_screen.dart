@@ -12,6 +12,7 @@ import '../../data/repositories/nutrition_repository.dart';
 import 'food_add_screen.dart';
 import 'food_detail_view.dart';
 import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
+import 'package:ForgeForm/core/widgets/content_pane.dart';
 
 // Create a global key to access the FoodTrackingScreen state
 final globalFoodTrackingKey = GlobalKey<_FoodTrackingScreenState>();
@@ -225,7 +226,8 @@ class _FoodTrackingScreenState extends State<FoodTrackingScreen> {
         onRefresh: loadNutritionData,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          child: Padding(
+          child: ContentPane(
+            child: Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -238,6 +240,7 @@ class _FoodTrackingScreenState extends State<FoodTrackingScreen> {
               ],
             ),
           ),
+          )
         ),
       ),
     );
@@ -561,13 +564,12 @@ class _FoodTrackingScreenState extends State<FoodTrackingScreen> {
                                     tooltip: AppLocalizations.of(
                                       context,
                                     )!.editFoodEntry(food.name),
-                                    // 44x44 per CLAUDE.md; IconButton's own
-                                    // default sits below it once the icon is
-                                    // shrunk to 18.
-                                    constraints: const BoxConstraints(
-                                      minWidth: 44,
-                                      minHeight: 44,
-                                    ),
+                                    // Sizing comes from iconButtonTheme. It
+                                    // used to be a local `constraints:` here,
+                                    // which measured 44x40 in a browser --
+                                    // `constraints` overrides the theme's
+                                    // minimumSize, so the local fix was the
+                                    // thing keeping the real one out.
                                     onPressed: () => _editPortion(category, food),
                                   ),
                                   // Destructive and non-destructive actions
@@ -579,10 +581,6 @@ class _FoodTrackingScreenState extends State<FoodTrackingScreen> {
                                     tooltip: AppLocalizations.of(
                                       context,
                                     )!.deleteFoodEntry(food.name),
-                                    constraints: const BoxConstraints(
-                                      minWidth: 44,
-                                      minHeight: 44,
-                                    ),
                                     onPressed: () async {
                                       final l10n = AppLocalizations.of(context)!;
                                       final confirmed = await showDialog<bool>(

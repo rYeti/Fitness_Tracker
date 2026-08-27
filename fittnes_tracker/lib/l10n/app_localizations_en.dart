@@ -63,6 +63,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get refresh => 'Refresh';
 
   @override
+  String get showPassword => 'Show password';
+
+  @override
+  String get hidePassword => 'Hide password';
+
+  @override
+  String get quickAdd => 'Quick add';
+
+  @override
   String get age => 'Age';
 
   @override

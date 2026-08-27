@@ -28,6 +28,14 @@ class ThemeProvider with ChangeNotifier {
     return ThemeData(
       brightness: Brightness.light,
       useMaterial3: true,
+      // Flutter defaults this to `padded` on mobile and `shrinkWrap` on web
+      // and desktop, and the web build is how the Trainer Console ships. With
+      // shrinkWrap a button is exactly as big as its content, so the 44x44
+      // minimum in CLAUDE.md quietly did not apply on the one platform whose
+      // pointer is not a finger -- but the same bundle is what a phone browser
+      // loads. Measured: Food's edit and delete buttons came out 44x40 with a
+      // 44x44 minimumSize set, because this trimmed it afterwards.
+      materialTapTargetSize: MaterialTapTargetSize.padded,
       fontFamily: 'Exo 2',
       // Scaffold reads this, NOT colorScheme.background — which Material 3
       // deprecated, so setting `background` alone silently did nothing and
@@ -120,6 +128,8 @@ class ThemeProvider with ChangeNotifier {
           backgroundColor: ForgeColors.forgeOrangeOnLight,
           foregroundColor: Colors.white,
           elevation: 0,
+          minimumSize: const Size(0, 44),
+          visualDensity: VisualDensity.standard,
           padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           textStyle: TextStyle(
@@ -127,6 +137,39 @@ class ThemeProvider with ChangeNotifier {
             fontWeight: FontWeight.w600,
             fontSize: 16,
           ),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          minimumSize: const Size(0, 44),
+          visualDensity: VisualDensity.standard,
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size(0, 44),
+          visualDensity: VisualDensity.standard,
+        ),
+      ),
+      chipTheme: const ChipThemeData(
+        // The Progress range selector is a row of ChoiceChips, which measured
+        // 34px tall. ChipThemeData has no visualDensity, so the height comes
+        // from padding.
+        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      ),
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(
+          // 44x44, the CLAUDE.md minimum, declared once instead of per call
+          // site. Several screens already passed
+          // `constraints: BoxConstraints(minWidth: 44, minHeight: 44)` and
+          // still measured 44x40 in a browser, because ThemeData defaults
+          // `visualDensity` to adaptivePlatformDensity -- which is compact on
+          // web and desktop, and subtracts from the size *after* the
+          // constraint is applied. The constraint looked like the fix, read
+          // like the fix in review, and was four pixels short on the one axis
+          // nobody measured.
+          minimumSize: const Size(44, 44),
+          visualDensity: VisualDensity.standard,
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
@@ -203,6 +246,14 @@ class ThemeProvider with ChangeNotifier {
     return ThemeData(
       brightness: Brightness.dark,
       useMaterial3: true,
+      // Flutter defaults this to `padded` on mobile and `shrinkWrap` on web
+      // and desktop, and the web build is how the Trainer Console ships. With
+      // shrinkWrap a button is exactly as big as its content, so the 44x44
+      // minimum in CLAUDE.md quietly did not apply on the one platform whose
+      // pointer is not a finger -- but the same bundle is what a phone browser
+      // loads. Measured: Food's edit and delete buttons came out 44x40 with a
+      // 44x44 minimumSize set, because this trimmed it afterwards.
+      materialTapTargetSize: MaterialTapTargetSize.padded,
       fontFamily: 'Exo 2',
       scaffoldBackgroundColor: ForgeColors.backgroundDark,
       colorScheme: ColorScheme.dark(
@@ -282,6 +333,8 @@ class ThemeProvider with ChangeNotifier {
           backgroundColor: ForgeColors.forgeOrange,
           foregroundColor: Colors.white,
           elevation: 0,
+          minimumSize: const Size(0, 44),
+          visualDensity: VisualDensity.standard,
           padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           textStyle: TextStyle(
@@ -289,6 +342,39 @@ class ThemeProvider with ChangeNotifier {
             fontWeight: FontWeight.w600,
             fontSize: 16,
           ),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          minimumSize: const Size(0, 44),
+          visualDensity: VisualDensity.standard,
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size(0, 44),
+          visualDensity: VisualDensity.standard,
+        ),
+      ),
+      chipTheme: const ChipThemeData(
+        // The Progress range selector is a row of ChoiceChips, which measured
+        // 34px tall. ChipThemeData has no visualDensity, so the height comes
+        // from padding.
+        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      ),
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(
+          // 44x44, the CLAUDE.md minimum, declared once instead of per call
+          // site. Several screens already passed
+          // `constraints: BoxConstraints(minWidth: 44, minHeight: 44)` and
+          // still measured 44x40 in a browser, because ThemeData defaults
+          // `visualDensity` to adaptivePlatformDensity -- which is compact on
+          // web and desktop, and subtracts from the size *after* the
+          // constraint is applied. The constraint looked like the fix, read
+          // like the fix in review, and was four pixels short on the one axis
+          // nobody measured.
+          minimumSize: const Size(44, 44),
+          visualDensity: VisualDensity.standard,
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(

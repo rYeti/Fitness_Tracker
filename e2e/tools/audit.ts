@@ -160,7 +160,10 @@ export async function auditScreen(
 
   // Controls sitting side by side with less than the 8px minimum between them.
   const adjacent: ScreenAudit['adjacent'] = [];
-  const sorted = [...nodes].sort((a, b) => a.y - b.y || a.x - b.x);
+  // Tabs are excluded: a segmented bar's destinations are *meant* to abut,
+  // so counting them reported five spurious violations on every screen with a
+  // bottom nav -- which was every screen.
+  const sorted = [...nodes].filter((n) => n.role !== 'tab').sort((a, b) => a.y - b.y || a.x - b.x);
   for (let i = 0; i < sorted.length - 1; i++) {
     const a = sorted[i];
     const b = sorted[i + 1];

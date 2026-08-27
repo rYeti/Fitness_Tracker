@@ -287,6 +287,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       l10n.password,
                     ).copyWith(
                       suffixIcon: IconButton(
+                        tooltip: _obscurePassword
+                            ? l10n.showPassword
+                            : l10n.hidePassword,
                         icon: Icon(
                           _obscurePassword
                               ? Icons.visibility_outlined
@@ -316,6 +319,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       l10n.confirmPassword,
                     ).copyWith(
                       suffixIcon: IconButton(
+                        tooltip: _obscureConfirm
+                            ? l10n.showPassword
+                            : l10n.hidePassword,
                         icon: Icon(
                           _obscureConfirm
                               ? Icons.visibility_outlined

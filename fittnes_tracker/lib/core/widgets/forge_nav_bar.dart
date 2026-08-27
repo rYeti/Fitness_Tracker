@@ -70,12 +70,20 @@ class ForgeNavBar extends StatelessWidget {
     // so that it is declared once for both themes rather than at each call
     // site. See ThemeProvider for why the M3 default is unusable with Forge
     // Orange as `secondary`.
+    // Five destinations don't fit labelled on a narrow phone, so there the
+    // selected one carries the label alone. Above the mobile breakpoint they
+    // fit easily -- at 1440px each destination gets 288px -- and hiding four
+    // of five labels there is a phone constraint applied where it does not
+    // apply. The console never showed this because its wide layout uses a
+    // sidebar and never reaches this widget.
+    final labelBehavior = Breakpoints.isMobile(context)
+        ? NavigationDestinationLabelBehavior.onlyShowSelected
+        : NavigationDestinationLabelBehavior.alwaysShow;
+
     return NavigationBar(
       selectedIndex: selectedIndex,
       onDestinationSelected: onSelected,
-      // Five destinations don't fit with labels always shown on a narrow
-      // phone; the selected one stays labelled.
-      labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
+      labelBehavior: labelBehavior,
       destinations: [
         for (final destination in destinations)
           NavigationDestination(
