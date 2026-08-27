@@ -13,6 +13,7 @@ import 'package:ForgeForm/feature/trainer_console/presentation/widgets/macro_sum
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/meal_detail_sheet.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/console_error.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
+import 'package:ForgeForm/core/nutrition/meal_category.dart';
 
 /// Client-switcher (shared ActiveClientProvider) + a day-switcher, so the
 /// trainer can browse any past day's nutrition, not just today.
@@ -367,11 +368,9 @@ class _MealsCard extends StatelessWidget {
   /// and "Snacks" over its life, and the tracker capitalises where this API's
   /// DTOs document lowercase, so nothing here may compare the raw string:
   /// unrecognised categories fall through to a generic icon and the end of the
-  /// list, which is how Snacks used to render.
-  static String _key(String category) {
-    final normalized = category.trim().toLowerCase();
-    return normalized == 'snacks' ? 'snack' : normalized;
-  }
+  /// list, which is how Snacks used to render. The fold itself lives in
+  /// [MealCategory] so this side and the food tracker cannot drift apart.
+  static String _key(String category) => MealCategory.key(category);
 
   static IconData _iconFor(String category) =>
       switch (_key(category)) {

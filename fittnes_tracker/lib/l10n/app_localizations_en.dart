@@ -213,6 +213,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchForFood => 'Search for food';
 
   @override
+  String get recentEatenAtThisMeal => 'Eaten at this meal';
+
+  @override
+  String get recentOtherFoods => 'Other foods';
+
+  @override
   String get recentlyAdded => 'Recently Added';
 
   @override

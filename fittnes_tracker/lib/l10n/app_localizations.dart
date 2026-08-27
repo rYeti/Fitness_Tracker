@@ -482,6 +482,18 @@ abstract class AppLocalizations {
   /// **'Search for food'**
   String get searchForFood;
 
+  /// No description provided for @recentEatenAtThisMeal.
+  ///
+  /// In en, this message translates to:
+  /// **'Eaten at this meal'**
+  String get recentEatenAtThisMeal;
+
+  /// No description provided for @recentOtherFoods.
+  ///
+  /// In en, this message translates to:
+  /// **'Other foods'**
+  String get recentOtherFoods;
+
   /// No description provided for @recentlyAdded.
   ///
   /// In en, this message translates to:

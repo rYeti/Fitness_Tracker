@@ -22,6 +22,10 @@ Markdown links, headings or emphasis, none of which Play renders.
 
 See `docs/android-release.md`.
 
+## Unreleased
+
+The food search you open from a meal now puts the foods you actually eat at that meal first. Breakfast, lunch, dinner and snacks used to show one identical list, so you scrolled past your lunch foods every morning to find your breakfast ones. Foods you have eaten at the meal you are logging now appear at the top, most recent first, with everything else below.
+
 ## 1.0.2+14
 
 The Trainer Console now opens far faster: it no longer reads a client's whole training history to draw the dashboard, and it loads only the section you are looking at. Your client list appears as soon as it is ready.

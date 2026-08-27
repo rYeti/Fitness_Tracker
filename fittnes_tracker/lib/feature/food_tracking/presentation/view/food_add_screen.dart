@@ -46,6 +46,16 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
   FoodSortField _sortField = FoodSortField.relevance;
   bool _sortAscending = false;
 
+  /// Built once rather than in `build()`: every keystroke calls `setState`,
+  /// and a `StreamBuilder` handed a freshly-constructed stream each rebuild
+  /// tears its subscription down and sets it up again.
+  late final Stream<List<FoodItemData>> _visibleFoods;
+
+  /// Foods this user has logged under [FoodAddScreen.category] before, most
+  /// recently logged first — what puts breakfast foods at the top of the
+  /// breakfast screen. See `docs/recent-foods-by-meal.md`.
+  late final Stream<List<String>> _mealFoodNames;
+
   // Reuse the same meal localization approach as food_tracking_screen
   final Map<String, String Function(AppLocalizations)> _mealLabelGetters = {
     'Breakfast': (loc) => loc.mealBreakfast,
@@ -66,6 +76,8 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
     db = Provider.of<AppDatabase>(context, listen: false);
     _repository = NutritionRepository(db);
     _repository.prewarmConnection();
+    _visibleFoods = db.foodItemDao.watchVisibleFoodItems();
+    _mealFoodNames = db.mealDao.watchFoodNamesLoggedInCategory(widget.category);
     _searchController.addListener(_onSearchChanged);
   }
 
@@ -1253,90 +1265,7 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
 
                   // ── No query → recent foods ──────────────────────────────
                   if (!hasQuery) {
-                    return StreamBuilder<List<FoodItemData>>(
-                      stream: db.foodItemDao.watchVisibleFoodItems(),
-                      builder: (context, snapshot) {
-                        if (!snapshot.hasData) {
-                          return Center(
-                            child: Padding(
-                              padding: const EdgeInsets.all(32),
-                              child: CircularProgressIndicator(
-                                color: colorScheme.primary,
-                              ),
-                            ),
-                          );
-                        }
-                        // Deduplicate by name: keep the highest-id entry per name
-                        // so that the most-recently-added version appears once.
-                        final seen = <String, FoodItemData>{};
-                        for (final item in snapshot.data!) {
-                          final key = item.name.toLowerCase().trim();
-                          if (!seen.containsKey(key) ||
-                              item.id > seen[key]!.id) {
-                            seen[key] = item;
-                          }
-                        }
-                        final foodItems = _sortFoodItemData(seen.values.toList());
-                        return ListView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: foodItems.length,
-                          itemBuilder: (context, index) {
-                            final item = foodItems[index];
-                            return _foodListTile(
-                              title: item.name,
-                              subtitle:
-                                  '${item.calories} kcal | P: ${item.protein}g | C: ${item.carbs}g | F: ${item.fat}g',
-                              onTap: () async {
-                                await Navigator.push<bool>(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder:
-                                        (context) => FoodDetailsScreen(
-                                          foodItem: FoodItemModel(
-                                            id: item.id,
-                                            name: item.name,
-                                            calories: item.calories,
-                                            protein: item.protein,
-                                            carbs: item.carbs,
-                                            fat: item.fat,
-                                            gramm: item.gramm,
-                                          ),
-                                          category: widget.category,
-                                          date: widget.date,
-                                        ),
-                                  ),
-                                );
-                              },
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  IconButton(
-                                    icon: Icon(
-                                      Icons.delete_outline,
-                                      color: colorScheme.error,
-                                      size: 20,
-                                    ),
-                                    onPressed:
-                                        () => db.foodItemDao.hideFromRecent(
-                                          item.name,
-                                        ),
-                                  ),
-                                  IconButton(
-                                    icon: Icon(
-                                      Icons.add,
-                                      color: colorScheme.primary,
-                                      size: 20,
-                                    ),
-                                    onPressed: () => _quickAddFromRecent(item),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        );
-                      },
-                    );
+                    return _buildRecentFoods(colorScheme);
                   }
 
                   final hasAny =
@@ -1447,20 +1376,7 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(14, 10, 14, 4),
-                          child: Text(
-                            label,
-                            style: TextStyle(
-                              fontFamily: 'Montserrat',
-                              fontWeight: FontWeight.w700,
-                              fontSize: 12,
-                              color: colorScheme.onSurface.withValues(
-                                alpha: 0.55,
-                              ),
-                            ),
-                          ),
-                        ),
+                        _sectionHeader(label),
                         ...items.map(
                           (result) => _foodListTile(
                             title:
@@ -1503,6 +1419,173 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
           onPressed: _addCustomFood,
           elevation: 2,
           child: const Icon(Icons.add),
+        ),
+      ),
+    );
+  }
+
+  /// The "Recently Added" list. Ordered so that foods this user has already
+  /// eaten at [FoodAddScreen.category] come first, under their own header.
+  ///
+  /// This screen is opened per meal, but the food library it reads records no
+  /// category at all — the meal a food was eaten at lives on `MealTable`, one
+  /// join away. Without that join every meal showed the same list in the same
+  /// order. See `docs/recent-foods-by-meal.md`.
+  Widget _buildRecentFoods(ColorScheme colorScheme) {
+    return StreamBuilder<List<String>>(
+      stream: _mealFoodNames,
+      builder: (context, mealSnapshot) {
+        return StreamBuilder<List<FoodItemData>>(
+          stream: _visibleFoods,
+          builder: (context, snapshot) {
+            if (!snapshot.hasData) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(32),
+                  child: CircularProgressIndicator(color: colorScheme.primary),
+                ),
+              );
+            }
+
+            // Deduplicate by name: keep the highest-id entry per name
+            // so that the most-recently-added version appears once.
+            final seen = <String, FoodItemData>{};
+            for (final item in snapshot.data!) {
+              final key = item.name.toLowerCase().trim();
+              if (!seen.containsKey(key) || item.id > seen[key]!.id) {
+                seen[key] = item;
+              }
+            }
+
+            // Position in this list is "how recently was this eaten at this
+            // meal" — the DAO returns it most-recent-first and deduplicated.
+            // Deliberately not gated on `hasData`: if this query is slow or
+            // fails, the recent foods still render, flat, rather than the
+            // screen sitting on a spinner over data it already holds.
+            final names = mealSnapshot.data ?? const <String>[];
+            final rank = <String, int>{};
+            for (var i = 0; i < names.length; i++) {
+              rank.putIfAbsent(names[i], () => i);
+            }
+
+            final inMeal = <FoodItemData>[];
+            final others = <FoodItemData>[];
+            for (final item in seen.values) {
+              if (rank.containsKey(item.name.toLowerCase().trim())) {
+                inMeal.add(item);
+              } else {
+                others.add(item);
+              }
+            }
+
+            // Nothing has ever been eaten at this meal — a fresh install, or a
+            // meal this user does not log. One flat list, exactly as before;
+            // "Other foods" must never be the only heading on the screen.
+            if (inMeal.isEmpty) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children:
+                    _sortFoodItemData(others).map(_recentFoodTile).toList(),
+              );
+            }
+
+            // An explicit sort orders within each group; the meal a food
+            // belongs to stays the primary key.
+            final orderedInMeal =
+                _sortField == FoodSortField.relevance
+                    ? (inMeal..sort(
+                      (a, b) => rank[a.name.toLowerCase().trim()]!.compareTo(
+                        rank[b.name.toLowerCase().trim()]!,
+                      ),
+                    ))
+                    : _sortFoodItemData(inMeal);
+            final orderedOthers = _sortFoodItemData(others);
+
+            final l10n = AppLocalizations.of(context)!;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _sectionHeader(l10n.recentEatenAtThisMeal),
+                ...orderedInMeal.map(_recentFoodTile),
+                if (orderedOthers.isNotEmpty) ...[
+                  _sectionHeader(l10n.recentOtherFoods),
+                  ...orderedOthers.map(_recentFoodTile),
+                ],
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _recentFoodTile(FoodItemData item) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return _foodListTile(
+      title: item.name,
+      subtitle:
+          '${item.calories} kcal | P: ${item.protein}g | C: ${item.carbs}g | F: ${item.fat}g',
+      onTap: () async {
+        await Navigator.push<bool>(
+          context,
+          MaterialPageRoute(
+            builder:
+                (context) => FoodDetailsScreen(
+                  foodItem: FoodItemModel(
+                    id: item.id,
+                    name: item.name,
+                    calories: item.calories,
+                    protein: item.protein,
+                    carbs: item.carbs,
+                    fat: item.fat,
+                    gramm: item.gramm,
+                  ),
+                  category: widget.category,
+                  date: widget.date,
+                ),
+          ),
+        );
+      },
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            icon: Icon(
+              Icons.delete_outline,
+              color: colorScheme.error,
+              size: 20,
+            ),
+            onPressed: () => db.foodItemDao.hideFromRecent(item.name),
+          ),
+          IconButton(
+            icon: Icon(Icons.add, color: colorScheme.primary, size: 20),
+            onPressed: () => _quickAddFromRecent(item),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// A group heading inside a list. Marked as a header so a screen reader can
+  /// announce it as one — the grouping is otherwise invisible without sight.
+  ///
+  /// 0.75 rather than the 0.55 used for de-emphasised body text: at 12px this
+  /// is small text, and 55% of `onSurface` on the light surface lands around
+  /// 3.5:1, under the 4.5:1 AA floor.
+  Widget _sectionHeader(String label) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 4),
+      child: Semantics(
+        header: true,
+        child: Text(
+          label,
+          style: TextStyle(
+            fontFamily: 'Montserrat',
+            fontWeight: FontWeight.w700,
+            fontSize: 12,
+            color: colorScheme.onSurface.withValues(alpha: 0.75),
+          ),
         ),
       ),
     );
