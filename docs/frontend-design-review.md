@@ -1065,3 +1065,75 @@ The counterpart lesson is §12a's: the sweep that produces those numbers is
 itself code, and it is code with no tests and a strong bias toward reporting
 whatever it happens to measure. Falsify each metric once — change the thing,
 watch the number move — before believing any of them.
+
+---
+
+## 13. The screens you reach by tapping
+
+§12 was still not the whole app. It audited **12 views**: five trainee tabs,
+five console sections, Login and Register. The repo has **~41 views with a
+`Scaffold`**. Everything else — where food is actually logged, a weight is
+actually recorded, a client is actually opened — had never been rendered by a
+test, by §9, or by §12.
+
+The result is the sharpest thing in this whole document:
+
+| | Unnamed interactive controls |
+|---|---:|
+| The 12 landing screens | **0** |
+| Weight tracking | **15 of 17** |
+| Add food | **25 of 28** |
+| Food search | **25 of 29** |
+| Weight goal | **2 of 3** |
+| Meal templates | **1 of 6** |
+
+Sixty-eight, on five screens, on the surface every trainee uses daily.
+
+They are: the edit and delete on every weight record, the hide and quick-add
+on every recent food, and the floating action button on three separate screens
+— the primary action of each, announced to a screen reader as the single word
+"button". The two weight-goal fields had a `hintText` and no `labelText`; a
+hint vanishes the moment you type, so it is not a label.
+
+### Why the distribution is the finding
+
+The landing screens are clean and the screens two taps in are not, and that is
+not chance. Landing screens are what gets demoed, screenshotted, and reviewed.
+They are also, precisely, what an audit sees if it signs in and stops.
+
+> An audit that stops at the front door will always report that the house is
+> clean.
+
+§9 stopped there and reported four numbers. §12 stopped there and reported
+zero. Both were accurate about what they measured, and both left 68 unnamed
+controls untouched on screens neither had opened.
+
+The layout finding repeats identically: weight goal measured 0.978 of a 1440px
+viewport, exercises 0.978, account settings 0.972, add food 0.956 — the same
+missing constraint as the tab roots, on the screens nobody had looked at.
+
+### And one more measurement bug
+
+`page.goto()` is a full navigation, which re-boots the Flutter engine — and the
+semantics tree does not survive it, because Flutter only builds one when asked.
+The first run of the four URL-addressable screens therefore reported **0
+controls on all four**, which looks exactly like a clean screen and means a
+screen that was never measured.
+
+That is now the fifth such bug in this sweep (§12a has the other four), and
+they share a single shape: **every one of them failed in the direction that
+made the app look better.** Nothing about that is a coincidence either. A
+metric that fails to find its subject reports zero, and zero is the good
+number for everything counted here.
+
+### Coverage, stated honestly
+
+23 of ~41 views have now been rendered and measured. Not covered: the workout
+create/edit/active views, the CSV and FitNotes importers, the barcade scanner,
+the schedule view, the client-detail and session screens behind a populated
+roster, the paywall, and the welcome screen. The coach chat screen was
+attempted and **not reached** — its entry point on Profile did not respond
+within 15s and I have not established why.
+
+The remaining views are not known to be clean. They are unmeasured, which on
+the evidence of this section is a different and worse thing.
