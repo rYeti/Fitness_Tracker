@@ -267,3 +267,87 @@ locators for role-and-name form before keeping them.
   `gstatic.com` and dies without it.
 - A build that succeeds is not an app that runs. If CI produces something meant
   to be executed, make CI execute it.
+
+---
+
+## The signed-in fixture, and which way the open question went
+
+§6 left a decision open:
+
+> The natural next step, when the console has screens worth driving, is a
+> signed-in fixture. That needs a decision this change does not make: a seeded
+> test account against a running API, or an intercepted network layer. Both are
+> real work and neither is needed to assert that the app starts.
+
+It went to **a real API**. The reason is not purity. The findings that needed
+this were contrast off rendered pixels and the accessibility tree of a
+*populated* list, and an intercepted network layer can only ever hand back the
+shapes you already mocked — it would have shown a food list of exactly the
+length I chose, with exactly the labels I invented.
+
+Sign-in goes through the real login screen rather than a planted token for the
+same reason. Signing in is what runs `PostAuthHome`'s console-or-trainee
+decision, `ProfileSetupGate`, and the `SyncService.pullAll()` that fills the
+local drift database every trainee screen reads from. A planted token skips all
+three and lands you on screens that are empty for the wrong reason.
+
+`tools/seed-review-data.mjs` writes its data through the app's own endpoints
+rather than as SQL, so it cannot drift from the schema.
+
+### Four things this needed that were not obvious
+
+**Typing drops characters.** Flutter routes keys through a hidden input it
+repositions and re-creates as focus moves. In a password field this is not
+cosmetic: a dropped character and a wrong password both surface as a 401, so a
+flaky login is indistinguishable from a broken one. `typeReliably` types, reads
+the value back, and retypes.
+
+**`waitFor({ state: 'detached' })` resolves immediately when the locator matches
+nothing.** The first fixture waited for the login button to disappear and
+"succeeded" in 200ms without ever signing in. Every screenshot underneath was
+of the login screen, and the suite was green. It now asserts the button exists
+*before* waiting for it to go, and confirms a nav afterwards.
+
+**Profile setup is part of the sign-in path.** Completion is stored per account
+in local prefs, so a fresh browser profile always sees the questionnaire
+however many times that account has signed in elsewhere.
+
+**No single name works at both widths.** The console's first section is
+"Dashboard" in the desktop sidebar and "Home" in the narrow bottom bar
+(`consoleNavDashboardShort`). `navDestination()` tries `role=tab` then
+`role=button`, because Material 3's `NavigationBar` emits a tablist and the
+sidebar is a column of buttons.
+
+### Pointing a build at the local API
+
+`serverUrlDefault` is a `String.fromEnvironment('FORGE_API_URL', ...)`:
+
+```
+flutter build web --release --no-web-resources-cdn \
+  --dart-define=FORGE_API_URL=http://127.0.0.1:5080/
+```
+
+It used to be a plain const, and the way to review against localhost was to
+edit the line and remember to revert it — a production URL one forgotten
+`git checkout` away from being wrong, re-verified by hand every time. The
+default is unchanged and is what every shipped build uses.
+
+### The 800px project
+
+`Breakpoints.isDesktop` is `> 1024`, so everything from 600 to 1024 gets the
+phone layout. The suite had only 1440 and 390 and could not see that band at
+all. It is now its own project. The stale comment on the 390 project — which
+said the console collapses below 600px — is corrected.
+
+### The audit sweep
+
+`AUDIT=1 npx playwright test audit.spec.ts` walks both surfaces at all three
+widths and writes an accessibility tree, a screenshot and a summary table per
+screen to `audit-out/`. It is skipped without `AUDIT=1`, because it needs a
+seeded API behind it and the rest of the suite deliberately does not.
+
+Its output is evidence, not a pass/fail gate. Three of its own metrics were
+wrong before they were right — see `docs/frontend-design-review.md` §12a — so
+treat a number it produces the way you would treat a number from any other
+untested program: change the thing it measures, and check that the number
+moves.

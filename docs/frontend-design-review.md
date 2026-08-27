@@ -934,3 +934,134 @@ place where the whole property can be named, and the durable output of this
 work is not the fixed colours — it is the three files where those properties
 finally have somewhere to live: `test/core/contrast_test.dart`,
 `lib/core/forge_motion.dart`, and `lib/core/app_router.dart`.
+
+---
+
+## 12. The trainee pass, at the depth the console got
+
+§9 drove every screen once and reported the trainee half as a single
+number each — "Food 20, Gym 2, Dashboard 1, Progress 1". Nobody could act on
+that, because a count is not a control. Nine months of remediation later the
+console had been fixed thoroughly and the trainee app had been fixed where it
+happened to overlap.
+
+This section redoes the trainee half properly, and makes it repeatable: the
+sweep is now `AUDIT=1 npx playwright test audit.spec.ts` against a seeded API,
+walking both surfaces at 1440 / 800 / 390 and writing an accessibility tree, a
+screenshot and a summary table per screen.
+
+### 12a. The method's own bugs came first
+
+Three of this pass's measurements were wrong before they were right, and all
+three were wrong in the flattering direction:
+
+| What | Symptom | Cause |
+|---|---|---|
+| Names | every control on every screen "unnamed" | keyed off `aria-label` on `flt-semantics`; Flutter puts a button's name in its **text content** and a field's on the child `<input>` |
+| Theme | every desktop console screen "dark" | sampled the pixel at x=2, which is the charcoal sidebar in *both* themes |
+| Data | 0 workouts, 2,000 kcal, 85kg | captured before `SyncService.pullAll()` landed, i.e. photographed the defaults |
+
+And one in the harness itself: `signIn` waited for the login button to become
+detached, which resolves **immediately** when the locator matches nothing. It
+"passed" in 200ms without ever signing in, and every screenshot underneath was
+of the login screen.
+
+This is §10's lesson arriving a second time by a different road. There it was
+"I inferred widget behaviour from a rendered screenshot instead of reading the
+widget." Here it is: *a measurement you have not falsified is a guess with a
+number attached.* Each of the four was caught by asking the boring question —
+does this number move when the thing it measures moves? — rather than by
+noticing anything suspicious about the result. Three of them looked entirely
+plausible.
+
+### 12b. What the numbers were, and are
+
+Unnamed interactive controls, and the widest control as a fraction of the
+viewport at 1440px:
+
+| Screen | Unnamed before | after | Widest before | after |
+|---|---:|---:|---:|---:|
+| trainee Dashboard | 1 | **0** | 0.978 | **0.561** |
+| trainee Food | 0 | 0 | 0.978 | **0.561** |
+| trainee Gym | 2 | **0** | 0.956 | **0.539** |
+| trainee Progress | 1 | **0** | 0.500 | 0.500 |
+| trainee Profile | 0 | 0 | 0.978 | **0.561** |
+| Login | 1 | **0** | 0.333 | 0.333 |
+| Register | 2 | **0** | 0.333 | 0.333 |
+| console (all five) | 0 | 0 | 0.15 | 0.15 |
+
+§9's Food count of 20 is genuinely 0 now — `0d7a206` fixed it. Its Gym 2,
+Dashboard 1 and Progress 1 were all still there, unchanged, because nobody had
+ever been told which controls they were. They are the Gym date-navigation
+arrows, the Dashboard's SpeedDial, and the Progress refresh action.
+
+Two findings the review recorded are **fixed and can be closed**: the trainee
+tabs no longer use `role="button"` with `"Dashboard\nTab 1 of 5"` written into
+the label — Material 3's `NavigationBar` emits a real `role="tablist"` with
+labelled `role="tab"` children — and the auth screens now constrain their
+width (0.333, from 0.96).
+
+### 12c. The 44x44 that measured 40
+
+The best finding in this pass is not a missing label. It is that several call
+sites had **already been fixed**, in a way that reviewed correctly and did not
+work:
+
+```dart
+IconButton(
+  constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+  ...
+)
+```
+
+Measured in a browser: **44x40**. Three separate mechanisms trim it afterwards,
+none of them visible at the call site:
+
+1. `ThemeData.visualDensity` defaults to `adaptivePlatformDensity`, which is
+   *compact* on web and desktop.
+2. `ThemeData.materialTapTargetSize` defaults to `shrinkWrap` on web — so the
+   padding that makes a minimum real is removed, on the one platform whose
+   pointer is not a finger, in the same bundle a phone browser loads.
+3. `IconButton.constraints` **overrides** `iconButtonTheme`'s `minimumSize`. The
+   local fix was the thing keeping the systemic one out.
+
+A rule about a physical dimension cannot be enforced by a constant that reads
+like the rule. It has to be measured on the rendered thing, once, or it is
+decoration.
+
+### 12d. A regression of mine, found by looking
+
+`ForgeNavBar` applied `NavigationDestinationLabelBehavior.onlyShowSelected` at
+every width. That is a phone constraint — five labels genuinely do not fit at
+390px — and at 1440px each destination gets 288px, so four of five labels were
+hidden for no reason at all. The console never showed it, because its wide
+layout is a sidebar and never reaches that widget. It was invisible in review
+and obvious in a screenshot.
+
+### 12e. What is still open
+
+Stated as a measurement, which is the whole point of this section:
+
+- **Food: 15 controls under 44x44 at 390px**, 14 of them the per-row edit and
+  delete buttons at 44x40. The three theme fixes in §12c moved every other
+  screen and did not move these, so something else in that row is binding.
+- **800px:** trainee content still measures 0.92–0.96 of the viewport, because
+  `contentMaxWidth` is 840 and the constraint does not bind below it. That is
+  correct behaviour rather than a defect, but it means the 600–1024 band is
+  the phone layout stretched, and `Breakpoints.mobile` is still used nowhere.
+- **Macro colours as text** (§2: protein 4.23, carbs 3.68, fat 3.30) remain
+  unaudited. The review's own advice was to check whether any of them carries
+  a number before adding a `macroOnLight` variant; that check has not been
+  done.
+
+### The lesson from this one
+
+§9 produced a number per trainee screen and stopped. The number was correct.
+It was also useless, because "Gym: 2" cannot be fixed — and four years of
+green test runs later, Gym still had exactly 2. A finding is only actionable
+at the granularity of the thing you would change.
+
+The counterpart lesson is §12a's: the sweep that produces those numbers is
+itself code, and it is code with no tests and a strong bias toward reporting
+whatever it happens to measure. Falsify each metric once — change the thing,
+watch the number move — before believing any of them.

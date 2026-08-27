@@ -26,13 +26,13 @@ See `docs/android-release.md`.
 
 One app, one look: the same navigation and title bars everywhere, and correct spacing at the top and bottom of every screen. Your avatar no longer covers the dashboard greeting.
 
-A failed load now says so and offers a retry, instead of claiming you have no workouts.
+Buttons and icons are easier to hit, and every control now works with a screen reader.
 
-Light theme text, buttons, badges and fields are easier to read.
+On a tablet or computer the app no longer stretches across the whole window.
 
-The Trainer Console opens faster and has real web addresses.
+A failed load says so and offers a retry, instead of claiming you have no workouts.
 
-Chat messages show the time they were sent.
+Light theme text, buttons and fields are easier to read.
 
 ## 1.0.2+13
 
