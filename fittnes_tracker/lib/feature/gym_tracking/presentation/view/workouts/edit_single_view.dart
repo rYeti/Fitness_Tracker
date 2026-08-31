@@ -469,7 +469,7 @@ class _EditSingleWorkoutViewState extends State<EditSingleWorkoutView> {
             ),
           )
         else
-          IconButton(icon: const Icon(Icons.save), onPressed: _saveWorkout),
+          IconButton(icon: const Icon(Icons.save), tooltip: l10n.saveWorkout, onPressed: _saveWorkout),
       ],
     ),
     body: Form(

@@ -590,6 +590,12 @@ abstract class AppLocalizations {
   /// **'Add Rest Day'**
   String get addRestDay;
 
+  /// No description provided for @addWorkoutDay.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a day'**
+  String get addWorkoutDay;
+
   /// No description provided for @workoutNameLabel.
   ///
   /// In en, this message translates to:

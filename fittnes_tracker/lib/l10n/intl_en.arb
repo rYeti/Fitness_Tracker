@@ -144,6 +144,8 @@
   "noExercisesYet": "No exercises yet",
   "addWorkout": "Add Workout",
   "addRestDay": "Add Rest Day",
+  "addWorkoutDay": "Add a day",
+  "@addWorkoutDay": {},
   "workoutNameLabel": "Workout Name",
   "add": "Add",
   "selectStartDate": "Select Start Date",

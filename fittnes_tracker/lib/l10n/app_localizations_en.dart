@@ -274,6 +274,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get addRestDay => 'Add Rest Day';
 
   @override
+  String get addWorkoutDay => 'Add a day';
+
+  @override
   String get workoutNameLabel => 'Workout Name';
 
   @override

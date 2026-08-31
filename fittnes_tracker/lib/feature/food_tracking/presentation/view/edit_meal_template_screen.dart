@@ -174,6 +174,7 @@ class _EditMealTemplateScreenState extends State<EditMealTemplateScreen> {
           ),
           trailing: IconButton(
             icon: const Icon(Icons.delete),
+            tooltip: l10n.deleteFoodEntry(food.foodName),
             onPressed: () {
               setState(() {
                 _selectedFoods.remove(food);

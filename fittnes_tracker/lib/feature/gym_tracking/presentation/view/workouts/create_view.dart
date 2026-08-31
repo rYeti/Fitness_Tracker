@@ -809,11 +809,13 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
               children: [
                 IconButton(
                   icon: const Icon(Icons.edit_outlined),
+                  tooltip: l10n.editWorkout,
                   onPressed: () => _showWorkoutDetails(name),
                 ),
                 IconButton(
                   icon: Icon(Icons.delete_outline,
                       color: theme.colorScheme.error),
+                  tooltip: '${l10n.deleteWorkout}: $name',
                   onPressed: () =>
                       setState(() => _workoutExercises.remove(name)),
                 ),
@@ -1244,6 +1246,7 @@ class _WorkoutDayCard extends StatelessWidget {
                     Icons.delete_outline,
                     color: theme.colorScheme.error,
                   ),
+                  tooltip: '${l10n.deleteWorkout}: $workoutName',
                   onPressed: onDelete,
                   visualDensity: VisualDensity.compact,
                 ),
@@ -1382,6 +1385,7 @@ class _WorkoutDetailsScreenState extends State<_WorkoutDetailsScreen> {
               ),
             IconButton(
               icon: const Icon(Icons.check),
+              tooltip: l10n.done,
               onPressed: () {
                 widget.onExercisesChanged(_exercises);
                 Navigator.pop(context);
@@ -1665,6 +1669,9 @@ class _ExerciseCardState extends State<_ExerciseCard> {
                         Icons.delete_outline,
                         color: theme.colorScheme.error,
                       ),
+                      tooltip:
+                          '${l10n.deleteExercise}: '
+                          '${widget.exercise.localizedName(Localizations.localeOf(context).languageCode)}',
                       onPressed: widget.onDelete,
                       visualDensity: VisualDensity.compact,
                     ),
@@ -1779,6 +1786,7 @@ class _ExerciseCardState extends State<_ExerciseCard> {
                                   color: theme.colorScheme.error,
                                   size: 20,
                                 ),
+                                tooltip: '${l10n.removeSet}: ${l10n.setLabel} ${set.setNumber}',
                                 onPressed: () => _removeSet(index),
                                 visualDensity: VisualDensity.compact,
                               ),
@@ -1953,9 +1961,11 @@ class _AddDaySpeedDialState extends State<_AddDaySpeedDial>
           const SizedBox(height: 12),
         ],
 
-        // Main FAB
+        // Main FAB. Tracks open/closed: a toggle that always announces the
+        // same thing says the opposite of what it does half the time.
         FloatingActionButton(
           onPressed: _toggle,
+          tooltip: _isOpen ? l10n.close : l10n.addWorkoutDay,
           child: RotationTransition(
             turns: _rotationAnimation,
             child: Icon(_isOpen ? Icons.close : Icons.add),

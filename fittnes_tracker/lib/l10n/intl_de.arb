@@ -124,6 +124,8 @@
   "noExercisesYet": "Noch keine Übungen",
   "addWorkout": "Training hinzufügen",
   "addRestDay": "Ruhetag hinzufügen",
+  "addWorkoutDay": "Tag hinzufügen",
+  "@addWorkoutDay": {},
   "workoutNameLabel": "Trainingsname",
   "add": "Hinzufügen",
   "selectStartDate": "Startdatum wählen",
