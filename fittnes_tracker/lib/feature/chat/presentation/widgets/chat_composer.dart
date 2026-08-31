@@ -58,14 +58,17 @@ class _ChatComposerState extends State<ChatComposer> {
             // Present but inert: there is no upload endpoint yet (see the
             // roadmap's out-of-scope list). Disabled rather than absent so the
             // layout doesn't shift when it starts working.
-            Tooltip(
-              message: l10n.chatAttachmentsUnavailable,
-              child: IconButton(
-                onPressed: null,
-                icon: const Icon(Icons.add_rounded),
-                iconSize: 22,
-                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-              ),
+            //
+            // IconButton's own `tooltip:` rather than a wrapping Tooltip
+            // widget - a Tooltip wrapped around a *disabled* child doesn't
+            // merge its label into the child's semantics node on web, so a
+            // screen reader saw a nameless button here.
+            IconButton(
+              tooltip: l10n.chatAttachmentsUnavailable,
+              onPressed: null,
+              icon: const Icon(Icons.add_rounded),
+              iconSize: 22,
+              constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
             ),
             const SizedBox(width: 4),
             Expanded(

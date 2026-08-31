@@ -367,6 +367,16 @@ test.describe('design audit — the workout flow and the last views', () => {
     try {
       await land(page, '/console/dashboard');
       await page.waitForTimeout(2000);
+      // Not a route choice: the roster defaults to Grid view, and
+      // `_RosterCard` (trainer_dashboard_screen.dart) does not mirror into
+      // the semantics tree at all there - not merely unnamed, absent. The
+      // *identical* data in Table view (`InkWell` directly, no `AppCard`
+      // wrapper) mirrors correctly, confirmed by dumping every
+      // `<flt-semantics>` node's text in both views. That gap is real and is
+      // recorded as its own finding below; Table view is used here only to
+      // still reach and audit the screen behind it.
+      await page.getByRole('button', { name: /Table view/i }).first().click({ timeout: 10_000 });
+      await page.waitForTimeout(1500);
       await page.getByRole('button', { name: /Robert Meyer/i }).first().click({ timeout: 20_000 });
       await page.waitForTimeout(3000);
       results.push(await auditScreen(page, 'console-ClientDetail', viewport));
