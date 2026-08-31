@@ -105,6 +105,8 @@
   "mealDinner": "Dinner",
   "mealSnacks": "Snacks",
   "searchForFood": "Search for food",
+  "recentEatenAtThisMeal": "Eaten at this meal",
+  "recentOtherFoods": "Other foods",
   "recentlyAdded": "Recently Added",
   "addedToRecentFoods": "{name} added to recent foods",
   "@addedToRecentFoods": {

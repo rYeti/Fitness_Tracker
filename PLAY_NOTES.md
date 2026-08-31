@@ -22,7 +22,7 @@ Markdown links, headings or emphasis, none of which Play renders.
 
 See `docs/android-release.md`.
 
-## Unreleased
+## 1.0.2+15
 
 Your chat messages are now end-to-end encrypted. Messages are scrambled on your
 device and can only be read by you and the person you are talking to — not by
@@ -31,6 +31,8 @@ show a preview, because your own phone unscrambles it.
 
 There is no backup of your key, so if you reinstall or sign in on a new device,
 older messages cannot be unscrambled there.
+
+The food search now shows the foods you eat at that meal first.
 
 ## 1.0.2+14
 
