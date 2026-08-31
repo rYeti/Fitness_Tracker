@@ -24,15 +24,17 @@ See `docs/android-release.md`.
 
 ## Unreleased
 
-One app, one look: the same navigation and title bars everywhere, and correct spacing at the top and bottom of every screen. Your avatar no longer covers the dashboard greeting.
+Your chat messages are now end-to-end encrypted. Messages are scrambled on your
+device and can only be read by you and the person you are talking to — not by
+our servers, and not by anyone with a copy of the database. Notifications still
+show a preview, because your own phone unscrambles it.
 
-Buttons and icons are easier to hit, and every control now works with a screen reader.
+There is no backup of your key, so if you reinstall or sign in on a new device,
+older messages cannot be unscrambled there.
 
-On a tablet or computer the app no longer stretches across the whole window.
+## 1.0.2+14
 
-A failed load says so and offers a retry, instead of claiming you have no workouts.
-
-Light theme text, buttons and fields are easier to read.
+The Trainer Console now opens far faster: it no longer reads a client's whole training history to draw the dashboard, and it loads only the section you are looking at. Your client list appears as soon as it is ready.
 
 ## 1.0.2+13
 

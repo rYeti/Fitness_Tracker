@@ -98,9 +98,16 @@ class _TrainerConsoleHomeState extends State<TrainerConsoleHome> {
     } else if (sl.isRegistered<AppDatabase>()) {
       final signalR = SignalRHubChatClient();
       _signalR = signalR;
-      _chat = ChatProvider(
-        repository: ChatRepository(db: sl<AppDatabase>(), signalR: signalR),
-      );
+      final repository = ChatRepository(db: sl<AppDatabase>(), signalR: signalR);
+      _chat = ChatProvider(repository: repository);
+
+      // Started next to the connect, and for the same reason: it is a network
+      // round trip that must not block the console's first paint. A failure
+      // leaves this device with no published key, which shows up as messages
+      // the other side cannot read -- so it is retried on the next visit rather
+      // than swallowed forever.
+      unawaited(repository.prepareKeys().catchError((Object _) {}));
+
       // Not awaited: the console renders its roster and KPIs fine while the
       // socket is still opening, and the connection banner covers the gap.
       // Errors are dropped here rather than left unhandled — the failure is

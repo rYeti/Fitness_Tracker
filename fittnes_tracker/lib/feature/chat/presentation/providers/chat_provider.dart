@@ -235,12 +235,17 @@ class ChatProvider extends ChangeNotifier {
     }
 
     final next = [..._conversations];
-    next[index] = current.copyWith(
-      lastMessagePreview: message.body ?? current.lastMessagePreview,
-      lastMessageAt: message.sentAt,
-      unreadCount:
-          (mine || isOpen) ? current.unreadCount : current.unreadCount + 1,
-    );
+    // The preview is set through withPreview rather than copyWith, because null
+    // has to mean "this one, and it is unreadable" here — copyWith reads a null
+    // as "leave it alone", which would leave the *previous* message's text on the
+    // row under the new message's timestamp.
+    next[index] = current
+        .copyWith(
+          lastMessageAt: message.sentAt,
+          unreadCount:
+              (mine || isOpen) ? current.unreadCount : current.unreadCount + 1,
+        )
+        .withPreview(message.body);
 
     // Same ordering the server uses, so a live update and a reload agree.
     next.sort((a, b) => (b.lastMessageAt ?? DateTime(0))

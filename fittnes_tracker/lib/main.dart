@@ -16,12 +16,15 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:provider/provider.dart' as provider;
 import 'package:workmanager/workmanager.dart';
 import 'core/di/service_locator.dart';
 import 'core/widgets/forge_nav_bar.dart';
 import 'core/widgets/lazy_indexed_stack.dart';
+import 'core/services/chat_push_decoder.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/push_service.dart';
 import 'feature/chat/presentation/view/coach_chat_entry.dart';
@@ -315,11 +318,40 @@ class MyApp extends StatefulWidget {
 /// tree-shaking removes it from the release build and background pushes silently
 /// stop working — in release only, which is the worst possible place to find out.
 ///
-/// It deliberately does nothing: the payload is a `notification` message, so the
-/// OS has already drawn it. This exists to satisfy the plugin's contract and to
-/// be the obvious place for background bookkeeping if it is ever needed.
+/// This used to be empty, and the comment here used to explain why: the payload
+/// was a `notification` message and the OS had already drawn it. Chat is
+/// end-to-end encrypted now, so the server cannot write a notification for a
+/// message it cannot read, and the payload is data-only. Drawing it is this
+/// function's job.
+///
+/// **Nothing from the running app is available here.** A background isolate
+/// starts empty: no service locator, no open database, no providers, no widget
+/// tree. Everything below either reads the platform keystore or constructs what
+/// it needs on the spot. See docs/chat-encryption.md.
 @pragma('vm:entry-point')
-Future<void> _firebaseBackgroundHandler(RemoteMessage message) async {}
+Future<void> _firebaseBackgroundHandler(RemoteMessage message) async {
+  if (message.data['type'] != 'chat_message') return;
+
+  // Required before any Firebase API is touched in this isolate — it has none
+  // of the initialisation main() did.
+  await Firebase.initializeApp();
+
+  final content = await decodeChatPush(message.data, allowNetwork: false);
+
+  final plugin = FlutterLocalNotificationsPlugin();
+  await plugin.initialize(
+    const InitializationSettings(
+      android: AndroidInitializationSettings('@mipmap/launcher_icon'),
+    ),
+  );
+
+  await presentChatNotification(
+    plugin: plugin,
+    title: content.title,
+    body: content.body,
+    threadId: content.threadId,
+  );
+}
 
 /// Brings push up off the startup path.
 ///
@@ -355,16 +387,19 @@ void _wirePushNotifications() {
   // the tab badge already told them.
   FirebaseMessaging.onMessage.listen((message) {
     if (message.data['type'] != 'chat_message') return;
-    final notification = message.notification;
-    if (notification == null) return;
 
-    unawaited(
-      notifications.showChatMessage(
-        title: notification.title ?? 'New message',
-        body: notification.body ?? '',
-        threadId: message.data['threadId'] as String?,
-      ),
-    );
+    // Read out of `data`, not `notification`. There is no notification block on
+    // a chat push any more: the server sends ciphertext and this device is the
+    // only thing that can turn it into words. The old `if (notification == null)
+    // return` guard would now drop every chat notification there is.
+    unawaited(() async {
+      final content = await decodeChatPush(message.data, allowNetwork: true);
+      await notifications.showChatMessage(
+        title: content.title,
+        body: content.body,
+        threadId: content.threadId,
+      );
+    }());
   });
 
   // A tap on one we drew ourselves comes back through the plugin instead of

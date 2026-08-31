@@ -1366,6 +1366,8 @@
   "chatSendMessage": "Nachricht senden",
   "chatSending": "Wird gesendet",
   "chatFailedRetry": "Senden fehlgeschlagen — zum Wiederholen tippen",
+  "chatUndecryptable": "Nachricht kann auf diesem Gerät nicht entschlüsselt werden",
+  "chatNewMessage": "Neue Nachricht",
   "chatReconnecting": "Verbindung wird wiederhergestellt…",
   "chatOffline": "Offline",
   "chatUnreadCount": "{count} ungelesen",

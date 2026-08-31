@@ -2389,6 +2389,13 @@ class AppLocalizationsDe extends AppLocalizations {
       'Senden fehlgeschlagen — zum Wiederholen tippen';
 
   @override
+  String get chatUndecryptable =>
+      'Nachricht kann auf diesem Gerät nicht entschlüsselt werden';
+
+  @override
+  String get chatNewMessage => 'Neue Nachricht';
+
+  @override
   String get chatReconnecting => 'Verbindung wird wiederhergestellt…';
 
   @override

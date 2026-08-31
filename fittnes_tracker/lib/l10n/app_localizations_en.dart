@@ -2372,6 +2372,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chatFailedRetry => 'Failed to send — tap to retry';
 
   @override
+  String get chatUndecryptable => "Message can't be decrypted on this device";
+
+  @override
+  String get chatNewMessage => 'New message';
+
+  @override
   String get chatReconnecting => 'Reconnecting…';
 
   @override

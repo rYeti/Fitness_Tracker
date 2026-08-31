@@ -19,9 +19,6 @@ public class FirebasePushSender(FirebaseApp app, ILogger<FirebasePushSender> log
     private readonly FirebaseMessaging _messaging = FirebaseMessaging.GetMessaging(app);
     private readonly ILogger<FirebasePushSender> _logger = logger;
 
-    /// <summary>The Android notification channel the client creates at startup. Must match.</summary>
-    public const string ChatChannelId = "chat_messages";
-
     public bool IsConfigured => true;
 
     public async Task<PushSendResult> SendAsync(
@@ -34,19 +31,27 @@ public class FirebasePushSender(FirebaseApp app, ILogger<FirebasePushSender> log
         var multicast = new MulticastMessage
         {
             Tokens = tokens.ToList(),
-            // A `notification` payload rather than data-only: it is what lets the
-            // OS display the message itself while the app is closed. Data-only
-            // messages require the app to be running to render anything, which
-            // is exactly the case this feature exists for.
-            Notification = new Notification { Title = message.Title, Body = message.Body },
+            // Data-only, with no `notification` block at all. This used to be the
+            // other way round, and the comment here used to explain that a
+            // notification payload is what lets the OS draw the message while the
+            // app is closed. That is still true, and it is no longer available:
+            // drawing it requires reading it, and the body is now ciphertext this
+            // server has no key for. So the payload is handed to the app instead,
+            // and the app decrypts it and raises the notification itself.
+            //
+            // The cost is real and belongs in the open. A data message is
+            // delivered to the *app*, so Android may hold it under Doze or App
+            // Standby, and a force-stopped app receives nothing at all. High
+            // priority is what buys back most of that gap -- see
+            // docs/chat-encryption.md.
             Data = new Dictionary<string, string>(message.Data),
             Android = new AndroidConfig
             {
                 // A chat message is time-sensitive; normal priority lets Android
                 // hold it until the next maintenance window, which can be
-                // minutes on a dozing device.
+                // minutes on a dozing device. With no notification block to fall
+                // back on, that delay would be the whole notification.
                 Priority = Priority.High,
-                Notification = new AndroidNotification { ChannelId = ChatChannelId },
             },
         };
 

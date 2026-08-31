@@ -210,6 +210,7 @@ builder.Services.AddScoped<IWorkoutPlanTemplateService, WorkoutPlanTemplateServi
 builder.Services.AddTransient<IEmailService, GmailApiEmailService>();
 builder.Services.AddScoped<IChatRepository, ChatRepository>();
 builder.Services.AddScoped<IChatService, ChatService>();
+builder.Services.AddScoped<IUserChatKeyRepository, UserChatKeyRepository>();
 builder.Services.AddScoped<IDeviceTokenRepository, DeviceTokenRepository>();
 builder.Services.AddScoped<IPushNotificationService, PushNotificationService>();
 

@@ -5,7 +5,10 @@ import 'package:uuid/uuid.dart';
 
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/feature/chat/data/chat_api.dart';
+import 'package:ForgeForm/feature/chat/data/chat_key_store.dart';
 import 'package:ForgeForm/feature/chat/data/chat_signalr_client.dart';
+import 'package:ForgeForm/feature/chat/data/webcrypto_chat_crypto.dart';
+import 'package:ForgeForm/feature/chat/domain/chat_crypto.dart';
 import 'package:ForgeForm/feature/chat/domain/models/chat_message.dart';
 import 'package:ForgeForm/feature/chat/domain/models/conversation_summary.dart';
 import 'package:ForgeForm/feature/chat/domain/models/thread_message.dart';
@@ -22,6 +25,17 @@ class ChatRepository {
   final AppDatabase _db;
   final ChatApi _api;
   final ChatSignalRClient _signalR;
+
+  /// The encryption boundary. Every message crosses it exactly once in each
+  /// direction, and both crossings happen in this class — see the four call
+  /// crossings happen in this class — at [_attemptSend], [replayPending],
+  /// [loadThread], [_handleIncoming] and [getConversations], and nowhere else.
+  final ChatCrypto _crypto;
+
+  /// This device's key pair. Owned here rather than by [_crypto] because
+  /// registering it is a connection-time concern, and this is the class that
+  /// already knows when a connection is being established.
+  final ChatKeyStore _keys;
 
   /// How many reconnect-driven resends a message gets before it is marked
   /// `failed` and handed to the user to retry manually.
@@ -43,6 +57,10 @@ class ChatRepository {
   /// second [watchConversations] doesn't re-join a group needlessly.
   final Set<String> _watchedThreads = {};
 
+  /// Peers whose public key has already been re-fetched once after a decryption
+  /// failure. See [_decrypt].
+  final Set<String> _refetchedPeers = {};
+
   /// Resend attempts per message id, for the bounded retry in [replayPending].
   ///
   /// In memory rather than a column: a counter that resets when the app restarts
@@ -50,19 +68,51 @@ class ChatRepository {
   /// keeps the Drift schema unchanged.
   final Map<String, int> _replayAttempts = {};
 
+  /// Serialises [_handleIncoming] so decryption cannot reorder a thread.
+  Future<void> _incomingChain = Future<void>.value();
+
   final _threadMessages = StreamController<ThreadMessage>.broadcast();
   final _allIncoming = StreamController<ChatMessage>.broadcast();
   StreamSubscription<ChatMessage>? _incomingSubscription;
   StreamSubscription<void>? _reconnectedSubscription;
 
-  ChatRepository({
+  /// Builds a repository with the real crypto stack unless one is injected.
+  ///
+  /// A factory rather than default arguments because [crypto] and [keys] are not
+  /// independent — the crypto derives its secrets from that key store, and two
+  /// separately-defaulted instances would each generate their own identity, of
+  /// which only one would ever be published.
+  factory ChatRepository({
     required AppDatabase db,
     ChatApi? api,
     required ChatSignalRClient signalR,
+    ChatCrypto? crypto,
+    ChatKeyStore? keys,
+    int maxReplayAttempts = 3,
+  }) {
+    final keyStore = keys ?? ChatKeyStore();
+    return ChatRepository._(
+      db: db,
+      api: api,
+      signalR: signalR,
+      keys: keyStore,
+      crypto: crypto ?? WebCryptoChatCrypto(keys: keyStore),
+      maxReplayAttempts: maxReplayAttempts,
+    );
+  }
+
+  ChatRepository._({
+    required AppDatabase db,
+    ChatApi? api,
+    required ChatSignalRClient signalR,
+    required ChatCrypto crypto,
+    required ChatKeyStore keys,
     this.maxReplayAttempts = 3,
   }) : _db = db,
        _api = api ?? ChatApi(),
-       _signalR = signalR {
+       _signalR = signalR,
+       _crypto = crypto,
+       _keys = keys {
     // Replay is driven by the reconnect signal, never a timer: a timer would
     // either fire uselessly while the connection is still down or sit idle after
     // it comes back.
@@ -71,8 +121,29 @@ class ChatRepository {
       if (thread != null) unawaited(replayPending(thread));
     });
 
-    _incomingSubscription = _signalR.incomingMessages.listen(_handleIncoming);
+    // Chained rather than fired off per event. [_handleIncoming] became async
+    // when decryption moved into it, and an async listener processes overlapping
+    // messages concurrently: the first message of a conversation has to derive a
+    // shared key, the second finds it cached, and the second can finish first.
+    // In a conversation the order is the meaning, so each message waits for the
+    // one before it.
+    _incomingSubscription = _signalR.incomingMessages.listen((message) {
+      _incomingChain = _incomingChain.then((_) => _handleIncoming(message));
+    });
   }
+
+  /// Brings this device's chat key pair up, generating and publishing one on
+  /// first run.
+  ///
+  /// Called alongside `connect()` rather than from the constructor: it makes a
+  /// network round trip, and a constructor that quietly does that is a
+  /// constructor nothing can build in a test.
+  ///
+  /// Must complete before the first send. Without a published key the other
+  /// side cannot decrypt anything this device writes, and without knowing our
+  /// own account id the key store cannot tell its identity key from the one
+  /// belonging to whoever used this device last.
+  Future<void> prepareKeys() => _keys.ensureRegistered();
 
   String? get activeThreadId => _activeThreadId;
 
@@ -159,7 +230,7 @@ class ChatRepository {
     final byId = <String, ThreadMessage>{};
     for (final json in history) {
       final message = ThreadMessage.fromChatMessage(
-        ChatMessage.fromJson(json),
+        await _decrypt(ChatMessage.fromJson(json), otherPartyId),
         otherPartyId: otherPartyId,
       );
       byId[message.messageId] = message;
@@ -273,20 +344,34 @@ class ChatRepository {
     required DateTime createdAt,
   }) async {
     try {
+      final sealed = await _crypto.encrypt(
+        otherPartyId: otherPartyId,
+        plaintext: body,
+      );
+
       final ack = await _signalR.send(
         otherPartyId: otherPartyId,
         messageId: messageId,
-        body: body,
+        body: sealed.ciphertext,
+        iv: sealed.iv,
+        encryptionVersion: sealed.version,
       );
       await _db.chatoutboxDao.markMessagePendingAsSent(messageId);
       _replayAttempts.remove(messageId);
       // Remember it before the group broadcast echoes it back to us.
       _knownIds.add(ack.id);
-      return ThreadMessage.fromChatMessage(ack, otherPartyId: otherPartyId);
+      // Built from the plaintext still in hand, not from the ack. The ack is a
+      // faithful copy of what the server stored, which means its body is the
+      // ciphertext we just sent -- rendering it would put base64 in the bubble.
+      return ThreadMessage.fromChatMessage(
+        ack.decrypted(body),
+        otherPartyId: otherPartyId,
+      );
     } catch (_) {
-      // No ack. That is *all* we know — the server may have stored it and lost
-      // the reply, or never received it. Guessing either way loses the message,
-      // so the row stays pending and the next reconnect decides.
+      // No ack -- or no key to encrypt with, which lands here too. Either way
+      // that is *all* we know: the server may have stored it and lost the
+      // reply, or never received it, or never been asked. Guessing loses the
+      // message, so the row stays pending and the next reconnect decides.
       _knownIds.add(messageId);
       return ThreadMessage(
         messageId: messageId,
@@ -312,12 +397,26 @@ class ChatRepository {
 
     for (final row in pending) {
       try {
+        // Encrypted again from the outbox plaintext rather than resending a
+        // stored ciphertext, and that is not merely tolerable -- it is the
+        // correct thing to do twice over. An IV must never be reused with the
+        // same key, so a fresh envelope per attempt is what the algorithm asks
+        // for; and if the peer reinstalled since the first attempt, this is what
+        // encrypts to the key they actually hold now. The server dedupes on
+        // messageId, so whichever attempt landed is the one kept.
+        final sealed = await _crypto.encrypt(
+          otherPartyId: row.otherPartyId,
+          plaintext: row.body,
+        );
+
         final ack = await _signalR.send(
           otherPartyId: row.otherPartyId,
           // Same id as the original attempt — this is what lets the server tell
           // a replay from a new message and store it exactly once.
           messageId: row.messageId,
-          body: row.body,
+          body: sealed.ciphertext,
+          iv: sealed.iv,
+          encryptionVersion: sealed.version,
         );
         await _db.chatoutboxDao.markMessagePendingAsSent(row.messageId);
         _replayAttempts.remove(row.messageId);
@@ -326,7 +425,10 @@ class ChatRepository {
         // as pending, and this is the event that settles it to sent. Listeners
         // upsert by messageId rather than appending blindly.
         _threadMessages.add(
-          ThreadMessage.fromChatMessage(ack, otherPartyId: otherPartyId),
+          ThreadMessage.fromChatMessage(
+            ack.decrypted(row.body),
+            otherPartyId: otherPartyId,
+          ),
         );
       } catch (_) {
         final attempts = (_replayAttempts[row.messageId] ?? 0) + 1;
@@ -365,13 +467,20 @@ class ChatRepository {
   /// looking at.
   Stream<ChatMessage> get allIncoming => _allIncoming.stream;
 
-  void _handleIncoming(ChatMessage message) {
+  Future<void> _handleIncoming(ChatMessage message) async {
+    // Which thread this belongs to is read before anything is awaited: the
+    // active thread can change while a decryption is in flight, and a message
+    // must not be appended to a conversation the user has since switched away
+    // from.
+    final thread = _activeThreadId;
+
+    final plain = await _decrypt(message, _peerFor(message));
+
     // Before the active-thread filter, and never deduped: the inbox has to hear
     // about a message whether or not its thread is open, which is the whole
     // reason this device now stays in every conversation's group.
-    _allIncoming.add(message);
+    _allIncoming.add(plain);
 
-    final thread = _activeThreadId;
     if (thread == null) return;
 
     // The hub tags every message with both sides of the pair, so a message for
@@ -383,18 +492,115 @@ class ChatRepository {
     if (!_knownIds.add(message.id)) return;
 
     _threadMessages.add(
-      ThreadMessage.fromChatMessage(message, otherPartyId: thread),
+      ThreadMessage.fromChatMessage(plain, otherPartyId: thread),
     );
+  }
+
+  /// Whose key decrypts [message], from this device's point of view.
+  ///
+  /// Not the sender. A message this device sent comes back through the group
+  /// broadcast too, and it was encrypted to the *other* party — deriving a
+  /// secret against our own public key would produce a real key that decrypts
+  /// nothing, and the conversation row would report our own message as
+  /// unreadable.
+  ///
+  /// A message names both sides of its pair and this client has never been told
+  /// which one it is (docs/chat-architecture.md §5), so the answer comes from
+  /// the threads this device has joined: exactly one of the pair is a
+  /// conversation it is watching, and that one is the peer.
+  String? _peerFor(ChatMessage message) {
+    for (final candidate in [message.clientId, message.trainerId]) {
+      if (_watchedThreads.contains(candidate)) return candidate;
+    }
+
+    // The trainee app has one thread and never calls watchConversations, so the
+    // open thread is the only membership it has.
+    final thread = _activeThreadId;
+    if (thread == message.clientId || thread == message.trainerId) return thread;
+
+    return null;
   }
 
   // ── Conversation list ─────────────────────────────────────────────────────
 
+  /// The conversation list, with each row's preview already decrypted.
+  ///
+  /// Decrypted here rather than in `ConversationSummary.fromJson`, which is a
+  /// synchronous factory and cannot await a key derivation. Doing it in this
+  /// layer also means `ChatProvider` keeps working untouched: by the time a
+  /// preview reaches it, from here or from a live message, it is plaintext.
   Future<List<ConversationSummary>> getConversations() async {
     final raw = await _api.fetchConversations();
-    return raw.map(ConversationSummary.fromJson).toList();
+
+    final summaries = <ConversationSummary>[];
+    for (final json in raw) {
+      final summary = ConversationSummary.fromJson(json);
+      summaries.add(
+        summary.withPreview(
+          await _crypto.decrypt(
+            otherPartyId: summary.clientId,
+            ciphertext: summary.lastMessagePreview,
+            iv: json['lastMessageIv'] as String?,
+            version: json['lastMessageEncryptionVersion'] as int? ?? 0,
+          ),
+        ),
+      );
+    }
+    return summaries;
   }
 
   Future<void> markRead(String otherPartyId) => _api.markRead(otherPartyId);
+
+  // ── Encryption boundary ───────────────────────────────────────────────────
+
+  /// One message, with its body replaced by the plaintext — or by null when
+  /// this device cannot read it.
+  ///
+  /// A null body here is not a failure to handle; it is a message state the UI
+  /// draws (see `ThreadMessage.isUndecryptable`). It happens whenever the key
+  /// that could read this body no longer exists: the sender reinstalled, or
+  /// this device did, and there is no backup of either private key by design.
+  Future<ChatMessage> _decrypt(ChatMessage message, String? otherPartyId) async {
+    // No peer means no key, which is the same outcome as a key that no longer
+    // works: the message is real and this device cannot read it.
+    if (otherPartyId == null) return message.decrypted(null);
+
+    // Copied into a local before the closure below captures it, so the
+    // non-null-ness is a property of the local rather than of a promotion the
+    // closure has to preserve.
+    final peer = otherPartyId;
+
+    Future<String?> attempt() => _crypto.decrypt(
+      otherPartyId: peer,
+      ciphertext: message.body,
+      iv: message.iv,
+      version: message.encryptionVersion,
+    );
+
+    var plaintext = await attempt();
+
+    // One retry against a freshly fetched peer key, and only one, the first time
+    // this thread sees a failure.
+    //
+    // This is the recovery path for a peer who reinstalled: they published a new
+    // public key, this device is still holding the one it cached, and *every*
+    // message they send from now on fails against it. Without this the thread
+    // never recovers on its own — the cache is only wrong, never stale, so
+    // nothing else would ever go and look.
+    //
+    // Bounded by [_refetchedPeers] because the far more common cause of a
+    // failure is a message genuinely encrypted to a key that no longer exists
+    // anywhere. Retrying per message would turn scrolling through old history
+    // into one key fetch per bubble.
+    if (plaintext == null &&
+        message.body != null &&
+        _refetchedPeers.add(peer)) {
+      await _crypto.forget(peer);
+      plaintext = await attempt();
+    }
+
+    return message.decrypted(plaintext);
+  }
 
   Future<void> dispose() async {
     await _incomingSubscription?.cancel();

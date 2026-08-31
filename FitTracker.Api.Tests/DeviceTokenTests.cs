@@ -1,3 +1,4 @@
+using FitTracker.Api.DTOs;
 using FitTracker.Api.Models;
 using FitTracker.Api.Repositories;
 using FitTracker.Api.Services;
@@ -67,13 +68,17 @@ public class DeviceTokenTests
         var service = new PushNotificationService(
             repo, sender, NullLogger<PushNotificationService>.Instance);
 
-        await service.SendChatMessageAsync(ctx.ClientId, "Dana Ruiz", "how did it go?", ctx.TrainerId);
+        await service.SendChatMessageAsync(
+            ctx.ClientId, "Dana Ruiz", Guid.NewGuid(), Encrypted("how did it go?"), ctx.TrainerId);
 
         // Left in place, a token for an uninstalled app is retried on every
         // message to that user forever.
         var remaining = await repo.GetForUserAsync(ctx.ClientId);
         Assert.Equal("still-here", Assert.Single(remaining).Token);
     }
+
+    /// <summary>A body as a current client hands it over.</summary>
+    private static EncryptedChatBody Encrypted(string body) => new(body, "iv-1", 1);
 
     [Fact]
     public async Task The_notification_carries_the_sender_and_the_thread()
@@ -86,20 +91,27 @@ public class DeviceTokenTests
         var service = new PushNotificationService(
             repo, sender, NullLogger<PushNotificationService>.Instance);
 
-        await service.SendChatMessageAsync(ctx.ClientId, "Dana Ruiz", "how did it go?", ctx.TrainerId);
+        await service.SendChatMessageAsync(
+            ctx.ClientId, "Dana Ruiz", Guid.NewGuid(), Encrypted("how did it go?"), ctx.TrainerId);
 
         var (tokens, message) = Assert.Single(sender.Sent);
         Assert.Equal(["phone"], tokens);
-        Assert.Equal("Dana Ruiz", message.Title);
-        Assert.Equal("how did it go?", message.Body);
         Assert.Equal("chat_message", message.Data["type"]);
+        // A display name is not message content, so it still travels in the
+        // clear and a notification can say who it is from.
+        Assert.Equal("Dana Ruiz", message.Data["senderName"]);
+        // The ciphertext, forwarded untouched. The recipient's device is the
+        // only thing that turns this into words.
+        Assert.Equal("how did it go?", message.Data["ciphertext"]);
+        Assert.Equal("iv-1", message.Data["iv"]);
+        Assert.Equal("1", message.Data["encryptionVersion"]);
         // The thread is the sender: from the recipient's side of the
         // conversation, the sender is the other party.
         Assert.Equal(ctx.TrainerId.ToString(), message.Data["threadId"]);
     }
 
     [Fact]
-    public async Task A_message_with_no_body_still_says_something()
+    public async Task A_body_too_large_for_the_payload_is_dropped_rather_than_truncated()
     {
         using var ctx = new ChatScenario();
         var repo = new DeviceTokenRepository(ctx.Db);
@@ -109,11 +121,43 @@ public class DeviceTokenTests
         var service = new PushNotificationService(
             repo, sender, NullLogger<PushNotificationService>.Instance);
 
-        await service.SendChatMessageAsync(ctx.ClientId, "Dana Ruiz", null, ctx.TrainerId);
+        await service.SendChatMessageAsync(
+            ctx.ClientId,
+            "Dana Ruiz",
+            Guid.NewGuid(),
+            Encrypted(new string('x', 4000)),
+            ctx.TrainerId);
 
-        // An empty body renders as a blank row in some launchers, which the user
-        // cannot interpret at all.
-        Assert.False(string.IsNullOrWhiteSpace(Assert.Single(sender.Sent).message.Body));
+        // Chop a byte off an AES-GCM payload and the tag fails, which the client
+        // correctly reads as tampering. So an over-long body cannot be shortened
+        // the way the old plaintext preview was — it is left out entirely and the
+        // device shows the sender's name alone.
+        var message = Assert.Single(sender.Sent).message;
+        Assert.False(message.Data.ContainsKey("ciphertext"));
+        Assert.Equal("Dana Ruiz", message.Data["senderName"]);
+    }
+
+    [Fact]
+    public async Task A_message_with_no_body_still_reaches_the_device()
+    {
+        using var ctx = new ChatScenario();
+        var repo = new DeviceTokenRepository(ctx.Db);
+        await repo.UpsertAsync(ctx.ClientId, "phone", DevicePlatform.Android);
+
+        var sender = new RecordingPushSender();
+        var service = new PushNotificationService(
+            repo, sender, NullLogger<PushNotificationService>.Instance);
+
+        await service.SendChatMessageAsync(
+            ctx.ClientId, "Dana Ruiz", Guid.NewGuid(), new EncryptedChatBody(null, null, 1), ctx.TrainerId);
+
+        // This used to assert the server wrote "Sent a message" into the body.
+        // It cannot write anything any more, so the check moved to what it can
+        // still guarantee: the push goes out, and it names the sender, so the
+        // device has enough to draw something a user can interpret.
+        var message = Assert.Single(sender.Sent).message;
+        Assert.False(message.Data.ContainsKey("ciphertext"));
+        Assert.Equal("Dana Ruiz", message.Data["senderName"]);
     }
 
     [Fact]
@@ -124,7 +168,8 @@ public class DeviceTokenTests
         var service = new PushNotificationService(
             new DeviceTokenRepository(ctx.Db), sender, NullLogger<PushNotificationService>.Instance);
 
-        await service.SendChatMessageAsync(ctx.ClientId, "Dana Ruiz", "hello", ctx.TrainerId);
+        await service.SendChatMessageAsync(
+            ctx.ClientId, "Dana Ruiz", Guid.NewGuid(), Encrypted("hello"), ctx.TrainerId);
 
         // Normal, not an error: most users are reachable on some devices and not
         // others, and a user who has never installed the app has none.

@@ -45,9 +45,13 @@ class _CoachChatEntryState extends State<CoachChatEntry> {
     } else if (sl.isRegistered<AppDatabase>()) {
       final signalR = SignalRHubChatClient();
       _signalR = signalR;
-      _chat = ChatProvider(
-        repository: ChatRepository(db: sl<AppDatabase>(), signalR: signalR),
-      );
+      final repository = ChatRepository(db: sl<AppDatabase>(), signalR: signalR);
+      _chat = ChatProvider(repository: repository);
+
+      // Publishing this device's chat key, alongside the connect and for the
+      // same reason: a network round trip that must not hold up the screen.
+      unawaited(repository.prepareKeys().catchError((Object _) {}));
+
       // Errors dropped rather than left unhandled: the failure reaches the user
       // through the connection banner, and the next joinGroup/send retries it.
       unawaited(signalR.connect().catchError((Object _) {}));
