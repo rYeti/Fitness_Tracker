@@ -22,7 +22,7 @@ Markdown links, headings or emphasis, none of which Play renders.
 
 See `docs/android-release.md`.
 
-## Unreleased
+## 1.0.2+15
 
 Your chat messages are now end-to-end encrypted. Messages are scrambled on your
 device and can only be read by you and the person you are talking to — not by
