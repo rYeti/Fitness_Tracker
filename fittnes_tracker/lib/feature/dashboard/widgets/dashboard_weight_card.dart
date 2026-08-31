@@ -194,9 +194,9 @@ class _DashboardWeightCardState extends State<DashboardWeightCard> {
                         child: Text(l10n.cancel.toUpperCase()),
                       ),
                       const SizedBox(width: 8),
-                      ElevatedButton(
+                      FilledButton(
                         onPressed: _saveWeightGoals,
-                        style: ElevatedButton.styleFrom(
+                        style: FilledButton.styleFrom(
                           elevation: 0,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8.0),

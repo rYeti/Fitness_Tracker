@@ -7,7 +7,7 @@ import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_console_
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/active_client_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/session_review_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/client_switcher.dart';
-import 'package:ForgeForm/feature/trainer_console/presentation/widgets/console_widgets.dart';
+import 'package:ForgeForm/core/widgets/app_widgets.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/status_badge.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/console_error.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
@@ -77,11 +77,10 @@ class _SessionReviewScreenState extends State<SessionReviewScreen> {
           );
 
           final client = activeClient.activeClient;
-          final isDesktop = MediaQuery.of(context).size.width > 1024;
+          final isDesktop = Breakpoints.isDesktop(context);
           final padding = isDesktop ? 32.0 : 16.0;
 
           return Scaffold(
-            backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
             body: SafeArea(
               child: Padding(
                 padding: EdgeInsets.all(padding),
@@ -218,32 +217,32 @@ class _Body extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     if (activeClient.isLoading && activeClient.clients.isEmpty) {
-      return ConsoleSkeleton(semanticsLabel: l10n.sessionsLoading);
+      return LoadingSkeleton(semanticsLabel: l10n.sessionsLoading);
     }
     if (activeClient.error != null) {
-      return ConsoleErrorState(
+      return ErrorStateView(
         message: activeClient.error!.localizedMessage(l10n),
         onRetry: activeClient.loadClients,
       );
     }
     if (client == null) {
-      return ConsoleEmptyState(
+      return EmptyStateView(
         icon: Icons.group_outlined,
         title: l10n.rosterEmptyTitle,
         message: l10n.sessionReviewNoClientsBody,
       );
     }
     if (review.isLoading) {
-      return ConsoleSkeleton(semanticsLabel: l10n.sessionsLoading);
+      return LoadingSkeleton(semanticsLabel: l10n.sessionsLoading);
     }
     if (review.error != null) {
-      return ConsoleErrorState(
+      return ErrorStateView(
         message: review.error!.localizedMessage(l10n),
         onRetry: () => review.load(client!.clientId),
       );
     }
     if (review.sessions.isEmpty) {
-      return ConsoleEmptyState(
+      return EmptyStateView(
         icon: Icons.event_note_outlined,
         title: l10n.noSessionsLoggedTitle,
         message: l10n.noSessionsLoggedBody(client!.firstName),
@@ -259,7 +258,7 @@ class _Body extends StatelessWidget {
             width: 330,
             child: _HistoryList(sessions: review.sessions, review: review),
           ),
-          const SizedBox(width: 18),
+          const SizedBox(width: 16),
           Expanded(
             child: SingleChildScrollView(
               child: _SessionDetail(session: selected, client: client!),
@@ -323,14 +322,14 @@ class _HistoryList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    return ConsoleCard(
+    return AppCard(
       padding: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 11),
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
             child: Text(
               AppLocalizations.of(context)!.sessionHistory,
               style: TextStyle(
@@ -404,7 +403,7 @@ class _HistoryRow extends StatelessWidget {
                 ),
               ),
             ),
-            padding: const EdgeInsets.fromLTRB(11, 12, 14, 12),
+            padding: const EdgeInsets.fromLTRB(12, 12, 14, 12),
             child: Row(
               children: [
                 Expanded(
@@ -423,7 +422,7 @@ class _HistoryRow extends StatelessWidget {
                               style: TextStyle(
                                 fontFamily: 'Exo 2',
                                 fontWeight: FontWeight.w700,
-                                fontSize: 13.5,
+                                fontSize: 14,
                                 color: colors.onSurface,
                               ),
                             ),
@@ -439,7 +438,7 @@ class _HistoryRow extends StatelessWidget {
                         _formatDate(context, session.date),
                         style: TextStyle(
                           fontFamily: 'Exo 2',
-                          fontSize: 11.5,
+                          fontSize: 12,
                           color: colors.onSurface.withValues(alpha: 0.55),
                         ),
                       ),
@@ -488,7 +487,7 @@ class _SessionTabs extends StatelessWidget {
                 onTap: () => review.selectSession(session.scheduledWorkoutId),
                 child: Container(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(11),
                     border: Border.all(
@@ -508,7 +507,7 @@ class _SessionTabs extends StatelessWidget {
                         style: TextStyle(
                           fontFamily: 'Exo 2',
                           fontWeight: FontWeight.w700,
-                          fontSize: 12.5,
+                          fontSize: 12,
                           color: selected ? Colors.white : colors.onSurface,
                         ),
                       ),
@@ -520,7 +519,7 @@ class _SessionTabs extends StatelessWidget {
                         ).format(session.date),
                         style: TextStyle(
                           fontFamily: 'Exo 2',
-                          fontSize: 9.5,
+                          fontSize: 10,
                           color: selected
                               ? Colors.white.withValues(alpha: 0.85)
                               : colors.onSurface.withValues(alpha: 0.55),
@@ -556,7 +555,7 @@ class _SessionDetail extends StatelessWidget {
         _SessionHeroCard(session: session),
         const SizedBox(height: 14),
         if (session.isEmpty)
-          ConsoleEmptyState(
+          EmptyStateView(
             icon: Icons.event_busy_outlined,
             title: AppLocalizations.of(context)!.noWorkoutLoggedTitle,
             message: AppLocalizations.of(
@@ -567,7 +566,7 @@ class _SessionDetail extends StatelessWidget {
         else
           ...session.exercises.map(
             (exercise) => Padding(
-              padding: const EdgeInsets.only(bottom: 11),
+              padding: const EdgeInsets.only(bottom: 12),
               child: _ExerciseCard(exercise: exercise),
             ),
           ),
@@ -587,7 +586,7 @@ class _SessionHeroCard extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final status = _statusDisplay(session.status, l10n);
 
-    return ConsoleCard(
+    return AppCard(
       radius: 16,
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -613,12 +612,12 @@ class _SessionHeroCard extends StatelessWidget {
               if (session.isPr) _PrPill(label: l10n.newPr),
             ],
           ),
-          const SizedBox(height: 5),
+          const SizedBox(height: 4),
           Text(
             _formatDate(context, session.date),
             style: TextStyle(
               fontFamily: 'Exo 2',
-              fontSize: 12.5,
+              fontSize: 12,
               color: colors.onSurface.withValues(alpha: 0.65),
             ),
           ),
@@ -693,7 +692,7 @@ class _ClientNote extends StatelessWidget {
                   AppLocalizations.of(context)!.clientNote,
                   style: TextStyle(
                     fontFamily: 'Exo 2',
-                    fontSize: 10.5,
+                    fontSize: 10,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.8,
                     color: colors.onSurface.withValues(alpha: 0.55),
@@ -729,7 +728,7 @@ class _ExerciseCard extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final prescribed = exercise.prescribed?.summary;
 
-    return ConsoleCard(
+    return AppCard(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -757,7 +756,7 @@ class _ExerciseCard extends StatelessWidget {
                           ),
                         ),
                         if (exercise.isPr) ...[
-                          const SizedBox(width: 7),
+                          const SizedBox(width: 8),
                           const _PrPill(),
                         ],
                       ],
@@ -768,7 +767,7 @@ class _ExerciseCard extends StatelessWidget {
                         l10n.prescribedSummary(prescribed),
                         style: TextStyle(
                           fontFamily: 'Exo 2',
-                          fontSize: 11.5,
+                          fontSize: 12,
                           color: colors.onSurface.withValues(alpha: 0.55),
                         ),
                       ),
@@ -844,8 +843,8 @@ class _SetRow extends StatelessWidget {
     final missedTarget = !set.hitTarget;
 
     Widget cell(String text, {Color? color, FontWeight? weight}) => Container(
-      margin: const EdgeInsets.only(left: 9),
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+      margin: const EdgeInsets.only(left: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: sunken,
         borderRadius: BorderRadius.circular(7),
@@ -886,7 +885,7 @@ class _SetRow extends StatelessWidget {
                 style: TextStyle(
                   fontFamily: 'Montserrat',
                   fontWeight: FontWeight.w700,
-                  fontSize: 11.5,
+                  fontSize: 12,
                   color: colors.onSurface,
                 ),
               ),
@@ -961,7 +960,7 @@ class _PrPill extends StatelessWidget {
         label ?? AppLocalizations.of(context)!.pr,
         style: const TextStyle(
           fontFamily: 'Exo 2',
-          fontSize: 9.5,
+          fontSize: 10,
           fontWeight: FontWeight.w800,
           letterSpacing: 0.5,
           color: ForgeColors.forgeOrange,

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:ForgeForm/core/design_tokens.dart';
+import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
+import 'package:ForgeForm/core/widgets/forge_nav_bar.dart';
 import 'package:ForgeForm/feature/chat/presentation/providers/chat_provider.dart';
 import 'package:ForgeForm/feature/chat/presentation/widgets/unread_badge.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
@@ -74,7 +76,7 @@ class TrainerConsoleShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDesktop = MediaQuery.of(context).size.width > 1024;
+    final isDesktop = Breakpoints.isDesktop(context);
 
     // Nullable on purpose: TrainerConsoleHome only registers a ChatProvider when
     // the chat stack could be built, and the other four sections have nothing to
@@ -103,15 +105,26 @@ class TrainerConsoleShell extends StatelessWidget {
       );
     }
 
+    // The bar is the Scaffold's, not the first child of a Column.
+    //
+    // As a Column child it wrapped itself in its own SafeArea, which removes
+    // the status-bar inset for its own subtree only — the sibling holding the
+    // sections kept the full inset, and all five sections have a SafeArea of
+    // their own, so the inset was paid twice and every tab opened with a band
+    // of dead space under the bar. Handing the bar to the Scaffold makes the
+    // framework remove the top padding from `body` exactly once.
     return Scaffold(
-      body: Column(
-        children: [
-          // Narrow layouts have no sidebar to hold the exit, so it gets a slim
-          // bar of its own — but only when there's no back gesture to rely on.
-          if (onExitConsole != null) _ExitBar(onExitConsole: onExitConsole!),
-          Expanded(child: child),
-        ],
+      appBar: ForgeAppBar(
+        title: AppLocalizations.of(context)!.trainerConsole,
+        // A tab root, not a pushed page — except when it *is* pushed (from
+        // Settings on mobile), and then the framework's own back button is
+        // the right affordance and `onExitConsole` is null.
+        automaticallyImplyLeading: onExitConsole == null,
+        actions: onExitConsole == null
+            ? null
+            : [_ExitAction(onExitConsole: onExitConsole!)],
       ),
+      body: child,
       bottomNavigationBar: _BottomNav(
         currentRoute: currentRoute,
         onRouteSelected: onRouteSelected,
@@ -121,42 +134,29 @@ class TrainerConsoleShell extends StatelessWidget {
   }
 }
 
-class _ExitBar extends StatelessWidget {
+/// Leaves the console for the trainee app, from the console's own app bar.
+///
+/// Narrow layouts have no sidebar to hold the exit, so it rides in the bar's
+/// actions — but only when there is no back gesture to rely on.
+class _ExitAction extends StatelessWidget {
   final VoidCallback onExitConsole;
 
-  const _ExitBar({required this.onExitConsole});
+  const _ExitAction({required this.onExitConsole});
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    return Material(
-      color: ForgeColors.charcoal,
-      child: SafeArea(
-        bottom: false,
-        child: SizedBox(
-          height: 44,
-          child: Row(
-            children: [
-              const SizedBox(width: 12),
-              Text(
-                l10n.trainerConsole,
-                style: const TextStyle(
-                  fontFamily: 'Montserrat',
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                  color: Colors.white,
-                ),
-              ),
-              const Spacer(),
-              TextButton.icon(
-                onPressed: onExitConsole,
-                icon: const Icon(Icons.swap_horiz_rounded, size: 17),
-                label: Text(l10n.consoleMyTraining),
-                style: TextButton.styleFrom(foregroundColor: Colors.white),
-              ),
-              const SizedBox(width: 4),
-            ],
-          ),
+    return Padding(
+      padding: const EdgeInsets.only(right: 4),
+      child: TextButton.icon(
+        onPressed: onExitConsole,
+        icon: const Icon(Icons.swap_horiz_rounded, size: 18),
+        label: Text(l10n.consoleMyTraining),
+        style: TextButton.styleFrom(
+          foregroundColor: Colors.white,
+          // 44px minimum tap target, per CLAUDE.md — TextButton's default
+          // height is 36.
+          minimumSize: const Size(0, 44),
         ),
       ),
     );
@@ -233,13 +233,13 @@ class _Sidebar extends StatelessWidget {
                               size: 20,
                               color: Colors.white.withValues(alpha: 0.7),
                             ),
-                            const SizedBox(width: 13),
+                            const SizedBox(width: 12),
                             Expanded(
                               child: Text(
                                 l10n.consoleMyTraining,
                                 style: TextStyle(
                                   fontFamily: 'Exo 2',
-                                  fontSize: 13.5,
+                                  fontSize: 14,
                                   fontWeight: FontWeight.w600,
                                   color: Colors.white.withValues(alpha: 0.8),
                                 ),
@@ -320,7 +320,7 @@ class _SidebarItem extends StatelessWidget {
                     // Unselected icons sit back so the active one reads first.
                     color: selected ? color : color.withValues(alpha: 0.7),
                   ),
-                  const SizedBox(width: 13),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       route.label(l10n),
@@ -361,54 +361,23 @@ class _BottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    return NavigationBar(
+    return ForgeNavBar(
       selectedIndex: TrainerConsoleShell._routes.indexOf(currentRoute),
-      onDestinationSelected: (index) =>
+      onSelected: (index) =>
           onRouteSelected(TrainerConsoleShell._routes[index]),
-      // The default indicator derives from secondaryContainer, which with
-      // Forge Orange as `secondary` comes out solid orange — leaving the
-      // orange selected icon invisible on top of it. Use a tint instead so
-      // the filled orange glyph reads against it.
-      indicatorColor: ForgeColors.forgeOrange.withValues(alpha: 0.16),
-      // Five destinations don't fit with labels always shown on narrow
-      // phones; the selected one stays labelled.
-      labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
       destinations: [
         for (final route in TrainerConsoleShell._routes)
-          NavigationDestination(
-            icon: _maybeBadge(route, Icon(route.icon)),
-            selectedIcon: _maybeBadge(
-              route,
-              Icon(route.activeIcon, color: ForgeColors.forgeOrange),
-            ),
+          ForgeNavDestination(
             label: route.shortLabel(l10n),
-            // NavigationDestination builds its own semantics from `label`, and
-            // the badge is decoration as far as that is concerned. The tooltip
-            // is the one string here a screen reader will read out, so the count
-            // rides along in it.
-            tooltip: route == TrainerConsoleRoute.messages && unread > 0
+            icon: route.icon,
+            activeIcon: route.activeIcon,
+            // Only Messages carries a count; the badge hides itself at zero.
+            badgeCount: route == TrainerConsoleRoute.messages ? unread : 0,
+            semanticLabel: route == TrainerConsoleRoute.messages && unread > 0
                 ? '${route.label(l10n)}, ${l10n.chatUnreadCount(unread)}'
                 : route.label(l10n),
           ),
       ],
-    );
-  }
-
-  /// Overlays the unread count on the Messages icon, and leaves every other
-  /// destination untouched.
-  ///
-  /// Material's [Badge] rather than [UnreadBadge] here: a bottom-tab count has
-  /// to sit *on* the icon, and getting that overlay right inside a
-  /// NavigationBar (which clips) is exactly the fiddly bit Badge already
-  /// solves. The colour and type come from UnreadBadge's constants so the pill
-  /// on the tab and the pill in the inbox cannot drift apart.
-  Widget _maybeBadge(TrainerConsoleRoute route, Widget icon) {
-    if (route != TrainerConsoleRoute.messages || unread <= 0) return icon;
-    return Badge(
-      backgroundColor: UnreadBadge.background,
-      textStyle: UnreadBadge.textStyle,
-      label: Text(UnreadBadge.label(unread)),
-      child: icon,
     );
   }
 }

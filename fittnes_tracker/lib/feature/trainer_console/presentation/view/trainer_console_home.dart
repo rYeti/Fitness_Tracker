@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'package:ForgeForm/core/app_router.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -17,7 +19,7 @@ import 'package:ForgeForm/feature/trainer_console/presentation/view/nutrition_sc
 import 'package:ForgeForm/feature/trainer_console/presentation/view/session_review_screen.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/view/trainer_dashboard_screen.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/view/workout_builder_screen.dart';
-import 'package:ForgeForm/feature/trainer_console/presentation/widgets/console_widgets.dart';
+import 'package:ForgeForm/core/widgets/app_widgets.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/trainer_console_shell.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 
@@ -147,6 +149,24 @@ class _TrainerConsoleHomeState extends State<TrainerConsoleHome> {
     );
   }
 
+  /// Switches section *and* puts it in the address bar.
+  ///
+  /// The URL is written with `go` rather than `push` so the five sections stay
+  /// siblings rather than stacking: a trainer moving Dashboard → Messages →
+  /// Nutrition and pressing back expects Messages, not a history entry per
+  /// visit. Keeping `_route` as the source of truth for the visible pane means
+  /// `LazyIndexedStack` still holds each section's state across switches —
+  /// routing rebuilds the URL, not the panes.
+  void _selectRoute(TrainerConsoleRoute route) {
+    if (route == _route) return;
+    setState(() => _route = route);
+    // maybeOf, not of: the console is mounted directly in widget tests and
+    // could be embedded anywhere else, and it should not require a router to
+    // function. The URL is an enhancement on top of the section state, not
+    // the state itself.
+    GoRouter.maybeOf(context)?.go('/console/${AppRouter.segmentFor(route)}');
+  }
+
   @override
   Widget build(BuildContext context) {
     final chat = _chat;
@@ -158,7 +178,7 @@ class _TrainerConsoleHomeState extends State<TrainerConsoleHome> {
       ],
       child: TrainerConsoleShell(
         currentRoute: _route,
-        onRouteSelected: (route) => setState(() => _route = route),
+        onRouteSelected: _selectRoute,
         onExitConsole: widget.onExitConsole,
         child: LazyIndexedStack(
           index: TrainerConsoleRoute.values.indexOf(_route),
@@ -191,9 +211,8 @@ class _ChatUnavailable extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
       body: SafeArea(
-        child: ConsoleEmptyState(
+        child: EmptyStateView(
           icon: Icons.forum_outlined,
           title: l10n.chatUnavailable,
           message: l10n.chatUnavailableBody,

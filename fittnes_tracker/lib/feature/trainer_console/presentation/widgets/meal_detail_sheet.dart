@@ -154,7 +154,7 @@ class _Header extends StatelessWidget {
                 l10n.foodCount(meal.foods.length),
                 style: TextStyle(
                   fontFamily: 'Exo 2',
-                  fontSize: 12.5,
+                  fontSize: 12,
                   color: colors.onSurface.withValues(alpha: 0.65),
                 ),
               ),
@@ -223,7 +223,7 @@ class _FoodRow extends StatelessWidget {
                     style: TextStyle(
                       fontFamily: 'Exo 2',
                       fontWeight: FontWeight.w600,
-                      fontSize: 13.5,
+                      fontSize: 14,
                       color: colors.onSurface,
                     ),
                   ),
@@ -240,7 +240,7 @@ class _FoodRow extends StatelessWidget {
                           l10n.gramsShort(food.grams),
                           style: TextStyle(
                             fontFamily: 'Exo 2',
-                            fontSize: 11.5,
+                            fontSize: 12,
                             color: colors.onSurface.withValues(alpha: 0.55),
                           ),
                         ),
@@ -310,7 +310,7 @@ class _MacroChip extends StatelessWidget {
           '$label ${grams}g',
           style: TextStyle(
             fontFamily: 'Exo 2',
-            fontSize: 11.5,
+            fontSize: 12,
             fontWeight: FontWeight.w600,
             color: colors.onSurface.withValues(alpha: 0.75),
           ),

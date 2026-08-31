@@ -1,3 +1,5 @@
+import 'package:ForgeForm/core/design_tokens.dart';
+import 'package:ForgeForm/core/forge_motion.dart';
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/di/service_locator.dart';
 import 'package:ForgeForm/feature/gym_tracking/presentation/providers/workout_provider.dart';
@@ -14,6 +16,8 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/scheduled_workout_provider.dart'; // Import the new ActiveWorkoutScreen
 import '../view/workouts/active_workout_view.dart';
+import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
+import 'package:ForgeForm/core/widgets/content_pane.dart';
 
 class ScheduledWorkoutsView extends StatefulWidget {
   const ScheduledWorkoutsView({super.key});
@@ -155,31 +159,8 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
       key: ValueKey(_rebuildKey),
       builder: (context, provider, _) {
         return Scaffold(
-          appBar: AppBar(
-            title: RichText(
-              text: const TextSpan(
-                children: [
-                  TextSpan(
-                    text: 'Forge',
-                    style: TextStyle(
-                      fontFamily: 'Montserrat',
-                      fontWeight: FontWeight.w800,
-                      fontSize: 20,
-                      color: Color(0xFFFF6B3E),
-                    ),
-                  ),
-                  TextSpan(
-                    text: 'Form',
-                    style: TextStyle(
-                      fontFamily: 'Montserrat',
-                      fontWeight: FontWeight.w800,
-                      fontSize: 20,
-                      color: Colors.white,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+          appBar: ForgeAppBar(
+            title: AppLocalizations.of(context)!.gym,
             actions: [
               IconButton(
                 tooltip: l10n.seedWorkoutTemplates,
@@ -215,7 +196,8 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
               ),
             ],
           ),
-          body: Column(
+          body: ContentPane(
+            child: Column(
             children: [
               // ── Collapsible calendar ──────────────────────────────────
               Column(
@@ -245,6 +227,7 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
                           ),
                           const Spacer(),
                           IconButton(
+                            tooltip: l10n.previousDay,
                             icon: const Icon(Icons.arrow_back, size: 18),
                             visualDensity: VisualDensity.compact,
                             onPressed:
@@ -267,6 +250,7 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
                             child: Text(l10n.today),
                           ),
                           IconButton(
+                            tooltip: l10n.nextDay,
                             icon: const Icon(Icons.arrow_forward, size: 18),
                             visualDensity: VisualDensity.compact,
                             onPressed:
@@ -289,7 +273,7 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
                   ),
                   // Expandable calendar grid
                   AnimatedSize(
-                    duration: const Duration(milliseconds: 250),
+                    duration: ForgeMotion.of(context, ForgeMotion.emphasis),
                     curve: Curves.easeInOut,
                     child:
                         _isCalendarExpanded
@@ -350,6 +334,7 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
                         ),
               ),
             ],
+            ),
           ),
           floatingActionButton: FloatingActionButton(
             tooltip: l10n.createOrEditWorkouts,
@@ -480,10 +465,10 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
                             isSkipped
                                 ? Colors.grey
                                 : isRestDay
-                                ? Colors.blue
+                                ? ForgeColors.statusInfoFor(Theme.of(context).brightness)
                                 : isCompleted
-                                ? Colors.green
-                                : Colors.orange,
+                                ? ForgeColors.statusOkFor(Theme.of(context).brightness)
+                                : ForgeColors.statusWarnFor(Theme.of(context).brightness),
                         size: 32,
                       ),
                       const SizedBox(width: 12),
@@ -522,9 +507,9 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
                         ),
                       ),
                       if (isCompleted)
-                        const Icon(
+                        Icon(
                           Icons.check_circle,
-                          color: Colors.green,
+                          color: ForgeColors.statusOkFor(Theme.of(context).brightness),
                           size: 32,
                         )
                       else
@@ -597,16 +582,16 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
                                   value: 'delete',
                                   child: Row(
                                     children: [
-                                      const Icon(
+                                      Icon(
                                         Icons.delete_outline,
                                         size: 18,
-                                        color: Colors.red,
+                                        color: ForgeColors.statusBadFor(Theme.of(context).brightness),
                                       ),
                                       const SizedBox(width: 8),
                                       Text(
                                         l10n.delete,
-                                        style: const TextStyle(
-                                          color: Colors.red,
+                                        style: TextStyle(
+                                          color: ForgeColors.statusBadFor(Theme.of(context).brightness),
                                         ),
                                       ),
                                     ],
@@ -624,7 +609,7 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: theme.colorScheme.surfaceVariant,
+                        color: theme.colorScheme.surfaceContainerHighest,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(
@@ -654,22 +639,22 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
                             ),
                             const SizedBox(width: 8),
                             Expanded(
-                              child: ElevatedButton.icon(
+                              child: FilledButton.icon(
                                 onPressed: () => _editCompletedWorkout(item),
                                 icon: const Icon(Icons.edit),
                                 label: Text(l10n.edit),
-                                style: ElevatedButton.styleFrom(
+                                style: FilledButton.styleFrom(
                                   backgroundColor: theme.colorScheme.primary,
                                 ),
                               ),
                             ),
                           ],
                         )
-                        : ElevatedButton.icon(
+                        : FilledButton.icon(
                           onPressed: () => _startWorkout(item),
                           icon: const Icon(Icons.play_arrow),
                           label: Text(l10n.startWorkout),
-                          style: ElevatedButton.styleFrom(
+                          style: FilledButton.styleFrom(
                             minimumSize: const Size(double.infinity, 48),
                             backgroundColor: theme.colorScheme.primary,
                           ),
@@ -713,7 +698,7 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
                 onPressed: () => Navigator.pop(ctx, true),
                 child: Text(
                   l10n.delete,
-                  style: const TextStyle(color: Colors.red),
+                  style: TextStyle(color: ForgeColors.statusBadFor(Theme.of(context).brightness)),
                 ),
               ),
             ],
@@ -745,7 +730,7 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
             '${newDate.year}-${newDate.month.toString().padLeft(2, '0')}-${newDate.day.toString().padLeft(2, '0')}',
           ),
         ),
-        backgroundColor: Colors.blue,
+        backgroundColor: ForgeColors.statusInfoFor(Theme.of(context).brightness),
       ),
     );
   }
@@ -1004,7 +989,7 @@ class _WorkoutCalendar extends StatelessWidget {
               return GestureDetector(
                 onTap: inMonth ? () => onDayTapped(dayNorm) : null,
                 child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
+                  duration: ForgeMotion.of(context, ForgeMotion.quick),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color:

@@ -19,9 +19,12 @@ Future<void> _pump(
   FakeTrainerConsoleRepository repository, {
   Size size = const Size(1400, 1200),
   FakeChatApi? chatApi,
+  VoidCallback? onExitConsole,
+  double statusBarHeight = 0,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1.0;
+  tester.view.padding = FakeViewPadding(top: statusBarHeight);
   addTearDown(tester.view.reset);
 
   // Chat is injected so the shell doesn't reach for the real SignalR socket or
@@ -38,6 +41,7 @@ Future<void> _pump(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       home: TrainerConsoleHome(
+        onExitConsole: onExitConsole,
         repository: repository,
         // The console owns a licence provider for its seat affordances;
         // injected here so the shell tests don't reach the network.
@@ -87,6 +91,48 @@ void main() {
 
     expect(find.byType(NavigationBar), findsOneWidget);
     expect(find.text('ForgeForm'), findsNothing);
+  });
+
+  // The console used to build its exit bar as the first child of a Column and
+  // wrap *that* in a SafeArea. SafeArea removes the inset for its own subtree
+  // only, so the sibling holding the five sections kept the full status-bar
+  // padding — and every section has a SafeArea of its own, so the inset was
+  // paid a second time. The result was a band of dead space under the bar, on
+  // all five tabs, for any trainer who landed in the console from sign-in
+  // (PostAuthHome passes a non-null onExitConsole; a push from Settings does
+  // not, which is why it only ever reproduced on startup).
+  //
+  // Nothing about that is visible to the compiler, or to a test that only asks
+  // whether widgets are present: both layouts render every widget. It is
+  // visible only as a number.
+  testWidgets('the status bar inset is paid once, not twice', (tester) async {
+    // Measured as a *difference* between two runs rather than as an absolute
+    // offset: the heading shares a Row with the taller seat chip, so its own
+    // box is centred within it and the raw number carries a few pixels of text
+    // metrics that have nothing to do with insets.
+    Future<double> contentOffsetBelowBar(double statusBarHeight) async {
+      await _pump(
+        tester,
+        FakeTrainerConsoleRepository(
+          rosterWithStats: [fakeRosterEntry()],
+          nutrition: fakeNutrition(),
+        ),
+        size: const Size(420, 900),
+        onExitConsole: () {},
+        statusBarHeight: statusBarHeight,
+      );
+      await tester.pumpAndSettle();
+      return tester.getTopLeft(find.text('Dashboard').first).dy -
+          tester.getBottomLeft(find.byType(AppBar)).dy;
+    }
+
+    final withoutStatusBar = await contentOffsetBelowBar(0);
+    final withStatusBar = await contentOffsetBelowBar(40);
+
+    // A 40px status bar must push the *bar* down and nothing else. Before the
+    // fix the section's own SafeArea paid the inset a second time below the
+    // bar, so this difference was 40 rather than 0.
+    expect(withStatusBar, closeTo(withoutStatusBar, 0.5));
   });
 
   testWidgets('selecting a section swaps the visible screen', (tester) async {

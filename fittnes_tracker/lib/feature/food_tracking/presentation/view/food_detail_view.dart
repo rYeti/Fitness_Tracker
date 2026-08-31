@@ -1,3 +1,5 @@
+import 'package:ForgeForm/core/design_tokens.dart';
+import 'package:ForgeForm/core/forge_motion.dart';
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/providers/access_provider.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
@@ -8,6 +10,7 @@ import '../../data/models/extended_nutrients.dart';
 import '../../data/models/food_item_model.dart';
 import '../../data/models/portion_option.dart';
 import '../../data/repositories/nutrition_repository.dart';
+import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
 
 class FoodDetailsScreen extends StatefulWidget {
   final FoodItemModel foodItem;
@@ -133,43 +136,43 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Scaffold(
-        appBar: AppBar(title: Text(AppLocalizations.of(context)!.foodDetails)),
-        body: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Food Name
-                Text(
-                  widget.foodItem.name,
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
+    return Scaffold(
+      appBar: ForgeAppBar(
+        title: AppLocalizations.of(context)!.foodDetails,
+      ),
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Food Name
+              Text(
+                widget.foodItem.name,
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
                 ),
+              ),
+              const SizedBox(height: 16),
+
+              // Original Nutrition Card
+              _buildNutritionCard(),
+              const SizedBox(height: 16),
+
+              // Portion Size and Calculated Values Card
+              _buildPortionMarcroCalc(),
+              const SizedBox(height: 16),
+
+              // Extended nutrients (premium)
+              if (widget.foodItem.extendedNutrients != null)
+                _buildExtendedNutrientsCard(),
+              if (widget.foodItem.extendedNutrients != null)
                 const SizedBox(height: 16),
 
-                // Original Nutrition Card
-                _buildNutritionCard(),
-                const SizedBox(height: 16),
-
-                // Portion Size and Calculated Values Card
-                _buildPortionMarcroCalc(),
-                const SizedBox(height: 16),
-
-                // Extended nutrients (premium)
-                if (widget.foodItem.extendedNutrients != null)
-                  _buildExtendedNutrientsCard(),
-                if (widget.foodItem.extendedNutrients != null)
-                  const SizedBox(height: 16),
-
-                // Add to Meal Section
-                _buildAddToMealSection(),
-              ],
-            ),
+              // Add to Meal Section
+              _buildAddToMealSection(),
+            ],
           ),
         ),
       ),
@@ -193,25 +196,25 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
               AppLocalizations.of(context)!.calories,
               _calculatedCalories,
               'kcal',
-              Colors.orange,
+              ForgeColors.statusWarnFor(Theme.of(context).brightness),
             ),
             _buildNutrientRow(
               AppLocalizations.of(context)!.protein,
               _calculatedProtein,
               'g',
-              Colors.red,
+              ForgeColors.statusBadFor(Theme.of(context).brightness),
             ),
             _buildNutrientRow(
               AppLocalizations.of(context)!.carbs,
               _calculatedCarbs,
               'g',
-              Colors.blue,
+              ForgeColors.statusInfoFor(Theme.of(context).brightness),
             ),
             _buildNutrientRow(
               AppLocalizations.of(context)!.fat,
               _calculatedFat,
               'g',
-              Colors.green,
+              ForgeColors.statusOkFor(Theme.of(context).brightness),
             ),
           ],
         ),
@@ -239,7 +242,7 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
           const Spacer(),
           TweenAnimationBuilder<double>(
             tween: Tween<double>(begin: 0, end: numericValue),
-            duration: const Duration(milliseconds: 250),
+            duration: ForgeMotion.of(context, ForgeMotion.emphasis),
             builder: (context, value, child) {
               final formatted =
                   value >= 10
@@ -280,7 +283,7 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
-                      color: Colors.amber,
+                      color: ForgeColors.statusWarnFor(Theme.of(context).brightness),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(loc.premiumBadge,
@@ -293,8 +296,8 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
               const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.amber),
+                child: FilledButton(
+                  style: FilledButton.styleFrom(backgroundColor: ForgeColors.statusWarnFor(Theme.of(context).brightness)),
                   onPressed: () {},
                   child: Text(loc.upgradeToPremium,
                       style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -347,7 +350,7 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: Colors.amber,
+                    color: ForgeColors.statusWarnFor(Theme.of(context).brightness),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(loc.premiumBadge,
@@ -550,10 +553,10 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
         ),
         const SizedBox(height: 16),
         // Add to Daily Meal Log button - disabled if we're in template mode
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(
+        FilledButton(
+          style: FilledButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 16),
-            backgroundColor: Colors.green,
+            backgroundColor: ForgeColors.statusOkFor(Theme.of(context).brightness),
             disabledBackgroundColor: Colors.grey.shade300,
             disabledForegroundColor: Colors.grey.shade600,
           ),
@@ -580,7 +583,7 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
                           content: Text(
                             '${widget.foodItem.name} (${grams.round()}g) ${AppLocalizations.of(context)!.addedSuccessfully}',
                           ),
-                          backgroundColor: Colors.green,
+                          backgroundColor: ForgeColors.statusOkFor(Theme.of(context).brightness),
                         ),
                       );
                       Navigator.pop(context, true);
@@ -609,7 +612,7 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
                             content: Text(
                               '${widget.foodItem.name} (${grams.round()}g) ${AppLocalizations.of(context)!.addedSuccessfully}',
                             ),
-                            backgroundColor: Colors.green,
+                            backgroundColor: ForgeColors.statusOkFor(Theme.of(context).brightness),
                           ),
                         );
                         Navigator.pop(context, true);
@@ -625,8 +628,8 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
         ),
         const SizedBox(height: 12),
         // Add to Template button - disabled if we're not in template mode
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(
+        FilledButton(
+          style: FilledButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 16),
             backgroundColor: Colors.deepPurple,
             foregroundColor: Colors.white,

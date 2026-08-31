@@ -4,7 +4,7 @@ import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/feature/chat/domain/chat_timestamps.dart';
 import 'package:ForgeForm/feature/chat/domain/models/conversation_summary.dart';
 import 'package:ForgeForm/feature/chat/presentation/widgets/unread_badge.dart';
-import 'package:ForgeForm/feature/trainer_console/presentation/widgets/client_avatar.dart';
+import 'package:ForgeForm/core/widgets/client_avatar.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 
 /// One row in the conversation list: avatar, name, time, truncated preview and
@@ -48,7 +48,7 @@ class ConversationRow extends StatelessWidget {
                 ),
               ),
             ),
-            padding: const EdgeInsets.fromLTRB(13, 12, 16, 12),
+            padding: const EdgeInsets.fromLTRB(12, 12, 16, 12),
             child: Row(
               children: [
                 ClientAvatar(
@@ -71,7 +71,7 @@ class ConversationRow extends StatelessWidget {
                               style: const TextStyle(
                                 fontFamily: 'Montserrat',
                                 fontWeight: FontWeight.w700,
-                                fontSize: 13.5,
+                                fontSize: 14,
                               ),
                             ),
                           ),
@@ -95,7 +95,7 @@ class ConversationRow extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontFamily: 'Exo 2',
-                          fontSize: 12.5,
+                          fontSize: 12,
                           color: colors.onSurface.withValues(alpha: 0.62),
                         ),
                       ),

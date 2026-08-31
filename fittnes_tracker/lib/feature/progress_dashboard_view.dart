@@ -1,6 +1,8 @@
 import 'dart:math' show min, max;
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
+
+import 'package:ForgeForm/feature/progress/domain/progress_ranges.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -12,8 +14,9 @@ import 'package:ForgeForm/core/providers/access_provider.dart';
 import 'package:ForgeForm/feature/food_tracking/data/adaptive_tdee_service.dart';
 import 'package:ForgeForm/feature/premium/paywall_launcher.dart';
 import 'package:ForgeForm/feature/premium/premium_gate.dart';
-
-enum TimeRange { week, month, threeMonths, allTime, custom }
+import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
+import 'package:ForgeForm/core/widgets/app_widgets.dart';
+import 'package:ForgeForm/core/widgets/content_pane.dart';
 
 final globalProgressKey = GlobalKey<_ProgressScreenState>();
 
@@ -33,12 +36,14 @@ class _ProgressScreenState extends State<ProgressScreen>
   DateTime? _gymCustomStart;
   DateTime? _gymCustomEnd;
   bool _gymLoading = true;
+  Object? _gymError;
 
   // Nutrition tab state
   TimeRange _nutritionRange = TimeRange.week;
   DateTime? _nutritionCustomStart;
   DateTime? _nutritionCustomEnd;
   bool _nutritionLoading = true;
+  Object? _nutritionError;
 
   // Gym data
   List<ExerciseProgressData> _exerciseProgress = [];
@@ -66,28 +71,14 @@ class _ProgressScreenState extends State<ProgressScreen>
     super.dispose();
   }
 
-  DateTime _rangeStart(TimeRange range, DateTime? customStart) {
-    final hasPremium = context.read<AccessProvider>().hasPremiumAccess;
-    // Free tier gets up to 90 days of history; all-time and custom ranges
-    // are premium (depth gate — the range chips enforce the same split).
-    if (!hasPremium &&
-        (range == TimeRange.allTime || range == TimeRange.custom)) {
-      return DateTime.now().subtract(const Duration(days: 89));
-    }
-    if (range == TimeRange.custom && customStart != null) return customStart;
-    final now = DateTime.now();
-    // n - 1, because the range is inclusive of both today and the start day.
-    // Subtracting the full period gave n + 1 days: "last 7 days" spanned 8,
-    // which is why day counters read 5/8 instead of 5/7 and why every average
-    // was taken over one day too many.
-    switch (range) {
-      case TimeRange.week:        return now.subtract(const Duration(days: 6));
-      case TimeRange.month:       return now.subtract(const Duration(days: 29));
-      case TimeRange.threeMonths: return now.subtract(const Duration(days: 89));
-      case TimeRange.allTime:     return DateTime(2000);
-      case TimeRange.custom:      return now.subtract(const Duration(days: 29));
-    }
-  }
+  /// The premium flag is the only thing this needs a context for; the date
+  /// arithmetic itself lives in the domain, where it can be tested.
+  DateTime _rangeStart(TimeRange range, DateTime? customStart) => rangeStart(
+        range,
+        hasPremium: context.read<AccessProvider>().hasPremiumAccess,
+        now: DateTime.now(),
+        customStart: customStart,
+      );
 
   Future<void> _loadProgressData() async {
     await Future.wait([_loadGymData(), _loadNutritionData()]);
@@ -102,7 +93,10 @@ class _ProgressScreenState extends State<ProgressScreen>
   void reloadNutritionData() => _loadNutritionData();
 
   Future<void> _loadGymData() async {
-    setState(() => _gymLoading = true);
+    setState(() {
+      _gymLoading = true;
+      _gymError = null;
+    });
     try {
       final db = context.read<AppDatabase>();
       final startDate = _rangeStart(_gymRange, _gymCustomStart);
@@ -117,17 +111,23 @@ class _ProgressScreenState extends State<ProgressScreen>
         });
       }
     } catch (e) {
+      // A SnackBar and then an empty chart: the message is gone in four
+      // seconds and what is left says the trainee has no history. The error
+      // is kept and rendered where the chart would be, with a way back.
       if (mounted) {
-        setState(() => _gymLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context)!.errorLoadingProgress(e))),
-        );
+        setState(() {
+          _gymLoading = false;
+          _gymError = e;
+        });
       }
     }
   }
 
   Future<void> _loadNutritionData() async {
-    setState(() => _nutritionLoading = true);
+    setState(() {
+      _nutritionLoading = true;
+      _nutritionError = null;
+    });
     try {
       final db = context.read<AppDatabase>();
       await db.mealDao.deduplicateMeals();
@@ -143,11 +143,14 @@ class _ProgressScreenState extends State<ProgressScreen>
         });
       }
     } catch (e) {
+      // A SnackBar and then an empty chart: the message is gone in four
+      // seconds and what is left says the trainee has no history. The error
+      // is kept and rendered where the chart would be, with a way back.
       if (mounted) {
-        setState(() => _nutritionLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context)!.errorLoadingProgress(e))),
-        );
+        setState(() {
+          _nutritionLoading = false;
+          _nutritionError = e;
+        });
       }
     }
   }
@@ -226,56 +229,24 @@ class _ProgressScreenState extends State<ProgressScreen>
     return progressList;
   }
 
-  Future<WorkoutFrequencyData> _loadWorkoutFrequency(AppDatabase db, DateTime startDate, DateTime endDate) async {
+  Future<WorkoutFrequencyData> _loadWorkoutFrequency(
+    AppDatabase db,
+    DateTime startDate,
+    DateTime endDate,
+  ) async {
     final completedWorkouts =
         await (db.select(db.scheduledWorkoutTable)
               ..where((t) => t.isCompleted.equals(true))
               ..where((t) => t.scheduledDate.isBiggerOrEqualValue(startDate))
               ..where((t) => t.scheduledDate.isSmallerOrEqualValue(endDate))
+              // summariseFrequency walks these in order; the ascending sort is
+              // its precondition, not a display preference.
               ..orderBy([(t) => OrderingTerm.asc(t.scheduledDate)]))
             .get();
 
-    final Map<int, int> weeklyWorkouts = {};
-    int currentStreak = 0;
-    int longestStreak = 0;
-    DateTime? lastWorkoutDate;
-
-    for (final workout in completedWorkouts) {
-      final weekNumber = _getWeekNumber(workout.scheduledDate);
-      weeklyWorkouts[weekNumber] = (weeklyWorkouts[weekNumber] ?? 0) + 1;
-
-      if (lastWorkoutDate == null) {
-        currentStreak = 1;
-      } else {
-        final daysDiff =
-            workout.scheduledDate.difference(lastWorkoutDate).inDays;
-        if (daysDiff <= 2) {
-          currentStreak++;
-        } else {
-          if (currentStreak > longestStreak) longestStreak = currentStreak;
-          currentStreak = 1;
-        }
-      }
-
-      lastWorkoutDate = workout.scheduledDate;
-    }
-
-    if (currentStreak > longestStreak) longestStreak = currentStreak;
-
-    final isStreakActive =
-        lastWorkoutDate != null &&
-        DateTime.now().difference(lastWorkoutDate).inDays <= 2;
-
-    return WorkoutFrequencyData(
-      totalWorkouts: completedWorkouts.length,
-      weeklyWorkouts: weeklyWorkouts,
-      currentStreak: isStreakActive ? currentStreak : 0,
-      longestStreak: longestStreak,
-      averagePerWeek:
-          weeklyWorkouts.isEmpty
-              ? 0
-              : weeklyWorkouts.values.reduce((a, b) => a + b) /
-                  weeklyWorkouts.length,
+    return summariseFrequency(
+      completedWorkouts.map((w) => w.scheduledDate).toList(),
+      now: DateTime.now(),
     );
   }
 
@@ -323,78 +294,50 @@ class _ProgressScreenState extends State<ProgressScreen>
     return records;
   }
 
-  /// A week key that is unique across years and sorts chronologically.
-  ///
-  /// This used to return the week index within its own year, so week 5 of two
-  /// different years landed in the same bucket — merging their calories into
-  /// one trend point, and inflating the workouts-per-week average by counting
-  /// two years' sessions as one week. Only reachable from the multi-year
-  /// ranges ("All time"), but wrong wherever it happened.
-  int _getWeekNumber(DateTime date) {
-    final startOfYear = DateTime(date.year, 1, 1);
-    final days = date.difference(startOfYear).inDays;
-    final weekOfYear = (days / 7).floor();
-    return date.year * 100 + weekOfYear;
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: RichText(
-          text: const TextSpan(
-            children: [
-              TextSpan(
-                text: 'Forge',
-                style: TextStyle(
-                  fontFamily: 'Montserrat',
-                  fontWeight: FontWeight.w800,
-                  fontSize: 20,
-                  color: Color(0xFFFF6B3E),
-                ),
-              ),
-              TextSpan(
-                text: 'Form',
-                style: TextStyle(
-                  fontFamily: 'Montserrat',
-                  fontWeight: FontWeight.w800,
-                  fontSize: 20,
-                  color: Colors.white,
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadProgressData,
-          ),
-        ],
+      appBar: ForgeAppBar(
+        title: AppLocalizations.of(context)!.progress,
         bottom: TabBar(
           controller: _tabController,
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white60,
-          indicatorColor: Color(0xFFFF6B3E),
+          indicatorColor: ForgeColors.forgeOrange,
           tabs: [
             Tab(text: AppLocalizations.of(context)!.gym),
             Tab(text: AppLocalizations.of(context)!.nutrition),
           ],
         ),
+        actions: [
+          IconButton(
+            tooltip: AppLocalizations.of(context)!.refresh,
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadProgressData,
+          ),
+        ],
       ),
-      body: TabBarView(
+      body: ContentPane(
+        child: TabBarView(
         controller: _tabController,
         children: [_buildGymTab(theme), _buildNutritionTab(theme)],
       ),
+      )
     );
   }
 
   // === GYM TAB ===
 
   Widget _buildGymTab(ThemeData theme) {
-    if (_gymLoading) return const Center(child: CircularProgressIndicator());
+    if (_gymLoading) return const LoadingSkeleton(rows: 4);
+    if (_gymError != null) {
+      return ErrorStateView(
+        message: AppLocalizations.of(context)!.errorLoadingProgress(_gymError!),
+        onRetry: _loadProgressData,
+      );
+    }
     return RefreshIndicator(
       onRefresh: _loadGymData,
       child: SingleChildScrollView(
@@ -482,7 +425,7 @@ class _ProgressScreenState extends State<ProgressScreen>
                     AppLocalizations.of(context)!.totalWorkouts,
                     _frequencyData!.totalWorkouts.toString(),
                     Icons.fitness_center,
-                    Colors.blue,
+                    ForgeColors.statusInfoFor(Theme.of(context).brightness),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -492,7 +435,7 @@ class _ProgressScreenState extends State<ProgressScreen>
                     AppLocalizations.of(context)!.avgPerWeek,
                     _frequencyData!.averagePerWeek.toStringAsFixed(1),
                     Icons.bar_chart,
-                    Colors.green,
+                    ForgeColors.statusOkFor(Theme.of(context).brightness),
                   ),
                 ),
               ],
@@ -507,7 +450,7 @@ class _ProgressScreenState extends State<ProgressScreen>
                     '${_frequencyData!.currentStreak} ${AppLocalizations.of(context)!.days}',
                     Icons.local_fire_department,
                     _frequencyData!.currentStreak > 0
-                        ? Colors.orange
+                        ? ForgeColors.statusWarnFor(Theme.of(context).brightness)
                         : Colors.grey,
                   ),
                 ),
@@ -518,7 +461,7 @@ class _ProgressScreenState extends State<ProgressScreen>
                     AppLocalizations.of(context)!.longestStreak,
                     '${_frequencyData!.longestStreak} ${AppLocalizations.of(context)!.days}',
                     Icons.emoji_events,
-                    Colors.amber,
+                    ForgeColors.statusWarnFor(Theme.of(context).brightness),
                   ),
                 ),
               ],
@@ -584,9 +527,9 @@ class _ProgressScreenState extends State<ProgressScreen>
                                               repsRange;
                               return Text(
                                 '${actualWeight.toStringAsFixed(1)}kg',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 10,
-                                  color: Colors.orange,
+                                  color: ForgeColors.statusWarnFor(Theme.of(context).brightness),
                                 ),
                               );
                             },
@@ -649,7 +592,7 @@ class _ProgressScreenState extends State<ProgressScreen>
                                 return FlSpot(e.key.toDouble(), normalized);
                               }).toList(),
                           isCurved: true,
-                          color: Colors.orange,
+                          color: ForgeColors.statusWarnFor(Theme.of(context).brightness),
                           barWidth: 3,
                           dotData: FlDotData(show: true),
                         ),
@@ -663,7 +606,7 @@ class _ProgressScreenState extends State<ProgressScreen>
                   children: [
                     _buildLegendItem(AppLocalizations.of(context)!.reps, theme.colorScheme.primary),
                     const SizedBox(width: 16),
-                    _buildLegendItem(AppLocalizations.of(context)!.weight, Colors.orange),
+                    _buildLegendItem(AppLocalizations.of(context)!.weight, ForgeColors.statusWarnFor(Theme.of(context).brightness)),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -697,7 +640,15 @@ class _ProgressScreenState extends State<ProgressScreen>
   // === NUTRITION TAB ===
 
   Widget _buildNutritionTab(ThemeData theme) {
-    if (_nutritionLoading) return const Center(child: CircularProgressIndicator());
+    if (_nutritionLoading) return const LoadingSkeleton(rows: 4);
+    if (_nutritionError != null) {
+      return ErrorStateView(
+        message: AppLocalizations.of(
+          context,
+        )!.errorLoadingProgress(_nutritionError!),
+        onRetry: _loadNutritionData,
+      );
+    }
     final calorieGoal = context.watch<UserGoalsProvider>().calorieGoal;
 
     return RefreshIndicator(
@@ -807,7 +758,7 @@ class _ProgressScreenState extends State<ProgressScreen>
                     AppLocalizations.of(context)!.avgCalories,
                     avgCalories.toStringAsFixed(0),
                     Icons.local_fire_department,
-                    Colors.orange,
+                    ForgeColors.statusWarnFor(Theme.of(context).brightness),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -817,7 +768,7 @@ class _ProgressScreenState extends State<ProgressScreen>
                     AppLocalizations.of(context)!.daysOnTarget,
                     '$daysOnTarget/${_dailyData.length}',
                     Icons.check_circle,
-                    Colors.green,
+                    ForgeColors.statusOkFor(Theme.of(context).brightness),
                   ),
                 ),
               ],
@@ -866,7 +817,7 @@ class _ProgressScreenState extends State<ProgressScreen>
     if (useWeekly) {
       final Map<int, List<DailyNutritionData>> byWeek = {};
       for (final d in _dailyData) {
-        byWeek.putIfAbsent(_getWeekNumber(d.date), () => []).add(d);
+        byWeek.putIfAbsent(weekKey(d.date), () => []).add(d);
       }
       final sortedKeys = byWeek.keys.toList()..sort();
       points = sortedKeys.map((k) {
@@ -1183,7 +1134,7 @@ class _ProgressScreenState extends State<ProgressScreen>
                             return FlSpot(e.key.toDouble(), e.value.weight);
                           }).toList(),
                       isCurved: true,
-                      color: Colors.green,
+                      color: ForgeColors.statusOkFor(Theme.of(context).brightness),
                       barWidth: 3,
                       dotData: FlDotData(show: true),
                     ),
@@ -1215,7 +1166,7 @@ class _ProgressScreenState extends State<ProgressScreen>
                         }).toList();
                       }(),
                       isCurved: true,
-                      color: Colors.orange,
+                      color: ForgeColors.statusWarnFor(Theme.of(context).brightness),
                       barWidth: 3,
                       dotData: FlDotData(show: true),
                     ),
@@ -1228,9 +1179,9 @@ class _ProgressScreenState extends State<ProgressScreen>
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _buildLegendItem(AppLocalizations.of(context)!.weight, Colors.green),
+                _buildLegendItem(AppLocalizations.of(context)!.weight, ForgeColors.statusOkFor(Theme.of(context).brightness)),
                 const SizedBox(width: 16),
-                _buildLegendItem(AppLocalizations.of(context)!.calories, Colors.orange),
+                _buildLegendItem(AppLocalizations.of(context)!.calories, ForgeColors.statusWarnFor(Theme.of(context).brightness)),
               ],
             ),
           ],
@@ -1243,7 +1194,7 @@ class _ProgressScreenState extends State<ProgressScreen>
     final Map<int, List<DailyNutritionData>> weeklyData = {};
 
     for (final day in _dailyData) {
-      final weekNum = _getWeekNumber(day.date);
+      final weekNum = weekKey(day.date);
       weeklyData.putIfAbsent(weekNum, () => []).add(day);
     }
 
@@ -1506,41 +1457,15 @@ class _ProgressScreenState extends State<ProgressScreen>
     );
   }
 
+  /// `theme` is still taken so the four call sites need no edit; EmptyStateView
+  /// reads the scheme itself.
   Widget _buildEmptyState(
     ThemeData theme,
     IconData icon,
     String title,
     String subtitle,
   ) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          children: [
-            Icon(
-              icon,
-              size: 64,
-              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              style: theme.textTheme.titleMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              subtitle,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
+    return EmptyStateView(icon: icon, title: title, message: subtitle);
   }
 }
 
@@ -1568,22 +1493,6 @@ class ExerciseSessionData {
     required this.totalReps,
     required this.setCount,
     required this.reps,
-  });
-}
-
-class WorkoutFrequencyData {
-  final int totalWorkouts;
-  final Map<int, int> weeklyWorkouts;
-  final int currentStreak;
-  final int longestStreak;
-  final double averagePerWeek;
-
-  WorkoutFrequencyData({
-    required this.totalWorkouts,
-    required this.weeklyWorkouts,
-    required this.currentStreak,
-    required this.longestStreak,
-    required this.averagePerWeek,
   });
 }
 

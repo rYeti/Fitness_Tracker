@@ -1,4 +1,5 @@
 // lib/feature/presentation/view/food_add_screen.dart
+import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/utils/app_logger.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
@@ -12,8 +13,11 @@ import '../../data/models/extended_nutrients.dart';
 import '../../data/models/food_item_model.dart';
 import '../../data/models/portion_option.dart';
 import '../../data/repositories/nutrition_repository.dart';
+import '../../domain/food_search_ranking.dart';
 import 'barcode_scanner_view.dart';
 import 'food_detail_view.dart';
+import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
+import 'package:ForgeForm/core/widgets/content_pane.dart';
 
 class FoodAddScreen extends StatefulWidget {
   final String category;
@@ -82,190 +86,6 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
     _debounce = Timer(const Duration(milliseconds: 300), _performSearch);
   }
 
-  // ========== SEARCH HELPER METHODS ==========
-
-  /// Normalize string: lowercase and trim whitespace
-  String _norm(String s) => s.toLowerCase().trim();
-
-  /// Remove diacritics (accents) for better multilingual matching
-  String _removeDiacritics(String s) {
-    const diacritics = {
-      // German
-      'ä': 'a', 'ö': 'o', 'ü': 'u', 'ß': 'ss',
-      // French
-      'à': 'a', 'â': 'a', 'è': 'e', 'é': 'e', 'ê': 'e', 'ë': 'e', 'ç': 'c',
-      'æ': 'ae', 'œ': 'oe',
-      // Spanish/Portuguese
-      'á': 'a', 'ã': 'a', 'í': 'i', 'ó': 'o', 'õ': 'o', 'ú': 'u', 'ñ': 'n',
-      // Nordic
-      'å': 'a',
-      // General accents
-      'ì': 'i', 'î': 'i', 'ï': 'i',
-      'ò': 'o', 'ô': 'o',
-      'ù': 'u', 'û': 'u',
-    };
-
-    String result = s;
-    diacritics.forEach((key, value) {
-      result = result.replaceAll(key, value);
-    });
-    return result;
-  }
-
-  /// Split string into words, removing punctuation and special characters
-  List<String> _tokenize(String s) {
-    return s
-        .split(RegExp(r'[^a-z0-9äöüßàáâãäåèéêëìíîïòóôõöùúûüñç]+'))
-        .where((t) => t.isNotEmpty)
-        .toList();
-  }
-
-  /// Calculate Levenshtein distance (edit distance) between two strings
-  int _levenshtein(String a, String b) {
-    if (a == b) return 0;
-    if (a.isEmpty) return b.length;
-    if (b.isEmpty) return a.length;
-
-    final m = a.length, n = b.length;
-    final dp = List.generate(m + 1, (_) => List<int>.filled(n + 1, 0));
-
-    for (var i = 0; i <= m; i++) dp[i][0] = i;
-    for (var j = 0; j <= n; j++) dp[0][j] = j;
-
-    for (var i = 1; i <= m; i++) {
-      for (var j = 1; j <= n; j++) {
-        final cost = a[i - 1] == b[j - 1] ? 0 : 1;
-        dp[i][j] = [
-          dp[i - 1][j] + 1,
-          dp[i][j - 1] + 1,
-          dp[i - 1][j - 1] + cost,
-        ].reduce((a, b) => a < b ? a : b);
-      }
-    }
-    return dp[m][n];
-  }
-
-  /// OPTIMIZED food search scoring algorithm (lower = better)
-  int _nameScore(String query, String name) {
-    final qRaw = _norm(query);
-    final nRaw = _norm(name);
-
-    if (qRaw.isEmpty || nRaw.isEmpty) return 1000000;
-
-    final q = _removeDiacritics(qRaw);
-    final n = _removeDiacritics(nRaw);
-
-    if (q == n) return 0;
-
-    final nTokens = _tokenize(n);
-    final qTokens = _tokenize(q);
-
-    if (qTokens.isEmpty || nTokens.isEmpty) return 1000000;
-
-    final queryTerm = qTokens.first;
-
-    if (nTokens.length == 1 && nTokens.first == queryTerm) return 1;
-
-    if (n.startsWith(q)) {
-      final lengthDiff = n.length - q.length;
-      // Short queries need a steep penalty so "Ei" doesn't rank
-      // equally with "Eis" or "Eierlikör".
-      final penalty = q.length <= 3 ? lengthDiff * 8 : lengthDiff ~/ 5;
-      return 5 + penalty;
-    }
-
-    if (n.contains(' $q') || n.contains('-$q')) return 15;
-
-    if (nTokens.first == queryTerm) {
-      return 20 + (nTokens.length - 1) * 5;
-    }
-
-    if (nTokens.first.startsWith(queryTerm)) {
-      return 30 +
-          (nTokens.first.length - queryTerm.length) +
-          (nTokens.length - 1) * 5;
-    }
-
-    for (int i = 1; i < nTokens.length; i++) {
-      if (nTokens[i] == queryTerm) return 40 + i * 5;
-    }
-
-    for (int i = 1; i < nTokens.length; i++) {
-      if (nTokens[i].startsWith(queryTerm)) {
-        return 50 + (nTokens[i].length - queryTerm.length) + i * 5;
-      }
-    }
-
-    if (queryTerm.length >= 3) {
-      // BLS names are long and comma-qualified (e.g. "Fettsäure C22:6 n-3
-      // all-cis (Docosahexaensäure)"), so fuzzy matching needs more than the
-      // first 3 tokens to find a hit anywhere in the name.
-      final tokensToCheck = nTokens.take(6);
-      for (int idx = 0; idx < tokensToCheck.length; idx++) {
-        final token = tokensToCheck.elementAt(idx);
-        final lenDiff = (token.length - queryTerm.length).abs();
-        if (lenDiff <= 2) {
-          final dist = _levenshtein(token, queryTerm);
-          if (dist <= 2) {
-            return 100 + (dist * 20) + lenDiff + idx * 10;
-          }
-        }
-      }
-    }
-
-    if (queryTerm.length >= 4) {
-      final tokensToCheck = nTokens.take(6);
-      for (int idx = 0; idx < tokensToCheck.length; idx++) {
-        final token = tokensToCheck.elementAt(idx);
-        if (token.contains(queryTerm)) {
-          return 200 + (token.length - queryTerm.length) + idx * 20;
-        }
-      }
-    }
-
-    return 1000000;
-  }
-
-  /// Scores a result against whichever name field the query actually
-  /// matches best. Verified items carry both `_name_en` and `_name_de`
-  /// (the display name alone is locale-pinned via `product_name`, so a
-  /// German query that only matches `nameDe` would otherwise score against
-  /// the English name when the app locale is English, and vice versa).
-  int _bestNameScore(String query, Map<String, dynamic> item) {
-    final candidates = <String>{
-      _itemName(item),
-      if (item['_name_en'] is String) item['_name_en'] as String,
-      if (item['_name_de'] is String) item['_name_de'] as String,
-    }..removeWhere((s) => s.isEmpty);
-    if (candidates.isEmpty) return 1000000;
-    var best = 1000000;
-    for (final name in candidates) {
-      final score = _nameScore(query, name);
-      if (score < best) best = score;
-    }
-    return best;
-  }
-
-  /// Extract the display name from a search result item
-  String _itemName(dynamic item) {
-    if (item is Map) {
-      for (final k in ['product_name', 'name', 'title', 'label']) {
-        final v = item[k];
-        if (v != null && v.toString().trim().isNotEmpty) return v.toString();
-      }
-      final brands = item['brands'];
-      if (brands != null && brands.toString().trim().isNotEmpty) {
-        return brands.toString();
-      }
-      return '';
-    }
-    try {
-      final v = item.name;
-      return v?.toString() ?? '';
-    } catch (_) {
-      return '';
-    }
-  }
 
   Future<void> _performSearch() async {
     final query = _searchController.text.trim();
@@ -422,7 +242,7 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
       // table alone can return hundreds of substring matches).
       final withScore =
           items
-              .map((item) => (item: item, score: _bestNameScore(searchQuery, item)))
+              .map((item) => (item: item, score: bestNameScore(searchQuery, item)))
               .where((e) => e.score < 400)
               .toList();
       withScore.sort((a, b) {
@@ -431,7 +251,7 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
         final vb = b.item['_source'] == 'verified' ? 0 : 1;
         if (va != vb) return va.compareTo(vb);
         if (a.score != b.score) return a.score.compareTo(b.score);
-        return _itemName(a.item).length.compareTo(_itemName(b.item).length);
+        return itemName(a.item).length.compareTo(itemName(b.item).length);
       });
       return withScore.take(100).map((e) => e.item).toList();
     }
@@ -580,7 +400,7 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
                       child: Text(l10n.cancel),
                     ),
                     const SizedBox(width: 8),
-                    ElevatedButton(
+                    FilledButton(
                       onPressed: () {
                         final v = int.tryParse(controller.text.trim());
                         if (v != null && v > 0) Navigator.pop(ctx, v);
@@ -640,7 +460,7 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('${item.name} (${newGramm}g) ${l10n.addedSuccessfully}'),
-        backgroundColor: Colors.green,
+        backgroundColor: ForgeColors.statusOkOnLight,
       ),
     );
   }
@@ -1029,7 +849,7 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
               ),
               child: Text(AppLocalizations.of(dialogContext)!.cancel),
             ),
-            ElevatedButton(
+            FilledButton(
               onPressed: () async {
                 if (formKey.currentState!.validate()) {
                   final id = await db.foodItemDao.insertFoodItem(
@@ -1045,7 +865,7 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
                   if (dialogContext.mounted) Navigator.of(dialogContext).pop();
                 }
               },
-              style: ElevatedButton.styleFrom(
+              style: FilledButton.styleFrom(
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8.0),
@@ -1075,7 +895,7 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
         content: Text(
           '${newFood.name} ${AppLocalizations.of(context)!.addedSuccessfully}',
         ),
-        backgroundColor: Colors.green,
+        backgroundColor: ForgeColors.statusOkOnLight,
       ),
     );
   }
@@ -1123,23 +943,15 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return SafeArea(
-      child: Scaffold(
-        backgroundColor: colorScheme.surface,
-        appBar: AppBar(
-          title: Text(
-            AppLocalizations.of(
-              context,
-            )!.addFood(_localizedMealLabel(widget.category, context)),
-            style: const TextStyle(
-              fontFamily: 'Montserrat',
-              fontWeight: FontWeight.w700,
-              fontSize: 17,
-              color: Colors.white,
-            ),
-          ),
-        ),
-        body: SingleChildScrollView(
+    return Scaffold(
+      backgroundColor: colorScheme.surface,
+      appBar: ForgeAppBar(
+        title: AppLocalizations.of(
+            context,
+          )!.addFood(_localizedMealLabel(widget.category, context)),
+      ),
+      body: ContentPane(
+        child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1312,6 +1124,9 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   IconButton(
+                                    tooltip: AppLocalizations.of(
+                                      context,
+                                    )!.hideFromRecents(item.name),
                                     icon: Icon(
                                       Icons.delete_outline,
                                       color: colorScheme.error,
@@ -1323,6 +1138,9 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
                                         ),
                                   ),
                                   IconButton(
+                                    tooltip: AppLocalizations.of(
+                                      context,
+                                    )!.quickAddFood(item.name),
                                     icon: Icon(
                                       Icons.add,
                                       color: colorScheme.primary,
@@ -1392,7 +1210,7 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
                               textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: 16),
-                            ElevatedButton.icon(
+                            FilledButton.icon(
                               onPressed: () {
                                 setState(() => _lastSearchQuery = '');
                                 _performSearch();
@@ -1464,8 +1282,8 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
                         ...items.map(
                           (result) => _foodListTile(
                             title:
-                                _itemName(result).isNotEmpty
-                                    ? _itemName(result)
+                                itemName(result).isNotEmpty
+                                    ? itemName(result)
                                     : 'Unknown',
                             subtitle: _macroSubtitle(result),
                             trailing:
@@ -1499,11 +1317,12 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
             ],
           ),
         ),
-        floatingActionButton: FloatingActionButton(
-          onPressed: _addCustomFood,
-          elevation: 2,
-          child: const Icon(Icons.add),
-        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        tooltip: AppLocalizations.of(context)!.addCustomFood,
+        onPressed: _addCustomFood,
+        elevation: 2,
+        child: const Icon(Icons.add),
       ),
     );
   }
@@ -1532,7 +1351,7 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
               child: Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 14,
-                  vertical: 11,
+                  vertical: 12,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

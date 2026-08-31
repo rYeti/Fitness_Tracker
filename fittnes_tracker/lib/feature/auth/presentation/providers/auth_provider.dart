@@ -241,7 +241,20 @@ const serverUrlPrefsKey = 'server_url';
 /// then skipped was the one that would have fetched the account's real data.
 /// Cleared alongside the local database whenever accounts change.
 const lastPullPrefsKey = 'last_pull_timestamp';
-const serverUrlDefault = 'https://fittracker-api-soav3zyeaa-ey.a.run.app/';
+/// The API this build talks to.
+///
+/// Overridable at build time so a review or e2e build can be pointed at a
+/// local API with `--dart-define=FORGE_API_URL=http://127.0.0.1:5080/`. The
+/// default is production and is what every shipped build uses.
+///
+/// It is a `fromEnvironment` rather than a plain const because the previous
+/// way of pointing a build at localhost was to edit this line and remember to
+/// revert it — which is a production URL one forgotten `git checkout` away
+/// from being wrong, and it has to be re-verified by hand every time.
+const serverUrlDefault = String.fromEnvironment(
+  'FORGE_API_URL',
+  defaultValue: 'https://fittracker-api-soav3zyeaa-ey.a.run.app/',
+);
 
 /// Holds the active API server URL. Seeded at startup from SharedPreferences
 /// (see main.dart). Update this provider to instantly switch the URL at runtime.

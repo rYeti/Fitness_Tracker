@@ -186,7 +186,7 @@ class _MessageTime extends StatelessWidget {
           ChatTimestamps.timeOfDay(at),
           style: TextStyle(
             fontFamily: 'Exo 2',
-            fontSize: 10.5,
+            fontSize: 10,
             fontWeight: FontWeight.w500,
             // 0.6 on the surface colour clears WCAG AA for this size against
             // both themes' card backgrounds; the bubble's own colour is not
@@ -238,7 +238,7 @@ class _FailedMarker extends StatelessWidget {
                   label,
                   style: const TextStyle(
                     fontFamily: 'Exo 2',
-                    fontSize: 11.5,
+                    fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: ForgeColors.statusBad,
                   ),

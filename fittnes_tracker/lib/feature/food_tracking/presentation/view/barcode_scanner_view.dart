@@ -1,3 +1,4 @@
+import 'package:ForgeForm/core/forge_motion.dart';
 import 'package:ForgeForm/core/utils/app_logger.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:flutter/foundation.dart';
@@ -40,13 +41,33 @@ class _BarcodeScannerViewState extends State<BarcodeScannerView>
   @override
   void initState() {
     super.initState();
+    // Started in didChangeDependencies rather than here: whether it should
+    // run at all depends on the reduce-motion setting, and MediaQuery is not
+    // available during initState.
     _scanLineController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
-    )..repeat(reverse: true);
+    );
     _scanLineAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _scanLineController, curve: Curves.easeInOut),
     );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // A purely decorative loop is the case a duration cannot express: there
+    // is no "instant" version of an animation that never ends, so the only
+    // way to respect the setting is to stop driving it. This one runs in
+    // front of someone trying to hold a camera steady over a barcode, which
+    // is close to the canonical reason the OS setting exists.
+    if (ForgeMotion.isReduced(context)) {
+      _scanLineController
+        ..stop()
+        ..value = 0.5; // parked mid-frame, so the guide line stays visible
+    } else if (!_scanLineController.isAnimating) {
+      _scanLineController.repeat(reverse: true);
+    }
   }
 
   void _onBarcodeDetected(BarcodeCapture capture) async {

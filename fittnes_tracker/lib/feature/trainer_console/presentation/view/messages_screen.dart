@@ -10,8 +10,8 @@ import 'package:ForgeForm/feature/chat/presentation/widgets/chat_send_error_stri
 import 'package:ForgeForm/feature/chat/presentation/widgets/chat_thread_list.dart';
 import 'package:ForgeForm/feature/chat/presentation/widgets/conversation_row.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/active_client_provider.dart';
-import 'package:ForgeForm/feature/trainer_console/presentation/widgets/client_avatar.dart';
-import 'package:ForgeForm/feature/trainer_console/presentation/widgets/console_widgets.dart';
+import 'package:ForgeForm/core/widgets/client_avatar.dart';
+import 'package:ForgeForm/core/widgets/app_widgets.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 
 /// Desktop: three columns in one card — conversation list (300px) | thread
@@ -55,30 +55,29 @@ class _MessagesScreenState extends State<MessagesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDesktop = MediaQuery.of(context).size.width > 1024;
+    final isDesktop = Breakpoints.isDesktop(context);
     final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
       body: SafeArea(
         child: Consumer<ChatProvider>(
           builder: (context, chat, _) {
             if (chat.isLoading && chat.conversations.isEmpty) {
               return Padding(
                 padding: const EdgeInsets.all(16),
-                child: ConsoleSkeleton(
+                child: LoadingSkeleton(
                   semanticsLabel: l10n.conversationsLoading,
                 ),
               );
             }
             if (chat.error != null) {
-              return ConsoleErrorState(
+              return ErrorStateView(
                 message: l10n.conversationsLoadError,
                 onRetry: chat.loadConversations,
               );
             }
             if (chat.conversations.isEmpty) {
-              return ConsoleEmptyState(
+              return EmptyStateView(
                 icon: Icons.forum_outlined,
                 title: l10n.conversationsEmpty,
                 message: l10n.conversationsEmptyBody,
@@ -115,7 +114,7 @@ class _DesktopLayout extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.all(32),
-      child: ConsoleCard(
+      child: AppCard(
         padding: EdgeInsets.zero,
         child: Row(
           children: [
@@ -210,7 +209,7 @@ class _MobileThreadHeader extends StatelessWidget {
                   style: const TextStyle(
                     fontFamily: 'Montserrat',
                     fontWeight: FontWeight.w700,
-                    fontSize: 14.5,
+                    fontSize: 14,
                     color: Colors.white,
                   ),
                 ),
@@ -258,7 +257,7 @@ class _ThreadPane extends StatelessWidget {
   Widget build(BuildContext context) {
     if (conversation == null) {
       final l10n = AppLocalizations.of(context)!;
-      return ConsoleEmptyState(
+      return EmptyStateView(
         icon: Icons.chat_bubble_outline_rounded,
         title: l10n.pickAConversation,
         message: l10n.pickAConversationBody,

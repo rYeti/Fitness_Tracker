@@ -4,6 +4,7 @@ import 'package:ForgeForm/feature/onboarding/onboarding_screen.dart'
 import 'package:flutter/material.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:ForgeForm/core/widgets/form_pane.dart';
 
 class ForgotPasswordScreen extends ConsumerStatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -51,8 +52,9 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
       appBar: AppBar(title: Text(l10n.forgotPasswordTitle)),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 28),
-          child: _sent ? _confirmation(theme, l10n) : _form(theme, l10n),
+          child: FormPane(
+            child: _sent ? _confirmation(theme, l10n) : _form(theme, l10n),
+          ),
         ),
       ),
     );

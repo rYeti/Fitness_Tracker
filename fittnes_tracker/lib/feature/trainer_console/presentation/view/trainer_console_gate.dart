@@ -5,7 +5,7 @@ import 'package:ForgeForm/feature/trainer_console/data/trainer_console_repositor
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/trainer_licence_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/view/trainer_console_home.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/trainer_console_shell.dart';
-import 'package:ForgeForm/feature/trainer_console/presentation/widgets/console_widgets.dart';
+import 'package:ForgeForm/core/widgets/app_widgets.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 
 /// Role guard for the Trainer Console.
@@ -85,7 +85,7 @@ class TrainerConsoleGate extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: Text(l10n.trainerConsole)),
       body: SafeArea(
-        child: ConsoleEmptyState(
+        child: EmptyStateView(
           icon: Icons.lock_outline_rounded,
           title: l10n.trainerAccessOnly,
           message: l10n.trainerAccessOnlyBody,

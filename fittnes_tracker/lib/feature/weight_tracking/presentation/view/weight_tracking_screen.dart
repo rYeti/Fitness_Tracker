@@ -1,9 +1,13 @@
+import 'package:ForgeForm/core/widgets/app_widgets.dart';
+import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/feature/weight_tracking/presentation/providers/weight_provider.dart';
 import 'package:ForgeForm/feature/weight_tracking/presentation/widgets/weight_chart.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
+import 'package:ForgeForm/core/widgets/content_pane.dart';
 
 class WeightTrackingScreen extends StatelessWidget {
   const WeightTrackingScreen({Key? key}) : super(key: key);
@@ -12,65 +16,54 @@ class WeightTrackingScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final colorScheme = Theme.of(context).colorScheme;
-    return SafeArea(
-      child: Scaffold(
-        backgroundColor: colorScheme.surface,
-        appBar: AppBar(
-          title: RichText(
-            text: const TextSpan(
-              children: [
-                TextSpan(
-                  text: 'Forge',
-                  style: TextStyle(
-                    fontFamily: 'Montserrat',
-                    fontWeight: FontWeight.w800,
-                    fontSize: 20,
-                    color: Color(0xFFFF6B3E),
-                  ),
-                ),
-                TextSpan(
-                  text: 'Form',
-                  style: TextStyle(
-                    fontFamily: 'Montserrat',
-                    fontWeight: FontWeight.w800,
-                    fontSize: 20,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
-            ),
+    return Scaffold(
+      backgroundColor: colorScheme.surface,
+      appBar: ForgeAppBar(
+        title: l10n.weight,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.flag, color: Colors.white),
+            tooltip: l10n.weightGoals,
+            onPressed: () => Navigator.pushNamed(context, '/weight-goals'),
           ),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.flag, color: Colors.white),
-              tooltip: l10n.weightGoals,
-              onPressed: () => Navigator.pushNamed(context, '/weight-goals'),
-            ),
-            PopupMenuButton(
-              icon: const Icon(Icons.more_vert, color: Colors.white),
-              itemBuilder:
-                  (ctx) => [
-                    PopupMenuItem(value: 'goals', child: Text(l10n.setWeightGoal)),
-                    PopupMenuItem(value: 'bmi', child: Text(l10n.calculateBMI)),
-                  ],
-              onSelected: (value) {
-                if (value == 'goals') {
-                  Navigator.pushNamed(context, '/weight-goals');
-                } else if (value == 'bmi') {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text(l10n.bmiComingSoon)));
-                }
-              },
-            ),
-          ],
-        ),
-        body: Consumer<WeightProvider>(
+          PopupMenuButton(
+            icon: const Icon(Icons.more_vert, color: Colors.white),
+            itemBuilder:
+                (ctx) => [
+                  PopupMenuItem(value: 'goals', child: Text(l10n.setWeightGoal)),
+                  PopupMenuItem(value: 'bmi', child: Text(l10n.calculateBMI)),
+                ],
+            onSelected: (value) {
+              if (value == 'goals') {
+                Navigator.pushNamed(context, '/weight-goals');
+              } else if (value == 'bmi') {
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text(l10n.bmiComingSoon)));
+              }
+            },
+          ),
+        ],
+      ),
+      body: ContentPane(
+        child: Consumer<WeightProvider>(
           builder: (context, weightProvider, _) {
             final colorScheme = Theme.of(context).colorScheme;
+            // Four states, in the order they can occur. Loading uses a
+            // skeleton shaped like the rows it replaces rather than a bare
+            // spinner (CLAUDE.md), and the error branch comes *before* the
+            // empty check — a failed load used to fall through to "no records
+            // yet", which is a different and untrue statement.
             if (weightProvider.isLoading) {
-              return Center(
-                child: CircularProgressIndicator(color: colorScheme.primary),
+              return LoadingSkeleton(
+                rows: 4,
+                semanticsLabel: l10n.consoleLoading,
+              );
+            }
+            if (weightProvider.hasError) {
+              return ErrorStateView(
+                message: l10n.couldNotLoadBody,
+                onRetry: weightProvider.retry,
               );
             }
             final weightRecords = weightProvider.weightRecords;
@@ -190,6 +183,13 @@ class WeightTrackingScreen extends StatelessWidget {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 IconButton(
+                                  // Named with the record's own date: a column
+                                  // of bare "Edit" buttons gives a screen-reader
+                                  // user no way to tell which weight they are
+                                  // about to change.
+                                  tooltip:
+                                      '${l10n.editWeightRecord}, '
+                                      '${record.weight}kg',
                                   icon: Icon(
                                     Icons.edit,
                                     size: 18,
@@ -205,6 +205,9 @@ class WeightTrackingScreen extends StatelessWidget {
                                       ),
                                 ),
                                 IconButton(
+                                  tooltip:
+                                      '${l10n.deleteWeightRecord}, '
+                                      '${record.weight}kg',
                                   icon: Icon(
                                     Icons.delete_outline,
                                     size: 18,
@@ -231,69 +234,30 @@ class WeightTrackingScreen extends StatelessWidget {
             );
           },
         ),
-        floatingActionButton: FloatingActionButton(
-          onPressed:
-              () => _showAddEditWeightDialog(
-                context,
-                Provider.of<WeightProvider>(context, listen: false),
-              ),
-          elevation: 2,
-          child: const Icon(Icons.add),
-        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        tooltip: l10n.addWeight,
+        onPressed:
+            () => _showAddEditWeightDialog(
+              context,
+              Provider.of<WeightProvider>(context, listen: false),
+            ),
+        elevation: 2,
+        child: const Icon(Icons.add),
       ),
     );
   }
 
   Widget _buildEmptyState(BuildContext context, WeightProvider provider) {
     final l10n = AppLocalizations.of(context)!;
-    final colorScheme = Theme.of(context).colorScheme;
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.monitor_weight_outlined,
-            size: 64,
-            color: colorScheme.onSurface.withValues(alpha: 0.55),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            l10n.noWeightRecordsYet,
-            style: TextStyle(
-              fontFamily: 'Montserrat',
-              fontWeight: FontWeight.w700,
-              fontSize: 16,
-              color: colorScheme.onSurface,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            l10n.addWeightRecord,
-            style: TextStyle(
-              fontFamily: 'Exo 2',
-              fontSize: 13,
-              color: colorScheme.onSurface.withValues(alpha: 0.55),
-            ),
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () => _showAddEditWeightDialog(context, provider),
-            icon: const Icon(Icons.add),
-            label: Text(
-              l10n.addWeight,
-              style: const TextStyle(
-                fontFamily: 'Exo 2',
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            style: ElevatedButton.styleFrom(
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8.0),
-              ),
-            ),
-          ),
-        ],
+    return EmptyStateView(
+      icon: Icons.monitor_weight_outlined,
+      title: l10n.noWeightRecordsYet,
+      message: l10n.addWeightRecord,
+      action: FilledButton.icon(
+        onPressed: () => _showAddEditWeightDialog(context, provider),
+        icon: const Icon(Icons.add),
+        label: Text(l10n.addWeight),
       ),
     );
   }
@@ -353,7 +317,7 @@ class WeightTrackingScreen extends StatelessWidget {
                   provider.deleteWeightRecord(id);
                   Navigator.pop(ctx);
                 },
-                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                style: TextButton.styleFrom(foregroundColor: ForgeColors.statusBadFor(Theme.of(context).brightness)),
                 child: Text(l10n.delete.toUpperCase()),
               ),
             ],
@@ -518,9 +482,9 @@ class _AddEditWeightDialogState extends State<AddEditWeightDialog> {
           ),
           child: Text(l10n.cancel.toUpperCase()),
         ),
-        ElevatedButton(
+        FilledButton(
           onPressed: () => _saveWeight(isEditing, l10n),
-          style: ElevatedButton.styleFrom(
+          style: FilledButton.styleFrom(
             elevation: 0,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8.0),

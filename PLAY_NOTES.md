@@ -36,10 +36,6 @@ older messages cannot be unscrambled there.
 
 The Trainer Console now opens far faster: it no longer reads a client's whole training history to draw the dashboard, and it loads only the section you are looking at. Your client list appears as soon as it is ready.
 
-Chat messages now show the time they were sent, and the date above each day of messages is correct — it could read 01/01/0001 or name the wrong day.
-
-Also fixed: the dashboard showed zero sessions every Sunday, and exercise names were missing from the strength chart.
-
 ## 1.0.2+13
 
 Trainer accounts now open the Trainer Console when you sign in or register,

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
+import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 
 /// A countdown timer widget for rest periods between sets
@@ -130,7 +131,7 @@ class _RestTimerWidgetState extends State<RestTimerWidget>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -158,10 +159,10 @@ class _RestTimerWidgetState extends State<RestTimerWidget>
                   child: CircularProgressIndicator(
                     value: progress,
                     strokeWidth: 8,
-                    backgroundColor: theme.colorScheme.surfaceVariant,
+                    backgroundColor: theme.colorScheme.surfaceContainerHighest,
                     valueColor: AlwaysStoppedAnimation<Color>(
                       _remainingSeconds <= 10
-                          ? Colors.red
+                          ? ForgeColors.statusBadFor(Theme.of(context).brightness)
                           : theme.colorScheme.primary,
                     ),
                   ),
@@ -170,7 +171,7 @@ class _RestTimerWidgetState extends State<RestTimerWidget>
                   _formatTime(_remainingSeconds),
                   style: theme.textTheme.headlineMedium?.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: _remainingSeconds <= 10 ? Colors.red : null,
+                    color: _remainingSeconds <= 10 ? ForgeColors.statusBadFor(Theme.of(context).brightness) : null,
                   ),
                 ),
               ],
@@ -181,12 +182,12 @@ class _RestTimerWidgetState extends State<RestTimerWidget>
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               if (!_isRunning) ...[
-                ElevatedButton.icon(
+                FilledButton.icon(
                   onPressed: _startTimer,
                   icon: const Icon(Icons.play_arrow),
                   label: Text(l10n.start),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: ForgeColors.statusOkFor(Theme.of(context).brightness),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -196,12 +197,12 @@ class _RestTimerWidgetState extends State<RestTimerWidget>
                   label: Text(l10n.reset),
                 ),
               ] else ...[
-                ElevatedButton.icon(
+                FilledButton.icon(
                   onPressed: _stopTimer,
                   icon: const Icon(Icons.pause),
                   label: Text(l10n.pause),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: ForgeColors.statusWarnFor(Theme.of(context).brightness),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -251,19 +252,23 @@ void showRestTimer(BuildContext context, {int defaultSeconds = 90}) {
     context: context,
     backgroundColor: Colors.transparent,
     builder:
-        (context) => Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: RestTimerWidget(
-            defaultSeconds: defaultSeconds,
-            onTimerComplete: () {
-              final l10n = AppLocalizations.of(context)!;
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(l10n.restTimeComplete),
-                  duration: const Duration(seconds: 2),
-                ),
-              );
-            },
+        // The one modal sheet in the app without a SafeArea: on a phone using
+        // gesture navigation its controls sat under the home indicator.
+        (context) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: RestTimerWidget(
+              defaultSeconds: defaultSeconds,
+              onTimerComplete: () {
+                final l10n = AppLocalizations.of(context)!;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(l10n.restTimeComplete),
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              },
+            ),
           ),
         ),
   );

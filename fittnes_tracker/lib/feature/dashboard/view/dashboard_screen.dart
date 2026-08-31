@@ -4,13 +4,15 @@ import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/feature/food_tracking/data/repositories/nutrition_repository.dart';
 import 'package:ForgeForm/feature/gym_tracking/presentation/view/workouts/active_workout_view.dart';
-import 'package:ForgeForm/feature/trainer_console/presentation/widgets/stat_tile.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/providers/user_goals_provider.dart';
 import 'package:flutter_speed_dial/flutter_speed_dial.dart';
 import '../widgets/dashboard_weight_card.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
+import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
+import 'package:ForgeForm/feature/dashboard/widgets/greeting_card.dart';
+import 'package:ForgeForm/core/widgets/content_pane.dart';
 
 // Global key so other tabs (e.g. Food) can trigger a refresh after mutating
 // nutrition data — DashboardScreen is kept alive inside an IndexedStack, so
@@ -57,31 +59,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
-      appBar: AppBar(
-        title: RichText(
-          text: const TextSpan(
-            children: [
-              TextSpan(
-                text: 'Forge',
-                style: TextStyle(
-                  fontFamily: 'Montserrat',
-                  fontWeight: FontWeight.w800,
-                  fontSize: 20,
-                  color: ForgeColors.forgeOrange,
-                ),
-              ),
-              TextSpan(
-                text: 'Form',
-                style: TextStyle(
-                  fontFamily: 'Montserrat',
-                  fontWeight: FontWeight.w800,
-                  fontSize: 20,
-                  color: Colors.white,
-                ),
-              ),
-            ],
-          ),
-        ),
+      appBar: ForgeAppBar(
+        title: l10n.dashboard,
         actions: const [],
       ),
       body: RefreshIndicator(
@@ -89,23 +68,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
         onRefresh: _loadDashboardData,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildStackGreeting(goalsProvider),
-                const SizedBox(height: 8),
-                _todayWorkout(),
-                const SizedBox(height: 8),
-                _buildWeightProgress(goalsProvider),
-                const SizedBox(height: 16),
-              ],
+          child: ContentPane(
+            child: Padding(
+              // The extra bottom padding clears the SpeedDial, which floats
+              // over the scroll view rather than displacing it.
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  GreetingCard(
+                    name: goalsProvider.name,
+                    todayCalories: _todayCalories,
+                    calorieGoal: goalsProvider.dailyCalorieGoal,
+                    weekCompleted: _weekCompleted,
+                    weekTotal: _weekTotal,
+                    allTimeCompleted: _allTimeCompleted,
+                  ),
+                  const SizedBox(height: 8),
+                  _todayWorkout(),
+                  const SizedBox(height: 8),
+                  _buildWeightProgress(goalsProvider),
+                  const SizedBox(height: 16),
+                ],
+              ),
             ),
           ),
         ),
       ),
       floatingActionButton: SpeedDial(
+        // The one control on this screen a screen reader could not name. It is
+        // also the only way to log anything from here, so "button" was the
+        // whole announcement for the screen's primary action.
+        tooltip: l10n.quickAdd,
         animatedIcon: AnimatedIcons.menu_close,
         spacing: 12,
         spaceBetweenChildren: 8,
@@ -204,149 +198,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _todayCalories = todayNutrition.firstOrNull?.totalCalories ?? 0;
       });
     }
-  }
-
-  String _greeting(AppLocalizations l10n, String name) {
-    final hour = DateTime.now().hour;
-    final base =
-        hour < 12
-            ? l10n.goodMorning
-            : (hour < 17 ? l10n.goodAfternoon : l10n.goodEvening);
-    if (name.trim().isEmpty) return base;
-    return base.endsWith('!')
-        ? '${base.substring(0, base.length - 1)}, ${name.trim()}!'
-        : '$base, ${name.trim()}';
-  }
-
-  Widget _buildStackGreeting(UserGoalsProvider goalsProvider) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final l10n = AppLocalizations.of(context)!;
-    return Stack(
-      children: [
-        Container(
-          margin: const EdgeInsets.only(top: 12),
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-          decoration: BoxDecoration(
-            color: colorScheme.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(12.0),
-            border: Border.all(
-              color: colorScheme.onSurface.withValues(alpha: 0.10),
-              width: 0.5,
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _greeting(l10n, goalsProvider.name),
-                    style: TextStyle(
-                      fontFamily: 'Montserrat',
-                      fontWeight: FontWeight.w800,
-                      fontSize: 20,
-                      color: colorScheme.onSurface,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  StatTile(
-                    icon: Icons.local_fire_department,
-                    value: '$_todayCalories',
-                    label: l10n.calories,
-                    accentColor: colorScheme.primary,
-                  ),
-                  StatTile(
-                    icon: Icons.fitness_center,
-                    value: _weekTotal > 0 ? '$_weekCompleted/$_weekTotal' : '--',
-                    label: l10n.workouts,
-                    accentColor: colorScheme.onSurface,
-                  ),
-                  StatTile(
-                    icon: Icons.emoji_events,
-                    value: '$_allTimeCompleted',
-                    label: l10n.allTime,
-                    accentColor: colorScheme.onSurface,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              _buildCaloriesProgress(goalsProvider),
-            ],
-          ),
-        ),
-        Positioned(
-          left: 24,
-          top: 0,
-          child: Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: colorScheme.surfaceContainerLow,
-                width: 3,
-              ),
-            ),
-            child: CircleAvatar(
-              backgroundColor: colorScheme.primary.withValues(alpha: 0.15),
-              radius: 24,
-              child: Icon(Icons.person, color: colorScheme.primary),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCaloriesProgress(UserGoalsProvider goalsProvider) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final l10n = AppLocalizations.of(context)!;
-    final progress = _todayCalories / goalsProvider.dailyCalorieGoal;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              l10n.dailyCalories,
-              style: TextStyle(
-                fontFamily: 'Exo 2',
-                fontWeight: FontWeight.w600,
-                fontSize: 13,
-                color: colorScheme.onSurface,
-              ),
-            ),
-            Text(
-              '$_todayCalories / ${goalsProvider.dailyCalorieGoal.toInt()}',
-              style: TextStyle(
-                fontFamily: 'Exo 2',
-                fontSize: 12,
-                color: colorScheme.onSurface.withValues(alpha: 0.55),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(99),
-          child: LinearProgressIndicator(
-            value: progress.clamp(0.0, 1.0),
-            minHeight: 6,
-            backgroundColor: colorScheme.onSurface.withValues(alpha: 0.07),
-            valueColor: AlwaysStoppedAnimation<Color>(
-              progress > 1.0 ? ForgeColors.statusBad : colorScheme.primary,
-            ),
-          ),
-        ),
-      ],
-    );
   }
 
   Widget _buildWeightProgress(UserGoalsProvider goalsProvider) {
@@ -448,9 +299,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   )
                 else if (snapshot.hasError)
+                  // The message, not the exception. This used to interpolate
+                  // snapshot.error straight into the UI, which CLAUDE.md rules
+                  // out — a stack trace or a Dio error string is not something
+                  // to show a user, and it leaks internals. The detail still
+                  // goes to the log where it is useful.
                   Text(
-                    l10n.errorLoadingWorkout(snapshot.error ?? ''),
-                    style: const TextStyle(color: ForgeColors.statusBad),
+                    l10n.couldNotLoad,
+                    style: TextStyle(
+                      color: ForgeColors.statusBadFor(
+                        Theme.of(context).brightness,
+                      ),
+                    ),
                   )
                 else
                   Text(

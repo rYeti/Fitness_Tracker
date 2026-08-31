@@ -18,6 +18,12 @@
   "settings": "Settings",
   "appearance": "Appearance",
   "refresh": "Refresh",
+  "showPassword": "Show password",
+  "@showPassword": {},
+  "hidePassword": "Hide password",
+  "@hidePassword": {},
+  "quickAdd": "Quick add",
+  "@quickAdd": {},
   "age": "Age",
   "heightCm": "Height (cm)",
   "dailyCalorieGoal": "Daily Calorie Goal",
@@ -138,6 +144,8 @@
   "noExercisesYet": "No exercises yet",
   "addWorkout": "Add Workout",
   "addRestDay": "Add Rest Day",
+  "addWorkoutDay": "Add a day",
+  "@addWorkoutDay": {},
   "workoutNameLabel": "Workout Name",
   "add": "Add",
   "selectStartDate": "Select Start Date",
@@ -246,6 +254,8 @@
   "saveButton": "Save",
   "exercises": "Exercises",
   "noWorkoutsFound": "No workouts found",
+  "createFirstWorkoutHint": "Build a plan once, then schedule it as often as you like.",
+  "@createFirstWorkoutHint": {},
   "setWeightGoal": "Set Weight Goals",
   "calculateBMI": "Calculate BMI",
   "currentWeight": "Current Weight",
@@ -307,6 +317,14 @@
   "addDinner": "Add Dinner",
   "addSnack": "Add Snack",
   "addWeight": "Add Weight",
+  "hideFromRecents": "Remove {name} from recents",
+  "@hideFromRecents": {"placeholders": {"name": {"type": "String"}}},
+  "quickAddFood": "Quick add {name}",
+  "@quickAddFood": {"placeholders": {"name": {"type": "String"}}},
+  "createTemplateAction": "Create template",
+  "@createTemplateAction": {},
+  "addCustomFood": "Add a custom food",
+  "@addCustomFood": {},
   "allTime": "All Time",
   "dailyCalories": "Daily Calories",
   "todaysWorkout": "Today's Workout",
@@ -360,6 +378,8 @@
   "deleteTemplate": "Delete Template",
   "deleteTemplateQuestion": "Delete this template?",
   "noTemplatesFound": "No templates found",
+  "createTemplateHint": "Save a meal you log often and add it in one tap.",
+  "@createTemplateHint": {},
   "saveTemplate": "Save Template",
   "templateName": "Template Name",
   "pleaseAddAtLeastOneFood": "Please add at least one food",
@@ -935,7 +955,7 @@
   "signOut": "Sign Out",
   "signOutConfirm": "Are you sure you want to sign out?",
   "signOutUnsyncedTitle": "Unsynced changes",
-  "signOutUnsyncedBody": "{count} changes haven't reached the server yet. Signing out clears this device's copy of your account, so they would be lost \u2014 including any exercises you deleted, which would come back.",
+  "signOutUnsyncedBody": "{count} changes haven't reached the server yet. Signing out clears this device's copy of your account, so they would be lost — including any exercises you deleted, which would come back.",
   "@signOutUnsyncedBody": {
     "placeholders": {
       "count": {
@@ -1764,8 +1784,12 @@
   "inviteFailureSeatLimitReachedDetailed": "Your plan covers {seatLimit} clients and all {seatsUsed} are in use. Upgrade or free up a seat.",
   "@inviteFailureSeatLimitReachedDetailed": {
     "placeholders": {
-      "seatsUsed": { "type": "int" },
-      "seatLimit": { "type": "int" }
+      "seatsUsed": {
+        "type": "int"
+      },
+      "seatLimit": {
+        "type": "int"
+      }
     }
   },
   "@inviteFailureNetwork": {},
@@ -2352,5 +2376,43 @@
         "type": "int"
       }
     }
-  }
+  },
+  "editFoodEntry": "Edit {food}",
+  "@editFoodEntry": {
+    "placeholders": {
+      "food": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteFoodEntry": "Delete {food}",
+  "@deleteFoodEntry": {
+    "placeholders": {
+      "food": {
+        "type": "String"
+      }
+    }
+  },
+  "addFoodToCategory": "Add food to {category}",
+  "@addFoodToCategory": {
+    "placeholders": {
+      "category": {
+        "type": "String"
+      }
+    }
+  },
+  "pickDate": "Choose a date",
+  "@pickDate": {},
+  "noCalorieTarget": "No target set",
+  "@noCalorieTarget": {},
+  "kpiAvgAdherenceThisWeek": "Avg adherence, this week",
+  "@kpiAvgAdherenceThisWeek": {},
+  "rosterColumnAdherence28d": "ADHERENCE (28D)",
+  "@rosterColumnAdherence28d": {},
+  "adherence28d": "Adherence, last 28 days",
+  "@adherence28d": {},
+  "couldNotLoad": "Couldn't load your data",
+  "@couldNotLoad": {},
+  "couldNotLoadBody": "Check your connection and try again.",
+  "@couldNotLoadBody": {}
 }

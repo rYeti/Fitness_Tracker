@@ -63,6 +63,15 @@ class AppLocalizationsDe extends AppLocalizations {
   String get refresh => 'Aktualisieren';
 
   @override
+  String get showPassword => 'Passwort anzeigen';
+
+  @override
+  String get hidePassword => 'Passwort verbergen';
+
+  @override
+  String get quickAdd => 'Schnell hinzufügen';
+
+  @override
   String get age => 'Alter';
 
   @override
@@ -266,6 +275,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get addRestDay => 'Ruhetag hinzufügen';
 
   @override
+  String get addWorkoutDay => 'Tag hinzufügen';
+
+  @override
   String get workoutNameLabel => 'Trainingsname';
 
   @override
@@ -455,6 +467,10 @@ class AppLocalizationsDe extends AppLocalizations {
   String get noWorkoutsFound => 'Kein Workout gefunden.';
 
   @override
+  String get createFirstWorkoutHint =>
+      'Erstelle einen Plan einmal und plane ihn so oft ein, wie du möchtest.';
+
+  @override
   String get setWeightGoal => 'Gewichtsziel setzen';
 
   @override
@@ -560,6 +576,19 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get addWeight => 'Gewicht hinzufügen';
+
+  @override
+  String hideFromRecents(String name) {
+    return '$name aus den letzten entfernen';
+  }
+
+  @override
+  String quickAddFood(String name) {
+    return '$name schnell hinzufügen';
+  }
+
+  @override
+  String get createTemplateAction => 'Vorlage erstellen';
 
   @override
   String get allTime => 'Gesamt';
@@ -682,6 +711,10 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get noTemplatesFound => 'Keine Vorlagen gefunden';
+
+  @override
+  String get createTemplateHint =>
+      'Speichere eine Mahlzeit, die du oft isst, und füge sie mit einem Tipp hinzu.';
 
   @override
   String get saveTemplate => 'Vorlage speichern';
@@ -1661,11 +1694,11 @@ class AppLocalizationsDe extends AppLocalizations {
       'Bist du sicher, dass du dich abmelden möchtest?';
 
   @override
-  String get signOutUnsyncedTitle => 'Nicht synchronisierte \u00c4nderungen';
+  String get signOutUnsyncedTitle => 'Nicht synchronisierte Änderungen';
 
   @override
   String signOutUnsyncedBody(int count) {
-    return '$count \u00c4nderungen haben den Server noch nicht erreicht. Beim Abmelden werden die lokalen Daten dieses Ger\u00e4ts gel\u00f6scht, sie gingen also verloren \u2014 einschlie\u00dflich gel\u00f6schter \u00dcbungen, die dadurch zur\u00fcckk\u00e4men.';
+    return '$count Änderungen haben den Server noch nicht erreicht. Beim Abmelden werden die lokalen Daten dieses Geräts gelöscht, sie gingen also verloren — einschließlich gelöschter Übungen, die dadurch zurückkämen.';
   }
 
   @override
@@ -3376,4 +3409,41 @@ class AppLocalizationsDe extends AppLocalizations {
   ) {
     return '$name, $calories kcal, Protein $protein g, Kohlenhydrate $carbs g, Fett $fat g';
   }
+
+  @override
+  String editFoodEntry(String food) {
+    return '$food bearbeiten';
+  }
+
+  @override
+  String deleteFoodEntry(String food) {
+    return '$food löschen';
+  }
+
+  @override
+  String addFoodToCategory(String category) {
+    return 'Lebensmittel zu $category hinzufügen';
+  }
+
+  @override
+  String get pickDate => 'Datum wählen';
+
+  @override
+  String get noCalorieTarget => 'Kein Ziel festgelegt';
+
+  @override
+  String get kpiAvgAdherenceThisWeek => 'Ø Adhärenz, diese Woche';
+
+  @override
+  String get rosterColumnAdherence28d => 'ADHÄRENZ (28 T)';
+
+  @override
+  String get adherence28d => 'Adhärenz, letzte 28 Tage';
+
+  @override
+  String get couldNotLoad => 'Daten konnten nicht geladen werden';
+
+  @override
+  String get couldNotLoadBody =>
+      'Prüfe deine Verbindung und versuche es erneut.';
 }

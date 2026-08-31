@@ -3,6 +3,8 @@ import 'package:ForgeForm/feature/workout_planning/data/models/exercise.dart';
 import 'package:ForgeForm/feature/gym_tracking/presentation/widgets/exercise_form_sheet.dart';
 import 'package:ForgeForm/feature/gym_tracking/presentation/widgets/exercise_list_view.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
+import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
+import 'package:ForgeForm/core/widgets/content_pane.dart';
 
 /// Standalone screen for browsing, creating, editing and deleting exercises.
 ///
@@ -62,35 +64,35 @@ class _ExerciseManagementScreenState extends State<ExerciseManagementScreen>
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
 
-    return SafeArea(
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(l10n.exercises),
-          bottom: TabBar(
-            controller: _tabController,
-            isScrollable: true,
-            tabAlignment: TabAlignment.start,
-            tabs:
-                _tabs.map((mg) => Tab(text: _tabLabel(l10n, mg))).toList(),
-          ),
+    return Scaffold(
+      appBar: ForgeAppBar(
+        title: l10n.exercises,
+        bottom: TabBar(
+          controller: _tabController,
+          isScrollable: true,
+          tabAlignment: TabAlignment.start,
+          tabs:
+              _tabs.map((mg) => Tab(text: _tabLabel(l10n, mg))).toList(),
         ),
-        body: TabBarView(
+      ),
+      body: ContentPane(
+        child: TabBarView(
           controller: _tabController,
           children:
               _tabs.map((mg) => ExerciseListView(muscleGroup: mg)).toList(),
         ),
-        floatingActionButton: FloatingActionButton.extended(
-          onPressed: () async {
-            final currentMg = _tabs[_tabController.index];
-            await ExerciseFormSheet.show(
-              context,
-              initialMuscleGroup: currentMg,
-            );
-            if (mounted) setState(() {});
-          },
-          icon: const Icon(Icons.add),
-          label: Text(l10n.newExercise),
-        ),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () async {
+          final currentMg = _tabs[_tabController.index];
+          await ExerciseFormSheet.show(
+            context,
+            initialMuscleGroup: currentMg,
+          );
+          if (mounted) setState(() {});
+        },
+        icon: const Icon(Icons.add),
+        label: Text(l10n.newExercise),
       ),
     );
   }

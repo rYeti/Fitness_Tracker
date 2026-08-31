@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_console_models.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/active_client_provider.dart';
-import 'package:ForgeForm/feature/trainer_console/presentation/widgets/client_avatar.dart';
+import 'package:ForgeForm/core/widgets/client_avatar.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 
 /// The client-switcher chip shared by Session Review, Nutrition, and Workout
@@ -95,7 +95,7 @@ class ClientSwitcher extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontFamily: 'Exo 2',
-                            fontSize: 10.5,
+                            fontSize: 10,
                             color: colors.onSurface.withValues(alpha: 0.55),
                           ),
                         ),

@@ -15,6 +15,12 @@ dependencies:
   flutter_localizations:
     sdk: flutter
 
+  # Web URL strategy. Declared explicitly rather than leaned on transitively:
+  # main.dart imports it directly for usePathUrlStrategy(), and an undeclared
+  # direct import is exactly what depend_on_referenced_packages warns about.
+  flutter_web_plugins:
+    sdk: flutter
+
   # Internationalization package (single entry)
   intl: ^0.20.2
   table_calendar: ^3.1.2
@@ -89,6 +95,7 @@ dependencies:
   # in its WebSocket transport, so it cannot compile for web -- and web is how
   # the Trainer Console ships.
   signalr_hub: ^2.1.0
+  go_router: ^18.0.0
 
 dev_dependencies:
   flutter_test:

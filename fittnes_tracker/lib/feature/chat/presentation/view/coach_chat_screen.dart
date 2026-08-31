@@ -8,8 +8,8 @@ import 'package:ForgeForm/feature/chat/presentation/widgets/chat_composer.dart';
 import 'package:ForgeForm/feature/chat/presentation/widgets/chat_connection_banner.dart';
 import 'package:ForgeForm/feature/chat/presentation/widgets/chat_send_error_strip.dart';
 import 'package:ForgeForm/feature/chat/presentation/widgets/chat_thread_list.dart';
-import 'package:ForgeForm/feature/trainer_console/presentation/widgets/client_avatar.dart';
-import 'package:ForgeForm/feature/trainer_console/presentation/widgets/console_widgets.dart';
+import 'package:ForgeForm/core/widgets/client_avatar.dart';
+import 'package:ForgeForm/core/widgets/app_widgets.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 
 /// The trainee's side of the conversation.
@@ -53,7 +53,7 @@ class _CoachChatScreenState extends State<CoachChatScreen> {
       ),
       body: SafeArea(
         child: trainerId == null
-            ? ConsoleEmptyState(
+            ? EmptyStateView(
                 icon: Icons.person_search_outlined,
                 title: l10n.coachChatNoCoach,
                 message: l10n.coachChatNoCoachBody,
@@ -110,7 +110,7 @@ class _CoachAppBar extends StatelessWidget implements PreferredSizeWidget {
         children: [
           if (trainerId != null && trainerName != null) ...[
             ClientAvatar(
-              initials: _initials(trainerName!),
+              initials: ClientAvatar.initialsFor(trainerName!),
               clientId: trainerId!,
               size: 30,
             ),
@@ -132,11 +132,5 @@ class _CoachAppBar extends StatelessWidget implements PreferredSizeWidget {
     );
   }
 
-  static String _initials(String name) {
-    final parts = name.split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
-    if (parts.isEmpty) return '?';
-    if (parts.length == 1) return parts.first[0].toUpperCase();
-    return (parts.first[0] + parts.last[0]).toUpperCase();
-  }
 }
 

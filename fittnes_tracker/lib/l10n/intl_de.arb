@@ -18,6 +18,12 @@
   "settings": "Einstellungen",
   "appearance": "Erscheinungsbild",
   "refresh": "Aktualisieren",
+  "showPassword": "Passwort anzeigen",
+  "@showPassword": {},
+  "hidePassword": "Passwort verbergen",
+  "@hidePassword": {},
+  "quickAdd": "Schnell hinzufügen",
+  "@quickAdd": {},
   "age": "Alter",
   "heightCm": "Größe (cm)",
   "dailyCalorieGoal": "Tägliches Kalorienziel",
@@ -118,6 +124,8 @@
   "noExercisesYet": "Noch keine Übungen",
   "addWorkout": "Training hinzufügen",
   "addRestDay": "Ruhetag hinzufügen",
+  "addWorkoutDay": "Tag hinzufügen",
+  "@addWorkoutDay": {},
   "workoutNameLabel": "Trainingsname",
   "add": "Hinzufügen",
   "selectStartDate": "Startdatum wählen",
@@ -239,6 +247,8 @@
   "saveButton": "Speichern",
   "workoutSaved": "Training wurde gespeichert.",
   "noWorkoutsFound": "Kein Workout gefunden.",
+  "createFirstWorkoutHint": "Erstelle einen Plan einmal und plane ihn so oft ein, wie du möchtest.",
+  "@createFirstWorkoutHint": {},
   "setWeightGoal": "Gewichtsziel setzen",
   "calculateBMI": "BMI berechnen",
   "currentWeight": "Aktuelles Gewicht",
@@ -300,6 +310,14 @@
   "addDinner": "Abendessen hinzufügen",
   "addSnack": "Snack hinzufügen",
   "addWeight": "Gewicht hinzufügen",
+  "hideFromRecents": "{name} aus den letzten entfernen",
+  "@hideFromRecents": {"placeholders": {"name": {"type": "String"}}},
+  "quickAddFood": "{name} schnell hinzufügen",
+  "@quickAddFood": {"placeholders": {"name": {"type": "String"}}},
+  "createTemplateAction": "Vorlage erstellen",
+  "@createTemplateAction": {},
+  "addCustomFood": "Eigenes Lebensmittel hinzufügen",
+  "@addCustomFood": {},
   "allTime": "Gesamt",
   "dailyCalories": "Tageskalorien",
   "todaysWorkout": "Heutiges Training",
@@ -353,6 +371,8 @@
   "deleteTemplate": "Vorlage löschen",
   "deleteTemplateQuestion": "Diese Vorlage löschen?",
   "noTemplatesFound": "Keine Vorlagen gefunden",
+  "createTemplateHint": "Speichere eine Mahlzeit, die du oft isst, und füge sie mit einem Tipp hinzu.",
+  "@createTemplateHint": {},
   "saveTemplate": "Vorlage speichern",
   "templateName": "Vorlagenname",
   "pleaseAddAtLeastOneFood": "Bitte mindestens ein Lebensmittel hinzufügen",
@@ -927,8 +947,8 @@
   "newPassword": "Neues Passwort",
   "signOut": "Abmelden",
   "signOutConfirm": "Bist du sicher, dass du dich abmelden möchtest?",
-  "signOutUnsyncedTitle": "Nicht synchronisierte \u00c4nderungen",
-  "signOutUnsyncedBody": "{count} \u00c4nderungen haben den Server noch nicht erreicht. Beim Abmelden werden die lokalen Daten dieses Ger\u00e4ts gel\u00f6scht, sie gingen also verloren \u2014 einschlie\u00dflich gel\u00f6schter \u00dcbungen, die dadurch zur\u00fcckk\u00e4men.",
+  "signOutUnsyncedTitle": "Nicht synchronisierte Änderungen",
+  "signOutUnsyncedBody": "{count} Änderungen haben den Server noch nicht erreicht. Beim Abmelden werden die lokalen Daten dieses Geräts gelöscht, sie gingen also verloren — einschließlich gelöschter Übungen, die dadurch zurückkämen.",
   "@signOutUnsyncedBody": {
     "placeholders": {
       "count": {
@@ -1615,5 +1635,43 @@
   "foodCount": "{count, plural, =1{1 Lebensmittel} other{{count} Lebensmittel}}",
   "mealDetailSemantics": "{meal}, {calories} kcal. Öffnen, um alle erfassten Lebensmittel zu sehen.",
   "foodRowSemantics": "{name}, {grams} Gramm, {calories} kcal, Protein {protein} g, Kohlenhydrate {carbs} g, Fett {fat} g",
-  "foodRowSemanticsNoWeight": "{name}, {calories} kcal, Protein {protein} g, Kohlenhydrate {carbs} g, Fett {fat} g"
+  "foodRowSemanticsNoWeight": "{name}, {calories} kcal, Protein {protein} g, Kohlenhydrate {carbs} g, Fett {fat} g",
+  "editFoodEntry": "{food} bearbeiten",
+  "@editFoodEntry": {
+    "placeholders": {
+      "food": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteFoodEntry": "{food} löschen",
+  "@deleteFoodEntry": {
+    "placeholders": {
+      "food": {
+        "type": "String"
+      }
+    }
+  },
+  "addFoodToCategory": "Lebensmittel zu {category} hinzufügen",
+  "@addFoodToCategory": {
+    "placeholders": {
+      "category": {
+        "type": "String"
+      }
+    }
+  },
+  "pickDate": "Datum wählen",
+  "@pickDate": {},
+  "noCalorieTarget": "Kein Ziel festgelegt",
+  "@noCalorieTarget": {},
+  "kpiAvgAdherenceThisWeek": "Ø Adhärenz, diese Woche",
+  "@kpiAvgAdherenceThisWeek": {},
+  "rosterColumnAdherence28d": "ADHÄRENZ (28 T)",
+  "@rosterColumnAdherence28d": {},
+  "adherence28d": "Adhärenz, letzte 28 Tage",
+  "@adherence28d": {},
+  "couldNotLoad": "Daten konnten nicht geladen werden",
+  "@couldNotLoad": {},
+  "couldNotLoadBody": "Prüfe deine Verbindung und versuche es erneut.",
+  "@couldNotLoadBody": {}
 }
