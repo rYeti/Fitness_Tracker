@@ -99,6 +99,20 @@ export const TRAINER_CREDENTIALS = {
 };
 
 /**
+ * The seeded trainee who is deliberately *not* on anyone's roster.
+ *
+ * `robert.meyer` is linked to `nina.brandt`, which is what makes coach chat and
+ * the console's Client Detail reachable — and which, in the same move, removes
+ * the only route to `JoinTrainerScreen`, since Profile renders "Your coach" and
+ * "Join a trainer" on opposite arms of the same `if`. This account is the other
+ * arm. See the comment on `UNLINKED_TRAINEE` in tools/seed-review-data.mjs.
+ */
+export const UNLINKED_TRAINEE_CREDENTIALS = {
+  username: 'lena.fischer',
+  password: 'ReviewPass!2026',
+};
+
+/**
  * Sign in through the real login screen.
  *
  * Deliberately not a token injected into storage: the thing most worth
@@ -181,6 +195,8 @@ type Fixtures = {
   traineePage: Page;
   /** A page signed in as the seeded trainer, on the Trainer Console. */
   trainerPage: Page;
+  /** A page signed in as the seeded trainee who has no trainer. */
+  unlinkedTraineePage: Page;
 };
 
 export const test = base.extend<Fixtures>({
@@ -209,6 +225,11 @@ export const test = base.extend<Fixtures>({
 
   trainerPage: async ({ appPage }, use) => {
     await signIn(appPage, TRAINER_CREDENTIALS);
+    await use(appPage);
+  },
+
+  unlinkedTraineePage: async ({ appPage }, use) => {
+    await signIn(appPage, UNLINKED_TRAINEE_CREDENTIALS);
     await use(appPage);
   },
 });

@@ -41,6 +41,28 @@ export const TRAINER = {
   accountType: 'Trainer',
 };
 
+/**
+ * A third account that is *deliberately never linked to a trainer*.
+ *
+ * Several screens exist only on one side of `isTrainerClient`: the Profile tab
+ * shows "Your coach" when it is true and "Join a trainer" when it is false, and
+ * exactly one of those two screens is reachable per account. Linking the main
+ * trainee — which is what makes coach chat and the console's Client Detail
+ * reachable at all — therefore *removes* the only route to `JoinTrainerScreen`.
+ *
+ * Keeping an unlinked account in the seed is what stops that from being a
+ * trade. Do not link this one to fix a failing test; the failure would be the
+ * test asking the wrong account.
+ */
+export const UNLINKED_TRAINEE = {
+  username: 'lena.fischer',
+  password: 'ReviewPass!2026',
+  firstName: 'Lena',
+  lastName: 'Fischer',
+  email: 'lena.fischer@example.com',
+  dateOfBirth: '1994-11-23T00:00:00Z',
+};
+
 let quiet = false;
 const log = (...a) => { if (!quiet) console.log(...a); };
 
@@ -163,6 +185,22 @@ async function seedTrainee(token) {
   }
   log('  7 days of meals');
 
+  // One saved template. Without it `EditMealTemplateScreen` has no route at
+  // all: the only way in is the overflow menu on an existing card, so an empty
+  // Templates tab makes that screen unreachable rather than empty -- and an
+  // unreachable screen is what an audit silently reports as clean.
+  await call('/api/MealTemplate', {
+    method: 'POST', token,
+    body: {
+      name: 'Pre-session oats',
+      description: 'Oats, banana and whey, 40 minutes before training',
+      category: 'Breakfast',
+      totalWeightGrams: 320,
+      items: [],
+    },
+  });
+  log('  1 meal template');
+
   const exercises = [
     ['Back Squat', 'Barbell squat to depth', 'Quads, Glutes'],
     ['Romanian Deadlift', 'Hip hinge, controlled eccentric', 'Hamstrings, Glutes'],
@@ -195,14 +233,36 @@ async function seedTrainee(token) {
     });
     const workoutId = workout.id ?? workout.Id;
     workoutIds.push(workoutId);
-    await call(`/api/Workout/${workoutId}/exercises/batch`, {
+    const workoutExercises = await call(`/api/Workout/${workoutId}/exercises/batch`, {
       method: 'POST', token,
       body: exerciseIndexes.map((exIndex, order) => ({
         exerciseId: exerciseIds[exIndex], orderPosition: order,
       })),
     });
+
+    // Three planned sets per exercise. Without this, ActiveWorkoutView reads
+    // `exerciseData.templates[_currentSetIndex]` on an empty list the moment
+    // you tap Start Workout, which throws RangeError: Index out of range: no
+    // indices are valid: 0 -- a silent crash, since the error handler paints
+    // nothing rather than a visible failure. The real app can't produce this:
+    // CreateWorkoutView's exercise editor always shows at least one set row,
+    // and set templates are added through their own endpoint
+    // (`exercises/{id}/sets/batch`) that a workout built through the UI
+    // always calls. Seeding exercises without it was building a workout the
+    // app itself has no path to.
+    for (const we of workoutExercises) {
+      const workoutExerciseId = we.id ?? we.Id;
+      await call(`/api/Workout/exercises/${workoutExerciseId}/sets/batch`, {
+        method: 'POST', token,
+        body: [
+          { setNumber: 1, targetReps: '8-10', orderPosition: 0 },
+          { setNumber: 2, targetReps: '8-10', orderPosition: 1 },
+          { setNumber: 3, targetReps: '6-8', orderPosition: 2 },
+        ],
+      });
+    }
   }
-  log(`  ${workouts.length} workouts`);
+  log(`  ${workouts.length} workouts, 3 planned sets per exercise`);
 
   // Fifteen scheduled sessions with one completed, matching the "1/15" the
   // dashboard stat tile shows.
@@ -223,14 +283,45 @@ async function seedTrainee(token) {
   log(`  15 scheduled workouts (${completed} completed)`);
 }
 
+/**
+ * Put the trainee on the trainer's roster, through the real invite flow.
+ *
+ * Not a direct row insert: a seat is an Active relationship *or* an unexpired
+ * Pending invite, and the limit is enforced at mint *and* at redemption
+ * (docs/trainer-licensing.md). Minting and redeeming for real is the only way
+ * the seeded state is a state the app can actually produce.
+ *
+ * Without this link the seed had a trainer with an empty roster, which made
+ * three screens unreachable rather than merely empty: the console's Client
+ * Detail (no client to open), and both halves of coach chat. A previous audit
+ * pass recorded the coach chat screen as a possible app defect because its
+ * entry point "did not respond within 15s". The entry point was not there.
+ */
+async function linkTraineeToTrainer(trainerToken, traineeToken) {
+  const status = await call('/api/TrainerClient/status', { token: traineeToken });
+  if (status?.isTrainerClient) {
+    log('  already on the roster');
+    return;
+  }
+  const invite = await call('/api/TrainerClient/invite', { method: 'POST', token: trainerToken });
+  const code = invite.inviteCode ?? invite.InviteCode;
+  await call(`/api/TrainerClient/join/${code}`, { method: 'POST', token: traineeToken });
+  log(`  linked ${TRAINEE.username} to ${TRAINER.username}`);
+}
+
 async function main() {
   quiet = args.includes('--quiet');
   log(`Seeding ${API}`);
   const traineeToken = await account(TRAINEE);
   await seedTrainee(traineeToken);
   const trainerToken = await account(TRAINER);
+  await linkTraineeToTrainer(trainerToken, traineeToken);
+  // Registered but given no data and no trainer: this account exists to keep
+  // the `!isTrainerClient` arm of the Profile tab reachable. See the comment
+  // on UNLINKED_TRAINEE.
+  const unlinkedTraineeToken = await account(UNLINKED_TRAINEE);
   log('Done.');
-  return { traineeToken, trainerToken };
+  return { traineeToken, trainerToken, unlinkedTraineeToken };
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
