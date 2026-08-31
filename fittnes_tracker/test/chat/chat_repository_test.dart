@@ -505,7 +505,7 @@ void main() {
 
       final wire = signalR.sent.single;
       expect(wire.body, isNot('great set today'));
-      expect(wire.body, 'enc:great set today');
+      expect(wire.body, FakeChatCrypto.sealed('great set today'));
       expect(wire.iv, isNotNull);
       expect(wire.encryptionVersion, 1);
     });

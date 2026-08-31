@@ -173,7 +173,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(signalR.sent.single.otherPartyId, trainerId);
-    expect(signalR.sent.single.body, 'ready for thursday');
+    // The wire carries ciphertext, not what was typed. Asserting the plaintext
+    // here would be asserting the absence of encryption.
+    expect(signalR.sent.single.body, FakeChatCrypto.sealed('ready for thursday'));
   });
 
   testWidgets('a dropped connection is explained here too', (tester) async {

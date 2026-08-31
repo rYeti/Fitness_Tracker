@@ -308,6 +308,13 @@ Future<void> seedOutboxRow(
 class FakeChatCrypto implements ChatCrypto {
   static const _marker = 'enc:';
 
+  /// The ciphertext this fake produces for [plaintext].
+  ///
+  /// Tests assert against this rather than against a literal, so the marker is
+  /// stated in one place — and so an assertion reads as "the wire carried the
+  /// encrypted form" rather than as an unexplained string prefix.
+  static String sealed(String plaintext) => '$_marker$plaintext';
+
   /// Peers whose messages cannot be decrypted, whichever direction they go.
   /// Models the peer having reinstalled since this device cached their key.
   final Set<String> undecryptablePeers = {};
