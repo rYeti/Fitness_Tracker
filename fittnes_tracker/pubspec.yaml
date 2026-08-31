@@ -74,6 +74,16 @@ dependencies:
   # unchanged across the major, so the bump is confined to that call.
   uuid: ^4.6.0
 
+  # ECDH P-256 + AES-GCM for end-to-end encrypted chat, per docs/chat-encryption.md.
+  # Pinned to 0.5.x deliberately: 0.6 builds BoringSSL through the `hooks` /
+  # `native_toolchain_cmake` native-assets path, which needs cmake and a C
+  # toolchain at build time and would change what the Android release workflow
+  # requires. 0.5.x is an ordinary Flutter plugin and needs nothing extra.
+  #
+  # On web it wraps `window.crypto`, which is only available in a secure
+  # context -- HTTPS or localhost. A plain-HTTP host breaks chat outright.
+  webcrypto: ^0.5.7
+
   # SignalR client for the Trainer Console chat. signalr_hub rather than the
   # more popular signalr_netcore: the latter imports dart:io unconditionally
   # in its WebSocket transport, so it cannot compile for web -- and web is how

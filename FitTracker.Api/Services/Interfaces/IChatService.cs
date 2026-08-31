@@ -12,9 +12,12 @@ public interface IChatService
     /// <param name="clientId">The client id that identifies the chat pair.</param>
     /// <param name="senderId">The user id of whoever actually sent this message (trainer or client).</param>
     /// <param name="messageId">The client-generated id used to dedupe retries/echoes of the same message.</param>
-    /// <param name="message">The message body.</param>
+    /// <param name="body">
+    /// The message body, already encrypted by the sender's device. This server
+    /// stores it verbatim and cannot read it — see docs/chat-encryption.md.
+    /// </param>
     /// <exception cref="InvalidOperationException">No Active relationship joins the pair.</exception>
-    Task<ChatMessageDto> SendMessageAsync(Guid trainerId, Guid clientId, Guid senderId, Guid messageId, string message);
+    Task<ChatMessageDto> SendMessageAsync(Guid trainerId, Guid clientId, Guid senderId, Guid messageId, EncryptedChatBody body);
 
     /// <summary>
     /// Retrieves chat history for a trainer-client pair, oldest first.

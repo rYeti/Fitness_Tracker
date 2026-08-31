@@ -5,7 +5,10 @@ import 'package:drift/native.dart';
 
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/feature/chat/data/chat_api.dart';
+import 'package:ForgeForm/feature/chat/data/chat_key_api.dart';
+import 'package:ForgeForm/feature/chat/data/chat_key_vault.dart';
 import 'package:ForgeForm/feature/chat/data/chat_signalr_client.dart';
+import 'package:ForgeForm/feature/chat/domain/chat_crypto.dart';
 import 'package:ForgeForm/feature/chat/domain/models/chat_message.dart';
 
 /// A real [AppDatabase] on an in-memory Sqlite file.
@@ -30,7 +33,19 @@ class FakeChatSignalRClient implements ChatSignalRClient {
 
   /// Every `send` in call order — the assertion target for replay ordering and
   /// for "the retry reused the original messageId".
-  final List<({String otherPartyId, String messageId, String body})> sent = [];
+  ///
+  /// Records the envelope as well as the body, so a test can assert that the
+  /// wire carried ciphertext and that a replay did not reuse an IV.
+  final List<
+    ({
+      String otherPartyId,
+      String messageId,
+      String body,
+      String? iv,
+      int encryptionVersion,
+    })
+  >
+  sent = [];
 
   /// Group membership calls, so a test can assert the previous client's group is
   /// left before the next is joined.
@@ -85,8 +100,16 @@ class FakeChatSignalRClient implements ChatSignalRClient {
     required String otherPartyId,
     required String messageId,
     required String body,
+    required String? iv,
+    required int encryptionVersion,
   }) async {
-    sent.add((otherPartyId: otherPartyId, messageId: messageId, body: body));
+    sent.add((
+      otherPartyId: otherPartyId,
+      messageId: messageId,
+      body: body,
+      iv: iv,
+      encryptionVersion: encryptionVersion,
+    ));
 
     if (holdSend != null) await holdSend!.future;
 
@@ -96,7 +119,17 @@ class FakeChatSignalRClient implements ChatSignalRClient {
     }
     if (throwOnSend != null) throw throwOnSend!;
 
-    return ack(messageId: messageId, otherPartyId: otherPartyId, body: body);
+    // Acks with what the server would have stored, envelope included. Returning
+    // the plaintext here would hide the bug this whole layer exists to prevent:
+    // a repository that builds its bubble from `ack.body` rather than from the
+    // plaintext it already holds puts base64 on screen.
+    return ack(
+      messageId: messageId,
+      otherPartyId: otherPartyId,
+      body: body,
+      iv: iv,
+      encryptionVersion: encryptionVersion,
+    );
   }
 
   @override
@@ -132,10 +165,14 @@ class FakeChatSignalRClient implements ChatSignalRClient {
     required String body,
     String? senderId,
     DateTime? sentAt,
+    String? iv,
+    int encryptionVersion = 0,
   }) {
     return ChatMessage(
       id: messageId,
       body: body,
+      iv: iv,
+      encryptionVersion: encryptionVersion,
       sentAt: sentAt ?? DateTime.now().toUtc(),
       senderId: senderId ?? trainerId,
       trainerId: trainerId,
@@ -206,6 +243,12 @@ class FakeChatApi implements ChatApi {
 /// API configures no `JsonStringEnumConverter`), so the fixtures use those types
 /// rather than Dart-native ones — otherwise the tests would exercise a parser
 /// that never sees real input.
+/// One history row as `ChatMessageDto` serialises it.
+///
+/// Defaults to encryption version 0 — a legacy plaintext row — so a test that
+/// does not care about encryption reads exactly as it did before there was any.
+/// Pass [encryptionVersion] and [iv] to write a row the way a current client
+/// would.
 Map<String, dynamic> messageJson({
   required String id,
   required String body,
@@ -213,10 +256,14 @@ Map<String, dynamic> messageJson({
   required String clientId,
   String trainerId = FakeChatSignalRClient.trainerId,
   DateTime? sentAt,
+  String? iv,
+  int encryptionVersion = 0,
 }) {
   return {
     'id': id,
     'body': body,
+    'iv': iv,
+    'encryptionVersion': encryptionVersion,
     'sentAt': (sentAt ?? DateTime.now().toUtc()).toIso8601String(),
     'senderId': senderId,
     'trainerId': trainerId,
@@ -246,4 +293,136 @@ Future<void> seedOutboxRow(
       chatMessageStatus: Value(status.index),
     ),
   );
+}
+
+/// Stands in for the encryption boundary.
+///
+/// Reversible and inspectable rather than real: the point of most chat tests is
+/// the outbox, the dedup and the replay, and running actual key derivation
+/// through them would slow every one of them down to prove something
+/// `chat_crypto_test.dart` already proves.
+///
+/// The transform is deliberately *not* the identity. A repository that forgot to
+/// encrypt, or that rendered `ack.body` instead of the plaintext it was holding,
+/// passes an identity-transform test and ships base64 to a user.
+class FakeChatCrypto implements ChatCrypto {
+  static const _marker = 'enc:';
+
+  /// The ciphertext this fake produces for [plaintext].
+  ///
+  /// Tests assert against this rather than against a literal, so the marker is
+  /// stated in one place — and so an assertion reads as "the wire carried the
+  /// encrypted form" rather than as an unexplained string prefix.
+  static String sealed(String plaintext) => '$_marker$plaintext';
+
+  /// Peers whose messages cannot be decrypted, whichever direction they go.
+  /// Models the peer having reinstalled since this device cached their key.
+  final Set<String> undecryptablePeers = {};
+
+  /// Peers with no published key at all, so `encrypt` throws as the real one
+  /// does rather than silently sending something unreadable.
+  final Set<String> keylessPeers = {};
+
+  /// Every peer passed to [forget], in call order.
+  final List<String> forgotten = [];
+
+  /// Bumped per call so two encryptions of the same text differ, the way a fresh
+  /// IV makes them differ for real.
+  int _ivCounter = 0;
+
+  @override
+  Future<EncryptedBody> encrypt({
+    required String otherPartyId,
+    required String plaintext,
+  }) async {
+    if (keylessPeers.contains(otherPartyId)) {
+      throw StateError('$otherPartyId has no published chat key.');
+    }
+    return EncryptedBody(
+      ciphertext: '$_marker$plaintext',
+      iv: 'iv-${_ivCounter++}',
+      version: ChatEncryption.ecdhP256AesGcm,
+    );
+  }
+
+  @override
+  Future<String?> decrypt({
+    required String otherPartyId,
+    required String? ciphertext,
+    required String? iv,
+    required int version,
+  }) async {
+    if (ciphertext == null) return null;
+    if (version == ChatEncryption.none) return ciphertext;
+    if (undecryptablePeers.contains(otherPartyId)) return null;
+    if (!ciphertext.startsWith(_marker)) return null;
+    return ciphertext.substring(_marker.length);
+  }
+
+  @override
+  Future<void> forget(String otherPartyId) async {
+    forgotten.add(otherPartyId);
+    undecryptablePeers.remove(otherPartyId);
+  }
+}
+
+/// A [ChatKeyVault] backed by a plain map, so key-lifecycle tests do not need a
+/// platform channel.
+class InMemoryChatKeyVault implements ChatKeyVault {
+  final Map<String, String> entries = {};
+
+  @override
+  Future<String?> read(String key) async => entries[key];
+
+  @override
+  Future<void> write(String key, String value) async => entries[key] = value;
+
+  @override
+  Future<void> delete(String key) async => entries.remove(key);
+
+  @override
+  Future<void> deletePrefixed(String prefix) async =>
+      entries.removeWhere((key, _) => key.startsWith(prefix));
+}
+
+/// Stands in for `api/chat/keys`.
+///
+/// Holds one directory of published keys, so two [ChatKeyStore]s sharing an
+/// instance behave like two devices talking to the same server.
+class FakeChatKeyApi implements ChatKeyApi {
+  /// Who this store's owner is, as the real `GET keys/me` would report.
+  final String userId;
+
+  /// Published public keys, by user id. Shared between instances when a test
+  /// passes the same map, which is how one device sees another's key.
+  final Map<String, String> published;
+
+  /// Every `publish` in call order, so a test can assert a key was replaced
+  /// rather than merely written locally.
+  final List<String> publishes = [];
+
+  int fetchMeCalls = 0;
+  int fetchPeerCalls = 0;
+
+  FakeChatKeyApi({required this.userId, Map<String, String>? published})
+    : published = published ?? {};
+
+  @override
+  Future<Map<String, dynamic>> fetchMe() async {
+    fetchMeCalls++;
+    return {'userId': userId, 'publicKeyJwk': published[userId]};
+  }
+
+  @override
+  Future<String> publish(String publicKeyJwk) async {
+    publishes.add(publicKeyJwk);
+    published[userId] = publicKeyJwk;
+    return userId;
+  }
+
+  @override
+  Future<String?> fetchPeer(String otherPartyId) async {
+    fetchPeerCalls++;
+    return published[otherPartyId];
+  }
 }

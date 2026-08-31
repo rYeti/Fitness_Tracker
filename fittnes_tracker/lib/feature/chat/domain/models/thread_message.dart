@@ -28,6 +28,13 @@ class ThreadMessage {
 
   final ChatMessageStatus status;
 
+  /// True when this bubble's text could not be decrypted on this device.
+  ///
+  /// The one user-visible cost of having no key backup: a reinstall on either
+  /// side of a conversation leaves the messages sent before it unreadable, and
+  /// this is what tells the reader that rather than showing them a blank bubble.
+  final bool isUndecryptable;
+
   final MediaType? mediaType;
   final String? url;
   final String? thumbnailUrl;
@@ -38,6 +45,7 @@ class ThreadMessage {
     required this.timestamp,
     required this.isMine,
     required this.status,
+    this.isUndecryptable = false,
     this.mediaType,
     this.url,
     this.thumbnailUrl,
@@ -56,6 +64,7 @@ class ThreadMessage {
       timestamp: message.sentAt,
       isMine: message.senderId != otherPartyId,
       status: ChatMessageStatus.sent,
+      isUndecryptable: message.isUndecryptable,
       mediaType: message.mediaType,
       url: message.url,
       thumbnailUrl: message.thumbnailUrl,
@@ -81,6 +90,7 @@ class ThreadMessage {
       timestamp: timestamp,
       isMine: isMine,
       status: status ?? this.status,
+      isUndecryptable: isUndecryptable,
       mediaType: mediaType,
       url: url,
       thumbnailUrl: thumbnailUrl,

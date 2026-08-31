@@ -15,10 +15,12 @@ const otherParty = '22222222-2222-2222-2222-222222222222';
 void main() {
   late AppDatabase db;
   late FakeChatSignalRClient signalR;
+  late FakeChatCrypto crypto;
 
   setUp(() {
     db = newTestDatabase();
     signalR = FakeChatSignalRClient();
+    crypto = FakeChatCrypto();
   });
 
   tearDown(() async {
@@ -26,11 +28,16 @@ void main() {
     await db.close();
   });
 
-  ChatRepository build({FakeChatApi? api, int maxReplayAttempts = 3}) {
+  ChatRepository build({
+    FakeChatApi? api,
+    int maxReplayAttempts = 3,
+    FakeChatCrypto? cryptoOverride,
+  }) {
     return ChatRepository(
       db: db,
       api: api ?? FakeChatApi(),
       signalR: signalR,
+      crypto: cryptoOverride ?? crypto,
       maxReplayAttempts: maxReplayAttempts,
     );
   }
@@ -483,6 +490,285 @@ void main() {
       await repository.loadThread(otherParty);
 
       expect(api.markedRead, [otherParty]);
+    });
+  });
+
+  group('encryption', () {
+    test('the wire carries ciphertext, never the plaintext', () async {
+      final repository = build();
+      await repository.openThread(otherParty);
+
+      await repository.sendMessage(
+        otherPartyId: otherParty,
+        body: 'great set today',
+      );
+
+      final wire = signalR.sent.single;
+      expect(wire.body, isNot('great set today'));
+      expect(wire.body, FakeChatCrypto.sealed('great set today'));
+      expect(wire.iv, isNotNull);
+      expect(wire.encryptionVersion, 1);
+    });
+
+    test('the bubble shows plaintext even though the ack carries ciphertext',
+        () async {
+      // The ack is a faithful copy of what the server stored, so its body is
+      // the ciphertext that was just sent. Building the bubble from it rather
+      // than from the plaintext already in hand puts base64 on screen — and
+      // every assertion about sending still passes.
+      final repository = build();
+      await repository.openThread(otherParty);
+
+      final sent = await repository.sendMessage(
+        otherPartyId: otherParty,
+        body: 'great set today',
+      );
+
+      expect(sent.body, 'great set today');
+      expect(sent.status, ChatMessageStatus.sent);
+    });
+
+    test('history is decrypted before it reaches the thread', () async {
+      final repository = build(
+        api: FakeChatApi(history: {
+          otherParty: [
+            messageJson(
+              id: 'server-1',
+              body: 'enc:how did it go?',
+              iv: 'iv-9',
+              encryptionVersion: 1,
+              senderId: otherParty,
+              clientId: otherParty,
+            ),
+          ],
+        }),
+      );
+      await repository.openThread(otherParty);
+
+      final thread = await repository.loadThread(otherParty);
+
+      expect(thread.single.body, 'how did it go?');
+      expect(thread.single.isUndecryptable, isFalse);
+    });
+
+    test('a message this device cannot read does not fail the whole thread',
+        () async {
+      // The reinstall case. One unreadable message must cost one bubble, not
+      // the conversation — a throw here would empty the screen.
+      final repository = build(
+        api: FakeChatApi(history: {
+          otherParty: [
+            messageJson(
+              id: 'unreadable',
+              body: 'not-our-ciphertext',
+              iv: 'iv-1',
+              encryptionVersion: 1,
+              senderId: otherParty,
+              clientId: otherParty,
+              sentAt: DateTime.utc(2026, 8, 1, 9),
+            ),
+            messageJson(
+              id: 'readable',
+              body: 'enc:but this one is fine',
+              iv: 'iv-2',
+              encryptionVersion: 1,
+              senderId: otherParty,
+              clientId: otherParty,
+              sentAt: DateTime.utc(2026, 8, 1, 10),
+            ),
+          ],
+        }),
+      );
+      await repository.openThread(otherParty);
+
+      final thread = await repository.loadThread(otherParty);
+
+      expect(thread, hasLength(2));
+      expect(thread.first.isUndecryptable, isTrue);
+      expect(thread.first.body, isNull);
+      expect(thread.last.body, 'but this one is fine');
+    });
+
+    test('a legacy plaintext row still renders', () async {
+      // Written before encryption existed. There is no key for these and never
+      // will be; version 0 says the body simply is the message.
+      final repository = build(
+        api: FakeChatApi(history: {
+          otherParty: [
+            messageJson(
+              id: 'old',
+              body: 'written in 2026',
+              senderId: otherParty,
+              clientId: otherParty,
+            ),
+          ],
+        }),
+      );
+      await repository.openThread(otherParty);
+
+      final thread = await repository.loadThread(otherParty);
+
+      expect(thread.single.body, 'written in 2026');
+      expect(thread.single.isUndecryptable, isFalse);
+    });
+
+    test('a live message is decrypted before it reaches the thread', () async {
+      final repository = build();
+      await repository.openThread(otherParty);
+
+      final seen = <ThreadMessage>[];
+      repository.incomingFor(otherParty).listen(seen.add);
+
+      signalR.emitIncoming(signalR.ack(
+        messageId: 'incoming-1',
+        otherPartyId: otherParty,
+        body: 'enc:nice work',
+        senderId: otherParty,
+        iv: 'iv-3',
+        encryptionVersion: 1,
+      ));
+      await pumpEventQueue();
+
+      expect(seen.single.body, 'nice work');
+    });
+
+    test('a replay re-encrypts with a fresh IV rather than reusing one',
+        () async {
+      // An IV must never be reused with the same key, and re-encrypting is also
+      // what reaches a peer who reinstalled between the two attempts. The server
+      // dedupes on messageId, so exactly one message still lands.
+      signalR.failFirstNSends = 1;
+      final repository = build();
+      await repository.openThread(otherParty);
+
+      await repository.sendMessage(
+        otherPartyId: otherParty,
+        body: 'see you thursday',
+      );
+      signalR.fireReconnected();
+      await pumpEventQueue();
+
+      expect(signalR.sent, hasLength(2));
+      expect(signalR.sent.first.messageId, signalR.sent.last.messageId);
+      expect(signalR.sent.first.iv, isNot(signalR.sent.last.iv));
+    });
+
+    test('a peer with no published key leaves the message pending', () async {
+      // Refusing to send beats sending something nobody can read: the row stays
+      // in the outbox and the next reconnect tries again.
+      crypto.keylessPeers.add(otherParty);
+      final repository = build();
+      await repository.openThread(otherParty);
+
+      final sent = await repository.sendMessage(
+        otherPartyId: otherParty,
+        body: 'anyone there?',
+      );
+
+      expect(sent.status, ChatMessageStatus.pending);
+      expect(signalR.sent, isEmpty);
+    });
+
+    test('a peer who reinstalled is re-fetched once and the thread recovers',
+        () async {
+      // Their published key changed and this device is still holding the one it
+      // cached, so everything they send fails against it. Nothing else would go
+      // and look: the cache is wrong, not stale.
+      crypto.undecryptablePeers.add(otherParty);
+      final repository = build(
+        api: FakeChatApi(history: {
+          otherParty: [
+            messageJson(
+              id: 'after-their-reinstall',
+              body: 'enc:new phone, who dis',
+              iv: 'iv-7',
+              encryptionVersion: 1,
+              senderId: otherParty,
+              clientId: otherParty,
+            ),
+          ],
+        }),
+      );
+      await repository.openThread(otherParty);
+
+      final thread = await repository.loadThread(otherParty);
+
+      // FakeChatCrypto.forget clears the peer, so the retry succeeds — which is
+      // exactly what a real re-fetch of their new public key does.
+      expect(crypto.forgotten, [otherParty]);
+      expect(thread.single.body, 'new phone, who dis');
+    });
+
+    test('a genuinely unreadable thread re-fetches once, not once per message',
+        () async {
+      // The common case: messages encrypted to a key that no longer exists
+      // anywhere. Retrying per bubble would turn scrolling old history into one
+      // key fetch per line.
+      final repository = build(
+        api: FakeChatApi(history: {
+          otherParty: [
+            for (var i = 0; i < 3; i++)
+              messageJson(
+                id: 'lost-$i',
+                body: 'not-our-ciphertext',
+                iv: 'iv-$i',
+                encryptionVersion: 1,
+                senderId: otherParty,
+                clientId: otherParty,
+                sentAt: DateTime.utc(2026, 8, 1, 9 + i),
+              ),
+          ],
+        }),
+      );
+      await repository.openThread(otherParty);
+
+      final thread = await repository.loadThread(otherParty);
+
+      expect(crypto.forgotten, [otherParty]);
+      expect(thread.every((m) => m.isUndecryptable), isTrue);
+    });
+
+    test('conversation previews are decrypted', () async {
+      final repository = build(
+        api: FakeChatApi(conversations: [
+          {
+            'otherPartyId': otherParty,
+            'otherPartyName': 'Robert Meyer',
+            'lastMessagePreview': 'enc:see you thursday',
+            'lastMessageIv': 'iv-4',
+            'lastMessageEncryptionVersion': 1,
+            'lastMessageAt': DateTime.utc(2026, 8, 1, 9).toIso8601String(),
+            'unreadCount': 1,
+          },
+        ]),
+      );
+
+      final only = (await repository.getConversations()).single;
+
+      expect(only.lastMessagePreview, 'see you thursday');
+    });
+
+    test('an unreadable preview becomes null rather than base64', () async {
+      final repository = build(
+        api: FakeChatApi(conversations: [
+          {
+            'otherPartyId': otherParty,
+            'otherPartyName': 'Robert Meyer',
+            'lastMessagePreview': 'not-our-ciphertext',
+            'lastMessageIv': 'iv-5',
+            'lastMessageEncryptionVersion': 1,
+            'lastMessageAt': DateTime.utc(2026, 8, 1, 9).toIso8601String(),
+            'unreadCount': 1,
+          },
+        ]),
+      );
+
+      final only = (await repository.getConversations()).single;
+
+      // Null, with a timestamp still set — which is how ConversationRow tells
+      // "cannot read this" apart from "no messages yet".
+      expect(only.lastMessagePreview, isNull);
+      expect(only.lastMessageAt, isNotNull);
     });
   });
 }

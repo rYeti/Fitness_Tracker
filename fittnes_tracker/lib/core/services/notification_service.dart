@@ -6,10 +6,17 @@ import 'package:timezone/timezone.dart' as tz;
 class NotificationService {
   static const _planExpiryId = 1001;
 
-  /// Must match `FirebasePushSender.ChatChannelId` on the server. FCM names the
-  /// channel in its payload, and Android silently drops a notification naming a
-  /// channel that does not exist — a mismatch here produces no error anywhere,
-  /// just nothing on screen.
+  /// The Android channel every chat notification is drawn on.
+  ///
+  /// Wholly this app's business now. It used to have to match a constant on the
+  /// server, which sent a `notification` payload and named the channel the OS
+  /// should render it on. Push went data-only when chat became end-to-end
+  /// encrypted — the server cannot read a message, so it cannot render one — so
+  /// this app raises every chat notification itself and names its own channel.
+  ///
+  /// Android silently drops a notification naming a channel that does not
+  /// exist: no error anywhere, just nothing on screen. [_ensureInitialized]
+  /// creates it before anything can be shown.
   static const chatChannelId = 'chat_messages';
 
   final FlutterLocalNotificationsPlugin _plugin =
@@ -69,9 +76,12 @@ class NotificationService {
 
   /// Shows a chat notification this app is rendering itself.
   ///
-  /// Only needed in the foreground. When the app is backgrounded or closed the
-  /// OS renders the FCM payload directly and this is never called — which is why
-  /// nothing here is on the delivery path for the case push exists to solve.
+  /// **Every** chat notification now, foreground or not. It used to be the
+  /// foreground-only case, because a backgrounded app let the OS draw the FCM
+  /// `notification` payload directly. Encryption removed that option — the
+  /// server cannot write a notification for a message it cannot read — so push
+  /// is data-only and this is on the delivery path for the case push exists to
+  /// solve. See docs/chat-encryption.md.
   Future<void> showChatMessage({
     required String title,
     required String body,
@@ -79,21 +89,11 @@ class NotificationService {
   }) async {
     if (kIsWeb) return;
     await _ensureInitialized();
-    await _plugin.show(
-      // Hashed off the thread so a second message from the same person replaces
-      // the first rather than stacking. Chat is a conversation, not a log.
-      threadId.hashCode,
-      title,
-      body,
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          chatChannelId,
-          'Messages',
-          importance: Importance.high,
-          priority: Priority.high,
-        ),
-      ),
-      payload: threadId,
+    await presentChatNotification(
+      plugin: _plugin,
+      title: title,
+      body: body,
+      threadId: threadId,
     );
   }
 
@@ -141,4 +141,35 @@ class NotificationService {
     await _ensureInitialized();
     await _plugin.cancel(_planExpiryId);
   }
+}
+
+/// Draws one chat notification on [plugin].
+///
+/// Top-level, and takes its plugin as an argument, because the push background
+/// isolate has no [NotificationService] and no service locator to find one
+/// with. Both callers have to agree on the notification id and channel or a
+/// backgrounded message and a foregrounded one would stack instead of replacing
+/// each other, so there is exactly one place that decides.
+Future<void> presentChatNotification({
+  required FlutterLocalNotificationsPlugin plugin,
+  required String title,
+  required String body,
+  required String? threadId,
+}) {
+  return plugin.show(
+    // Hashed off the thread so a second message from the same person replaces
+    // the first rather than stacking. Chat is a conversation, not a log.
+    threadId.hashCode,
+    title,
+    body,
+    const NotificationDetails(
+      android: AndroidNotificationDetails(
+        NotificationService.chatChannelId,
+        'Messages',
+        importance: Importance.high,
+        priority: Priority.high,
+      ),
+    ),
+    payload: threadId,
+  );
 }

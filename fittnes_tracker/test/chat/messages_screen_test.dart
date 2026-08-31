@@ -70,6 +70,7 @@ void main() {
         db: db,
         api: api ?? FakeChatApi(),
         signalR: signalR,
+        crypto: FakeChatCrypto(),
       ),
     );
     final activeClient = ActiveClientProvider(
@@ -256,7 +257,12 @@ void main() {
       await tester.tap(find.byTooltip('Send message'));
       await tester.pumpAndSettle();
 
-      expect(signalR.sent.single.body, 'great set today');
+      // The wire carries ciphertext, not what was typed. Asserting the
+      // plaintext here would be asserting the absence of encryption.
+      expect(
+        signalR.sent.single.body,
+        FakeChatCrypto.sealed('great set today'),
+      );
       expect(find.widgetWithText(TextField, 'great set today'), findsNothing);
     });
   });

@@ -49,7 +49,22 @@ public class ChatHub(
     /// eventually shows the sender a failure for it. Anything that changes this
     /// signature breaks sending outright. See docs/chat-architecture.md §12.
     /// </returns>
-    public async Task<ChatMessageDto> SendMessage(Guid clientId, string body, Guid messageId)
+    /// <param name="body">
+    /// The AES-256-GCM ciphertext, base64. This hub never sees the plaintext and
+    /// has nothing it could do with it if it did — see docs/chat-encryption.md.
+    /// </param>
+    /// <param name="iv">The base64 IV <paramref name="body"/> was encrypted under.</param>
+    /// <param name="encryptionVersion">
+    /// 1 for anything a current client sends. Passed rather than inferred from
+    /// "is there an IV?", so the day a second scheme exists nothing has to guess
+    /// which one an old row used.
+    /// </param>
+    public async Task<ChatMessageDto> SendMessage(
+        Guid clientId,
+        string body,
+        Guid messageId,
+        string? iv,
+        int encryptionVersion)
     {
         var userId = GetUserId();
         var (trainerId, ok) = await ResolveTrainerAsync(userId, clientId);
@@ -57,7 +72,9 @@ public class ChatHub(
 
         var actualClientId = trainerId == userId ? clientId : userId;
 
-        var message = await ChatService.SendMessageAsync(trainerId, actualClientId, senderId: userId, messageId: messageId, body);
+        var encrypted = new EncryptedChatBody(body, iv, encryptionVersion);
+
+        var message = await ChatService.SendMessageAsync(trainerId, actualClientId, senderId: userId, messageId: messageId, encrypted);
         await Clients.Group(GroupName(trainerId, actualClientId)).SendAsync("ReceiveMessage", message);
 
         // The pair is (trainerId, actualClientId) and the sender is userId, so
@@ -69,7 +86,12 @@ public class ChatHub(
         // The return value below is what the client blocks on and what it reads
         // as proof of delivery, so nothing slow or third-party may sit in front
         // of it. See IChatPushDispatcher.
-        PushDispatcher.Queue(recipientId, senderId: userId, body: body);
+        //
+        // The ciphertext goes out as-is. Google is handed a blob and the
+        // recipient's own device decrypts it to draw the notification, which is
+        // the only arrangement under which a lock-screen preview and an
+        // unreadable database can both be true.
+        PushDispatcher.Queue(recipientId, senderId: userId, messageId: messageId, body: encrypted);
 
         return message;
     }

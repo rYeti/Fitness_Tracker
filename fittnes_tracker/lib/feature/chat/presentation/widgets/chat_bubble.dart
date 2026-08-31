@@ -45,6 +45,15 @@ class ChatBubble extends StatelessWidget {
     // the same thing and must not be read as one.
     final settled = !pending && !failed;
 
+    final unreadable = message.isUndecryptable;
+
+    // What the reader is told when the key is gone. Phrased as an explanation
+    // rather than an error, because nothing went wrong and there is nothing to
+    // retry: this device simply never held the key for this message.
+    final undecryptableText = AppLocalizations.of(context)!.chatUndecryptable;
+
+    final textColor = mine ? Colors.white : colors.onSurface;
+
     final bubble = Container(
       constraints: const BoxConstraints(maxWidth: 420),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -52,15 +61,42 @@ class ChatBubble extends StatelessWidget {
         color: mine ? ForgeColors.forgeOrange : colors.surfaceContainerHighest,
         borderRadius: mine ? _mineRadius : _theirsRadius,
       ),
-      child: Text(
-        message.body ?? '',
-        style: TextStyle(
-          fontFamily: 'Exo 2',
-          fontSize: 13.5,
-          height: 1.35,
-          color: mine ? Colors.white : colors.onSurface,
-        ),
-      ),
+      child: unreadable
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Paired with the italic text rather than carrying the meaning
+                // alone: an icon-only signal is no signal at all to anyone who
+                // does not already know what it means.
+                Icon(
+                  Icons.lock_outline,
+                  size: 15,
+                  color: textColor.withValues(alpha: 0.75),
+                ),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    undecryptableText,
+                    style: TextStyle(
+                      fontFamily: 'Exo 2',
+                      fontSize: 13.5,
+                      height: 1.35,
+                      fontStyle: FontStyle.italic,
+                      color: textColor.withValues(alpha: 0.75),
+                    ),
+                  ),
+                ),
+              ],
+            )
+          : Text(
+              message.body ?? '',
+              style: TextStyle(
+                fontFamily: 'Exo 2',
+                fontSize: 13.5,
+                height: 1.35,
+                color: textColor,
+              ),
+            ),
     );
 
     return Padding(
@@ -74,9 +110,15 @@ class ChatBubble extends StatelessWidget {
             // The time is part of what was said, not decoration: a screen reader
             // gets no day divider and no small grey text, so without it a thread
             // reads as one undated run of messages.
+            // The spoken text has to say the same thing the drawn one does. A
+            // screen reader gets neither the lock icon nor the italics, so
+            // reading out an empty body would present an unreadable message as
+            // a message with nothing in it.
             value: settled
-                ? '${message.body ?? ''}, '
+                ? '${unreadable ? undecryptableText : message.body ?? ''}, '
                     '${ChatTimestamps.accessibleLabel(message.timestamp)}'
+                : unreadable
+                ? undecryptableText
                 : message.body ?? '',
             excludeSemantics: true,
             child: Opacity(

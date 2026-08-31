@@ -65,7 +65,7 @@ public class ChatHubTests
         var hub = NewHub(ctx, ctx.TrainerId, out _);
         var messageId = Guid.NewGuid();
 
-        ChatMessageDto ack = await hub.SendMessage(ctx.ClientId, "how did the last set feel?", messageId);
+        ChatMessageDto ack = await hub.SendMessage(ctx.ClientId, "how did the last set feel?", messageId, iv: "iv-1", encryptionVersion: 1);
 
         // The id is the client's, unchanged: it is what lets a resend after a
         // dropped ack be recognised as the same message rather than a new one.
@@ -86,7 +86,7 @@ public class ChatHubTests
         var hub = NewHub(ctx, ctx.ClientId, out _);
         var messageId = Guid.NewGuid();
 
-        var ack = await hub.SendMessage(ctx.TrainerId, "sore but good", messageId);
+        var ack = await hub.SendMessage(ctx.TrainerId, "sore but good", messageId, iv: "iv-1", encryptionVersion: 1);
 
         Assert.Equal(messageId, ack.Id);
         Assert.Equal(ctx.ClientId, ack.SenderId);
@@ -100,7 +100,7 @@ public class ChatHubTests
         using var ctx = new ChatScenario();
         var hub = NewHub(ctx, ctx.TrainerId, out var clients);
 
-        await hub.SendMessage(ctx.ClientId, "hello robert", Guid.NewGuid());
+        await hub.SendMessage(ctx.ClientId, "hello robert", Guid.NewGuid(), iv: "iv-1", encryptionVersion: 1);
 
         var (group, method, args) = Assert.Single(clients.Sent);
         Assert.Equal($"chat:{ctx.TrainerId}:{ctx.ClientId}", group);
@@ -117,9 +117,9 @@ public class ChatHubTests
         var hub = NewHub(ctx, ctx.TrainerId, out _);
         var messageId = Guid.NewGuid();
 
-        var first = await hub.SendMessage(ctx.ClientId, "did you see my form?", messageId);
+        var first = await hub.SendMessage(ctx.ClientId, "did you see my form?", messageId, iv: "iv-1", encryptionVersion: 1);
         // What the outbox does after a dropped ack: same id, same body, again.
-        var second = await hub.SendMessage(ctx.ClientId, "did you see my form?", messageId);
+        var second = await hub.SendMessage(ctx.ClientId, "did you see my form?", messageId, iv: "iv-1", encryptionVersion: 1);
 
         Assert.Equal(first.Id, second.Id);
         Assert.Equal(first.SentAt, second.SentAt);
@@ -134,7 +134,7 @@ public class ChatHubTests
         var hub = NewHub(ctx, stranger.Id, out _);
 
         await Assert.ThrowsAsync<HubException>(
-            () => hub.SendMessage(ctx.ClientId, "let me in", Guid.NewGuid()));
+            () => hub.SendMessage(ctx.ClientId, "let me in", Guid.NewGuid(), iv: "iv-1", encryptionVersion: 1));
         Assert.Empty(ctx.Db.ChatMessages);
     }
 
@@ -158,7 +158,7 @@ public class ChatHubTests
             Groups = new RecordingGroups(),
         };
 
-        var ack = await hub.SendMessage(ctx.ClientId, "still here", Guid.NewGuid());
+        var ack = await hub.SendMessage(ctx.ClientId, "still here", Guid.NewGuid(), iv: "iv-1", encryptionVersion: 1);
 
         Assert.Equal(ctx.TrainerId, ack.SenderId);
     }
@@ -183,7 +183,7 @@ public class ChatHubTests
         // NullReferenceException it replaces arrived as an opaque
         // "an unexpected error occurred".
         await Assert.ThrowsAsync<HubException>(
-            () => hub.SendMessage(ctx.ClientId, "who am i", Guid.NewGuid()));
+            () => hub.SendMessage(ctx.ClientId, "who am i", Guid.NewGuid(), iv: "iv-1", encryptionVersion: 1));
     }
 
     [Fact]
@@ -221,14 +221,19 @@ public class ChatHubTests
         using var ctx = new ChatScenario();
         var hub = NewHub(ctx, ctx.TrainerId, out _, out var pushes);
 
-        await hub.SendMessage(ctx.ClientId, "how did the last set feel?", Guid.NewGuid());
+        await hub.SendMessage(ctx.ClientId, "how did the last set feel?", Guid.NewGuid(), iv: "iv-1", encryptionVersion: 1);
 
         // The hub had never needed to name a recipient before — every other
         // operation on it is symmetric between the two parties.
         var push = Assert.Single(pushes.Queued);
         Assert.Equal(ctx.ClientId, push.recipientId);
         Assert.Equal(ctx.TrainerId, push.senderId);
-        Assert.Equal("how did the last set feel?", push.body);
+        // The ciphertext, not the message. This assertion is the one that would
+        // catch a well-meaning change putting a readable preview back into the
+        // push payload.
+        Assert.Equal("how did the last set feel?", push.body.Ciphertext);
+        Assert.Equal("iv-1", push.body.Iv);
+        Assert.Equal(1, push.body.EncryptionVersion);
     }
 
     [Fact]
@@ -237,7 +242,7 @@ public class ChatHubTests
         using var ctx = new ChatScenario();
         var hub = NewHub(ctx, ctx.ClientId, out _, out var pushes);
 
-        await hub.SendMessage(ctx.TrainerId, "sore but good", Guid.NewGuid());
+        await hub.SendMessage(ctx.TrainerId, "sore but good", Guid.NewGuid(), iv: "iv-1", encryptionVersion: 1);
 
         var push = Assert.Single(pushes.Queued);
         Assert.Equal(ctx.TrainerId, push.recipientId);
@@ -252,7 +257,7 @@ public class ChatHubTests
         var hub = NewHub(ctx, stranger.Id, out _, out var pushes);
 
         await Assert.ThrowsAsync<HubException>(
-            () => hub.SendMessage(ctx.ClientId, "let me in", Guid.NewGuid()));
+            () => hub.SendMessage(ctx.ClientId, "let me in", Guid.NewGuid(), iv: "iv-1", encryptionVersion: 1));
 
         // Authorisation is checked before anything is persisted or queued, so a
         // stranger cannot make someone else's phone buzz.
@@ -271,10 +276,10 @@ public class ChatHubTests
     /// </summary>
     private sealed class RecordingPushDispatcher : IChatPushDispatcher
     {
-        public List<(Guid recipientId, Guid senderId, string? body)> Queued { get; } = [];
+        public List<(Guid recipientId, Guid senderId, Guid messageId, EncryptedChatBody body)> Queued { get; } = [];
 
-        public void Queue(Guid recipientId, Guid senderId, string? body) =>
-            Queued.Add((recipientId, senderId, body));
+        public void Queue(Guid recipientId, Guid senderId, Guid messageId, EncryptedChatBody body) =>
+            Queued.Add((recipientId, senderId, messageId, body));
     }
 
     private sealed class FakeHubCallerContext(Guid? userId, string? claimType = null) : HubCallerContext

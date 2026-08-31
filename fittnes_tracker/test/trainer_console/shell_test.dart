@@ -48,6 +48,7 @@ Future<void> _pump(
           db: db,
           api: chatApi ?? FakeChatApi(),
           signalR: signalR,
+          crypto: FakeChatCrypto(),
         ),
       ),
     ),

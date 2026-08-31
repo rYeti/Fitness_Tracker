@@ -4292,6 +4292,18 @@ abstract class AppLocalizations {
   /// **'Failed to send — tap to retry'**
   String get chatFailedRetry;
 
+  /// No description provided for @chatUndecryptable.
+  ///
+  /// In en, this message translates to:
+  /// **'Message can\'t be decrypted on this device'**
+  String get chatUndecryptable;
+
+  /// No description provided for @chatNewMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'New message'**
+  String get chatNewMessage;
+
   /// No description provided for @chatReconnecting.
   ///
   /// In en, this message translates to:
