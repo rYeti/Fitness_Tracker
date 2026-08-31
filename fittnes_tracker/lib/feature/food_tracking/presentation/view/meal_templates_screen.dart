@@ -1,3 +1,4 @@
+import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/providers/access_provider.dart';
 import 'package:ForgeForm/core/utils/app_logger.dart';
@@ -11,6 +12,9 @@ import '../../data/repositories/nutrition_repository.dart';
 import 'food_tracking_screen.dart';
 import 'create_meal_template_screen.dart';
 import 'edit_meal_template_screen.dart';
+import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
+import 'package:ForgeForm/core/widgets/app_widgets.dart';
+import 'package:ForgeForm/core/widgets/content_pane.dart';
 
 class MealTemplatesScreen extends StatefulWidget {
   const MealTemplatesScreen({Key? key}) : super(key: key);
@@ -30,16 +34,8 @@ class _MealTemplatesScreenState extends State<MealTemplatesScreen> {
       length: 4,
       child: Scaffold(
         backgroundColor: colorScheme.surface,
-        appBar: AppBar(
-          title: Text(
-            AppLocalizations.of(context)!.mealTemplates,
-            style: TextStyle(
-              fontFamily: 'Montserrat',
-              fontWeight: FontWeight.w700,
-              fontSize: 17,
-              color: Colors.white,
-            ),
-          ),
+        appBar: ForgeAppBar(
+          title: AppLocalizations.of(context)!.mealTemplates,
           bottom: TabBar(
             labelColor: colorScheme.primary,
             unselectedLabelColor: Colors.white54,
@@ -57,15 +53,18 @@ class _MealTemplatesScreenState extends State<MealTemplatesScreen> {
             ],
           ),
         ),
-        body: TabBarView(
-          children: [
-            TemplateListTab(category: 'Breakfast'),
-            TemplateListTab(category: 'Lunch'),
-            TemplateListTab(category: 'Dinner'),
-            TemplateListTab(category: 'Snacks'),
-          ],
+        body: ContentPane(
+          child: TabBarView(
+            children: [
+              TemplateListTab(category: 'Breakfast'),
+              TemplateListTab(category: 'Lunch'),
+              TemplateListTab(category: 'Dinner'),
+              TemplateListTab(category: 'Snacks'),
+            ],
+          ),
         ),
         floatingActionButton: FloatingActionButton(
+          tooltip: AppLocalizations.of(context)!.createTemplateAction,
           onPressed: () async {
             final hasPremium = context.read<AccessProvider>().hasPremiumAccess;
             if (!hasPremium) {
@@ -128,64 +127,48 @@ class _TemplateListTabState extends State<TemplateListTab>
             );
           }
           if (snapshot.hasError) {
-            return Center(child: Text(AppLocalizations.of(context)!.failedToLoadData(snapshot.error ?? '')));
+            // A sentence with no way out of it: this used to be a centred
+            // line of text, so a trainee whose load failed had nothing to
+            // tap. The rebuild re-runs the future, which is the retry.
+            return ErrorStateView(
+              message: AppLocalizations.of(
+                context,
+              )!.failedToLoadData(snapshot.error ?? ''),
+              onRetry: () => setState(() {}),
+            );
           }
           final templates = snapshot.data ?? [];
           if (templates.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.receipt_long_outlined, size: 48, color: muted),
-                  const SizedBox(height: 16),
-                  Text(
-                    AppLocalizations.of(context)!.noTemplatesFound,
-                    style: TextStyle(
-                      fontFamily: 'Exo 2',
-                      fontSize: 15,
-                      color: muted,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () async {
-                      final hasPremium = context.read<AccessProvider>().hasPremiumAccess;
-                      if (!hasPremium) {
-                        final repo = context.read<MealTemplateRepository>();
-                        final all = await repo.getAllTemplates();
-                        if (!context.mounted) return;
-                        if (all.length >= 3) {
-                          openPaywall(context);
-                          return;
-                        }
-                      }
-                      if (!context.mounted) return;
-                      final result = await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder:
-                              (context) => CreateMealTemplateScreen(
-                                initialCategory: widget.category,
-                              ),
-                        ),
-                      );
-                      if (result == true && mounted) setState(() {});
-                    },
-                    style: ElevatedButton.styleFrom(
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8.0),
+            return EmptyStateView(
+              icon: Icons.receipt_long_outlined,
+              title: AppLocalizations.of(context)!.noTemplatesFound,
+              message: AppLocalizations.of(context)!.createTemplateHint,
+              action: FilledButton(
+                onPressed: () async {
+                  final hasPremium = context
+                      .read<AccessProvider>()
+                      .hasPremiumAccess;
+                  if (!hasPremium) {
+                    final repo = context.read<MealTemplateRepository>();
+                    final all = await repo.getAllTemplates();
+                    if (!context.mounted) return;
+                    if (all.length >= 3) {
+                      openPaywall(context);
+                      return;
+                    }
+                  }
+                  if (!context.mounted) return;
+                  final result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => CreateMealTemplateScreen(
+                        initialCategory: widget.category,
                       ),
                     ),
-                    child: Text(
-                      AppLocalizations.of(context)!.createTemplate,
-                      style: TextStyle(
-                        fontFamily: 'Exo 2',
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ],
+                  );
+                  if (result == true && mounted) setState(() {});
+                },
+                child: Text(AppLocalizations.of(context)!.createTemplate),
               ),
             );
           }
@@ -392,7 +375,7 @@ class TemplateCard extends StatelessWidget {
                   repository.deleteMealTemplate(template.id!);
                   if (onDelete != null) onDelete!();
                 },
-                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                style: TextButton.styleFrom(foregroundColor: ForgeColors.statusBadFor(Theme.of(context).brightness)),
                 child: Text(AppLocalizations.of(context)!.delete),
               ),
             ],
@@ -557,9 +540,9 @@ class _PortionBottomSheetState extends State<_PortionBottomSheet> {
             const SizedBox(height: 16),
 
             // log button
-            ElevatedButton(
+            FilledButton(
               onPressed: _log,
-              style: ElevatedButton.styleFrom(
+              style: FilledButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 backgroundColor: colorScheme.primary,
                 foregroundColor: colorScheme.onPrimary,
@@ -649,7 +632,7 @@ class _PortionBottomSheetState extends State<_PortionBottomSheet> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(AppLocalizations.of(context)!.errorApplyingTemplate(e)),
-          backgroundColor: Colors.red,
+          backgroundColor: ForgeColors.statusBadFor(Theme.of(context).brightness),
         ),
       );
     }

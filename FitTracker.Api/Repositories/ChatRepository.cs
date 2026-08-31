@@ -49,9 +49,14 @@ public class ChatRepository(AppDbContext context) : IChatRepository
         // correlated subqueries rather than a second round trip per row, so a
         // trainer with thirty clients still costs one database call.
         //
-        // Body and timestamp are fetched as two scalar subqueries instead of one
-        // projected row: scalar subqueries translate identically on Npgsql and
-        // Sqlite, which keeps the tests running against the same SQL shape.
+        // Body, IV, version and timestamp are fetched as separate scalar
+        // subqueries instead of one projected row: scalar subqueries translate
+        // identically on Npgsql and Sqlite, which keeps the tests running
+        // against the same SQL shape.
+        //
+        // Note what is *not* here any more: a preview. The body is ciphertext
+        // from EncryptionVersion 1 onward, so there is nothing to truncate and
+        // nothing to read. This query moves it; the client decrypts it.
         var rows = await _context.TrainerClients
             .Where(t => t.Status == TrainerClientStatus.Active
                         && (t.TrainerId == userId || t.ClientId == userId))
@@ -65,6 +70,20 @@ public class ChatRepository(AppDbContext context) : IChatRepository
                     .Where(m => m.TrainerClientId == t.Id)
                     .OrderByDescending(m => m.SentAt)
                     .Select(m => m.Body)
+                    .FirstOrDefault(),
+                // The IV and version ride along as two more scalar subqueries
+                // for the same reason the body does. They are useless apart: the
+                // client cannot decrypt the preview without the IV, and cannot
+                // know whether to try without the version.
+                LastMessageIv = _context.ChatMessages
+                    .Where(m => m.TrainerClientId == t.Id)
+                    .OrderByDescending(m => m.SentAt)
+                    .Select(m => m.Iv)
+                    .FirstOrDefault(),
+                LastMessageEncryptionVersion = _context.ChatMessages
+                    .Where(m => m.TrainerClientId == t.Id)
+                    .OrderByDescending(m => m.SentAt)
+                    .Select(m => m.EncryptionVersion)
                     .FirstOrDefault(),
                 LastMessageAt = _context.ChatMessages
                     .Where(m => m.TrainerClientId == t.Id)
@@ -96,6 +115,8 @@ public class ChatRepository(AppDbContext context) : IChatRepository
                 OtherPartyId = r.OtherPartyId,
                 OtherPartyName = r.OtherPartyName.Trim(),
                 LastMessagePreview = r.LastMessagePreview,
+                LastMessageIv = r.LastMessageIv,
+                LastMessageEncryptionVersion = r.LastMessageEncryptionVersion,
                 LastMessageAt = r.LastMessageAt,
                 UnreadCount = r.UnreadCount,
             })

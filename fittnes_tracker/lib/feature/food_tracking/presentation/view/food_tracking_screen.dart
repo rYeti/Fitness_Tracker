@@ -11,6 +11,8 @@ import '../../data/models/food_item_model.dart';
 import '../../data/repositories/nutrition_repository.dart';
 import 'food_add_screen.dart';
 import 'food_detail_view.dart';
+import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
+import 'package:ForgeForm/core/widgets/content_pane.dart';
 
 // Create a global key to access the FoodTrackingScreen state
 final globalFoodTrackingKey = GlobalKey<_FoodTrackingScreenState>();
@@ -123,7 +125,7 @@ class _FoodTrackingScreenState extends State<FoodTrackingScreen> {
                     onPressed: () => Navigator.pop(ctx),
                     child: Text(l10n.cancel)),
                 const SizedBox(width: 8),
-                ElevatedButton(
+                FilledButton(
                   onPressed: () {
                     final v = int.tryParse(controller.text.trim());
                     if (v != null && v > 0) Navigator.pop(ctx, v);
@@ -197,37 +199,14 @@ class _FoodTrackingScreenState extends State<FoodTrackingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: ForgeAppBar(
+        title: AppLocalizations.of(context)!.food,
         bottom: _isLoading
             ? const PreferredSize(
                 preferredSize: Size.fromHeight(2),
                 child: LinearProgressIndicator(),
               )
             : null,
-        title: RichText(
-          text: const TextSpan(
-            children: [
-              TextSpan(
-                text: 'Forge',
-                style: TextStyle(
-                  fontFamily: 'Montserrat',
-                  fontWeight: FontWeight.w800,
-                  fontSize: 20,
-                  color: Color(0xFFFF6B3E),
-                ),
-              ),
-              TextSpan(
-                text: 'Form',
-                style: TextStyle(
-                  fontFamily: 'Montserrat',
-                  fontWeight: FontWeight.w800,
-                  fontSize: 20,
-                  color: Colors.white,
-                ),
-              ),
-            ],
-          ),
-        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.restaurant_menu, color: Colors.white),
@@ -247,7 +226,8 @@ class _FoodTrackingScreenState extends State<FoodTrackingScreen> {
         onRefresh: loadNutritionData,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          child: Padding(
+          child: ContentPane(
+            child: Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -260,6 +240,7 @@ class _FoodTrackingScreenState extends State<FoodTrackingScreen> {
               ],
             ),
           ),
+          )
         ),
       ),
     );
@@ -274,6 +255,7 @@ class _FoodTrackingScreenState extends State<FoodTrackingScreen> {
       children: [
         IconButton(
           icon: const Icon(Icons.arrow_back_ios, size: 18),
+          tooltip: l10n.previousDay,
           onPressed: _prevDay,
         ),
         TextButton(
@@ -281,10 +263,13 @@ class _FoodTrackingScreenState extends State<FoodTrackingScreen> {
           child: Text(
             dateFormat.format(_selectedDate),
             style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+            semanticsLabel:
+                '${dateFormat.format(_selectedDate)}. ${l10n.pickDate}',
           ),
         ),
         IconButton(
           icon: const Icon(Icons.arrow_forward_ios, size: 18),
+          tooltip: l10n.nextDay,
           onPressed: _nextDay,
         ),
         if (!_isToday)
@@ -505,12 +490,23 @@ class _FoodTrackingScreenState extends State<FoodTrackingScreen> {
                             loadNutritionData();
                             _refreshDashboard();
                           },
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const SizedBox(width: 8),
-                              const Icon(Icons.add, size: 22),
-                            ],
+                          // A bare "+" is the only affordance for adding food
+                          // to this category, so it has to say which category
+                          // it belongs to — there is one per meal and they are
+                          // otherwise indistinguishable.
+                          child: Tooltip(
+                            message: AppLocalizations.of(
+                              context,
+                            )!.addFoodToCategory(category),
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(
+                                minWidth: 44,
+                                minHeight: 44,
+                              ),
+                              child: const Center(
+                                child: Icon(Icons.add, size: 22),
+                              ),
+                            ),
                           ),
                         ),
                       ],
@@ -560,10 +556,31 @@ class _FoodTrackingScreenState extends State<FoodTrackingScreen> {
                                 children: [
                                   IconButton(
                                     icon: const Icon(Icons.edit, size: 18),
+                                    // Naming the food matters more here than
+                                    // anywhere else on the screen: a row of
+                                    // bare "Edit"/"Delete" buttons gives a
+                                    // screen-reader user no way to tell which
+                                    // meal entry they are about to change.
+                                    tooltip: AppLocalizations.of(
+                                      context,
+                                    )!.editFoodEntry(food.name),
+                                    // Sizing comes from iconButtonTheme. It
+                                    // used to be a local `constraints:` here,
+                                    // which measured 44x40 in a browser --
+                                    // `constraints` overrides the theme's
+                                    // minimumSize, so the local fix was the
+                                    // thing keeping the real one out.
                                     onPressed: () => _editPortion(category, food),
                                   ),
+                                  // Destructive and non-destructive actions
+                                  // were adjacent with no gap, so a mis-tap
+                                  // landed on delete.
+                                  const SizedBox(width: 8),
                                   IconButton(
                                     icon: const Icon(Icons.delete_outline),
+                                    tooltip: AppLocalizations.of(
+                                      context,
+                                    )!.deleteFoodEntry(food.name),
                                     onPressed: () async {
                                       final l10n = AppLocalizations.of(context)!;
                                       final confirmed = await showDialog<bool>(

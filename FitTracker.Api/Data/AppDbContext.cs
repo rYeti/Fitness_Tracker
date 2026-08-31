@@ -79,6 +79,8 @@ public class AppDbContext : DbContext
 
     public DbSet<ChatMessage> ChatMessages { get; set; }
 
+    public DbSet<UserChatKey> UserChatKeys { get; set; }
+
     /// <summary>Push registration tokens, one row per signed-in device.</summary>
     public DbSet<DeviceToken> DeviceTokens { get; set; }
 
@@ -294,6 +296,18 @@ public class AppDbContext : DbContext
                   .HasForeignKey(m => m.TrainerClientId)
                   .OnDelete(DeleteBehavior.Cascade);
             entity.HasIndex(m => new { m.TrainerClientId, m.SentAt });
+        });
+
+        modelBuilder.Entity<UserChatKey>(entity =>
+        {
+            // The user id is the key, not a surrogate: a user has exactly one
+            // current chat key, and a table that allowed two would need a rule
+            // for which of them a sender should encrypt to.
+            entity.HasKey(k => k.UserId);
+            entity.HasOne(k => k.User)
+                  .WithMany()
+                  .HasForeignKey(k => k.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<PasswordResetToken>(entity =>

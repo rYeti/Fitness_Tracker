@@ -9,8 +9,15 @@ public class UserSettings
     /// <summary>The ID of the user these settings belong to.</summary>
     public Guid UserId { get; set; }
 
-    /// <summary>The user's daily calorie target (kcal). Defaults to 2000.</summary>
-    public int DailyCalorieGoal { get; set; } = 2000;
+    /// <summary>The daily calorie target assumed for a user who has never saved
+    /// settings. Named rather than repeated because it has to agree with the
+    /// Flutter client's own default (<c>food_tables.dart</c>): when the two
+    /// disagreed, a client saw "1733 / 2000 kcal" while their trainer saw
+    /// "Target 0 kcal" for the same day.</summary>
+    public const int DefaultDailyCalorieGoal = 2000;
+
+    /// <summary>The user's daily calorie target (kcal).</summary>
+    public int DailyCalorieGoal { get; set; } = DefaultDailyCalorieGoal;
 
     /// <summary>The UI theme preference ("light" or "dark"). Defaults to "light".</summary>
     public string ThemeMode { get; set; } = "light";

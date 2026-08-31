@@ -24,15 +24,19 @@ See `docs/android-release.md`.
 
 ## Unreleased
 
-The food search you open from a meal now puts the foods you actually eat at that meal first. Breakfast, lunch, dinner and snacks used to show one identical list, so you scrolled past your lunch foods every morning to find your breakfast ones. Foods you have eaten at the meal you are logging now appear at the top, most recent first, with everything else below.
+Your chat messages are now end-to-end encrypted. Messages are scrambled on your
+device and can only be read by you and the person you are talking to — not by
+our servers, and not by anyone with a copy of the database. Notifications still
+show a preview, because your own phone unscrambles it.
+
+There is no backup of your key, so if you reinstall or sign in on a new device,
+older messages cannot be unscrambled there.
+
+The food search now shows the foods you eat at that meal first.
 
 ## 1.0.2+14
 
 The Trainer Console now opens far faster: it no longer reads a client's whole training history to draw the dashboard, and it loads only the section you are looking at. Your client list appears as soon as it is ready.
-
-Chat messages now show the time they were sent, and the date above each day of messages is correct — it could read 01/01/0001 or name the wrong day.
-
-Also fixed: the dashboard showed zero sessions every Sunday, and exercise names were missing from the strength chart.
 
 ## 1.0.2+13
 

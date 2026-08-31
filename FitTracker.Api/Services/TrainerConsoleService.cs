@@ -479,7 +479,13 @@ public class TrainerConsoleService(
         if (!isTrainer) return null;
 
         var settings = await _userSettingsService.GetSettingsAsync(clientId);
-        var calorieGoal = settings?.DailyCalorieGoal ?? 0;
+        // Fall back to the same default the model and the Flutter client use,
+        // not to zero. A client who has never opened settings has no row here,
+        // and `?? 0` made the console report "Target 0 kcal" for someone whose
+        // own app was showing a 2000 kcal target. Neither side was wrong on its
+        // own — the disagreement was the defect.
+        var calorieGoal = settings?.DailyCalorieGoal
+            ?? Models.UserSettings.DefaultDailyCalorieGoal;
 
         // One round trip for the whole trend window, bucketed by day here — the
         // seven days used to be seven sequential queries.

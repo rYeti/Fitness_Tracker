@@ -9,7 +9,7 @@ import 'package:ForgeForm/feature/chat/data/chat_repository.dart';
 import 'package:ForgeForm/feature/chat/data/signalr_hub_chat_client.dart';
 import 'package:ForgeForm/feature/chat/presentation/providers/chat_provider.dart';
 import 'package:ForgeForm/feature/chat/presentation/view/coach_chat_screen.dart';
-import 'package:ForgeForm/feature/trainer_console/presentation/widgets/console_widgets.dart';
+import 'package:ForgeForm/core/widgets/app_widgets.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 
 /// Owns the chat connection for the trainee app.
@@ -45,9 +45,13 @@ class _CoachChatEntryState extends State<CoachChatEntry> {
     } else if (sl.isRegistered<AppDatabase>()) {
       final signalR = SignalRHubChatClient();
       _signalR = signalR;
-      _chat = ChatProvider(
-        repository: ChatRepository(db: sl<AppDatabase>(), signalR: signalR),
-      );
+      final repository = ChatRepository(db: sl<AppDatabase>(), signalR: signalR);
+      _chat = ChatProvider(repository: repository);
+
+      // Publishing this device's chat key, alongside the connect and for the
+      // same reason: a network round trip that must not hold up the screen.
+      unawaited(repository.prepareKeys().catchError((Object _) {}));
+
       // Errors dropped rather than left unhandled: the failure reaches the user
       // through the connection banner, and the next joinGroup/send retries it.
       unawaited(signalR.connect().catchError((Object _) {}));
@@ -69,7 +73,7 @@ class _CoachChatEntryState extends State<CoachChatEntry> {
       return Scaffold(
         appBar: AppBar(title: Text(l10n.coachChat)),
         body: SafeArea(
-          child: ConsoleEmptyState(
+          child: EmptyStateView(
             icon: Icons.forum_outlined,
             title: l10n.chatUnavailable,
             message: l10n.chatUnavailableBody,

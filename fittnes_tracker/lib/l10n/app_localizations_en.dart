@@ -63,6 +63,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get refresh => 'Refresh';
 
   @override
+  String get showPassword => 'Show password';
+
+  @override
+  String get hidePassword => 'Hide password';
+
+  @override
+  String get quickAdd => 'Quick add';
+
+  @override
   String get age => 'Age';
 
   @override
@@ -135,7 +144,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cancel => 'Cancel';
 
   @override
-  String get addCustomFood => 'Add Custom Food';
+  String get addCustomFood => 'Add a custom food';
 
   @override
   String get foodName => 'Food Name';
@@ -269,6 +278,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get addRestDay => 'Add Rest Day';
+
+  @override
+  String get addWorkoutDay => 'Add a day';
 
   @override
   String get workoutNameLabel => 'Workout Name';
@@ -460,6 +472,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noWorkoutsFound => 'No workouts found';
 
   @override
+  String get createFirstWorkoutHint =>
+      'Build a plan once, then schedule it as often as you like.';
+
+  @override
   String get setWeightGoal => 'Set Weight Goals';
 
   @override
@@ -565,6 +581,19 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get addWeight => 'Add Weight';
+
+  @override
+  String hideFromRecents(String name) {
+    return 'Remove $name from recents';
+  }
+
+  @override
+  String quickAddFood(String name) {
+    return 'Quick add $name';
+  }
+
+  @override
+  String get createTemplateAction => 'Create template';
 
   @override
   String get allTime => 'All Time';
@@ -687,6 +716,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get noTemplatesFound => 'No templates found';
+
+  @override
+  String get createTemplateHint =>
+      'Save a meal you log often and add it in one tap.';
 
   @override
   String get saveTemplate => 'Save Template';
@@ -1659,7 +1692,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String signOutUnsyncedBody(int count) {
-    return '$count changes haven\'t reached the server yet. Signing out clears this device\'s copy of your account, so they would be lost \u2014 including any exercises you deleted, which would come back.';
+    return '$count changes haven\'t reached the server yet. Signing out clears this device\'s copy of your account, so they would be lost — including any exercises you deleted, which would come back.';
   }
 
   @override
@@ -2343,6 +2376,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get chatFailedRetry => 'Failed to send — tap to retry';
+
+  @override
+  String get chatUndecryptable => "Message can't be decrypted on this device";
+
+  @override
+  String get chatNewMessage => 'New message';
 
   @override
   String get chatReconnecting => 'Reconnecting…';
@@ -3341,4 +3380,40 @@ class AppLocalizationsEn extends AppLocalizations {
   ) {
     return '$name, $calories kcal, protein ${protein}g, carbs ${carbs}g, fat ${fat}g';
   }
+
+  @override
+  String editFoodEntry(String food) {
+    return 'Edit $food';
+  }
+
+  @override
+  String deleteFoodEntry(String food) {
+    return 'Delete $food';
+  }
+
+  @override
+  String addFoodToCategory(String category) {
+    return 'Add food to $category';
+  }
+
+  @override
+  String get pickDate => 'Choose a date';
+
+  @override
+  String get noCalorieTarget => 'No target set';
+
+  @override
+  String get kpiAvgAdherenceThisWeek => 'Avg adherence, this week';
+
+  @override
+  String get rosterColumnAdherence28d => 'ADHERENCE (28D)';
+
+  @override
+  String get adherence28d => 'Adherence, last 28 days';
+
+  @override
+  String get couldNotLoad => 'Couldn\'t load your data';
+
+  @override
+  String get couldNotLoadBody => 'Check your connection and try again.';
 }

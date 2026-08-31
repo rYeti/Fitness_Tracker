@@ -101,11 +101,11 @@ class _ExerciseListViewState extends State<ExerciseListView> {
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
           child: Card(
             elevation: 0,
-            color: theme.colorScheme.primaryContainer.withOpacity(0.45),
+            color: theme.colorScheme.primaryContainer.withValues(alpha: 0.45),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
               side: BorderSide(
-                color: theme.colorScheme.primary.withOpacity(0.25),
+                color: theme.colorScheme.primary.withValues(alpha: 0.25),
               ),
             ),
             child: ListTile(

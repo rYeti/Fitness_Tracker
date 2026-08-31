@@ -5,8 +5,8 @@ import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/feature/trainer_console/data/trainer_console_repository.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_console_models.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/client_detail_provider.dart';
-import 'package:ForgeForm/feature/trainer_console/presentation/widgets/client_avatar.dart';
-import 'package:ForgeForm/feature/trainer_console/presentation/widgets/console_widgets.dart';
+import 'package:ForgeForm/core/widgets/client_avatar.dart';
+import 'package:ForgeForm/core/widgets/app_widgets.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/macro_summary.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/stat_tile.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/console_error.dart';
@@ -55,28 +55,17 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
     super.dispose();
   }
 
-  String get _initials {
-    final parts = widget.clientName
-        .split(RegExp(r'\s+'))
-        .where((p) => p.isNotEmpty)
-        .toList();
-    if (parts.isEmpty) return '?';
-    if (parts.length == 1) return parts.first[0].toUpperCase();
-    return (parts.first[0] + parts.last[0]).toUpperCase();
-  }
+  String get _initials => ClientAvatar.initialsFor(widget.clientName);
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-
     return ChangeNotifierProvider<ClientDetailProvider>.value(
       value: _provider,
       child: Consumer<ClientDetailProvider>(
         builder: (context, provider, _) {
-          final isDesktop = MediaQuery.of(context).size.width > 1024;
+          final isDesktop = Breakpoints.isDesktop(context);
 
           return Scaffold(
-            backgroundColor: colors.surfaceContainerLowest,
             appBar: AppBar(
               title: Row(
                 children: [
@@ -123,12 +112,12 @@ class _Body extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     if (provider.isLoading && !provider.hasAnyData) {
-      return ConsoleSkeleton(semanticsLabel: l10n.clientDetailLoading);
+      return LoadingSkeleton(semanticsLabel: l10n.clientDetailLoading);
     }
     // Only when nothing at all came back. The three sections load independently, so one
     // failing endpoint costs its own card and leaves the rest of the client's picture up.
     if (provider.error != null && !provider.hasAnyData) {
-      return ConsoleErrorState(
+      return ErrorStateView(
         message: provider.error!.localizedMessage(l10n),
         onRetry: provider.load,
       );
@@ -177,7 +166,7 @@ class _StatsRow extends StatelessWidget {
         icon: Icons.trending_up_rounded,
         accentColor: ForgeColors.statusOk,
         value: adherence == null ? '—' : '${adherence.round()}%',
-        label: l10n.adherence,
+        label: l10n.adherence28d,
       ),
       StatTile(
         icon: Icons.monitor_weight_outlined,
@@ -198,7 +187,7 @@ class _StatsRow extends StatelessWidget {
     return Row(
       children: [
         for (final tile in tiles) ...[
-          Expanded(child: ConsoleCard(child: tile)),
+          Expanded(child: AppCard(child: tile)),
           if (tile != tiles.last) const SizedBox(width: 12),
         ],
       ],
@@ -218,7 +207,7 @@ class _PlanCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    return ConsoleCard(
+    return AppCard(
       child: Row(
         children: [
           Container(
@@ -258,7 +247,7 @@ class _PlanCard extends StatelessWidget {
                   ),
                   style: TextStyle(
                     fontFamily: 'Exo 2',
-                    fontSize: 11.5,
+                    fontSize: 12,
                     color: colors.onSurface.withValues(alpha: 0.55),
                   ),
                 ),
@@ -284,7 +273,7 @@ class _WeightCard extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final locale = Localizations.localeOf(context).toString();
     if (history.length < 2) {
-      return ConsoleEmptyState(
+      return EmptyStateView(
         icon: Icons.show_chart_rounded,
         title: l10n.weightTrendEmptyTitle,
         message: l10n.weightTrendEmptyBody,
@@ -292,17 +281,17 @@ class _WeightCard extends StatelessWidget {
       );
     }
 
-    return ConsoleCard(
+    return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ConsoleSectionTitle(
+          SectionTitle(
             title: l10n.weightTrend,
             trailing: Text(
               l10n.entryCount(history.length),
               style: TextStyle(
                 fontFamily: 'Exo 2',
-                fontSize: 11.5,
+                fontSize: 12,
                 color: Theme.of(
                   context,
                 ).colorScheme.onSurface.withValues(alpha: 0.55),
@@ -353,7 +342,7 @@ class _AxisLabel extends StatelessWidget {
     text,
     style: TextStyle(
       fontFamily: 'Exo 2',
-      fontSize: 10.5,
+      fontSize: 10,
       color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55),
     ),
   );
@@ -426,7 +415,7 @@ class _AttendanceCard extends StatelessWidget {
     final locale = Localizations.localeOf(context).toString();
 
     if (weeks.isEmpty) {
-      return ConsoleEmptyState(
+      return EmptyStateView(
         icon: Icons.calendar_month_outlined,
         title: l10n.attendanceEmptyTitle,
         message: l10n.attendanceEmptyBody,
@@ -438,11 +427,11 @@ class _AttendanceCard extends StatelessWidget {
     final ordered = [...weeks]
       ..sort((a, b) => a.weekStart.compareTo(b.weekStart));
 
-    return ConsoleCard(
+    return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ConsoleSectionTitle(title: l10n.attendanceByWeek),
+          SectionTitle(title: l10n.attendanceByWeek),
           SizedBox(
             height: 110,
             child: Row(
@@ -489,7 +478,7 @@ class _AttendanceCard extends StatelessWidget {
                               DateFormat('d/M', locale).format(week.weekStart),
                               style: TextStyle(
                                 fontFamily: 'Exo 2',
-                                fontSize: 8.5,
+                                fontSize: 8,
                                 color: colors.onSurface.withValues(alpha: 0.5),
                               ),
                             ),
@@ -518,7 +507,7 @@ class _StrengthCard extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
 
     if (progression.isEmpty) {
-      return ConsoleEmptyState(
+      return EmptyStateView(
         icon: Icons.fitness_center_outlined,
         title: l10n.strengthEmptyTitle,
         message: l10n.strengthEmptyBody,
@@ -532,11 +521,11 @@ class _StrengthCard extends StatelessWidget {
             a.deltaFromPrevious.abs(),
           ));
 
-    return ConsoleCard(
+    return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ConsoleSectionTitle(title: l10n.strengthProgression),
+          SectionTitle(title: l10n.strengthProgression),
           for (final item in ordered.take(6))
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 6),
@@ -634,11 +623,11 @@ class _MacrosCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final l10n = AppLocalizations.of(context)!;
-    return ConsoleCard(
+    return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ConsoleSectionTitle(
+          SectionTitle(
             title: l10n.todaysMacros,
             trailing: Text(
               l10n.caloriesOfGoal(
@@ -647,7 +636,7 @@ class _MacrosCard extends StatelessWidget {
               ),
               style: TextStyle(
                 fontFamily: 'Exo 2',
-                fontSize: 11.5,
+                fontSize: 12,
                 fontWeight: FontWeight.w600,
                 color: colors.onSurface.withValues(alpha: 0.65),
               ),

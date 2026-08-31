@@ -1,4 +1,7 @@
 import 'package:ForgeForm/core/app_database.dart';
+import 'package:flutter_web_plugins/url_strategy.dart';
+import 'package:ForgeForm/core/app_router.dart';
+import 'package:go_router/go_router.dart';
 import 'package:ForgeForm/core/dao/meal_template_dao.dart';
 import 'package:ForgeForm/core/network/api_client.dart';
 import 'package:ForgeForm/core/network/secure_token_storage.dart';
@@ -13,11 +16,15 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:provider/provider.dart' as provider;
 import 'package:workmanager/workmanager.dart';
 import 'core/di/service_locator.dart';
+import 'core/widgets/forge_nav_bar.dart';
 import 'core/widgets/lazy_indexed_stack.dart';
+import 'core/services/chat_push_decoder.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/push_service.dart';
 import 'feature/chat/presentation/view/coach_chat_entry.dart';
@@ -32,11 +39,7 @@ import 'feature/gym_tracking/presentation/view/gym_tracking_screen.dart';
 import 'feature/food_tracking/presentation/view/food_tracking_screen.dart';
 import 'feature/progress_dashboard_view.dart';
 import 'feature/dashboard/view/dashboard_screen.dart';
-import 'feature/food_tracking/presentation/view/food_add_screen.dart';
 import 'feature/settings/settings_screen.dart';
-import 'feature/weight_tracking/presentation/view/weight_tracking_screen.dart';
-import 'feature/weight_tracking/presentation/view/weight_goal_screen.dart';
-import 'feature/food_tracking/presentation/view/meal_templates_screen.dart';
 import 'feature/trainer_console/presentation/view/trainer_console_gate.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -46,7 +49,6 @@ import 'package:app_links/app_links.dart';
 import 'feature/auth/presentation/view/reset_password_screen.dart';
 import 'feature/onboarding/profile_setup_prefs.dart';
 import 'feature/onboarding/profile_setup_screen.dart';
-import 'feature/onboarding/welcome_screen.dart';
 import 'core/providers/access_provider.dart';
 import 'feature/premium/paywall_launcher.dart';
 import 'feature/trainer_console/presentation/widgets/licence_banner.dart';
@@ -56,7 +58,12 @@ const _backgroundSyncTask = 'com.forgeform.dailySync';
 
 /// Top-level so both [MyApp]'s [MaterialApp] and the auth-expired listener
 /// registered in [main] can reach the active [NavigatorState].
-final navigatorKey = GlobalKey<NavigatorState>();
+/// Kept as an alias so the auth-expiry and deep-link paths below read the
+/// same as before; the key itself is owned by the router.
+final navigatorKey = AppRouter.navigatorKey;
+
+/// The root Riverpod container, assigned once in [main].
+late final ProviderContainer rootContainer;
 
 /// Top-level callback required by workmanager — runs in a separate isolate.
 @pragma('vm:entry-point')
@@ -98,6 +105,13 @@ void _backgroundSyncDispatcher() {
 }
 
 void main() async {
+  // Real paths rather than #-fragment URLs. Without this the console's
+  // sections would be bookmarkable only as `/#/console/nutrition`, which is
+  // not a URL anyone would paste to a colleague. The static host already
+  // rewrites unknown paths to /index.html (CLAUDE.md, "Web support"), which
+  // is the server-side half of this working.
+  usePathUrlStrategy();
+
   WidgetsFlutterBinding.ensureInitialized();
   FlutterNativeSplash.preserve(
     widgetsBinding: WidgetsFlutterBinding.ensureInitialized(),
@@ -162,6 +176,10 @@ void main() async {
   final container = ProviderContainer(
     overrides: [serverUrlProvider.overrideWith((ref) => serverUrlDefault)],
   );
+  // Held globally so the router's redirect can read auth state: a redirect
+  // runs before any of this app's widgets, so it has no BuildContext to look
+  // the container up from.
+  rootContainer = container;
   await container.read(authProvider.notifier).restoreSession();
 
   // If a silent token refresh later fails mid-session (refresh token expired
@@ -300,11 +318,40 @@ class MyApp extends StatefulWidget {
 /// tree-shaking removes it from the release build and background pushes silently
 /// stop working — in release only, which is the worst possible place to find out.
 ///
-/// It deliberately does nothing: the payload is a `notification` message, so the
-/// OS has already drawn it. This exists to satisfy the plugin's contract and to
-/// be the obvious place for background bookkeeping if it is ever needed.
+/// This used to be empty, and the comment here used to explain why: the payload
+/// was a `notification` message and the OS had already drawn it. Chat is
+/// end-to-end encrypted now, so the server cannot write a notification for a
+/// message it cannot read, and the payload is data-only. Drawing it is this
+/// function's job.
+///
+/// **Nothing from the running app is available here.** A background isolate
+/// starts empty: no service locator, no open database, no providers, no widget
+/// tree. Everything below either reads the platform keystore or constructs what
+/// it needs on the spot. See docs/chat-encryption.md.
 @pragma('vm:entry-point')
-Future<void> _firebaseBackgroundHandler(RemoteMessage message) async {}
+Future<void> _firebaseBackgroundHandler(RemoteMessage message) async {
+  if (message.data['type'] != 'chat_message') return;
+
+  // Required before any Firebase API is touched in this isolate — it has none
+  // of the initialisation main() did.
+  await Firebase.initializeApp();
+
+  final content = await decodeChatPush(message.data, allowNetwork: false);
+
+  final plugin = FlutterLocalNotificationsPlugin();
+  await plugin.initialize(
+    const InitializationSettings(
+      android: AndroidInitializationSettings('@mipmap/launcher_icon'),
+    ),
+  );
+
+  await presentChatNotification(
+    plugin: plugin,
+    title: content.title,
+    body: content.body,
+    threadId: content.threadId,
+  );
+}
 
 /// Brings push up off the startup path.
 ///
@@ -340,16 +387,19 @@ void _wirePushNotifications() {
   // the tab badge already told them.
   FirebaseMessaging.onMessage.listen((message) {
     if (message.data['type'] != 'chat_message') return;
-    final notification = message.notification;
-    if (notification == null) return;
 
-    unawaited(
-      notifications.showChatMessage(
-        title: notification.title ?? 'New message',
-        body: notification.body ?? '',
-        threadId: message.data['threadId'] as String?,
-      ),
-    );
+    // Read out of `data`, not `notification`. There is no notification block on
+    // a chat push any more: the server sends ciphertext and this device is the
+    // only thing that can turn it into words. The old `if (notification == null)
+    // return` guard would now drop every chat notification there is.
+    unawaited(() async {
+      final content = await decodeChatPush(message.data, allowNetwork: true);
+      await notifications.showChatMessage(
+        title: content.title,
+        body: content.body,
+        threadId: content.threadId,
+      );
+    }());
   });
 
   // A tap on one we drew ourselves comes back through the plugin instead of
@@ -393,6 +443,14 @@ void _openChatFor(ChatNotificationTarget target) {
 }
 
 class _MyAppState extends State<MyApp> {
+  // The callback reads the auth provider on every redirect rather than
+  // capturing widget.hasToken, which is only true of the moment the app
+  // started.
+  late final GoRouter _router = AppRouter.build(
+    isSignedIn: () =>
+        rootContainer.read(authProvider).user != null || widget.hasToken,
+  );
+
   StreamSubscription<Uri>? _linkSub;
   String? _pendingResetToken;
 
@@ -441,8 +499,8 @@ class _MyAppState extends State<MyApp> {
     final themeProvider = provider.Provider.of<ThemeProvider>(context);
     final localeProvider = provider.Provider.of<LocaleProvider>(context);
 
-    return MaterialApp(
-      navigatorKey: navigatorKey,
+    return MaterialApp.router(
+      routerConfig: _router,
       debugShowCheckedModeBanner: false,
       locale: localeProvider.locale,
       localizationsDelegates: [
@@ -462,58 +520,6 @@ class _MyAppState extends State<MyApp> {
           value: isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
           child: child!,
         );
-      },
-      // Signed out, the welcome screen *is* the home — it carries both Sign in
-      // and Create account, so there's no flag deciding whether to show it.
-      // Web goes straight to login instead: that surface is the Trainer
-      // Console, and a consumer pitch for calorie tracking has no place in
-      // front of it.
-      home:
-          widget.hasToken
-              ? const PostAuthHome()
-              : kIsWeb
-              ? const LoginScreen()
-              : const WelcomeScreen(),
-
-      onGenerateRoute: (settings) {
-        if (settings.name == '/add-food') {
-          final args = settings.arguments as Map<String, dynamic>;
-          return MaterialPageRoute(
-            builder: (context) => FoodAddScreen(category: args['category']),
-          );
-        }
-
-        if (settings.name == '/dashboard') {
-          return MaterialPageRoute(builder: (_) => const DashboardScreen());
-        }
-
-        if (settings.name == '/settings') {
-          return MaterialPageRoute(builder: (_) => const SettingsScreen());
-        }
-
-        if (settings.name == '/weight-tracking') {
-          return MaterialPageRoute(
-            builder: (_) => const WeightTrackingScreen(),
-          );
-        }
-
-        if (settings.name == '/weight-goals') {
-          return MaterialPageRoute(builder: (_) => const WeightGoalScreen());
-        }
-
-        if (settings.name == '/meal-templates') {
-          return MaterialPageRoute(builder: (_) => const MealTemplatesScreen());
-        }
-
-        // Pushed from Settings (trainers only) — the gate re-checks the role
-        // itself so a deep link can't bypass the entry point. No
-        // onExitConsole: this is a pushed route, so back already returns to
-        // the trainee app.
-        if (settings.name == '/trainer-console') {
-          return MaterialPageRoute(builder: (_) => const TrainerConsoleGate());
-        }
-
-        return MaterialPageRoute(builder: (_) => const HomeScreen());
       },
     );
   }
@@ -538,7 +544,11 @@ class _MyAppState extends State<MyApp> {
 /// trainer is also a ForgeForm user, so leaving the console has to be possible
 /// without signing out.
 class PostAuthHome extends StatefulWidget {
-  const PostAuthHome({super.key});
+  /// Which console section a deep link asked for. Null means "wherever the
+  /// console starts by default" — a cold start at `/`.
+  final TrainerConsoleRoute? initialConsoleRoute;
+
+  const PostAuthHome({super.key, this.initialConsoleRoute});
 
   @override
   State<PostAuthHome> createState() => _PostAuthHomeState();
@@ -553,6 +563,8 @@ class _PostAuthHomeState extends State<PostAuthHome> {
       // Everyone who isn't a trainer gets the normal app rather than a
       // "trainer access only" wall — the gate is the router here, not a bouncer.
       fallback: const HomeScreen(),
+      initialRoute:
+          widget.initialConsoleRoute ?? TrainerConsoleRoute.dashboard,
       onExitConsole: () => setState(() => _showTraineeApp = true),
     );
   }
@@ -722,36 +734,37 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ),
         ],
       ),
-      bottomNavigationBar: BottomNavigationBar(
-          currentIndex: _selectedIndex,
-          onTap: _onTabTapped,
-          selectedItemColor: Theme.of(context).colorScheme.primary,
-          unselectedItemColor: Colors.grey,
-          backgroundColor: Theme.of(context).colorScheme.surface,
-          type: BottomNavigationBarType.fixed,
-          items: [
-            BottomNavigationBarItem(
-              icon: const Icon(Icons.dashboard),
-              label: AppLocalizations.of(context)!.dashboard,
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.restaurant),
-              label: AppLocalizations.of(context)!.food,
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.fitness_center),
-              label: AppLocalizations.of(context)!.gym,
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.bar_chart),
-              label: AppLocalizations.of(context)!.progress,
-            ),
-            BottomNavigationBarItem(
-              icon: const Icon(Icons.person_outline),
-              label: AppLocalizations.of(context)!.profile,
-            ),
-          ],
-        ),
+      bottomNavigationBar: ForgeNavBar(
+        selectedIndex: _selectedIndex,
+        onSelected: _onTabTapped,
+        destinations: [
+          ForgeNavDestination(
+            label: AppLocalizations.of(context)!.dashboard,
+            icon: Icons.dashboard_outlined,
+            activeIcon: Icons.dashboard_rounded,
+          ),
+          ForgeNavDestination(
+            label: AppLocalizations.of(context)!.food,
+            icon: Icons.restaurant_outlined,
+            activeIcon: Icons.restaurant_rounded,
+          ),
+          ForgeNavDestination(
+            label: AppLocalizations.of(context)!.gym,
+            icon: Icons.fitness_center_outlined,
+            activeIcon: Icons.fitness_center_rounded,
+          ),
+          ForgeNavDestination(
+            label: AppLocalizations.of(context)!.progress,
+            icon: Icons.bar_chart_outlined,
+            activeIcon: Icons.bar_chart_rounded,
+          ),
+          ForgeNavDestination(
+            label: AppLocalizations.of(context)!.profile,
+            icon: Icons.person_outline,
+            activeIcon: Icons.person_rounded,
+          ),
+        ],
+      ),
     );
   }
 

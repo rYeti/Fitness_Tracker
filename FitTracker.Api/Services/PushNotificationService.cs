@@ -1,3 +1,5 @@
+using System.Text;
+using FitTracker.Api.DTOs;
 using FitTracker.Api.Repositories.Interfaces;
 using FitTracker.Api.Services.Interfaces;
 
@@ -7,6 +9,12 @@ namespace FitTracker.Api.Services;
 /// Turns "user X was sent a message" into notifications on their devices, and
 /// keeps the token table honest while doing it.
 /// </summary>
+/// <remarks>
+/// This class used to write the notification. It cannot any more: the body is
+/// ciphertext, so there is no preview to truncate and no title to pair it with.
+/// What it builds now is a data payload the recipient's own device decrypts and
+/// renders. See docs/chat-encryption.md.
+/// </remarks>
 public class PushNotificationService(
     IDeviceTokenRepository deviceTokens,
     IPushSender sender,
@@ -17,13 +25,27 @@ public class PushNotificationService(
     private readonly ILogger<PushNotificationService> _logger = logger;
 
     /// <summary>
-    /// Notification bodies are truncated rather than sent whole: FCM caps a
-    /// payload at 4KB, and a lock screen shows perhaps two lines regardless.
+    /// How much of the payload the ciphertext is allowed to take up.
     /// </summary>
-    private const int PreviewLength = 140;
+    /// <remarks>
+    /// FCM caps a message at 4KB. A ciphertext cannot be truncated and still
+    /// decrypt — chop a byte off an AES-GCM payload and the tag fails, which the
+    /// client correctly reads as "tampered with" — so an over-long message
+    /// cannot be shortened the way the old 140-character preview was. It is
+    /// dropped from the payload instead, and the device shows the sender's name
+    /// with no preview. Deliberately well under 4KB: the rest of the payload,
+    /// FCM's own envelope, and base64's 4/3 expansion all come out of the same
+    /// budget.
+    /// </remarks>
+    private const int MaxCiphertextBytes = 2600;
 
     /// <inheritdoc/>
-    public async Task SendChatMessageAsync(Guid recipientId, string senderName, string? body, Guid threadId)
+    public async Task SendChatMessageAsync(
+        Guid recipientId,
+        string senderName,
+        Guid messageId,
+        EncryptedChatBody body,
+        Guid threadId)
     {
         if (!_sender.IsConfigured) return;
 
@@ -34,18 +56,30 @@ public class PushNotificationService(
 
         var tokens = devices.Select(d => d.Token).ToList();
 
-        var message = new PushMessage(
-            Title: senderName,
-            Body: Preview(body),
-            Data: new Dictionary<string, string>
-            {
-                // The client switches on this to tell a chat notification apart
-                // from whatever is added later, and uses threadId to route.
-                ["type"] = "chat_message",
-                ["threadId"] = threadId.ToString(),
-            });
+        var data = new Dictionary<string, string>
+        {
+            // The client switches on this to tell a chat notification apart
+            // from whatever is added later, and uses threadId to route.
+            ["type"] = "chat_message",
+            ["threadId"] = threadId.ToString(),
+            ["messageId"] = messageId.ToString(),
+            // The one human-readable thing in here, and the only reason a
+            // notification can still say who it is from. A display name is not
+            // message content.
+            ["senderName"] = senderName,
+        };
 
-        var result = await _sender.SendAsync(tokens, message);
+        // Omitted rather than truncated when it will not fit. The device then
+        // draws "New message" under the sender's name, which is exactly what it
+        // already does when it has no key for this peer.
+        if (Fits(body.Ciphertext))
+        {
+            data["ciphertext"] = body.Ciphertext!;
+            data["encryptionVersion"] = body.EncryptionVersion.ToString();
+            if (body.Iv != null) data["iv"] = body.Iv;
+        }
+
+        var result = await _sender.SendAsync(tokens, new PushMessage(data));
 
         if (result.DeadTokens.Count == 0) return;
 
@@ -58,16 +92,7 @@ public class PushNotificationService(
             result.DeadTokens.Count, recipientId);
     }
 
-    private static string Preview(string? body)
-    {
-        // An attachment-only message has no body. "Sent a message" is a better
-        // notification than an empty one, which some launchers render as a blank
-        // row the user cannot interpret at all.
-        if (string.IsNullOrWhiteSpace(body)) return "Sent a message";
-
-        var trimmed = body.Trim();
-        return trimmed.Length <= PreviewLength
-            ? trimmed
-            : string.Concat(trimmed.AsSpan(0, PreviewLength), "…");
-    }
+    private static bool Fits(string? ciphertext) =>
+        !string.IsNullOrEmpty(ciphertext)
+        && Encoding.UTF8.GetByteCount(ciphertext) <= MaxCiphertextBytes;
 }

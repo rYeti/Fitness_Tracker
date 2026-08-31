@@ -6,7 +6,7 @@ import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/console_error.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_licence.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/trainer_licence_provider.dart';
-import 'package:ForgeForm/feature/trainer_console/presentation/widgets/console_widgets.dart';
+import 'package:ForgeForm/core/widgets/app_widgets.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/seat_meter.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 
@@ -122,7 +122,7 @@ class _InviteClientSheetState extends State<InviteClientSheet> {
 
             if (provider.pendingInvites.isNotEmpty) ...[
               const SizedBox(height: 32),
-              ConsoleSectionTitle(title: l10n.outstandingInvites),
+              SectionTitle(title: l10n.outstandingInvites),
               Text(
                 l10n.outstandingInvitesBody,
                 style: TextStyle(
@@ -173,7 +173,7 @@ class _MintButton extends StatelessWidget {
           message: reason ?? l10n.createNewInviteCode,
           child: SizedBox(
             height: 48,
-            child: ElevatedButton.icon(
+            child: FilledButton.icon(
               onPressed: canInvite && !provider.isMinting
                   ? provider.createInvite
                   : null,
@@ -212,7 +212,7 @@ class _InviteCodeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    return ConsoleCard(
+    return AppCard(
       padding: const EdgeInsets.all(24),
       radius: 16,
       child: Column(
@@ -272,7 +272,7 @@ class _PendingInviteRow extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final expiry = _expiryLabel(invite.expiresAt, l10n);
 
-    return ConsoleCard(
+    return AppCard(
       child: Row(
         children: [
           Expanded(

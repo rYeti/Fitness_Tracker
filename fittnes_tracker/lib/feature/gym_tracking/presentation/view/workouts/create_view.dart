@@ -1,5 +1,7 @@
 import 'package:drift/drift.dart' as drift hide Column;
 import 'dart:convert';
+import 'package:ForgeForm/core/design_tokens.dart';
+import 'package:ForgeForm/core/forge_motion.dart';
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/di/service_locator.dart';
 import 'package:ForgeForm/core/providers/access_provider.dart';
@@ -14,6 +16,8 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:ForgeForm/feature/gym_tracking/data/models/set_template.dart';
+import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
+import 'package:ForgeForm/core/widgets/app_widgets.dart';
 
 class CreateWorkoutView extends StatefulWidget {
   final List<DateTime>? selectedDates;
@@ -47,7 +51,9 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.createWorkout), elevation: 0),
+      appBar: ForgeAppBar(
+        title: l10n.createWorkout,
+      ),
       body: Column(
         children: [
           // Progress indicator
@@ -67,7 +73,7 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
         border: Border(bottom: BorderSide(color: theme.dividerColor, width: 1)),
       ),
       child: Row(
@@ -93,7 +99,7 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
                           color:
                               isCompleted || isCurrent
                                   ? theme.colorScheme.primary
-                                  : theme.colorScheme.surfaceVariant,
+                                  : theme.colorScheme.surfaceContainerHighest,
                           shape: BoxShape.circle,
                           border: Border.all(
                             color:
@@ -146,7 +152,7 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
                     color:
                         isCompleted
                             ? theme.colorScheme.primary
-                            : theme.colorScheme.surfaceVariant,
+                            : theme.colorScheme.surfaceContainerHighest,
                   ),
               ],
             ),
@@ -169,7 +175,7 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
         color: theme.colorScheme.surface,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 8,
             offset: const Offset(0, -2),
           ),
@@ -191,7 +197,7 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
             if (_currentStep > 0) const SizedBox(width: 12),
             Expanded(
               flex: 2,
-              child: ElevatedButton.icon(
+              child: FilledButton.icon(
                 onPressed: _isSaving ? null : _nextOrSave,
                 icon: _isSaving
                     ? const SizedBox(
@@ -206,11 +212,11 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
                         _isLastStep ? Icons.check : Icons.arrow_forward,
                       ),
                 label: Text(_isLastStep ? l10n.save : l10n.next),
-                style: ElevatedButton.styleFrom(
+                style: FilledButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   backgroundColor:
                       _isLastStep
-                          ? Colors.green
+                          ? ForgeColors.statusOkFor(Theme.of(context).brightness)
                           : theme.colorScheme.primary,
                 ),
               ),
@@ -750,7 +756,7 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
           children: [
             Icon(Icons.fitness_center,
                 size: 64,
-                color: theme.colorScheme.onSurfaceVariant.withOpacity(0.5)),
+                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5)),
             const SizedBox(height: 16),
             Text(
               l10n.noWorkoutsAddedYet,
@@ -803,11 +809,13 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
               children: [
                 IconButton(
                   icon: const Icon(Icons.edit_outlined),
+                  tooltip: l10n.editWorkout,
                   onPressed: () => _showWorkoutDetails(name),
                 ),
                 IconButton(
                   icon: Icon(Icons.delete_outline,
                       color: theme.colorScheme.error),
+                  tooltip: '${l10n.deleteWorkout}: $name',
                   onPressed: () =>
                       setState(() => _workoutExercises.remove(name)),
                 ),
@@ -820,34 +828,13 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
     );
   }
 
+  /// `theme` is still taken so the call sites need no edit; EmptyStateView
+  /// reads the scheme itself.
   Widget _buildEmptyState(ThemeData theme, AppLocalizations l10n) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.event_available,
-            size: 64,
-            color: theme.colorScheme.onSurfaceVariant.withOpacity(0.5),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            l10n.noWorkoutsAddedYet,
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            l10n.addWorkoutsToBuildCycle,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
+    return EmptyStateView(
+      icon: Icons.event_available,
+      title: l10n.noWorkoutsAddedYet,
+      message: l10n.addWorkoutsToBuildCycle,
     );
   }
 
@@ -1022,7 +1009,7 @@ class _CreateWorkoutViewState extends State<CreateWorkoutView> {
           ),
           const SizedBox(height: 24),
           Card(
-            color: theme.colorScheme.secondaryContainer.withOpacity(0.3),
+            color: theme.colorScheme.secondaryContainer.withValues(alpha: 0.3),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
@@ -1259,6 +1246,7 @@ class _WorkoutDayCard extends StatelessWidget {
                     Icons.delete_outline,
                     color: theme.colorScheme.error,
                   ),
+                  tooltip: '${l10n.deleteWorkout}: $workoutName',
                   onPressed: onDelete,
                   visualDensity: VisualDensity.compact,
                 ),
@@ -1387,8 +1375,8 @@ class _WorkoutDetailsScreenState extends State<_WorkoutDetailsScreen> {
         if (didPop) widget.onExercisesChanged(_exercises);
       },
       child: Scaffold(
-        appBar: AppBar(
-          title: Text(widget.workoutName),
+        appBar: ForgeAppBar(
+          title: widget.workoutName,
           actions: [
             if (_supersetPickIndex != null)
               TextButton(
@@ -1397,6 +1385,7 @@ class _WorkoutDetailsScreenState extends State<_WorkoutDetailsScreen> {
               ),
             IconButton(
               icon: const Icon(Icons.check),
+              tooltip: l10n.done,
               onPressed: () {
                 widget.onExercisesChanged(_exercises);
                 Navigator.pop(context);
@@ -1493,32 +1482,13 @@ class _WorkoutDetailsScreenState extends State<_WorkoutDetailsScreen> {
     );
   }
 
+  /// `theme` is still taken so the call sites need no edit; EmptyStateView
+  /// reads the scheme itself.
   Widget _buildEmptyState(ThemeData theme, AppLocalizations l10n) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.fitness_center,
-            size: 64,
-            color: theme.colorScheme.onSurfaceVariant.withOpacity(0.5),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            l10n.noExercisesYet,
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            l10n.tapButtonToAddExercises,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
+    return EmptyStateView(
+      icon: Icons.fitness_center,
+      title: l10n.noExercisesYet,
+      message: l10n.tapButtonToAddExercises,
     );
   }
 
@@ -1699,6 +1669,9 @@ class _ExerciseCardState extends State<_ExerciseCard> {
                         Icons.delete_outline,
                         color: theme.colorScheme.error,
                       ),
+                      tooltip:
+                          '${l10n.deleteExercise}: '
+                          '${widget.exercise.localizedName(Localizations.localeOf(context).languageCode)}',
                       onPressed: widget.onDelete,
                       visualDensity: VisualDensity.compact,
                     ),
@@ -1776,7 +1749,7 @@ class _ExerciseCardState extends State<_ExerciseCard> {
                                 width: 32,
                                 height: 32,
                                 decoration: BoxDecoration(
-                                  color: theme.colorScheme.surfaceVariant,
+                                  color: theme.colorScheme.surfaceContainerHighest,
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Center(
@@ -1813,6 +1786,7 @@ class _ExerciseCardState extends State<_ExerciseCard> {
                                   color: theme.colorScheme.error,
                                   size: 20,
                                 ),
+                                tooltip: '${l10n.removeSet}: ${l10n.setLabel} ${set.setNumber}',
                                 onPressed: () => _removeSet(index),
                                 visualDensity: VisualDensity.compact,
                               ),
@@ -1902,13 +1876,13 @@ class _AddDaySpeedDialState extends State<_AddDaySpeedDial>
   void initState() {
     super.initState();
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 200),
+      duration: ForgeMotion.standard,
       vsync: this,
     );
 
     _scaleAnimation = CurvedAnimation(
       parent: _animationController,
-      curve: Curves.easeOut,
+      curve: ForgeMotion.curve,
     );
 
     _rotationAnimation = Tween<double>(
@@ -1917,6 +1891,14 @@ class _AddDaySpeedDialState extends State<_AddDaySpeedDial>
     ).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
     );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // AnimationController is built in initState, before MediaQuery exists, so
+    // the reduce-motion setting can only be applied once dependencies resolve.
+    _animationController.duration = ForgeMotion.of(context);
   }
 
   @override
@@ -1979,9 +1961,11 @@ class _AddDaySpeedDialState extends State<_AddDaySpeedDial>
           const SizedBox(height: 12),
         ],
 
-        // Main FAB
+        // Main FAB. Tracks open/closed: a toggle that always announces the
+        // same thing says the opposite of what it does half the time.
         FloatingActionButton(
           onPressed: _toggle,
+          tooltip: _isOpen ? l10n.close : l10n.addWorkoutDay,
           child: RotationTransition(
             turns: _rotationAnimation,
             child: Icon(_isOpen ? Icons.close : Icons.add),
@@ -2005,7 +1989,7 @@ class _AddDaySpeedDialState extends State<_AddDaySpeedDial>
         Material(
           elevation: 2,
           borderRadius: BorderRadius.circular(8),
-          color: backgroundColor.withOpacity(0.9),
+          color: backgroundColor.withValues(alpha: 0.9),
           child: InkWell(
             onTap: onTap,
             borderRadius: BorderRadius.circular(8),

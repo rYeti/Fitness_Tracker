@@ -11,7 +11,7 @@ public class ChatService(ITrainerClientRepository trainerClientRepo, IChatReposi
     private readonly IChatRepository _chatRepo = chatRepo;
 
     /// <inheritdoc/>
-    public async Task<ChatMessageDto> SendMessageAsync(Guid trainerId, Guid clientId, Guid senderId, Guid messageId, string message)
+    public async Task<ChatMessageDto> SendMessageAsync(Guid trainerId, Guid clientId, Guid senderId, Guid messageId, EncryptedChatBody body)
     {
         // A ChatMessage carries no trainer/client ids of its own — it reaches the
         // pair through TrainerClientId, a required foreign key. So the loose pair
@@ -25,7 +25,9 @@ public class ChatService(ITrainerClientRepository trainerClientRepo, IChatReposi
         {
             Id = messageId,
             TrainerClientId = relationship.Id,
-            Body = message,
+            Body = body.Ciphertext,
+            Iv = body.Iv,
+            EncryptionVersion = body.EncryptionVersion,
             SenderId = senderId,
         });
 
@@ -68,6 +70,8 @@ public class ChatService(ITrainerClientRepository trainerClientRepo, IChatReposi
     {
         Id = m.Id,
         Body = m.Body,
+        Iv = m.Iv,
+        EncryptionVersion = m.EncryptionVersion,
         SentAt = m.SentAt,
         SenderId = m.SenderId,
         TrainerId = trainerId,

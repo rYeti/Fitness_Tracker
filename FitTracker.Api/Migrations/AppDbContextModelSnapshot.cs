@@ -31,6 +31,12 @@ namespace FitTracker.Api.Migrations
                     b.Property<string>("Body")
                         .HasColumnType("text");
 
+                    b.Property<int>("EncryptionVersion")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Iv")
+                        .HasColumnType("text");
+
                     b.Property<int?>("MediaType")
                         .HasColumnType("integer");
 
@@ -578,6 +584,26 @@ namespace FitTracker.Api.Migrations
                     b.ToTable("Users");
                 });
 
+            modelBuilder.Entity("FitTracker.Api.Models.UserChatKey", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PublicKeyJwk")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("UserId");
+
+                    b.ToTable("UserChatKeys");
+                });
+
             modelBuilder.Entity("FitTracker.Api.Models.UserSettings", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1053,6 +1079,17 @@ namespace FitTracker.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("Trainer");
+                });
+
+            modelBuilder.Entity("FitTracker.Api.Models.UserChatKey", b =>
+                {
+                    b.HasOne("FitTracker.Api.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("FitTracker.Api.Models.UserSettings", b =>

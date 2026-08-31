@@ -14,7 +14,7 @@ import 'package:ForgeForm/feature/chat/presentation/widgets/conversation_row.dar
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/active_client_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/trainer_licence_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/view/trainer_console_home.dart';
-import 'package:ForgeForm/feature/trainer_console/presentation/widgets/console_widgets.dart';
+import 'package:ForgeForm/core/widgets/app_widgets.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/view/messages_screen.dart';
 
 import '../trainer_console/fakes.dart';
@@ -70,6 +70,7 @@ void main() {
         db: db,
         api: api ?? FakeChatApi(),
         signalR: signalR,
+        crypto: FakeChatCrypto(),
       ),
     );
     final activeClient = ActiveClientProvider(
@@ -104,7 +105,7 @@ void main() {
       await pump(tester, api: FakeChatApi(conversations: [conversationJson()], gate: gate));
       await tester.pump();
 
-      expect(find.byType(ConsoleSkeleton), findsOneWidget);
+      expect(find.byType(LoadingSkeleton), findsOneWidget);
       expect(find.byType(CircularProgressIndicator), findsNothing);
 
       gate.complete();
@@ -125,12 +126,12 @@ void main() {
       await pump(tester, api: api);
       await tester.pumpAndSettle();
 
-      expect(find.byType(ConsoleErrorState), findsOneWidget);
+      expect(find.byType(ErrorStateView), findsOneWidget);
 
       await tester.tap(find.text('Retry'));
       await tester.pumpAndSettle();
 
-      expect(find.byType(ConsoleErrorState), findsNothing);
+      expect(find.byType(ErrorStateView), findsNothing);
       expect(find.text('Robert Meyer'), findsWidgets);
     });
 
@@ -256,7 +257,12 @@ void main() {
       await tester.tap(find.byTooltip('Send message'));
       await tester.pumpAndSettle();
 
-      expect(signalR.sent.single.body, 'great set today');
+      // The wire carries ciphertext, not what was typed. Asserting the
+      // plaintext here would be asserting the absence of encryption.
+      expect(
+        signalR.sent.single.body,
+        FakeChatCrypto.sealed('great set today'),
+      );
       expect(find.widgetWithText(TextField, 'great set today'), findsNothing);
     });
   });

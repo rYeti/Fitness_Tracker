@@ -5,6 +5,7 @@ import '../../data/models/food_item_model.dart';
 import '../../data/models/meal_template.dart';
 import '../../data/repositories/meal_template_repository.dart';
 import 'food_add_screen.dart';
+import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
 
 class CreateMealTemplateScreen extends StatefulWidget {
   final String? initialCategory;
@@ -45,19 +46,8 @@ class _CreateMealTemplateScreenState extends State<CreateMealTemplateScreen> {
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF333333),
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: Text(
-          loc.createMealTemplate,
-          style: const TextStyle(
-            fontFamily: 'Montserrat',
-            fontWeight: FontWeight.w700,
-            fontSize: 17,
-            color: Colors.white,
-          ),
-        ),
+      appBar: ForgeAppBar(
+        title: loc.createMealTemplate,
       ),
       body: Form(
         key: _formKey,
@@ -142,9 +132,9 @@ class _CreateMealTemplateScreenState extends State<CreateMealTemplateScreen> {
             // List of selected foods
             ..._buildFoodsList(),
             const SizedBox(height: 24),
-            ElevatedButton(
+            FilledButton(
               onPressed: _saveTemplate,
-              style: ElevatedButton.styleFrom(
+              style: FilledButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 backgroundColor: Theme.of(context).colorScheme.primary,
                 foregroundColor: Colors.white,
@@ -184,6 +174,7 @@ class _CreateMealTemplateScreenState extends State<CreateMealTemplateScreen> {
           ),
           trailing: IconButton(
             icon: const Icon(Icons.delete),
+            tooltip: loc.deleteFoodEntry(food.foodName),
             onPressed: () {
               setState(() {
                 _selectedFoods.remove(food);

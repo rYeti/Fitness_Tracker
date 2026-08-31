@@ -7,6 +7,9 @@ import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
+import 'package:ForgeForm/core/widgets/client_avatar.dart';
+import 'package:ForgeForm/core/widgets/content_pane.dart';
 
 class UserSettingsScreen extends ConsumerStatefulWidget {
   const UserSettingsScreen({super.key});
@@ -158,13 +161,13 @@ class _UserSettingsScreenState extends ConsumerState<UserSettingsScreen> {
 
     if (user == null) return const SizedBox.shrink();
 
-    final initials =
-        '${user.firstName.isNotEmpty ? user.firstName[0] : ''}${user.lastName.isNotEmpty ? user.lastName[0] : ''}'
-            .toUpperCase();
+    final initials = ClientAvatar.initialsFor(
+      '${user.firstName} ${user.lastName}',
+    );
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(l10n.accountSettings),
+      appBar: ForgeAppBar(
+        title: l10n.accountSettings,
         actions: [
           if (_profileDirty)
             TextButton(
@@ -179,9 +182,10 @@ class _UserSettingsScreenState extends ConsumerState<UserSettingsScreen> {
             ),
         ],
       ),
-      body: authState.isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView(
+      body: ContentPane(
+        child: authState.isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : ListView(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
               children: [
                 // Avatar + username header
@@ -374,6 +378,7 @@ class _UserSettingsScreenState extends ConsumerState<UserSettingsScreen> {
                 const SizedBox(height: 32),
               ],
             ),
+      )
     );
   }
 }

@@ -118,12 +118,12 @@ class _Legend extends StatelessWidget {
           height: 8,
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
-        const SizedBox(width: 5),
+        const SizedBox(width: 4),
         Text(
           '$label ${grams}g',
           style: TextStyle(
             fontFamily: 'Exo 2',
-            fontSize: 11.5,
+            fontSize: 12,
             fontWeight: FontWeight.w600,
             color: colors.onSurface.withValues(alpha: 0.75),
           ),

@@ -6,6 +6,7 @@ import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
 
 enum _ImportState { idle, importing, done }
 
@@ -92,7 +93,9 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.importOptions)),
+      appBar: ForgeAppBar(
+        title: l10n.importOptions,
+      ),
       body: switch (_state) {
         _ImportState.idle => _buildIdle(theme),
         _ImportState.importing => _buildImporting(theme),

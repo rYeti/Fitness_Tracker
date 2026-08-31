@@ -2,6 +2,13 @@ import { defineConfig, devices } from '@playwright/test';
 
 const PORT = Number(process.env.E2E_PORT ?? 4173);
 
+// Some environments ship a Chromium that Playwright did not download itself
+// (a preinstalled one in a container image, for instance). Playwright refuses
+// to launch anything but the exact build its version pins, so point it at the
+// binary explicitly rather than re-downloading one. Unset elsewhere, this is
+// undefined and the bundled browser is used as normal.
+const executablePath = process.env.PLAYWRIGHT_CHROMIUM_PATH || undefined;
+
 export default defineConfig({
   testDir: './tests',
   // seed.spec.ts is the template the Playwright generator agent copies when it
@@ -34,14 +41,32 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium-desktop',
-      use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } },
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1440, height: 900 },
+        launchOptions: { executablePath },
+      },
     },
     {
-      // The console collapses to a single pane below 600px (CLAUDE.md,
-      // "Layout & spacing"), so the narrow layout is its own project rather
-      // than an afterthought.
+      // The 600-1024 band. `Breakpoints.isDesktop` is `> 1024`, so everything
+      // in here gets the phone layout -- a sidebar-less console with a bottom
+      // tab bar on a 1024px-wide window. That is the band the design review
+      // flagged and the one the suite could not see, because it had only 1440
+      // and 390.
+      name: 'chromium-tablet',
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 800, height: 1000 },
+        launchOptions: { executablePath },
+      },
+    },
+    {
       name: 'chromium-mobile',
-      use: { ...devices['Desktop Chrome'], viewport: { width: 390, height: 844 } },
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 390, height: 844 },
+        launchOptions: { executablePath },
+      },
     },
   ],
 

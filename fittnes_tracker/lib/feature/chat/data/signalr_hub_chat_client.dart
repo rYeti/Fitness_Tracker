@@ -125,12 +125,19 @@ class SignalRHubChatClient implements ChatSignalRClient {
     required String otherPartyId,
     required String messageId,
     required String body,
+    required String? iv,
+    required int encryptionVersion,
   }) async {
     // Positional order is the hub's, not this method's:
-    // SendMessage(Guid clientId, string body, Guid messageId).
+    // SendMessage(Guid clientId, string body, Guid messageId, string? iv,
+    //             int encryptionVersion).
+    //
+    // SignalR matches these by position and nothing checks the names, so a
+    // reordering here is a runtime type error at best and a message stored with
+    // its IV in the body at worst.
     final ack = await (await _ready()).invoke(
       'SendMessage',
-      args: [otherPartyId, body, messageId],
+      args: [otherPartyId, body, messageId, iv, encryptionVersion],
     );
 
     if (ack == null) {

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/utils/app_logger.dart';
 import 'package:ForgeForm/feature/workout_planning/data/models/workout_set.dart'
@@ -974,51 +975,47 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     if (_isLoading) {
-      return SafeArea(
-        child: Scaffold(
-          appBar: AppBar(title: Text(l10n.loading)),
-          body: const Center(child: CircularProgressIndicator()),
-        ),
+      return Scaffold(
+        appBar: AppBar(title: Text(l10n.loading)),
+        body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     if (_exercises.isEmpty) {
-      return SafeArea(
-        child: Scaffold(
-          appBar: AppBar(
-            title: Text(widget.scheduledWorkout.workout?.name ?? 'Workout'),
-          ),
-          body: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.warning_amber_rounded,
-                  size: 64,
-                  color: Theme.of(context).colorScheme.tertiary,
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(widget.scheduledWorkout.workout?.name ?? 'Workout'),
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.warning_amber_rounded,
+                size: 64,
+                color: Theme.of(context).colorScheme.tertiary,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                l10n.workoutHasNoExercises,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
                 ),
-                const SizedBox(height: 16),
-                Text(
-                  l10n.workoutHasNoExercises,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  l10n.addExercisesToTemplate,
-                  style: const TextStyle(color: Colors.grey),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton.icon(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.arrow_back),
-                  label: Text(l10n.goBack),
-                ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                l10n.addExercisesToTemplate,
+                style: const TextStyle(color: Colors.grey),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              FilledButton.icon(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.arrow_back),
+                label: Text(l10n.goBack),
+              ),
+            ],
           ),
         ),
       );
@@ -1049,81 +1046,79 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
         await _saveCurrentExercise(flushIme: true);
         if (context.mounted) Navigator.of(context).pop();
       },
-      child: SafeArea(
-        child: Scaffold(
-          appBar: AppBar(
-            title: Text(widget.scheduledWorkout.workout?.name ?? 'Workout'),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.swap_horiz),
-                tooltip: l10n.replaceExercise,
-                onPressed: _replaceCurrentExercise,
-              ),
-              if (_restTimerEnabled)
-                IconButton(
-                  icon: const Icon(Icons.timer),
-                  tooltip: l10n.restTimer,
-                  onPressed: () => showRestTimer(context),
-                ),
-              IconButton(
-                icon: const Icon(Icons.note_add),
-                tooltip: l10n.workoutNotes,
-                onPressed: () => _showWorkoutNotesDialog(),
-              ),
-            ],
-          ),
-          body: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => FocusScope.of(context).unfocus(),
-            child: Column(
-              children: [
-                LinearProgressIndicator(
-                  value: progress,
-                  minHeight: 8,
-                  backgroundColor: theme.colorScheme.surfaceVariant,
-                  valueColor: AlwaysStoppedAnimation(theme.colorScheme.primary),
-                ),
-
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            l10n.exerciseXofY(
-                              _currentExerciseIndex + 1,
-                              totalExercises,
-                            ),
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Text(
-                            l10n.stepXofY(
-                              _currentSetIndex + 1,
-                              currentExercise.templates.length,
-                            ),
-                            style: theme.textTheme.bodyMedium,
-                          ),
-                        ],
-                      ),
-                      TextButton.icon(
-                        onPressed: () => _showExerciseList(context),
-                        icon: const Icon(Icons.list),
-                        label: Text(l10n.jumpTo),
-                      ),
-                    ],
-                  ),
-                ),
-
-                Expanded(child: _buildSetFocusedView(currentExercise, theme)),
-
-                _buildNavigationButtons(theme, l10n),
-              ],
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(widget.scheduledWorkout.workout?.name ?? 'Workout'),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.swap_horiz),
+              tooltip: l10n.replaceExercise,
+              onPressed: _replaceCurrentExercise,
             ),
+            if (_restTimerEnabled)
+              IconButton(
+                icon: const Icon(Icons.timer),
+                tooltip: l10n.restTimer,
+                onPressed: () => showRestTimer(context),
+              ),
+            IconButton(
+              icon: const Icon(Icons.note_add),
+              tooltip: l10n.workoutNotes,
+              onPressed: () => _showWorkoutNotesDialog(),
+            ),
+          ],
+        ),
+        body: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: Column(
+            children: [
+              LinearProgressIndicator(
+                value: progress,
+                minHeight: 8,
+                backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                valueColor: AlwaysStoppedAnimation(theme.colorScheme.primary),
+              ),
+
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l10n.exerciseXofY(
+                            _currentExerciseIndex + 1,
+                            totalExercises,
+                          ),
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          l10n.stepXofY(
+                            _currentSetIndex + 1,
+                            currentExercise.templates.length,
+                          ),
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                      ],
+                    ),
+                    TextButton.icon(
+                      onPressed: () => _showExerciseList(context),
+                      icon: const Icon(Icons.list),
+                      label: Text(l10n.jumpTo),
+                    ),
+                  ],
+                ),
+              ),
+
+              Expanded(child: _buildSetFocusedView(currentExercise, theme)),
+
+              _buildNavigationButtons(theme, l10n),
+            ],
           ),
         ),
       ),
@@ -1133,282 +1128,280 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
   /// FIX #2: Build workout overview for completed workouts
   Widget _buildWorkoutOverview(ThemeData theme) {
     final l10n = AppLocalizations.of(context)!;
-    return SafeArea(
-      child: Scaffold(
-        appBar: AppBar(
-          title: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(widget.scheduledWorkout.workout?.name ?? 'Workout'),
-              Text(
-                l10n.completedWorkout,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.tertiary,
-                ),
+    return Scaffold(
+      appBar: AppBar(
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(widget.scheduledWorkout.workout?.name ?? 'Workout'),
+            Text(
+              l10n.completedWorkout,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.tertiary,
               ),
-            ],
-          ),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.summarize),
-              tooltip: l10n.workoutSummaryLabel,
-              onPressed: _showWorkoutSummary,
             ),
           ],
         ),
-        body: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Workout note
-              if (_workoutNoteController.text.isNotEmpty) ...[
-                Card(
-                  color: theme.colorScheme.secondaryContainer,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.notes,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.summarize),
+            tooltip: l10n.workoutSummaryLabel,
+            onPressed: _showWorkoutSummary,
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Workout note
+            if (_workoutNoteController.text.isNotEmpty) ...[
+              Card(
+                color: theme.colorScheme.secondaryContainer,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.notes,
+                            color: theme.colorScheme.onSecondaryContainer,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            l10n.workoutNotes,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
                               color: theme.colorScheme.onSecondaryContainer,
                             ),
-                            const SizedBox(width: 8),
-                            Text(
-                              l10n.workoutNotes,
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: theme.colorScheme.onSecondaryContainer,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _workoutNoteController.text,
+                        style: TextStyle(
+                          color: theme.colorScheme.onSecondaryContainer,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+            // Exercise summaries
+            ..._exercises.map((exercise) {
+              final exerciseNoteKey = _getExerciseNoteKey(
+                exercise.workoutExercise.id,
+              );
+              final exerciseNoteController =
+                  _exerciseNoteControllers[exerciseNoteKey];
+              final hasNote =
+                  exerciseNoteController != null &&
+                  exerciseNoteController.text.isNotEmpty;
+
+              return Card(
+                margin: const EdgeInsets.only(bottom: 16),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        exercise.exercise.localizedName(
+                          Localizations.localeOf(context).languageCode,
+                        ),
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      if (exercise.exercise.localizedDescription(
+                            Localizations.localeOf(context).languageCode,
+                          ) !=
+                          null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          exercise.exercise.localizedDescription(
+                            Localizations.localeOf(context).languageCode,
+                          )!,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 16),
+
+                      // Sets table header
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 8,
+                          horizontal: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.surfaceContainerHighest,
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(8),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            SizedBox(
+                              width: 50,
+                              child: Text(
+                                l10n.setLabel,
+                                style: theme.textTheme.labelMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: Text(
+                                l10n.weight,
+                                style: theme.textTheme.labelMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: Text(
+                                l10n.reps,
+                                style: theme.textTheme.labelMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          _workoutNoteController.text,
-                          style: TextStyle(
-                            color: theme.colorScheme.onSecondaryContainer,
+                      ),
+
+                      // Sets data
+                      Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: theme.dividerColor),
+                          borderRadius: const BorderRadius.vertical(
+                            bottom: Radius.circular(8),
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-              ],
-              // Exercise summaries
-              ..._exercises.map((exercise) {
-                final exerciseNoteKey = _getExerciseNoteKey(
-                  exercise.workoutExercise.id,
-                );
-                final exerciseNoteController =
-                    _exerciseNoteControllers[exerciseNoteKey];
-                final hasNote =
-                    exerciseNoteController != null &&
-                    exerciseNoteController.text.isNotEmpty;
+                        child: Column(
+                          children:
+                              exercise.templates.map((template) {
+                                final weightController =
+                                    _getOrCreateSetController(
+                                      exercise.workoutExercise.id,
+                                      template.setNumber,
+                                      'weight',
+                                      exercise
+                                              .existingSets[template
+                                                  .setNumber]
+                                              ?.weight
+                                              ?.toString() ??
+                                          '',
+                                    );
+                                final repsController =
+                                    _getOrCreateSetController(
+                                      exercise.workoutExercise.id,
+                                      template.setNumber,
+                                      'reps',
+                                      exercise
+                                              .existingSets[template
+                                                  .setNumber]
+                                              ?.reps
+                                              ?.toString() ??
+                                          '',
+                                    );
 
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 16),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          exercise.exercise.localizedName(
-                            Localizations.localeOf(context).languageCode,
-                          ),
-                          style: theme.textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                    horizontal: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    border: Border(
+                                      bottom: BorderSide(
+                                        color: theme.dividerColor.withValues(alpha: 
+                                          0.5,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      SizedBox(
+                                        width: 50,
+                                        child: Text(
+                                          '${template.setNumber}',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: Text(
+                                          weightController.text.isNotEmpty
+                                              ? '${weightController.text} kg'
+                                              : '--',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: Text(
+                                          repsController.text.isNotEmpty
+                                              ? '${repsController.text} reps'
+                                              : '--',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }).toList(),
                         ),
-                        if (exercise.exercise.localizedDescription(
-                              Localizations.localeOf(context).languageCode,
-                            ) !=
-                            null) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            exercise.exercise.localizedDescription(
-                              Localizations.localeOf(context).languageCode,
-                            )!,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: 16),
-
-                        // Sets table header
+                      ),
+                      // Exercise note
+                      if (hasNote) ...[
+                        const SizedBox(height: 12),
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                            vertical: 8,
-                            horizontal: 8,
-                          ),
+                          padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: theme.colorScheme.surfaceVariant,
-                            borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(8),
-                            ),
+                            color: theme.colorScheme.surfaceContainerHighest
+                                .withValues(alpha: 0.5),
+                            borderRadius: BorderRadius.circular(8),
                           ),
                           child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              SizedBox(
-                                width: 50,
-                                child: Text(
-                                  l10n.setLabel,
-                                  style: theme.textTheme.labelMedium?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
+                              Icon(
+                                Icons.note,
+                                size: 16,
+                                color: theme.colorScheme.primary,
                               ),
+                              const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  l10n.weight,
-                                  style: theme.textTheme.labelMedium?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                              Expanded(
-                                child: Text(
-                                  l10n.reps,
-                                  style: theme.textTheme.labelMedium?.copyWith(
-                                    fontWeight: FontWeight.bold,
+                                  exerciseNoteController.text,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    fontStyle: FontStyle.italic,
                                   ),
                                 ),
                               ),
                             ],
                           ),
                         ),
-
-                        // Sets data
-                        Container(
-                          decoration: BoxDecoration(
-                            border: Border.all(color: theme.dividerColor),
-                            borderRadius: const BorderRadius.vertical(
-                              bottom: Radius.circular(8),
-                            ),
-                          ),
-                          child: Column(
-                            children:
-                                exercise.templates.map((template) {
-                                  final weightController =
-                                      _getOrCreateSetController(
-                                        exercise.workoutExercise.id,
-                                        template.setNumber,
-                                        'weight',
-                                        exercise
-                                                .existingSets[template
-                                                    .setNumber]
-                                                ?.weight
-                                                ?.toString() ??
-                                            '',
-                                      );
-                                  final repsController =
-                                      _getOrCreateSetController(
-                                        exercise.workoutExercise.id,
-                                        template.setNumber,
-                                        'reps',
-                                        exercise
-                                                .existingSets[template
-                                                    .setNumber]
-                                                ?.reps
-                                                ?.toString() ??
-                                            '',
-                                      );
-
-                                  return Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 12,
-                                      horizontal: 8,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      border: Border(
-                                        bottom: BorderSide(
-                                          color: theme.dividerColor.withOpacity(
-                                            0.5,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        SizedBox(
-                                          width: 50,
-                                          child: Text(
-                                            '${template.setNumber}',
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ),
-                                        Expanded(
-                                          child: Text(
-                                            weightController.text.isNotEmpty
-                                                ? '${weightController.text} kg'
-                                                : '--',
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                          ),
-                                        ),
-                                        Expanded(
-                                          child: Text(
-                                            repsController.text.isNotEmpty
-                                                ? '${repsController.text} reps'
-                                                : '--',
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                }).toList(),
-                          ),
-                        ),
-                        // Exercise note
-                        if (hasNote) ...[
-                          const SizedBox(height: 12),
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: theme.colorScheme.surfaceVariant
-                                  .withOpacity(0.5),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Icon(
-                                  Icons.note,
-                                  size: 16,
-                                  color: theme.colorScheme.primary,
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    exerciseNoteController.text,
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      fontStyle: FontStyle.italic,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
                       ],
-                    ),
+                    ],
                   ),
-                );
-              }).toList(),
-            ],
-          ),
+                ),
+              );
+            }).toList(),
+          ],
         ),
       ),
     );
@@ -1488,7 +1481,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
 
           if (previousSet != null)
             Card(
-              color: theme.colorScheme.surfaceVariant,
+              color: theme.colorScheme.surfaceContainerHighest,
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
@@ -1536,7 +1529,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
             )
           else
             Card(
-              color: theme.colorScheme.surfaceVariant.withOpacity(0.5),
+              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
@@ -1691,7 +1684,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                       border: const OutlineInputBorder(),
                       filled: true,
                       fillColor: theme.colorScheme.surfaceContainerHighest
-                          .withOpacity(0.3),
+                          .withValues(alpha: 0.3),
                     ),
                     maxLines: 3,
                   ),
@@ -1769,7 +1762,17 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                             children: [
                               // Tapping the set number opens the set-type/side
                               // menu (Hevy pattern); tapping the row selects it.
-                              GestureDetector(
+                              // The circle stays 32px (this row's own visual
+                              // scale) but the tap target around it is grown
+                              // to the 44px mobile minimum from CLAUDE.md -
+                              // this opens the set-type/side menu one-handed
+                              // mid-set, so it is not where to fall short of
+                              // that rule.
+                              SizedBox(
+                                width: 44,
+                                height: 44,
+                                child: GestureDetector(
+                                behavior: HitTestBehavior.opaque,
                                 onTap:
                                     widget.isReadOnly
                                         ? null
@@ -1777,7 +1780,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                                           typeKey,
                                           sideKey,
                                         ),
-                                child: Container(
+                                child: Center(child: Container(
                                   width: 32,
                                   height: 32,
                                   decoration: BoxDecoration(
@@ -1811,6 +1814,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                                       ),
                                     ),
                                   ),
+                                )),
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -1943,7 +1947,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
         color: theme.colorScheme.surface,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 8,
             offset: const Offset(0, -2),
           ),
@@ -1955,7 +1959,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
           children: [
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton.icon(
+              child: FilledButton.icon(
                 onPressed:
                     _isSaving
                         ? null
@@ -1975,8 +1979,8 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                       : l10n.nextSet,
                   style: const TextStyle(fontSize: 18),
                 ),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 18),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
                   backgroundColor:
                       isLastSet && isLastExercise
                           ? ThemeProvider.kSuccessColor
@@ -2354,16 +2358,16 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                                                     ),
                                                 child: Row(
                                                   children: [
-                                                    const Icon(
+                                                    Icon(
                                                       Icons.delete,
-                                                      color: Colors.red,
+                                                      color: ForgeColors.statusBadFor(Theme.of(context).brightness),
                                                     ),
                                                     const SizedBox(width: 8),
                                                     Flexible(
                                                       child: Text(
                                                         l10n.delete,
-                                                        style: const TextStyle(
-                                                          color: Colors.red,
+                                                        style: TextStyle(
+                                                          color: ForgeColors.statusBadFor(Theme.of(context).brightness),
                                                         ),
                                                       ),
                                                     ),
@@ -2637,7 +2641,7 @@ class WorkoutSummaryDialog extends StatelessWidget {
                                   horizontal: 8,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: theme.colorScheme.surfaceVariant,
+                                  color: theme.colorScheme.surfaceContainerHighest,
                                   borderRadius: const BorderRadius.vertical(
                                     top: Radius.circular(8),
                                   ),
@@ -2707,7 +2711,7 @@ class WorkoutSummaryDialog extends StatelessWidget {
                                             border: Border(
                                               bottom: BorderSide(
                                                 color: theme.dividerColor
-                                                    .withOpacity(0.5),
+                                                    .withValues(alpha: 0.5),
                                               ),
                                             ),
                                           ),
@@ -2749,8 +2753,8 @@ class WorkoutSummaryDialog extends StatelessWidget {
                                 Container(
                                   padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
-                                    color: theme.colorScheme.surfaceVariant
-                                        .withOpacity(0.5),
+                                    color: theme.colorScheme.surfaceContainerHighest
+                                        .withValues(alpha: 0.5),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Row(
@@ -2791,11 +2795,11 @@ class WorkoutSummaryDialog extends StatelessWidget {
               padding: const EdgeInsets.all(20),
               child: SizedBox(
                 width: double.infinity,
-                child: ElevatedButton.icon(
+                child: FilledButton.icon(
                   onPressed: () => Navigator.pop(context, true),
                   icon: const Icon(Icons.check),
                   label: Text(l10n.done),
-                  style: ElevatedButton.styleFrom(
+                  style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
                 ),

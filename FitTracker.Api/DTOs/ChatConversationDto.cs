@@ -15,8 +15,23 @@ public class ChatConversationDto
 
     public string OtherPartyName { get; set; } = string.Empty;
 
-    /// <summary>Null when the pair has never exchanged a message.</summary>
+    /// <summary>
+    /// The last message's stored body. Null when the pair has never exchanged one.
+    /// </summary>
+    /// <remarks>
+    /// Named "preview" from when this server could produce one. It cannot any
+    /// more — from <see cref="LastMessageEncryptionVersion"/> 1 onward this is
+    /// ciphertext, and the truncation that makes it a preview happens on the
+    /// client, after it decrypts. The name is kept so the wire contract and the
+    /// Flutter model do not have to change in lockstep with the meaning.
+    /// </remarks>
     public string? LastMessagePreview { get; set; }
+
+    /// <summary>Base64 IV for <see cref="LastMessagePreview"/>, null for a legacy row.</summary>
+    public string? LastMessageIv { get; set; }
+
+    /// <summary>How <see cref="LastMessagePreview"/> was protected. 0 = plaintext, 1 = encrypted.</summary>
+    public int LastMessageEncryptionVersion { get; set; }
 
     /// <summary>Null when the pair has never exchanged a message.</summary>
     public DateTime? LastMessageAt { get; set; }

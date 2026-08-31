@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:provider/provider.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
+import 'package:ForgeForm/core/forge_motion.dart';
 import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/core/providers/access_provider.dart';
 import 'package:ForgeForm/feature/auth/presentation/providers/auth_provider.dart';
@@ -191,7 +192,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
             Text(message, textAlign: TextAlign.center),
             if (showRetry) ...[
               const SizedBox(height: 24),
-              ElevatedButton(
+              FilledButton(
                 onPressed: _loadOffering,
                 child: Text(AppLocalizations.of(context)!.retry),
               ),
@@ -250,9 +251,9 @@ class _PaywallScreenState extends State<PaywallScreen> {
         const SizedBox(height: 16),
         SizedBox(
           width: double.infinity,
-          child: ElevatedButton(
+          child: FilledButton(
             onPressed: _isPurchasing ? null : _purchase,
-            style: ElevatedButton.styleFrom(
+            style: FilledButton.styleFrom(
               backgroundColor: _forgeOrange,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 16),
@@ -370,7 +371,7 @@ class _PackageCard extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
+        duration: ForgeMotion.of(context),
         curve: Curves.easeOut,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(

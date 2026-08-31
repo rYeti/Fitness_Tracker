@@ -107,7 +107,7 @@ class _DateSelectionSheetState extends State<DateSelectionSheet> {
                 child: Text(l10n.cancel),
               ),
               const SizedBox(width: 8),
-              ElevatedButton(
+              FilledButton(
                 onPressed:
                     _selectedDates.isEmpty
                         ? null // Disable if no dates selected

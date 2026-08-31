@@ -1,3 +1,4 @@
+import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/di/service_locator.dart';
 import 'package:ForgeForm/core/providers/access_provider.dart';
@@ -12,6 +13,8 @@ import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
+import 'package:ForgeForm/core/widgets/app_widgets.dart';
 
 class WorkoutsListView extends StatefulWidget {
   const WorkoutsListView({super.key});
@@ -75,7 +78,7 @@ class WorkoutsListViewState extends State<WorkoutsListView> {
                   Text(l10n.createFirstWorkout),
                   if (!hasPremium && planCount >= 1) ...[
                     const SizedBox(width: 6),
-                    const Icon(Icons.lock, size: 14, color: Colors.orange),
+                    Icon(Icons.lock, size: 14, color: ForgeColors.statusWarnFor(Theme.of(context).brightness)),
                   ],
                 ],
               ),
@@ -156,7 +159,7 @@ class WorkoutsListViewState extends State<WorkoutsListView> {
                 onPressed: () => Navigator.pop(ctx),
                 child: Text(l10n.cancel),
               ),
-              ElevatedButton(
+              FilledButton(
                 onPressed: () {
                   final newName = controller.text.trim();
                   if (newName.isNotEmpty) {
@@ -312,10 +315,10 @@ class WorkoutsListViewState extends State<WorkoutsListView> {
                 ),
                 const Divider(),
                 ListTile(
-                  leading: const Icon(Icons.delete, color: Colors.red),
+                  leading: Icon(Icons.delete, color: ForgeColors.statusBadFor(Theme.of(context).brightness)),
                   title: Text(
                     l10n.deleteWorkout,
-                    style: const TextStyle(color: Colors.red),
+                    style: TextStyle(color: ForgeColors.statusBadFor(Theme.of(context).brightness)),
                   ),
                   onTap: () {
                     Navigator.pop(ctx);
@@ -345,9 +348,9 @@ class WorkoutsListViewState extends State<WorkoutsListView> {
                 onPressed: () => Navigator.pop(ctx, false),
                 child: Text(l10n.cancel),
               ),
-              ElevatedButton(
+              FilledButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                style: FilledButton.styleFrom(backgroundColor: ForgeColors.statusBadFor(Theme.of(context).brightness)),
                 child: Text(l10n.delete),
               ),
             ],
@@ -382,42 +385,40 @@ class WorkoutsListViewState extends State<WorkoutsListView> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.workouts)),
+      appBar: ForgeAppBar(
+        title: l10n.workouts,
+      ),
       body: Consumer<WorkoutProvider>(
         builder: (context, provider, _) {
           if (provider.loading) {
             return const Center(child: CircularProgressIndicator());
           }
+          // Before the empty check, not after: a failed load also has no
+          // plans, and answering it with "create your first workout" tells a
+          // trainee their workouts are gone.
+          if (provider.error != null) {
+            return ErrorStateView(
+              message: l10n.failedToLoadData(provider.error!),
+              onRetry: provider.loadCompletePlans,
+            );
+          }
           if (provider.plans.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(
-                    Icons.fitness_center,
-                    size: 64,
-                    color: Colors.grey,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    l10n.noWorkoutsFound,
-                    style: const TextStyle(fontSize: 18, color: Colors.grey),
-                  ),
-                  const SizedBox(height: 24),
-                  ElevatedButton.icon(
-                    onPressed: () async {
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => CreateWorkoutView()),
-                      );
-                      if (mounted) {
-                        provider.loadCompletePlans();
-                      }
-                    },
-                    icon: const Icon(Icons.add),
-                    label: Text(l10n.createFirstWorkout),
-                  ),
-                ],
+            return EmptyStateView(
+              icon: Icons.fitness_center,
+              title: l10n.noWorkoutsFound,
+              message: l10n.createFirstWorkoutHint,
+              action: FilledButton.icon(
+                onPressed: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => CreateWorkoutView()),
+                  );
+                  if (mounted) {
+                    provider.loadCompletePlans();
+                  }
+                },
+                icon: const Icon(Icons.add),
+                label: Text(l10n.createFirstWorkout),
               ),
             );
           }
@@ -464,14 +465,14 @@ class WorkoutsListViewState extends State<WorkoutsListView> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (_activePlanId == plan.id)
-                        const Icon(Icons.check_circle, color: Colors.green),
+                        Icon(Icons.check_circle, color: ForgeColors.statusOkFor(Theme.of(context).brightness)),
                       TextButton(
                         onPressed: () => _setActivePlan(plan.id!),
                         child: Text(
                           _activePlanId == plan.id ? l10n.active : l10n.setActive,
                           style: TextStyle(
                             color:
-                                _activePlanId == plan.id ? Colors.green : null,
+                                _activePlanId == plan.id ? ForgeColors.statusOkFor(Theme.of(context).brightness) : null,
                           ),
                         ),
                       ),

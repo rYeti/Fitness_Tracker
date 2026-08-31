@@ -206,6 +206,24 @@ abstract class AppLocalizations {
   /// **'Refresh'**
   String get refresh;
 
+  /// No description provided for @showPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Show password'**
+  String get showPassword;
+
+  /// No description provided for @hidePassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide password'**
+  String get hidePassword;
+
+  /// No description provided for @quickAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick add'**
+  String get quickAdd;
+
   /// No description provided for @age.
   ///
   /// In en, this message translates to:
@@ -329,7 +347,7 @@ abstract class AppLocalizations {
   /// No description provided for @addCustomFood.
   ///
   /// In en, this message translates to:
-  /// **'Add Custom Food'**
+  /// **'Add a custom food'**
   String get addCustomFood;
 
   /// No description provided for @foodName.
@@ -583,6 +601,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Add Rest Day'**
   String get addRestDay;
+
+  /// No description provided for @addWorkoutDay.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a day'**
+  String get addWorkoutDay;
 
   /// No description provided for @workoutNameLabel.
   ///
@@ -920,6 +944,12 @@ abstract class AppLocalizations {
   /// **'No workouts found'**
   String get noWorkoutsFound;
 
+  /// No description provided for @createFirstWorkoutHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Build a plan once, then schedule it as often as you like.'**
+  String get createFirstWorkoutHint;
+
   /// No description provided for @setWeightGoal.
   ///
   /// In en, this message translates to:
@@ -1117,6 +1147,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Add Weight'**
   String get addWeight;
+
+  /// No description provided for @hideFromRecents.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove {name} from recents'**
+  String hideFromRecents(String name);
+
+  /// No description provided for @quickAddFood.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick add {name}'**
+  String quickAddFood(String name);
+
+  /// No description provided for @createTemplateAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Create template'**
+  String get createTemplateAction;
 
   /// No description provided for @allTime.
   ///
@@ -1351,6 +1399,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No templates found'**
   String get noTemplatesFound;
+
+  /// No description provided for @createTemplateHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Save a meal you log often and add it in one tap.'**
+  String get createTemplateHint;
 
   /// No description provided for @saveTemplate.
   ///
@@ -3113,7 +3167,7 @@ abstract class AppLocalizations {
   /// No description provided for @signOutUnsyncedBody.
   ///
   /// In en, this message translates to:
-  /// **'{count} changes haven\'t reached the server yet. Signing out clears this device\'s copy of your account, so they would be lost \u2014 including any exercises you deleted, which would come back.'**
+  /// **'{count} changes haven\'t reached the server yet. Signing out clears this device\'s copy of your account, so they would be lost — including any exercises you deleted, which would come back.'**
   String signOutUnsyncedBody(int count);
 
   /// No description provided for @signOutAnyway.
@@ -4303,6 +4357,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Failed to send — tap to retry'**
   String get chatFailedRetry;
+
+  /// No description provided for @chatUndecryptable.
+  ///
+  /// In en, this message translates to:
+  /// **'Message can\'t be decrypted on this device'**
+  String get chatUndecryptable;
+
+  /// No description provided for @chatNewMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'New message'**
+  String get chatNewMessage;
 
   /// No description provided for @chatReconnecting.
   ///
@@ -5929,6 +5995,66 @@ abstract class AppLocalizations {
     int carbs,
     int fat,
   );
+
+  /// No description provided for @editFoodEntry.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit {food}'**
+  String editFoodEntry(String food);
+
+  /// No description provided for @deleteFoodEntry.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete {food}'**
+  String deleteFoodEntry(String food);
+
+  /// No description provided for @addFoodToCategory.
+  ///
+  /// In en, this message translates to:
+  /// **'Add food to {category}'**
+  String addFoodToCategory(String category);
+
+  /// No description provided for @pickDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a date'**
+  String get pickDate;
+
+  /// No description provided for @noCalorieTarget.
+  ///
+  /// In en, this message translates to:
+  /// **'No target set'**
+  String get noCalorieTarget;
+
+  /// No description provided for @kpiAvgAdherenceThisWeek.
+  ///
+  /// In en, this message translates to:
+  /// **'Avg adherence, this week'**
+  String get kpiAvgAdherenceThisWeek;
+
+  /// No description provided for @rosterColumnAdherence28d.
+  ///
+  /// In en, this message translates to:
+  /// **'ADHERENCE (28D)'**
+  String get rosterColumnAdherence28d;
+
+  /// No description provided for @adherence28d.
+  ///
+  /// In en, this message translates to:
+  /// **'Adherence, last 28 days'**
+  String get adherence28d;
+
+  /// No description provided for @couldNotLoad.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load your data'**
+  String get couldNotLoad;
+
+  /// No description provided for @couldNotLoadBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Check your connection and try again.'**
+  String get couldNotLoadBody;
 }
 
 class _AppLocalizationsDelegate

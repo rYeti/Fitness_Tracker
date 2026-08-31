@@ -1,3 +1,4 @@
+using FitTracker.Api.DTOs;
 using FitTracker.Api.Models;
 using FitTracker.Api.Repositories;
 using FitTracker.Api.Services;
@@ -18,6 +19,18 @@ public class ChatServiceTests
     private static IChatService NewService(ChatScenario ctx) =>
         new ChatService(new TrainerClientRepository(ctx.Db), new ChatRepository(ctx.Db));
 
+    /// <summary>
+    /// A body as a current client would hand it over.
+    /// </summary>
+    /// <remarks>
+    /// The text is not really encrypted, and it does not need to be: this server
+    /// stores whatever it is given and cannot read either way. What these tests
+    /// check is that the envelope survives the round trip intact — a body stored
+    /// without its IV is unreadable forever, and nothing here would throw.
+    /// </remarks>
+    private static EncryptedChatBody Encrypted(string body) =>
+        new(body, "iv-1", 1);
+
     // ── Sending ───────────────────────────────────────────────────────────────
 
     [Fact]
@@ -32,7 +45,7 @@ public class ChatServiceTests
             clientId: ctx.ClientId,
             senderId: ctx.TrainerId,
             messageId: messageId,
-            "great set today");
+            Encrypted("great set today"));
 
         Assert.Equal(messageId, dto.Id);
         Assert.Equal("great set today", dto.Body);
@@ -58,7 +71,7 @@ public class ChatServiceTests
             clientId: ctx.ClientId,
             senderId: ctx.ClientId,
             messageId: Guid.NewGuid(),
-            "felt easy, can we add weight?");
+            Encrypted("felt easy, can we add weight?"));
 
         // trainerId/clientId identify the thread; senderId says who spoke. The
         // client writing into their own thread must not be rewritten as the trainer.
@@ -79,7 +92,7 @@ public class ChatServiceTests
             clientId: stranger.Id,
             senderId: ctx.TrainerId,
             messageId: Guid.NewGuid(),
-            "should not land"));
+            Encrypted("should not land")));
 
         Assert.Empty(await ctx.Db.ChatMessages.ToListAsync());
     }
@@ -97,7 +110,7 @@ public class ChatServiceTests
             clientId: formerClient.Id,
             senderId: ctx.TrainerId,
             messageId: Guid.NewGuid(),
-            "should not land"));
+            Encrypted("should not land")));
 
         Assert.Empty(await ctx.Db.ChatMessages.ToListAsync());
     }
@@ -110,9 +123,9 @@ public class ChatServiceTests
         var messageId = Guid.NewGuid();
 
         var first = await service.SendMessageAsync(
-            ctx.TrainerId, ctx.ClientId, ctx.TrainerId, messageId, "great set today");
+            ctx.TrainerId, ctx.ClientId, ctx.TrainerId, messageId, Encrypted("great set today"));
         var replayed = await service.SendMessageAsync(
-            ctx.TrainerId, ctx.ClientId, ctx.TrainerId, messageId, "great set today");
+            ctx.TrainerId, ctx.ClientId, ctx.TrainerId, messageId, Encrypted("great set today"));
 
         // This is what makes the client's outbox replay safe: after a dropped
         // connection the client cannot know whether the first attempt landed, so

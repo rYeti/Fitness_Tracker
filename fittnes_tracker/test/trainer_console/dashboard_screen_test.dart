@@ -242,7 +242,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('CLIENT'), findsOneWidget);
-    expect(find.text('ADHERENCE'), findsOneWidget);
+    // The window is part of the header: this column is a trailing 28 days,
+    // while the KPI tile above averages the current week. They disagreed on
+    // screen while both were labelled just "adherence".
+    expect(find.text('ADHERENCE (28D)'), findsOneWidget);
   });
 
   testWidgets('narrow viewport keeps cards even in table mode', (tester) async {

@@ -7,7 +7,7 @@ import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_console_
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/active_client_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/workout_builder_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/client_switcher.dart';
-import 'package:ForgeForm/feature/trainer_console/presentation/widgets/console_widgets.dart';
+import 'package:ForgeForm/core/widgets/app_widgets.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/console_error.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 
@@ -67,12 +67,10 @@ class _WorkoutBuilderScreenState extends State<WorkoutBuilderScreen> {
             (_) => _syncToActiveClient(),
           );
 
-          final colors = Theme.of(context).colorScheme;
-          final isDesktop = MediaQuery.of(context).size.width > 1024;
+          final isDesktop = Breakpoints.isDesktop(context);
           final client = activeClient.activeClient;
 
           return Scaffold(
-            backgroundColor: colors.surfaceContainerLowest,
             body: SafeArea(
               child: Padding(
                 padding: EdgeInsets.all(isDesktop ? 32 : 16),
@@ -193,10 +191,10 @@ class _Body extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     if (activeClient.isLoading && activeClient.clients.isEmpty) {
-      return ConsoleSkeleton(semanticsLabel: l10n.builderLoading);
+      return LoadingSkeleton(semanticsLabel: l10n.builderLoading);
     }
     if (activeClient.error != null) {
-      return ConsoleErrorState(
+      return ErrorStateView(
         message: activeClient.error!.localizedMessage(l10n),
         onRetry: activeClient.loadClients,
       );
@@ -204,17 +202,17 @@ class _Body extends StatelessWidget {
 
     final client = activeClient.activeClient;
     if (client == null) {
-      return ConsoleEmptyState(
+      return EmptyStateView(
         icon: Icons.group_outlined,
         title: l10n.rosterEmptyTitle,
         message: l10n.builderNoClientsBody,
       );
     }
     if (builder.isLoading) {
-      return ConsoleSkeleton(semanticsLabel: l10n.builderLoading);
+      return LoadingSkeleton(semanticsLabel: l10n.builderLoading);
     }
     if (builder.error != null && !builder.isNew) {
-      return ConsoleErrorState(
+      return ErrorStateView(
         message: builder.error!.localizedMessage(l10n),
         onRetry: () => builder.load(client.clientId),
       );
@@ -305,13 +303,13 @@ class _CreatePlanFormState extends State<_CreatePlanForm> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            ConsoleCard(
+            AppCard(
               radius: 16,
               padding: const EdgeInsets.all(24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  ConsoleSectionTitle(title: l10n.newPlan),
+                  SectionTitle(title: l10n.newPlan),
                   TextFormField(
                     controller: _nameController,
                     decoration: InputDecoration(
@@ -366,7 +364,7 @@ class _CreatePlanFormState extends State<_CreatePlanForm> {
                       builder.error!.localizedMessage(l10n),
                       style: const TextStyle(
                         fontFamily: 'Exo 2',
-                        fontSize: 12.5,
+                        fontSize: 12,
                         color: ForgeColors.statusBad,
                       ),
                     ),
@@ -376,11 +374,11 @@ class _CreatePlanFormState extends State<_CreatePlanForm> {
             ),
             const SizedBox(height: 14),
             if (builder.templates.isNotEmpty)
-              ConsoleCard(
+              AppCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    ConsoleSectionTitle(title: l10n.startFromTemplate),
+                    SectionTitle(title: l10n.startFromTemplate),
                     for (final template in builder.templates)
                       _TemplateRow(
                         template: template,
@@ -454,7 +452,7 @@ class _TemplateRow extends StatelessWidget {
                       style: TextStyle(
                         fontFamily: 'Exo 2',
                         fontWeight: FontWeight.w700,
-                        fontSize: 13.5,
+                        fontSize: 14,
                         color: colors.onSurface,
                       ),
                     ),
@@ -467,7 +465,7 @@ class _TemplateRow extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontFamily: 'Exo 2',
-                        fontSize: 11.5,
+                        fontSize: 12,
                         color: colors.onSurface.withValues(alpha: 0.55),
                       ),
                     ),
@@ -501,7 +499,7 @@ class _CurrentPlanView extends StatelessWidget {
     final plan = builder.currentPlan;
 
     if (plan == null) {
-      return ConsoleEmptyState(
+      return EmptyStateView(
         icon: Icons.assignment_outlined,
         title: l10n.noActivePlanTitle,
         message: l10n.noActivePlanBody(clientName),
@@ -517,7 +515,7 @@ class _CurrentPlanView extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          ConsoleCard(
+          AppCard(
             radius: 16,
             padding: const EdgeInsets.all(24),
             child: Column(
@@ -568,7 +566,7 @@ class _CurrentPlanView extends StatelessWidget {
                   ),
                   style: TextStyle(
                     fontFamily: 'Exo 2',
-                    fontSize: 12.5,
+                    fontSize: 12,
                     color: colors.onSurface.withValues(alpha: 0.65),
                   ),
                 ),
@@ -605,7 +603,7 @@ class _EditorUnavailableNote extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ConsoleCard(
+    return AppCard(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

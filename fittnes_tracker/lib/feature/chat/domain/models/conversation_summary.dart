@@ -1,10 +1,13 @@
 import 'package:ForgeForm/feature/chat/domain/chat_timestamps.dart';
+import 'package:ForgeForm/core/widgets/client_avatar.dart';
 
 /// One row in the Chat conversation list — who the thread is with, plus the last
 /// message's preview. See design handoff README section 3 ("Messages") for the
 /// row spec (avatar, name, timestamp, truncated preview, unread dot).
 ///
-/// Maps to `ChatConversationDto` from `api/chat/conversations`. Deliberately
+/// Maps to `ChatConversationDto` from `api/chat/conversations`. Note that
+/// [lastMessagePreview] arrives as *ciphertext* — `ChatRepository` decrypts it
+/// via [withPreview] before any of this reaches the screen. Deliberately
 /// separate from `TrainerRosterEntry`: the roster doesn't need message-preview
 /// data, and coupling them would force every roster fetch to also compute
 /// unread counts.
@@ -39,6 +42,22 @@ class ConversationSummary {
     );
   }
 
+  /// The same row with its preview replaced by decrypted text.
+  ///
+  /// Separate from [copyWith] because null means something here that it cannot
+  /// mean there: [copyWith] reads a null as "leave this alone", and a preview
+  /// this device cannot decrypt has to be able to *become* null so the row falls
+  /// back to a neutral label instead of showing the previous message's text.
+  ConversationSummary withPreview(String? preview) {
+    return ConversationSummary(
+      clientId: clientId,
+      clientName: clientName,
+      lastMessagePreview: preview,
+      lastMessageAt: lastMessageAt,
+      unreadCount: unreadCount,
+    );
+  }
+
   ConversationSummary copyWith({
     String? lastMessagePreview,
     DateTime? lastMessageAt,
@@ -55,13 +74,7 @@ class ConversationSummary {
 
   /// Up to two letters ("Robert Meyer" -> "RM"), matching the avatars in the
   /// design handoff. Derived rather than stored so it cannot drift from the name.
-  String get initials {
-    final parts =
-        clientName.split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
-    if (parts.isEmpty) return '?';
-    if (parts.length == 1) return parts.first[0].toUpperCase();
-    return (parts.first[0] + parts.last[0]).toUpperCase();
-  }
+  String get initials => ClientAvatar.initialsFor(clientName);
 
   bool get hasUnread => unreadCount > 0;
 }
