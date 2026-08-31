@@ -104,6 +104,8 @@
   "mealDinner": "Abendessen",
   "mealSnacks": "Snacks",
   "searchForFood": "Nach Lebensmitteln suchen",
+  "recentEatenAtThisMeal": "Bei dieser Mahlzeit gegessen",
+  "recentOtherFoods": "Weitere Lebensmittel",
   "recentlyAdded": "Kürzlich hinzugefügt",
   "addedToRecentFoods": "{name} wurde zu den kürzlich hinzugefügten Lebensmitteln hinzugefügt",
   "@addedToRecentFoods": {

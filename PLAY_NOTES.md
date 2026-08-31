@@ -32,6 +32,8 @@ show a preview, because your own phone unscrambles it.
 There is no backup of your key, so if you reinstall or sign in on a new device,
 older messages cannot be unscrambled there.
 
+The food search now shows the foods you eat at that meal first.
+
 ## 1.0.2+14
 
 The Trainer Console now opens far faster: it no longer reads a client's whole training history to draw the dashboard, and it loads only the section you are looking at. Your client list appears as soon as it is ready.

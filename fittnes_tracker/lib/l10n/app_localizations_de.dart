@@ -222,6 +222,12 @@ class AppLocalizationsDe extends AppLocalizations {
   String get searchForFood => 'Nach Lebensmitteln suchen';
 
   @override
+  String get recentEatenAtThisMeal => 'Bei dieser Mahlzeit gegessen';
+
+  @override
+  String get recentOtherFoods => 'Weitere Lebensmittel';
+
+  @override
   String get recentlyAdded => 'Kürzlich hinzugefügt';
 
   @override

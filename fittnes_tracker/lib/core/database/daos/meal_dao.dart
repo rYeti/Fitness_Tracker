@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import '../../app_database.dart';
+import '../../nutrition/meal_category.dart';
 
 part 'meal_dao.g.dart';
 
@@ -70,6 +71,45 @@ class MealDao extends DatabaseAccessor<AppDatabase> with _$MealDaoMixin {
     final days = byDay.values.toList()
       ..sort((a, b) => a.date.compareTo(b.date));
     return days;
+  }
+
+  /// Normalised names of every food ever logged under [category], most
+  /// recently logged first, each name appearing once.
+  ///
+  /// Keyed on name rather than on `FoodItem.id` on purpose. Adding a food from
+  /// the recent list writes a *new* `FoodItem` row holding that portion's
+  /// macros and links that row to the meal, so `MealFoodTable.foodEntryId`
+  /// almost never points at the row the recent list shows. Only the name
+  /// survives the round trip, under the same `toLowerCase().trim()` the recent
+  /// list already deduplicates by.
+  ///
+  /// Ordered by `MealFoodTable.id` rather than `MealTable.date`, because the
+  /// date is the client's local midnight — every food eaten at one meal on one
+  /// day ties on it, while the autoincrement records the order they were
+  /// actually logged in.
+  Stream<List<String>> watchFoodNamesLoggedInCategory(String category) {
+    final query =
+        select(mealFoodTable).join([
+            innerJoin(mealTable, mealTable.id.equalsExp(mealFoodTable.mealId)),
+            innerJoin(
+              foodItem,
+              foodItem.id.equalsExp(mealFoodTable.foodEntryId),
+            ),
+          ])
+          ..where(
+            mealTable.category.lower().isIn(MealCategory.spellings(category)),
+          )
+          ..orderBy([OrderingTerm.desc(mealFoodTable.id)]);
+
+    return query.watch().map((rows) {
+      final seen = <String>{};
+      final names = <String>[];
+      for (final row in rows) {
+        final name = row.readTable(foodItem).name.toLowerCase().trim();
+        if (seen.add(name)) names.add(name);
+      }
+      return names;
+    });
   }
 
   Future<List<MealTableData>> getMealsForDate(DateTime date) {
