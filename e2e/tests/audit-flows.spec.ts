@@ -59,6 +59,33 @@ async function land(page: Page, url = '/'): Promise<void> {
   await waitForFlutterBoot(page);
   await enableFlutterSemantics(page);
   await page.waitForTimeout(2500);
+  await dismissResumeDialog(page);
+}
+
+/**
+ * The ActiveWorkout journey starts a workout and never finishes it, so every
+ * later `land()` carries an in-progress session and the app greets it with a
+ * "Resume workout?" dialog that no other journey's selectors expect. `isVisible()`
+ * does not wait for the element - it's an instant check - so a first attempt
+ * at this used it and missed the dialog every time, because it renders a beat
+ * after the tab settles. `waitFor` actually polls.
+ */
+async function dismissResumeDialog(p: Page): Promise<void> {
+  const discard = p.getByRole('button', { name: /^Discard$/i });
+  try {
+    await discard.first().waitFor({ state: 'visible', timeout: 3000 });
+  } catch {
+    return; // Not present - the common case.
+  }
+  process.stdout.write('[dismiss] dialog visible, clicking Discard\n');
+  for (let attempt = 0; attempt < 4; attempt++) {
+    await discard.first().click({ timeout: 5000 }).catch((e) =>
+      process.stdout.write(`[dismiss] click failed: ${String(e).split('\n')[0]}\n`));
+    await p.waitForTimeout(1000);
+    const stillThere = await discard.first().isVisible().catch(() => false);
+    process.stdout.write(`[dismiss] attempt ${attempt}: stillThere=${stillThere}\n`);
+    if (!stillThere) return;
+  }
 }
 
 test.describe('design audit — the workout flow and the last views', () => {
@@ -97,17 +124,21 @@ test.describe('design audit — the workout flow and the last views', () => {
   async function walk(page: Page, journeys: Journey[]): Promise<void> {
     const viewport = String(page.viewportSize()?.width ?? 0);
     for (const journey of journeys) {
+      const t0 = Date.now();
+      process.stdout.write(`[walk] -> ${journey.name} @ ${t0}\n`);
       try {
         await land(page, journey.url);
         await journey.open(page);
         await page.waitForTimeout(2500);
         results.push(await auditScreen(page, journey.name, viewport));
+        process.stdout.write(`[walk] ok ${journey.name} (${Date.now() - t0}ms)\n`);
       } catch (err) {
         skipped.push({
           name: journey.name,
           kind: 'by fixture',
           reason: String(err).split('\n')[0].slice(0, 120),
         });
+        process.stdout.write(`[walk] skip ${journey.name} (${Date.now() - t0}ms): ${String(err).split('\n')[0].slice(0, 120)}\n`);
       }
     }
   }
@@ -116,17 +147,7 @@ test.describe('design audit — the workout flow and the last views', () => {
   async function gymTab(p: Page): Promise<void> {
     await navDestination(p, 'Gym').click();
     await p.waitForTimeout(1800);
-    // The ActiveWorkout journey starts a workout and never finishes it, which
-    // leaves the app carrying an in-progress session. Every Gym-tab landing
-    // after that point shows "Resume workout?" over the list, and it isn't
-    // one of the controls any later journey is looking for — so its click
-    // just times out and burns 15s per attempt, five journeys in a row.
-    // Discarding it here, once, keeps the rest of the flow reachable.
-    const discard = p.getByRole('button', { name: /^Discard$/i });
-    if (await discard.first().isVisible({ timeout: 500 }).catch(() => false)) {
-      await discard.first().click();
-      await p.waitForTimeout(800);
-    }
+    await dismissResumeDialog(p);
   }
 
   /** Gym tab -> the workout list behind the app bar's list action. */
