@@ -11,6 +11,7 @@ import 'package:ForgeForm/feature/trainer_console/data/trainer_licence_repositor
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_licence.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
+import 'package:ForgeForm/core/widgets/form_pane.dart';
 
 /// Where a trainee redeems the code their trainer gave them.
 class JoinTrainerScreen extends StatefulWidget {
@@ -65,9 +66,10 @@ class _JoinTrainerScreenState extends State<JoinTrainerScreen> {
       appBar: ForgeAppBar(
         title: l10n.joinTrainerTitle,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+      body: FormPane(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const SizedBox(height: 24),
@@ -161,6 +163,7 @@ class _JoinTrainerScreenState extends State<JoinTrainerScreen> {
               ),
             ),
           ],
+          ),
         ),
       ),
     );

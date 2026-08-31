@@ -116,6 +116,17 @@ test.describe('design audit — the workout flow and the last views', () => {
   async function gymTab(p: Page): Promise<void> {
     await navDestination(p, 'Gym').click();
     await p.waitForTimeout(1800);
+    // The ActiveWorkout journey starts a workout and never finishes it, which
+    // leaves the app carrying an in-progress session. Every Gym-tab landing
+    // after that point shows "Resume workout?" over the list, and it isn't
+    // one of the controls any later journey is looking for — so its click
+    // just times out and burns 15s per attempt, five journeys in a row.
+    // Discarding it here, once, keeps the rest of the flow reachable.
+    const discard = p.getByRole('button', { name: /^Discard$/i });
+    if (await discard.first().isVisible({ timeout: 500 }).catch(() => false)) {
+      await discard.first().click();
+      await p.waitForTimeout(800);
+    }
   }
 
   /** Gym tab -> the workout list behind the app bar's list action. */
