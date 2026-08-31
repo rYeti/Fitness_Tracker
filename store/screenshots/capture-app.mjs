@@ -155,6 +155,18 @@ const SHOTS = [
     note: 'nutrition trends over the selected range' },
   { file: '04-dashboard', tab: 'Dashboard',
     note: 'the daily overview' },
+  { file: '07-progress-gym', tab: 'Progress',
+    async after(page) {
+      // Two things bite here. The Progress sub-tab selection survives leaving
+      // and re-entering the tab, so after shot 03 chose Nutrition this lands on
+      // Nutrition again unless Gym is clicked explicitly — it shot a duplicate
+      // of 03 without this. And "Gym" is role=tab twice on this screen: the
+      // sub-tab and the bottom-nav destination. The sub-tab comes first in the
+      // semantics tree; `.last()` picked the nav and navigated away entirely.
+      await page.getByRole('tab', { name: 'Gym', exact: true }).first().click();
+    },
+    shallow: true,
+    note: 'workout frequency and streaks' },
 
   // ── pushed routes, last ──────────────────────────────────────────────
   { file: '05-food-search', tab: 'Food',
@@ -172,7 +184,8 @@ const SHOTS = [
       // an emptier one, and that beats failing the shot.
       try {
         const boxes = page.getByRole('textbox');
-        if (await boxes.count() >= 2) {
+        const n = await boxes.count();
+        if (n >= 2) {
           await boxes.nth(0).click();
           await boxes.nth(0).press('ControlOrMeta+a');
           await boxes.nth(0).pressSequentially('82.5', { delay: 40 });
@@ -182,7 +195,14 @@ const SHOTS = [
           // Dismiss the soft-keyboard host so it cannot overlap the shot.
           await page.keyboard.press('Escape');
         }
-      } catch { /* leave the form as found */ }
+        else {
+          console.log(`  ..   only ${await boxes.count()} textbox(es) on the set form; left as found`);
+        }
+      } catch (e) {
+        // Not fatal — the screenshot is still a real screen — but it must not
+        // be silent, or an all-zeros set form ships looking deliberate.
+        console.log(`  ..   could not fill the set: ${String(e).split('\n')[0]}`);
+      }
     },
     // Nothing follows it, so there is no shell to go back to.
     last: true,

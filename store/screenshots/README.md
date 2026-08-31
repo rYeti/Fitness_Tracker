@@ -35,9 +35,16 @@ flutter build web --release --no-web-resources-cdn \
   --dart-define=FORGE_API_URL=http://127.0.0.1:5080/
 node ../e2e/tools/serve-web.mjs &        # :4173
 
-# 5 — capture
-cd ../store/screenshots && node capture-app.mjs
+# 5 — top up the account so Progress has history, then capture and frame
+cd ../store/screenshots
+node seed-screenshot-extras.mjs --api http://127.0.0.1:5080
+node capture-app.mjs     # photographs the app      -> out/ios, out/play
+node compose.mjs         # wraps them in store art  -> out/store/ios, out/store/play
 ```
+
+`out/store/` is what gets uploaded. `out/ios` and `out/play` are the bare
+captures it is built from — keep them, they are the evidence that the frames
+contain real app pixels.
 
 `--no-web-resources-cdn` is required, not optional: without it the bundle
 fetches CanvasKit from `gstatic.com` at boot and never starts on a machine that
@@ -87,18 +94,32 @@ it, and Material shows the destination's tooltip — a grey pill floating above
 the nav bar, in the screenshot. `unhover` parks the pointer at the top of the
 viewport and waits for it to fade.
 
-## What these are not
+## Still open, and honestly so
 
-They are honest captures, but they are captures of **seeded review data on a
-local API**, so:
+These are real captures of seeded review data, and two things about that data
+are not yet right. Neither is a photography problem.
 
-- The Progress → Gym tab reads 0 workouts and 0 streak. `seed-review-data.mjs`
-  creates 15 scheduled workouts with one completed, which is not enough
-  completed history for the 7-day window those tiles count. Richer Progress
-  screenshots need a richer seed, not a different capture.
-- `05-food-search` shows "Recently Added" as one flat list. That is the exact
-  behaviour `claude/food-search-meal-organization-5m043l` changes — that branch
-  partitions the list by the meal being logged. Recapture after it merges.
-- The paywall's padlocks are visible on the Progress range selector (All Time,
-  Custom). That is truthful, and worth a deliberate decision before upload:
-  some teams prefer not to lead with locked features in store artwork.
+**Progress → Gym still reads 1 total workout and a 0-day current streak.**
+`seed-review-data.mjs` marks one session complete at `daysAgo(i - 2)` with
+`i === 0` — two days in the *future*, which is why the 7-day window read zero
+before. `seed-screenshot-extras.mjs` now posts eight more completed sessions
+across the last ten days, and the tiles barely moved. The screen also still says
+"No workout data yet — Complete Workouts" under Exercise Progress. The likely
+reason is that these tiles count *logged sessions with sets*, not scheduled
+workouts carrying `isCompleted: true`, but **I did not confirm that**, so treat
+it as unfinished. That is why Progress → Gym is captured (`07-progress-gym`) but
+is not one of the six composed frames.
+
+**The Calorie Trend renders as a flat line at 2186.** The base seeder logs an
+identical set of meals every day. `seed-screenshot-extras.mjs` adds a different
+extra snack on five of the last seven days and the API accepts them, but the
+chart is unchanged. Cause not established — `GET /api/Meal` returns 500 on this
+build, which is itself worth a look, and it blocked the obvious diagnostic.
+
+**`05-food-search` shows "Recently Added" as one flat list.** That is exactly
+the behaviour `claude/food-search-meal-organization-5m043l` changes — it
+partitions the list by the meal being logged. Recapture after that merges.
+
+**The paywall's padlocks are visible** on the Progress range selector (All Time,
+Custom). Truthful, and worth a deliberate decision: some teams prefer not to
+lead with locked features in store artwork.

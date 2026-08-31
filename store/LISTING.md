@@ -190,22 +190,35 @@ Play's spam filter is looking for.
 
 ## 5. Screenshots
 
-Six screenshots **captured from the running app** by `screenshots/capture-app.mjs`
-— Playwright driving the real Flutter web bundle in a real browser, signed in as
-the seeded trainee, against a local API seeded by the repo's own
-`e2e/tools/seed-review-data.mjs`. They are photographs of the app, not artwork.
+Six store frames in `screenshots/out/store/`. Each is a headline band and a
+device bezel wrapped around a **photograph of the running app** — Playwright
+driving the real Flutter web bundle, signed in as the seeded trainee against a
+local API. Two steps, kept separate on purpose:
+
+| Step | Script | Output |
+|---|---|---|
+| Photograph the app | `capture-app.mjs` | `out/ios/`, `out/play/` — bare screens |
+| Add the store artwork | `compose.mjs` | `out/store/ios/`, `out/store/play/` — upload these |
+
+Nothing in `compose.mjs` redraws a screen; it only adds the chrome a listing
+needs and a bare screenshot does not. If a frame ever disagrees with the app,
+the fix is to re-run the capture, never to edit the markup. The bare captures
+stay in the repo as the evidence that the frames contain real app pixels.
 
 `screenshots/README.md` is the runbook: Postgres, the API, the seed, the build
 flags, the capture. Regenerate with `node capture-app.mjs` once that stack is up.
 
-| # | File | Screen |
+Frame order is store order, not capture order — slot 1 carries the whole
+proposition, because in search results it is often the only one seen.
+
+| # | Headline | Screen |
 |---|---|---|
-| 1 | `01-food-day` | A logged day — 2,186 / 2,000 kcal, macro split, meals by category |
-| 2 | `02-gym-today` | Today's scheduled session — Upper A, 55 min, Start Workout |
-| 3 | `03-progress-nutrition` | Progress → Nutrition over the selected range |
-| 4 | `04-dashboard` | The daily overview — greeting, today's workout, weight progress |
-| 5 | `05-food-search` | The food picker for one meal |
-| 6 | `06-active-workout` | A set being logged — Bench Press, 82.5 kg × 8 |
+| 1 | Training and nutrition. **One app.** | Dashboard — 2186 kcal, 1/3 workouts, Upper A, weight progress |
+| 2 | Log a set. **Keep moving.** | Active workout — Bench Press, 82.5 kg × 8 |
+| 3 | Macros that **actually add up.** | A logged day — 2,186 / 2,000 kcal, macros, meals by category |
+| 4 | Log food **in seconds.** | The food picker for one meal |
+| 5 | See the trend, **not just today.** | Progress → Nutrition over the selected range |
+| 6 | Your plan, **on your calendar.** | Today's scheduled session — Upper A, 55 min |
 
 **Rendered sizes:**
 
@@ -219,17 +232,20 @@ flags, the capture. Regenerate with `node capture-app.mjs` once that stack is up
 They are real, which also means they show exactly what the seeded account has
 and nothing more:
 
-- **Progress → Gym reads zero.** 0 total workouts, 0 streak. The seeder creates
-  15 scheduled workouts with one completed, which is not enough completed
-  history for the 7-day window those tiles count. Fix the seed, not the shot.
+- **Progress → Gym is not in the six frames, because its data is still wrong.**
+  It reads 1 total workout and a 0-day streak even after
+  `seed-screenshot-extras.mjs` posts eight completed sessions across the last
+  ten days, and still shows "No workout data yet" under Exercise Progress.
+  Probably those tiles count logged sessions rather than scheduled workouts
+  flagged complete — unconfirmed. Unfinished, not hidden.
+- **The Calorie Trend in frame 5 is a flat line.** Every seeded day carries the
+  same total; the extra snacks the top-up posts do not move it and the cause is
+  not established (`GET /api/Meal` returns 500 on this build, which blocked the
+  diagnostic and is worth a look on its own).
 - **`05-food-search` shows the pre-fix "Recently Added".** One flat list — the
   exact behaviour `claude/food-search-meal-organization-5m043l` changes.
   Recapture after that branch merges.
 - **Padlocks are visible** on the Progress range selector (All Time, Custom).
   Truthful, but decide deliberately whether to lead with locked features.
-- **No captions.** These are bare app screens. Adding the usual headline band
-  above each is a compositing step on top of these PNGs — worth doing, and it
-  must sit *around* a real capture rather than replacing it.
-
 The app is **light-themed by default**, which is what these show. The copy above
 mentions dark mode as an option, which is accurate.
