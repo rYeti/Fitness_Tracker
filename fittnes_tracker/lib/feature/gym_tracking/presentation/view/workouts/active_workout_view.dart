@@ -1762,7 +1762,17 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                             children: [
                               // Tapping the set number opens the set-type/side
                               // menu (Hevy pattern); tapping the row selects it.
-                              GestureDetector(
+                              // The circle stays 32px (this row's own visual
+                              // scale) but the tap target around it is grown
+                              // to the 44px mobile minimum from CLAUDE.md -
+                              // this opens the set-type/side menu one-handed
+                              // mid-set, so it is not where to fall short of
+                              // that rule.
+                              SizedBox(
+                                width: 44,
+                                height: 44,
+                                child: GestureDetector(
+                                behavior: HitTestBehavior.opaque,
                                 onTap:
                                     widget.isReadOnly
                                         ? null
@@ -1770,7 +1780,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                                           typeKey,
                                           sideKey,
                                         ),
-                                child: Container(
+                                child: Center(child: Container(
                                   width: 32,
                                   height: 32,
                                   decoration: BoxDecoration(
@@ -1804,6 +1814,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                                       ),
                                     ),
                                   ),
+                                )),
                                 ),
                               ),
                               const SizedBox(width: 12),
