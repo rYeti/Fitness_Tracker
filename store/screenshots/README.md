@@ -99,6 +99,11 @@ viewport and waits for it to fade.
 These are real captures of seeded review data, and two things about that data
 are not yet right. Neither is a photography problem.
 
+(`05-food-search` was on this list until
+`claude/food-search-meal-organization-5m043l` merged. It now correctly shows
+"Eaten at this meal" above "Other foods" — recaptured against main at
+`30291b7`.)
+
 **Progress → Gym still reads 1 total workout and a 0-day current streak.**
 `seed-review-data.mjs` marks one session complete at `daysAgo(i - 2)` with
 `i === 0` — two days in the *future*, which is why the 7-day window read zero
@@ -115,10 +120,6 @@ identical set of meals every day. `seed-screenshot-extras.mjs` adds a different
 extra snack on five of the last seven days and the API accepts them, but the
 chart is unchanged. Cause not established — `GET /api/Meal` returns 500 on this
 build, which is itself worth a look, and it blocked the obvious diagnostic.
-
-**`05-food-search` shows "Recently Added" as one flat list.** That is exactly
-the behaviour `claude/food-search-meal-organization-5m043l` changes — it
-partitions the list by the meal being logged. Recapture after that merges.
 
 **The paywall's padlocks are visible** on the Progress range selector (All Time,
 Custom). Truthful, and worth a deliberate decision: some teams prefer not to

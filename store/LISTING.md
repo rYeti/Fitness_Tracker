@@ -216,7 +216,7 @@ proposition, because in search results it is often the only one seen.
 | 1 | Training and nutrition. **One app.** | Dashboard — 2186 kcal, 1/3 workouts, Upper A, weight progress |
 | 2 | Log a set. **Keep moving.** | Active workout — Bench Press, 82.5 kg × 8 |
 | 3 | Macros that **actually add up.** | A logged day — 2,186 / 2,000 kcal, macros, meals by category |
-| 4 | Log food **in seconds.** | The food picker for one meal |
+| 4 | Log food **in seconds.** | The food picker for one meal — "Eaten at this meal" above "Other foods" |
 | 5 | See the trend, **not just today.** | Progress → Nutrition over the selected range |
 | 6 | Your plan, **on your calendar.** | Today's scheduled session — Upper A, 55 min |
 
@@ -242,9 +242,6 @@ and nothing more:
   same total; the extra snacks the top-up posts do not move it and the cause is
   not established (`GET /api/Meal` returns 500 on this build, which blocked the
   diagnostic and is worth a look on its own).
-- **`05-food-search` shows the pre-fix "Recently Added".** One flat list — the
-  exact behaviour `claude/food-search-meal-organization-5m043l` changes.
-  Recapture after that branch merges.
 - **Padlocks are visible** on the Progress range selector (All Time, Custom).
   Truthful, but decide deliberately whether to lead with locked features.
 The app is **light-themed by default**, which is what these show. The copy above
