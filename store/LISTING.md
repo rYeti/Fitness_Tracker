@@ -190,48 +190,46 @@ Play's spam filter is looking for.
 
 ## 5. Screenshots
 
-Six store screenshots, generated from `screenshots/screens.html` by
-`screenshots/render.mjs` (Playwright + the pre-installed Chromium). They use the
-repository's own design tokens — Forge Orange `#FF6B3E`, charcoal `#333`, dark
-surface `#1E1E1E`, the fixed macro colours — and the bundled Montserrat and Exo 2
-fonts, so nothing is fetched from a CDN at render time.
+Six screenshots **captured from the running app** by `screenshots/capture-app.mjs`
+— Playwright driving the real Flutter web bundle in a real browser, signed in as
+the seeded trainee, against a local API seeded by the repo's own
+`e2e/tools/seed-review-data.mjs`. They are photographs of the app, not artwork.
 
-| # | Caption | Shows |
+`screenshots/README.md` is the runbook: Postgres, the API, the seed, the build
+flags, the capture. Regenerate with `node capture-app.mjs` once that stack is up.
+
+| # | File | Screen |
 |---|---|---|
-| 1 | Every set. Every meal. One log. | Dashboard: calorie ring, macros, next session |
-| 2 | Log a set in two taps. | Active workout: previous-set reference, RPE, rest timer |
-| 3 | Scan it. It's logged. | Barcode result and the Verified ✓ badge |
-| 4 | Macros that actually add up. | Nutrition day view: meals by category, macro bars |
-| 5 | Proof you're getting stronger. | Progress: streaks, weight trend, exercise graph |
-| 6 | Your coach, end-to-end encrypted. | Coach chat with the encryption notice |
+| 1 | `01-food-day` | A logged day — 2,186 / 2,000 kcal, macro split, meals by category |
+| 2 | `02-gym-today` | Today's scheduled session — Upper A, 55 min, Start Workout |
+| 3 | `03-progress-nutrition` | Progress → Nutrition over the selected range |
+| 4 | `04-dashboard` | The daily overview — greeting, today's workout, weight progress |
+| 5 | `05-food-search` | The food picker for one meal |
+| 6 | `06-active-workout` | A set being logged — Bench Press, 82.5 kg × 8 |
 
 **Rendered sizes:**
 
 | Store | Slot | Pixels | Files |
 |---|---|---|---|
-| App Store | iPhone 6.9" / 6.7" | 1290 × 2796 | `out/ios/01…06.png` |
-| Google Play | Phone | 1080 × 1920 | `out/play/01…06.png` |
+| App Store | iPhone 6.9" / 6.7" | 1290 × 2796 | `screenshots/out/ios/` |
+| Google Play | Phone | 1080 × 1920 | `screenshots/out/play/` |
 
-Regenerate with:
+### Before these go up
 
-```
-cd store/screenshots && node render.mjs
-```
+They are real, which also means they show exactly what the seeded account has
+and nothing more:
 
-The script uses `e2e/node_modules/@playwright/test`'s bundled Chromium via
-`PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers`, matching how `e2e/` already runs.
+- **Progress → Gym reads zero.** 0 total workouts, 0 streak. The seeder creates
+  15 scheduled workouts with one completed, which is not enough completed
+  history for the 7-day window those tiles count. Fix the seed, not the shot.
+- **`05-food-search` shows the pre-fix "Recently Added".** One flat list — the
+  exact behaviour `claude/food-search-meal-organization-5m043l` changes.
+  Recapture after that branch merges.
+- **Padlocks are visible** on the Progress range selector (All Time, Custom).
+  Truthful, but decide deliberately whether to lead with locked features.
+- **No captions.** These are bare app screens. Adding the usual headline band
+  above each is a compositing step on top of these PNGs — worth doing, and it
+  must sit *around* a real capture rather than replacing it.
 
-### What these screenshots are
-
-They are **designed store artwork built from the app's real design system and
-real feature set** — the same thing a designer produces in Figma before a
-release — not captures of a running build. The numbers in them are realistic
-placeholder data in the style `CLAUDE.md` requires (real-sounding names,
-plausible adherence, realistic set/rep/kcal values), and every UI element shown
-corresponds to something that exists in the code.
-
-Before these go live, replace them with captures of the shipping build, or
-verify each panel against the running app. Apple's 2.3.3 and Play's Store
-Listing policy both require screenshots to reflect the actual in-app
-experience, and a designed mock that drifts from the build is exactly what gets
-a submission rejected.
+The app is **light-themed by default**, which is what these show. The copy above
+mentions dark mode as an option, which is accurate.
