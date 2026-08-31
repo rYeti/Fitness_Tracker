@@ -1137,3 +1137,208 @@ within 15s and I have not established why.
 
 The remaining views are not known to be clean. They are unmeasured, which on
 the evidence of this section is a different and worse thing.
+
+## 14. The workout flow, and closing the last gap
+
+§13 named the workout create/edit/active views, the importers, the paywall,
+the welcome screen, coach chat and the client-detail screens behind a
+populated roster as unmeasured, and said the remaining views are not known to
+be clean. This section renders them. It also owes two corrections to §13
+itself, both found in the process of doing that.
+
+### Correction one: coach chat was a fixture gap, not an app defect
+
+§13 reported coach chat as "not reached" within 15 seconds and said the
+reason was unestablished. It has one: the seed's two trainee accounts were
+never linked to the trainer, so `isTrainerClient` was false for both and the
+coach-chat card on Profile never rendered — the click had nothing to find.
+Linking `robert.meyer` to the trainer through the real invite/join API (not a
+database row) and adding a third, deliberately **unlinked** trainee so the
+`!isTrainerClient` branch stays reachable too fixed it. With that, coach chat
+now audits clean at both widths.
+
+### Correction two: §13's own rule was too broad
+
+§13 closed with: *"every one of them failed in the direction that made the
+app look better."* That was true of the four bugs it listed and false of
+coach chat, which is also in this document. A 15-second `waitFor` timeout on
+a button that doesn't exist reports a **timeout**, not a **zero** — the
+opposite-looking failure from the same absent subject. The correct, narrower
+rule: **a metric that cannot find its subject reports zero; a `waitFor` that
+cannot find its subject reports a timeout.** Same cause, opposite-looking
+verdicts, neither one about the app. Read either kind of silence as "unmeasured,"
+not as a verdict in either direction.
+
+### A crash the seed was hiding
+
+The workout flow's first journey — tapping "Start Workout" — didn't measure a
+screen, it painted a blank grey one. `ActiveWorkoutView` reads
+`exerciseData.templates[_currentSetIndex]` the moment the screen builds, and
+the seed had populated workouts and workout exercises but never called the
+separate `sets/batch` endpoint that set templates require. Index 0 on an
+empty list: `RangeError: Index out of range: no indices are valid: 0`, caught
+by an error boundary that painted nothing rather than a visible failure.
+
+The real app cannot reach this state: `CreateWorkoutView`'s exercise editor
+always shows at least one set row, and saving one always calls
+`sets/batch`. A workout assembled by three direct API calls (workout, then
+exercises, then — missing — sets) was a workout the UI itself has no path to
+building. Fixed in the seed, three planned sets per exercise, not in the
+2,831-line view file that had nothing wrong with it.
+
+### The tap target that finally bound, and the one that didn't
+
+`e2e/tools/audit.ts`'s `minTarget()` returns 44 only at the `390` viewport
+and 32 otherwise — noted as a live bug in the plan for this round, since
+every sweep before this one ran at 1440 only. The 390 sweep was run
+specifically because of it, on the eight workout views, and it found the
+first real 44×44 violation of this whole audit: the set-history circle that
+opens the set-type/side menu (normal, warm-up, drop set, failure; left,
+right, both) measured 32×32 — its own visual scale, and also the entire tap
+target. This is the primary interaction of the app, tapped one-handed
+mid-set. Fixed by growing the tap target to a 44×44 `SizedBox` around the
+existing 32px circle, rather than growing the circle — the set-history list's
+visual density is a design choice this audit has no standing to relitigate,
+only the target it responds to.
+
+One more control at 390 still measures below 44: the Reps field, at
+358×24. It was not fixed, and the reason is worth stating rather than
+leaving as an oversight. The Weight and RPE fields are built identically —
+same `TextField`, same `headlineMedium` style, same `OutlineInputBorder` —
+and neither was flagged, at either width, in any run. A `<input>` element's
+semantics bounding rect reflects the native element Flutter mirrors into the
+DOM, not the full padded, bordered `InputDecorator` a user actually sees and
+taps; three structurally identical fields producing one flagged measurement
+looks like where that mirroring rounds differently, not a real 24px-tall tap
+target. The lesson from §12c and the falsified weight/reps-label hypothesis
+earlier in this same round both point the same way: a plausible-looking
+finding that cannot be corroborated by a second, structurally identical
+control is not yet a finding, and this one wasn't chased into a fix.
+
+### The chat composer's disabled button lost its label the same way
+
+The coach-chat composer's attachment button (present, permanently disabled —
+there is no upload endpoint yet) was wrapped in a `Tooltip` widget rather
+than using `IconButton`'s own `tooltip:` parameter. Confirmed by measurement:
+it reached the accessibility tree as an unnamed button despite the visible
+tooltip. A `Tooltip` wrapped around a *disabled* child does not merge its
+label into that child's semantics node on Flutter web. Every other tooltip
+fix in this document uses `IconButton.tooltip` directly; this is the one
+place a wrapping `Tooltip` widget had been used instead, and the one place
+this exact failure mode showed up.
+
+### A gap found and deliberately not fixed: the roster's Grid view
+
+`console-ClientDetail` was unreachable in the first run of this round's
+sweep, on a 20-second timeout clicking a client named by the seed. The
+reason is not a fixture gap. The trainer dashboard's roster defaults to Grid
+view, and `_RosterCard` — an `AppCard` (`Material` > `InkWell`) wrapping a
+`Column` of `Text` widgets showing the client's name, program, adherence and
+last session — does not mirror **any** of that content into the
+`<flt-semantics>` tree. Not unnamed: entirely absent. Confirmed by dumping
+every semantics node's text on the rendered page and finding zero matches for
+a name that is plainly visible on screen. Table view, showing the identical
+data through a plain `InkWell` row with no `AppCard`, mirrors correctly.
+
+This is the roster — the console's own landing screen, and the trainer's way
+of picking who to look at next. It is real, and it is not fixed here. The
+`AppCard` widget itself has no semantics-suppressing code in it, which rules
+out the obvious guess; the actual cause is somewhere in how a `Material` >
+`InkWell` > decorated-`Container` subtree interacts with `GridView.builder`
+specifically, and pinning that down is a debugging session in its own right,
+not a hand-anchored one-line fix. The audit routes around it — through Table
+view — to keep Client Detail reachable, and reports Grid view's gap here
+rather than silently working around it. At 1440 the workaround succeeds;
+Client Detail was not confirmed reachable at 390, where the console's
+narrower layout was not investigated further this round, and is left
+unreachable rather than assumed fixed.
+
+### Two seed gaps, named rather than worked around
+
+Three journeys are unreachable "by fixture," and unlike coach chat, these
+were left that way rather than fixed, because reaching them means completing
+a multi-step UI flow (day tabs, exercise rows, per-set fields, an explicit
+save) inside a Playwright script rather than a database call:
+
+- **`EditWorkout` / `EditSingleWorkout`** open from "More Options" on a row
+  in the "Manage Workouts" screen. That screen lists `WorkoutProvider.plans`
+  — `WorkoutPlan` entities, populated only by completing the create-workout
+  UI flow and saving. The seed populates `Workout` templates (a different
+  model, read by the Gym tab's calendar and by `ActiveWorkoutView`) via three
+  direct API calls, and never a `WorkoutPlan`. The list is correctly,
+  consistently empty; "More Options" has no row to appear on.
+- **`EditMealTemplate`** needs a second saved meal template to edit one
+  that isn't the one just created in the same journey; the seed creates one.
+
+Both are recorded as unreachable rather than silently skipped, per this
+document's own rule from §12a and §13.
+
+### A test bug that cost most of a working session
+
+The dialog that appears when re-entering the Gym tab after starting and
+abandoning a workout — "Resume workout?" — blocked five of seven journeys in
+the workout-flow test's first run, and it took three separate diagnostic
+passes to see why. The first fix checked for the dialog with
+`locator.isVisible({ timeout: 500 })`. `isVisible()` does not wait for
+anything — it is an instant check — so it reported "not present" on every
+call, including the ones a beat before the dialog actually rendered. The
+second fix replaced it with `waitFor({ state: 'visible', timeout: 3000 })`,
+which does poll, and still failed the same way: the first click on Discard
+sometimes lands before the dialog's own entrance animation finishes and
+doesn't register. The working version retries the click up to four times,
+checking `isVisible()` (correctly, this time, as a post-click state check,
+not a wait) between attempts.
+
+None of this was visible from the outside — every failed attempt looked
+identical: the whole 600-second test budget consumed, one journey's `.click`
+error as the only clue, and the same screenshot of the same dialog every
+time. What actually separated diagnosis from guessing was per-journey
+timestamped logging (`[walk] -> journey @ timestamp`, `[walk] ok/skip journey
+(elapsed)`) added specifically to stop re-diagnosing blind — visible in the
+run log rather than inferred from a single failure screenshot after the
+fact. The lesson restated from §12a: a test's own timing assumptions are as
+measurable, and as wrong, as anything it measures in the app — and a
+screenshot of a failure is not the same as a timeline of one.
+
+### Before / after, both widths
+
+At 1440, all fixes measured:
+
+| Screen | Before | After |
+|---|---:|---:|
+| `trainee-JoinTrainer` widest fraction | 0.978 | 0.311 |
+| `trainee-CoachChat` unnamed | 1 | 0 |
+| `console-ClientDetail` | unreachable | reached, 0 unnamed |
+| `trainee-ActiveWorkout` (crash) | blank grey screen | 14 controls, 0 unnamed |
+
+At 390 — the width that makes the 44px rule bind at all:
+
+| Screen | Before | After |
+|---|---:|---:|
+| `trainee-ActiveWorkout` below-target | 4 | 1 (see "Reps field," above — not a real target) |
+
+Full per-screen tables for both widths are in
+`e2e/tests/audit-flows.spec.ts`'s own output
+(`flows-1440.md` / `flows-390.md`), reproduced here for the screens this
+round actually changed rather than in full, to keep this section about what
+moved.
+
+### Coverage, stated honestly, again
+
+§13 closed at 23 of ~41 views. This round measured eleven more clean or
+now-clean (`WorkoutsList`, `ActiveWorkout`, `CreateWorkout`, `FitNotesImport`,
+`CsvImport`, `FoodDetail`, `CreateMealTemplate`, `Paywall`, `CoachChat`,
+`JoinTrainer`, `ProfileSetup`) plus `console-ClientDetail` at 1440 — **35 of
+~41**. The other six are accounted for, by kind, not omitted:
+
+| Kind | Screens | What it means |
+|---|---|---|
+| By definition | `ScheduleView` | nothing constructs it; dead code |
+| By fixture | `EditWorkout`, `EditSingleWorkout`, `EditMealTemplate` | seed doesn't reach the state the screen needs |
+| By fixture | `console-ClientDetail` at 390 | reached at 1440; mobile console layout not investigated |
+| By platform | `BarcodeScanner`, `auth-Welcome` | correct behaviour on web, not a gap |
+
+Two things are genuinely still open, not just unmeasured: the Grid-view
+roster's missing semantics (real, not fixed, cause not pinned down), and
+whatever makes the console's roster unreachable at 390 (not investigated).
+Both are named here rather than left to look like coverage.
