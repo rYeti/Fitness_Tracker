@@ -10,6 +10,10 @@ heading to the version it went out as, so a `## <version>` section is history:
 it is what those users have, and nothing new belongs in it. See
 `docs/android-release.md`.
 
+## Unreleased
+
+- Pinned `targetSdk` in `fittnes_tracker/android/app/build.gradle.kts` to 36 instead of leaving it delegated to `flutter.targetSdkVersion`. Delegated, the API level Play judges a release by was a property of whichever Flutter toolchain CI happened to resolve that day — invisible in the diff and impossible to review. The release workflow's preflight step now also logs the resolved target SDK for every run, and `docs/android-release.md` gained a section on actually promoting a build to the production track, since every release to date has gone to internal only.
+
 ## 1.0.2+15
 
 - Chat messages are now end-to-end encrypted. Each account holds an ECDH P-256 key pair whose private half is generated on the device, kept in the platform keystore, and never sent anywhere; message bodies are encrypted with AES-256-GCM under a secret both parties derive from opposite halves of that pair. The API stores and forwards ciphertext it has no key for, so a database dump or a backup no longer exposes a single conversation. Messages sent before this change stay readable and are marked as version 0 — the server cannot encrypt what it was never given a key for, and inventing a key to backfill them would put it in the one place the feature says it must not be. There is no key backup by design, so reinstalling, or signing in on a second device, means messages from before that point cannot be decrypted there; those show as "Message can't be decrypted on this device" rather than as blank bubbles, and the same wording is what a screen reader hears. The private key deliberately survives sign-out, so signing back in on the same device keeps your history. See `docs/chat-encryption.md`.

@@ -42,7 +42,15 @@ android {
     defaultConfig {
         applicationId = "com.forgeform.app"
         minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+
+        // Pinned, not `flutter.targetSdkVersion`. Play judges a release by this
+        // number — miss its annual deadline (31 August) and the app keeps its
+        // listing and its existing users but stops being served to new ones.
+        // Delegated, it is a property of whichever Flutter toolchain CI resolved
+        // that day: invisible in the diff, unreviewable, and different between a
+        // laptop and a runner. Pinned, raising it is a deliberate, dated commit.
+        // Bump this and rebuild before Play's deadline each year.
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }

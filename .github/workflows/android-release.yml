@@ -211,6 +211,16 @@ jobs:
           if [ "$failed" -ne 0 ]; then
             exit 1
           fi
+
+          # --- Target API (informational) -------------------------------------
+          # Play judges a release against the app's target SDK, not this
+          # workflow's toolchain version, and enforces an annual deadline
+          # (31 August) below which an app keeps its existing users but stops
+          # being served to new ones. Echoed here so every release log states
+          # the number Play will judge it by, next to the track it is going to.
+          target_sdk="$(grep -m1 'targetSdk = ' app/build.gradle.kts | grep -o '[0-9]\+')"
+          echo "Target SDK: ${target_sdk:-unknown} (pinned in app/build.gradle.kts)"
+
           {
             echo "version=$version"
             echo "build=$build"

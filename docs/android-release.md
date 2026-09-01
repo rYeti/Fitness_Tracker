@@ -102,6 +102,37 @@ To target another track directly, run the workflow manually
 (Actions → Android Release → Run workflow) and pick the track and status.
 Nothing auto-ships to production.
 
+## Getting a release to production
+
+As of this writing, no release from this workflow has ever gone straight to
+production — every `play/*` tag was published to **internal**, either by a
+tag push (which always targets `internal`) or by a manual dispatch that left
+the track at its `internal` default. Production is still served by whatever
+was last uploaded through the Play Console by hand.
+
+Two ways to move a build forward:
+
+- **Promote in the Console.** Release → Testing → Internal testing → the
+  release you want → *Promote release* → pick the target track. This is a
+  Console action; nothing in this repo does it for you.
+- **Dispatch straight to production.** Actions → Android Release → Run
+  workflow → set `track` to `production`. The build number is still computed
+  automatically, so this is safe to do for any commit — it does not require a
+  prior internal release of the same build.
+
+**A track left un-promoted is not neutral — it ages.** Play requires an app's
+`targetSdk` to clear an annual bar (the deadline lands **31 August**) to keep
+being served to *new* installs; existing installs and updates are unaffected.
+If production is left pointed at an old bundle while `targetSdk` moves forward
+only on newer internal builds, production quietly falls out of compliance on
+that date — the app stays listed and keeps updating existing users, and simply
+stops appearing for anyone who doesn't already have it. There is no warning
+inside this repo when that happens; the Play Console's Release → Overview
+page and its policy-notification emails are the only place it shows up.
+`app/build.gradle.kts` pins `targetSdk` explicitly for this reason, and the
+release workflow logs the resolved value in its preflight step — check that
+number against the one live on production, not just the one being built.
+
 ## Required repository secrets
 
 Settings → Secrets and variables → Actions.
