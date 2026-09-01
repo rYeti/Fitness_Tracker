@@ -22,6 +22,14 @@ Markdown links, headings or emphasis, none of which Play renders.
 
 See `docs/android-release.md`.
 
+## Unreleased
+
+Fixed a bug where reinstalling the app or signing in on a new device could
+leave gaps in your training history: sets logged against an exercise you had
+since swapped out of a workout would not come back, so your previous-set
+reference and exercise progress for that lift started empty. That history now
+comes back correctly.
+
 ## 1.0.2+15
 
 Your chat messages are now end-to-end encrypted. Messages are scrambled on your

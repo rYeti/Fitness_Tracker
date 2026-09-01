@@ -154,7 +154,10 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
     final exerciseInstances =
         await (select(workoutExerciseTable)
               ..where(
-                (we) => we.workoutId.equals(id) & we.syncStatus.isNotValue(3),
+                (we) =>
+                    we.workoutId.equals(id) &
+                    we.syncStatus.isNotValue(3) &
+                    we.syncStatus.isNotValue(4),
               )
               ..orderBy([(we) => OrderingTerm(expression: we.orderPosition)]))
             .get();
@@ -232,7 +235,8 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
               ..where(
                 (we) =>
                     we.workoutId.equals(workoutId) &
-                    we.syncStatus.isNotValue(3),
+                    we.syncStatus.isNotValue(3) &
+                    we.syncStatus.isNotValue(4),
               )
               ..orderBy([(we) => OrderingTerm.asc(we.orderPosition)]))
             .get();
@@ -325,9 +329,18 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
       // Only hard-delete rows for exercises that were actually removed.
       Map<int, WorkoutExerciseTableData> existingById = {};
       if (workout.id != null) {
+        // Excludes retired (4) rows: the builder never showed them, so they
+        // can never appear in keptIds below, and diffing them in would mark
+        // them pendingDelete and eventually hard-delete them — destroying the
+        // historic sets that stamping them retired in the first place was
+        // meant to preserve. See WorkoutExerciseTable's doc comment.
         final existingExercises =
-            await (select(workoutExerciseTable)
-              ..where((we) => we.workoutId.equals(workoutId))).get();
+            await (select(workoutExerciseTable)..where(
+                  (we) =>
+                      we.workoutId.equals(workoutId) &
+                      we.syncStatus.isNotValue(4),
+                ))
+                .get();
 
         existingById = {for (final e in existingExercises) e.id: e};
 
@@ -487,8 +500,9 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
 
   // WorkoutExercises
   Future<List<WorkoutExerciseTableData>> getUnsyncedWorkoutExercises() =>
-      (select(workoutExerciseTable)
-        ..where((we) => we.syncStatus.isNotValue(1))).get();
+      (select(workoutExerciseTable)..where(
+        (we) => we.syncStatus.isNotValue(1) & we.syncStatus.isNotValue(4),
+      )).get();
 
   Future<void> markWorkoutExerciseSynced(int localId, String serverId) =>
       (update(workoutExerciseTable)

@@ -2205,10 +2205,6 @@ class SyncService {
       );
       for (final ex in exercises) {
         final exServerId = ex['id'] as String;
-        // A retired exercise is still returned so that logged sessions can resolve
-        // what was performed, but it is no longer part of the workout — pulling it
-        // back in would put an exercise the user deleted back into their plan.
-        if (ex['removedAt'] != null) continue;
         if (await _db.workoutDao.getWorkoutExerciseByServerId(exServerId) !=
             null)
           continue;
@@ -2219,6 +2215,34 @@ class SyncService {
           _logger.w(
             'Pull workout $workoutServerId: skipping exercise — no local match for exercise server ID ${ex['exerciseId']}',
           );
+          continue;
+        }
+
+        // A retired exercise is still returned so that logged sessions can
+        // resolve what was performed, but it is no longer part of the
+        // workout. Pulling it back in as a normal (visible) row would put an
+        // exercise the user removed back into their plan — but skipping it
+        // entirely, as this used to do, left nothing for a
+        // ScheduledWorkoutExercise pulled afterwards to link against, so any
+        // set logged against it could never be pulled onto another device.
+        // Store it as `retired`: present for FK resolution, hidden from
+        // every workout-builder/active-workout listing, and exempt from the
+        // `pendingDelete` push sweep (the server already has nothing to
+        // delete).
+        if (ex['removedAt'] != null) {
+          await _db
+              .into(_db.workoutExerciseTable)
+              .insert(
+                WorkoutExerciseTableCompanion(
+                  workoutId: Value(localWorkoutId),
+                  exerciseId: Value(localExercise.id),
+                  orderPosition: Value(ex['orderPosition'] as int),
+                  notes: Value(ex['notes'] as String?),
+                  supersetGroupId: Value(ex['supersetGroupId'] as int?),
+                  serverId: Value(exServerId),
+                  syncStatus: const Value(4), // retired
+                ),
+              );
           continue;
         }
 
