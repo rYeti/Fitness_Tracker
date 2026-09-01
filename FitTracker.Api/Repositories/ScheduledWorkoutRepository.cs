@@ -191,6 +191,37 @@ public class ScheduledWorkoutRepository : IScheduledWorkoutRepository
         var ownsWorkout = await _context.Workouts.AnyAsync(w => w.Id == sw.WorkoutId && w.UserId == userId);
         if (!ownsWorkout) return null;
 
+        // Creating is also idempotent per workout and day, not only per id. The sync
+        // client does not send an id — the server mints one and the client stores it —
+        // so matching on the id alone caught nothing: a push whose response was lost, and
+        // a second device pushing its own unlinked local row, each wrote another session
+        // for the same workout on the same date. The trainee app never showed the extras,
+        // because its own de-duplication pass treats two rows for one workout and date as
+        // duplicates by definition and merges them on the device; the Trainer Console
+        // listed each one, and the twin nobody logged against read as a session where the
+        // client skipped every exercise.
+        //
+        // Returning the session that already occupies the day hands the client the id it
+        // was missing, and its exercise entries with it — which is what the caller then
+        // links its local rows to, exactly as the meal create does (see
+        // MealService.CreateMealAsync).
+        //
+        // ScheduledDate is a client local midnight stored as an instant, so this is a
+        // UTC-day window rather than an equality test. It matches what one device sends
+        // for one day; two devices in different timezones can still land either side of
+        // the boundary, and the console's read-side fold covers what slips through.
+        var day = sw.ScheduledDate.Date;
+        var sameDay = await _context.ScheduledWorkouts
+            .Include(s => s.Exercises)
+                .ThenInclude(e => e.Sets)
+            .Where(s => s.WorkoutId == sw.WorkoutId
+                     && s.ScheduledDate >= day
+                     && s.ScheduledDate < day.AddDays(1))
+            .OrderBy(s => s.CreatedAt)
+            .ThenBy(s => s.Id)
+            .FirstOrDefaultAsync();
+        if (sameDay != null) return sameDay;
+
         if (sw.WorkoutPlanId != null)
         {
             var ownsPlan = await _context.WorkoutPlans.AnyAsync(p => p.Id == sw.WorkoutPlanId && p.UserId == userId);

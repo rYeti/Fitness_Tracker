@@ -1656,16 +1656,74 @@ class SyncService {
         'foodItemId': primaryServerId ?? '00000000-0000-0000-0000-000000000000',
       },
     );
-    final mealServerId = response.data['id'] as String;
+    final data = (response.data as Map).cast<String, dynamic>();
+    final mealServerId = data['id'] as String;
     await _db.mealDao.markMealSynced(localId: meal.id, serverId: mealServerId);
 
-    // Push food entries in a batch.
+    // Creating a meal is idempotent per day and category server-side, so this POST
+    // may well have returned a meal that was already there — with the food entries
+    // it already holds. Posting ours on top of those is how a lunch of five foods
+    // became a lunch of ten in the Trainer Console, and doubled the day's calories
+    // with it: the trainee app reads one row per category and merges its entries by
+    // food item, so it renders that meal correctly and its user never sees the
+    // second copy, let alone gets a way to delete it.
     final entries = await _db.mealDao.getAllFoodEntriesForMeal(meal.id);
-    await _syncMealFoodEntriesBatch(
-      entries.where((e) => e.serverId == null).toList(),
-      mealServerId,
+    final unstamped = entries.where((e) => e.serverId == null).toList();
+    final stillMissing = await _stampMealFoodEntriesFromServer(
+      unstamped,
+      (data['foodEntries'] as List? ?? []).cast<Map<String, dynamic>>(),
     );
+    await _syncMealFoodEntriesBatch(stillMissing, mealServerId);
     _logger.i('Synced new meal ${meal.id} → server $mealServerId');
+  }
+
+  /// Links local food entries to the ones the meal already holds server-side and
+  /// returns those that genuinely still need creating.
+  ///
+  /// Same shape as [_stampWorkoutExercisesFromServer], and for the same reason: a
+  /// row the server already has is not a row to create again, and a duplicate here
+  /// is not something the user can undo. Each server entry is claimed at most once,
+  /// so a client that logged two portions of one food still gets its second entry
+  /// created — repeats within a meal are real (`LoggedMealDto.Foods` says so), and
+  /// collapsing them would under-report what somebody ate.
+  Future<List<dynamic>> _stampMealFoodEntriesFromServer(
+    List<dynamic> unstamped,
+    List<Map<String, dynamic>> serverEntries,
+  ) async {
+    if (serverEntries.isEmpty || unstamped.isEmpty) return unstamped;
+
+    final claimed = <String>{};
+    final stillMissing = <dynamic>[];
+    for (final entry in unstamped) {
+      final food = await _db.foodItemDao.getFoodItemById(entry.foodEntryId);
+      final foodServerId = food?.serverId;
+      if (foodServerId == null) {
+        stillMissing.add(entry);
+        continue;
+      }
+
+      Map<String, dynamic>? match;
+      for (final s in serverEntries) {
+        if (claimed.contains(s['id'] as String)) continue;
+        if (s['foodItemId'] == foodServerId) {
+          match = s;
+          break;
+        }
+      }
+      if (match == null) {
+        stillMissing.add(entry);
+        continue;
+      }
+
+      final matchedServerId = match['id'] as String;
+      claimed.add(matchedServerId);
+      await _db.mealDao.setFoodEntryServerId(entry.id, matchedServerId);
+      _logger.i(
+        'Re-linked meal food entry ${entry.id} to existing server '
+        '$matchedServerId (was about to be created a second time)',
+      );
+    }
+    return stillMissing;
   }
 
   Future<void> _syncUpdateMeal(MealTableData meal) async {

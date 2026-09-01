@@ -277,6 +277,160 @@ public class TrainerSessionReviewTests : IDisposable
         Assert.DoesNotContain(created!.Exercises, e => e.WorkoutExerciseId == retired.Id);
     }
 
+    // ── Duplicate rows left behind by a repeated push ───────────────────────
+
+    [Fact]
+    public async Task DuplicateSessionsForOneWorkoutAndDateFoldToOne()
+    {
+        var workout = AddWorkout("Lower A");
+        var exercise = AddWorkoutExercise(workout, sets: 3);
+        var plan = AddPlan("Spring Block", isActive: true);
+
+        // The shape a lost sync response, or a second device, leaves behind: two
+        // ScheduledWorkout rows for the same workout on the same day. Only one was
+        // ever logged against.
+        var real = AddSession(workout, plan, DaysAgo(2), isCompleted: true);
+        LogSets(real, exercise, reps: 8, weight: 100, count: 3);
+        AddSession(workout, plan, DaysAgo(2));
+
+        var sessions = await LoadHistory();
+
+        var only = Assert.Single(sessions);
+        Assert.Equal(SessionStatusDto.Done, only.Status);
+        var logged = Assert.Single(only.Exercises);
+        Assert.Equal(3, logged.Sets.Count);
+    }
+
+    [Fact]
+    public async Task CreatingASessionTwiceForOneWorkoutAndDayReturnsTheFirst()
+    {
+        var workout = AddWorkout("Lower A");
+        AddWorkoutExercise(workout, sets: 3);
+
+        var scheduling = new ScheduledWorkoutService(new ScheduledWorkoutRepository(_fx.Db));
+        var dto = new ScheduledWorkoutRequestDto
+        {
+            WorkoutId = workout.Id,
+            ScheduledDate = DateTime.UtcNow.Date,
+        };
+        var first = await scheduling.CreateScheduledWorkoutAsync(dto, _client.Id);
+        var second = await scheduling.CreateScheduledWorkoutAsync(dto, _client.Id);
+
+        // Idempotent per workout and day, not only per the id the caller happened to
+        // send — the sync client sends none, so matching on id alone caught nothing.
+        Assert.Equal(first!.Id, second!.Id);
+        Assert.Single(_fx.Db.ScheduledWorkouts.Where(s => s.WorkoutId == workout.Id));
+    }
+
+    [Fact]
+    public async Task DuplicateExerciseSlotFoldsToTheLoggedOne()
+    {
+        var workout = AddWorkout("Lower A");
+        var live = AddWorkoutExercise(workout, sets: 2);
+        // A second WorkoutExercise row in the exact same slot — the shape a lost
+        // batch-post response leaves behind.
+        var stale = new WorkoutExercise
+        {
+            Id = Guid.NewGuid(),
+            WorkoutId = workout.Id,
+            ExerciseId = _squat.Id,
+            OrderPosition = live.OrderPosition,
+        };
+        _fx.Db.WorkoutExercises.Add(stale);
+        _fx.Db.SaveChanges();
+
+        var plan = AddPlan("Spring Block", isActive: true);
+        var session = AddSession(workout, plan, DaysAgo(2), isCompleted: true);
+        LogSets(session, live, reps: 8, weight: 100, count: 2);
+        AddScheduledEntry(session, stale);
+
+        var only = Assert.Single(await LoadHistory());
+
+        // Without the fold this reported a second exercise, unlogged, as Skipped.
+        var logged = Assert.Single(only.Exercises);
+        Assert.Equal(live.Id, logged.WorkoutExerciseId);
+        Assert.False(logged.Skipped);
+    }
+
+    [Fact]
+    public async Task AStalePrescriptionInTheDuplicateSlotDoesNotInflateTheCount()
+    {
+        var workout = AddWorkout("Lower A");
+        var live = AddWorkoutExercise(workout, sets: 2);
+        var stale = new WorkoutExercise
+        {
+            Id = Guid.NewGuid(),
+            WorkoutId = workout.Id,
+            ExerciseId = _squat.Id,
+            OrderPosition = live.OrderPosition,
+        };
+        _fx.Db.WorkoutExercises.Add(stale);
+        _fx.Db.SaveChanges();
+        // The stale row's own generation of set templates — nobody rewrote it once
+        // `live` took over the slot, so its prescription is frozen at 3 sets.
+        AddSetTemplates(stale, count: 3);
+
+        var plan = AddPlan("Spring Block", isActive: true);
+        var session = AddSession(workout, plan, DaysAgo(2), isCompleted: true);
+        LogSets(session, live, reps: 8, weight: 100, count: 2);
+        // Both rows get stamped onto the session — that's how the duplicate row got
+        // there in the first place — but only `live` was ever logged against.
+        AddScheduledEntry(session, stale);
+
+        var only = Assert.Single(await LoadHistory());
+        var logged = Assert.Single(only.Exercises);
+
+        // Reported off the live slot's own 2 sets, never the stale row's 3.
+        Assert.Equal(2, logged.Prescribed!.SetCount);
+    }
+
+    [Fact]
+    public async Task BothEntriesLoggedInADuplicateSlotAreBothKept()
+    {
+        var workout = AddWorkout("Lower A");
+        var first = AddWorkoutExercise(workout, sets: 2);
+        var second = new WorkoutExercise
+        {
+            Id = Guid.NewGuid(),
+            WorkoutId = workout.Id,
+            ExerciseId = _squat.Id,
+            OrderPosition = first.OrderPosition,
+        };
+        _fx.Db.WorkoutExercises.Add(second);
+        _fx.Db.SaveChanges();
+
+        var plan = AddPlan("Spring Block", isActive: true);
+        var session = AddSession(workout, plan, DaysAgo(2), isCompleted: true);
+        // The client logged against both twins — there is no way to merge two sets
+        // of real history without inventing or destroying some of it.
+        LogSets(session, first, reps: 8, weight: 100, count: 2);
+        LogSets(session, second, reps: 8, weight: 100, count: 2);
+
+        var only = await LoadHistory();
+        var logged = Assert.Single(only).Exercises;
+
+        Assert.Equal(2, logged.Count);
+    }
+
+    [Fact]
+    public async Task TheSameExerciseTwiceAtDifferentPositionsIsARealSupersetNotADuplicate()
+    {
+        var workout = AddWorkout("Lower A");
+        var firstSlot = AddWorkoutExercise(workout, sets: 2);
+        var secondSlot = AddWorkoutExercise(workout, sets: 2); // same exercise, next OrderPosition
+        var plan = AddPlan("Spring Block", isActive: true);
+        var session = AddSession(workout, plan, DaysAgo(2), isCompleted: true);
+        LogSets(session, firstSlot, reps: 8, weight: 100, count: 2);
+        LogSets(session, secondSlot, reps: 8, weight: 100, count: 2);
+
+        var only = await LoadHistory();
+        var logged = Assert.Single(only).Exercises;
+
+        // Different OrderPosition means a different slot — pairing the same movement
+        // with itself in a superset — and must never be folded away.
+        Assert.Equal(2, logged.Count);
+    }
+
     // ── Seeding ─────────────────────────────────────────────────────────────
 
     private static DateTime DaysAgo(int days) => DateTime.UtcNow.Date.AddDays(-days);

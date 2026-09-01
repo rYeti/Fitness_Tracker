@@ -87,6 +87,69 @@ public class TrainerNutritionSummaryTests : IDisposable
     }
 
     [Fact]
+    public async Task ARowThatIsAnExactRepushIsDropped()
+    {
+        var oats = _fx.AddFoodItem(_clientId, "Oats", calories: 320);
+        var berries = _fx.AddFoodItem(_clientId, "Blueberries", calories: 80);
+
+        // Not the split-foods shape above — a second row holding the *same* foods as
+        // the first, the shape a reconcile pass or a second device leaves behind.
+        var first = _fx.AddMeal(_clientId, StoredOnTheTwentyFirst, "Breakfast");
+        _fx.AddFoodToMeal(first.Id, oats.Id);
+        _fx.AddFoodToMeal(first.Id, berries.Id);
+        var repushed = _fx.AddMeal(_clientId, StoredOnTheTwentyFirst, "Breakfast");
+        _fx.AddFoodToMeal(repushed.Id, oats.Id);
+        _fx.AddFoodToMeal(repushed.Id, berries.Id);
+
+        var summary = await _console.GetClientNutritionSummaryAsync(_trainerId, _clientId, TheTwentyFirst);
+
+        var meal = Assert.Single(summary!.LoggedMeals);
+        // The repushed row is dropped whole, not merged food-by-food — merging would
+        // have doubled the totals right back up.
+        Assert.Equal(new[] { "Blueberries", "Oats" }, meal.FoodNames.OrderBy(n => n).ToArray());
+        Assert.Equal(400, meal.Calories);
+        Assert.Equal(400, summary.TotalCalories);
+    }
+
+    [Fact]
+    public async Task ARealSecondPortionInOneRowIsNeverCollapsed()
+    {
+        var oats = _fx.AddFoodItem(_clientId, "Oats", calories: 320);
+
+        // Two entries for the same food in one row is a client logging two portions —
+        // real, and never something the fold is allowed to treat as a duplicate.
+        var meal = _fx.AddMeal(_clientId, StoredOnTheTwentyFirst, "Breakfast");
+        _fx.AddFoodToMeal(meal.Id, oats.Id);
+        _fx.AddFoodToMeal(meal.Id, oats.Id);
+
+        var summary = await _console.GetClientNutritionSummaryAsync(_trainerId, _clientId, TheTwentyFirst);
+
+        var logged = Assert.Single(summary!.LoggedMeals);
+        Assert.Equal(2, logged.Foods.Count);
+        Assert.Equal(640, logged.Calories);
+    }
+
+    [Fact]
+    public async Task TheTrendBarForTheRequestedDayMatchesTheFoldedTotal()
+    {
+        var oats = _fx.AddFoodItem(_clientId, "Oats", calories: 320);
+
+        var first = _fx.AddMeal(_clientId, StoredOnTheTwentyFirst, "Breakfast");
+        _fx.AddFoodToMeal(first.Id, oats.Id);
+        var repushed = _fx.AddMeal(_clientId, StoredOnTheTwentyFirst, "Breakfast");
+        _fx.AddFoodToMeal(repushed.Id, oats.Id);
+
+        var summary = await _console.GetClientNutritionSummaryAsync(_trainerId, _clientId, TheTwentyFirst);
+
+        // The ring (TotalCalories) and the trend bar for the same day are built from
+        // two different code paths; a fix that only touched one used to leave them
+        // disagreeing by exactly the duplicate's worth of calories.
+        var todaysBar = summary!.SevenDayTrend.Single(d => d.Date == TheTwentyFirst);
+        Assert.Equal(320, summary.TotalCalories);
+        Assert.Equal(320, todaysBar.TotalCalories);
+    }
+
+    [Fact]
     public async Task DifferentCategoriesAreStillDifferentMeals()
     {
         var oats = _fx.AddFoodItem(_clientId, "Oats", calories: 320);
