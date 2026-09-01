@@ -257,10 +257,19 @@ public class TrainerConsoleService(
         // newest-first list and read as an unlogged session.
         var today = DateTime.UtcNow.Date;
 
-        // Read `count` sessions, not all of them. This used to load the client's whole
-        // history, build the full prescribed-vs-logged graph for every past session, and
-        // then keep the newest ten.
-        var page = await _scheduledWorkoutService.GetRecentSessionsAsync(clientId, today.AddDays(1), count);
+        // Read a bounded page, not the client's whole history: this used to load every
+        // session they had ever had, build the full prescribed-vs-logged graph for each,
+        // and then keep the newest ten.
+        //
+        // Twice `count`, because CollapseDuplicateSessions below folds sessions away and
+        // a page that came back exactly `count` long would then be short. Two rows for one
+        // slot is the shape duplication takes here — a repeated push, one twin per
+        // device — so doubling refills the page in every case seen in production without
+        // giving up the bound this path exists for.
+        var page = CollapseDuplicateSessions(
+            await _scheduledWorkoutService.GetRecentSessionsAsync(clientId, today.AddDays(1), count * 2))
+            .Take(count)
+            .ToList();
         if (page.Count == 0) return [];
 
         // Name and prescription lookups, fetched once for the page rather than per session.
@@ -301,7 +310,7 @@ public class TrainerConsoleService(
             var rpes = new List<int>();
             var sessionHasPr = false;
 
-            foreach (var scheduledExercise in workout.Exercises)
+            foreach (var scheduledExercise in CollapseDuplicateEntries(workout.Exercises, workoutExercisesById))
             {
                 workoutExercisesById.TryGetValue(scheduledExercise.WorkoutExerciseId, out var exerciseTemplate);
 
@@ -423,6 +432,163 @@ public class TrainerConsoleService(
         return sessions;
     }
 
+    /// <summary>Drops the meal rows in one day-and-category group that are re-pushes of a
+    /// row already in it, so folding the group does not report the client eating
+    /// everything twice.</summary>
+    /// <remarks>Grouping the day's rows by category stopped the console listing two
+    /// breakfasts, but it concatenated their food entries, so a client whose lunch had been
+    /// pushed twice went from two lunches of five foods to one lunch of ten — and the
+    /// calorie and macro totals, which are summed from the entries, doubled with it. The
+    /// row count was the visible half of that defect; this is the other half.
+    ///
+    /// <para>The rule is exact, not a heuristic: a row is dropped only when its food items
+    /// are, as a multiset, identical to those of a row already kept. Two rows listing the
+    /// same foods in the same quantities for one category on one day are one meal that was
+    /// sent twice — by a reconcile pass that cleared a <c>serverId</c> whose server row was
+    /// never gone, by a response lost after the write committed, or by a second device
+    /// pushing its own unlinked copy. Rows that differ in any item are kept and
+    /// concatenated as before, because there they hold different food and the client really
+    /// did eat all of it.</para>
+    ///
+    /// <para>What this deliberately does not do is de-duplicate <em>within</em> a row.
+    /// <c>LoggedMealDto.Foods</c> documents that repeats are real — a client eating two
+    /// portions of the same food logs it twice — so a repeated entry inside one meal is
+    /// indistinguishable from an accident, and collapsing it would silently under-report
+    /// what somebody ate. The place to stop that one is the push (see the sync client's
+    /// <c>_syncNewMeal</c>, which now links its entries to the ones the server already
+    /// holds before creating any).</para></remarks>
+    private static List<MealResponseDto> CollapseRepushedMeals(List<MealResponseDto> sameCategory)
+    {
+        if (sameCategory.Count < 2) return sameCategory;
+
+        var kept = new List<MealResponseDto>();
+        var keptContents = new HashSet<string>();
+        foreach (var meal in sameCategory)
+        {
+            // Ordered so that two rows holding the same foods match whatever order their
+            // entries were written in, and counted so that "two portions" stays distinct
+            // from "one portion".
+            var contents = string.Join(
+                ",", meal.FoodEntries.Select(e => e.FoodItemId).OrderBy(id => id));
+            // An empty row carries nothing to duplicate; it is folded away regardless.
+            if (keptContents.Add(contents) && contents.Length > 0) kept.Add(meal);
+        }
+
+        // Every row was empty, or every row was a repeat of the first — either way the
+        // group still has to yield something for the category to render.
+        return kept.Count > 0 ? kept : [sameCategory[0]];
+    }
+
+    /// <summary>Folds the repeated <c>ScheduledWorkout</c> rows a client's history has
+    /// accumulated into one session per workout per day, so a trainer is shown the
+    /// session the client trained rather than it and its empty twin.</summary>
+    /// <remarks>Creating a session was idempotent on the client-supplied id alone, and the
+    /// sync client does not supply one — so a push whose response was lost, and a second
+    /// device pushing its own local row, each wrote another row for the same workout on the
+    /// same day. The trainee app never showed them: its own de-duplication pass has always
+    /// treated two rows for one workout and date as duplicates by definition, and merges
+    /// them on the device. Nothing merged them on the server, and the console listed each
+    /// one — one carrying the client's logged sets, its twins empty and so reading as a
+    /// session where every exercise was skipped.
+    ///
+    /// <para>The entries of every row in a group are kept and handed to
+    /// <see cref="CollapseDuplicateEntries"/>, rather than taking the winner's alone:
+    /// which twin a set was logged against is an accident of which local row the device
+    /// happened to have linked, and dropping the others would drop real training with
+    /// them.</para></remarks>
+    private static List<ScheduledWorkoutResponseDto> CollapseDuplicateSessions(
+        List<ScheduledWorkoutResponseDto> sessions)
+    {
+        return sessions
+            .GroupBy(sw => (sw.WorkoutId, sw.ScheduledDate.Date))
+            // The group's order is the incoming order, so a fold preserves the
+            // newest-first paging the caller relies on.
+            .Select(group =>
+            {
+                var sameSession = group.ToList();
+                if (sameSession.Count == 1) return sameSession[0];
+
+                // The row the client actually used: most logged sets, then completed,
+                // then the one created first, so the fold is stable between requests.
+                var survivor = sameSession
+                    .OrderByDescending(sw => sw.Exercises.Sum(e => e.Sets.Count))
+                    .ThenByDescending(sw => sw.IsCompleted)
+                    .ThenBy(sw => sw.CreatedAt)
+                    .ThenBy(sw => sw.Id)
+                    .First();
+
+                return new ScheduledWorkoutResponseDto
+                {
+                    Id = survivor.Id,
+                    WorkoutId = survivor.WorkoutId,
+                    // A twin generated by a plan and one scheduled by hand are the same
+                    // session; keeping the plan link means FilterToCurrentProgramme and
+                    // the adherence reads still recognise it as programmed work.
+                    WorkoutPlanId = survivor.WorkoutPlanId ?? sameSession.Select(sw => sw.WorkoutPlanId).FirstOrDefault(id => id is not null),
+                    TemplateWorkoutId = survivor.TemplateWorkoutId,
+                    ScheduledDate = survivor.ScheduledDate,
+                    CreatedAt = sameSession.Min(sw => sw.CreatedAt),
+                    Notes = sameSession.Select(sw => sw.Notes).FirstOrDefault(n => !string.IsNullOrWhiteSpace(n)),
+                    // Completing or skipping one twin is completing or skipping the
+                    // session: the flag lives on whichever row the device was holding.
+                    IsCompleted = sameSession.Any(sw => sw.IsCompleted),
+                    IsSkipped = sameSession.Any(sw => sw.IsSkipped) && !sameSession.Any(sw => sw.IsCompleted),
+                    Exercises = [.. sameSession.SelectMany(sw => sw.Exercises)],
+                };
+            })
+            .ToList();
+    }
+
+    /// <summary>Folds a session's exercise entries onto the workout slot each was stamped
+    /// from, so a slot the workout holds twice is reported once.</summary>
+    /// <remarks>Adding an exercise to a workout is idempotent per
+    /// <c>(WorkoutId, ExerciseId, OrderPosition)</c> now, but every duplicate written
+    /// before that is still in <c>WorkoutExercises</c>, and nothing will ever remove it:
+    /// the sync client collapses duplicate exercises as it pulls a workout, so the trainee
+    /// app renders the workout correctly and its user has no way to see, let alone delete,
+    /// the second row. Sessions are stamped from the table, not from what the app renders,
+    /// so each session carried both — the client logged against one, and the console
+    /// reported the other as an exercise they skipped, prescription and all.
+    ///
+    /// <para>OrderPosition is part of the slot for the same reason it is part of the write
+    /// path's key: a workout may legitimately hold the same movement twice — a superset
+    /// pairing it with itself — and those instances differ only by position. Two entries
+    /// sharing the exercise <em>and</em> the position cannot be anything but twins.</para>
+    ///
+    /// <para>Entries carrying logged sets are never folded away, even when several in one
+    /// slot carry them. That case means the client logged against more than one twin, and
+    /// there is no way to merge two sets of logs without inventing or destroying training
+    /// history; showing the trainer both is the honest reading. Only the empty twins go,
+    /// and only when a sibling in the same slot was actually trained.</para></remarks>
+    private static List<ScheduledWorkoutExerciseResponseDto> CollapseDuplicateEntries(
+        List<ScheduledWorkoutExerciseResponseDto> entries,
+        Dictionary<Guid, WorkoutExerciseResponseDto> workoutExercisesById)
+    {
+        if (entries.Count < 2) return entries;
+
+        // An entry whose template cannot be resolved is keyed by its own id, so it stands
+        // alone rather than being folded into an unrelated slot.
+        string SlotOf(ScheduledWorkoutExerciseResponseDto e) =>
+            workoutExercisesById.TryGetValue(e.WorkoutExerciseId, out var template)
+                ? $"{template.WorkoutId}|{template.ExerciseId}|{template.OrderPosition}"
+                : e.Id.ToString();
+
+        var keep = new HashSet<Guid>();
+        foreach (var slot in entries.GroupBy(SlotOf))
+        {
+            var logged = slot.Where(e => e.Sets.Count > 0).ToList();
+            if (logged.Count > 0)
+            {
+                foreach (var e in logged) keep.Add(e.Id);
+            }
+            else
+            {
+                keep.Add(slot.OrderBy(e => e.Id).First().Id);
+            }
+        }
+
+        return [.. entries.Where(e => keep.Contains(e.Id))];
+    }
 
     /// <summary>Drops the sessions a client is no longer on the hook for, so that every
     /// trainer-facing count and list is drawn from the same set of sessions.</summary>
@@ -508,8 +674,14 @@ public class TrainerConsoleService(
         var foodItemsById = (await _foodItemService.GetFoodItemsByIdsAsync(clientId, referencedFoodIds))
             .ToDictionary(f => f.Id);
 
+        // Folded by category on the way in, exactly as the day's own total is below. The
+        // trend bar for the requested day sits next to the calorie ring, and a day whose
+        // meals were pushed twice used to have the ring corrected and the bar not — two
+        // numbers for the same day, on the same screen, disagreeing by a factor of two.
         int TotalCalories(List<MealResponseDto> meals) =>
             meals
+                .GroupBy(m => MealCategory.Key(m.Category))
+                .SelectMany(sameCategory => CollapseRepushedMeals([.. sameCategory.OrderBy(m => m.Date)]))
                 .SelectMany(m => m.FoodEntries)
                 .Sum(entry => foodItemsById.TryGetValue(entry.FoodItemId, out var food) ? food.Calories : 0);
 
@@ -531,8 +703,7 @@ public class TrainerConsoleService(
             .Select(sameCategory =>
             {
                 var meal = sameCategory.First();
-                var foods = sameCategory
-                    .OrderBy(m => m.Date)
+                var foods = CollapseRepushedMeals([.. sameCategory.OrderBy(m => m.Date)])
                     .SelectMany(m => m.FoodEntries)
                     .Select(entry => foodItemsById.GetValueOrDefault(entry.FoodItemId))
                     .Where(food => food is not null)
