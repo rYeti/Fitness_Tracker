@@ -1299,6 +1299,7 @@ class _ProgressScreenState extends State<ProgressScreen>
             Wrap(
               spacing: 8,
               runSpacing: 8,
+              alignment: WrapAlignment.center,
               children: [
                 ChoiceChip(
                   label: Text(AppLocalizations.of(context)!.sevenDays),
