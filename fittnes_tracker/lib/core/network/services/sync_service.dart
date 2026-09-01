@@ -2668,10 +2668,33 @@ class SyncService {
     final list = (response.data as List).cast<Map<String, dynamic>>();
     for (final m in list) {
       final mealServerId = m['id'] as String;
-      final localFood = await _db.foodItemDao.getByServerId(
-        m['foodItemId'] as String,
-      );
-      if (localFood == null) continue;
+      // `foodItemId` is the meal's vestigial "primary" food (MealDao's doc
+      // comment — real totals only ever come from foodEntries below). It is
+      // never nulled out server-side when that food item is deleted, so a
+      // food deleted after the meal was created leaves this pointing at
+      // nothing. Losing the whole meal — and every entry still resolvable —
+      // over one dangling reference used only cosmetically is the same shape
+      // of bug fixed for retired workout exercises: don't let a `continue`
+      // on unrelated content skip the row that resolvable content needs.
+      // Fall back to the first food entry that does resolve, and only to the
+      // server's own null-object id (`_syncNewMeal` uses the same sentinel
+      // pushing the other way) if nothing in the meal resolves at all.
+      var localFoodId =
+          (await _db.foodItemDao.getByServerId(m['foodItemId'] as String))
+              ?.id;
+      if (localFoodId == null) {
+        for (final entry
+            in (m['foodEntries'] as List).cast<Map<String, dynamic>>()) {
+          final entryFood = await _db.foodItemDao.getByServerId(
+            entry['foodItemId'] as String,
+          );
+          if (entryFood != null) {
+            localFoodId = entryFood.id;
+            break;
+          }
+        }
+      }
+      localFoodId ??= 0;
 
       // Check by serverId first (already synced).
       var existing = await _db.mealDao.getByServerId(mealServerId);
@@ -2704,7 +2727,7 @@ class SyncService {
           MealTableCompanion(
             date: Value(serverDate),
             category: Value(m['category'] as String),
-            foodItemId: Value(localFood.id),
+            foodItemId: Value(localFoodId),
             serverId: Value(mealServerId),
             syncStatus: const Value(1),
           ),

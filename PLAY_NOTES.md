@@ -25,9 +25,9 @@ See `docs/android-release.md`.
 ## Unreleased
 
 Fixed a bug where reinstalling the app or signing in on a new device could
-leave gaps in your training history: sets logged against an exercise you had
-since swapped out of a workout would not come back, so your previous-set
-reference and exercise progress for that lift started empty. That history now
+leave gaps in your training and nutrition history: sets logged against an
+exercise you had since swapped out of a workout, and meals that once
+included a food you later deleted, would not come back. That history now
 comes back correctly.
 
 ## 1.0.2+15

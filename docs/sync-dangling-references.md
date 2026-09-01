@@ -1,15 +1,21 @@
-# The exercise that vanished twice: why a swapped-out lift lost its history on every other device
+# The row that vetoed its own history: why a swapped-out exercise, or a deleted food, lost its history on every other device
 
-A trainee swaps an exercise out of a workout — leg press for hack squat, say —
-and keeps training. Weeks later they reinstall, or sign in on a second phone.
-Every set they ever logged against the *retired* exercise is gone: Exercise
-Progress shows nothing for it, and starting that lift again shows no
-"previous set" reference. Sets logged against exercises still in the workout
-came back fine. Only the ones tied to an exercise the user had since removed
-were missing.
+A trainee swaps an exercise out of a workout — leg press for hack squat, say
+— and keeps training. Weeks later they reinstall, or sign in on a second
+phone. Every set they ever logged against the *retired* exercise is gone:
+Exercise Progress shows nothing for it, and starting that lift again shows
+no "previous set" reference. Sets logged against exercises still in the
+workout came back fine. Only the ones tied to an exercise the user had since
+removed were missing.
 
 The set was never lost server-side. It was never even attempted, because the
 one row a fresh device needed to hang it on was never created.
+
+The same shape of bug was sitting one table over, in meals: delete a food
+item after logging it, and the whole meal it was first logged in — including
+every other food added to it since — could vanish on the next pull too.
+Section 4 covers that one; sections 1–3 are the exercise case, found and
+fixed first.
 
 Line references are to the commit that introduces this document.
 
@@ -108,7 +114,50 @@ it's stamped straight from the server payload), and every push sweep in
 `SyncService` filters by raw `== 3`, not "anything not synced," so a stray
 `4` never enters a code path built for the other three states.
 
-## 4. What to take from this
+## 4. The same shape, one table over: meals
+
+The identical bug was sitting in `_pullMeals`, minus the excuse of a
+soft-delete. Every `Meal` carries `foodItemId` — a "primary food," set once
+at creation and, per `MealDao`'s own doc comment, **vestigial**: totals are
+computed from `MealFoodTable`/`foodEntries` only, and `foodItemId` is never
+summed. The pull used it as a gate anyway:
+
+```dart
+final localFood = await _db.foodItemDao.getByServerId(m['foodItemId'] as String);
+if (localFood == null) continue;
+```
+
+`FoodItem` has no soft delete at all — `FoodItemRepository.DeleteFoodItemAsync`
+hard-removes the row, and `Meal.FoodItemId`/`MealFoodEntry.FoodItemId` are
+both documented as "opaque client-side reference — no FK enforced," so
+nothing stops a meal from outliving the food it first pointed at. Delete a
+food item after logging a meal with it, keep adding other foods to that same
+meal afterward, and the primary reference goes dangling while the meal's
+real content — its `foodEntries` — stays perfectly resolvable. The pull
+didn't check the content. It checked the vestige, and dropped the whole meal,
+every still-good entry included, when the vestige didn't resolve.
+
+Unlike the exercise, there's no server-side record left to link back to —
+the deleted food's name and macros are genuinely gone. Nothing can rebuild
+what that one field pointed at. But that was never the data actually at
+risk: `_pullMeals` already resolves each food *entry* independently and
+skips only the individual entry it can't find food for. The fix leaves that
+alone and stops the meal-level field from vetoing everything below it — fall
+back to the first entry that does resolve locally for the now-required
+`foodItemId` column, and only to the same null-object id `_syncNewMeal`
+already sends the other way (`00000000-...-0000`, resolved to local id `0`)
+if literally nothing in the meal resolves. A meal that lost its cosmetic
+primary reference now comes back with every food entry that isn't itself
+gone, instead of not coming back at all.
+
+*Found but out of scope here:* `DataExporter.exportNutritionCsv` has the
+same `MealTable.foodItemId` mistake `MealDao`'s doc comment already names as
+the AdaptiveTdeeService bug — an inner join on the vestigial column exports
+one food per meal instead of every entry. It predates this fix and reads
+from local data already synced correctly; left as a separate, undocumented
+finding rather than folded into a fix that isn't about export.
+
+## 5. What to take from this
 
 - **"Still returned" is not the same as "still resolvable."** The API kept
   its half of the contract — the retired exercise never disappeared from the
@@ -131,3 +180,10 @@ it's stamped straight from the server payload), and every push sweep in
   the same shape of blind spot `docs/sync-account-switch-duplication.md`
   found for workouts and set templates: a pull that fills gaps can't see a
   gap it never had a reason to open.
+- **A gate built from the wrong field costs everything behind it.** Both
+  bugs used one denormalized, rarely-meaningful reference —
+  `workoutExerciseId` resolution for a whole scheduled exercise,
+  `Meal.foodItemId` for a whole meal — to decide whether to keep a row that
+  actually depended on other, still-good fields. Once a pull's `continue`
+  is gated on content the reader doesn't otherwise care about, every reader
+  downstream inherits a failure mode it has no way to diagnose.
