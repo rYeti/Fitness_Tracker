@@ -75,6 +75,19 @@ public class ExerciseRepository : IExerciseRepository
     }
 
     /// <inheritdoc/>
+    public async Task<Exercise?> GetByIdAsync(Guid id)
+    {
+        return await _context.Exercise.AsNoTracking().FirstOrDefaultAsync(e => e.Id == id);
+    }
+
+    /// <inheritdoc/>
+    public async Task<Exercise?> GetCopyAsync(Guid sourceExerciseId, Guid ownerId)
+    {
+        return await _context.Exercise.AsNoTracking()
+            .FirstOrDefaultAsync(e => e.UserId == ownerId && e.SourceExerciseId == sourceExerciseId);
+    }
+
+    /// <inheritdoc/>
     public async Task<Dictionary<Guid, string>> GetNamesByIdsAsync(IReadOnlyCollection<Guid> exerciseIds)
     {
         if (exerciseIds.Count == 0) return [];

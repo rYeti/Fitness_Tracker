@@ -11,13 +11,9 @@ import 'package:ForgeForm/core/widgets/app_widgets.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/console_error.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 
-/// Create a plan for the active client, or view the plan they're on.
-///
-/// The design's full per-exercise editor (day tabs, sets/reps/weight/RPE) is
-/// not built here: `WorkoutPlanRequestDto` carries plan metadata only, and
-/// there is no trainer-scoped endpoint for a client's workouts/exercises. The
-/// screen states that plainly rather than presenting an editor whose Save
-/// would discard everything.
+/// Create a plan for the active client, and build out its days — exercises,
+/// sets and per-exercise coach notes included. See
+/// `docs/trainer-workout-builder.md`.
 class WorkoutBuilderScreen extends StatefulWidget {
   /// Injection seam for tests.
   final TrainerConsoleRepository? repository;
@@ -225,7 +221,11 @@ class _Body extends StatelessWidget {
         clientName: client.clientName,
       );
     }
-    return _CurrentPlanView(builder: builder, clientName: client.firstName);
+    return _PlanWithDaysView(
+      builder: builder,
+      clientId: client.clientId,
+      clientName: client.clientName,
+    );
   }
 }
 
@@ -293,7 +293,6 @@ class _CreatePlanFormState extends State<_CreatePlanForm> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
     final l10n = AppLocalizations.of(context)!;
     final builder = widget.builder;
 
@@ -388,8 +387,6 @@ class _CreatePlanFormState extends State<_CreatePlanForm> {
                   ],
                 ),
               ),
-            const SizedBox(height: 14),
-            _EditorUnavailableNote(colors: colors),
           ],
         ),
       ),
@@ -486,11 +483,20 @@ class _TemplateRow extends StatelessWidget {
   }
 }
 
-class _CurrentPlanView extends StatelessWidget {
+/// The plan summary plus its days — the create/edit editor the design's
+/// SET/REPS table describes. See `docs/trainer-workout-builder.md` for what
+/// isn't here yet (prescribed weight/RPE, and a UI for the cycle-schedule
+/// endpoint) and why.
+class _PlanWithDaysView extends StatelessWidget {
   final WorkoutBuilderProvider builder;
+  final String clientId;
   final String clientName;
 
-  const _CurrentPlanView({required this.builder, required this.clientName});
+  const _PlanWithDaysView({
+    required this.builder,
+    required this.clientId,
+    required this.clientName,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -511,136 +517,996 @@ class _CurrentPlanView extends StatelessWidget {
       );
     }
 
-    return SingleChildScrollView(
+    final isDesktop = Breakpoints.isDesktop(context);
+
+    final planCard = AppCard(
+      radius: 16,
+      padding: const EdgeInsets.all(24),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          AppCard(
-            radius: 16,
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        plan.name,
-                        style: TextStyle(
-                          fontFamily: 'Montserrat',
-                          fontWeight: FontWeight.w800,
-                          fontSize: 20,
-                          color: colors.onSurface,
-                        ),
-                      ),
-                    ),
-                    if (plan.isActive)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: ForgeColors.statusOk.withValues(alpha: 0.14),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Text(
-                          l10n.planActive,
-                          style: const TextStyle(
-                            fontFamily: 'Exo 2',
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: ForgeColors.statusOk,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  l10n.planStartedOn(
-                    DateFormat(
-                      'd MMM yyyy',
-                      Localizations.localeOf(context).toString(),
-                    ).format(plan.startDate),
-                  ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  plan.name,
                   style: TextStyle(
-                    fontFamily: 'Exo 2',
-                    fontSize: 12,
-                    color: colors.onSurface.withValues(alpha: 0.65),
+                    fontFamily: 'Montserrat',
+                    fontWeight: FontWeight.w800,
+                    fontSize: 20,
+                    color: colors.onSurface,
                   ),
                 ),
-                if (plan.description != null &&
-                    plan.description!.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  Text(
-                    plan.description!,
-                    style: TextStyle(
+              ),
+              if (plan.isActive)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: ForgeColors.statusOk.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    l10n.planActive,
+                    style: const TextStyle(
                       fontFamily: 'Exo 2',
-                      fontSize: 13,
-                      height: 1.5,
-                      color: colors.onSurface,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: ForgeColors.statusOk,
                     ),
                   ),
-                ],
-              ],
+                ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            l10n.planStartedOn(
+              DateFormat(
+                'd MMM yyyy',
+                Localizations.localeOf(context).toString(),
+              ).format(plan.startDate),
+            ),
+            style: TextStyle(
+              fontFamily: 'Exo 2',
+              fontSize: 12,
+              color: colors.onSurface.withValues(alpha: 0.65),
             ),
           ),
-          const SizedBox(height: 14),
-          _EditorUnavailableNote(colors: colors),
+          if (plan.description != null && plan.description!.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              plan.description!,
+              style: TextStyle(
+                fontFamily: 'Exo 2',
+                fontSize: 13,
+                height: 1.5,
+                color: colors.onSurface,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+
+    Widget daysArea;
+    if (builder.isLoadingDays && builder.planWorkouts.isEmpty) {
+      daysArea = LoadingSkeleton(semanticsLabel: l10n.builderDays, rows: 3);
+    } else if (builder.daysError != null) {
+      daysArea = ErrorStateView(
+        message: builder.daysError!.localizedMessage(l10n),
+        onRetry: () => builder.loadDays(clientId),
+      );
+    } else {
+      daysArea = _DaysEditor(
+        builder: builder,
+        clientId: clientId,
+        clientName: clientName,
+        isDesktop: isDesktop,
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        planCard,
+        const SizedBox(height: 24),
+        Expanded(child: daysArea),
+      ],
+    );
+  }
+}
+
+/// Confirms discarding an unsaved draft before switching away from it.
+/// Returns true if the caller should proceed.
+Future<bool> _confirmDiscardIfDirty(
+  BuildContext context,
+  WorkoutBuilderProvider builder,
+) async {
+  if (!builder.isDraftDirty) return true;
+  final l10n = AppLocalizations.of(context)!;
+  final result = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(l10n.builderDiscardChangesTitle),
+      content: Text(l10n.builderDiscardChangesBody),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: Text(l10n.builderKeepEditing),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          child: Text(l10n.builderDiscard),
+        ),
+      ],
+    ),
+  );
+  return result ?? false;
+}
+
+class _DaysEditor extends StatelessWidget {
+  final WorkoutBuilderProvider builder;
+  final String clientId;
+  final String clientName;
+  final bool isDesktop;
+
+  const _DaysEditor({
+    required this.builder,
+    required this.clientId,
+    required this.clientName,
+    required this.isDesktop,
+  });
+
+  Future<void> _selectDay(BuildContext context, ClientWorkout? workout) async {
+    if (!await _confirmDiscardIfDirty(context, builder)) return;
+    builder.selectDay(workout);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dayList = _DayList(
+      builder: builder,
+      onSelect: (w) => _selectDay(context, w),
+    );
+
+    final editor = builder.draft == null
+        ? _NoDaySelected(
+            clientName: clientName,
+            onAddFirstDay: () => _selectDay(context, null),
+          )
+        : _DayEditorForm(
+            key: ValueKey(builder.selectedWorkoutId ?? 'new-day'),
+            builder: builder,
+            clientId: clientId,
+          );
+
+    if (isDesktop) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(width: 220, child: dayList),
+          const SizedBox(width: 24),
+          Expanded(child: editor),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        dayList,
+        const SizedBox(height: 16),
+        Expanded(child: editor),
+      ],
+    );
+  }
+}
+
+class _DayList extends StatelessWidget {
+  final WorkoutBuilderProvider builder;
+  final ValueChanged<ClientWorkout?> onSelect;
+
+  const _DayList({required this.builder, required this.onSelect});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final colors = Theme.of(context).colorScheme;
+    final days = builder.planWorkouts;
+    final isDesktop = Breakpoints.isDesktop(context);
+
+    final chips = [
+      for (final day in days)
+        Padding(
+          padding: EdgeInsets.only(
+            right: isDesktop ? 0 : 8,
+            bottom: isDesktop ? 8 : 0,
+          ),
+          child: ChoiceChip(
+            label: Text(day.name.isEmpty ? l10n.builderNewDay : day.name),
+            selected: builder.selectedWorkoutId == day.id,
+            onSelected: (_) => onSelect(day),
+          ),
+        ),
+      Padding(
+        padding: EdgeInsets.only(
+          right: isDesktop ? 0 : 8,
+          bottom: isDesktop ? 8 : 0,
+        ),
+        child: ActionChip(
+          avatar: Icon(Icons.add_rounded, size: 16, color: colors.onSurface),
+          label: Text(l10n.builderNewDay),
+          onPressed:
+              builder.selectedWorkoutId == null && builder.draft?.isNew == true
+                  ? null
+                  : () => onSelect(null),
+        ),
+      ),
+    ];
+
+    if (isDesktop) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SectionTitle(title: l10n.builderDays),
+          Wrap(spacing: 0, runSpacing: 0, children: chips),
+        ],
+      );
+    }
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(children: chips),
+    );
+  }
+}
+
+class _NoDaySelected extends StatelessWidget {
+  final String clientName;
+  final VoidCallback onAddFirstDay;
+
+  const _NoDaySelected({required this.clientName, required this.onAddFirstDay});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return EmptyStateView(
+      icon: Icons.fitness_center_rounded,
+      title: l10n.builderNoWorkoutsTitle,
+      message: l10n.builderNoWorkoutsBody(clientName),
+      action: FilledButton.icon(
+        onPressed: onAddFirstDay,
+        icon: const Icon(Icons.add_rounded, size: 18),
+        label: Text(l10n.builderNewDay),
+      ),
+      inCard: true,
+    );
+  }
+}
+
+/// Edits one day's name, metadata and exercises. Keyed by the selected day id
+/// in the parent so Flutter tears this state down and rebuilds it fresh
+/// whenever the trainer switches days, instead of one controller set being
+/// reused across different drafts.
+class _DayEditorForm extends StatefulWidget {
+  final WorkoutBuilderProvider builder;
+  final String clientId;
+
+  const _DayEditorForm({super.key, required this.builder, required this.clientId});
+
+  @override
+  State<_DayEditorForm> createState() => _DayEditorFormState();
+}
+
+class _DayEditorFormState extends State<_DayEditorForm> {
+  late final TextEditingController _nameController;
+  late final TextEditingController _descriptionController;
+  late final TextEditingController _durationController;
+  final _formKey = GlobalKey<FormState>();
+
+  WorkoutBuilderProvider get _builder => widget.builder;
+
+  @override
+  void initState() {
+    super.initState();
+    final draft = _builder.draft!;
+    _nameController = TextEditingController(text: draft.name)
+      ..addListener(() => _builder.updateDayName(_nameController.text));
+    _descriptionController = TextEditingController(text: draft.description ?? '')
+      ..addListener(
+        () => _builder.updateDayDescription(_descriptionController.text),
+      );
+    _durationController =
+        TextEditingController(text: draft.estimatedDurationMinutes.toString())
+          ..addListener(() {
+            final parsed = int.tryParse(_durationController.text);
+            if (parsed != null) _builder.updateDayDuration(parsed);
+          });
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _descriptionController.dispose();
+    _durationController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickExercise() async {
+    final option = await showModalBottomSheet<ClientExerciseOption>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _ExercisePickerSheet(
+        builder: _builder,
+        clientId: widget.clientId,
+      ),
+    );
+    if (option != null) _builder.addExercise(option);
+  }
+
+  Future<void> _save() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    final l10n = AppLocalizations.of(context)!;
+    final name = _builder.draft!.name;
+    final saved = await _builder.saveDraft(widget.clientId);
+    if (!mounted) return;
+    if (saved) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.builderDaySavedConfirmation(name))),
+      );
+    }
+  }
+
+  Future<void> _delete() async {
+    final l10n = AppLocalizations.of(context)!;
+    final name = _builder.draft!.name;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l10n.builderDeleteDayConfirmTitle),
+        content: Text(l10n.builderDeleteDayConfirmBody(name)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(l10n.cancel),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: ForgeColors.statusBad,
+            ),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(l10n.builderDeleteDay),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    final deleted = await _builder.deleteCurrentDay(widget.clientId);
+    if (!mounted) return;
+    if (deleted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.builderDayDeletedConfirmation(name))),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final colors = Theme.of(context).colorScheme;
+    final draft = _builder.draft!;
+
+    return SingleChildScrollView(
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AppCard(
+              radius: 16,
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SectionTitle(
+                          title: draft.isNew ? l10n.builderNewDay : draft.name,
+                        ),
+                      ),
+                      if (_builder.isDraftDirty)
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: ForgeColors.statusWarn.withValues(alpha: 0.16),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            l10n.builderUnsavedChangesBadge,
+                            style: const TextStyle(
+                              fontFamily: 'Exo 2',
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: ForgeColors.statusWarn,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  TextFormField(
+                    controller: _nameController,
+                    decoration: InputDecoration(
+                      labelText: l10n.builderDayName,
+                      hintText: l10n.builderDayNameHint,
+                    ),
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
+                    validator: (value) => (value ?? '').trim().isEmpty
+                        ? l10n.errorWorkoutNameRequired
+                        : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _descriptionController,
+                    decoration: InputDecoration(
+                      labelText: l10n.planDescriptionOptional,
+                    ),
+                    maxLines: 2,
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      for (final level in const [0, 1, 2])
+                        ChoiceChip(
+                          label: Text(_difficultyLabel(l10n, level)),
+                          selected: draft.difficulty == level,
+                          onSelected: (_) => _builder.updateDayDifficulty(level),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _durationController,
+                    decoration: InputDecoration(
+                      labelText: l10n.builderDurationMinutes,
+                    ),
+                    keyboardType: TextInputType.number,
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
+                    validator: (value) {
+                      final parsed = int.tryParse(value ?? '');
+                      if (parsed == null || parsed < 1 || parsed > 1440) {
+                        return l10n.builderDurationRange;
+                      }
+                      return null;
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            AppCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SectionTitle(
+                    title: l10n.builderExercises,
+                    trailing: TextButton.icon(
+                      onPressed: _pickExercise,
+                      icon: const Icon(Icons.add_rounded, size: 18),
+                      label: Text(l10n.builderAddExercise),
+                    ),
+                  ),
+                  if (draft.exercises.isEmpty)
+                    EmptyStateView(
+                      icon: Icons.list_alt_rounded,
+                      title: l10n.builderNoExercisesYetTitle,
+                      message: l10n.builderNoExercisesYetBody,
+                    )
+                  else
+                    for (var i = 0; i < draft.exercises.length; i++)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _ExerciseEditorCard(
+                          builder: _builder,
+                          index: i,
+                          isFirst: i == 0,
+                          isLast: i == draft.exercises.length - 1,
+                        ),
+                      ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            if (_builder.dayError != null) ...[
+              Text(
+                _builder.dayError!.localizedMessage(l10n),
+                style: const TextStyle(
+                  fontFamily: 'Exo 2',
+                  fontSize: 12,
+                  color: ForgeColors.statusBad,
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+            Row(
+              children: [
+                if (!draft.isNew) ...[
+                  TextButton(
+                    onPressed: _builder.isDeletingDay ? null : _delete,
+                    style: TextButton.styleFrom(
+                      foregroundColor: ForgeColors.statusBad,
+                    ),
+                    child: _builder.isDeletingDay
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Text(l10n.builderDeleteDay),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                Expanded(
+                  child: FilledButton(
+                    onPressed: _builder.isSavingDay ? null : _save,
+                    child: _builder.isSavingDay
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Text(l10n.builderSaveDay),
+                  ),
+                ),
+              ],
+            ),
+            // Extra bottom padding so the last card clears the nav bar/FAB
+            // area on mobile rather than being covered by it.
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _difficultyLabel(AppLocalizations l10n, int value) => switch (value) {
+    0 => l10n.builderDifficultyBeginner,
+    2 => l10n.builderDifficultyAdvanced,
+    _ => l10n.builderDifficultyIntermediate,
+  };
+}
+
+class _ExerciseEditorCard extends StatelessWidget {
+  final WorkoutBuilderProvider builder;
+  final int index;
+  final bool isFirst;
+  final bool isLast;
+
+  const _ExerciseEditorCard({
+    required this.builder,
+    required this.index,
+    required this.isFirst,
+    required this.isLast,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final colors = Theme.of(context).colorScheme;
+    final entry = builder.draft!.exercises[index];
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerHighest.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  entry.exerciseName,
+                  style: TextStyle(
+                    fontFamily: 'Exo 2',
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                    color: colors.onSurface,
+                  ),
+                ),
+              ),
+              IconButton(
+                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                icon: const Icon(Icons.arrow_upward_rounded, size: 18),
+                tooltip: l10n.builderMoveExerciseUp,
+                onPressed: isFirst
+                    ? null
+                    : () => builder.moveExercise(index, index - 1),
+              ),
+              IconButton(
+                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                icon: const Icon(Icons.arrow_downward_rounded, size: 18),
+                tooltip: l10n.builderMoveExerciseDown,
+                onPressed: isLast
+                    ? null
+                    : () => builder.moveExercise(index, index + 1),
+              ),
+              IconButton(
+                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                icon: Icon(
+                  Icons.close_rounded,
+                  size: 18,
+                  color: colors.onSurface.withValues(alpha: 0.6),
+                ),
+                tooltip: l10n.builderRemoveExercise,
+                onPressed: () => builder.removeExercise(index),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          TextFormField(
+            key: ValueKey('note-${entry.id}-${entry.exerciseId}-$index'),
+            initialValue: entry.notes,
+            decoration: InputDecoration(
+              labelText: l10n.builderCoachNoteLabel,
+              hintText: l10n.builderCoachNoteHint,
+              isDense: true,
+            ),
+            style: const TextStyle(fontFamily: 'Exo 2', fontSize: 13),
+            maxLines: 2,
+            onChanged: (value) => builder.updateExerciseNote(index, value),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            l10n.builderSets,
+            style: TextStyle(
+              fontFamily: 'Exo 2',
+              fontWeight: FontWeight.w700,
+              fontSize: 11,
+              letterSpacing: 0.4,
+              color: colors.onSurface.withValues(alpha: 0.6),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              for (var setIndex = 0; setIndex < entry.sets.length; setIndex++)
+                _SetChip(
+                  builder: builder,
+                  exerciseIndex: index,
+                  setIndex: setIndex,
+                ),
+              ActionChip(
+                avatar: const Icon(Icons.add_rounded, size: 16),
+                label: Text(l10n.builderAddSet),
+                onPressed: () => builder.addSet(index),
+              ),
+            ],
+          ),
         ],
       ),
     );
   }
 }
 
-/// Says why the per-exercise editor isn't here. Better an honest note than a
-/// Save button that silently drops the trainer's work.
-class _EditorUnavailableNote extends StatelessWidget {
-  final ColorScheme colors;
+class _SetChip extends StatefulWidget {
+  final WorkoutBuilderProvider builder;
+  final int exerciseIndex;
+  final int setIndex;
 
-  const _EditorUnavailableNote({required this.colors});
+  const _SetChip({
+    required this.builder,
+    required this.exerciseIndex,
+    required this.setIndex,
+  });
+
+  @override
+  State<_SetChip> createState() => _SetChipState();
+}
+
+class _SetChipState extends State<_SetChip> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    final set = widget
+        .builder
+        .draft!
+        .exercises[widget.exerciseIndex]
+        .sets[widget.setIndex];
+    _controller = TextEditingController(text: set.targetReps);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return AppCard(
+    final l10n = AppLocalizations.of(context)!;
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      constraints: const BoxConstraints(minHeight: 44),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: colors.outlineVariant),
+      ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            Icons.info_outline_rounded,
-            size: 19,
-            color: colors.onSurface.withValues(alpha: 0.55),
+          Text(
+            '${widget.setIndex + 1}.',
+            style: TextStyle(
+              fontFamily: 'Exo 2',
+              fontSize: 12,
+              color: colors.onSurface.withValues(alpha: 0.55),
+            ),
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  AppLocalizations.of(context)!.exerciseEditingUnavailable,
-                  style: TextStyle(
-                    fontFamily: 'Exo 2',
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13,
-                    color: colors.onSurface,
-                  ),
+          const SizedBox(width: 4),
+          SizedBox(
+            width: 56,
+            child: TextField(
+              controller: _controller,
+              decoration: InputDecoration(
+                hintText: l10n.builderTargetRepsHint,
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(vertical: 8),
+              ),
+              style: const TextStyle(fontFamily: 'Exo 2', fontSize: 13),
+              textAlign: TextAlign.center,
+              onChanged: (value) => widget.builder.updateSetReps(
+                widget.exerciseIndex,
+                widget.setIndex,
+                value,
+              ),
+            ),
+          ),
+          Semantics(
+            button: true,
+            label: l10n.builderRemoveSet,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(999),
+              onTap: () => widget.builder.removeSet(
+                widget.exerciseIndex,
+                widget.setIndex,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(6),
+                child: Icon(
+                  Icons.close_rounded,
+                  size: 14,
+                  color: colors.onSurface.withValues(alpha: 0.5),
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  AppLocalizations.of(context)!.exerciseEditingUnavailableBody,
-                  style: TextStyle(
-                    fontFamily: 'Exo 2',
-                    fontSize: 12,
-                    height: 1.45,
-                    color: colors.onSurface.withValues(alpha: 0.65),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ExercisePickerSheet extends StatefulWidget {
+  final WorkoutBuilderProvider builder;
+  final String clientId;
+
+  const _ExercisePickerSheet({required this.builder, required this.clientId});
+
+  @override
+  State<_ExercisePickerSheet> createState() => _ExercisePickerSheetState();
+}
+
+class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
+  final _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _createExercise() async {
+    final l10n = AppLocalizations.of(context)!;
+    final nameController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    final created = await showDialog<ClientExerciseOption>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(l10n.builderNewExerciseTitle),
+        content: Form(
+          key: formKey,
+          child: TextFormField(
+            controller: nameController,
+            autofocus: true,
+            decoration: InputDecoration(labelText: l10n.builderExerciseNameLabel),
+            autovalidateMode: AutovalidateMode.onUserInteraction,
+            validator: (value) => (value ?? '').trim().isEmpty
+                ? l10n.errorExerciseNameRequired
+                : null,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () async {
+              if (!(formKey.currentState?.validate() ?? false)) return;
+              final option = await widget.builder.createExercise(
+                widget.clientId,
+                name: nameController.text,
+              );
+              if (dialogContext.mounted) {
+                Navigator.of(dialogContext).pop(option);
+              }
+            },
+            child: Text(l10n.builderCreateExercise),
+          ),
+        ],
+      ),
+    );
+    nameController.dispose();
+    if (created != null && mounted) {
+      Navigator.of(context).pop(created);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final colors = Theme.of(context).colorScheme;
+    final query = _query.trim().toLowerCase();
+    final matches = widget.builder.exerciseLibrary
+        .where((e) => query.isEmpty || e.name.toLowerCase().contains(query))
+        .toList();
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.75,
+      minChildSize: 0.4,
+      maxChildSize: 0.95,
+      expand: false,
+      builder: (context, scrollController) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          child: Column(
+            children: [
+              const SizedBox(height: 8),
+              Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: colors.outlineVariant,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: Text(
+                  l10n.builderPickExerciseTitle,
+                  style: TextStyle(
+                    fontFamily: 'Montserrat',
+                    fontWeight: FontWeight.w800,
+                    fontSize: 18,
+                    color: colors.onSurface,
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: l10n.builderSearchExercisesHint,
+                    prefixIcon: const Icon(Icons.search_rounded),
+                    isDense: true,
+                  ),
+                  onChanged: (value) => setState(() => _query = value),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: ListView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  children: [
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      minLeadingWidth: 0,
+                      leading: Container(
+                        width: 36,
+                        height: 36,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: ForgeColors.forgeOrange.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.add_rounded,
+                          size: 18,
+                          color: ForgeColors.forgeOrange,
+                        ),
+                      ),
+                      title: Text(
+                        l10n.builderNewExerciseAction,
+                        style: const TextStyle(
+                          fontFamily: 'Exo 2',
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                        ),
+                      ),
+                      onTap: _createExercise,
+                    ),
+                    const Divider(height: 1),
+                    if (matches.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 32),
+                        child: Center(
+                          child: Text(
+                            l10n.builderNoExercisesFound,
+                            style: TextStyle(
+                              fontFamily: 'Exo 2',
+                              fontSize: 13,
+                              color: colors.onSurface.withValues(alpha: 0.6),
+                            ),
+                          ),
+                        ),
+                      )
+                    else
+                      for (final option in matches)
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(
+                            option.name,
+                            style: const TextStyle(
+                              fontFamily: 'Exo 2',
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                          subtitle: option.isTrainerOwned
+                              ? Text(
+                                  l10n.builderTrainerOwnedTag,
+                                  style: TextStyle(
+                                    fontFamily: 'Exo 2',
+                                    fontSize: 11,
+                                    color: ForgeColors.forgeOrange,
+                                  ),
+                                )
+                              : null,
+                          onTap: () => Navigator.of(context).pop(option),
+                        ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

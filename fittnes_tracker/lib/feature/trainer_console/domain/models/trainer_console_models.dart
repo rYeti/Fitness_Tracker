@@ -582,3 +582,129 @@ class WorkoutPlanTemplateSummary {
     );
   }
 }
+
+
+/// One prescribed set within a client's workout exercise — target reps only,
+/// no weight/RPE: neither `WorkoutSetTemplate` (server) nor its drift table
+/// has anywhere to put them. See `docs/trainer-workout-builder.md`.
+class ClientWorkoutSet {
+  final String id;
+  final int setNumber;
+  final String targetReps;
+
+  const ClientWorkoutSet({
+    required this.id,
+    required this.setNumber,
+    required this.targetReps,
+  });
+
+  factory ClientWorkoutSet.fromJson(Map<String, dynamic> json) {
+    return ClientWorkoutSet(
+      id: json['id'] as String? ?? '',
+      setNumber: json['setNumber'] as int? ?? 0,
+      targetReps: json['targetReps'] as String? ?? '',
+    );
+  }
+}
+
+/// One exercise within a client's workout, as the Workout Builder edits it.
+class ClientWorkoutExercise {
+  /// The `WorkoutExercise` entry id. Sent back on save to keep the row (and
+  /// its logged history) instead of replacing it — see
+  /// `docs/trainer-workout-builder.md`.
+  final String id;
+  final String exerciseId;
+  final String exerciseName;
+  final String? notes;
+  final int? supersetGroupId;
+  final List<ClientWorkoutSet> sets;
+
+  const ClientWorkoutExercise({
+    required this.id,
+    required this.exerciseId,
+    required this.exerciseName,
+    this.notes,
+    this.supersetGroupId,
+    required this.sets,
+  });
+
+  factory ClientWorkoutExercise.fromJson(Map<String, dynamic> json) {
+    return ClientWorkoutExercise(
+      id: json['id'] as String? ?? '',
+      exerciseId: json['exerciseId'] as String? ?? '',
+      exerciseName: json['exerciseName'] as String? ?? '',
+      notes: json['notes'] as String?,
+      supersetGroupId: json['supersetGroupId'] as int?,
+      sets: ((json['sets'] as List?) ?? const [])
+          .map((s) => ClientWorkoutSet.fromJson(s as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+}
+
+/// One of a client's workouts — a "day" in the Workout Builder.
+class ClientWorkout {
+  final String id;
+  final String name;
+  final String? description;
+
+  /// 0 = beginner, 1 = intermediate, 2 = advanced.
+  final int difficulty;
+  final int estimatedDurationMinutes;
+
+  /// Ids of the plans this workout is a day of.
+  final List<String> planIds;
+  final List<ClientWorkoutExercise> exercises;
+
+  const ClientWorkout({
+    required this.id,
+    required this.name,
+    this.description,
+    required this.difficulty,
+    required this.estimatedDurationMinutes,
+    required this.planIds,
+    required this.exercises,
+  });
+
+  factory ClientWorkout.fromJson(Map<String, dynamic> json) {
+    return ClientWorkout(
+      id: json['id'] as String? ?? '',
+      name: json['name'] as String? ?? '',
+      description: json['description'] as String?,
+      difficulty: json['difficulty'] as int? ?? 1,
+      estimatedDurationMinutes: json['estimatedDurationMinutes'] as int? ?? 60,
+      planIds: ((json['planIds'] as List?) ?? const []).cast<String>(),
+      exercises: ((json['exercises'] as List?) ?? const [])
+          .map((e) => ClientWorkoutExercise.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+}
+
+/// One entry in the Workout Builder's exercise picker.
+class ClientExerciseOption {
+  final String id;
+  final String name;
+  final String? description;
+
+  /// True for an exercise that's the trainer's own rather than the client's
+  /// or the system catalogue's — prescribing it gives the client their own
+  /// copy (see `docs/trainer-workout-builder.md`).
+  final bool isTrainerOwned;
+
+  const ClientExerciseOption({
+    required this.id,
+    required this.name,
+    this.description,
+    required this.isTrainerOwned,
+  });
+
+  factory ClientExerciseOption.fromJson(Map<String, dynamic> json) {
+    return ClientExerciseOption(
+      id: json['id'] as String? ?? '',
+      name: json['name'] as String? ?? '',
+      description: json['description'] as String?,
+      isTrainerOwned: json['isTrainerOwned'] as bool? ?? false,
+    );
+  }
+}

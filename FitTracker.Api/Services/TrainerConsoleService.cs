@@ -1,4 +1,5 @@
 using FitTracker.Api.DTOs;
+using FitTracker.Api.Models;
 using FitTracker.Api.Repositories;
 using FitTracker.Api.Services.Interfaces;
 
@@ -612,4 +613,358 @@ public class TrainerConsoleService(
         if (!isTrainer) return null;
         return await _workoutPlanService.UpdatePlanAsync(planId, clientId, dto);
     }
+
+    // ── Workout Builder: create/edit a client's workouts ────────────────────
+
+    /// <inheritdoc/>
+    public async Task<List<ClientWorkoutDto>?> GetClientWorkoutsAsync(Guid trainerId, Guid clientId)
+    {
+        var isTrainer = await _trainerClientService.IsActiveTrainerOfAsync(trainerId, clientId);
+        if (!isTrainer) return null;
+
+        var workouts = await _workoutService.GetUserWorkoutsAsync(clientId);
+        var plans = await _workoutPlanService.GetUserPlansAsync(clientId);
+        var names = await ExerciseNamesForAsync(workouts.SelectMany(w => w.Exercises));
+
+        return [.. workouts.Select(w => ToClientWorkoutDto(w, plans, names))];
+    }
+
+    /// <inheritdoc/>
+    public async Task<List<ClientExerciseOptionDto>?> GetClientExerciseLibraryAsync(Guid trainerId, Guid clientId)
+    {
+        var isTrainer = await _trainerClientService.IsActiveTrainerOfAsync(trainerId, clientId);
+        if (!isTrainer) return null;
+
+        // System exercises + whatever the client already owns, including any earlier copies
+        // of the trainer's own exercises.
+        var clientVisible = await _exerciseService.GetAllExercisesAsync(clientId);
+        // The trainer's own, offered alongside so they can prescribe something they haven't
+        // given this specific client yet. If they already have — a copy with a different id
+        // — both the original and the copy show up; that's a minor picker duplication, not
+        // an incorrect one, and resolving it needs the copy's provenance in a DTO nothing
+        // else reads, which isn't worth the surface for a cosmetic dedupe.
+        var trainerOwned = (await _exerciseService.GetAllExercisesAsync(trainerId))
+            .Where(e => e.UserId == trainerId);
+
+        var byId = new Dictionary<Guid, ExerciseResponseDto>();
+        foreach (var e in clientVisible) byId[e.id] = e;
+        foreach (var e in trainerOwned) byId.TryAdd(e.id, e);
+
+        return [.. byId.Values
+            .OrderBy(e => e.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(e => new ClientExerciseOptionDto
+            {
+                Id = e.id,
+                Name = e.Name,
+                NameDe = e.NameDe,
+                Description = e.Description,
+                DescriptionDe = e.DescriptionDe,
+                Type = e.Type,
+                TargetMuscleGroups = e.TargetMuscleGroups,
+                ImageUrl = e.ImageUrl,
+                IsTrainerOwned = e.UserId == trainerId,
+            })];
+    }
+
+    /// <inheritdoc/>
+    public async Task<ExerciseResponseDto?> CreateTrainerExerciseAsync(Guid trainerId, Guid clientId, ExerciseRequestDto dto)
+    {
+        var isTrainer = await _trainerClientService.IsActiveTrainerOfAsync(trainerId, clientId);
+        if (!isTrainer) return null;
+
+        dto.IsCustom = true;
+        return await _exerciseService.CreateExercise(dto, trainerId);
+    }
+
+    /// <inheritdoc/>
+    public async Task<TrainerWorkoutResult> CreateClientWorkoutAsync(Guid trainerId, Guid clientId, ClientWorkoutRequestDto dto)
+    {
+        var isTrainer = await _trainerClientService.IsActiveTrainerOfAsync(trainerId, clientId);
+        if (!isTrainer) return new TrainerWorkoutResult(TrainerWorkoutStatus.NotPermitted);
+
+        // Validated before anything is created, so a bad plan id can't leave an orphan
+        // workout behind.
+        if (dto.PlanId is Guid requestedPlanId)
+        {
+            var plan = await _workoutPlanService.GetPlanByIdAsync(requestedPlanId, clientId);
+            if (plan == null) return new TrainerWorkoutResult(TrainerWorkoutStatus.NotFound);
+        }
+
+        var (unknownIds, resolvedExerciseIds) = await ResolvePrescribedExerciseIdsAsync(
+            trainerId, clientId, dto.Exercises.Select(e => e.ExerciseId));
+        if (unknownIds.Count > 0)
+        {
+            return new TrainerWorkoutResult(TrainerWorkoutStatus.UnknownExercise, UnknownExerciseIds: unknownIds);
+        }
+
+        var workout = await _workoutService.CreateWorkoutAsync(new WorkoutRequestDto
+        {
+            Name = dto.Name,
+            Description = dto.Description,
+            Difficulty = dto.Difficulty,
+            EstimatedDurationMinutes = dto.EstimatedDurationMinutes,
+            IsTemplate = true,
+        }, clientId);
+
+        if (dto.PlanId is Guid planId)
+        {
+            await _workoutPlanService.AddWorkoutToPlanAsync(planId, workout.Id, clientId);
+        }
+
+        await ApplyExercisePrescriptionAsync(clientId, workout.Id, [], dto.Exercises, resolvedExerciseIds);
+
+        var saved = await LoadClientWorkoutDtoAsync(clientId, workout.Id);
+        return new TrainerWorkoutResult(TrainerWorkoutStatus.Ok, saved);
+    }
+
+    /// <inheritdoc/>
+    public async Task<TrainerWorkoutResult> UpdateClientWorkoutAsync(Guid trainerId, Guid clientId, Guid workoutId, ClientWorkoutRequestDto dto)
+    {
+        var isTrainer = await _trainerClientService.IsActiveTrainerOfAsync(trainerId, clientId);
+        if (!isTrainer) return new TrainerWorkoutResult(TrainerWorkoutStatus.NotPermitted);
+
+        var existingWorkout = await _workoutService.GetWorkoutByIdAsync(workoutId, clientId);
+        if (existingWorkout == null) return new TrainerWorkoutResult(TrainerWorkoutStatus.NotFound);
+
+        var (unknownIds, resolvedExerciseIds) = await ResolvePrescribedExerciseIdsAsync(
+            trainerId, clientId, dto.Exercises.Select(e => e.ExerciseId));
+        if (unknownIds.Count > 0)
+        {
+            return new TrainerWorkoutResult(TrainerWorkoutStatus.UnknownExercise, UnknownExerciseIds: unknownIds);
+        }
+
+        await _workoutService.UpdateWorkoutAsync(workoutId, clientId, new WorkoutRequestDto
+        {
+            Name = dto.Name,
+            Description = dto.Description,
+            Difficulty = dto.Difficulty,
+            EstimatedDurationMinutes = dto.EstimatedDurationMinutes,
+            IsTemplate = true,
+        });
+
+        var existingLive = existingWorkout.Exercises.Where(e => e.RemovedAt == null).ToList();
+        await ApplyExercisePrescriptionAsync(clientId, workoutId, existingLive, dto.Exercises, resolvedExerciseIds);
+
+        var saved = await LoadClientWorkoutDtoAsync(clientId, workoutId);
+        return new TrainerWorkoutResult(TrainerWorkoutStatus.Ok, saved);
+    }
+
+    /// <inheritdoc/>
+    public async Task<TrainerWorkoutStatus> DeleteClientWorkoutAsync(Guid trainerId, Guid clientId, Guid workoutId)
+    {
+        var isTrainer = await _trainerClientService.IsActiveTrainerOfAsync(trainerId, clientId);
+        if (!isTrainer) return TrainerWorkoutStatus.NotPermitted;
+
+        var result = await _workoutService.DeleteWorkoutAsync(workoutId, clientId);
+        return result switch
+        {
+            WorkoutDeleteResult.Deleted => TrainerWorkoutStatus.Ok,
+            WorkoutDeleteResult.HasLoggedHistory => TrainerWorkoutStatus.HasLoggedHistory,
+            _ => TrainerWorkoutStatus.NotFound,
+        };
+    }
+
+    /// <inheritdoc/>
+    public async Task<int?> ScheduleClientPlanAsync(Guid trainerId, Guid clientId, Guid planId, IReadOnlyList<string> cyclePattern, int durationWeeks)
+    {
+        var isTrainer = await _trainerClientService.IsActiveTrainerOfAsync(trainerId, clientId);
+        if (!isTrainer) return null;
+        if (cyclePattern.Count == 0 || durationWeeks <= 0) return 0;
+
+        var plan = await _workoutPlanService.GetPlanByIdAsync(planId, clientId);
+        if (plan == null) return null;
+
+        // Cycle entries that don't name one of the client's workouts are rest days: there is
+        // nothing to schedule for them, so they're skipped rather than requiring a synthetic
+        // "Rest Day" workout the way the trainee's own client-side create flow does.
+        var workoutIdByName = (await _workoutService.GetUserWorkoutsAsync(clientId))
+            .ToDictionary(w => w.Name, w => w.Id);
+
+        var startDate = plan.StartDate.Date;
+        var totalDays = durationWeeks * 7;
+        var rangeEnd = startDate.AddDays(totalDays);
+
+        // Additive only: a date already scheduled for this plan is left untouched. The
+        // client's sync pull has no path for deleting a scheduled session the server stops
+        // reporting, so regenerating over an existing one would either leave a duplicate or
+        // silently orphan whichever copy the device already pulled.
+        var alreadyScheduled = (await _scheduledWorkoutService.GetUserScheduledWorkoutsInRangeAsync(clientId, startDate, rangeEnd))
+            .Where(s => s.WorkoutPlanId == planId)
+            .Select(s => s.ScheduledDate.Date)
+            .ToHashSet();
+
+        var created = 0;
+        for (var day = 0; day < totalDays; day++)
+        {
+            var date = startDate.AddDays(day);
+            if (alreadyScheduled.Contains(date)) continue;
+
+            var workoutName = cyclePattern[day % cyclePattern.Count];
+            if (!workoutIdByName.TryGetValue(workoutName, out var workoutId)) continue;
+
+            var result = await _scheduledWorkoutService.CreateScheduledWorkoutAsync(new ScheduledWorkoutRequestDto
+            {
+                WorkoutId = workoutId,
+                WorkoutPlanId = planId,
+                ScheduledDate = date,
+            }, clientId);
+            if (result != null) created++;
+        }
+
+        return created;
+    }
+
+    /// <summary>Resolves each prescribed exercise id to one the client will own: passed through
+    /// unchanged if the client can already see it, copied in if it's the trainer's own (see
+    /// <see cref="IExerciseService.CopyExerciseAsync"/>), and reported back as unknown for
+    /// anything else — a third party's private exercise, or an id that doesn't exist. Ownership
+    /// is checked against the trainer's own library <em>before</em> copying anything, precisely
+    /// so a stranger's private exercise id can't be smuggled onto the client through this path.
+    /// </summary>
+    private async Task<(List<Guid> UnknownIds, Dictionary<Guid, Guid> Resolved)> ResolvePrescribedExerciseIdsAsync(
+        Guid trainerId, Guid clientId, IEnumerable<Guid> exerciseIds)
+    {
+        var distinctIds = exerciseIds.Distinct().ToList();
+        var resolved = new Dictionary<Guid, Guid>();
+        var unknown = new List<Guid>();
+        if (distinctIds.Count == 0) return (unknown, resolved);
+
+        var clientLibraryIds = (await _exerciseService.GetAllExercisesAsync(clientId))
+            .Select(e => e.id)
+            .ToHashSet();
+        var trainerOwnedIds = (await _exerciseService.GetAllExercisesAsync(trainerId))
+            .Where(e => e.UserId == trainerId)
+            .Select(e => e.id)
+            .ToHashSet();
+
+        foreach (var id in distinctIds)
+        {
+            if (clientLibraryIds.Contains(id))
+            {
+                resolved[id] = id;
+                continue;
+            }
+
+            if (trainerOwnedIds.Contains(id))
+            {
+                var copy = await _exerciseService.CopyExerciseAsync(id, clientId);
+                if (copy != null)
+                {
+                    resolved[id] = copy.id;
+                    continue;
+                }
+            }
+
+            unknown.Add(id);
+        }
+
+        return (unknown, resolved);
+    }
+
+    /// <summary>Applies one prescription diff onto a workout's live exercises: an incoming
+    /// entry that keeps both its id and its exercise is updated in place, everything else is
+    /// added fresh (a genuinely new entry, or the replacement half of a swap), and whatever
+    /// was live before and isn't accounted for afterwards is removed — via
+    /// <see cref="IWorkoutService.DeleteWorkoutExerciseAsync"/>, which already retires rather
+    /// than deletes an entry the client has logged sets against.</summary>
+    private async Task ApplyExercisePrescriptionAsync(
+        Guid clientId,
+        Guid workoutId,
+        List<WorkoutExerciseResponseDto> existingLive,
+        List<ClientWorkoutExerciseRequestDto> incoming,
+        Dictionary<Guid, Guid> resolvedExerciseIds)
+    {
+        var existingById = existingLive.ToDictionary(e => e.Id);
+        var keptIds = new HashSet<Guid>();
+
+        for (var i = 0; i < incoming.Count; i++)
+        {
+            var entry = incoming[i];
+            var resolvedExerciseId = resolvedExerciseIds[entry.ExerciseId];
+
+            var isKeep = entry.Id is Guid existingWeId
+                && existingById.TryGetValue(existingWeId, out var existing)
+                && existing.ExerciseId == resolvedExerciseId;
+
+            Guid targetWeId;
+            if (isKeep)
+            {
+                targetWeId = entry.Id!.Value;
+                await _workoutService.UpdateWorkoutExerciseAsync(targetWeId, clientId, new WorkoutExerciseRequestDto
+                {
+                    ExerciseId = resolvedExerciseId,
+                    OrderPosition = i,
+                    Notes = entry.Notes,
+                    SupersetGroupId = entry.SupersetGroupId,
+                });
+            }
+            else
+            {
+                // A brand-new entry, or the replacement half of a swap — either way the old
+                // row at entry.Id (if any) is simply not added to keptIds, so the cleanup
+                // pass below removes it.
+                var created = await _workoutService.AddExerciseToWorkoutAsync(workoutId, clientId, new WorkoutExerciseRequestDto
+                {
+                    ExerciseId = resolvedExerciseId,
+                    OrderPosition = i,
+                    Notes = entry.Notes,
+                    SupersetGroupId = entry.SupersetGroupId,
+                });
+                targetWeId = created!.Id;
+            }
+
+            keptIds.Add(targetWeId);
+
+            var setDtos = entry.TargetReps.Select((reps, idx) => new WorkoutSetTemplateRequestDto
+            {
+                SetNumber = idx + 1,
+                TargetReps = reps,
+                OrderPosition = idx,
+            }).ToList();
+            await _workoutService.ReplaceSetTemplatesAsync(targetWeId, clientId, setDtos);
+        }
+
+        foreach (var goneId in existingById.Keys.Except(keptIds))
+        {
+            await _workoutService.DeleteWorkoutExerciseAsync(goneId, clientId);
+        }
+    }
+
+    private async Task<ClientWorkoutDto?> LoadClientWorkoutDtoAsync(Guid clientId, Guid workoutId)
+    {
+        var workout = await _workoutService.GetWorkoutByIdAsync(workoutId, clientId);
+        if (workout == null) return null;
+
+        var plans = await _workoutPlanService.GetUserPlansAsync(clientId);
+        var names = await ExerciseNamesForAsync(workout.Exercises);
+        return ToClientWorkoutDto(workout, plans, names);
+    }
+
+    private Task<Dictionary<Guid, string>> ExerciseNamesForAsync(IEnumerable<WorkoutExerciseResponseDto> exercises) =>
+        _exerciseService.GetNamesByIdsAsync(
+            [.. exercises.Where(e => e.RemovedAt == null).Select(e => e.ExerciseId).Distinct()]);
+
+    private static ClientWorkoutDto ToClientWorkoutDto(
+        WorkoutResponseDto workout, List<WorkoutPlanResponseDto> plans, Dictionary<Guid, string> exerciseNames) => new()
+    {
+        Id = workout.Id,
+        Name = workout.Name,
+        Description = workout.Description,
+        Difficulty = workout.Difficulty,
+        EstimatedDurationMinutes = workout.EstimatedDurationMinutes,
+        PlanIds = [.. plans.Where(p => p.WorkoutIds.Contains(workout.Id)).Select(p => p.Id)],
+        Exercises = [.. workout.Exercises
+            .Where(e => e.RemovedAt == null)
+            .OrderBy(e => e.OrderPosition)
+            .Select(e => new ClientWorkoutExerciseDto
+            {
+                Id = e.Id,
+                ExerciseId = e.ExerciseId,
+                ExerciseName = exerciseNames.GetValueOrDefault(e.ExerciseId, ""),
+                OrderPosition = e.OrderPosition,
+                Notes = e.Notes,
+                SupersetGroupId = e.SupersetGroupId,
+                Sets = [.. e.SetTemplates.OrderBy(s => s.OrderPosition)],
+            })],
+    };
 }

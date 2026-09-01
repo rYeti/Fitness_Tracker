@@ -106,6 +106,97 @@ public class TrainerConsoleController(ITrainerConsoleService service) : Controll
         return Ok(result);
     }
 
+    [HttpGet("{clientId}/workouts")]
+    public async Task<IActionResult> GetClientWorkouts(Guid clientId)
+    {
+        var trainerId = GetUserId();
+        if (trainerId == null) return Unauthorized();
+        var result = await _service.GetClientWorkoutsAsync(trainerId.Value, clientId);
+        if (result == null) return NotFound();
+        return Ok(result);
+    }
+
+    [HttpGet("{clientId}/exercises")]
+    public async Task<IActionResult> GetClientExerciseLibrary(Guid clientId)
+    {
+        var trainerId = GetUserId();
+        if (trainerId == null) return Unauthorized();
+        var result = await _service.GetClientExerciseLibraryAsync(trainerId.Value, clientId);
+        if (result == null) return NotFound();
+        return Ok(result);
+    }
+
+    [ServiceFilter(typeof(RequireEntitledLicenceFilter))]
+    [HttpPost("{clientId}/exercises")]
+    public async Task<IActionResult> CreateTrainerExercise(Guid clientId, [FromBody] ExerciseRequestDto dto)
+    {
+        var trainerId = GetUserId();
+        if (trainerId == null) return Unauthorized();
+        var result = await _service.CreateTrainerExerciseAsync(trainerId.Value, clientId, dto);
+        if (result == null) return NotFound();
+        return Ok(result);
+    }
+
+    [ServiceFilter(typeof(RequireEntitledLicenceFilter))]
+    [HttpPost("{clientId}/workouts")]
+    public async Task<IActionResult> CreateClientWorkout(Guid clientId, [FromBody] ClientWorkoutRequestDto dto)
+    {
+        var trainerId = GetUserId();
+        if (trainerId == null) return Unauthorized();
+        var result = await _service.CreateClientWorkoutAsync(trainerId.Value, clientId, dto);
+        return ToActionResult(result);
+    }
+
+    [ServiceFilter(typeof(RequireEntitledLicenceFilter))]
+    [HttpPut("{clientId}/workouts/{workoutId}")]
+    public async Task<IActionResult> UpdateClientWorkout(Guid clientId, Guid workoutId, [FromBody] ClientWorkoutRequestDto dto)
+    {
+        var trainerId = GetUserId();
+        if (trainerId == null) return Unauthorized();
+        var result = await _service.UpdateClientWorkoutAsync(trainerId.Value, clientId, workoutId, dto);
+        return ToActionResult(result);
+    }
+
+    [ServiceFilter(typeof(RequireEntitledLicenceFilter))]
+    [HttpDelete("{clientId}/workouts/{workoutId}")]
+    public async Task<IActionResult> DeleteClientWorkout(Guid clientId, Guid workoutId)
+    {
+        var trainerId = GetUserId();
+        if (trainerId == null) return Unauthorized();
+        var status = await _service.DeleteClientWorkoutAsync(trainerId.Value, clientId, workoutId);
+        return status switch
+        {
+            TrainerWorkoutStatus.Ok => NoContent(),
+            TrainerWorkoutStatus.HasLoggedHistory => Conflict("This workout has logged history and can't be deleted."),
+            _ => NotFound(),
+        };
+    }
+
+    [ServiceFilter(typeof(RequireEntitledLicenceFilter))]
+    [HttpPost("{clientId}/workout-plans/{planId}/schedule")]
+    public async Task<IActionResult> ScheduleClientPlan(Guid clientId, Guid planId, [FromBody] SchedulePlanRequestDto dto)
+    {
+        var trainerId = GetUserId();
+        if (trainerId == null) return Unauthorized();
+        if (dto.CyclePattern.Count == 0) return BadRequest("cyclePattern must not be empty.");
+        if (dto.DurationWeeks is < 1 or > 52) return BadRequest("durationWeeks must be between 1 and 52.");
+        var created = await _service.ScheduleClientPlanAsync(trainerId.Value, clientId, planId, dto.CyclePattern, dto.DurationWeeks);
+        if (created == null) return NotFound();
+        return Ok(new { sessionsCreated = created.Value });
+    }
+
+    /// <summary>Maps a <see cref="TrainerWorkoutResult"/> to the response shape shared by
+    /// create and update. <see cref="TrainerWorkoutStatus.NotPermitted"/> and
+    /// <see cref="TrainerWorkoutStatus.NotFound"/> both 404, the same way every other
+    /// endpoint on this controller already declines to say which one it was.</summary>
+    private IActionResult ToActionResult(TrainerWorkoutResult result) => result.Status switch
+    {
+        TrainerWorkoutStatus.Ok => Ok(result.Workout),
+        TrainerWorkoutStatus.UnknownExercise => BadRequest(new { unknownExerciseIds = result.UnknownExerciseIds }),
+        TrainerWorkoutStatus.HasLoggedHistory => Conflict("This workout has logged history and can't be replaced."),
+        _ => NotFound(),
+    };
+
     private Guid? GetUserId()
     {
         var claim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub");

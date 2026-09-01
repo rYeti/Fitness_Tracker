@@ -98,6 +98,68 @@ class TrainerConsoleApi {
     return (response.data as List).cast<Map<String, dynamic>>();
   }
 
+  Future<List<Map<String, dynamic>>> fetchClientWorkouts(String clientId) async {
+    final response = await _client.get('api/TrainerConsole/$clientId/workouts');
+    return (response.data as List).cast<Map<String, dynamic>>();
+  }
+
+  Future<List<Map<String, dynamic>>> fetchClientExerciseLibrary(String clientId) async {
+    final response = await _client.get('api/TrainerConsole/$clientId/exercises');
+    return (response.data as List).cast<Map<String, dynamic>>();
+  }
+
+  Future<Map<String, dynamic>> createTrainerExercise(
+    String clientId,
+    Map<String, dynamic> exercise,
+  ) async {
+    final response = await _client.post(
+      'api/TrainerConsole/$clientId/exercises',
+      data: exercise,
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> createClientWorkout(
+    String clientId,
+    Map<String, dynamic> workout,
+  ) async {
+    final response = await _client.post(
+      'api/TrainerConsole/$clientId/workouts',
+      data: workout,
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> updateClientWorkout(
+    String clientId,
+    String workoutId,
+    Map<String, dynamic> workout,
+  ) async {
+    final response = await _client.put(
+      'api/TrainerConsole/$clientId/workouts/$workoutId',
+      data: workout,
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<void> deleteClientWorkout(String clientId, String workoutId) async {
+    await _client.delete('api/TrainerConsole/$clientId/workouts/$workoutId');
+  }
+
+  /// Returns the number of sessions the schedule call actually created.
+  Future<int> scheduleClientPlan(
+    String clientId,
+    String planId,
+    Map<String, dynamic> schedule,
+  ) async {
+    final response = await _client.post(
+      'api/TrainerConsole/$clientId/workout-plans/$planId/schedule',
+      data: schedule,
+    );
+    final data = response.data as Map<String, dynamic>;
+    return data['sessionsCreated'] as int? ?? 0;
+  }
+
   /// Date-only, so a device in a timezone behind UTC doesn't ask the server
   /// for the previous day.
   static String _dateParam(DateTime date) =>

@@ -71,6 +71,16 @@ public interface IWorkoutService
     /// <summary>Adds multiple set templates to a workout exercise owned by the specified user in one call.</summary>
     Task<List<WorkoutSetTemplateResponseDto>> AddSetTemplatesBatchAsync(Guid workoutExerciseId, Guid userId, List<WorkoutSetTemplateRequestDto> dtos);
 
+    /// <summary>Replaces every set template on a workout exercise owned by the specified user
+    /// with <paramref name="dtos"/>, including replacing them with nothing.</summary>
+    /// <remarks><see cref="AddSetTemplatesBatchAsync"/> can't do this: it early-returns on an
+    /// empty list because it serves the trainee's push, where an empty batch means "nothing
+    /// new to send" — not "this exercise now has no prescribed sets". The Trainer Console's
+    /// builder needs to be able to say the second thing, so it gets its own method rather
+    /// than that early return being changed out from under the push.</remarks>
+    /// <returns>The new set templates, or <c>null</c> if the exercise isn't found/owned.</returns>
+    Task<List<WorkoutSetTemplateResponseDto>?> ReplaceSetTemplatesAsync(Guid workoutExerciseId, Guid userId, List<WorkoutSetTemplateRequestDto> dtos);
+
     /// <summary>Updates an existing set template owned by the specified user.</summary>
     /// <param name="id">The ID of the set template to update.</param>
     /// <param name="userId">The ID of the user who must own the parent workout.</param>

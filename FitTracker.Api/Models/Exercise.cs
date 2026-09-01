@@ -36,4 +36,13 @@ public class Exercise
     /// <summary>The ID of the user who owns this exercise. Null for system-provided exercises.</summary>
     public Guid? UserId { get; set; }
 
+    /// <summary>When this row is a trainer's exercise copied into a client's library (see
+    /// <c>TrainerConsoleService</c>'s prescription diff), the exercise it was copied from.
+    /// Null for everything else. No foreign key: like <see cref="Models.WorkoutExercise.ExerciseId"/>,
+    /// this deliberately doesn't enforce referential integrity against a trainer's original —
+    /// the copy is a fully independent row, and must stay resolvable even after the trainer
+    /// deletes or edits their own. Existing purely so the same trainer exercise, prescribed to
+    /// the same client twice, reuses one copy instead of growing their library.</summary>
+    public Guid? SourceExerciseId { get; set; }
+
 }

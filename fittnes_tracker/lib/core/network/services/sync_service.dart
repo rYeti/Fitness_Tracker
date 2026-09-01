@@ -2143,8 +2143,29 @@ class SyncService {
     final list = (response.data as List).cast<Map<String, dynamic>>();
     for (final w in list) {
       final workoutServerId = w['id'] as String;
-      if (await _db.workoutDao.getWorkoutByServerId(workoutServerId) != null)
+      final existingWorkout = await _db.workoutDao.getWorkoutByServerId(
+        workoutServerId,
+      );
+      if (existingWorkout != null) {
+        // Every other row this method pulls is written once and left alone —
+        // the trainee is the only writer, so nothing else changes a workout
+        // out from under a device that already has it. That stopped being
+        // true once a trainer could edit a client's workout from the Trainer
+        // Console: the server row changes, but this device never asks about
+        // it again unless the workout is new to it. Reconcile is what makes
+        // an edit actually reach a device that already pulled the workout
+        // once.
+        //
+        // Only a clean copy is safe to overwrite. A dirty one (pending /
+        // pendingUpdate / pendingDelete) is this device's own unsent edit —
+        // the server hasn't seen it yet, so refreshing from the server here
+        // would silently throw it away instead of pushing it.
+        if (SyncStatus.values[existingWorkout.syncStatus] ==
+            SyncStatus.synced) {
+          await _reconcileWorkoutFromServer(existingWorkout, w);
+        }
         continue;
+      }
 
       // Guard: if a local workout with the same name exists but no serverId
       // (reconcile cleared it), stamp its serverId instead of inserting a new
@@ -2345,13 +2366,186 @@ class SyncService {
     }
   }
 
+  /// Refreshes a workout this device already holds from the server's current
+  /// copy. The counterpart to the insert path above: that one only ever
+  /// fires for a workout the device has never seen, so it can't see a
+  /// trainer's later edit. This one can, but only touches what's clean —
+  /// see the call site's note on why a dirty row is skipped instead.
+  Future<void> _reconcileWorkoutFromServer(
+    WorkoutTableData existing,
+    Map<String, dynamic> w,
+  ) async {
+    await (_db.update(_db.workoutTable)
+      ..where((t) => t.id.equals(existing.id))).write(
+      WorkoutTableCompanion(
+        name: Value(w['name'] as String),
+        description: Value(w['description'] as String?),
+        difficulty: Value(w['difficulty'] as int),
+        estimatedDurationMinutes: Value(
+          w['estimatedDurationMinutes'] as int? ?? 30,
+        ),
+        isTemplate: Value(w['isTemplate'] as bool),
+        color: Value(w['color'] as int?),
+      ),
+    );
+
+    final serverExercises = _collapseDuplicateServerExercises(
+      (w['exercises'] as List).cast<Map<String, dynamic>>(),
+    );
+    final serverExerciseIds = serverExercises
+        .map((e) => e['id'] as String)
+        .toSet();
+
+    final localExercises =
+        await (_db.select(_db.workoutExerciseTable)
+              ..where((t) => t.workoutId.equals(existing.id)))
+            .get();
+    final localByServerId = {
+      for (final le in localExercises)
+        if (le.serverId != null) le.serverId!: le,
+    };
+
+    for (final ex in serverExercises) {
+      final exServerId = ex['id'] as String;
+      final local = localByServerId[exServerId];
+      final isRetiredOnServer = ex['removedAt'] != null;
+
+      if (local == null) {
+        // The server has an exercise entry this device has never pulled —
+        // the same insert a brand-new workout would get on its first pull.
+        final localExercise = await _db.exerciseDao.getExerciseByServerId(
+          ex['exerciseId'] as String,
+        );
+        if (localExercise == null) {
+          _logger.w(
+            'Reconcile workout $exServerId: skipping exercise — no local match for exercise server ID ${ex['exerciseId']}',
+          );
+          continue;
+        }
+        final localWeId = await _db
+            .into(_db.workoutExerciseTable)
+            .insert(
+              WorkoutExerciseTableCompanion(
+                workoutId: Value(existing.id),
+                exerciseId: Value(localExercise.id),
+                orderPosition: Value(ex['orderPosition'] as int),
+                notes: Value(ex['notes'] as String?),
+                supersetGroupId: Value(ex['supersetGroupId'] as int?),
+                serverId: Value(exServerId),
+                // Arrives already retired if the server reports it that
+                // way — e.g. a swap the trainer made before this device
+                // ever pulled the workout once.
+                syncStatus: Value(isRetiredOnServer ? 4 : 1),
+              ),
+            );
+        if (!isRetiredOnServer) {
+          await _replaceLocalSetTemplates(localWeId, ex);
+        }
+        continue;
+      }
+
+      // Same rule as the workout level, one row down: a dirty local copy of
+      // this exercise is this device's own unsent edit.
+      if (SyncStatus.values[local.syncStatus] != SyncStatus.synced) continue;
+
+      if (isRetiredOnServer) {
+        if (local.syncStatus != 4) {
+          await (_db.update(_db.workoutExerciseTable)
+            ..where((t) => t.id.equals(local.id))).write(
+            const WorkoutExerciseTableCompanion(syncStatus: Value(4)),
+          );
+        }
+        continue;
+      }
+
+      await (_db.update(_db.workoutExerciseTable)
+        ..where((t) => t.id.equals(local.id))).write(
+        WorkoutExerciseTableCompanion(
+          orderPosition: Value(ex['orderPosition'] as int),
+          notes: Value(ex['notes'] as String?),
+          supersetGroupId: Value(ex['supersetGroupId'] as int?),
+        ),
+      );
+      await _replaceLocalSetTemplates(local.id, ex);
+    }
+
+    // A locally-live, clean exercise the server no longer lists at all —
+    // not even as `removedAt` — has been taken out of the workout entirely.
+    // Retire it here for the same reason `removedAt` does: a scheduled
+    // session on this device may still point at it.
+    for (final le in localExercises) {
+      if (le.serverId == null) continue; // never pushed — not the server's to touch
+      if (SyncStatus.values[le.syncStatus] != SyncStatus.synced) continue;
+      if (serverExerciseIds.contains(le.serverId)) continue;
+      await (_db.update(_db.workoutExerciseTable)
+        ..where((t) => t.id.equals(le.id))).write(
+        const WorkoutExerciseTableCompanion(syncStatus: Value(4)),
+      );
+    }
+  }
+
+  /// Replaces a clean workout-exercise's set templates with the server's.
+  /// Skips the whole exercise if any of its local set templates are dirty —
+  /// same "device's own unsent edit" rule as everywhere else in reconcile,
+  /// applied one level further down since a set template can be edited
+  /// without its parent exercise row changing at all.
+  Future<void> _replaceLocalSetTemplates(
+    int localWeId,
+    Map<String, dynamic> ex,
+  ) async {
+    final localSets =
+        await (_db.select(_db.workoutSetTemplateTable)
+              ..where((t) => t.workoutExerciseId.equals(localWeId)))
+            .get();
+    if (localSets.any(
+      (s) => SyncStatus.values[s.syncStatus] != SyncStatus.synced,
+    )) {
+      return;
+    }
+
+    await (_db.delete(_db.workoutSetTemplateTable)
+          ..where((t) => t.workoutExerciseId.equals(localWeId)))
+        .go();
+
+    for (final st in _collapseDuplicateSetTemplates(
+      (ex['setTemplates'] as List).cast<Map<String, dynamic>>(),
+    )) {
+      await _db
+          .into(_db.workoutSetTemplateTable)
+          .insert(
+            WorkoutSetTemplateTableCompanion(
+              workoutExerciseId: Value(localWeId),
+              setNumber: Value(st['setNumber'] as int),
+              targetReps: Value(st['targetReps'] as String),
+              orderPosition: Value(st['orderPosition'] as int),
+              serverId: Value(st['id'] as String),
+              syncStatus: const Value(1),
+            ),
+          );
+    }
+  }
+
   Future<void> _pullWorkoutPlans() async {
     final response = await _apiClient.get('api/WorkoutPlan');
     final list = (response.data as List).cast<Map<String, dynamic>>();
     for (final p in list) {
       final planServerId = p['id'] as String;
-      if (await _db.workoutPlanDao.getPlanByServerId(planServerId) != null)
+      final existingPlan = await _db.workoutPlanDao.getPlanByServerId(
+        planServerId,
+      );
+      if (existingPlan != null) {
+        // A trainer building a client's plan from the console adds workouts
+        // to it after the plan itself already exists, so a device that
+        // pulled the plan before that happened needs to pick the new
+        // membership up on a later sync — this pull otherwise only ever
+        // runs the insert path below, which nothing here reaches a second
+        // time. Additive only: there's no path in this method (or in
+        // `_pullScheduledWorkouts`) for removing a link, so trying to
+        // reconcile a workout *out* of the plan here would have nothing to
+        // undo the schedule it already generated on the device.
+        await _addMissingPlanWorkoutLinks(existingPlan.id, p);
         continue;
+      }
       final localPlanId = await _db
           .into(_db.workoutPlanTable)
           .insert(
@@ -2390,6 +2584,40 @@ class SyncService {
             );
       }
       _logger.i('Pulled plan $planServerId');
+    }
+  }
+
+  /// Adds whatever workout-plan links the server reports that this device
+  /// doesn't have yet. Never removes one — see the call site's note on why
+  /// there's nothing downstream that could safely absorb a removal.
+  Future<void> _addMissingPlanWorkoutLinks(
+    int localPlanId,
+    Map<String, dynamic> p,
+  ) async {
+    for (final workoutServerId in (p['workoutIds'] as List).cast<String>()) {
+      final localWorkout = await _db.workoutDao.getWorkoutByServerId(
+        workoutServerId,
+      );
+      if (localWorkout == null) continue;
+
+      final alreadyLinked =
+          await (_db.select(_db.workoutPlanWorkoutTable)..where(
+                (t) =>
+                    t.planId.equals(localPlanId) &
+                    t.workoutId.equals(localWorkout.id),
+              ))
+              .getSingleOrNull();
+      if (alreadyLinked != null) continue;
+
+      await _db
+          .into(_db.workoutPlanWorkoutTable)
+          .insert(
+            WorkoutPlanWorkoutTableCompanion(
+              planId: Value(localPlanId),
+              workoutId: Value(localWorkout.id),
+              syncStatus: const Value(1),
+            ),
+          );
     }
   }
 
