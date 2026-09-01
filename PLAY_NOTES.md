@@ -22,6 +22,10 @@ Markdown links, headings or emphasis, none of which Play renders.
 
 See `docs/android-release.md`.
 
+## Unreleased
+
+Trainers can now build and edit your workouts right from the Trainer Console — exercises, sets and reps — and notes your coach leaves on an exercise now show up in your workout screen. Also fixed a bug where the console could show a client duplicate meals, sessions, or exercises.
+
 ## 1.0.2+16
 
 Fixed a bug where reinstalling the app or signing in on a new device could
