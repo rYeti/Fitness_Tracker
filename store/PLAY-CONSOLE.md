@@ -9,7 +9,8 @@ worded the way they are — is in `LISTING.md`. This file is only for filling in
 the console.
 
 **Ready to paste:** app name, short description, full description, and every
-graphic asset.
+graphic asset. **"How to actually upload this"** below is the click-by-click
+order to do it in.
 **Blocked on you:** everything under *App content* — a hosted privacy policy
 URL, and the declaration forms only the account holder can answer.
 
@@ -123,6 +124,83 @@ before a wide launch, not a blocker for the internal track.
 
 ---
 
+## How to actually upload this
+
+Nothing in the repo pushes a store listing. `.github/workflows/android-release.yml`
+publishes through `r0adkll/upload-google-play@v1`, which uploads the **app bundle
+and release notes only** (`whatsNewDirectory`, written from `PLAY_NOTES.md`). It
+has no inputs for listing text, screenshots, the feature graphic or the icon, and
+there is no fastlane here. So this part is done by hand in the console — which is
+no great loss, since the Data safety and content-rating forms below are
+console-only anyway.
+
+### 0. Get the files onto the machine with the browser on it
+
+The PNGs are committed, so this is a pull, not a download:
+
+```
+git checkout claude/app-store-listing-optimization-f8mpd4
+git pull
+```
+
+Everything you upload is in one folder:
+
+```
+store/screenshots/out/store/play/
+```
+
+### 1. Main store listing
+
+**Grow → Store presence → Main store listing.**
+
+| Field on the page | What to paste or pick |
+| --- | --- |
+| App name | the block in §1 above |
+| Short description | the block in §2 |
+| Full description | the block in §3 — paste it as-is, the line breaks are deliberate |
+| App icon | `icon-512.png` |
+| Feature graphic | `feature-graphic.png` |
+| Phone screenshots | `01-…` through `08-…`, all eight at once |
+
+Select all eight screenshots in one go. Play orders them by filename, which is
+the only reason they are numbered — then **check the order in the preview
+strip**, because dragging one a few pixels reorders it silently and slot 1 is
+the one most people ever see.
+
+Play wants 2–8 phone screenshots, each side between 320 and 3840 px, with a
+ratio no more extreme than 2:1. 1080 × 1920 sits comfortably inside all three.
+
+### 2. Store settings
+
+**Grow → Store presence → Store settings.** Category, tags and the public
+contact details — see §"Store settings" below for the values.
+
+### 3. App content
+
+**Monetise → App content** (Play has also shelved this under *Policy* — the
+left nav wording moves, the page does not). Privacy policy, Data safety,
+content rating, target audience, ads. None of it can come from the repo; §"App
+content" below says what each one needs.
+
+### 4. Send for review
+
+Everything above saves as a **draft** and changes nothing on the live listing
+until you press *Send for review*. Listing review is separate from a release
+review and usually takes a day or so, so do it before you plan to ship, not
+after.
+
+### Two things worth knowing before you start
+
+**The privacy policy is the one hard blocker.** `privacy-policy.html` is in the
+repo root but is not hosted anywhere, and Play will not accept the listing
+without a URL that resolves. GitHub Pages on this repo is the cheapest fix.
+Sort it before you sit down to do the rest, or you will get to the end and stop.
+
+**The icon here is the *store* icon.** It is separate from the launcher icon
+baked into the bundle, and nothing checks that they match. They are both
+generated from `fittnes_tracker/assets/icon/app_icon.png`, so they do — but if
+that source ever changes, both need updating.
+
 ## Store settings
 
 ### App category
@@ -170,12 +248,17 @@ alias first — this one is public on the store page.
 
 ## Before you hit publish
 
-- [ ] Privacy policy hosted, URL pasted
+- [ ] Privacy policy hosted somewhere public, URL pasted — **do this first**,
+      it is the only item that can block everything else
+- [ ] Text fields pasted from §1–§3
+- [ ] Screenshots uploaded, order checked in the preview strip
+- [ ] Feature graphic and icon uploaded
+- [ ] Category, tags and contact details set
 - [ ] Data safety form completed
 - [ ] Content rating questionnaire completed
 - [ ] Target audience set
 - [ ] Test account provided under App access
-- [ ] Screenshots uploaded in order, feature graphic and icon uploaded
+- [ ] *Send for review* pressed — nothing above is live until it is
 - [ ] Release notes: `PLAY_NOTES.md` under `## Unreleased` — the release
       workflow reads it, and it is capped at 500 characters per locale
 
