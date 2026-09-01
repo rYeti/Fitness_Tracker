@@ -2205,10 +2205,6 @@ class SyncService {
       );
       for (final ex in exercises) {
         final exServerId = ex['id'] as String;
-        // A retired exercise is still returned so that logged sessions can resolve
-        // what was performed, but it is no longer part of the workout — pulling it
-        // back in would put an exercise the user deleted back into their plan.
-        if (ex['removedAt'] != null) continue;
         if (await _db.workoutDao.getWorkoutExerciseByServerId(exServerId) !=
             null)
           continue;
@@ -2219,6 +2215,34 @@ class SyncService {
           _logger.w(
             'Pull workout $workoutServerId: skipping exercise — no local match for exercise server ID ${ex['exerciseId']}',
           );
+          continue;
+        }
+
+        // A retired exercise is still returned so that logged sessions can
+        // resolve what was performed, but it is no longer part of the
+        // workout. Pulling it back in as a normal (visible) row would put an
+        // exercise the user removed back into their plan — but skipping it
+        // entirely, as this used to do, left nothing for a
+        // ScheduledWorkoutExercise pulled afterwards to link against, so any
+        // set logged against it could never be pulled onto another device.
+        // Store it as `retired`: present for FK resolution, hidden from
+        // every workout-builder/active-workout listing, and exempt from the
+        // `pendingDelete` push sweep (the server already has nothing to
+        // delete).
+        if (ex['removedAt'] != null) {
+          await _db
+              .into(_db.workoutExerciseTable)
+              .insert(
+                WorkoutExerciseTableCompanion(
+                  workoutId: Value(localWorkoutId),
+                  exerciseId: Value(localExercise.id),
+                  orderPosition: Value(ex['orderPosition'] as int),
+                  notes: Value(ex['notes'] as String?),
+                  supersetGroupId: Value(ex['supersetGroupId'] as int?),
+                  serverId: Value(exServerId),
+                  syncStatus: const Value(4), // retired
+                ),
+              );
           continue;
         }
 
@@ -2644,10 +2668,33 @@ class SyncService {
     final list = (response.data as List).cast<Map<String, dynamic>>();
     for (final m in list) {
       final mealServerId = m['id'] as String;
-      final localFood = await _db.foodItemDao.getByServerId(
-        m['foodItemId'] as String,
-      );
-      if (localFood == null) continue;
+      // `foodItemId` is the meal's vestigial "primary" food (MealDao's doc
+      // comment — real totals only ever come from foodEntries below). It is
+      // never nulled out server-side when that food item is deleted, so a
+      // food deleted after the meal was created leaves this pointing at
+      // nothing. Losing the whole meal — and every entry still resolvable —
+      // over one dangling reference used only cosmetically is the same shape
+      // of bug fixed for retired workout exercises: don't let a `continue`
+      // on unrelated content skip the row that resolvable content needs.
+      // Fall back to the first food entry that does resolve, and only to the
+      // server's own null-object id (`_syncNewMeal` uses the same sentinel
+      // pushing the other way) if nothing in the meal resolves at all.
+      var localFoodId =
+          (await _db.foodItemDao.getByServerId(m['foodItemId'] as String))
+              ?.id;
+      if (localFoodId == null) {
+        for (final entry
+            in (m['foodEntries'] as List).cast<Map<String, dynamic>>()) {
+          final entryFood = await _db.foodItemDao.getByServerId(
+            entry['foodItemId'] as String,
+          );
+          if (entryFood != null) {
+            localFoodId = entryFood.id;
+            break;
+          }
+        }
+      }
+      localFoodId ??= 0;
 
       // Check by serverId first (already synced).
       var existing = await _db.mealDao.getByServerId(mealServerId);
@@ -2680,7 +2727,7 @@ class SyncService {
           MealTableCompanion(
             date: Value(serverDate),
             category: Value(m['category'] as String),
-            foodItemId: Value(localFood.id),
+            foodItemId: Value(localFoodId),
             serverId: Value(mealServerId),
             syncStatus: const Value(1),
           ),

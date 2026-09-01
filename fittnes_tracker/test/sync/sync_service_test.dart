@@ -233,29 +233,132 @@ void main() {
       expect(await db.select(db.workoutExerciseTable).get(), hasLength(2));
     });
 
-    test('leaves a retired exercise out of the workout', () async {
-      await insertSyncedExercise(serverId: 'server-e1');
+    test(
+      'leaves a retired exercise out of the workout, but keeps it '
+      'resolvable',
+      () async {
+        await insertSyncedExercise(serverId: 'server-e1');
 
-      api.stubEmptyPull();
-      api.getResponses['api/Workout'] = [
-        serverWorkout(
-          id: 'server-w1',
-          name: 'Push Day',
-          exercises: [
-            serverWorkoutExercise(
-              id: 'server-we1',
-              exerciseId: 'server-e1',
-              orderPosition: 0,
-              removedAt: '2026-01-01T00:00:00Z',
-            ),
-          ],
-        ),
-      ];
+        api.stubEmptyPull();
+        api.getResponses['api/Workout'] = [
+          serverWorkout(
+            id: 'server-w1',
+            name: 'Push Day',
+            exercises: [
+              serverWorkoutExercise(
+                id: 'server-we1',
+                exerciseId: 'server-e1',
+                orderPosition: 0,
+                removedAt: '2026-01-01T00:00:00Z',
+              ),
+            ],
+          ),
+        ];
 
-      await sync.pullAll();
+        await sync.pullAll();
 
-      expect(await db.select(db.workoutExerciseTable).get(), isEmpty);
-    });
+        // Not visible in the workout the user sees...
+        final workout = await db.workoutDao.getWorkoutByServerId('server-w1');
+        final visible = await db.workoutDao.getWorkoutExercisesWithTemplates(
+          workout!.id,
+        );
+        expect(visible, isEmpty);
+
+        // ...but still on disk (syncStatus 4: retired) so a scheduled
+        // exercise pulled afterwards has a row to link its logged sets to.
+        final rows = await db.select(db.workoutExerciseTable).get();
+        expect(rows, hasLength(1));
+        expect(rows.single.serverId, 'server-we1');
+        expect(rows.single.syncStatus, 4);
+      },
+    );
+  });
+
+  group('pulling a scheduled workout logged against a retired exercise', () {
+    test(
+      'still pulls the set, using the retired placeholder to resolve it',
+      () async {
+        await insertSyncedExercise(serverId: 'server-e1');
+
+        api.stubEmptyPull();
+        api.getResponses['api/Workout'] = [
+          serverWorkout(
+            id: 'server-w1',
+            name: 'Push Day',
+            exercises: [
+              serverWorkoutExercise(
+                id: 'server-we1',
+                exerciseId: 'server-e1',
+                orderPosition: 0,
+                removedAt: '2026-01-01T00:00:00Z',
+              ),
+            ],
+          ),
+        ];
+        api.getResponses['api/ScheduledWorkout'] = [
+          serverScheduledWorkout(
+            id: 'server-sw1',
+            workoutId: 'server-w1',
+            exercises: [
+              serverScheduledExercise(
+                id: 'server-se1',
+                workoutExerciseId: 'server-we1',
+                sets: [
+                  serverSet(
+                    id: 'server-set1',
+                    setNumber: 1,
+                    reps: 8,
+                    weight: 60,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ];
+
+        await sync.pullAll();
+
+        final sets = await db.select(db.workoutSetTable).get();
+        expect(sets, hasLength(1));
+        expect(sets.single.serverId, 'server-set1');
+        expect(sets.single.reps, 8);
+      },
+    );
+  });
+
+  group('pulling meals', () {
+    test(
+      'keeps the meal and its resolvable entries when the primary food '
+      'reference was deleted',
+      () async {
+        api.stubEmptyPull();
+        // 'server-deleted' never appears here — the food it once named is
+        // gone from the account entirely, same as a real deletion.
+        api.getResponses['api/FoodItem'] = [
+          serverFoodItem(id: 'server-oats', name: 'Oats'),
+        ];
+        api.getResponses['api/Meal/all'] = [
+          serverMeal(
+            id: 'server-m1',
+            // The meal's vestigial "primary" food — deleted since this meal
+            // was first logged.
+            foodItemId: 'server-deleted',
+            foodEntries: [
+              serverFoodEntry(id: 'server-fe1', foodItemId: 'server-oats'),
+            ],
+          ),
+        ];
+
+        await sync.pullAll();
+
+        final meals = await db.select(db.mealTable).get();
+        expect(meals, hasLength(1));
+        expect(meals.single.serverId, 'server-m1');
+
+        final entries = await db.mealDao.getFoodItemsForMeal(meals.single.id);
+        expect(entries, hasLength(1));
+      },
+    );
   });
 
   group('pushing exercises the server already has', () {

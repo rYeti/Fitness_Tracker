@@ -140,3 +140,99 @@ Map<String, dynamic> serverSetTemplate({
   'targetReps': targetReps,
   'orderPosition': setNumber - 1,
 };
+
+/// A scheduled workout (a logged session) as `GET api/ScheduledWorkout`
+/// returns it.
+Map<String, dynamic> serverScheduledWorkout({
+  required String id,
+  required String workoutId,
+  String scheduledDate = '2026-01-05T00:00:00Z',
+  bool isCompleted = true,
+  List<Map<String, dynamic>> exercises = const [],
+}) => {
+  'id': id,
+  'workoutId': workoutId,
+  'workoutPlanId': null,
+  'templateWorkoutId': null,
+  'scheduledDate': scheduledDate,
+  'createdAt': scheduledDate,
+  'notes': null,
+  'isCompleted': isCompleted,
+  'isSkipped': false,
+  'exercises': exercises,
+};
+
+/// A scheduled workout's exercise as the API nests it inside a scheduled
+/// workout. `workoutExerciseId` links back to the workout-template slot
+/// (`serverWorkoutExercise.id`) this session performed.
+Map<String, dynamic> serverScheduledExercise({
+  required String id,
+  required String workoutExerciseId,
+  bool isCompleted = true,
+  List<Map<String, dynamic>> sets = const [],
+}) => {
+  'id': id,
+  'workoutExerciseId': workoutExerciseId,
+  'isCompleted': isCompleted,
+  'notes': null,
+  'sets': sets,
+};
+
+/// A logged set as the API nests it inside a scheduled exercise.
+Map<String, dynamic> serverSet({
+  required String id,
+  required int setNumber,
+  int? reps,
+  num? weight,
+  bool isCompleted = true,
+}) => {
+  'id': id,
+  'setNumber': setNumber,
+  'reps': reps,
+  'weight': weight,
+  'weightUnit': 'kg',
+  'durationSeconds': null,
+  'isCompleted': isCompleted,
+  'notes': null,
+};
+
+/// A food item as `GET api/FoodItem` returns it.
+Map<String, dynamic> serverFoodItem({
+  required String id,
+  required String name,
+  int calories = 100,
+  int protein = 10,
+  int carbs = 10,
+  int fat = 5,
+}) => {
+  'id': id,
+  'name': name,
+  'calories': calories,
+  'protein': protein,
+  'carbs': carbs,
+  'fat': fat,
+  'gramm': 100,
+  'hiddenFromRecent': false,
+  'extendedNutrientsJson': null,
+};
+
+/// A meal as `GET api/Meal/all` returns it.
+Map<String, dynamic> serverMeal({
+  required String id,
+  required String foodItemId,
+  String date = '2026-01-05T00:00:00Z',
+  String category = 'breakfast',
+  List<Map<String, dynamic>> foodEntries = const [],
+}) => {
+  'id': id,
+  'date': date,
+  'category': category,
+  'foodItemId': foodItemId,
+  'foodEntries': foodEntries,
+};
+
+/// A food entry as the API nests it inside a meal.
+Map<String, dynamic> serverFoodEntry({
+  required String id,
+  required String foodItemId,
+}) => {'id': id, 'foodItemId': foodItemId};

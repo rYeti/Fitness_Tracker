@@ -9,6 +9,13 @@ import 'package:drift/drift.dart';
 /// - [pendingUpdate] Edited locally after a successful sync.
 /// - [pendingDelete] Deleted locally; must be removed on the API before the
 ///                   local row is dropped.
+///
+/// [WorkoutExerciseTable] additionally uses the raw value `4` ("retired") for
+/// an exercise the server has already removed from the workout — see that
+/// table's doc comment. It is deliberately not a member of this enum: this
+/// enum is switched over exhaustively for every other table it backs
+/// (workouts, plans, scheduled workouts, exercises, ...), and `retired` has
+/// no meaning for any of them.
 enum SyncStatus { pending, synced, pendingUpdate, pendingDelete }
 
 /// Table for storing exercise definitions
@@ -44,6 +51,17 @@ class WorkoutTable extends Table {
 }
 
 /// Table for linking exercises to workouts (workout_exercise)
+///
+/// `syncStatus` uses one value outside [SyncStatus]: `4` ("retired"), stamped
+/// only by `SyncService._pullWorkouts` on an exercise the server has already
+/// removed from the workout. The server still returns that exercise — a
+/// historic `ScheduledWorkoutExerciseTable`/`WorkoutSetTable` pulled
+/// afterwards needs a local row to link against, or the session that logged
+/// it can never be pulled onto another device. The row must stay out of
+/// every workout-builder and active-workout listing (every such query
+/// excludes both `3` and `4`) and must never be picked up by the
+/// `pendingDelete` (`3`) push sweep, since the server has nothing left to
+/// delete for it.
 class WorkoutExerciseTable extends Table {
   IntColumn get id => integer().autoIncrement()();
   IntColumn get workoutId =>
