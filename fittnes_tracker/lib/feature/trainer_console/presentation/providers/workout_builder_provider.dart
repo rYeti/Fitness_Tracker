@@ -210,6 +210,12 @@ class WorkoutBuilderProvider extends ChangeNotifier {
       if (_loadedClientId != clientId) return;
       _allWorkouts = results[0] as List<ClientWorkout>;
       _exerciseLibrary = results[1] as List<ClientExerciseOption>;
+      // Land on the first existing day rather than an empty editor — "no day
+      // selected" and "no days yet" are different states, and only the second
+      // one is actually empty.
+      if (_draft == null && planWorkouts.isNotEmpty) {
+        selectDay(planWorkouts.first);
+      }
     } catch (_) {
       if (_loadedClientId != clientId) return;
       _daysError = ConsoleError.loadClientWorkouts;
