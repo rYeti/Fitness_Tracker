@@ -107,8 +107,15 @@ Nothing auto-ships to production.
 As of this writing, no release from this workflow has ever gone straight to
 production — every `play/*` tag was published to **internal**, either by a
 tag push (which always targets `internal`) or by a manual dispatch that left
-the track at its `internal` default. Production is still served by whatever
-was last uploaded through the Play Console by hand.
+the track at its `internal` default. From there the builds were promoted by
+hand to **closed testing**, which is where they have stayed: the Console's
+submission history shows an unbroken run of `Closed testing - Alpha` rows and
+no production row at all.
+
+Whether production has *ever* served a build is not something this repo can
+answer — the Console's submission history only reaches back to 1 May 2026, and
+any earlier manual upload sits before that window. Check Release → Production
+in the Console rather than assuming either way.
 
 Two ways to move a build forward:
 
@@ -123,15 +130,21 @@ Two ways to move a build forward:
 **A track left un-promoted is not neutral — it ages.** Play requires an app's
 `targetSdk` to clear an annual bar (the deadline lands **31 August**) to keep
 being served to *new* installs; existing installs and updates are unaffected.
-If production is left pointed at an old bundle while `targetSdk` moves forward
-only on newer internal builds, production quietly falls out of compliance on
-that date — the app stays listed and keeps updating existing users, and simply
-stops appearing for anyone who doesn't already have it. There is no warning
-inside this repo when that happens; the Play Console's Release → Overview
-page and its policy-notification emails are the only place it shows up.
-`app/build.gradle.kts` pins `targetSdk` explicitly for this reason, and the
-release workflow logs the resolved value in its preflight step — check that
-number against the one live on production, not just the one being built.
+A track left pointed at an old bundle while `targetSdk` moves forward only on
+newer builds falls out of compliance on that date without anyone touching it.
+There is no warning inside this repo when that happens; the Play Console's
+Release → Overview page and its policy-notification emails are the only place
+it shows up. `app/build.gradle.kts` pins `targetSdk` explicitly so the number
+Play judges a release by is a reviewable value in the diff rather than a
+property of whichever toolchain CI resolved that day, and the release workflow
+logs the resolved value in its preflight step — check that number against the
+one live on the track you care about, not just the one being built.
+
+This is a real hazard, but note what it is *not*: it is not the explanation for
+any outage this project has actually had. An app that has gone quiet is far more
+likely to be a track or distribution setting than a compliance lapse, and the
+symptoms overlap almost completely. `docs/play-track-visibility.md` covers how
+to tell them apart, and why guessing from symptoms got it wrong here.
 
 ## Required repository secrets
 
