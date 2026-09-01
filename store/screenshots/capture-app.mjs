@@ -122,6 +122,10 @@ async function settle(page, ms = 2500) {
 // back in the app rather than on login; the sign-in below is a fallback for
 // the case where it does not.
 async function returnToShell(page) {
+  // reload(), not goto(BASE). A pushed route has no URL of its own — the
+  // address bar still reads the root — so navigating to the root is a no-op
+  // that leaves the app exactly where it was, and the wait for a tablist then
+  // times out. Reloading actually tears the route stack down.
   await page.reload();
   await waitForFlutterBoot(page);
   await enableFlutterSemantics(page);
@@ -129,6 +133,28 @@ async function returnToShell(page) {
     await signIn(page);
   }
   await page.getByRole('tablist').first().waitFor({ state: 'attached', timeout: 60_000 });
+  await settle(page, 3000);
+}
+
+/**
+ * Open a screen by its route instead of clicking to it.
+ *
+ * `main.dart` calls `usePathUrlStrategy()` and `tools/serve-web.mjs` rewrites
+ * unknown paths to index.html, so a deep link works. For a screen that has a
+ * route this beats driving the UI: fewer steps to break, and no pushed route to
+ * escape afterwards, because the next shot simply loads its own URL. The JWT
+ * persists, so the load lands signed in.
+ */
+async function openRoute(page, path) {
+  await page.goto(`${BASE}${path}`);
+  await waitForFlutterBoot(page);
+  await enableFlutterSemantics(page);
+  if (await page.getByRole('button', { name: 'Login' }).count()) {
+    await signIn(page);
+    await page.goto(`${BASE}${path}`);
+    await waitForFlutterBoot(page);
+    await enableFlutterSemantics(page);
+  }
   await settle(page, 3000);
 }
 
@@ -195,6 +221,22 @@ const SHOTS = [
         .first().click();
     },
     note: 'the food picker for one meal' },
+  { file: '08-exercise-library', tab: 'Gym',
+    async after(page) {
+      // No route for this one; it is reached from the Gym tab's menu.
+      // Present in the semantics tree but not actionable — Playwright's
+      // visibility and hit-testing checks fail on it, so a normal click times
+      // out. Dispatching straight to the node is the same trick
+      // `enableFlutterSemantics` uses on the placeholder, and Flutter's
+      // semantics nodes act on a synthetic click.
+      const manage = page.getByRole('button', { name: /Manage Exercises/i }).first();
+      await manage.waitFor({ state: 'attached', timeout: 30_000 });
+      await manage.evaluate((el) => el.click());
+      // 873 rows do not paint instantly after the route pushes.
+      await page.waitForTimeout(2500);
+    },
+    note: 'the exercise library — 873 with instructions' },
+
   { file: '06-active-workout', tab: 'Gym',
     async after(page) {
       await page.getByRole('button', { name: /Start Workout/i }).first().click();
@@ -224,9 +266,20 @@ const SHOTS = [
         console.log(`  ..   could not fill the set: ${String(e).split('\n')[0]}`);
       }
     },
-    // Nothing follows it, so there is no shell to go back to.
+    // returnToShell cannot escape this screen — a reload from it never
+    // brings the tablist back, which is what starved the exercise library
+    // of its Gym tab when this ran before it. Nothing after it needs the
+    // shell: 09 and 10 load their own URLs.
     last: true,
     note: 'a set being logged' },
+
+  // ── routed screens: no tab, no clicking, just a URL ──────────────────
+  { file: '09-weight', route: '/weight-tracking',
+    note: 'weight log, goal and trend' },
+  { file: '10-meal-templates', route: '/meal-templates',
+    // Nothing follows it, so there is no shell to return to.
+    last: true,
+    note: 'saved meal templates' },
 ];
 
 const browser = await chromium.launch();
@@ -261,7 +314,9 @@ for (const target of TARGETS) {
     // One screen failing to open must not cost the other five. A missing
     // screenshot is obvious; a run that aborts halfway is not.
     try {
-      if (shot.tab) {
+      if (shot.route) {
+        await openRoute(page, shot.route);
+      } else if (shot.tab) {
         await navDestination(page, shot.tab).click();
         await settle(page);
       }
@@ -275,7 +330,10 @@ for (const target of TARGETS) {
     } catch (err) {
       console.log(`  MISS ${target.name}/${shot.file}.png — ${String(err).split('\n')[0]}`);
     } finally {
-      if (shot.after && !shot.shallow && !shot.last) {
+      // Only shots that pushed a route need rescuing. A routed shot loads its
+      // own URL and the next one loads whatever it needs, so sending it back to
+      // the shell in between achieves nothing except a way to fail.
+      if (shot.after && !shot.route && !shot.shallow && !shot.last) {
         await returnToShell(page).catch((e) =>
           console.log(`  !! could not return to shell: ${String(e).split('\n')[0]}`));
       }

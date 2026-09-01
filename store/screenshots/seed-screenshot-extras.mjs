@@ -254,4 +254,81 @@ for (const { ago, food } of EXTRAS) {
   extras++;
 }
 console.log(`  ${extras} extra snacks, so the calorie trend is not a flat line`);
+
+// ── Meal templates ──────────────────────────────────────────────────────────
+//
+// Two things the first attempt at this got wrong, both visible only by looking
+// at the screenshot.
+//
+// The screen is tabbed by category — Breakfast / Lunch / Dinner / Snacks — and
+// opens on Breakfast. Templates spread across categories therefore leave the
+// tab you actually photograph holding one card. They all go in Breakfast.
+//
+// And `items: []`, which is what the base seeder writes, renders as
+// "0 items · 0 kcal" on every card. A template that contains nothing is a poor
+// advert for a feature whose whole point is containing something, so these
+// carry real foods and the macros that go with them.
+const TEMPLATES = [
+  {
+    name: 'Post-session shake', description: 'Whey, banana and oat milk, straight after training',
+    category: 'Breakfast', totalWeightGrams: 450,
+    items: [
+      { foodName: 'Whey Protein Isolate', quantity: 30, unit: 'g', calories: 112, protein: 25, carbs: 2, fat: 1 },
+      { foodName: 'Banana',               quantity: 120, unit: 'g', calories: 107, protein: 1, carbs: 27, fat: 0 },
+      { foodName: 'Oat milk',             quantity: 300, unit: 'ml', calories: 138, protein: 2, carbs: 20, fat: 5 },
+    ],
+  },
+  {
+    name: 'Everyday oats', description: 'The breakfast that gets eaten five days a week',
+    category: 'Breakfast', totalWeightGrams: 380,
+    items: [
+      { foodName: 'Rolled Oats',      quantity: 80, unit: 'g', calories: 303, protein: 10, carbs: 54, fat: 6 },
+      { foodName: 'Greek Yoghurt 0%', quantity: 200, unit: 'g', calories: 118, protein: 20, carbs: 8, fat: 0 },
+      { foodName: 'Banana',           quantity: 100, unit: 'g', calories: 89, protein: 1, carbs: 23, fat: 0 },
+    ],
+  },
+  {
+    name: 'Rest-day breakfast', description: 'Lighter, for the days off',
+    category: 'Breakfast', totalWeightGrams: 260,
+    items: [
+      { foodName: 'Greek Yoghurt 0%', quantity: 200, unit: 'g', calories: 118, protein: 20, carbs: 8, fat: 0 },
+      { foodName: 'Rye Bread',        quantity: 60, unit: 'g', calories: 155, protein: 5, carbs: 29, fat: 2 },
+    ],
+  },
+];
+
+const existingTemplates = await call('/api/MealTemplate', { token });
+const haveTemplate = new Set(
+  (existingTemplates ?? []).map((t) => String(t.name ?? t.Name)));
+
+let templates = 0;
+for (const t of TEMPLATES) {
+  if (haveTemplate.has(t.name)) continue;   // re-run safe
+  await call('/api/MealTemplate', {
+    method: 'POST', token,
+    body: {
+      ...t,
+      // foodId is required by the DTO but the screen lists items by the name
+      // carried on the item itself, so a matching food is used where one
+      // exists and a fresh id otherwise.
+      items: t.items.map((it) => ({
+        ...it,
+        foodId: pick(it.foodName) ?? crypto.randomUUID(),
+      })),
+    },
+  });
+  templates++;
+}
+// The base seeder's template — and any left by an earlier run of this script —
+// carries no items, and the card renders that as "0 items - 0 kcal". Drop the
+// empty ones rather than photograph them next to the full ones.
+const afterAdd = await call('/api/MealTemplate', { token });
+let dropped = 0;
+for (const t of afterAdd ?? []) {
+  const items = t.items ?? t.Items ?? [];
+  if (items.length) continue;
+  await call(`/api/MealTemplate/${t.id ?? t.Id}`, { method: 'DELETE', token });
+  dropped++;
+}
+console.log(`  ${templates} meal templates added, ${dropped} empty ones dropped`);
 console.log('Done.');

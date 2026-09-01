@@ -74,6 +74,15 @@ size (430×932 @3 and 360×640 @3), so nothing is ever resampled.
 | 5 | `05-food-search` | The food picker for one meal |
 | 6 | `06-active-workout` | A set being logged — 82.5 kg × 8 |
 | 7 | `07-progress-gym` | Workout frequency and streaks (captured, not composed — see below) |
+| 8 | `08-exercise-library` | The exercise library — 873, searchable, with instructions |
+| 9 | `09-weight` | Weight log, goal and trend chart |
+| 10 | `10-meal-templates` | Saved meal templates with items and calories |
+
+Shots 9 and 10 are opened by **route** rather than by clicking:
+`/weight-tracking` and `/meal-templates` exist in `lib/core/app_router.dart`,
+`main.dart` calls `usePathUrlStrategy()`, and `serve-web.mjs` rewrites unknown
+paths to `index.html`. Fewer steps to break, and no pushed route to escape
+afterwards. `openRoute` handles it.
 
 ## Four things that will bite you
 
@@ -86,6 +95,16 @@ a `pageerror` nobody is listening to. The context sets `locale: 'en-US'`.
 `pullAll()` has finished writing the local database. Shooting it first — the
 obvious order — photographs a dashboard of zeroes on a fully populated account.
 It goes fourth, after three other screens have given the pull time to land.
+
+**The active workout screen cannot be escaped by reloading.** `returnToShell`
+works everywhere else; from that screen the tablist never comes back, so any
+shot ordered after it loses its nav. It is therefore last among the shots that
+push a route, with the routed shots (which load their own URLs) after it.
+
+**`Manage Exercises` is in the semantics tree but is not clickable.**
+Playwright's actionability checks fail on it and a normal `.click()` times out;
+dispatching straight to the node works, the same trick
+`enableFlutterSemantics` uses on the placeholder.
 
 **Pushed routes are a one-way door.** `page.goBack()` does not pop them, and the
 food-search screen exposes *no* back control to the accessibility tree — its

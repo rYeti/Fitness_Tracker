@@ -97,7 +97,7 @@ needed at upload.
 | --- | --- | --- |
 | App icon | 512 × 512, 32-bit PNG | `store/screenshots/out/store/play/icon-512.png` |
 | Feature graphic | 1024 × 500 | `store/screenshots/out/store/play/feature-graphic.png` |
-| Phone screenshots | 2–8, 1080 × 1920 | `store/screenshots/out/store/play/01…05*.png` |
+| Phone screenshots | 8 of 8, 1080 × 1920 | `store/screenshots/out/store/play/01…08*.png` |
 
 Upload the screenshots **in filename order** — the numbering is the store order,
 and slot 1 is the one that carries the listing in search results.
@@ -106,14 +106,16 @@ and slot 1 is the one that carries the listing in search results.
 | --- | --- | --- |
 | 1 | `01-food-day.png` | Training and nutrition. One app. |
 | 2 | `02-active-workout.png` | Log a set. Keep moving. |
-| 3 | `03-food-search.png` | Log food in seconds. |
-| 4 | `04-progress-nutrition.png` | See the trend, not just today. |
-| 5 | `05-gym-today.png` | Your plan, on your calendar. |
+| 3 | `03-exercise-library.png` | 873 exercises. Already in. |
+| 4 | `04-food-search.png` | Log food in seconds. |
+| 5 | `05-progress-nutrition.png` | See the trend, not just today. |
+| 6 | `06-weight.png` | Weigh in. Watch the trend. |
+| 7 | `07-gym-today.png` | Your plan, on your calendar. |
+| 8 | `08-meal-templates.png` | The meal you eat every week. |
 
-Five, not the maximum eight. The Dashboard and Progress → Gym are captured but
-not framed — both would show an empty state caused by data problems recorded in
-`screenshots/README.md`, and a screenshot of a zero is worse than one fewer
-screenshot. Adding them later is a `compose.mjs` edit, not a redesign.
+All eight slots Play offers are used. The Dashboard and Progress → Gym are
+captured but not framed — both render an empty state caused by defects recorded
+in `screenshots/README.md`, and a screenshot of a zero is worse than none.
 
 Tablet screenshots are optional. Without them Play shows the phone shots on
 tablets and marks the listing as not optimised for large screens — worth doing

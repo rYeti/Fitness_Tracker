@@ -222,14 +222,20 @@ proposition, because in search results it is often the only one seen.
 |---|---|---|
 | 1 | Training and nutrition. **One app.** | A logged day — 2,186 / 2,000 kcal, macros, meals by category |
 | 2 | Log a set. **Keep moving.** | Active workout — Bench Press, 82.5 kg × 8 |
-| 3 | Log food **in seconds.** | The food picker — "Eaten at this meal" above "Other foods" |
-| 4 | See the trend, **not just today.** | Progress → Nutrition over the selected range |
-| 5 | Your plan, **on your calendar.** | Today's scheduled session — Upper A, 55 min |
+| 3 | 873 exercises. **Already in.** | The exercise library, searchable, with instructions |
+| 4 | Log food **in seconds.** | The food picker — "Eaten at this meal" above "Other foods" |
+| 5 | See the trend, **not just today.** | Progress → Nutrition over the selected range |
+| 6 | Weigh in. **Watch the trend.** | Weight log — 100.0 → 96.1 kg with the trend chart |
+| 7 | Your plan, **on your calendar.** | Today's scheduled session — Upper A, 55 min |
+| 8 | The meal you eat **every week.** | Saved meal templates with their items and calories |
 
-Five, not eight. The Dashboard and Progress → Gym are captured but not framed:
-both would show an empty state caused by data problems recorded in
-`screenshots/README.md` (today renders empty; sync never pulls logged sets back
-down). A screenshot of a zero is worse than one fewer screenshot.
+Eight, Play's maximum. Slots 3, 6 and 8 exist to put a picture behind claims the
+copy already makes — the 873-exercise library, the weight goal and trend, and
+saved meal templates — none of which had one before.
+
+The Dashboard and Progress → Gym are captured but not framed: both render an
+empty state caused by defects recorded in `screenshots/README.md` (today renders
+empty; sync never pulls logged sets back down).
 
 **Rendered sizes:**
 

@@ -42,27 +42,31 @@ const FRAMES = [
     sub: 'Your lifts, your macros and your weight in one log.' },
   { src: '06-active-workout',      eyebrow: 'In the gym', head: 'Log a set.<em>Keep moving.</em>',
     sub: 'One set at a time, with the timer a tap away.' },
+  { src: '08-exercise-library',    eyebrow: 'Exercises',  head: '873 exercises.<em>Already in.</em>',
+    sub: 'Every one with written instructions and its target muscles.' },
   { src: '05-food-search',         eyebrow: 'Fast entry', head: 'Log food<em>in seconds.</em>',
     sub: 'Scan a barcode, or pick straight from what you eat most.' },
-  { src: '03-progress-nutrition',  eyebrow: 'Nutrition',  head: 'See the trend,<em>not just today.</em>',
+  { src: '03-progress-nutrition',  eyebrow: 'Progress',   head: 'See the trend,<em>not just today.</em>',
     sub: 'Calories and macros over the range you choose.' },
+  { src: '09-weight',              eyebrow: 'Weight',     head: 'Weigh in.<em>Watch the trend.</em>',
+    sub: 'A goal, and a line that shows whether you are moving.' },
   { src: '02-gym-today',           eyebrow: 'Your plan',  head: 'Your plan,<em>on your calendar.</em>',
     sub: 'Build a session once, then schedule it as often as you like.' },
+  { src: '10-meal-templates',      eyebrow: 'Templates',  head: 'The meal you eat<em>every week.</em>',
+    sub: 'Save it once, then add the whole thing in one tap.' },
 ];
 
-// Five frames, not seven, and both omissions are deliberate.
+// Eight frames — Play's maximum — and the two screens still absent are absent
+// on purpose, with their slots filled from elsewhere rather than left empty.
 //
-// The Dashboard reads *today*, and today renders empty on this account however
-// it is seeded — see store/screenshots/README.md. A frame showing 0 kcal on a
-// fully logged account is worse than one fewer frame, and faking it is not an
-// option: these are photographs.
+// The Dashboard (04) reads *today*, and today renders empty on this account
+// however it is seeded. Progress -> Gym (07) puts its Time Range picker in the
+// top third, which pushes the streak tiles below the crop, and the Exercise
+// Progress chart under them cannot be filled at all because sync never pulls
+// logged sets back down. Both are in store/screenshots/README.md.
 //
-// Progress -> Gym is captured (07) but not framed. Its Time Range picker takes
-// the top third, which pushes the streak tiles — the only reason to show that
-// screen — below the crop, and the Exercise Progress chart under them cannot be
-// filled at all because sync never pulls logged sets back down. Play asks for a
-// minimum of two screenshots; five that all earn their place is the better
-// trade.
+// A frame showing a zero on a fully logged account is worse than no frame, and
+// faking it is not available: these are photographs.
 
 const FONTS = resolve(here, '../../fittnes_tracker/assets/fonts');
 
