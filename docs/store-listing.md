@@ -231,6 +231,51 @@ the app had produced.
 
 ---
 
+## Two "app bugs" that were mine, and two that are not
+
+The screenshot pipeline was, unintentionally, a decent bug-finder. Four things
+it surfaced are worth separating, because two of them were my own mistakes
+reported as defects — and reporting your own malformed call as someone else's
+bug is its own failure mode.
+
+**Mine: `GET /api/Meal` 500.** I called a route with a required `?date=` and
+left the date off. `[FromQuery] DateTime` binds a missing value to
+`0001-01-01`, `MealDayWindow.ForRange` widens it by twelve hours in each
+direction, and that underflows `DateTime.MinValue` before any query runs. I
+wrote it up as "returns 500 on this build, worth a look on its own", which
+overstated it considerably. The endpoint now answers a missing date with 400
+(`MealControllerDateBindingTests`), which is the small real defect underneath —
+a client error should not surface as an unhandled exception — but the app never
+had a way to reach it.
+
+**Mine: Progress → Gym reading 1 workout.** The tab reads completed scheduled
+workouts, which is correct. My top-up script POSTed *new* sessions onto days the
+base seeder had already filled with the same workout, so every one collided on
+`(workoutId, date)` and was discarded by the pull's server-side-duplicate guard.
+The guard is the dedup rule from `docs/sync-account-switch-duplication.md` and
+is right; the script was wrong. It now mutates the existing sessions instead.
+
+**Not mine: sync pushes logged sets and never pulls them.**
+`_pullScheduledWorkouts` restores sessions and their exercises, but nothing
+creates a local `workout_set_table` row from a server one. A user who reinstalls
+or signs in on a second device gets workouts, meals and weights back — and not
+their logged sets, so Exercise Progress and the "previous set" reference start
+empty. No amount of seeding fixes it from outside, which is how it was found.
+
+**Not mine: today renders empty.** `api/Meal/all` returns today's four meals
+with seven food entries, identical in shape to every other day, and the Food tab
+shows "No foods added yet" for today alone. Unconfirmed suspicion: the meal
+shells the screen creates for the current day collide with the pulled rows in
+`_deduplicateMealsByContent` and the empty local row wins.
+
+The pattern across all four is the same one this document opened with. A
+screenshot is an assertion about behaviour that no type system checks — and
+because it is a picture, a wrong one looks finished. Every one of these was
+found by looking at an image and asking why a number was zero, which is the only
+test the pipeline really has.
+
+---
+
 ## The rule this leaves behind
 
 **A user-facing claim is a behavioural assertion stored where nothing checks

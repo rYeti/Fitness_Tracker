@@ -154,7 +154,14 @@ Install ForgeForm, log one workout and one meal, and let the numbers do the
 arguing.
 ```
 
-**Character count:** ~2,750 including whitespace. Both stores accept it as-is.
+**Character count:** 3,203 as unwrapped for Play, 3,237 as hard-wrapped here.
+Both stores accept it. (An earlier revision of this file said "~2,750" — that
+was an estimate, and wrong. `PLAY-CONSOLE.md` carries counts measured from the
+text itself.)
+
+**For pasting**, use `PLAY-CONSOLE.md`: Play preserves the line breaks you give
+it, so the hard-wrapped copy below would render as a ragged column on a phone.
+That file holds the same text unwrapped, one line per paragraph.
 
 ---
 
@@ -213,35 +220,40 @@ proposition, because in search results it is often the only one seen.
 
 | # | Headline | Screen |
 |---|---|---|
-| 1 | Training and nutrition. **One app.** | Dashboard — 2186 kcal, 1/3 workouts, Upper A, weight progress |
+| 1 | Training and nutrition. **One app.** | A logged day — 2,186 / 2,000 kcal, macros, meals by category |
 | 2 | Log a set. **Keep moving.** | Active workout — Bench Press, 82.5 kg × 8 |
-| 3 | Macros that **actually add up.** | A logged day — 2,186 / 2,000 kcal, macros, meals by category |
-| 4 | Log food **in seconds.** | The food picker for one meal — "Eaten at this meal" above "Other foods" |
-| 5 | See the trend, **not just today.** | Progress → Nutrition over the selected range |
-| 6 | Your plan, **on your calendar.** | Today's scheduled session — Upper A, 55 min |
+| 3 | Log food **in seconds.** | The food picker — "Eaten at this meal" above "Other foods" |
+| 4 | See the trend, **not just today.** | Progress → Nutrition over the selected range |
+| 5 | Your plan, **on your calendar.** | Today's scheduled session — Upper A, 55 min |
+
+Five, not eight. The Dashboard and Progress → Gym are captured but not framed:
+both would show an empty state caused by data problems recorded in
+`screenshots/README.md` (today renders empty; sync never pulls logged sets back
+down). A screenshot of a zero is worse than one fewer screenshot.
 
 **Rendered sizes:**
 
 | Store | Slot | Pixels | Files |
 |---|---|---|---|
-| App Store | iPhone 6.9" / 6.7" | 1290 × 2796 | `screenshots/out/ios/` |
-| Google Play | Phone | 1080 × 1920 | `screenshots/out/play/` |
+| App Store | iPhone 6.9" / 6.7" | 1290 × 2796 | `screenshots/out/store/ios/` |
+| Google Play | Phone | 1080 × 1920 | `screenshots/out/store/play/` |
+| Google Play | Feature graphic | 1024 × 500 | `screenshots/out/store/play/feature-graphic.png` |
+| Google Play | Icon | 512 × 512 | `screenshots/out/store/play/icon-512.png` |
+
+**For Play, work from `PLAY-CONSOLE.md`** — same values, laid out as the
+console's own form with each field in its own copyable block.
 
 ### Before these go up
 
 They are real, which also means they show exactly what the seeded account has
 and nothing more:
 
-- **Progress → Gym is not in the six frames, because its data is still wrong.**
-  It reads 1 total workout and a 0-day streak even after
-  `seed-screenshot-extras.mjs` posts eight completed sessions across the last
-  ten days, and still shows "No workout data yet" under Exercise Progress.
-  Probably those tiles count logged sessions rather than scheduled workouts
-  flagged complete — unconfirmed. Unfinished, not hidden.
-- **The Calorie Trend in frame 5 is a flat line.** Every seeded day carries the
-  same total; the extra snacks the top-up posts do not move it and the cause is
-  not established (`GET /api/Meal` returns 500 on this build, which blocked the
-  diagnostic and is worth a look on its own).
+- **Progress → Gym is captured but not composed into a frame.** Its Workout
+  Frequency tiles are correct now, but the Exercise Progress chart under them
+  cannot be filled: `SyncService` pushes logged sets to the server and never
+  pulls them back, so a fresh device shows only sets it logged itself. That is
+  a real gap in the app — a reinstall loses set history — recorded in
+  `screenshots/README.md`, not worked around here.
 - **Padlocks are visible** on the Progress range selector (All Time, Custom).
   Truthful, but decide deliberately whether to lead with locked features.
 The app is **light-themed by default**, which is what these show. The copy above

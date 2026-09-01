@@ -38,19 +38,31 @@ const TARGETS = [
 // Store order, not capture order: slot 1 has to carry the whole proposition,
 // because it is the only one most people see in search results.
 const FRAMES = [
-  { src: '04-dashboard',           eyebrow: 'ForgeForm',  head: 'Training and nutrition.<em>One app.</em>',
+  { src: '01-food-day',            eyebrow: 'ForgeForm',  head: 'Training and nutrition.<em>One app.</em>',
     sub: 'Your lifts, your macros and your weight in one log.' },
   { src: '06-active-workout',      eyebrow: 'In the gym', head: 'Log a set.<em>Keep moving.</em>',
     sub: 'One set at a time, with the timer a tap away.' },
-  { src: '01-food-day',            eyebrow: 'Nutrition',  head: 'Macros that<em>actually add up.</em>',
-    sub: 'Every meal of the day against your calorie goal.' },
   { src: '05-food-search',         eyebrow: 'Fast entry', head: 'Log food<em>in seconds.</em>',
     sub: 'Scan a barcode, or pick straight from what you eat most.' },
-  { src: '03-progress-nutrition',  eyebrow: 'Progress',   head: 'See the trend,<em>not just today.</em>',
+  { src: '03-progress-nutrition',  eyebrow: 'Nutrition',  head: 'See the trend,<em>not just today.</em>',
     sub: 'Calories and macros over the range you choose.' },
   { src: '02-gym-today',           eyebrow: 'Your plan',  head: 'Your plan,<em>on your calendar.</em>',
     sub: 'Build a session once, then schedule it as often as you like.' },
 ];
+
+// Five frames, not seven, and both omissions are deliberate.
+//
+// The Dashboard reads *today*, and today renders empty on this account however
+// it is seeded — see store/screenshots/README.md. A frame showing 0 kcal on a
+// fully logged account is worse than one fewer frame, and faking it is not an
+// option: these are photographs.
+//
+// Progress -> Gym is captured (07) but not framed. Its Time Range picker takes
+// the top third, which pushes the streak tiles — the only reason to show that
+// screen — below the crop, and the Exercise Progress chart under them cannot be
+// filled at all because sync never pulls logged sets back down. Play asks for a
+// minimum of two screenshots; five that all earn their place is the better
+// trade.
 
 const FONTS = resolve(here, '../../fittnes_tracker/assets/fonts');
 
@@ -152,6 +164,107 @@ for (const target of TARGETS) {
     console.log(`  ok   store/${target.name}/${n}-${frame.src.replace(/^\d+-/, '')}.png`);
   }
   await page.close();
+}
+
+// ── Play Store assets that are not phone screenshots ────────────────────────
+//
+// Play refuses a listing without a 1024x500 feature graphic, and wants the icon
+// at 512x512 while the repo's source art is 1254x1254. Both are produced here
+// rather than by hand so they are reproducible and stay on the brand tokens.
+
+const FEATURE = { width: 1024, height: 500 };
+
+/** Landscape, so it needs its own template — the phone frame does not scale. */
+const featureHtml = (shotUrl, iconUrl) => `<!doctype html>
+<meta charset="utf-8">
+<style>
+@font-face{font-family:M;font-weight:700;src:url('${pathToFileURL(FONTS + '/Montserrat-Bold.ttf').href}')}
+@font-face{font-family:E;font-weight:400;src:url('${pathToFileURL(FONTS + '/Exo2-Regular.ttf').href}')}
+@font-face{font-family:E;font-weight:700;src:url('${pathToFileURL(FONTS + '/Exo2-Bold.ttf').href}')}
+*{margin:0;padding:0;box-sizing:border-box}
+/* The scale goes on <html>, not on .g. A rem is always relative to the ROOT
+   font-size — setting it on the container and sizing children in rem looks like
+   it scales and does not, which is how the first render came out at roughly
+   three times the intended size with the headline wrapped onto four lines.
+   (No backticks anywhere in this stylesheet: it lives in a template literal.) */
+html{font-size:calc(100vh/100)}
+html,body{width:100%;height:100%;overflow:hidden}
+.g{
+  position:relative;width:100vw;height:100vh;
+  display:flex;align-items:center;color:#fff;overflow:hidden;
+  font-family:E,system-ui,sans-serif;
+  background:
+    radial-gradient(90% 130% at 78% 50%, #7a3418 0%, rgba(122,52,24,0) 62%),
+    linear-gradient(100deg,#141110 0%,#1d1714 55%,#0d0b0a 100%);
+}
+.g::before{content:'';position:absolute;inset:0 0 auto 0;height:1rem;
+  background:linear-gradient(90deg,#FF6B3E,#ffb08e 55%,#FF6B3E)}
+.copy{padding-left:7rem;max-width:58%;z-index:2}
+.brand{display:flex;align-items:center;gap:2.4rem;margin-bottom:3.4rem}
+.brand img{width:12rem;height:12rem;border-radius:2.6rem;display:block}
+.brand span{font-family:M;font-size:7.2rem;letter-spacing:-.02em}
+h1{font-family:M;font-size:6.4rem;line-height:1.12;letter-spacing:-.015em}
+h1 em{font-style:normal;color:#FF6B3E}
+.sub{margin-top:2.6rem;font-size:3.1rem;color:rgba(255,255,255,.68)}
+/* The device bleeds off the right edge and is tilted, so the graphic reads as
+   artwork rather than as a screenshot that was pasted in at an angle. */
+.shot{
+  position:absolute;right:-6%;top:50%;width:34%;
+  transform:translateY(-50%) rotate(-7deg);
+  border-radius:4rem;overflow:hidden;
+  border:.7rem solid #3a3a3a;
+  box-shadow:0 3rem 9rem rgba(0,0,0,.75);
+}
+.shot img{display:block;width:100%;height:auto}
+</style>
+<div class="g">
+  <div class="copy">
+    <div class="brand"><img src="${iconUrl}"><span>ForgeForm</span></div>
+    <h1>Train, eat, track.<em> One app.</em></h1>
+    <p class="sub">873 exercises &middot; barcode macros &middot; works offline</p>
+  </div>
+  <div class="shot"><img src="${shotUrl}"></div>
+</div>`;
+
+{
+  const playDir = resolve(here, 'out', 'store', 'play');
+  const iconSrc = resolve(here, '../../fittnes_tracker/assets/icon/app_icon.png');
+  const heroShot = resolve(here, 'out', 'ios', '01-food-day.png');
+
+  // 512x512 icon. Rendering it through the same browser keeps this script free
+  // of an image-processing dependency for the sake of one resize.
+  if (existsSync(iconSrc)) {
+    const iconPage = await browser.newPage({
+      viewport: { width: 512, height: 512 }, deviceScaleFactor: 1,
+    });
+    await iconPage.setContent(
+      `<style>*{margin:0;padding:0}html,body{width:512px;height:512px;overflow:hidden}` +
+      `img{width:512px;height:512px;display:block}</style>` +
+      `<img src="${pathToFileURL(iconSrc).href}">`);
+    await iconPage.locator('img').waitFor();
+    await iconPage.screenshot({ path: resolve(playDir, 'icon-512.png') });
+    await iconPage.close();
+    console.log('  ok   store/play/icon-512.png  512x512');
+  } else {
+    console.log('  MISS icon-512.png — assets/icon/app_icon.png not found');
+  }
+
+  if (existsSync(heroShot)) {
+    const fgPage = await browser.newPage({
+      viewport: FEATURE, deviceScaleFactor: 1,
+    });
+    const tmp = resolve(playDir, '.feature.html');
+    await writeFile(tmp, featureHtml(
+      pathToFileURL(heroShot).href, pathToFileURL(iconSrc).href));
+    await fgPage.goto(pathToFileURL(tmp).href, { waitUntil: 'load' });
+    await fgPage.evaluate(() => document.fonts.ready);
+    await fgPage.screenshot({ path: resolve(playDir, 'feature-graphic.png') });
+    await rm(tmp);
+    await fgPage.close();
+    console.log('  ok   store/play/feature-graphic.png  1024x500');
+  } else {
+    console.log('  MISS feature-graphic.png — run capture-app.mjs first');
+  }
 }
 
 await browser.close();

@@ -143,6 +143,19 @@ async function unhover(page, target) {
 // account. It goes last.
 const SHOTS = [
   { file: '01-food-day', tab: 'Food',
+    async after(page) {
+      // Step back one day.
+      //
+      // Today renders empty however it is seeded: `GET api/Meal/all` returns 4
+      // meals with 7 food entries for today, the same as every other day, and
+      // the app still shows "No foods added yet" for today only. Suspicion
+      // falls on the meal shells the screen creates for the current day
+      // colliding with the pulled rows in `_deduplicateMealsByContent`, but
+      // that is unconfirmed — see README. Yesterday is a real, fully logged
+      // day, and stepping to it is one tap a user makes constantly.
+      await page.getByRole('button', { name: /^(Previous|previous)/ }).first().click();
+    },
+    shallow: true,
     note: 'a logged day: calorie total, macro split, meals by category' },
   { file: '02-gym-today', tab: 'Gym',
     note: "today's scheduled session, ready to start" },
@@ -164,6 +177,13 @@ const SHOTS = [
       // sub-tab and the bottom-nav destination. The sub-tab comes first in the
       // semantics tree; `.last()` picked the nav and navigated away entirely.
       await page.getByRole('tab', { name: 'Gym', exact: true }).first().click();
+      await page.waitForTimeout(1500);
+      // The Time Range picker sits above the numbers and eats the top third of
+      // the frame once the device is cropped, leaving the streak tiles — the
+      // only reason to show this screen — below the fold. Scroll past it.
+      await page.mouse.move(200, 500);
+      await page.mouse.wheel(0, 300);
+      await page.waitForTimeout(1200);
     },
     shallow: true,
     note: 'workout frequency and streaks' },

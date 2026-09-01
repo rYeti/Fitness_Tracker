@@ -25,10 +25,23 @@ public class MealController(IMealService mealService) : ControllerBase
     /// <summary>Returns all meals for the authenticated user on the given date.</summary>
     /// <param name="date">The calendar day to query. Only the date part is used —
     /// see <see cref="Repositories.MealDayWindow"/> for how it maps onto stored instants.</param>
+    /// <remarks>
+    /// The parameter is nullable so that omitting it is a 400 rather than a 500.
+    /// A non-nullable <c>DateTime</c> binds a missing value to
+    /// <see cref="DateTime.MinValue"/>, and <c>0001-01-01</c> is not a date this
+    /// route can answer for: <see cref="Repositories.MealDayWindow.ForRange"/>
+    /// widens the day by twelve hours in each direction, which underflows
+    /// <see cref="DateTime.MinValue"/> and throws before any query runs. The app
+    /// always sends a date, so nothing user-facing hit this — but "caller left a
+    /// required parameter off" is a client error, and answering it with an
+    /// unhandled exception buries that in a stack trace.
+    /// </remarks>
     [HttpGet]
-    public async Task<IActionResult> GetForDate([FromQuery] DateTime date)
+    public async Task<IActionResult> GetForDate([FromQuery] DateTime? date)
     {
-        var result = await mealService.GetMealsForDateAsync(UserId, date);
+        if (date is null) return BadRequest(new { error = "date_required" });
+
+        var result = await mealService.GetMealsForDateAsync(UserId, date.Value);
         return Ok(result);
     }
 
