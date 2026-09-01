@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
 import 'package:ForgeForm/core/widgets/content_pane.dart';
+import 'package:go_router/go_router.dart';
 
 class WeightTrackingScreen extends StatelessWidget {
   const WeightTrackingScreen({Key? key}) : super(key: key);
@@ -24,7 +25,7 @@ class WeightTrackingScreen extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.flag, color: Colors.white),
             tooltip: l10n.weightGoals,
-            onPressed: () => Navigator.pushNamed(context, '/weight-goals'),
+            onPressed: () => context.push('/weight-goals'),
           ),
           PopupMenuButton(
             icon: const Icon(Icons.more_vert, color: Colors.white),
@@ -35,7 +36,7 @@ class WeightTrackingScreen extends StatelessWidget {
                 ],
             onSelected: (value) {
               if (value == 'goals') {
-                Navigator.pushNamed(context, '/weight-goals');
+                context.push('/weight-goals');
               } else if (value == 'bmi') {
                 ScaffoldMessenger.of(
                   context,

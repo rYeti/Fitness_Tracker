@@ -13,6 +13,7 @@ import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
 import 'package:ForgeForm/feature/dashboard/widgets/greeting_card.dart';
 import 'package:ForgeForm/core/widgets/content_pane.dart';
+import 'package:go_router/go_router.dart';
 
 // Global key so other tabs (e.g. Food) can trigger a refresh after mutating
 // nutrition data — DashboardScreen is kept alive inside an IndexedStack, so
@@ -115,11 +116,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             backgroundColor: colorScheme.primary,
             label: l10n.addBreakfast,
             onTap: () async {
-              await Navigator.pushNamed(
-                context,
-                '/add-food',
-                arguments: {'category': 'Breakfast'},
-              );
+              await context.push('/add-food', extra: {'category': 'Breakfast'});
             },
           ),
           SpeedDialChild(
@@ -127,11 +124,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             backgroundColor: colorScheme.primary,
             label: l10n.addLunch,
             onTap: () async {
-              await Navigator.pushNamed(
-                context,
-                '/add-food',
-                arguments: {'category': 'Lunch'},
-              );
+              await context.push('/add-food', extra: {'category': 'Lunch'});
             },
           ),
           SpeedDialChild(
@@ -139,11 +132,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             backgroundColor: colorScheme.primary,
             label: l10n.addDinner,
             onTap: () async {
-              await Navigator.pushNamed(
-                context,
-                '/add-food',
-                arguments: {'category': 'Dinner'},
-              );
+              await context.push('/add-food', extra: {'category': 'Dinner'});
             },
           ),
           SpeedDialChild(
@@ -151,18 +140,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
             backgroundColor: colorScheme.primary,
             label: l10n.addSnack,
             onTap: () async {
-              await Navigator.pushNamed(
-                context,
-                '/add-food',
-                arguments: {'category': 'Snacks'},
-              );
+              await context.push('/add-food', extra: {'category': 'Snacks'});
             },
           ),
           SpeedDialChild(
             child: const Icon(Icons.monitor_weight),
             backgroundColor: colorScheme.primary,
             label: l10n.addWeight,
-            onTap: () => Navigator.pushNamed(context, '/weight-tracking'),
+            onTap: () => context.push('/weight-tracking'),
           ),
         ],
       ),
@@ -203,8 +188,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildWeightProgress(UserGoalsProvider goalsProvider) {
     return DashboardWeightCard(
       goalsProvider: goalsProvider,
-      onNavigateToWeightTracking:
-          () => Navigator.pushNamed(context, '/weight-tracking'),
+      onNavigateToWeightTracking: () => context.push('/weight-tracking'),
     );
   }
 

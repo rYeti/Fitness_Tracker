@@ -26,6 +26,7 @@ import 'package:ForgeForm/feature/weight_tracking/presentation/providers/weight_
 import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart' hide Consumer;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -443,8 +444,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     title: Text(l10n.trainerConsole),
                     subtitle: Text(l10n.trainerConsoleSubtitle),
                     trailing: const Icon(Icons.chevron_right),
-                    onTap: () =>
-                        Navigator.pushNamed(context, '/trainer-console'),
+                    onTap: () => context.push('/trainer-console'),
                   ),
                 ),
                 const SizedBox(height: 12),

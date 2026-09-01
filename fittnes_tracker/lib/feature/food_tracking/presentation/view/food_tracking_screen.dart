@@ -5,6 +5,7 @@ import 'package:ForgeForm/feature/dashboard/view/dashboard_screen.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:ForgeForm/feature/progress_dashboard_view.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../data/models/food_item_model.dart';
@@ -212,7 +213,7 @@ class _FoodTrackingScreenState extends State<FoodTrackingScreen> {
             icon: const Icon(Icons.restaurant_menu, color: Colors.white),
             tooltip: AppLocalizations.of(context)!.mealTemplates,
             onPressed: () {
-              Navigator.pushNamed(context, '/meal-templates');
+              context.push('/meal-templates');
             },
           ),
           IconButton(
