@@ -14,12 +14,21 @@ class FakeTrainerConsoleRepository implements TrainerConsoleRepository {
   final ClientWorkoutSummary? workoutSummary;
   final List<ClientWeightEntry> weightHistory;
   final List<WorkoutPlanTemplateSummary> templates;
+  final List<ClientWorkout> clientWorkouts;
+  final List<ClientExerciseOption> exerciseLibrary;
 
   /// Set to make the matching call throw, for error-state tests.
   final bool throwOnSessions;
   final bool throwOnDashboard;
   final bool throwOnNutrition;
   final bool throwOnRoster;
+  final bool throwOnClientWorkouts;
+  final bool throwOnExerciseLibrary;
+
+  /// Set to make the next `createClientWorkout`/`updateClientWorkout` call
+  /// throw this instead of succeeding, for the conflict/unknown-exercise
+  /// error-state tests.
+  final WorkoutSaveException? saveWorkoutFailure;
 
   /// Completers that hold a fetch open so a test can look at a loading state.
   ///
@@ -42,6 +51,15 @@ class FakeTrainerConsoleRepository implements TrainerConsoleRepository {
   /// Records what createClientWorkoutPlan was called with.
   final List<({String clientId, String name})> createdPlans = [];
 
+  /// Records every createClientWorkout/updateClientWorkout call, newest last.
+  final List<({String clientId, String? workoutId, String name, List<ClientWorkoutExerciseDraft> exercises})>
+  savedWorkouts = [];
+
+  final List<String> deletedWorkoutIds = [];
+
+  /// Records what createTrainerExercise was called with.
+  final List<({String clientId, String name})> createdExercises = [];
+
   FakeTrainerConsoleRepository({
     this.rosterWithStats = const [],
     this.sessions = const [],
@@ -50,14 +68,19 @@ class FakeTrainerConsoleRepository implements TrainerConsoleRepository {
     this.workoutSummary,
     this.weightHistory = const [],
     this.templates = const [],
+    List<ClientWorkout> clientWorkouts = const [],
+    this.exerciseLibrary = const [],
     this.throwOnSessions = false,
     this.throwOnDashboard = false,
     this.throwOnNutrition = false,
     this.throwOnRoster = false,
+    this.throwOnClientWorkouts = false,
+    this.throwOnExerciseLibrary = false,
+    this.saveWorkoutFailure,
     this.gate,
     this.rosterGate,
     this.kpiGate,
-  });
+  }) : clientWorkouts = List.of(clientWorkouts);
 
   void _record(String name) => calls[name] = (calls[name] ?? 0) + 1;
 
@@ -139,6 +162,143 @@ class FakeTrainerConsoleRepository implements TrainerConsoleRepository {
       isActive: true,
       startDate: startDate ?? DateTime(2026, 8, 20),
     );
+  }
+
+  @override
+  Future<List<ClientWorkout>> getClientWorkouts(String clientId) async {
+    _record('clientWorkouts');
+    if (gate != null) await gate!.future;
+    if (throwOnClientWorkouts) throw Exception('boom');
+    return clientWorkouts;
+  }
+
+  @override
+  Future<List<ClientExerciseOption>> getClientExerciseLibrary(String clientId) async {
+    _record('exerciseLibrary');
+    if (gate != null) await gate!.future;
+    if (throwOnExerciseLibrary) throw Exception('boom');
+    return exerciseLibrary;
+  }
+
+  @override
+  Future<ClientExerciseOption> createTrainerExercise(
+    String clientId, {
+    required String name,
+    String? description,
+  }) async {
+    createdExercises.add((clientId: clientId, name: name));
+    return ClientExerciseOption(
+      id: 'exercise-${createdExercises.length}',
+      name: name,
+      description: description,
+      isTrainerOwned: true,
+    );
+  }
+
+  @override
+  Future<ClientWorkout> createClientWorkout(
+    String clientId, {
+    required String name,
+    String? description,
+    required int difficulty,
+    required int estimatedDurationMinutes,
+    String? planId,
+    required List<ClientWorkoutExerciseDraft> exercises,
+  }) async {
+    if (saveWorkoutFailure != null) throw saveWorkoutFailure!;
+    savedWorkouts.add((
+      clientId: clientId,
+      workoutId: null,
+      name: name,
+      exercises: exercises,
+    ));
+    final workout = ClientWorkout(
+      id: 'workout-${savedWorkouts.length}',
+      name: name,
+      description: description,
+      difficulty: difficulty,
+      estimatedDurationMinutes: estimatedDurationMinutes,
+      planIds: [if (planId != null) planId],
+      exercises: _draftsToExercises(exercises),
+    );
+    clientWorkouts.add(workout);
+    return workout;
+  }
+
+  @override
+  Future<ClientWorkout> updateClientWorkout(
+    String clientId,
+    String workoutId, {
+    required String name,
+    String? description,
+    required int difficulty,
+    required int estimatedDurationMinutes,
+    required List<ClientWorkoutExerciseDraft> exercises,
+  }) async {
+    if (saveWorkoutFailure != null) throw saveWorkoutFailure!;
+    savedWorkouts.add((
+      clientId: clientId,
+      workoutId: workoutId,
+      name: name,
+      exercises: exercises,
+    ));
+    final existing = clientWorkouts.firstWhere((w) => w.id == workoutId);
+    final updated = ClientWorkout(
+      id: workoutId,
+      name: name,
+      description: description,
+      difficulty: difficulty,
+      estimatedDurationMinutes: estimatedDurationMinutes,
+      planIds: existing.planIds,
+      exercises: _draftsToExercises(exercises),
+    );
+    clientWorkouts
+      ..removeWhere((w) => w.id == workoutId)
+      ..add(updated);
+    return updated;
+  }
+
+  @override
+  Future<void> deleteClientWorkout(String clientId, String workoutId) async {
+    if (saveWorkoutFailure != null) throw saveWorkoutFailure!;
+    deletedWorkoutIds.add(workoutId);
+    clientWorkouts.removeWhere((w) => w.id == workoutId);
+  }
+
+  @override
+  Future<int> scheduleClientPlan(
+    String clientId,
+    String planId, {
+    required List<String> cyclePattern,
+    required int durationWeeks,
+  }) async => 0;
+
+  List<ClientWorkoutExercise> _draftsToExercises(
+    List<ClientWorkoutExerciseDraft> drafts,
+  ) {
+    var i = 0;
+    return drafts
+        .map(
+          (d) => ClientWorkoutExercise(
+            id: d.id ?? 'we-${++i}',
+            exerciseId: d.exerciseId,
+            exerciseName: exerciseLibrary
+                .where((e) => e.id == d.exerciseId)
+                .map((e) => e.name)
+                .firstOrNull ??
+                d.exerciseId,
+            notes: d.notes,
+            sets: [
+              for (var s = 0; s < d.targetReps.length; s++)
+                ClientWorkoutSet(
+                  id: 'set-$s',
+                  setNumber: s + 1,
+                  targetReps: d.targetReps[s],
+                ),
+            ],
+          ),
+        )
+        .toList();
   }
 
   @override

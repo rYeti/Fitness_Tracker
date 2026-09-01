@@ -274,6 +274,103 @@ void main() {
     );
   });
 
+  group('reconciling a workout the trainer edited server-side', () {
+    // These pin the fix for the other side of the account-switch bug this
+    // file is named for: `_pullWorkouts` used to `continue` the moment it
+    // recognised a workout's serverId, on the theory that only the trainee
+    // themselves ever changes their own workouts. A trainer editing a
+    // client's day from the Trainer Console breaks that theory — the server
+    // row changes, but without a reconcile path this device, having already
+    // pulled the workout once, would never ask about it again.
+    test('a later edit reaches a device that already has the workout', () async {
+      await insertSyncedExercise(serverId: 'server-e1');
+
+      api.stubEmptyPull();
+      api.getResponses['api/Workout'] = [
+        serverWorkout(
+          id: 'server-w1',
+          name: 'Push Day',
+          exercises: [
+            serverWorkoutExercise(
+              id: 'server-we1',
+              exerciseId: 'server-e1',
+              orderPosition: 0,
+              setTemplates: [serverSetTemplate(id: 'st1', setNumber: 1, targetReps: '8-12')],
+            ),
+          ],
+        ),
+      ];
+      await sync.pullAll();
+
+      final firstPull = await db.workoutDao.getWorkoutByServerId('server-w1');
+      expect(firstPull!.name, 'Push Day');
+      expect(firstPull.syncStatus, 1); // synced — untouched since the pull
+
+      // The trainer renames the day and represcribes the set from the
+      // console. Same workout id, same exercise id — a fresh set of values.
+      api.getResponses['api/Workout'] = [
+        serverWorkout(
+          id: 'server-w1',
+          name: 'Push Day A',
+          exercises: [
+            serverWorkoutExercise(
+              id: 'server-we1',
+              exerciseId: 'server-e1',
+              orderPosition: 0,
+              setTemplates: [
+                serverSetTemplate(id: 'st1', setNumber: 1, targetReps: '5-5'),
+                serverSetTemplate(id: 'st2', setNumber: 2, targetReps: '5-5'),
+              ],
+            ),
+          ],
+        ),
+      ];
+      await sync.pullAll();
+
+      final reconciled = await db.workoutDao.getWorkoutByServerId('server-w1');
+      expect(reconciled!.name, 'Push Day A');
+
+      final we = await (db.select(
+        db.workoutExerciseTable,
+      )..where((t) => t.serverId.equals('server-we1'))).getSingle();
+      final templates = await (db.select(
+        db.workoutSetTemplateTable,
+      )..where((t) => t.workoutExerciseId.equals(we.id))).get();
+      expect(
+        templates.map((t) => t.targetReps).toList()..sort(),
+        ['5-5', '5-5'],
+      );
+    });
+
+    test('a locally dirty workout is left for the push, not overwritten', () async {
+      await insertSyncedExercise(serverId: 'server-e1');
+
+      api.stubEmptyPull();
+      api.getResponses['api/Workout'] = [
+        serverWorkout(id: 'server-w1', name: 'Push Day'),
+      ];
+      await sync.pullAll();
+
+      final local = await db.workoutDao.getWorkoutByServerId('server-w1');
+      // The trainee has an unsent rename of their own in flight.
+      await (db.update(db.workoutTable)
+        ..where((t) => t.id.equals(local!.id))).write(
+        const WorkoutTableCompanion(name: Value('Push Day (my rename)')),
+      );
+      await db.workoutDao.markWorkoutPendingUpdate(local!.id);
+
+      api.getResponses['api/Workout'] = [
+        serverWorkout(id: 'server-w1', name: 'Push Day (server rename)'),
+      ];
+      await sync.pullAll();
+
+      final afterPull = await db.workoutDao.getWorkoutByServerId('server-w1');
+      // The server's copy did NOT clobber the trainee's own unsent edit.
+      expect(afterPull!.name, 'Push Day (my rename)');
+      expect(afterPull.syncStatus, 2); // still pendingUpdate, still queued to push
+    });
+  });
+
   group('pulling a scheduled workout logged against a retired exercise', () {
     test(
       'still pulls the set, using the retired placeholder to resolve it',

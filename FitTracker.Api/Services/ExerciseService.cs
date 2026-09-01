@@ -73,6 +73,38 @@ public class ExerciseService : IExerciseService
         return updated == null ? null : ToResponseDto(updated);
     }
 
+    /// <inheritdoc/>
+    public async Task<ExerciseResponseDto?> CopyExerciseAsync(Guid sourceExerciseId, Guid targetUserId)
+    {
+        // Idempotent: a trainer prescribing the same exercise to the same client twice must
+        // land on one copy, not grow their library by one every save.
+        var existing = await _exerciseRepository.GetCopyAsync(sourceExerciseId, targetUserId);
+        if (existing != null) return ToResponseDto(existing);
+
+        var source = await _exerciseRepository.GetByIdAsync(sourceExerciseId);
+        if (source == null) return null;
+
+        var copy = new Exercise
+        {
+            Id = Guid.NewGuid(),
+            UserId = targetUserId,
+            Name = source.Name,
+            NameDe = source.NameDe,
+            Description = source.Description,
+            DescriptionDe = source.DescriptionDe,
+            ImageUrl = source.ImageUrl,
+            IsCustom = true,
+            TargetMuscleGroups = source.TargetMuscleGroups,
+            Type = source.Type,
+            // No FK — see the property's remarks. The copy must stay resolvable even if
+            // the source is later edited or deleted.
+            SourceExerciseId = sourceExerciseId,
+        };
+
+        var created = await _exerciseRepository.CreateExercisesAsync(copy);
+        return ToResponseDto(created);
+    }
+
     private static ExerciseResponseDto ToResponseDto(Exercise e) => new()
     {
         id = e.Id,
@@ -84,5 +116,6 @@ public class ExerciseService : IExerciseService
         IsCustom = e.IsCustom,
         TargetMuscleGroups = e.TargetMuscleGroups,
         Type = e.Type,
+        UserId = e.UserId,
     };
 }

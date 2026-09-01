@@ -47,4 +47,16 @@ public interface IExerciseRepository
     /// <summary>Returns all exercises visible to the given user — system-provided exercises plus that user's own custom ones.</summary>
     /// <param name="userId">The ID of the requesting user.</param>
     Task<List<Exercise>> GetAllExercisesAsync(Guid userId);
+
+    /// <summary>Returns a single exercise by id, regardless of owner.</summary>
+    /// <remarks>Every other read here is scoped to a caller's own visibility; this one isn't,
+    /// because copying an exercise from a trainer to their client is exactly the one place
+    /// the API has to read across that boundary — see <c>ExerciseService.CopyExerciseAsync</c>.
+    /// </remarks>
+    Task<Exercise?> GetByIdAsync(Guid id);
+
+    /// <summary>The exercise <paramref name="ownerId"/> already owns whose
+    /// <see cref="Exercise.SourceExerciseId"/> is <paramref name="sourceExerciseId"/>, if one
+    /// exists. Backs the idempotency of <c>ExerciseService.CopyExerciseAsync</c>.</summary>
+    Task<Exercise?> GetCopyAsync(Guid sourceExerciseId, Guid ownerId);
 }

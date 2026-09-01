@@ -29,4 +29,10 @@ public class ExerciseResponseDto
 
     /// <summary>The German description of the exercise.</summary>
     public string DescriptionDe { get; set; } = "";
+
+    /// <summary>The owner of this exercise, or null for a system-provided one. Present so
+    /// the Trainer Console's exercise picker can tell a trainer's own exercise apart from
+    /// the caller's — every other consumer of this DTO only ever sees their own id here or
+    /// null, so nothing already reading it is exposed to anyone else's.</summary>
+    public Guid? UserId { get; set; }
 }

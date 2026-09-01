@@ -38,4 +38,12 @@ public interface IExerciseService
     /// <param name="id">The user's ID.</param>
     Task<List<ExerciseResponseDto>> GetUserExercisesAsync(Guid id);
 
+    /// <summary>Gives <paramref name="targetUserId"/> their own copy of
+    /// <paramref name="sourceExerciseId"/>, or returns their existing one if this pair has
+    /// already been copied. Used to give a client a trainer's custom exercise when it's
+    /// prescribed, so the client's app — which can only ever see its own exercises plus the
+    /// system catalogue — has something to resolve the prescription against.</summary>
+    /// <returns>The copy, or <c>null</c> if <paramref name="sourceExerciseId"/> doesn't exist.</returns>
+    Task<ExerciseResponseDto?> CopyExerciseAsync(Guid sourceExerciseId, Guid targetUserId);
+
 }

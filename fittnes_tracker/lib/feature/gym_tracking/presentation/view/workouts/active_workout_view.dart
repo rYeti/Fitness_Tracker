@@ -1233,6 +1233,11 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                           ),
                         ),
                       ],
+                      if (exercise.workoutExercise.notes != null &&
+                          exercise.workoutExercise.notes!.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        _CoachNoteBanner(note: exercise.workoutExercise.notes!),
+                      ],
                       const SizedBox(height: 16),
 
                       // Sets table header
@@ -1452,6 +1457,11 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                       ),
                       textAlign: TextAlign.center,
                     ),
+                  ],
+                  if (exerciseData.workoutExercise.notes != null &&
+                      exerciseData.workoutExercise.notes!.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    _CoachNoteBanner(note: exerciseData.workoutExercise.notes!),
                   ],
                 ],
               ),
@@ -2831,4 +2841,66 @@ class _ExerciseWithSets {
     this.previousExerciseNote,
     this.supersetGroupId,
   });
+}
+
+/// A trainer's guidance on one exercise (`WorkoutExercise.notes`), shown
+/// read-only. Deliberately not the same widget as the note cards above it —
+/// those render the *client's own* note (workout- or session-scoped, and
+/// editable here); this one is the coach's, round-trips through sync same as
+/// everything else on the workout, and the trainee has no way to change it
+/// from this screen. A distinct icon plus a label carries that difference —
+/// color alone would fail a colorblind reader, per CLAUDE.md.
+class _CoachNoteBanner extends StatelessWidget {
+  final String note;
+
+  const _CoachNoteBanner({required this.note});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
+    return Semantics(
+      label: '${l10n.coachNote}: $note',
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.tertiaryContainer,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              Icons.record_voice_over_outlined,
+              size: 18,
+              color: theme.colorScheme.onTertiaryContainer,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.coachNote,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: theme.colorScheme.onTertiaryContainer,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    note,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onTertiaryContainer,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

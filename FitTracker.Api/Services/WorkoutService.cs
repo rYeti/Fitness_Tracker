@@ -156,6 +156,22 @@ public class WorkoutService : IWorkoutService
     }
 
     /// <inheritdoc/>
+    public async Task<List<WorkoutSetTemplateResponseDto>?> ReplaceSetTemplatesAsync(Guid workoutExerciseId, Guid userId, List<WorkoutSetTemplateRequestDto> dtos)
+    {
+        var templates = dtos.Select(dto => new WorkoutSetTemplate
+        {
+            Id = Guid.NewGuid(),
+            WorkoutExerciseId = workoutExerciseId,
+            SetNumber = dto.SetNumber,
+            TargetReps = dto.TargetReps,
+            OrderPosition = dto.OrderPosition,
+        }).ToList();
+
+        var replaced = await _workoutRepository.ReplaceSetTemplatesAsync(workoutExerciseId, userId, templates);
+        return replaced?.Select(ToSetTemplateDto).ToList();
+    }
+
+    /// <inheritdoc/>
     public async Task<WorkoutSetTemplateResponseDto?> UpdateSetTemplateAsync(Guid id, Guid userId, WorkoutSetTemplateRequestDto dto)
     {
         var updated = await _workoutRepository.UpdateSetTemplateAsync(id, userId, dto);

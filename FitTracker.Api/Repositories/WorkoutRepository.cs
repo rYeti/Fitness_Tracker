@@ -261,6 +261,18 @@ public class WorkoutRepository : IWorkoutRepository
             .ExecuteDeleteAsync();
         DetachTracked<WorkoutSetTemplate>(t => t.WorkoutExerciseId == workoutExerciseId);
 
+        // DetachTracked only drops the stale rows from the change tracker's entry list —
+        // it never reaches into a WorkoutExercise's already-loaded SetTemplates
+        // navigation, which still holds direct object references to them. Within one
+        // request that reads the workout, replaces its sets, and reads it again (exactly
+        // what the Workout Builder's update path does), the second read reuses that same
+        // tracked WorkoutExercise: an Include always re-runs the SQL join, but fixup only
+        // adds newly-tracked matches, it never prunes a collection that's already loaded —
+        // so the deleted rows would still be sitting in it, now alongside the new ones.
+        var trackedParent = _context.ChangeTracker.Entries<WorkoutExercise>()
+            .FirstOrDefault(e => e.Entity.Id == workoutExerciseId);
+        trackedParent?.Entity.SetTemplates.Clear();
+
         _context.WorkoutSetTemplates.AddRange(templates);
         await _context.SaveChangesAsync();
         return templates;
