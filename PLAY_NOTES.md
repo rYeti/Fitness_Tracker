@@ -22,7 +22,7 @@ Markdown links, headings or emphasis, none of which Play renders.
 
 See `docs/android-release.md`.
 
-## Unreleased
+## 1.0.2+16
 
 Fixed a bug where reinstalling the app or signing in on a new device could
 leave gaps in your training and nutrition history: sets logged against an
