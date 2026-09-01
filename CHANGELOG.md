@@ -10,7 +10,7 @@ heading to the version it went out as, so a `## <version>` section is history:
 it is what those users have, and nothing new belongs in it. See
 `docs/android-release.md`.
 
-## Unreleased
+## 1.0.2+17
 
 - Trainers can now create and edit a client's workouts from the Workout Builder — days, exercises, per-set target reps, and a per-exercise coach note, all the way through to the client's device. The console previously stopped at naming and assigning a plan; the actual training a client received was, until now, whatever they built for themselves. Prescribing an exercise the trainer owns privately gives the client their own copy of it rather than a reference to the trainer's row, so the prescription survives the trainer editing or deleting their original, and survives the relationship itself ending. Editing an existing day keeps a client's logged history attached to the entry it belongs to; swapping which exercise is prescribed on a slot retires the old entry instead of deleting it, for the same reason. See `docs/trainer-workout-builder.md`.
 - Fixed a gap that would have made a trainer's *edit* to a client's workout invisible on a device that had already pulled that workout once: the sync pull skipped any workout it recognised by server id, on the assumption that only the trainee themselves ever changes their own workouts. A clean (already-synced) local copy is now reconciled against the server's current one; a copy with the trainee's own unsent edit is left alone, as before. See `docs/trainer-workout-builder.md`.
