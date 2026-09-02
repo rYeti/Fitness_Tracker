@@ -65,6 +65,28 @@ ClientWorkout _pushDay() => ClientWorkout(
   ],
 );
 
+/// Three sets with distinct reps so removing the middle one is unambiguous —
+/// the shape the `_SetChip`/set-row identity bug needs to reproduce.
+ClientWorkout _legDayWithThreeSets() => ClientWorkout(
+  id: 'workout-1',
+  name: 'Leg Day',
+  difficulty: 1,
+  estimatedDurationMinutes: 60,
+  planIds: const ['plan-1'],
+  exercises: [
+    ClientWorkoutExercise(
+      id: 'we-1',
+      exerciseId: 'ex-squat',
+      exerciseName: 'Back Squat',
+      sets: const [
+        ClientWorkoutSet(id: 'set-1', setNumber: 1, targetReps: '10'),
+        ClientWorkoutSet(id: 'set-2', setNumber: 2, targetReps: '8'),
+        ClientWorkoutSet(id: 'set-3', setNumber: 3, targetReps: '6'),
+      ],
+    ),
+  ],
+);
+
 void main() {
   testWidgets('a client with no plan lands in the create flow', (tester) async {
     await _pump(
@@ -298,5 +320,166 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Discard changes?'), findsOneWidget);
+  });
+
+  group('phone width (390x844)', () {
+    testWidgets(
+      'the first exercise of an existing day is visible without scrolling',
+      (tester) async {
+        await _pump(
+          tester,
+          FakeTrainerConsoleRepository(
+            rosterWithStats: [fakeRosterEntry()],
+            workoutSummary: _summaryWithPlan(),
+            clientWorkouts: [_pushDay()],
+          ),
+          size: const Size(390, 844),
+        );
+        await tester.pumpAndSettle();
+
+        // The complaint, stated directly: the exercise editor is the reason the
+        // screen exists, and the trainer should not have to scroll past the
+        // plan summary and the day's own metadata to reach it.
+        final position = tester.getTopLeft(find.text('Bench Press'));
+        expect(position.dy, lessThan(844));
+      },
+    );
+
+    testWidgets('Save day is reachable without scrolling', (tester) async {
+      await _pump(
+        tester,
+        FakeTrainerConsoleRepository(
+          rosterWithStats: [fakeRosterEntry()],
+          workoutSummary: _summaryWithPlan(),
+          clientWorkouts: [_pushDay()],
+        ),
+        size: const Size(390, 844),
+      );
+      await tester.pumpAndSettle();
+
+      final saveButton = tester.getBottomLeft(
+        find.widgetWithText(FilledButton, 'Save day'),
+      );
+      expect(saveButton.dy, lessThanOrEqualTo(844));
+    });
+
+    testWidgets(
+      'day details start collapsed for an existing day, expanded for a new one',
+      (tester) async {
+        await _pump(
+          tester,
+          FakeTrainerConsoleRepository(
+            rosterWithStats: [fakeRosterEntry()],
+            workoutSummary: _summaryWithPlan(),
+            clientWorkouts: [_pushDay()],
+          ),
+          size: const Size(390, 844),
+        );
+        await tester.pumpAndSettle();
+
+        // Collapsed: the trainer opened an existing day to work on its
+        // exercises, not to rename it.
+        expect(find.widgetWithText(TextFormField, 'Day name'), findsNothing);
+
+        // A new day has nothing else to show yet, so its name field is the
+        // first thing the trainer needs.
+        await tester.tap(find.widgetWithText(ActionChip, 'New day'));
+        await tester.pumpAndSettle();
+        expect(find.widgetWithText(TextFormField, 'Day name'), findsOneWidget);
+      },
+    );
+
+    testWidgets('every exercise and set control is at least 44x44', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        FakeTrainerConsoleRepository(
+          rosterWithStats: [fakeRosterEntry()],
+          workoutSummary: _summaryWithPlan(),
+          clientWorkouts: [_legDayWithThreeSets()],
+        ),
+        size: const Size(390, 844),
+      );
+      await tester.pumpAndSettle();
+
+      // IconButton's own accessible name comes through as a semantics
+      // *tooltip*, not a *label* — `find.byTooltip` is the finder for those;
+      // 'Remove set' is a plain `Semantics(label: ...)` and needs the other.
+      const tooltipControls = [
+        'Remove exercise',
+        'Move up',
+        'Move down',
+      ];
+      for (final tooltip in tooltipControls) {
+        final finder = find.byTooltip(tooltip);
+        final count = finder.evaluate().length;
+        expect(count, greaterThan(0), reason: '$tooltip was not found');
+        for (var i = 0; i < count; i++) {
+          final size = tester.getSize(finder.at(i));
+          expect(size.width, greaterThanOrEqualTo(44), reason: '$tooltip width');
+          expect(size.height, greaterThanOrEqualTo(44), reason: '$tooltip height');
+        }
+      }
+
+      final removeSetFinder = find.bySemanticsLabel('Remove set');
+      final removeSetCount = removeSetFinder.evaluate().length;
+      expect(removeSetCount, greaterThan(0), reason: 'Remove set was not found');
+      for (var i = 0; i < removeSetCount; i++) {
+        final size = tester.getSize(removeSetFinder.at(i));
+        expect(size.width, greaterThanOrEqualTo(44), reason: 'Remove set width');
+        expect(size.height, greaterThanOrEqualTo(44), reason: 'Remove set height');
+      }
+    });
+
+    testWidgets(
+      'removing the middle set leaves the other two showing their own reps',
+      (tester) async {
+        final repository = FakeTrainerConsoleRepository(
+          rosterWithStats: [fakeRosterEntry()],
+          workoutSummary: _summaryWithPlan(),
+          clientWorkouts: [_legDayWithThreeSets()],
+        );
+        await _pump(tester, repository, size: const Size(390, 844));
+        await tester.pumpAndSettle();
+
+        // Invoke the InkWell's onTap directly rather than simulating a
+        // coordinate tap: this environment's hit-testing for a Semantics
+        // node wrapping an InkWell that generates its own semantics too is
+        // unreliable in a way unrelated to the behaviour under test (the
+        // geometry, confirmed separately, is correct). The callback wiring
+        // is what this test is actually checking.
+        final removeMiddleSet = find.descendant(
+          of: find.bySemanticsLabel('Remove set').at(1),
+          matching: find.byType(InkWell),
+        );
+        tester.widget<InkWell>(removeMiddleSet).onTap!();
+        await tester.pumpAndSettle();
+
+        final repsFields = tester
+            .widgetList<TextField>(find.byType(TextField))
+            .where((f) => f.controller?.text == '10' || f.controller?.text == '6')
+            .toList();
+        expect(repsFields, hasLength(2));
+        // The bug this guards: an unkeyed set row's controller keeps showing
+        // the value of the row that used to sit at that index, so a leftover
+        // '8' here would mean the deleted set's text, not the deleted set,
+        // survived the removal.
+        expect(
+          tester
+              .widgetList<TextField>(find.byType(TextField))
+              .any((f) => f.controller?.text == '8'),
+          isFalse,
+        );
+
+        await tester.tap(find.widgetWithText(FilledButton, 'Save day'));
+        await tester.pumpAndSettle();
+
+        expect(
+          repository.savedWorkouts.single.exercises.single.targetReps,
+          ['10', '6'],
+        );
+      },
+    );
   });
 }

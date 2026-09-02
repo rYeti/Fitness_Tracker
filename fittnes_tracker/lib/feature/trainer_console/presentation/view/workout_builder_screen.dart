@@ -7,6 +7,7 @@ import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_console_
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/active_client_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/workout_builder_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/client_switcher.dart';
+import 'package:ForgeForm/core/forge_motion.dart';
 import 'package:ForgeForm/core/widgets/app_widgets.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/console_error.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
@@ -519,76 +520,118 @@ class _PlanWithDaysView extends StatelessWidget {
 
     final isDesktop = Breakpoints.isDesktop(context);
 
-    final planCard = AppCard(
-      radius: 16,
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  plan.name,
-                  style: TextStyle(
-                    fontFamily: 'Montserrat',
-                    fontWeight: FontWeight.w800,
-                    fontSize: 20,
-                    color: colors.onSurface,
-                  ),
-                ),
-              ),
-              if (plan.isActive)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: ForgeColors.statusOk.withValues(alpha: 0.14),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    l10n.planActive,
-                    style: const TextStyle(
-                      fontFamily: 'Exo 2',
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: ForgeColors.statusOk,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            l10n.planStartedOn(
-              DateFormat(
-                'd MMM yyyy',
-                Localizations.localeOf(context).toString(),
-              ).format(plan.startDate),
-            ),
-            style: TextStyle(
-              fontFamily: 'Exo 2',
-              fontSize: 12,
-              color: colors.onSurface.withValues(alpha: 0.65),
-            ),
-          ),
-          if (plan.description != null && plan.description!.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Text(
-              plan.description!,
-              style: TextStyle(
-                fontFamily: 'Exo 2',
-                fontSize: 13,
-                height: 1.5,
-                color: colors.onSurface,
-              ),
-            ),
-          ],
-        ],
+    final activePill = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: ForgeColors.statusOk.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        l10n.planActive,
+        style: const TextStyle(
+          fontFamily: 'Exo 2',
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: ForgeColors.statusOk,
+        ),
       ),
     );
+
+    final startedOn = l10n.planStartedOn(
+      DateFormat(
+        'd MMM yyyy',
+        Localizations.localeOf(context).toString(),
+      ).format(plan.startDate),
+    );
+
+    // On mobile the exercise editor below is what the screen is for, and
+    // every line spent here is a line it doesn't get — see
+    // `docs/trainer-workout-builder.md`. The full card (name, date,
+    // description) stays on desktop, where there's room for it.
+    final planCard = isDesktop
+        ? AppCard(
+            radius: 16,
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        plan.name,
+                        style: TextStyle(
+                          fontFamily: 'Montserrat',
+                          fontWeight: FontWeight.w800,
+                          fontSize: 20,
+                          color: colors.onSurface,
+                        ),
+                      ),
+                    ),
+                    if (plan.isActive) activePill,
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  startedOn,
+                  style: TextStyle(
+                    fontFamily: 'Exo 2',
+                    fontSize: 12,
+                    color: colors.onSurface.withValues(alpha: 0.65),
+                  ),
+                ),
+                if (plan.description != null &&
+                    plan.description!.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    plan.description!,
+                    style: TextStyle(
+                      fontFamily: 'Exo 2',
+                      fontSize: 13,
+                      height: 1.5,
+                      color: colors.onSurface,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          )
+        : AppCard(
+            radius: 12,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        plan.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: 'Montserrat',
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                          color: colors.onSurface,
+                        ),
+                      ),
+                    ),
+                    if (plan.isActive) activePill,
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  startedOn,
+                  style: TextStyle(
+                    fontFamily: 'Exo 2',
+                    fontSize: 11,
+                    color: colors.onSurface.withValues(alpha: 0.65),
+                  ),
+                ),
+              ],
+            ),
+          );
 
     Widget daysArea;
     if (builder.isLoadingDays && builder.planWorkouts.isEmpty) {
@@ -611,7 +654,7 @@ class _PlanWithDaysView extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         planCard,
-        const SizedBox(height: 24),
+        SizedBox(height: isDesktop ? 24 : 16),
         Expanded(child: daysArea),
       ],
     );
@@ -808,10 +851,19 @@ class _DayEditorFormState extends State<_DayEditorForm> {
 
   WorkoutBuilderProvider get _builder => widget.builder;
 
+  /// Whether the day's name/description/difficulty/duration fields are shown,
+  /// on mobile — desktop always shows them. Starts open for a new day (there
+  /// is nothing else to do yet) and closed for an existing one, so the
+  /// exercise list — what the screen is for — isn't pushed off the bottom of
+  /// a phone-height viewport by fields the trainer opened the day to leave
+  /// alone. See `docs/trainer-workout-builder.md`.
+  late bool _detailsExpanded;
+
   @override
   void initState() {
     super.initState();
     final draft = _builder.draft!;
+    _detailsExpanded = draft.isNew;
     _nameController = TextEditingController(text: draft.name)
       ..addListener(() => _builder.updateDayName(_nameController.text));
     _descriptionController = TextEditingController(text: draft.description ?? '')
@@ -847,7 +899,14 @@ class _DayEditorFormState extends State<_DayEditorForm> {
   }
 
   Future<void> _save() async {
-    if (!(_formKey.currentState?.validate() ?? false)) return;
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      // A collapsed section has no fields for the Form to validate, so a
+      // problem it would have caught only surfaces once `saveDraft` itself
+      // rejects the day below. Either way, reveal the fields the trainer
+      // needs to see.
+      if (!Breakpoints.isDesktop(context)) setState(() => _detailsExpanded = true);
+      return;
+    }
     final l10n = AppLocalizations.of(context)!;
     final name = _builder.draft!.name;
     final saved = await _builder.saveDraft(widget.clientId);
@@ -856,6 +915,8 @@ class _DayEditorFormState extends State<_DayEditorForm> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(l10n.builderDaySavedConfirmation(name))),
       );
+    } else if (!Breakpoints.isDesktop(context)) {
+      setState(() => _detailsExpanded = true);
     }
   }
 
@@ -898,182 +959,235 @@ class _DayEditorFormState extends State<_DayEditorForm> {
     final l10n = AppLocalizations.of(context)!;
     final colors = Theme.of(context).colorScheme;
     final draft = _builder.draft!;
+    final isDesktop = Breakpoints.isDesktop(context);
+    final showDetails = isDesktop || _detailsExpanded;
 
-    return SingleChildScrollView(
-      child: Form(
-        key: _formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+    final dirtyBadge = _builder.isDraftDirty
+        ? Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: ForgeColors.statusWarn.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              l10n.builderUnsavedChangesBadge,
+              style: const TextStyle(
+                fontFamily: 'Exo 2',
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: ForgeColors.statusWarn,
+              ),
+            ),
+          )
+        : const SizedBox.shrink();
+
+    final dayDetailsHeader = Row(
+      children: [
+        Expanded(
+          child: SectionTitle(
+            title: draft.isNew ? l10n.builderNewDay : draft.name,
+          ),
+        ),
+        dirtyBadge,
+        if (!isDesktop)
+          Semantics(
+            button: true,
+            label: _detailsExpanded
+                ? l10n.builderCollapseDayDetails
+                : l10n.builderExpandDayDetails,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(999),
+              onTap: () => setState(() => _detailsExpanded = !_detailsExpanded),
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: AnimatedRotation(
+                  turns: _detailsExpanded ? 0.5 : 0,
+                  duration: ForgeMotion.of(context, ForgeMotion.quick),
+                  child: Icon(
+                    Icons.expand_more_rounded,
+                    color: colors.onSurface.withValues(alpha: 0.6),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+
+    final dayDetailsFields = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: _nameController,
+          decoration: InputDecoration(
+            labelText: l10n.builderDayName,
+            hintText: l10n.builderDayNameHint,
+          ),
+          autovalidateMode: AutovalidateMode.onUserInteraction,
+          validator: (value) => (value ?? '').trim().isEmpty
+              ? l10n.errorWorkoutNameRequired
+              : null,
+        ),
+        const SizedBox(height: 12),
+        TextFormField(
+          controller: _descriptionController,
+          decoration: InputDecoration(labelText: l10n.planDescriptionOptional),
+          maxLines: 2,
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
           children: [
-            AppCard(
-              radius: 16,
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: SectionTitle(
-                          title: draft.isNew ? l10n.builderNewDay : draft.name,
-                        ),
-                      ),
-                      if (_builder.isDraftDirty)
-                        Container(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: ForgeColors.statusWarn.withValues(alpha: 0.16),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Text(
-                            l10n.builderUnsavedChangesBadge,
-                            style: const TextStyle(
-                              fontFamily: 'Exo 2',
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: ForgeColors.statusWarn,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  TextFormField(
-                    controller: _nameController,
-                    decoration: InputDecoration(
-                      labelText: l10n.builderDayName,
-                      hintText: l10n.builderDayNameHint,
-                    ),
-                    autovalidateMode: AutovalidateMode.onUserInteraction,
-                    validator: (value) => (value ?? '').trim().isEmpty
-                        ? l10n.errorWorkoutNameRequired
-                        : null,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _descriptionController,
-                    decoration: InputDecoration(
-                      labelText: l10n.planDescriptionOptional,
-                    ),
-                    maxLines: 2,
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    children: [
-                      for (final level in const [0, 1, 2])
-                        ChoiceChip(
-                          label: Text(_difficultyLabel(l10n, level)),
-                          selected: draft.difficulty == level,
-                          onSelected: (_) => _builder.updateDayDifficulty(level),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _durationController,
-                    decoration: InputDecoration(
-                      labelText: l10n.builderDurationMinutes,
-                    ),
-                    keyboardType: TextInputType.number,
-                    autovalidateMode: AutovalidateMode.onUserInteraction,
-                    validator: (value) {
-                      final parsed = int.tryParse(value ?? '');
-                      if (parsed == null || parsed < 1 || parsed > 1440) {
-                        return l10n.builderDurationRange;
-                      }
-                      return null;
-                    },
-                  ),
-                ],
+            for (final level in const [0, 1, 2])
+              ChoiceChip(
+                label: Text(_difficultyLabel(l10n, level)),
+                selected: draft.difficulty == level,
+                onSelected: (_) => _builder.updateDayDifficulty(level),
               ),
-            ),
-            const SizedBox(height: 14),
-            AppCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SectionTitle(
-                    title: l10n.builderExercises,
-                    trailing: TextButton.icon(
-                      onPressed: _pickExercise,
-                      icon: const Icon(Icons.add_rounded, size: 18),
-                      label: Text(l10n.builderAddExercise),
-                    ),
-                  ),
-                  if (draft.exercises.isEmpty)
-                    EmptyStateView(
-                      icon: Icons.list_alt_rounded,
-                      title: l10n.builderNoExercisesYetTitle,
-                      message: l10n.builderNoExercisesYetBody,
-                    )
-                  else
-                    for (var i = 0; i < draft.exercises.length; i++)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: _ExerciseEditorCard(
-                          builder: _builder,
-                          index: i,
-                          isFirst: i == 0,
-                          isLast: i == draft.exercises.length - 1,
-                        ),
-                      ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 14),
-            if (_builder.dayError != null) ...[
-              Text(
-                _builder.dayError!.localizedMessage(l10n),
-                style: const TextStyle(
-                  fontFamily: 'Exo 2',
-                  fontSize: 12,
-                  color: ForgeColors.statusBad,
-                ),
-              ),
-              const SizedBox(height: 12),
-            ],
-            Row(
-              children: [
-                if (!draft.isNew) ...[
-                  TextButton(
-                    onPressed: _builder.isDeletingDay ? null : _delete,
-                    style: TextButton.styleFrom(
-                      foregroundColor: ForgeColors.statusBad,
-                    ),
-                    child: _builder.isDeletingDay
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Text(l10n.builderDeleteDay),
-                  ),
-                  const SizedBox(width: 8),
-                ],
-                Expanded(
-                  child: FilledButton(
-                    onPressed: _builder.isSavingDay ? null : _save,
-                    child: _builder.isSavingDay
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Text(l10n.builderSaveDay),
-                  ),
-                ),
-              ],
-            ),
-            // Extra bottom padding so the last card clears the nav bar/FAB
-            // area on mobile rather than being covered by it.
-            const SizedBox(height: 24),
           ],
         ),
+        const SizedBox(height: 12),
+        TextFormField(
+          controller: _durationController,
+          decoration: InputDecoration(labelText: l10n.builderDurationMinutes),
+          keyboardType: TextInputType.number,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
+          validator: (value) {
+            final parsed = int.tryParse(value ?? '');
+            if (parsed == null || parsed < 1 || parsed > 1440) {
+              return l10n.builderDurationRange;
+            }
+            return null;
+          },
+        ),
+      ],
+    );
+
+    final dayDetailsCard = AppCard(
+      radius: isDesktop ? 16 : 12,
+      padding: EdgeInsets.all(isDesktop ? 24 : 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          dayDetailsHeader,
+          AnimatedSize(
+            duration: ForgeMotion.of(context),
+            curve: ForgeMotion.curve,
+            alignment: Alignment.topCenter,
+            child: showDetails ? dayDetailsFields : const SizedBox.shrink(),
+          ),
+        ],
       ),
+    );
+
+    final exercisesCard = AppCard(
+      padding: EdgeInsets.all(isDesktop ? 16 : 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SectionTitle(
+            title: l10n.builderExercises,
+            trailing: TextButton.icon(
+              onPressed: _pickExercise,
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: Text(l10n.builderAddExercise),
+            ),
+          ),
+          if (draft.exercises.isEmpty)
+            EmptyStateView(
+              icon: Icons.list_alt_rounded,
+              title: l10n.builderNoExercisesYetTitle,
+              message: l10n.builderNoExercisesYetBody,
+            )
+          else
+            for (var i = 0; i < draft.exercises.length; i++)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _ExerciseEditorCard(
+                  builder: _builder,
+                  index: i,
+                  isFirst: i == 0,
+                  isLast: i == draft.exercises.length - 1,
+                ),
+              ),
+        ],
+      ),
+    );
+
+    // Save/Delete are a sibling of the scroll view, not the last thing inside
+    // it, so they stay reachable without scrolling on a phone-height
+    // viewport — only the exercises card should ever need to scroll. Per
+    // `docs/app-chrome-and-insets.md` this is a plain child of the body
+    // Column, not a `bottomNavigationBar` or its own `SafeArea`: the shell's
+    // `Scaffold` already owns those insets.
+    final actionRow = Row(
+      children: [
+        if (!draft.isNew) ...[
+          TextButton(
+            onPressed: _builder.isDeletingDay ? null : _delete,
+            style: TextButton.styleFrom(foregroundColor: ForgeColors.statusBad),
+            child: _builder.isDeletingDay
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Text(l10n.builderDeleteDay),
+          ),
+          const SizedBox(width: 8),
+        ],
+        Expanded(
+          child: FilledButton(
+            onPressed: _builder.isSavingDay ? null : _save,
+            child: _builder.isSavingDay
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Text(l10n.builderSaveDay),
+          ),
+        ),
+      ],
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  dayDetailsCard,
+                  SizedBox(height: isDesktop ? 14 : 12),
+                  exercisesCard,
+                ],
+              ),
+            ),
+          ),
+        ),
+        if (_builder.dayError != null) ...[
+          const SizedBox(height: 12),
+          Text(
+            _builder.dayError!.localizedMessage(l10n),
+            style: const TextStyle(
+              fontFamily: 'Exo 2',
+              fontSize: 12,
+              color: ForgeColors.statusBad,
+            ),
+          ),
+        ],
+        const SizedBox(height: 12),
+        actionRow,
+        // Extra bottom padding so the action row clears the nav bar/FAB area
+        // on mobile rather than being covered by it.
+        const SizedBox(height: 12),
+      ],
     );
   }
 
@@ -1102,6 +1216,58 @@ class _ExerciseEditorCard extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final colors = Theme.of(context).colorScheme;
     final entry = builder.draft!.exercises[index];
+    final isDesktop = Breakpoints.isDesktop(context);
+
+    // On mobile the sets are a full-width column, not a wrapped row of
+    // pills: a 56px reps field and a 26px remove target were the two things
+    // making the set list itself cramped, on top of the screen-level space
+    // problem `docs/trainer-workout-builder.md` covers. Desktop keeps the
+    // pill layout as-is.
+    final setRows = isDesktop
+        ? Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              for (var setIndex = 0; setIndex < entry.sets.length; setIndex++)
+                _SetChip(
+                  key: ObjectKey(entry.sets[setIndex]),
+                  builder: builder,
+                  exerciseIndex: index,
+                  setIndex: setIndex,
+                ),
+              ActionChip(
+                avatar: const Icon(Icons.add_rounded, size: 16),
+                label: Text(l10n.builderAddSet),
+                onPressed: () => builder.addSet(index),
+              ),
+            ],
+          )
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (var setIndex = 0; setIndex < entry.sets.length; setIndex++)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: _SetChip(
+                    key: ObjectKey(entry.sets[setIndex]),
+                    builder: builder,
+                    exerciseIndex: index,
+                    setIndex: setIndex,
+                    dense: true,
+                  ),
+                ),
+              SizedBox(
+                width: double.infinity,
+                height: 44,
+                child: OutlinedButton.icon(
+                  onPressed: () => builder.addSet(index),
+                  icon: const Icon(Icons.add_rounded, size: 18),
+                  label: Text(l10n.builderAddSet),
+                ),
+              ),
+            ],
+          );
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -1179,24 +1345,7 @@ class _ExerciseEditorCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              for (var setIndex = 0; setIndex < entry.sets.length; setIndex++)
-                _SetChip(
-                  builder: builder,
-                  exerciseIndex: index,
-                  setIndex: setIndex,
-                ),
-              ActionChip(
-                avatar: const Icon(Icons.add_rounded, size: 16),
-                label: Text(l10n.builderAddSet),
-                onPressed: () => builder.addSet(index),
-              ),
-            ],
-          ),
+          setRows,
         ],
       ),
     );
@@ -1208,10 +1357,17 @@ class _SetChip extends StatefulWidget {
   final int exerciseIndex;
   final int setIndex;
 
+  /// Renders as a fixed-width pill on desktop (unchanged) or a full-width
+  /// row with a real 44x44 remove target on mobile — see the call sites in
+  /// `_ExerciseEditorCard` for which is which.
+  final bool dense;
+
   const _SetChip({
+    super.key,
     required this.builder,
     required this.exerciseIndex,
     required this.setIndex,
+    this.dense = false,
   });
 
   @override
@@ -1242,6 +1398,82 @@ class _SetChipState extends State<_SetChip> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final colors = Theme.of(context).colorScheme;
+
+    final removeButton = Semantics(
+      button: true,
+      label: l10n.builderRemoveSet,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(widget.dense ? 8 : 999),
+        onTap: () => widget.builder.removeSet(
+          widget.exerciseIndex,
+          widget.setIndex,
+        ),
+        child: widget.dense
+            ? const SizedBox(
+                width: 44,
+                height: 44,
+                child: Icon(Icons.close_rounded, size: 18),
+              )
+            : Padding(
+                padding: const EdgeInsets.all(6),
+                child: Icon(
+                  Icons.close_rounded,
+                  size: 14,
+                  color: colors.onSurface.withValues(alpha: 0.5),
+                ),
+              ),
+      ),
+    );
+
+    final repsField = TextField(
+      controller: _controller,
+      decoration: InputDecoration(
+        hintText: l10n.builderTargetRepsHint,
+        border: InputBorder.none,
+        isDense: true,
+        contentPadding: EdgeInsets.symmetric(
+          vertical: 8,
+          horizontal: widget.dense ? 12 : 0,
+        ),
+      ),
+      style: const TextStyle(fontFamily: 'Exo 2', fontSize: 13),
+      textAlign: widget.dense ? TextAlign.start : TextAlign.center,
+      onChanged: (value) => widget.builder.updateSetReps(
+        widget.exerciseIndex,
+        widget.setIndex,
+        value,
+      ),
+    );
+
+    if (widget.dense) {
+      return Container(
+        constraints: const BoxConstraints(minHeight: 44),
+        decoration: BoxDecoration(
+          color: colors.surface,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: colors.outlineVariant),
+        ),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 32,
+              child: Text(
+                '${widget.setIndex + 1}.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'Exo 2',
+                  fontSize: 13,
+                  color: colors.onSurface.withValues(alpha: 0.55),
+                ),
+              ),
+            ),
+            Expanded(child: repsField),
+            removeButton,
+          ],
+        ),
+      );
+    }
+
     return Container(
       constraints: const BoxConstraints(minHeight: 44),
       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -1262,44 +1494,8 @@ class _SetChipState extends State<_SetChip> {
             ),
           ),
           const SizedBox(width: 4),
-          SizedBox(
-            width: 56,
-            child: TextField(
-              controller: _controller,
-              decoration: InputDecoration(
-                hintText: l10n.builderTargetRepsHint,
-                border: InputBorder.none,
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(vertical: 8),
-              ),
-              style: const TextStyle(fontFamily: 'Exo 2', fontSize: 13),
-              textAlign: TextAlign.center,
-              onChanged: (value) => widget.builder.updateSetReps(
-                widget.exerciseIndex,
-                widget.setIndex,
-                value,
-              ),
-            ),
-          ),
-          Semantics(
-            button: true,
-            label: l10n.builderRemoveSet,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(999),
-              onTap: () => widget.builder.removeSet(
-                widget.exerciseIndex,
-                widget.setIndex,
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(6),
-                child: Icon(
-                  Icons.close_rounded,
-                  size: 14,
-                  color: colors.onSurface.withValues(alpha: 0.5),
-                ),
-              ),
-            ),
-          ),
+          SizedBox(width: 56, child: repsField),
+          removeButton,
         ],
       ),
     );

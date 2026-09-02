@@ -81,6 +81,15 @@ public interface IWorkoutRepository
     /// <returns>The newly created set template, or <c>null</c> if the workout exercise doesn't exist or isn't owned by <paramref name="userId"/>.</returns>
     Task<WorkoutSetTemplate?> AddSetTemplateAsync(WorkoutSetTemplate t, Guid userId);
 
+    /// <summary>Which of the given workout-exercise ids have at least one logged set against
+    /// them, via <c>ScheduledWorkoutExercises</c>.</summary>
+    /// <remarks>Backs the Workout Builder's duplicate-slot fold: when a slot holds more than
+    /// one live row — residue from before adding an exercise became idempotent per slot — the
+    /// row a client actually trained against is the one whose id has to survive, because the
+    /// builder echoes that id back on save and an entry the payload doesn't account for is
+    /// removed.</remarks>
+    Task<HashSet<Guid>> GetWorkoutExerciseIdsWithLoggedSetsAsync(IReadOnlyCollection<Guid> workoutExerciseIds);
+
     /// <summary>Replaces every set template on a workout exercise with <paramref name="templates"/>,
     /// in one transaction.</summary>
     /// <param name="workoutExerciseId">The workout exercise whose prescription is being rewritten.</param>

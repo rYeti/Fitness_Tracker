@@ -306,6 +306,20 @@ public class WorkoutRepository : IWorkoutRepository
     }
 
     /// <inheritdoc/>
+    public async Task<HashSet<Guid>> GetWorkoutExerciseIdsWithLoggedSetsAsync(IReadOnlyCollection<Guid> workoutExerciseIds)
+    {
+        if (workoutExerciseIds.Count == 0) return [];
+
+        var ids = workoutExerciseIds.ToList();
+        return (await _context.ScheduledWorkoutExercises
+            .Where(e => ids.Contains(e.WorkoutExerciseId) && e.Sets.Any())
+            .Select(e => e.WorkoutExerciseId)
+            .Distinct()
+            .ToListAsync())
+            .ToHashSet();
+    }
+
+    /// <inheritdoc/>
     public async Task<bool> DeleteSetTemplateAsync(Guid id, Guid userId)
     {
         var template = await _context.WorkoutSetTemplates

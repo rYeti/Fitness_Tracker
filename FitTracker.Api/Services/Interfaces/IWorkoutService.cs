@@ -81,6 +81,10 @@ public interface IWorkoutService
     /// <returns>The new set templates, or <c>null</c> if the exercise isn't found/owned.</returns>
     Task<List<WorkoutSetTemplateResponseDto>?> ReplaceSetTemplatesAsync(Guid workoutExerciseId, Guid userId, List<WorkoutSetTemplateRequestDto> dtos);
 
+    /// <summary>Which of the given workout-exercise ids have at least one logged set against
+    /// them. See <see cref="Repositories.Interfaces.IWorkoutRepository.GetWorkoutExerciseIdsWithLoggedSetsAsync"/>.</summary>
+    Task<HashSet<Guid>> GetWorkoutExerciseIdsWithLoggedSetsAsync(IReadOnlyCollection<Guid> workoutExerciseIds);
+
     /// <summary>Updates an existing set template owned by the specified user.</summary>
     /// <param name="id">The ID of the set template to update.</param>
     /// <param name="userId">The ID of the user who must own the parent workout.</param>

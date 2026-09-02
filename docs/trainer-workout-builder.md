@@ -269,3 +269,148 @@ writer wasn't thinking about — which is exactly why `dotnet build` and a
 green `flutter test` run had nothing to say about any of the three bugs this
 document walks through, and why each of them needed a test that specifically
 constructs the cross-boundary case to catch.
+
+## 7. The read path nobody had folded, and a phone screen with no room for the thing it's for
+
+Two reports came in together — a client's workout showing duplicate and
+"deleted" exercises and sets in the console, and the exercise editor on
+mobile being too cramped to use. Neither needed a migration; both were fixed
+by looking at code that already worked correctly *somewhere else* in this
+codebase and asking why the Workout Builder wasn't doing the same thing.
+
+### 7.1 A fold that three other readers already had, and the builder didn't
+
+`docs/trainer-console-duplicate-rows.md` had already named the shape of this
+bug once, for `WorkoutExercises`: rows written before adding an exercise
+became idempotent per `(WorkoutId, ExerciseId, OrderPosition)` slot are still
+in the database, will never be deleted (this is a training log), and every
+reader has to fold them on the way out. Three readers already did — the sync
+client (`_collapseDuplicateServerExercises`, `_collapseDuplicateSetTemplates`
+in `sync_service.dart`) and Session Review (`CollapseDuplicateEntries`,
+`TrainerConsoleService.cs:564`). `TrainerConsoleService.ToClientWorkoutDto`,
+the mapper behind the Workout Builder's read and every save response, still
+only filtered `RemovedAt == null`. A duplicate slot rendered as two
+exercises; a prescription re-saved under the old append-not-replace bug
+rendered as three times its actual set count; an exercise the client deleted
+on their device — which only ever unlinks the *one* row their local pull had
+already collapsed onto — left its untouched twin sitting server-side with
+nothing to delete it, for the builder to be the first screen ever to show.
+
+None of this tripped a test, because none of the tests for this endpoint
+constructed the dirty-data case — the only assertion against
+`GetClientWorkoutsAsync` before this change was `Assert.Empty` on a workout
+with nothing in it at all. A green `dotnet test` run says the *clean* path
+works; it says nothing about rows a bug five releases ago already wrote and
+this table will hold onto forever.
+
+The fix (`ToClientWorkoutDto`, `TrainerConsoleService.cs:1128-1213`) folds on
+the same two keys the other three readers already use — `(ExerciseId,
+OrderPosition)` for exercises, `SetNumber` for set templates — specifically
+*because* they're the same keys, not out of convenience. Reusing the write
+path's own idempotency key (`WorkoutRepository.AddExerciseToWorkoutAsync`,
+the slot check at line 158) means the read fold and the write path can never
+quietly disagree about what counts as a duplicate; a fold with its own
+separate notion of identity is a second place for that definition to drift
+from the first, which is exactly what `trainer-console-duplicate-rows.md`
+warned about the second time this shape of bug showed up.
+
+**The one way this fold couldn't just copy Session Review's.** Session
+Review reports a session's history; if two twins in one slot both carry
+logged sets, it keeps both, because there's no way to merge two sets of real
+training history and showing both is the honest answer. The Workout Builder
+is an editor. It has to return exactly one `Id` per slot, because that `Id`
+is what the trainer's next save echoes back — and `UpdateClientWorkoutAsync`
+treats an omitted `Id` as "gone," retiring or deleting whatever the payload
+doesn't mention. Handing back two ids on a slot the fold ostensibly
+collapsed to one exercise would mean the *next* save silently drops one
+of them. So the survivor has to be chosen, not merely narrowed down: the
+twin with logged sets, via a new one-query-per-request lookup
+(`WorkoutRepository.GetWorkoutExerciseIdsWithLoggedSetsAsync`, line 309),
+tie-broken by the lowest `Id` for a result that's stable between requests.
+That, in turn, is what makes the self-healing property safe: because
+`UpdateClientWorkoutAsync` diffs against the *unfolded* live rows
+(`existingLive`, line ~916 — unchanged by this fix), a twin the read-side
+fold hid from the trainer is simply an entry that day's next save doesn't
+mention, and the existing cleanup pass removes it exactly the way it removes
+anything else the trainer took off the day. **Saving a day heals its
+duplicates** — confirmed against production data (34 duplicated slots across
+six workouts, one holding the same exercise six times over) rather than
+assumed, and pinned by a test (`SavingADayRemovesTheDuplicateTheFoldHid`,
+`TrainerWorkoutBuilderTests.cs`) precisely because it's a consequence of the
+survivor rule, not a separate mechanism — get the survivor wrong and a save
+would retire the row the client actually trained against instead of its
+empty twin.
+
+An entry whose `ExerciseId` no longer resolves to a live `Exercise` row (the
+client deleted their own custom exercise) is dropped for a second, harder
+reason than tidiness: `ResolvePrescribedExerciseIdsAsync` rejects an unknown
+exercise id with `unknown_exercise` and fails the *entire* save if the
+builder ever echoed one back. Showing it and then refusing to save it would
+have been a worse failure than not showing it.
+
+### 7.2 A screen where every block fit and the one that mattered didn't
+
+The mobile complaint wasn't about width — it was that at 390×844, the plan
+summary, the day's own name/description/difficulty/duration fields, and the
+day-selector chips together ran to roughly 700px before a single exercise
+was drawn, leaving under 150px for the list the screen exists to show, with
+Save scrolled out of reach below it. Every individual block was reasonably
+sized. None of them, individually, looked wrong in isolation — which is
+exactly why this kind of bug survives: nothing crashes, nothing mis-renders,
+a screenshot of any one card looks fine. The defect is only visible as a sum
+across the whole column, and nothing short of laying the actual screen out
+at phone width and asking "how far down is the first exercise" would catch
+it — which is why the regression test for this
+(`the first exercise of an existing day is visible without scrolling`,
+`workout_builder_screen_test.dart`) asserts exactly that number, in pixels,
+rather than anything about an individual widget.
+
+Three changes bought the space back, all gated to `!Breakpoints.isDesktop`
+so the desktop layout is untouched: the plan card collapses to one line
+(name, active pill, start date — no description) on mobile; the day's own
+metadata fields move behind a collapsible section
+(`_detailsExpanded`, `workout_builder_screen.dart:860`) that starts closed
+for a day the trainer is opening to edit its exercises and open for a new
+one that has nothing else yet; and Save/Delete move out of the scrollable
+column into a pinned sibling below it, so only the exercise list itself ever
+needs scrolling. The collapsible section's one subtlety: collapsing it means
+its `TextFormField`s aren't in the widget tree, which also means
+`Form.validate()` can't see them — a day saved with an empty name while
+collapsed would previously have skipped local validation entirely and relied
+on the provider's own empty-name guard alone. `_save()` (line ~900) now
+expands the section whenever either the local `validate()` or the provider's
+`saveDraft()` fails, so the trainer always ends up looking at the field an
+error is actually about, rather than a message with nothing near it to fix.
+
+Fixing the space also surfaced a second, independent bug in the set list
+that widening the space wouldn't have caught on its own: `_SetChip`
+(`workout_builder_screen.dart:1355`) is stateful, and its
+`TextEditingController` was seeded once from `sets[setIndex]` in `initState`
+and never re-seeded — built, like everything else in that `Wrap`/`Column`,
+by position with no `Key`. Remove the middle set of three and Flutter
+reuses each surviving `State` object by its position, not by which set it
+used to represent, so the two remaining rows keep showing the *old* values
+at their old positions while the underlying data has already shifted. Worse,
+because `updateSetReps` writes by index, the next keystroke on either
+surviving row would have written that stale on-screen value straight back
+into whichever set was really at that index — a set the trainer never
+touched. The fix is `key: ObjectKey(entry.sets[setIndex])` at both call
+sites (lines 1234 and 1253): `ExerciseSetDraft` is a plain mutable object
+with no id of its own, but `removeSet` removes the object itself from the
+list, so the *surviving objects' identity* is exactly what Flutter's element
+reconciliation needs to reattach the right `State` to the right data
+regardless of where it now sits in the list — not a synthetic id manufactured
+for the purpose, the same instance the draft has held all along.
+
+### 7.3 The general lesson
+
+Both halves of this have the same shape as `trainer-console-duplicate-rows.md`'s
+own closing lesson, applied one level further out: **a fix that lives in one
+reader doesn't reach the readers that never got it, and a screen built one
+card at a time doesn't add up to a screen that works, even when every card
+was reviewed on its own.** The compiler has nothing to say about a mapper
+missing a fold three siblings already have, and a passing widget test that
+only ever pumps at 1400×1200 has nothing to say about a viewport where the
+same widgets, laid out the same way, leave nothing for the one thing the
+screen is for. Both needed the actual dirty state — a duplicated database
+row, a 390px-tall viewport — constructed on purpose to see at all.

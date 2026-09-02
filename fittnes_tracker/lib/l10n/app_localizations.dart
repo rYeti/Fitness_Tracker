@@ -1562,336 +1562,6 @@ abstract class AppLocalizations {
   /// **'Coach\'s note'**
   String get coachNote;
 
-  /// No description provided for @errorWorkoutNameRequired.
-  ///
-  /// In en, this message translates to:
-  /// **'Give the day a name.'**
-  String get errorWorkoutNameRequired;
-
-  /// No description provided for @errorLoadClientWorkouts.
-  ///
-  /// In en, this message translates to:
-  /// **'Could not load this client’s workouts.'**
-  String get errorLoadClientWorkouts;
-
-  /// No description provided for @errorLoadExerciseLibrary.
-  ///
-  /// In en, this message translates to:
-  /// **'Could not load the exercise library.'**
-  String get errorLoadExerciseLibrary;
-
-  /// No description provided for @errorExerciseNameRequired.
-  ///
-  /// In en, this message translates to:
-  /// **'Give the exercise a name.'**
-  String get errorExerciseNameRequired;
-
-  /// No description provided for @errorCreateExercise.
-  ///
-  /// In en, this message translates to:
-  /// **'Could not create the exercise.'**
-  String get errorCreateExercise;
-
-  /// No description provided for @errorSaveWorkout.
-  ///
-  /// In en, this message translates to:
-  /// **'Could not save this day.'**
-  String get errorSaveWorkout;
-
-  /// No description provided for @errorDeleteWorkout.
-  ///
-  /// In en, this message translates to:
-  /// **'Could not delete this day.'**
-  String get errorDeleteWorkout;
-
-  /// No description provided for @errorWorkoutHasHistory.
-  ///
-  /// In en, this message translates to:
-  /// **'This day has logged sessions and can’t be deleted.'**
-  String get errorWorkoutHasHistory;
-
-  /// No description provided for @errorUnknownExercise.
-  ///
-  /// In en, this message translates to:
-  /// **'One of the exercises in this day couldn’t be prescribed. Try removing and re-adding it.'**
-  String get errorUnknownExercise;
-
-  /// No description provided for @errorScheduleWorkoutPlan.
-  ///
-  /// In en, this message translates to:
-  /// **'Could not schedule this plan.'**
-  String get errorScheduleWorkoutPlan;
-
-  /// No description provided for @builderDays.
-  ///
-  /// In en, this message translates to:
-  /// **'Days'**
-  String get builderDays;
-
-  /// No description provided for @builderNewDay.
-  ///
-  /// In en, this message translates to:
-  /// **'New day'**
-  String get builderNewDay;
-
-  /// No description provided for @builderDayName.
-  ///
-  /// In en, this message translates to:
-  /// **'Day name'**
-  String get builderDayName;
-
-  /// No description provided for @builderDayNameHint.
-  ///
-  /// In en, this message translates to:
-  /// **'e.g. Push Day'**
-  String get builderDayNameHint;
-
-  /// No description provided for @builderDifficulty.
-  ///
-  /// In en, this message translates to:
-  /// **'Difficulty'**
-  String get builderDifficulty;
-
-  /// No description provided for @builderDifficultyBeginner.
-  ///
-  /// In en, this message translates to:
-  /// **'Beginner'**
-  String get builderDifficultyBeginner;
-
-  /// No description provided for @builderDifficultyIntermediate.
-  ///
-  /// In en, this message translates to:
-  /// **'Intermediate'**
-  String get builderDifficultyIntermediate;
-
-  /// No description provided for @builderDifficultyAdvanced.
-  ///
-  /// In en, this message translates to:
-  /// **'Advanced'**
-  String get builderDifficultyAdvanced;
-
-  /// No description provided for @builderDurationMinutes.
-  ///
-  /// In en, this message translates to:
-  /// **'Duration (minutes)'**
-  String get builderDurationMinutes;
-
-  /// No description provided for @builderExercises.
-  ///
-  /// In en, this message translates to:
-  /// **'Exercises'**
-  String get builderExercises;
-
-  /// No description provided for @builderNoExercisesYetTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'No exercises yet'**
-  String get builderNoExercisesYetTitle;
-
-  /// No description provided for @builderNoExercisesYetBody.
-  ///
-  /// In en, this message translates to:
-  /// **'Add exercises to build out this day.'**
-  String get builderNoExercisesYetBody;
-
-  /// No description provided for @builderAddExercise.
-  ///
-  /// In en, this message translates to:
-  /// **'Add exercise'**
-  String get builderAddExercise;
-
-  /// No description provided for @builderRemoveExercise.
-  ///
-  /// In en, this message translates to:
-  /// **'Remove exercise'**
-  String get builderRemoveExercise;
-
-  /// No description provided for @builderMoveExerciseUp.
-  ///
-  /// In en, this message translates to:
-  /// **'Move up'**
-  String get builderMoveExerciseUp;
-
-  /// No description provided for @builderMoveExerciseDown.
-  ///
-  /// In en, this message translates to:
-  /// **'Move down'**
-  String get builderMoveExerciseDown;
-
-  /// No description provided for @builderSets.
-  ///
-  /// In en, this message translates to:
-  /// **'Sets'**
-  String get builderSets;
-
-  /// No description provided for @builderAddSet.
-  ///
-  /// In en, this message translates to:
-  /// **'Add set'**
-  String get builderAddSet;
-
-  /// No description provided for @builderRemoveSet.
-  ///
-  /// In en, this message translates to:
-  /// **'Remove set'**
-  String get builderRemoveSet;
-
-  /// No description provided for @builderTargetRepsLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'Target reps'**
-  String get builderTargetRepsLabel;
-
-  /// No description provided for @builderTargetRepsHint.
-  ///
-  /// In en, this message translates to:
-  /// **'e.g. 8-12'**
-  String get builderTargetRepsHint;
-
-  /// No description provided for @builderCoachNoteLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'Coach’s note'**
-  String get builderCoachNoteLabel;
-
-  /// No description provided for @builderCoachNoteHint.
-  ///
-  /// In en, this message translates to:
-  /// **'e.g. Keep elbows tucked, RPE 8'**
-  String get builderCoachNoteHint;
-
-  /// No description provided for @builderSaveDay.
-  ///
-  /// In en, this message translates to:
-  /// **'Save day'**
-  String get builderSaveDay;
-
-  /// No description provided for @builderDeleteDay.
-  ///
-  /// In en, this message translates to:
-  /// **'Delete day'**
-  String get builderDeleteDay;
-
-  /// No description provided for @builderDeleteDayConfirmTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Delete this day?'**
-  String get builderDeleteDayConfirmTitle;
-
-  /// No description provided for @builderDeleteDayConfirmBody.
-  ///
-  /// In en, this message translates to:
-  /// **'{name} will be removed from this plan. This can’t be undone.'**
-  String builderDeleteDayConfirmBody(String name);
-
-  /// No description provided for @builderDiscardChangesTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Discard changes?'**
-  String get builderDiscardChangesTitle;
-
-  /// No description provided for @builderDiscardChangesBody.
-  ///
-  /// In en, this message translates to:
-  /// **'You have unsaved changes to this day.'**
-  String get builderDiscardChangesBody;
-
-  /// No description provided for @builderDiscard.
-  ///
-  /// In en, this message translates to:
-  /// **'Discard'**
-  String get builderDiscard;
-
-  /// No description provided for @builderKeepEditing.
-  ///
-  /// In en, this message translates to:
-  /// **'Keep editing'**
-  String get builderKeepEditing;
-
-  /// No description provided for @builderNoWorkoutsTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'No days yet'**
-  String get builderNoWorkoutsTitle;
-
-  /// No description provided for @builderNoWorkoutsBody.
-  ///
-  /// In en, this message translates to:
-  /// **'Add the first day to {name}’s plan.'**
-  String builderNoWorkoutsBody(String name);
-
-  /// No description provided for @builderPickExerciseTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Add an exercise'**
-  String get builderPickExerciseTitle;
-
-  /// No description provided for @builderSearchExercisesHint.
-  ///
-  /// In en, this message translates to:
-  /// **'Search exercises'**
-  String get builderSearchExercisesHint;
-
-  /// No description provided for @builderNoExercisesFound.
-  ///
-  /// In en, this message translates to:
-  /// **'No exercises match your search.'**
-  String get builderNoExercisesFound;
-
-  /// No description provided for @builderNewExerciseAction.
-  ///
-  /// In en, this message translates to:
-  /// **'New exercise'**
-  String get builderNewExerciseAction;
-
-  /// No description provided for @builderNewExerciseTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'New exercise'**
-  String get builderNewExerciseTitle;
-
-  /// No description provided for @builderExerciseNameLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'Exercise name'**
-  String get builderExerciseNameLabel;
-
-  /// No description provided for @builderTrainerOwnedTag.
-  ///
-  /// In en, this message translates to:
-  /// **'Yours — prescribing this shares a copy with the client'**
-  String get builderTrainerOwnedTag;
-
-  /// No description provided for @builderDaySavedConfirmation.
-  ///
-  /// In en, this message translates to:
-  /// **'{name} saved'**
-  String builderDaySavedConfirmation(String name);
-
-  /// No description provided for @builderDayDeletedConfirmation.
-  ///
-  /// In en, this message translates to:
-  /// **'{name} deleted'**
-  String builderDayDeletedConfirmation(String name);
-
-  /// No description provided for @builderUnsavedChangesBadge.
-  ///
-  /// In en, this message translates to:
-  /// **'Unsaved changes'**
-  String get builderUnsavedChangesBadge;
-
-  /// No description provided for @builderCreateExercise.
-  ///
-  /// In en, this message translates to:
-  /// **'Create'**
-  String get builderCreateExercise;
-
-  /// No description provided for @builderDurationRange.
-  ///
-  /// In en, this message translates to:
-  /// **'Must be between 1 and 1440 minutes.'**
-  String get builderDurationRange;
-
   /// No description provided for @workoutDayHint.
   ///
   /// In en, this message translates to:
@@ -6379,6 +6049,348 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Check your connection and try again.'**
   String get couldNotLoadBody;
+
+  /// No description provided for @errorWorkoutNameRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Give the day a name.'**
+  String get errorWorkoutNameRequired;
+
+  /// No description provided for @errorLoadClientWorkouts.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load this client’s workouts.'**
+  String get errorLoadClientWorkouts;
+
+  /// No description provided for @errorLoadExerciseLibrary.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load the exercise library.'**
+  String get errorLoadExerciseLibrary;
+
+  /// No description provided for @errorExerciseNameRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Give the exercise a name.'**
+  String get errorExerciseNameRequired;
+
+  /// No description provided for @errorCreateExercise.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not create the exercise.'**
+  String get errorCreateExercise;
+
+  /// No description provided for @errorSaveWorkout.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not save this day.'**
+  String get errorSaveWorkout;
+
+  /// No description provided for @errorDeleteWorkout.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not delete this day.'**
+  String get errorDeleteWorkout;
+
+  /// No description provided for @errorWorkoutHasHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'This day has logged sessions and can’t be deleted.'**
+  String get errorWorkoutHasHistory;
+
+  /// No description provided for @errorUnknownExercise.
+  ///
+  /// In en, this message translates to:
+  /// **'One of the exercises in this day couldn’t be prescribed. Try removing and re-adding it.'**
+  String get errorUnknownExercise;
+
+  /// No description provided for @errorScheduleWorkoutPlan.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not schedule this plan.'**
+  String get errorScheduleWorkoutPlan;
+
+  /// No description provided for @builderDays.
+  ///
+  /// In en, this message translates to:
+  /// **'Days'**
+  String get builderDays;
+
+  /// No description provided for @builderNewDay.
+  ///
+  /// In en, this message translates to:
+  /// **'New day'**
+  String get builderNewDay;
+
+  /// No description provided for @builderDayName.
+  ///
+  /// In en, this message translates to:
+  /// **'Day name'**
+  String get builderDayName;
+
+  /// No description provided for @builderDayNameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. Push Day'**
+  String get builderDayNameHint;
+
+  /// No description provided for @builderDifficulty.
+  ///
+  /// In en, this message translates to:
+  /// **'Difficulty'**
+  String get builderDifficulty;
+
+  /// No description provided for @builderDifficultyBeginner.
+  ///
+  /// In en, this message translates to:
+  /// **'Beginner'**
+  String get builderDifficultyBeginner;
+
+  /// No description provided for @builderDifficultyIntermediate.
+  ///
+  /// In en, this message translates to:
+  /// **'Intermediate'**
+  String get builderDifficultyIntermediate;
+
+  /// No description provided for @builderDifficultyAdvanced.
+  ///
+  /// In en, this message translates to:
+  /// **'Advanced'**
+  String get builderDifficultyAdvanced;
+
+  /// No description provided for @builderDurationMinutes.
+  ///
+  /// In en, this message translates to:
+  /// **'Duration (minutes)'**
+  String get builderDurationMinutes;
+
+  /// No description provided for @builderExercises.
+  ///
+  /// In en, this message translates to:
+  /// **'Exercises'**
+  String get builderExercises;
+
+  /// No description provided for @builderNoExercisesYetTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No exercises yet'**
+  String get builderNoExercisesYetTitle;
+
+  /// No description provided for @builderNoExercisesYetBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Add exercises to build out this day.'**
+  String get builderNoExercisesYetBody;
+
+  /// No description provided for @builderAddExercise.
+  ///
+  /// In en, this message translates to:
+  /// **'Add exercise'**
+  String get builderAddExercise;
+
+  /// No description provided for @builderRemoveExercise.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove exercise'**
+  String get builderRemoveExercise;
+
+  /// No description provided for @builderMoveExerciseUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Move up'**
+  String get builderMoveExerciseUp;
+
+  /// No description provided for @builderMoveExerciseDown.
+  ///
+  /// In en, this message translates to:
+  /// **'Move down'**
+  String get builderMoveExerciseDown;
+
+  /// No description provided for @builderSets.
+  ///
+  /// In en, this message translates to:
+  /// **'Sets'**
+  String get builderSets;
+
+  /// No description provided for @builderAddSet.
+  ///
+  /// In en, this message translates to:
+  /// **'Add set'**
+  String get builderAddSet;
+
+  /// No description provided for @builderRemoveSet.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove set'**
+  String get builderRemoveSet;
+
+  /// No description provided for @builderExpandDayDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Show day details'**
+  String get builderExpandDayDetails;
+
+  /// No description provided for @builderCollapseDayDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide day details'**
+  String get builderCollapseDayDetails;
+
+  /// No description provided for @builderTargetRepsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Target reps'**
+  String get builderTargetRepsLabel;
+
+  /// No description provided for @builderTargetRepsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. 8-12'**
+  String get builderTargetRepsHint;
+
+  /// No description provided for @builderCoachNoteLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Coach’s note'**
+  String get builderCoachNoteLabel;
+
+  /// No description provided for @builderCoachNoteHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. Keep elbows tucked, RPE 8'**
+  String get builderCoachNoteHint;
+
+  /// No description provided for @builderSaveDay.
+  ///
+  /// In en, this message translates to:
+  /// **'Save day'**
+  String get builderSaveDay;
+
+  /// No description provided for @builderDeleteDay.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete day'**
+  String get builderDeleteDay;
+
+  /// No description provided for @builderDeleteDayConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this day?'**
+  String get builderDeleteDayConfirmTitle;
+
+  /// No description provided for @builderDeleteDayConfirmBody.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} will be removed from this plan. This can’t be undone.'**
+  String builderDeleteDayConfirmBody(String name);
+
+  /// No description provided for @builderDiscardChangesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard changes?'**
+  String get builderDiscardChangesTitle;
+
+  /// No description provided for @builderDiscardChangesBody.
+  ///
+  /// In en, this message translates to:
+  /// **'You have unsaved changes to this day.'**
+  String get builderDiscardChangesBody;
+
+  /// No description provided for @builderDiscard.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard'**
+  String get builderDiscard;
+
+  /// No description provided for @builderKeepEditing.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep editing'**
+  String get builderKeepEditing;
+
+  /// No description provided for @builderNoWorkoutsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No days yet'**
+  String get builderNoWorkoutsTitle;
+
+  /// No description provided for @builderNoWorkoutsBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Add the first day to {name}’s plan.'**
+  String builderNoWorkoutsBody(String name);
+
+  /// No description provided for @builderPickExerciseTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Add an exercise'**
+  String get builderPickExerciseTitle;
+
+  /// No description provided for @builderSearchExercisesHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search exercises'**
+  String get builderSearchExercisesHint;
+
+  /// No description provided for @builderNoExercisesFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No exercises match your search.'**
+  String get builderNoExercisesFound;
+
+  /// No description provided for @builderNewExerciseAction.
+  ///
+  /// In en, this message translates to:
+  /// **'New exercise'**
+  String get builderNewExerciseAction;
+
+  /// No description provided for @builderNewExerciseTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'New exercise'**
+  String get builderNewExerciseTitle;
+
+  /// No description provided for @builderExerciseNameLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Exercise name'**
+  String get builderExerciseNameLabel;
+
+  /// No description provided for @builderTrainerOwnedTag.
+  ///
+  /// In en, this message translates to:
+  /// **'Yours — prescribing this shares a copy with the client'**
+  String get builderTrainerOwnedTag;
+
+  /// No description provided for @builderDaySavedConfirmation.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} saved'**
+  String builderDaySavedConfirmation(String name);
+
+  /// No description provided for @builderDayDeletedConfirmation.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} deleted'**
+  String builderDayDeletedConfirmation(String name);
+
+  /// No description provided for @builderUnsavedChangesBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'Unsaved changes'**
+  String get builderUnsavedChangesBadge;
+
+  /// No description provided for @builderCreateExercise.
+  ///
+  /// In en, this message translates to:
+  /// **'Create'**
+  String get builderCreateExercise;
+
+  /// No description provided for @builderDurationRange.
+  ///
+  /// In en, this message translates to:
+  /// **'Must be between 1 and 1440 minutes.'**
+  String get builderDurationRange;
 }
 
 class _AppLocalizationsDelegate
