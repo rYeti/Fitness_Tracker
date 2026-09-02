@@ -22,6 +22,10 @@ Markdown links, headings or emphasis, none of which Play renders.
 
 See `docs/android-release.md`.
 
+## Unreleased
+
+Fixed a bug where chat messages sent from the Trainer Console could get stuck and never actually reach a client — most noticeably when messaging more than one client, or messaging a client who hadn't opened chat before. Messages should now always get through.
+
 ## 1.0.2+18
 
 Fixed a bug where the Trainer Console could still show duplicate or already-deleted exercises and sets in a client's workout. Also made the exercise editor easier to use on a phone screen: the exercise list is no longer pushed off the bottom by other fields, and removing a set no longer occasionally shows the wrong value on a remaining one.
