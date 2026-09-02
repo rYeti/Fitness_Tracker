@@ -10,7 +10,7 @@ heading to the version it went out as, so a `## <version>` section is history:
 it is what those users have, and nothing new belongs in it. See
 `docs/android-release.md`.
 
-## Unreleased
+## 1.0.2+20
 
 - Fixed the Trainer Console dropping a trainer back into "My Training" the instant they switched sections, whenever the console had been reopened from Settings (or a tapped chat notification) after previously exiting to the trainee app. Switching sections rewrites the address bar via `GoRouter.go`, which rebuilds the router's whole page stack by *route pattern* — so it silently reused the original, already-mounted console page still flagged to show the trainee app, and discarded the freshly pushed one the trainer was actually looking at. Only the console instance the router itself is currently showing now touches the URL; a console reached by a push leaves it alone, exactly as before URLs existed for the console. See `docs/trainer-console-route-collision.md`.
 - Fixed chat messages sent from the Trainer Console never reaching the recipient at all — stuck `pending` locally, nothing written to `ChatMessages`, nothing delivered. A trainer's first message to a client who had never opened Coach Chat on their own device had no key to encrypt to, and the send was silently and permanently refused rather than shown as anything different from an ordinary connection drop: nothing was ever going to prompt that client to open chat, because no message could reach them to tell them one was waiting. The trainee app now publishes its chat key as soon as the app itself is opened, not only when Coach Chat specifically is. See `docs/chat-architecture.md` §24.
