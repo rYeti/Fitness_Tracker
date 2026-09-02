@@ -22,6 +22,10 @@ Markdown links, headings or emphasis, none of which Play renders.
 
 See `docs/android-release.md`.
 
+## Unreleased
+
+Fixed a bug where the Trainer Console could still show duplicate or already-deleted exercises and sets in a client's workout. Also made the exercise editor easier to use on a phone screen: the exercise list is no longer pushed off the bottom by other fields, and removing a set no longer occasionally shows the wrong value on a remaining one.
+
 ## 1.0.2+17
 
 Trainers can now build and edit your workouts right from the Trainer Console — exercises, sets and reps — and notes your coach leaves on an exercise now show up in your workout screen. Also fixed a bug where the console could show a client duplicate meals, sessions, or exercises.

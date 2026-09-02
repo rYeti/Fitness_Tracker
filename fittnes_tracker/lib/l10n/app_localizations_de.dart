@@ -812,180 +812,6 @@ class AppLocalizationsDe extends AppLocalizations {
   String get coachNote => 'Notiz vom Trainer';
 
   @override
-  String get errorWorkoutNameRequired => 'Gib dem Tag einen Namen.';
-
-  @override
-  String get errorLoadClientWorkouts => 'Die Workouts dieses Kunden konnten nicht geladen werden.';
-
-  @override
-  String get errorLoadExerciseLibrary => 'Die Übungsbibliothek konnte nicht geladen werden.';
-
-  @override
-  String get errorExerciseNameRequired => 'Gib der Übung einen Namen.';
-
-  @override
-  String get errorCreateExercise => 'Die Übung konnte nicht erstellt werden.';
-
-  @override
-  String get errorSaveWorkout => 'Dieser Tag konnte nicht gespeichert werden.';
-
-  @override
-  String get errorDeleteWorkout => 'Dieser Tag konnte nicht gelöscht werden.';
-
-  @override
-  String get errorWorkoutHasHistory => 'Für diesen Tag sind bereits Einheiten protokolliert — er kann nicht gelöscht werden.';
-
-  @override
-  String get errorUnknownExercise => 'Eine der Übungen in diesem Tag konnte nicht zugewiesen werden. Entferne sie und füge sie erneut hinzu.';
-
-  @override
-  String get errorScheduleWorkoutPlan => 'Dieser Plan konnte nicht eingeplant werden.';
-
-  @override
-  String get builderDays => 'Tage';
-
-  @override
-  String get builderNewDay => 'Neuer Tag';
-
-  @override
-  String get builderDayName => 'Name des Tages';
-
-  @override
-  String get builderDayNameHint => 'z. B. Push Day';
-
-  @override
-  String get builderDifficulty => 'Schwierigkeit';
-
-  @override
-  String get builderDifficultyBeginner => 'Anfänger';
-
-  @override
-  String get builderDifficultyIntermediate => 'Fortgeschritten';
-
-  @override
-  String get builderDifficultyAdvanced => 'Experte';
-
-  @override
-  String get builderDurationMinutes => 'Dauer (Minuten)';
-
-  @override
-  String get builderExercises => 'Übungen';
-
-  @override
-  String get builderNoExercisesYetTitle => 'Noch keine Übungen';
-
-  @override
-  String get builderNoExercisesYetBody => 'Füge Übungen hinzu, um diesen Tag aufzubauen.';
-
-  @override
-  String get builderAddExercise => 'Übung hinzufügen';
-
-  @override
-  String get builderRemoveExercise => 'Übung entfernen';
-
-  @override
-  String get builderMoveExerciseUp => 'Nach oben verschieben';
-
-  @override
-  String get builderMoveExerciseDown => 'Nach unten verschieben';
-
-  @override
-  String get builderSets => 'Sätze';
-
-  @override
-  String get builderAddSet => 'Satz hinzufügen';
-
-  @override
-  String get builderRemoveSet => 'Satz entfernen';
-
-  @override
-  String get builderTargetRepsLabel => 'Ziel-Wiederholungen';
-
-  @override
-  String get builderTargetRepsHint => 'z. B. 8-12';
-
-  @override
-  String get builderCoachNoteLabel => 'Notiz vom Trainer';
-
-  @override
-  String get builderCoachNoteHint => 'z. B. Ellbogen anlegen, RPE 8';
-
-  @override
-  String get builderSaveDay => 'Tag speichern';
-
-  @override
-  String get builderDeleteDay => 'Tag löschen';
-
-  @override
-  String get builderDeleteDayConfirmTitle => 'Diesen Tag löschen?';
-
-  @override
-  String builderDeleteDayConfirmBody(String name) {
-    return '$name wird aus diesem Plan entfernt. Dies kann nicht rückgängig gemacht werden.';
-  }
-
-  @override
-  String get builderDiscardChangesTitle => 'Änderungen verwerfen?';
-
-  @override
-  String get builderDiscardChangesBody => 'Du hast ungespeicherte Änderungen an diesem Tag.';
-
-  @override
-  String get builderDiscard => 'Verwerfen';
-
-  @override
-  String get builderKeepEditing => 'Weiter bearbeiten';
-
-  @override
-  String get builderNoWorkoutsTitle => 'Noch keine Tage';
-
-  @override
-  String builderNoWorkoutsBody(String name) {
-    return 'Füge den ersten Tag zu $names Plan hinzu.';
-  }
-
-  @override
-  String get builderPickExerciseTitle => 'Übung hinzufügen';
-
-  @override
-  String get builderSearchExercisesHint => 'Übungen suchen';
-
-  @override
-  String get builderNoExercisesFound => 'Keine Übungen gefunden.';
-
-  @override
-  String get builderNewExerciseAction => 'Neue Übung';
-
-  @override
-  String get builderNewExerciseTitle => 'Neue Übung';
-
-  @override
-  String get builderExerciseNameLabel => 'Name der Übung';
-
-  @override
-  String get builderTrainerOwnedTag => 'Deine eigene — wird beim Zuweisen als Kopie mit dem Kunden geteilt';
-
-  @override
-  String builderDaySavedConfirmation(String name) {
-    return '$name gespeichert';
-  }
-
-  @override
-  String builderDayDeletedConfirmation(String name) {
-    return '$name gelöscht';
-  }
-
-  @override
-  String get builderUnsavedChangesBadge => 'Ungespeicherte Änderungen';
-
-  @override
-  String get builderCreateExercise => 'Erstellen';
-
-
-  @override
-  String get builderDurationRange => 'Muss zwischen 1 und 1440 Minuten liegen.';
-
-  @override
   String get workoutDayHint => 'z.B. Montag';
 
   @override
@@ -3621,4 +3447,191 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get couldNotLoadBody =>
       'Prüfe deine Verbindung und versuche es erneut.';
+
+  @override
+  String get errorWorkoutNameRequired => 'Gib dem Tag einen Namen.';
+
+  @override
+  String get errorLoadClientWorkouts =>
+      'Die Workouts dieses Kunden konnten nicht geladen werden.';
+
+  @override
+  String get errorLoadExerciseLibrary =>
+      'Die Übungsbibliothek konnte nicht geladen werden.';
+
+  @override
+  String get errorExerciseNameRequired => 'Gib der Übung einen Namen.';
+
+  @override
+  String get errorCreateExercise => 'Die Übung konnte nicht erstellt werden.';
+
+  @override
+  String get errorSaveWorkout => 'Dieser Tag konnte nicht gespeichert werden.';
+
+  @override
+  String get errorDeleteWorkout => 'Dieser Tag konnte nicht gelöscht werden.';
+
+  @override
+  String get errorWorkoutHasHistory =>
+      'Für diesen Tag sind bereits Einheiten protokolliert — er kann nicht gelöscht werden.';
+
+  @override
+  String get errorUnknownExercise =>
+      'Eine der Übungen in diesem Tag konnte nicht zugewiesen werden. Entferne sie und füge sie erneut hinzu.';
+
+  @override
+  String get errorScheduleWorkoutPlan =>
+      'Dieser Plan konnte nicht eingeplant werden.';
+
+  @override
+  String get builderDays => 'Tage';
+
+  @override
+  String get builderNewDay => 'Neuer Tag';
+
+  @override
+  String get builderDayName => 'Name des Tages';
+
+  @override
+  String get builderDayNameHint => 'z. B. Push Day';
+
+  @override
+  String get builderDifficulty => 'Schwierigkeit';
+
+  @override
+  String get builderDifficultyBeginner => 'Anfänger';
+
+  @override
+  String get builderDifficultyIntermediate => 'Fortgeschritten';
+
+  @override
+  String get builderDifficultyAdvanced => 'Experte';
+
+  @override
+  String get builderDurationMinutes => 'Dauer (Minuten)';
+
+  @override
+  String get builderExercises => 'Übungen';
+
+  @override
+  String get builderNoExercisesYetTitle => 'Noch keine Übungen';
+
+  @override
+  String get builderNoExercisesYetBody =>
+      'Füge Übungen hinzu, um diesen Tag aufzubauen.';
+
+  @override
+  String get builderAddExercise => 'Übung hinzufügen';
+
+  @override
+  String get builderRemoveExercise => 'Übung entfernen';
+
+  @override
+  String get builderMoveExerciseUp => 'Nach oben verschieben';
+
+  @override
+  String get builderMoveExerciseDown => 'Nach unten verschieben';
+
+  @override
+  String get builderSets => 'Sätze';
+
+  @override
+  String get builderAddSet => 'Satz hinzufügen';
+
+  @override
+  String get builderRemoveSet => 'Satz entfernen';
+
+  @override
+  String get builderExpandDayDetails => 'Tagesdetails anzeigen';
+
+  @override
+  String get builderCollapseDayDetails => 'Tagesdetails ausblenden';
+
+  @override
+  String get builderTargetRepsLabel => 'Ziel-Wiederholungen';
+
+  @override
+  String get builderTargetRepsHint => 'z. B. 8-12';
+
+  @override
+  String get builderCoachNoteLabel => 'Notiz vom Trainer';
+
+  @override
+  String get builderCoachNoteHint => 'z. B. Ellbogen anlegen, RPE 8';
+
+  @override
+  String get builderSaveDay => 'Tag speichern';
+
+  @override
+  String get builderDeleteDay => 'Tag löschen';
+
+  @override
+  String get builderDeleteDayConfirmTitle => 'Diesen Tag löschen?';
+
+  @override
+  String builderDeleteDayConfirmBody(String name) {
+    return '$name wird aus diesem Plan entfernt. Dies kann nicht rückgängig gemacht werden.';
+  }
+
+  @override
+  String get builderDiscardChangesTitle => 'Änderungen verwerfen?';
+
+  @override
+  String get builderDiscardChangesBody =>
+      'Du hast ungespeicherte Änderungen an diesem Tag.';
+
+  @override
+  String get builderDiscard => 'Verwerfen';
+
+  @override
+  String get builderKeepEditing => 'Weiter bearbeiten';
+
+  @override
+  String get builderNoWorkoutsTitle => 'Noch keine Tage';
+
+  @override
+  String builderNoWorkoutsBody(String name) {
+    return 'Füge den ersten Tag zu ${name}s Plan hinzu.';
+  }
+
+  @override
+  String get builderPickExerciseTitle => 'Übung hinzufügen';
+
+  @override
+  String get builderSearchExercisesHint => 'Übungen suchen';
+
+  @override
+  String get builderNoExercisesFound => 'Keine Übungen gefunden.';
+
+  @override
+  String get builderNewExerciseAction => 'Neue Übung';
+
+  @override
+  String get builderNewExerciseTitle => 'Neue Übung';
+
+  @override
+  String get builderExerciseNameLabel => 'Name der Übung';
+
+  @override
+  String get builderTrainerOwnedTag =>
+      'Deine eigene — wird beim Zuweisen als Kopie mit dem Kunden geteilt';
+
+  @override
+  String builderDaySavedConfirmation(String name) {
+    return '$name gespeichert';
+  }
+
+  @override
+  String builderDayDeletedConfirmation(String name) {
+    return '$name gelöscht';
+  }
+
+  @override
+  String get builderUnsavedChangesBadge => 'Ungespeicherte Änderungen';
+
+  @override
+  String get builderCreateExercise => 'Erstellen';
+
+  @override
+  String get builderDurationRange => 'Muss zwischen 1 und 1440 Minuten liegen.';
 }

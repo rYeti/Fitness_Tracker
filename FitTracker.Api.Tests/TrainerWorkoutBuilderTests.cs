@@ -267,6 +267,250 @@ public class TrainerWorkoutBuilderTests : IDisposable
         Assert.Equal(7, await _fx.Db.ScheduledWorkouts.CountAsync(s => s.WorkoutPlanId == plan.Id));
     }
 
+    // ── Reading a client's workouts back ─────────────────────────────────────
+    //
+    // Everything below is about residue this table already holds. Duplicate
+    // WorkoutExercise rows and stacked generations of WorkoutSetTemplates were
+    // written by sync bugs fixed forward long ago (docs/trainer-session-review.md §2
+    // and §4), and nothing will ever delete them: a training log is not something a
+    // migration gets to tidy. Every other reader folds them — the sync client as it
+    // pulls (`_collapseDuplicateServerExercises`), Session Review as it reports
+    // (`CollapseDuplicateEntries`) — which is exactly why nobody saw them until the
+    // Workout Builder read the same rows raw.
+
+    [Fact]
+    public async Task ADuplicateSlotIsShownOnce()
+    {
+        var squat = AddExercise(null, "Back Squat");
+        var created = await _console.CreateClientWorkoutAsync(_trainer.Id, _client.Id, new ClientWorkoutRequestDto
+        {
+            Name = "Leg Day",
+            Exercises = [new ClientWorkoutExerciseRequestDto { ExerciseId = squat.Id, TargetReps = ["5", "5"] }],
+        });
+        AddRawEntry(created.Workout!.Id, squat.Id, orderPosition: 0, sets: 2);
+
+        var workouts = await _console.GetClientWorkoutsAsync(_trainer.Id, _client.Id);
+
+        var only = Assert.Single(Assert.Single(workouts!).Exercises);
+        Assert.Equal(2, only.Sets.Count);
+    }
+
+    [Fact]
+    public async Task TheSurvivorOfADuplicateSlotIsTheRowTheClientLoggedAgainst()
+    {
+        var squat = AddExercise(null, "Back Squat");
+        var created = await _console.CreateClientWorkoutAsync(_trainer.Id, _client.Id, new ClientWorkoutRequestDto
+        {
+            Name = "Leg Day",
+            Exercises = [new ClientWorkoutExerciseRequestDto { ExerciseId = squat.Id, TargetReps = ["5", "5"] }],
+        });
+        var live = created.Workout!.Exercises.Single();
+        // The twin carries its own, older prescription — three sets to the live row's two.
+        AddRawEntry(created.Workout.Id, squat.Id, orderPosition: 0, sets: 3);
+
+        var session = _fx.AddSession(created.Workout.Id, DateTime.UtcNow.Date);
+        _fx.AddLoggedSet(session.Id, live.Id);
+
+        var workouts = await _console.GetClientWorkoutsAsync(_trainer.Id, _client.Id);
+
+        // Which row survives is not cosmetic: its id is what the builder sends back on
+        // save, and every entry the payload omits is removed. Keeping the twin the
+        // client's sessions point at is what stops a save retiring their own history.
+        var only = Assert.Single(Assert.Single(workouts!).Exercises);
+        Assert.Equal(live.Id, only.Id);
+        Assert.Equal(2, only.Sets.Count);
+    }
+
+    [Fact]
+    public async Task TheSameExerciseAtTwoPositionsIsARealSupersetNotADuplicate()
+    {
+        var squat = AddExercise(null, "Back Squat");
+        var created = await _console.CreateClientWorkoutAsync(_trainer.Id, _client.Id, new ClientWorkoutRequestDto
+        {
+            Name = "Leg Day",
+            Exercises =
+            [
+                new ClientWorkoutExerciseRequestDto { ExerciseId = squat.Id, TargetReps = ["5"] },
+                new ClientWorkoutExerciseRequestDto { ExerciseId = squat.Id, TargetReps = ["12"] },
+            ],
+        });
+
+        Assert.Equal(TrainerWorkoutStatus.Ok, created.Status);
+        var workouts = await _console.GetClientWorkoutsAsync(_trainer.Id, _client.Id);
+
+        // A movement paired with itself is a legitimate superset. Position is what tells
+        // the two apart, which is why it is part of the fold's key and not just the
+        // write path's.
+        Assert.Equal(2, Assert.Single(workouts!).Exercises.Count);
+    }
+
+    [Fact]
+    public async Task SeveralGenerationsOfAPrescriptionShowAsOneSetPerNumber()
+    {
+        var squat = AddExercise(null, "Back Squat");
+        var created = await _console.CreateClientWorkoutAsync(_trainer.Id, _client.Id, new ClientWorkoutRequestDto
+        {
+            Name = "Leg Day",
+            Exercises = [new ClientWorkoutExerciseRequestDto { ExerciseId = squat.Id, TargetReps = ["5", "5", "5"] }],
+        });
+        var entry = created.Workout!.Exercises.Single();
+        // A second generation of the same three sets, the shape an append-instead-of-replace
+        // batch post left behind before it was fixed.
+        AddRawSetTemplates(entry.Id, count: 3);
+
+        var workouts = await _console.GetClientWorkoutsAsync(_trainer.Id, _client.Id);
+
+        var only = Assert.Single(Assert.Single(workouts!).Exercises);
+        Assert.Equal(3, only.Sets.Count);
+        Assert.Equal([1, 2, 3], only.Sets.Select(s => s.SetNumber));
+    }
+
+    [Fact]
+    public async Task AnEntryWhoseExerciseNoLongerExistsIsHidden()
+    {
+        var squat = AddExercise(null, "Back Squat");
+        var curl = AddExercise(_client.Id, "Preacher Curl");
+        var created = await _console.CreateClientWorkoutAsync(_trainer.Id, _client.Id, new ClientWorkoutRequestDto
+        {
+            Name = "Leg Day",
+            Exercises =
+            [
+                new ClientWorkoutExerciseRequestDto { ExerciseId = squat.Id, TargetReps = ["5"] },
+                new ClientWorkoutExerciseRequestDto { ExerciseId = curl.Id, TargetReps = ["10"] },
+            ],
+        });
+        Assert.Equal(TrainerWorkoutStatus.Ok, created.Status);
+
+        // The client deletes their own custom exercise. WorkoutExercise.ExerciseId carries
+        // no foreign key, so the entry survives as a reference to nothing — invisible on
+        // the client's device (docs/sync-dangling-references.md) and, sent back on save,
+        // enough to fail the whole day with unknown_exercise.
+        _fx.Db.Exercise.Remove(_fx.Db.Exercise.Single(e => e.Id == curl.Id));
+        _fx.Db.SaveChanges();
+
+        var workouts = await _console.GetClientWorkoutsAsync(_trainer.Id, _client.Id);
+
+        var only = Assert.Single(Assert.Single(workouts!).Exercises);
+        Assert.Equal(squat.Id, only.ExerciseId);
+    }
+
+    [Fact]
+    public async Task ARetiredEntryIsNotOfferedBackToTheTrainer()
+    {
+        var squat = AddExercise(null, "Back Squat");
+        var created = await _console.CreateClientWorkoutAsync(_trainer.Id, _client.Id, new ClientWorkoutRequestDto
+        {
+            Name = "Leg Day",
+            Exercises = [new ClientWorkoutExerciseRequestDto { ExerciseId = squat.Id, TargetReps = ["5"] }],
+        });
+        var entry = created.Workout!.Exercises.Single();
+
+        var session = _fx.AddSession(created.Workout.Id, DateTime.UtcNow.Date);
+        _fx.AddLoggedSet(session.Id, entry.Id);
+
+        // Dropped from the prescription: retired rather than deleted, because the logged
+        // set above still has to resolve through it.
+        await _console.UpdateClientWorkoutAsync(_trainer.Id, _client.Id, created.Workout.Id, new ClientWorkoutRequestDto
+        {
+            Name = "Leg Day",
+            Exercises = [],
+        });
+
+        Assert.NotNull((await _fx.Db.WorkoutExercises.AsNoTracking().SingleAsync(e => e.Id == entry.Id)).RemovedAt);
+        Assert.Empty(Assert.Single((await _console.GetClientWorkoutsAsync(_trainer.Id, _client.Id))!).Exercises);
+    }
+
+    [Fact]
+    public async Task SavingADayRemovesTheDuplicateTheFoldHid()
+    {
+        var squat = AddExercise(null, "Back Squat");
+        var created = await _console.CreateClientWorkoutAsync(_trainer.Id, _client.Id, new ClientWorkoutRequestDto
+        {
+            Name = "Leg Day",
+            Exercises = [new ClientWorkoutExerciseRequestDto { ExerciseId = squat.Id, TargetReps = ["5", "5"] }],
+        });
+        var live = created.Workout!.Exercises.Single();
+        AddRawEntry(created.Workout.Id, squat.Id, orderPosition: 0, sets: 2);
+
+        // The trainer edits the day they can see — one exercise — and saves. The diff
+        // reads the *unfolded* rows, so the twin the fold hid is simply an entry the
+        // payload does not account for, and the cleanup pass removes it. That is the
+        // whole cleanup story for this data: no migration, no delete script.
+        var updated = await _console.UpdateClientWorkoutAsync(_trainer.Id, _client.Id, created.Workout.Id, new ClientWorkoutRequestDto
+        {
+            Name = "Leg Day",
+            Exercises = [new ClientWorkoutExerciseRequestDto { Id = live.Id, ExerciseId = squat.Id, TargetReps = ["5", "5"] }],
+        });
+
+        Assert.Equal(TrainerWorkoutStatus.Ok, updated.Status);
+        var remaining = await _fx.Db.WorkoutExercises.AsNoTracking()
+            .Where(e => e.WorkoutId == created.Workout.Id && e.RemovedAt == null)
+            .ToListAsync();
+        Assert.Equal([live.Id], remaining.Select(e => e.Id));
+    }
+
+    [Fact]
+    public async Task ReadingAWorkoutCostsTheSameNumberOfQueriesHoweverManyExercisesItHas()
+    {
+        var squat = AddExercise(null, "Back Squat");
+        var created = await _console.CreateClientWorkoutAsync(_trainer.Id, _client.Id, new ClientWorkoutRequestDto
+        {
+            Name = "Leg Day",
+            Exercises = [new ClientWorkoutExerciseRequestDto { ExerciseId = squat.Id, TargetReps = ["5"] }],
+        });
+
+        _fx.Queries.Reset();
+        await _console.GetClientWorkoutsAsync(_trainer.Id, _client.Id);
+        var withOne = _fx.Queries.Count;
+
+        for (var position = 1; position < 10; position++)
+        {
+            AddRawEntry(created.Workout!.Id, AddExercise(null, $"Accessory {position}").Id, position, sets: 3);
+        }
+
+        _fx.Queries.Reset();
+        await _console.GetClientWorkoutsAsync(_trainer.Id, _client.Id);
+        var withTen = _fx.Queries.Count;
+
+        // The logged-history lookup the fold's survivor rule needs is one query for the
+        // whole request, not one per exercise.
+        Assert.Equal(withOne, withTen);
+    }
+
+    /// <summary>Writes a <see cref="WorkoutExercise"/> straight to the database, past the
+    /// per-slot idempotency guard in <c>AddExerciseToWorkoutAsync</c> — the only way to
+    /// reproduce the duplicate rows production already holds.</summary>
+    private WorkoutExercise AddRawEntry(Guid workoutId, Guid exerciseId, int orderPosition, int sets)
+    {
+        var we = new WorkoutExercise
+        {
+            Id = Guid.NewGuid(),
+            WorkoutId = workoutId,
+            ExerciseId = exerciseId,
+            OrderPosition = orderPosition,
+        };
+        _fx.Db.WorkoutExercises.Add(we);
+        _fx.Db.SaveChanges();
+        AddRawSetTemplates(we.Id, sets);
+        return we;
+    }
+
+    private void AddRawSetTemplates(Guid workoutExerciseId, int count)
+    {
+        for (var setNumber = 1; setNumber <= count; setNumber++)
+        {
+            _fx.Db.WorkoutSetTemplates.Add(new WorkoutSetTemplate
+            {
+                Id = Guid.NewGuid(),
+                WorkoutExerciseId = workoutExerciseId,
+                SetNumber = setNumber,
+                TargetReps = "8",
+                OrderPosition = setNumber - 1,
+            });
+        }
+        _fx.Db.SaveChanges();
+    }
+
     private Exercise AddExercise(Guid? userId, string name)
     {
         var exercise = new Exercise { Id = Guid.NewGuid(), UserId = userId, Name = name };

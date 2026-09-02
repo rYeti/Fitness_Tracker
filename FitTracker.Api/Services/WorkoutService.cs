@@ -184,6 +184,10 @@ public class WorkoutService : IWorkoutService
         return await _workoutRepository.DeleteSetTemplateAsync(id, userId);
     }
 
+    /// <inheritdoc/>
+    public Task<HashSet<Guid>> GetWorkoutExerciseIdsWithLoggedSetsAsync(IReadOnlyCollection<Guid> workoutExerciseIds) =>
+        _workoutRepository.GetWorkoutExerciseIdsWithLoggedSetsAsync(workoutExerciseIds);
+
     private static WorkoutResponseDto ToDto(Workout w) => new()
     {
         Id = w.Id,

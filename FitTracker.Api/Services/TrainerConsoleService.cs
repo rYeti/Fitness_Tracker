@@ -795,9 +795,11 @@ public class TrainerConsoleService(
 
         var workouts = await _workoutService.GetUserWorkoutsAsync(clientId);
         var plans = await _workoutPlanService.GetUserPlansAsync(clientId);
-        var names = await ExerciseNamesForAsync(workouts.SelectMany(w => w.Exercises));
+        var allExercises = workouts.SelectMany(w => w.Exercises).ToList();
+        var names = await ExerciseNamesForAsync(allExercises);
+        var loggedIds = await LoggedWorkoutExerciseIdsForAsync(allExercises);
 
-        return [.. workouts.Select(w => ToClientWorkoutDto(w, plans, names))];
+        return [.. workouts.Select(w => ToClientWorkoutDto(w, plans, names, loggedIds))];
     }
 
     /// <inheritdoc/>
@@ -1108,15 +1110,26 @@ public class TrainerConsoleService(
 
         var plans = await _workoutPlanService.GetUserPlansAsync(clientId);
         var names = await ExerciseNamesForAsync(workout.Exercises);
-        return ToClientWorkoutDto(workout, plans, names);
+        var loggedIds = await LoggedWorkoutExerciseIdsForAsync(workout.Exercises);
+        return ToClientWorkoutDto(workout, plans, names, loggedIds);
     }
 
     private Task<Dictionary<Guid, string>> ExerciseNamesForAsync(IEnumerable<WorkoutExerciseResponseDto> exercises) =>
         _exerciseService.GetNamesByIdsAsync(
             [.. exercises.Where(e => e.RemovedAt == null).Select(e => e.ExerciseId).Distinct()]);
 
+    /// <summary>Which of a workout's live exercise entries have at least one logged set
+    /// against them — the input <see cref="FoldDuplicateExerciseSlots"/> needs to pick the
+    /// right survivor out of a duplicated slot.</summary>
+    private Task<HashSet<Guid>> LoggedWorkoutExerciseIdsForAsync(IEnumerable<WorkoutExerciseResponseDto> exercises) =>
+        _workoutService.GetWorkoutExerciseIdsWithLoggedSetsAsync(
+            [.. exercises.Where(e => e.RemovedAt == null).Select(e => e.Id).Distinct()]);
+
     private static ClientWorkoutDto ToClientWorkoutDto(
-        WorkoutResponseDto workout, List<WorkoutPlanResponseDto> plans, Dictionary<Guid, string> exerciseNames) => new()
+        WorkoutResponseDto workout,
+        List<WorkoutPlanResponseDto> plans,
+        Dictionary<Guid, string> exerciseNames,
+        HashSet<Guid> loggedWorkoutExerciseIds) => new()
     {
         Id = workout.Id,
         Name = workout.Name,
@@ -1124,8 +1137,7 @@ public class TrainerConsoleService(
         Difficulty = workout.Difficulty,
         EstimatedDurationMinutes = workout.EstimatedDurationMinutes,
         PlanIds = [.. plans.Where(p => p.WorkoutIds.Contains(workout.Id)).Select(p => p.Id)],
-        Exercises = [.. workout.Exercises
-            .Where(e => e.RemovedAt == null)
+        Exercises = [.. FoldDuplicateExerciseSlots(workout.Exercises, exerciseNames, loggedWorkoutExerciseIds)
             .OrderBy(e => e.OrderPosition)
             .Select(e => new ClientWorkoutExerciseDto
             {
@@ -1135,7 +1147,62 @@ public class TrainerConsoleService(
                 OrderPosition = e.OrderPosition,
                 Notes = e.Notes,
                 SupersetGroupId = e.SupersetGroupId,
-                Sets = [.. e.SetTemplates.OrderBy(s => s.OrderPosition)],
+                Sets = [.. FoldDuplicateSetTemplates(e.SetTemplates)],
             })],
     };
+
+    /// <summary>Reduces a workout's live exercises to one row per <c>(ExerciseId,
+    /// OrderPosition)</c> slot — the same key <see cref="Repositories.WorkoutRepository.
+    /// AddExerciseToWorkoutAsync"/> is idempotent on, and the same key <see
+    /// cref="CollapseDuplicateEntries"/> folds Session Review's sessions on — and drops any
+    /// entry whose exercise definition no longer exists (absent from <paramref
+    /// name="exerciseNames"/>; see <see cref="ExerciseNamesForAsync"/>).</summary>
+    /// <remarks>Duplicate rows in one slot are residue from before adding an exercise became
+    /// idempotent per slot (`docs/trainer-session-review.md` §2); nothing will ever delete
+    /// them on its own, because this is a training log, not a table a migration gets to tidy.
+    /// Every other reader of these tables already folds duplicates on read — the sync client
+    /// as it pulls, Session Review as it reports — so the Workout Builder rendering the raw
+    /// rows was the one place a trainer could ever see them.
+    ///
+    /// Unlike <see cref="CollapseDuplicateEntries"/>, this fold always keeps exactly one row
+    /// per slot, even when more than one twin carries logged sets: the id returned here is
+    /// what the builder echoes straight back on save, and an editor can only ever be pointed
+    /// at one row for a slot. The survivor is the twin with logged history, if any — so the
+    /// trainer's edit lands on the row the client's sessions actually point at, rather than a
+    /// twin nobody ever trained — tie-broken by the lowest id for a result that doesn't change
+    /// between requests. One consequence worth being explicit about: <see
+    /// cref="UpdateClientWorkoutAsync"/> diffs against the *unfolded* live rows (`existingLive`
+    /// there), so a twin hidden here is simply absent from the next save's payload and is
+    /// removed by that method's own cleanup pass — retired if it has logged history, deleted
+    /// if not. Saving a day is what actually cleans up its duplicates; this fold only keeps
+    /// the trainer from seeing them in the meantime.</remarks>
+    private static IEnumerable<WorkoutExerciseResponseDto> FoldDuplicateExerciseSlots(
+        List<WorkoutExerciseResponseDto> exercises,
+        Dictionary<Guid, string> exerciseNames,
+        HashSet<Guid> loggedWorkoutExerciseIds)
+    {
+        var live = exercises.Where(e => e.RemovedAt == null && exerciseNames.ContainsKey(e.ExerciseId));
+
+        return live
+            .GroupBy(e => (e.ExerciseId, e.OrderPosition))
+            .Select(slot =>
+            {
+                var logged = slot.Where(e => loggedWorkoutExerciseIds.Contains(e.Id)).ToList();
+                IEnumerable<WorkoutExerciseResponseDto> candidates = logged.Count > 0 ? logged : slot;
+                return candidates.OrderBy(e => e.Id).First();
+            });
+    }
+
+    /// <summary>Reduces a prescription to one template per <c>SetNumber</c>. Re-saving a
+    /// workout appended a fresh copy of the whole prescription instead of replacing it until
+    /// <see cref="Services.WorkoutService.AddSetTemplatesBatchAsync"/> was fixed
+    /// (`docs/trainer-session-review.md` §4), so rows written before that can still hold
+    /// several generations of the same sets. Session Review already folds this the same
+    /// way (<c>:339-351</c>).</summary>
+    private static IEnumerable<WorkoutSetTemplateResponseDto> FoldDuplicateSetTemplates(
+        List<WorkoutSetTemplateResponseDto> templates) =>
+        templates
+            .GroupBy(t => t.SetNumber)
+            .OrderBy(g => g.Key)
+            .Select(g => g.OrderBy(t => t.OrderPosition).First());
 }
