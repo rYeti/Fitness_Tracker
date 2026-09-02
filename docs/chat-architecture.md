@@ -1049,3 +1049,73 @@ was entirely in how the reconnect handler chose that thread.
 > and the console's many threads run the same code; only one of them could ever
 > have shown this bug, and it was never going to be the one the original tests
 > were written against.
+
+---
+
+## 24. A message with nobody to encrypt it to
+
+§23 fixed reconnect replaying the wrong set of threads. It did not fix the
+report that prompted it, because that report described something stronger: a
+message not just stuck locally, but never reaching `ChatMessages` at all, and
+never reaching the recipient. §23's fix only widens *which* threads get a
+second attempt — if the first attempt, and every retry after it, fails for the
+same reason, widening the retry set changes nothing.
+
+The reason was upstream of the wire entirely. `_attemptSend` calls
+`_crypto.encrypt` before it calls `_signalR.send`, and `WebCryptoChatCrypto`
+"refuses to encrypt to a peer with no published key rather than send something
+unreadable" — `ChatKeyStore.peerKey` throws a plain `StateError` when
+`ChatKeyApi.fetchPeer` comes back null. `docs/chat-encryption.md` names this on
+purpose: a peer with no key is "a real state, not an error... they have simply
+not opened the app since this shipped." `_attemptSend`'s `catch (_)` treats
+that `StateError` exactly like a dropped socket — the row stays `pending`, silently
+— which is correct only if the next attempt has a real chance of succeeding.
+It never throws past `_attemptSend`, so nothing about the failure — not even
+that it happened — was ever visible anywhere: not a log, not the connection
+banner, not a distinct message state. A trainer with no error, no other symptom,
+and a bubble that says exactly what a dropped connection says, had no way to
+learn what was actually wrong.
+
+For a dropped socket, "the next attempt has a real chance" is true — the network
+comes back. For a keyless peer it is not, and the reason is a chicken-and-egg
+this codebase already had all the pieces to see coming. A key gets published
+by exactly one call, `ChatKeyStore.ensureRegistered`, and before this fix it
+ran from exactly two places: `trainer_console_home.dart`, when a trainer opens
+the console, and `coach_chat_entry.dart`, when a trainee pushes the Coach Chat
+route. Both are deliberate — `CoachChatEntry`'s own comment says building the
+whole chat stack there, socket included, means "a trainee who never opens chat
+never opens a socket." Correct, and it had a second effect nobody asked for:
+a trainee who has never opened chat has no published key either, because the
+one call that would have published it was gated behind the same screen. The
+trainer messaging that client first is the ordinary case, not an edge one —
+onboarding a new client and saying hello is most of what the feature is for.
+That message can never be read until the client opens chat on their own, and
+the client has no reason to open chat, because no message has ever reached
+them to tell them one is waiting. Nothing was going to interrupt that loop by
+itself.
+
+The fix does not touch the refusal — sending something the recipient's device
+cannot decrypt is still worse than not sending it, and `docs/chat-encryption.md`
+§8 is exactly as true after this change as before it. It moves *when the key
+gets published*, off of "the trainee opened chat" and onto "the trainee opened
+the app at all": `HomeScreen.initState` (`main.dart`) now calls
+`ChatKeyStore().ensureRegistered()` alongside the sync it already kicks off
+there. `ensureRegistered` talks only to `api/chat/keys`, never to the hub, so
+this costs one REST round trip on launch and — unlike building a
+`ChatRepository` there would — still opens no socket for a trainee who never
+touches chat. The trainer's first message to a client now has somewhere to
+land the moment that client has signed in and opened the app once, which for
+an onboarding flow is already true before the trainer ever gets to typing.
+
+This does not make the failure mode impossible, only far rarer: an account
+that has never once opened the app cannot have a key, and no design can change
+that — there is nobody home to publish one to. What changed is that "opened
+the app" and "opened chat specifically" no longer have to be the same event,
+and for most clients they already aren't.
+
+> **A guard that is correct in isolation can still create a deadlock once you
+> ask what has to happen *before* the condition it is waiting on.** Refusing
+> to send to a keyless peer is right. Gating the only call that creates a key
+> behind the feature that needed the refusal in the first place meant the
+> refusal could never resolve itself — the fix was never going to be in the
+> refusal, because the refusal was never the bug.

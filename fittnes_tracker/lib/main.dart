@@ -27,6 +27,7 @@ import 'core/widgets/lazy_indexed_stack.dart';
 import 'core/services/chat_push_decoder.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/push_service.dart';
+import 'feature/chat/data/chat_key_store.dart';
 import 'feature/chat/presentation/view/coach_chat_entry.dart';
 import 'feature/trainer_console/presentation/widgets/trainer_console_shell.dart';
 import 'core/providers/theme_provider.dart';
@@ -680,6 +681,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     // to the gym tab so ScheduledWorkoutsView can auto-resume the session.
     _switchToGymTabIfWorkoutInProgress();
     _runInitialSync();
+
+    // Publishes this device's chat key, if it hasn't been already -- not
+    // conditional on ever opening Coach Chat. `CoachChatEntry` only builds a
+    // `ChatRepository` (and its socket) when the trainee actually pushes that
+    // route, on purpose: chat should not cost a permanent connection for
+    // someone who never uses it. But a key that is only published on that same
+    // trigger means a trainer's *first* message to a client who hasn't opened
+    // chat yet has no key to encrypt to -- `WebCryptoChatCrypto.encrypt` throws
+    // rather than send something unreadable, the send is left `pending`, and
+    // nothing will ever revisit it until the client happens to open chat on
+    // their own. `ensureRegistered` only talks to `api/chat/keys`, never the
+    // hub, so registering it here costs a REST round trip and no socket -- the
+    // trainee app's own equivalent of what `trainer_console_home.dart` already
+    // does for the trainer side.
+    unawaited(ChatKeyStore().ensureRegistered().catchError((Object _) {}));
   }
 
   @override
