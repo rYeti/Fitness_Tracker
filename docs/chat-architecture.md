@@ -985,3 +985,67 @@ The practical rule that would have caught three of the four:
 - **Retry backoff tuning.** `maxReplayAttempts` is 3 with no delay between
   reconnects, because the reconnect itself is the backoff. How many attempts, and
   whether to space them, is a product decision nobody has made yet.
+
+---
+
+## 23. Replay resolved "which thread", not "which messages"
+
+§3 above ends with the line the bug hid behind: replay is "driven by the
+reconnect signal, never a timer." True, and incomplete — the signal told the
+repository *that* to replay, but the reconnect handler decided *what* by reading
+one field:
+
+```dart
+_reconnectedSubscription = _signalR.onReconnected.listen((_) {
+  final thread = _activeThreadId;
+  if (thread != null) unawaited(replayPending(thread));
+});
+```
+
+That line was never wrong for the trainee app. It has exactly one thread, so "the
+thread on screen" and "every thread with something pending" are the same set by
+construction, and the test suite — every fixture in `chat_repository_test.dart`
+before this fix used a single `otherParty` — could not tell the two apart either.
+
+The Trainer Console breaks that coincidence on purpose. §5's whole point is that
+this device stays in *every* conversation's hub group, not just the open one, so
+the inbox can raise an unread badge for a thread nobody is looking at. The outbox
+follows the same shape without anyone deciding it should: `sendMessage` writes a
+row keyed by `otherPartyId` regardless of which thread is active, so a trainer who
+messages three clients in a row queues three rows across three threads. A
+reconnect that only replayed `_activeThreadId` — whichever one happened to be open
+at that exact moment — resolved one of those three and left the other two with no
+path back to the wire at all. Not "eventually, on the next reconnect": *no* future
+reconnect helps them, because each one repeats the same one-thread lookup against
+whatever thread is open *then*, which by that point is usually none of the three.
+
+That is why the report behind this fix reads the way it does: several messages to
+several clients, all still `pending` a full day later on a connection that was
+plainly fine. A day is long enough for a mobile connection or a browser tab to
+reconnect more than once — the mechanism the design relies on was firing. It was
+just answering a question — "what is the open thread?" — that has nothing to do
+with the question that actually needed answering, "what is unsent?"
+
+### Why this passed every existing test
+
+`getPendingMessages(otherPartyId)` — one thread's queue — already existed and is
+exactly right for what `replayPending` itself does with it. Nothing about that
+method was broken. The gap was one level up: nothing ever asked the outbox
+*which* `otherPartyId`s currently need it, so the reconnect handler had only
+`_activeThreadId` to reach for, and reached for it. `getOtherPartyIdsWithPendingMessages`
+now answers that question directly — a distinct projection over rows still
+`pending`, no different in kind from the query the DAO already had — and the
+reconnect handler replays each one in turn rather than picking a single thread
+to trust.
+
+Fixed in the DAO and the reconnect handler only. `sendMessage`'s own inline
+attempt, `replayPending`'s per-thread ordering, and the manual "tap to retry"
+path were all already correct for whichever thread they were given; the defect
+was entirely in how the reconnect handler chose that thread.
+
+> **A field that is correct for every caller you have today can still be the
+> wrong question, if the answer it gives happens to coincide with the right one
+> for as long as there is only one candidate.** The trainee app's single thread
+> and the console's many threads run the same code; only one of them could ever
+> have shown this bug, and it was never going to be the one the original tests
+> were written against.

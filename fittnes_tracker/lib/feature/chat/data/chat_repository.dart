@@ -116,9 +116,16 @@ class ChatRepository {
     // Replay is driven by the reconnect signal, never a timer: a timer would
     // either fire uselessly while the connection is still down or sit idle after
     // it comes back.
+    //
+    // Every thread with a pending row, not just the one on screen. The outbox
+    // is not scoped to the open conversation -- a trainer who messages several
+    // clients queues rows across several threads, and replaying only
+    // `_activeThreadId` left every other one stuck at `pending` forever: the
+    // only other path back to `sendMessage`'s own network attempt is a second
+    // reconnect that happens to land while that particular thread is open,
+    // which for most threads never happens.
     _reconnectedSubscription = _signalR.onReconnected.listen((_) {
-      final thread = _activeThreadId;
-      if (thread != null) unawaited(replayPending(thread));
+      unawaited(_replayAllPending());
     });
 
     // Chained rather than fired off per event. [_handleIncoming] became async
@@ -384,6 +391,21 @@ class ChatRepository {
   }
 
   // ── Replay ────────────────────────────────────────────────────────────────
+
+  /// Every thread with a pending row, replayed one thread at a time.
+  ///
+  /// [replayPending] already serialises a single thread's own messages so
+  /// their order survives; there is no equivalent constraint *between*
+  /// threads, since each is a separate conversation. Sequential rather than
+  /// concurrent anyway, so one thread's failure (which stops [replayPending]
+  /// at the first error) can't be misread as reason to stop the others — each
+  /// gets its own independent attempt.
+  Future<void> _replayAllPending() async {
+    final threads = await _db.chatoutboxDao.getOtherPartyIdsWithPendingMessages();
+    for (final otherPartyId in threads) {
+      await replayPending(otherPartyId);
+    }
+  }
 
   /// §4 "On reconnect": resend everything still pending for [otherPartyId], in
   /// the order it was typed.

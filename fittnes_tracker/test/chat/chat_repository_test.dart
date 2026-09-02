@@ -170,6 +170,28 @@ void main() {
       expect(unsent.single.chatMessageStatus, ChatMessageStatus.failed.index);
     });
 
+    test('reconnect replays every thread with a pending message, not just the open one', () async {
+      // The bug this pins: a trainer messaging several clients queues rows
+      // across several `otherPartyId`s. Only replaying `_activeThreadId` left
+      // every other thread's message stuck at `pending` forever, because
+      // nothing else ever revisited it.
+      const otherClient = 'another-client';
+      await seedOutboxRow(db,
+          messageId: 'm1', otherPartyId: otherParty, body: 'first', createdAt: DateTime.utc(2026, 8, 1));
+      await seedOutboxRow(db,
+          messageId: 'm2', otherPartyId: otherClient, body: 'second', createdAt: DateTime.utc(2026, 8, 1));
+      final repository = build();
+      // Only otherParty's thread is open when the reconnect fires.
+      await repository.openThread(otherParty);
+
+      signalR.fireReconnected();
+      await pumpEventQueue();
+
+      expect(signalR.sent.map((s) => s.messageId).toSet(), {'m1', 'm2'});
+      expect(await db.chatoutboxDao.getPendingMessages(otherParty), isEmpty);
+      expect(await db.chatoutboxDao.getPendingMessages(otherClient), isEmpty);
+    });
+
     test('a manual retry puts a failed message back in the queue with its id intact', () async {
       await seedOutboxRow(db,
           messageId: 'm1',

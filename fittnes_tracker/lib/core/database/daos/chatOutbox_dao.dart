@@ -74,4 +74,22 @@ class ChatoutboxDao extends DatabaseAccessor<AppDatabase>
           ..where((t) => t.messageId.equals(messageId)))
         .getSingleOrNull();
   }
+
+  /// Every thread with at least one message still `pending`, not just the one
+  /// on screen.
+  ///
+  /// What the reconnect handler replays against. A trainer's outbox is not
+  /// scoped to one conversation — sending to several clients queues rows
+  /// across several `otherPartyId`s, and a reconnect that only replayed the
+  /// thread currently open would leave the rest pending forever, because
+  /// nothing else ever revisits them.
+  Future<List<String>> getOtherPartyIdsWithPendingMessages() {
+    final query = selectOnly(chatOutBoxTable, distinct: true)
+      ..addColumns([chatOutBoxTable.otherPartyId])
+      ..where(chatOutBoxTable.chatMessageStatus
+          .equals(ChatMessageStatus.pending.index));
+    return query
+        .map((row) => row.read(chatOutBoxTable.otherPartyId)!)
+        .get();
+  }
 }
