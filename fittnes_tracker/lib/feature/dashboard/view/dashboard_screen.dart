@@ -33,10 +33,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _allTimeCompleted = 0;
   int _todayCalories = 0;
 
+  // DashboardScreen is kept alive underneath whatever the SpeedDial pushes
+  // (see globalDashboardKey above), so its ticker gets muted the instant the
+  // new route lands on top. flutter_speed_dial closes itself by reversing an
+  // AnimationController and only tears down its overlay entries in that
+  // animation's whenComplete — if the controller is muted mid-reverse it
+  // never fires, and the dial's full-screen scrim/hit-tester is left
+  // permanently covering whatever we just navigated to. Closing the dial
+  // through this notifier and waiting out its animation *before* pushing
+  // keeps the close on the still-active route, so it always completes.
+  final _dialOpen = ValueNotifier<bool>(false);
+
   @override
   void initState() {
     super.initState();
     _loadDashboardData();
+  }
+
+  @override
+  void dispose() {
+    _dialOpen.dispose();
+    super.dispose();
+  }
+
+  Future<void> _closeDialThenNavigate(FutureOr<void> Function() navigate) async {
+    _dialOpen.value = false;
+    await Future.delayed(const Duration(milliseconds: 150));
+    if (!mounted) return;
+    await navigate();
   }
 
   /// Public so callers outside this widget (via [globalDashboardKey]) can
@@ -110,44 +134,47 @@ class _DashboardScreenState extends State<DashboardScreen> {
         activeIcon: Icons.close,
         backgroundColor: colorScheme.primary,
         foregroundColor: Colors.white,
+        openCloseDial: _dialOpen,
         children: [
           SpeedDialChild(
             child: const Icon(Icons.free_breakfast),
             backgroundColor: colorScheme.primary,
             label: l10n.addBreakfast,
-            onTap: () async {
-              await context.push('/add-food', extra: {'category': 'Breakfast'});
-            },
+            onTap: () => _closeDialThenNavigate(
+              () => context.push('/add-food', extra: {'category': 'Breakfast'}),
+            ),
           ),
           SpeedDialChild(
             child: const Icon(Icons.lunch_dining),
             backgroundColor: colorScheme.primary,
             label: l10n.addLunch,
-            onTap: () async {
-              await context.push('/add-food', extra: {'category': 'Lunch'});
-            },
+            onTap: () => _closeDialThenNavigate(
+              () => context.push('/add-food', extra: {'category': 'Lunch'}),
+            ),
           ),
           SpeedDialChild(
             child: const Icon(Icons.dinner_dining),
             backgroundColor: colorScheme.primary,
             label: l10n.addDinner,
-            onTap: () async {
-              await context.push('/add-food', extra: {'category': 'Dinner'});
-            },
+            onTap: () => _closeDialThenNavigate(
+              () => context.push('/add-food', extra: {'category': 'Dinner'}),
+            ),
           ),
           SpeedDialChild(
             child: const Icon(Icons.cookie),
             backgroundColor: colorScheme.primary,
             label: l10n.addSnack,
-            onTap: () async {
-              await context.push('/add-food', extra: {'category': 'Snacks'});
-            },
+            onTap: () => _closeDialThenNavigate(
+              () => context.push('/add-food', extra: {'category': 'Snacks'}),
+            ),
           ),
           SpeedDialChild(
             child: const Icon(Icons.monitor_weight),
             backgroundColor: colorScheme.primary,
             label: l10n.addWeight,
-            onTap: () => context.push('/weight-tracking'),
+            onTap: () => _closeDialThenNavigate(
+              () => context.push('/weight-tracking'),
+            ),
           ),
         ],
       ),
