@@ -453,3 +453,122 @@ which is where this feature always lives.
 > **Encryption is not a layer you add to a system. It is a constraint you impose
 > on it, and the interesting part is everything that turns out to have been
 > depending on the constraint being absent.**
+
+---
+
+## 9. The constraint that was never checked against the product it shipped in
+
+Everything above this line was written the day chat encryption shipped, and
+none of it was wrong. It was incomplete in a way nothing above it could have
+caught, because the gap was not in the cryptography — it was in a premise
+about the *product* that the cryptography section never had reason to state.
+
+### The bug
+
+A trainer opens the Trainer Console on a desktop for the first time, having
+already used chat on their phone. Every message in every thread — including
+ones they sent from that phone, minutes earlier — renders as "Message can't be
+decrypted on this device." Not just on the desktop. On the phone too, the next
+time either party's app talks to the server. The conversation is not merely
+unavailable on the new device; it is gone, permanently, everywhere.
+
+### Why the compiler and the tests had nothing to say about it
+
+`UserChatKey.UserId` was the primary key. `UserChatKeyRepository.UpsertAsync`
+did exactly what its own doc comment said: replace the existing row, because
+"a reinstall cannot recover the old private key, so refusing the new public
+key would leave that user permanently unable to send anything readable." That
+reasoning is correct for a reinstall. `ChatKeyControllerTests` had a test
+titled `Republishing_replaces_the_previous_key`, asserting `Assert.Single`,
+and it passed, because replacing the row is precisely what the code was asked
+to do and precisely what it did.
+
+The type system enforced the schema faithfully: one key pair, one row, one
+owner. Nothing about `Guid UserId` as a primary key is a type error. No test
+exercised two *devices* registering for the same account, because nothing in
+`docs/chat-encryption.md` §3 or the original design ever named "device" as a
+concept distinct from "account" — the document's own vault layout comment
+says the private key entry is "deliberately not keyed by user id," which is
+true and unrelated to the bug, and reads, if you are not looking for it, as
+though device identity had already been considered and rejected. It had been
+considered for a different question: what the *client* can compute offline.
+Whether the *server* could hold more than one key per account was never asked,
+because the product this was designed against was implicitly single-device.
+
+> **A green suite proves the code does what the tests describe. It has no
+> opinion on whether the tests describe the product.** `docs/chat-encryption.md`
+> §3 already contains the sentence that should have been the warning sign:
+> "signing in on a second device… means messages from before that point cannot
+> be decrypted there." *There* was doing more work than anyone reading it at
+> the time noticed — it silently assumed the other devices would be unaffected,
+> which was true for the single-device product this was written against and
+> false the moment `CLAUDE.md`'s own "Web support" and "Desktop support"
+> sections made the Trainer Console a second device for the same account.
+
+### The two-line reason the blast radius was everywhere, not just the new device
+
+A new device having no history is the *expected* cost of no key backup — that
+part of the design was always going to be true and is still true today. The
+part that made this a bug rather than an accepted limitation is `_decrypt`'s
+own recovery path, from §4: the one-time forget-and-refetch after a decryption
+failure. It exists so a peer's reinstall doesn't permanently break a thread.
+It has no way to tell "the peer reinstalled" apart from "the peer registered a
+second device that just overwrote the first's key" — both look identical from
+outside: the cached public key stopped matching. So the very mechanism meant
+to *heal* a broken thread was what spread the break to the peer's own device:
+the peer's app dutifully forgot the old (working) key, fetched the new one,
+and could no longer read anything it had cached the old key to decrypt. Two
+correct, well-tested pieces of logic — replace-on-publish and
+forget-and-retry-once — combined into a failure neither one owns alone.
+
+### The fix, and what it cost
+
+`UserChatKeys` (one row per user) became `UserChatDeviceKeys` (one row per
+`(user, device)`) plus `ChatMessageKeys` (one wrapped content key per target
+device per message). A message is now encrypted once, under a random content
+key, and that content key is wrapped — once per device of *both* parties, the
+sender's own included — under a secret derived from the message's own
+ephemeral ECDH key pair and each device's public key. Registering a device is
+additive: nothing about another device's row changes, and nothing a peer had
+already cached stops working, because reading a version-2 message no longer
+touches a cached peer key at all. `_decrypt`'s forget-and-retry survives only
+for version 1, gated explicitly on `encryptionVersion == 1` — it would
+otherwise spend a network round trip discovering that a version-2 failure
+means what it always means: no wrapped key for this device, because the
+message predates it.
+
+The cost is real and was a deliberate trade, not an oversight: a message still
+carries one ciphertext but now up to *N* small wrapped-key entries, one per
+registered device of both parties, and the push payload budget
+(`PushNotificationService.MaxDataBytes`) had to widen and change what it
+measures — the whole assembled data dictionary, not the ciphertext alone —
+because the wrap material is exactly as necessary as the ciphertext it
+protects and exactly as useless without it. `UserChatDeviceKeys` is pruned to
+the ten most-recently-seen devices per account specifically so this list
+cannot grow without bound; the messages already wrapped for a pruned device's
+row stay wrapped and simply stop growing new entries for it.
+
+### The general lesson
+
+Every other document in this directory that describes a bug found it by
+tracing a value through code that handled it wrong. This one is different: the
+code that caused it was correct on its own terms, twice over — a replace that
+was the right behavior for a reinstall, and a retry that was the right
+behavior for a rotated key. The defect was a premise neither piece of code
+stated or was responsible for stating: that "the account" and "the device"
+were the same thing. Nothing types that premise. Nothing tests its negation
+unless someone thinks to write a test for two devices, and nobody did, because
+the document describing the feature had already, reasonably, scoped itself to
+one.
+
+> **A design constraint inherited from an earlier, narrower version of the
+> product does not announce itself when the product grows past it.** The
+> single-device assumption was never wrong when it was written — chat shipped
+> before the Trainer Console was a second client surface for the same account.
+> It became wrong silently, on a date with no diff attached to it, the moment
+> another part of the codebase made a promise (a trainer can use the console
+> on desktop and stay signed in on their phone) that this feature's own data
+> model could not keep. The fix is not "test more." It is: when a document
+> states a limitation as a fact about the product ("this device," "the peer"),
+> treat every place elsewhere in the codebase that changes what "a device" or
+> "an account" means as a reason to reread it.

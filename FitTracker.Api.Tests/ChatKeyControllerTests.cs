@@ -30,7 +30,7 @@ public class ChatKeyControllerTests
     {
         var trainerClientRepo = new TrainerClientRepository(ctx.Db);
         return new ChatKeyController(
-            new UserChatKeyRepository(ctx.Db),
+            new ChatDeviceKeyRepository(ctx.Db),
             new TrainerClientService(
                 trainerClientRepo, new TrainerLicenceRepository(ctx.Db)))
         {
@@ -58,13 +58,15 @@ public class ChatKeyControllerTests
         using var ctx = new ChatScenario();
 
         await NewController(ctx, ctx.TrainerId)
-            .Publish(new PublishChatKeyRequestDto { PublicKeyJwk = AliceJwk });
+            .Publish(new PublishChatKeyRequestDto { DeviceId = "phone", PublicKeyJwk = AliceJwk });
 
         var key = OkValue<ChatKeyDto>(
             await NewController(ctx, ctx.ClientId).Peer(ctx.TrainerId));
 
         Assert.Equal(ctx.TrainerId, key.UserId);
-        Assert.Equal(AliceJwk, key.PublicKeyJwk);
+        var device = Assert.Single(key.Devices);
+        Assert.Equal("phone", device.DeviceId);
+        Assert.Equal(AliceJwk, device.PublicKeyJwk);
     }
 
     [Fact]
@@ -78,7 +80,7 @@ public class ChatKeyControllerTests
         var me = OkValue<ChatKeyDto>(await NewController(ctx, ctx.TrainerId).Me());
 
         Assert.Equal(ctx.TrainerId, me.UserId);
-        Assert.Null(me.PublicKeyJwk);
+        Assert.Empty(me.Devices);
     }
 
     [Fact]
@@ -87,26 +89,43 @@ public class ChatKeyControllerTests
         using var ctx = new ChatScenario();
         var controller = NewController(ctx, ctx.TrainerId);
 
-        await controller.Publish(new PublishChatKeyRequestDto { PublicKeyJwk = AliceJwk });
+        await controller.Publish(new PublishChatKeyRequestDto { DeviceId = "phone", PublicKeyJwk = AliceJwk });
 
-        Assert.Equal(AliceJwk, OkValue<ChatKeyDto>(await controller.Me()).PublicKeyJwk);
+        var device = Assert.Single(OkValue<ChatKeyDto>(await controller.Me()).Devices);
+        Assert.Equal(AliceJwk, device.PublicKeyJwk);
     }
 
     [Fact]
-    public async Task Republishing_replaces_the_previous_key()
+    public async Task A_second_device_does_not_replace_the_first()
     {
-        // A reinstall cannot recover its old private key, so refusing the new
-        // public key would leave that user permanently unable to send anything
-        // the other side could read. The cost is that their older messages stop
-        // being decryptable, which is the documented price of no key backup.
+        // This is the fix: registering a device used to overwrite the account's
+        // single key, which meant a trainer opening the console on a desktop
+        // silently made every message their phone had already sent or received
+        // unreadable everywhere. See docs/chat-encryption.md.
         using var ctx = new ChatScenario();
         var controller = NewController(ctx, ctx.TrainerId);
 
-        await controller.Publish(new PublishChatKeyRequestDto { PublicKeyJwk = AliceJwk });
-        await controller.Publish(new PublishChatKeyRequestDto { PublicKeyJwk = BobJwk });
+        await controller.Publish(new PublishChatKeyRequestDto { DeviceId = "phone", PublicKeyJwk = AliceJwk });
+        await controller.Publish(new PublishChatKeyRequestDto { DeviceId = "desktop", PublicKeyJwk = BobJwk });
 
-        Assert.Single(ctx.Db.UserChatKeys);
-        Assert.Equal(BobJwk, OkValue<ChatKeyDto>(await controller.Me()).PublicKeyJwk);
+        Assert.Equal(2, ctx.Db.UserChatDeviceKeys.Count());
+        var devices = OkValue<ChatKeyDto>(await controller.Me()).Devices;
+        Assert.Equal(2, devices.Count);
+        Assert.Contains(devices, d => d.DeviceId == "phone" && d.PublicKeyJwk == AliceJwk);
+        Assert.Contains(devices, d => d.DeviceId == "desktop" && d.PublicKeyJwk == BobJwk);
+    }
+
+    [Fact]
+    public async Task Republishing_the_same_device_updates_its_key_in_place()
+    {
+        using var ctx = new ChatScenario();
+        var controller = NewController(ctx, ctx.TrainerId);
+
+        await controller.Publish(new PublishChatKeyRequestDto { DeviceId = "phone", PublicKeyJwk = AliceJwk });
+        await controller.Publish(new PublishChatKeyRequestDto { DeviceId = "phone", PublicKeyJwk = BobJwk });
+
+        var device = Assert.Single(OkValue<ChatKeyDto>(await controller.Me()).Devices);
+        Assert.Equal(BobJwk, device.PublicKeyJwk);
     }
 
     [Fact]
@@ -115,7 +134,7 @@ public class ChatKeyControllerTests
         using var ctx = new ChatScenario();
         var stranger = ctx.AddUser("Ivy", "Stone");
         await NewController(ctx, ctx.TrainerId)
-            .Publish(new PublishChatKeyRequestDto { PublicKeyJwk = AliceJwk });
+            .Publish(new PublishChatKeyRequestDto { DeviceId = "phone", PublicKeyJwk = AliceJwk });
 
         var result = await NewController(ctx, stranger.Id).Peer(ctx.TrainerId);
 
@@ -129,7 +148,7 @@ public class ChatKeyControllerTests
         var former = ctx.AddUser("Ivy", "Stone");
         ctx.AddRelationship(ctx.TrainerId, former.Id, TrainerClientStatus.Revoked);
         await NewController(ctx, ctx.TrainerId)
-            .Publish(new PublishChatKeyRequestDto { PublicKeyJwk = AliceJwk });
+            .Publish(new PublishChatKeyRequestDto { DeviceId = "phone", PublicKeyJwk = AliceJwk });
 
         var result = await NewController(ctx, former.Id).Peer(ctx.TrainerId);
 
@@ -155,10 +174,22 @@ public class ChatKeyControllerTests
         using var ctx = new ChatScenario();
 
         var result = await NewController(ctx, ctx.TrainerId)
-            .Publish(new PublishChatKeyRequestDto { PublicKeyJwk = "   " });
+            .Publish(new PublishChatKeyRequestDto { DeviceId = "phone", PublicKeyJwk = "   " });
 
         Assert.IsType<BadRequestObjectResult>(result);
-        Assert.Empty(ctx.Db.UserChatKeys);
+        Assert.Empty(ctx.Db.UserChatDeviceKeys);
+    }
+
+    [Fact]
+    public async Task A_missing_device_id_is_rejected()
+    {
+        using var ctx = new ChatScenario();
+
+        var result = await NewController(ctx, ctx.TrainerId)
+            .Publish(new PublishChatKeyRequestDto { DeviceId = "  ", PublicKeyJwk = AliceJwk });
+
+        Assert.IsType<BadRequestObjectResult>(result);
+        Assert.Empty(ctx.Db.UserChatDeviceKeys);
     }
 
     [Fact]
@@ -168,11 +199,11 @@ public class ChatKeyControllerTests
         // ChatController and ChatHub use.
         using var ctx = new ChatScenario();
         await NewController(ctx, ctx.ClientId)
-            .Publish(new PublishChatKeyRequestDto { PublicKeyJwk = BobJwk });
+            .Publish(new PublishChatKeyRequestDto { DeviceId = "phone", PublicKeyJwk = BobJwk });
 
         var key = OkValue<ChatKeyDto>(
             await NewController(ctx, ctx.TrainerId).Peer(ctx.ClientId));
 
-        Assert.Equal(BobJwk, key.PublicKeyJwk);
+        Assert.Equal(BobJwk, Assert.Single(key.Devices).PublicKeyJwk);
     }
 }

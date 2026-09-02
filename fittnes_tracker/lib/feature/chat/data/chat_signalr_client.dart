@@ -1,3 +1,4 @@
+import 'package:ForgeForm/feature/chat/domain/chat_crypto.dart';
 import 'package:ForgeForm/feature/chat/domain/models/chat_message.dart';
 
 /// Where the connection currently is, as far as the UI needs to care.
@@ -35,18 +36,27 @@ abstract class ChatSignalRClient {
   /// (repository) decides what "no ack" means, this layer just reports it.
   ///
   /// [body] is already ciphertext by the time it gets here, and [iv] and
-  /// [encryptionVersion] are what make it readable again. This layer does not
-  /// encrypt: it would need key material, and the whole point of keeping it thin
-  /// is that it holds nothing but the connection.
+  /// [encryptionVersion] are what make it readable again. [ephemeralPublicKeyJwk]
+  /// and [keys] apply only to encryption version 2 — one wrapped copy of the
+  /// content key per target device. This layer does not encrypt: it would need
+  /// key material, and the whole point of keeping it thin is that it holds
+  /// nothing but the connection.
   ///
   /// [otherPartyId] is the client's id when a trainer sends and the trainer's id
   /// when a client does; the hub resolves which side the caller is on.
+  ///
+  /// [senderDeviceId] is this device's own id, so the ack carries this device's
+  /// own wrapped key — the sender must be able to read its own message back
+  /// exactly as any other device would.
   Future<ChatMessage> send({
     required String otherPartyId,
     required String messageId,
     required String body,
     required String? iv,
     required int encryptionVersion,
+    String? ephemeralPublicKeyJwk,
+    List<WrappedKey> keys = const [],
+    String? senderDeviceId,
   });
 
   /// Broadcast stream — every `ReceiveMessage` for a joined group, including

@@ -33,6 +33,21 @@ namespace FitTracker.Api.Tests;
 /// </remarks>
 public class ChatHubTests
 {
+    // The hub takes one request object rather than five-plus loose parameters —
+    // version 2 added an ephemeral key and a per-device key list on top of what
+    // was already here. This helper keeps every call site in this file at the
+    // same shape the old positional-argument tests had.
+    private static Task<ChatMessageDto> Send(
+        ChatHub hub, Guid clientId, string body, Guid messageId, string? iv = "iv-1", int encryptionVersion = 1) =>
+        hub.SendMessage(new SendChatMessageRequestDto
+        {
+            ClientId = clientId,
+            Body = body,
+            MessageId = messageId,
+            Iv = iv,
+            EncryptionVersion = encryptionVersion,
+        });
+
     private static ChatHub NewHub(ChatScenario ctx, Guid callerId, out RecordingClients clients) =>
         NewHub(ctx, callerId, out clients, out _);
 
@@ -65,7 +80,7 @@ public class ChatHubTests
         var hub = NewHub(ctx, ctx.TrainerId, out _);
         var messageId = Guid.NewGuid();
 
-        ChatMessageDto ack = await hub.SendMessage(ctx.ClientId, "how did the last set feel?", messageId, iv: "iv-1", encryptionVersion: 1);
+        ChatMessageDto ack = await Send(hub, ctx.ClientId, "how did the last set feel?", messageId, iv: "iv-1", encryptionVersion: 1);
 
         // The id is the client's, unchanged: it is what lets a resend after a
         // dropped ack be recognised as the same message rather than a new one.
@@ -86,7 +101,7 @@ public class ChatHubTests
         var hub = NewHub(ctx, ctx.ClientId, out _);
         var messageId = Guid.NewGuid();
 
-        var ack = await hub.SendMessage(ctx.TrainerId, "sore but good", messageId, iv: "iv-1", encryptionVersion: 1);
+        var ack = await Send(hub, ctx.TrainerId, "sore but good", messageId, iv: "iv-1", encryptionVersion: 1);
 
         Assert.Equal(messageId, ack.Id);
         Assert.Equal(ctx.ClientId, ack.SenderId);
@@ -100,7 +115,7 @@ public class ChatHubTests
         using var ctx = new ChatScenario();
         var hub = NewHub(ctx, ctx.TrainerId, out var clients);
 
-        await hub.SendMessage(ctx.ClientId, "hello robert", Guid.NewGuid(), iv: "iv-1", encryptionVersion: 1);
+        await Send(hub, ctx.ClientId, "hello robert", Guid.NewGuid(), iv: "iv-1", encryptionVersion: 1);
 
         var (group, method, args) = Assert.Single(clients.Sent);
         Assert.Equal($"chat:{ctx.TrainerId}:{ctx.ClientId}", group);
@@ -117,9 +132,9 @@ public class ChatHubTests
         var hub = NewHub(ctx, ctx.TrainerId, out _);
         var messageId = Guid.NewGuid();
 
-        var first = await hub.SendMessage(ctx.ClientId, "did you see my form?", messageId, iv: "iv-1", encryptionVersion: 1);
+        var first = await Send(hub, ctx.ClientId, "did you see my form?", messageId, iv: "iv-1", encryptionVersion: 1);
         // What the outbox does after a dropped ack: same id, same body, again.
-        var second = await hub.SendMessage(ctx.ClientId, "did you see my form?", messageId, iv: "iv-1", encryptionVersion: 1);
+        var second = await Send(hub, ctx.ClientId, "did you see my form?", messageId, iv: "iv-1", encryptionVersion: 1);
 
         Assert.Equal(first.Id, second.Id);
         Assert.Equal(first.SentAt, second.SentAt);
@@ -134,7 +149,7 @@ public class ChatHubTests
         var hub = NewHub(ctx, stranger.Id, out _);
 
         await Assert.ThrowsAsync<HubException>(
-            () => hub.SendMessage(ctx.ClientId, "let me in", Guid.NewGuid(), iv: "iv-1", encryptionVersion: 1));
+            () => Send(hub, ctx.ClientId, "let me in", Guid.NewGuid(), iv: "iv-1", encryptionVersion: 1));
         Assert.Empty(ctx.Db.ChatMessages);
     }
 
@@ -158,7 +173,7 @@ public class ChatHubTests
             Groups = new RecordingGroups(),
         };
 
-        var ack = await hub.SendMessage(ctx.ClientId, "still here", Guid.NewGuid(), iv: "iv-1", encryptionVersion: 1);
+        var ack = await Send(hub, ctx.ClientId, "still here", Guid.NewGuid(), iv: "iv-1", encryptionVersion: 1);
 
         Assert.Equal(ctx.TrainerId, ack.SenderId);
     }
@@ -183,7 +198,7 @@ public class ChatHubTests
         // NullReferenceException it replaces arrived as an opaque
         // "an unexpected error occurred".
         await Assert.ThrowsAsync<HubException>(
-            () => hub.SendMessage(ctx.ClientId, "who am i", Guid.NewGuid(), iv: "iv-1", encryptionVersion: 1));
+            () => Send(hub, ctx.ClientId, "who am i", Guid.NewGuid(), iv: "iv-1", encryptionVersion: 1));
     }
 
     [Fact]
@@ -221,7 +236,7 @@ public class ChatHubTests
         using var ctx = new ChatScenario();
         var hub = NewHub(ctx, ctx.TrainerId, out _, out var pushes);
 
-        await hub.SendMessage(ctx.ClientId, "how did the last set feel?", Guid.NewGuid(), iv: "iv-1", encryptionVersion: 1);
+        await Send(hub, ctx.ClientId, "how did the last set feel?", Guid.NewGuid(), iv: "iv-1", encryptionVersion: 1);
 
         // The hub had never needed to name a recipient before — every other
         // operation on it is symmetric between the two parties.
@@ -242,7 +257,7 @@ public class ChatHubTests
         using var ctx = new ChatScenario();
         var hub = NewHub(ctx, ctx.ClientId, out _, out var pushes);
 
-        await hub.SendMessage(ctx.TrainerId, "sore but good", Guid.NewGuid(), iv: "iv-1", encryptionVersion: 1);
+        await Send(hub, ctx.TrainerId, "sore but good", Guid.NewGuid(), iv: "iv-1", encryptionVersion: 1);
 
         var push = Assert.Single(pushes.Queued);
         Assert.Equal(ctx.TrainerId, push.recipientId);
@@ -257,7 +272,7 @@ public class ChatHubTests
         var hub = NewHub(ctx, stranger.Id, out _, out var pushes);
 
         await Assert.ThrowsAsync<HubException>(
-            () => hub.SendMessage(ctx.ClientId, "let me in", Guid.NewGuid(), iv: "iv-1", encryptionVersion: 1));
+            () => Send(hub, ctx.ClientId, "let me in", Guid.NewGuid(), iv: "iv-1", encryptionVersion: 1));
 
         // Authorisation is checked before anything is persisted or queued, so a
         // stranger cannot make someone else's phone buzz.

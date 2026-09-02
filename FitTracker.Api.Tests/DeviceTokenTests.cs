@@ -161,6 +161,32 @@ public class DeviceTokenTests
     }
 
     [Fact]
+    public async Task A_version_2_push_carries_the_ephemeral_key_and_every_wrapped_key()
+    {
+        using var ctx = new ChatScenario();
+        var repo = new DeviceTokenRepository(ctx.Db);
+        await repo.UpsertAsync(ctx.ClientId, "phone", DevicePlatform.Android);
+
+        var sender = new RecordingPushSender();
+        var service = new PushNotificationService(
+            repo, sender, NullLogger<PushNotificationService>.Instance);
+
+        var body = new EncryptedChatBody(
+            "cipher", "iv-1", 2, "epk-jwk",
+            [
+                new ChatMessageKeyDto("recipient-phone", "wk-1", "wi-1"),
+                new ChatMessageKeyDto("recipient-desktop", "wk-2", "wi-2"),
+            ]);
+
+        await service.SendChatMessageAsync(ctx.ClientId, "Dana Ruiz", Guid.NewGuid(), body, ctx.TrainerId);
+
+        var message = Assert.Single(sender.Sent).message;
+        Assert.Equal("epk-jwk", message.Data["epk"]);
+        Assert.Contains("recipient-phone:wk-1:wi-1", message.Data["keys"]);
+        Assert.Contains("recipient-desktop:wk-2:wi-2", message.Data["keys"]);
+    }
+
+    [Fact]
     public async Task A_recipient_with_no_devices_costs_nothing()
     {
         using var ctx = new ChatScenario();

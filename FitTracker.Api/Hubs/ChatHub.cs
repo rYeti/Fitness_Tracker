@@ -49,32 +49,36 @@ public class ChatHub(
     /// eventually shows the sender a failure for it. Anything that changes this
     /// signature breaks sending outright. See docs/chat-architecture.md §12.
     /// </returns>
-    /// <param name="body">
-    /// The AES-256-GCM ciphertext, base64. This hub never sees the plaintext and
-    /// has nothing it could do with it if it did — see docs/chat-encryption.md.
+    /// <param name="request">
+    /// The encrypted body and, for version 2, the message's ephemeral key and
+    /// one wrapped content key per target device. This hub never sees the
+    /// plaintext and has nothing it could do with it if it did — see
+    /// docs/chat-encryption.md. A single object rather than five-plus loose
+    /// parameters because version 2 added two more on top of the four this
+    /// method already took.
     /// </param>
-    /// <param name="iv">The base64 IV <paramref name="body"/> was encrypted under.</param>
-    /// <param name="encryptionVersion">
-    /// 1 for anything a current client sends. Passed rather than inferred from
-    /// "is there an IV?", so the day a second scheme exists nothing has to guess
-    /// which one an old row used.
+    /// <param name="senderDeviceId">
+    /// The sending device's own id, so the ack this method returns carries that
+    /// device's own wrapped key — the sender must be able to read its own
+    /// message back exactly as any other device would.
     /// </param>
-    public async Task<ChatMessageDto> SendMessage(
-        Guid clientId,
-        string body,
-        Guid messageId,
-        string? iv,
-        int encryptionVersion)
+    public async Task<ChatMessageDto> SendMessage(SendChatMessageRequestDto request, string? senderDeviceId = null)
     {
         var userId = GetUserId();
-        var (trainerId, ok) = await ResolveTrainerAsync(userId, clientId);
+        var (trainerId, ok) = await ResolveTrainerAsync(userId, request.ClientId);
         if (!ok) throw new HubException("Not authorized for this chat.");
 
-        var actualClientId = trainerId == userId ? clientId : userId;
+        var actualClientId = trainerId == userId ? request.ClientId : userId;
 
-        var encrypted = new EncryptedChatBody(body, iv, encryptionVersion);
+        var encrypted = new EncryptedChatBody(
+            request.Body,
+            request.Iv,
+            request.EncryptionVersion,
+            request.EphemeralPublicKeyJwk,
+            request.Keys);
 
-        var message = await ChatService.SendMessageAsync(trainerId, actualClientId, senderId: userId, messageId: messageId, encrypted);
+        var message = await ChatService.SendMessageAsync(
+            trainerId, actualClientId, senderId: userId, messageId: request.MessageId, encrypted, senderDeviceId);
         await Clients.Group(GroupName(trainerId, actualClientId)).SendAsync("ReceiveMessage", message);
 
         // The pair is (trainerId, actualClientId) and the sender is userId, so
@@ -91,7 +95,7 @@ public class ChatHub(
         // recipient's own device decrypts it to draw the notification, which is
         // the only arrangement under which a lock-screen preview and an
         // unreadable database can both be true.
-        PushDispatcher.Queue(recipientId, senderId: userId, messageId: messageId, body: encrypted);
+        PushDispatcher.Queue(recipientId, senderId: userId, messageId: request.MessageId, body: encrypted);
 
         return message;
     }

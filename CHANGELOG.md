@@ -10,6 +10,10 @@ heading to the version it went out as, so a `## <version>` section is history:
 it is what those users have, and nothing new belongs in it. See
 `docs/android-release.md`.
 
+## Unreleased
+
+- Fixed chat becoming permanently unreadable, on every device of both parties, the moment a trainer opened the Trainer Console on a second device (a desktop after a phone, most commonly). Each account held exactly one chat key pair, one row per user, and registering a new device silently replaced it — so a message either side had already sent or received had no key left anywhere that could still read it. Chat keys are now per-device: a user has one row per install, registering one never touches another's, and a message is encrypted once and its content key wrapped separately for every device of both parties — the sender's own included, so a device can always read what it sent. A device still cannot read a message from before it existed; that has not changed. See `docs/chat-encryption.md`.
+
 ## 1.0.2+20
 
 - Fixed the Trainer Console dropping a trainer back into "My Training" the instant they switched sections, whenever the console had been reopened from Settings (or a tapped chat notification) after previously exiting to the trainee app. Switching sections rewrites the address bar via `GoRouter.go`, which rebuilds the router's whole page stack by *route pattern* — so it silently reused the original, already-mounted console page still flagged to show the trainee app, and discarded the freshly pushed one the trainer was actually looking at. Only the console instance the router itself is currently showing now touches the URL; a console reached by a push leaves it alone, exactly as before URLs existed for the console. See `docs/trainer-console-route-collision.md`.

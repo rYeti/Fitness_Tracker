@@ -79,7 +79,9 @@ public class AppDbContext : DbContext
 
     public DbSet<ChatMessage> ChatMessages { get; set; }
 
-    public DbSet<UserChatKey> UserChatKeys { get; set; }
+    public DbSet<UserChatDeviceKey> UserChatDeviceKeys { get; set; }
+
+    public DbSet<ChatMessageKey> ChatMessageKeys { get; set; }
 
     /// <summary>Push registration tokens, one row per signed-in device.</summary>
     public DbSet<DeviceToken> DeviceTokens { get; set; }
@@ -298,16 +300,30 @@ public class AppDbContext : DbContext
             entity.HasIndex(m => new { m.TrainerClientId, m.SentAt });
         });
 
-        modelBuilder.Entity<UserChatKey>(entity =>
+        modelBuilder.Entity<UserChatDeviceKey>(entity =>
         {
-            // The user id is the key, not a surrogate: a user has exactly one
-            // current chat key, and a table that allowed two would need a rule
-            // for which of them a sender should encrypt to.
-            entity.HasKey(k => k.UserId);
+            // Composite on (user, device): a user may have several devices, and
+            // each keeps its own row rather than overwriting the others. This is
+            // the fix for the bug where registering a second device silently
+            // destroyed the first device's ability to read anything — see
+            // docs/chat-encryption.md.
+            entity.HasKey(k => new { k.UserId, k.DeviceId });
             entity.HasOne(k => k.User)
                   .WithMany()
                   .HasForeignKey(k => k.UserId)
                   .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(k => k.UserId);
+        });
+
+        modelBuilder.Entity<ChatMessageKey>(entity =>
+        {
+            entity.HasKey(k => new { k.MessageId, k.DeviceId });
+            entity.HasOne(k => k.ChatMessage)
+                  .WithMany(m => m.Keys)
+                  .HasForeignKey(k => k.MessageId)
+                  .OnDelete(DeleteBehavior.Cascade);
+            // Deliberately no FK to UserChatDeviceKey: a device's key row can be
+            // pruned while messages already wrapped for it must stay readable.
         });
 
         modelBuilder.Entity<PasswordResetToken>(entity =>

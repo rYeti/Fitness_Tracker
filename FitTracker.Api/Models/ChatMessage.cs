@@ -28,6 +28,19 @@ public class ChatMessage
     /// </remarks>
     public int EncryptionVersion { get; set; }
 
+    /// <summary>
+    /// The message's own ephemeral ECDH public key, as a JSON Web Key.
+    /// Present only for <see cref="EncryptionVersion"/> 2. Every device's
+    /// wrapped copy of the content key (<see cref="Keys"/>) is derived from
+    /// this key and that device's own — never from the sender's or recipient's
+    /// long-lived identity key, which is why no cached peer key is needed to
+    /// read a v2 message. See docs/chat-encryption.md.
+    /// </summary>
+    public string? EphemeralPublicKeyJwk { get; set; }
+
+    /// <summary>One wrapped copy of this message's content key per target device.</summary>
+    public List<ChatMessageKey> Keys { get; set; } = [];
+
     public Guid SenderId { get; set; }
 
     public DateTime SentAt { get; set; } = DateTime.UtcNow;

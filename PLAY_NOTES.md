@@ -22,6 +22,10 @@ Markdown links, headings or emphasis, none of which Play renders.
 
 See `docs/android-release.md`.
 
+## Unreleased
+
+Fixed a bug where opening chat on a second device (for example the Trainer Console on a desktop after already using it on your phone) could make existing messages unreadable everywhere. Chat now works correctly across as many devices as you use.
+
 ## 1.0.2+20
 
 Fixed a bug where chat messages sent from the Trainer Console could get stuck and never actually reach a client — most noticeably when messaging more than one client, or messaging a client who hadn't opened chat before. Messages should now always get through.

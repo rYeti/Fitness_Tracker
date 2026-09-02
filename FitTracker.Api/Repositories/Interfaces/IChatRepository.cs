@@ -19,14 +19,19 @@ public interface IChatRepository
     /// </exception>
     Task<ChatMessage> AddMessageAsync(ChatMessage chatMessage);
 
-    /// <summary>Returns up to <paramref name="range"/> of the most recent messages between the trainer and client, oldest first.</summary>
-    Task<List<ChatMessage>> GetChatHistoryAsync(Guid trainerId, Guid client, int range);
+    /// <summary>
+    /// Returns up to <paramref name="range"/> of the most recent messages
+    /// between the trainer and client, oldest first, each carrying only the
+    /// wrapped key for <paramref name="deviceId"/> — never another device's.
+    /// </summary>
+    Task<List<ChatMessage>> GetChatHistoryAsync(Guid trainerId, Guid client, int range, string? deviceId = null);
 
     /// <summary>
     /// Every Active thread <paramref name="userId"/> is a party to, with the last
-    /// message and the caller's own unread count.
+    /// message, the caller's own unread count, and — when <paramref name="deviceId"/>
+    /// is supplied — that device's own wrapped key for the last message.
     /// </summary>
-    Task<List<ChatConversationDto>> GetConversationsAsync(Guid userId);
+    Task<List<ChatConversationDto>> GetConversationsAsync(Guid userId, string? deviceId = null);
 
     /// <summary>
     /// Stamps <paramref name="userId"/>'s side of their thread with

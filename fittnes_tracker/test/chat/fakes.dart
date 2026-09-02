@@ -43,6 +43,9 @@ class FakeChatSignalRClient implements ChatSignalRClient {
       String body,
       String? iv,
       int encryptionVersion,
+      String? ephemeralPublicKeyJwk,
+      List<WrappedKey> keys,
+      String? senderDeviceId,
     })
   >
   sent = [];
@@ -102,6 +105,9 @@ class FakeChatSignalRClient implements ChatSignalRClient {
     required String body,
     required String? iv,
     required int encryptionVersion,
+    String? ephemeralPublicKeyJwk,
+    List<WrappedKey> keys = const [],
+    String? senderDeviceId,
   }) async {
     sent.add((
       otherPartyId: otherPartyId,
@@ -109,6 +115,9 @@ class FakeChatSignalRClient implements ChatSignalRClient {
       body: body,
       iv: iv,
       encryptionVersion: encryptionVersion,
+      ephemeralPublicKeyJwk: ephemeralPublicKeyJwk,
+      keys: keys,
+      senderDeviceId: senderDeviceId,
     ));
 
     if (holdSend != null) await holdSend!.future;
@@ -216,6 +225,7 @@ class FakeChatApi implements ChatApi {
   Future<List<Map<String, dynamic>>> fetchHistory(
     String otherPartyId, {
     int range = 50,
+    String? deviceId,
   }) async {
     if (gate != null) await gate!.future;
     if (throwOnHistory) throw Exception('boom');
@@ -223,7 +233,7 @@ class FakeChatApi implements ChatApi {
   }
 
   @override
-  Future<List<Map<String, dynamic>>> fetchConversations() async {
+  Future<List<Map<String, dynamic>>> fetchConversations({String? deviceId}) async {
     if (gate != null) await gate!.future;
     if (failConversationsTimes > 0) {
       failConversationsTimes--;
@@ -258,12 +268,18 @@ Map<String, dynamic> messageJson({
   DateTime? sentAt,
   String? iv,
   int encryptionVersion = 0,
+  String? ephemeralPublicKeyJwk,
+  String? wrappedKey,
+  String? wrappedIv,
 }) {
   return {
     'id': id,
     'body': body,
     'iv': iv,
     'encryptionVersion': encryptionVersion,
+    'ephemeralPublicKeyJwk': ephemeralPublicKeyJwk,
+    'wrappedKey': wrappedKey,
+    'wrappedIv': wrappedIv,
     'sentAt': (sentAt ?? DateTime.now().toUtc()).toIso8601String(),
     'senderId': senderId,
     'trainerId': trainerId,
@@ -351,6 +367,9 @@ class FakeChatCrypto implements ChatCrypto {
     required String? ciphertext,
     required String? iv,
     required int version,
+    String? ephemeralPublicKeyJwk,
+    String? wrappedKey,
+    String? wrappedKeyIv,
   }) async {
     if (ciphertext == null) return null;
     if (version == ChatEncryption.none) return ciphertext;
@@ -364,6 +383,14 @@ class FakeChatCrypto implements ChatCrypto {
     forgotten.add(otherPartyId);
     undecryptablePeers.remove(otherPartyId);
   }
+
+  /// Fixed rather than reading a real vault, so every test that exercises
+  /// `ChatRepository` through this fake keeps working without a platform
+  /// keystore — see `ChatCrypto.deviceId`'s doc comment for why that matters.
+  static const fakeDeviceId = 'fake-device';
+
+  @override
+  Future<String?> deviceId() async => fakeDeviceId;
 }
 
 /// A [ChatKeyVault] backed by a plain map, so key-lifecycle tests do not need a
@@ -387,42 +414,53 @@ class InMemoryChatKeyVault implements ChatKeyVault {
 
 /// Stands in for `api/chat/keys`.
 ///
-/// Holds one directory of published keys, so two [ChatKeyStore]s sharing an
-/// instance behave like two devices talking to the same server.
+/// Holds one directory of published keys, by user id and then by device id, so
+/// two [ChatKeyStore]s sharing an instance behave like two devices — possibly
+/// of the same account — talking to the same server.
 class FakeChatKeyApi implements ChatKeyApi {
   /// Who this store's owner is, as the real `GET keys/me` would report.
   final String userId;
 
-  /// Published public keys, by user id. Shared between instances when a test
-  /// passes the same map, which is how one device sees another's key.
-  final Map<String, String> published;
+  /// Published public keys: userId -> deviceId -> publicKeyJwk. Shared between
+  /// instances when a test passes the same map, which is how one device sees
+  /// another's key, and how two devices of the same account see each other's.
+  final Map<String, Map<String, String>> published;
 
-  /// Every `publish` in call order, so a test can assert a key was replaced
-  /// rather than merely written locally.
-  final List<String> publishes = [];
+  /// Every `publish` in call order, as `(deviceId, publicKeyJwk)`, so a test
+  /// can assert a device's key changed without touching another device's row.
+  final List<(String, String)> publishes = [];
 
   int fetchMeCalls = 0;
   int fetchPeerCalls = 0;
 
-  FakeChatKeyApi({required this.userId, Map<String, String>? published})
+  FakeChatKeyApi({required this.userId, Map<String, Map<String, String>>? published})
     : published = published ?? {};
 
   @override
   Future<Map<String, dynamic>> fetchMe() async {
     fetchMeCalls++;
-    return {'userId': userId, 'publicKeyJwk': published[userId]};
+    return {'userId': userId, 'devices': _devicesJson(userId)};
   }
 
   @override
-  Future<String> publish(String publicKeyJwk) async {
-    publishes.add(publicKeyJwk);
-    published[userId] = publicKeyJwk;
+  Future<String> publish(String deviceId, String publicKeyJwk) async {
+    publishes.add((deviceId, publicKeyJwk));
+    (published[userId] ??= {})[deviceId] = publicKeyJwk;
     return userId;
   }
 
   @override
-  Future<String?> fetchPeer(String otherPartyId) async {
+  Future<List<DeviceKeyEntry>?> fetchPeer(String otherPartyId) async {
     fetchPeerCalls++;
-    return published[otherPartyId];
+    final devices = published[otherPartyId];
+    if (devices == null || devices.isEmpty) return null;
+    return devices.entries
+        .map((e) => (deviceId: e.key, publicKeyJwk: e.value))
+        .toList();
   }
+
+  List<Map<String, String>> _devicesJson(String forUserId) =>
+      (published[forUserId] ?? const {}).entries
+          .map((e) => {'deviceId': e.key, 'publicKeyJwk': e.value})
+          .toList();
 }

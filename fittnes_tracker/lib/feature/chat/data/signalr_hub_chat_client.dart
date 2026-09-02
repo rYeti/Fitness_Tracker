@@ -6,6 +6,7 @@ import 'package:ForgeForm/core/network/secure_token_storage.dart';
 import 'package:ForgeForm/feature/auth/presentation/providers/auth_provider.dart'
     show serverUrlDefault;
 import 'package:ForgeForm/feature/chat/data/chat_signalr_client.dart';
+import 'package:ForgeForm/feature/chat/domain/chat_crypto.dart';
 import 'package:ForgeForm/feature/chat/domain/models/chat_message.dart';
 
 /// [ChatSignalRClient] over the `signalr_hub` package.
@@ -127,17 +128,38 @@ class SignalRHubChatClient implements ChatSignalRClient {
     required String body,
     required String? iv,
     required int encryptionVersion,
+    String? ephemeralPublicKeyJwk,
+    List<WrappedKey> keys = const [],
+    String? senderDeviceId,
   }) async {
-    // Positional order is the hub's, not this method's:
-    // SendMessage(Guid clientId, string body, Guid messageId, string? iv,
-    //             int encryptionVersion).
-    //
-    // SignalR matches these by position and nothing checks the names, so a
-    // reordering here is a runtime type error at best and a message stored with
-    // its IV in the body at worst.
+    // The hub takes one request object plus the sender's own device id:
+    // SendMessage(SendChatMessageRequestDto request, string? senderDeviceId).
+    // Property names are matched by SignalR's JSON binder case-insensitively,
+    // so this is a map, not a positional list — unlike the four-argument
+    // version this replaced, a field here can be omitted (version 1) without
+    // shifting anything after it.
     final ack = await (await _ready()).invoke(
       'SendMessage',
-      args: [otherPartyId, body, messageId, iv, encryptionVersion],
+      args: [
+        {
+          'clientId': otherPartyId,
+          'body': body,
+          'messageId': messageId,
+          'iv': iv,
+          'encryptionVersion': encryptionVersion,
+          'ephemeralPublicKeyJwk': ephemeralPublicKeyJwk,
+          'keys': keys
+              .map(
+                (k) => {
+                  'deviceId': k.deviceId,
+                  'wrappedKey': k.key,
+                  'wrappedIv': k.iv,
+                },
+              )
+              .toList(),
+        },
+        senderDeviceId,
+      ],
     );
 
     if (ack == null) {

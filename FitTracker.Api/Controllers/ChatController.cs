@@ -29,8 +29,15 @@ public class ChatController(IChatService chatService, ITrainerClientService trai
     /// at 0 — "take 0" comes back as an empty list, which reads exactly like a
     /// thread that has never been used.
     /// </param>
+    /// <param name="deviceId">
+    /// This install's own id. Each returned message carries only the wrapped
+    /// content key for this device — never another device's — so a version-2
+    /// message this device predates comes back with no wrapped key at all,
+    /// which is the ordinary shape of "cannot be decrypted here." Omitted by a
+    /// client older than per-device keys, which then gets none of them.
+    /// </param>
     [HttpGet("{clientId}/history")]
-    public async Task<IActionResult> chatHistory(Guid clientId, [FromQuery] int range = DefaultHistoryRange)
+    public async Task<IActionResult> chatHistory(Guid clientId, [FromQuery] int range = DefaultHistoryRange, [FromQuery] string? deviceId = null)
     {
         var userId = GetUserId();
         if (userId is null) return Unauthorized();
@@ -43,7 +50,8 @@ public class ChatController(IChatService chatService, ITrainerClientService trai
         var chatHitory = await _chatService.GetChatHistoryAsync(
             trainerId,
             actualClientId,
-            Math.Clamp(range <= 0 ? DefaultHistoryRange : range, 1, MaxHistoryRange));
+            Math.Clamp(range <= 0 ? DefaultHistoryRange : range, 1, MaxHistoryRange),
+            deviceId);
         return Ok(chatHitory);
     }
 
@@ -51,13 +59,14 @@ public class ChatController(IChatService chatService, ITrainerClientService trai
     /// The caller's conversation list — one row per Active relationship, whichever
     /// side of it they are on.
     /// </summary>
+    /// <param name="deviceId">See <see cref="chatHistory"/>.</param>
     [HttpGet("conversations")]
-    public async Task<IActionResult> Conversations()
+    public async Task<IActionResult> Conversations([FromQuery] string? deviceId = null)
     {
         var userId = GetUserId();
         if (userId is null) return Unauthorized();
 
-        return Ok(await _chatService.GetConversationsAsync(userId.Value));
+        return Ok(await _chatService.GetConversationsAsync(userId.Value, deviceId));
     }
 
     /// <summary>Marks the caller's side of one thread as read up to now.</summary>

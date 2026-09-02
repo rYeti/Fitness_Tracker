@@ -223,7 +223,10 @@ class ChatRepository {
   /// user just wrote stays on screen while it is in flight rather than
   /// disappearing until the ack lands.
   Future<List<ThreadMessage>> loadThread(String otherPartyId) async {
-    final history = await _api.fetchHistory(otherPartyId);
+    final history = await _api.fetchHistory(
+      otherPartyId,
+      deviceId: await _crypto.deviceId(),
+    );
     final unsent = await _db.chatoutboxDao.getUnsentMessages(otherPartyId);
 
     // Keyed by messageId, server rows inserted first, so an outbox row for a
@@ -362,6 +365,9 @@ class ChatRepository {
         body: sealed.ciphertext,
         iv: sealed.iv,
         encryptionVersion: sealed.version,
+        ephemeralPublicKeyJwk: sealed.ephemeralPublicKeyJwk,
+        keys: sealed.keys,
+        senderDeviceId: await _crypto.deviceId(),
       );
       await _db.chatoutboxDao.markMessagePendingAsSent(messageId);
       _replayAttempts.remove(messageId);
@@ -439,6 +445,9 @@ class ChatRepository {
           body: sealed.ciphertext,
           iv: sealed.iv,
           encryptionVersion: sealed.version,
+          ephemeralPublicKeyJwk: sealed.ephemeralPublicKeyJwk,
+          keys: sealed.keys,
+          senderDeviceId: await _crypto.deviceId(),
         );
         await _db.chatoutboxDao.markMessagePendingAsSent(row.messageId);
         _replayAttempts.remove(row.messageId);
@@ -552,7 +561,8 @@ class ChatRepository {
   /// layer also means `ChatProvider` keeps working untouched: by the time a
   /// preview reaches it, from here or from a live message, it is plaintext.
   Future<List<ConversationSummary>> getConversations() async {
-    final raw = await _api.fetchConversations();
+    final deviceId = await _crypto.deviceId();
+    final raw = await _api.fetchConversations(deviceId: deviceId);
 
     final summaries = <ConversationSummary>[];
     for (final json in raw) {
@@ -564,6 +574,9 @@ class ChatRepository {
             ciphertext: summary.lastMessagePreview,
             iv: json['lastMessageIv'] as String?,
             version: json['lastMessageEncryptionVersion'] as int? ?? 0,
+            ephemeralPublicKeyJwk: json['lastMessageEphemeralPublicKeyJwk'] as String?,
+            wrappedKey: json['lastMessageWrappedKey'] as String?,
+            wrappedKeyIv: json['lastMessageWrappedIv'] as String?,
           ),
         ),
       );
@@ -597,18 +610,24 @@ class ChatRepository {
       ciphertext: message.body,
       iv: message.iv,
       version: message.encryptionVersion,
+      ephemeralPublicKeyJwk: message.ephemeralPublicKeyJwk,
+      wrappedKey: message.wrappedKey,
+      wrappedKeyIv: message.wrappedKeyIv,
     );
 
     var plaintext = await attempt();
 
     // One retry against a freshly fetched peer key, and only one, the first time
-    // this thread sees a failure.
+    // this thread sees a failure. **Version 1 only** — a version-2 failure means
+    // this device simply has no wrapped key for that message (it predates the
+    // device, or the device was pruned server-side), and no amount of refetching
+    // a peer key changes that: version 2 never looks at one.
     //
-    // This is the recovery path for a peer who reinstalled: they published a new
-    // public key, this device is still holding the one it cached, and *every*
-    // message they send from now on fails against it. Without this the thread
-    // never recovers on its own — the cache is only wrong, never stale, so
-    // nothing else would ever go and look.
+    // This is the recovery path for a peer who reinstalled under version 1:
+    // they published a new public key, this device is still holding the one it
+    // cached, and *every* message they send from now on fails against it.
+    // Without this the thread never recovers on its own — the cache is only
+    // wrong, never stale, so nothing else would ever go and look.
     //
     // Bounded by [_refetchedPeers] because the far more common cause of a
     // failure is a message genuinely encrypted to a key that no longer exists
@@ -616,6 +635,7 @@ class ChatRepository {
     // into one key fetch per bubble.
     if (plaintext == null &&
         message.body != null &&
+        message.encryptionVersion == ChatEncryption.ecdhP256AesGcm &&
         _refetchedPeers.add(peer)) {
       await _crypto.forget(peer);
       plaintext = await attempt();

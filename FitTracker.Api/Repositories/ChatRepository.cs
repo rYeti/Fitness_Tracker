@@ -17,8 +17,15 @@ public class ChatRepository(AppDbContext context) : IChatRepository
         // connection resends with the original id, and returning "the row with
         // this id" without checking whose thread it belongs to would hand one
         // pair's message body back to another as if they had just written it.
-        var dupeMessage = await _context.ChatMessages.FirstOrDefaultAsync(
-            x => x.Id == chatMessage.Id && x.TrainerClientId == chatMessage.TrainerClientId);
+        //
+        // Keys are loaded on the dupe check too: a replay carries a freshly
+        // re-encrypted content key (a different one — see docs/chat-encryption.md
+        // on why an IV, and here a whole content key, is never reused), and the
+        // caller must get back whichever wraps were actually stored, not the
+        // ones it just tried to send.
+        var dupeMessage = await _context.ChatMessages
+            .Include(x => x.Keys)
+            .FirstOrDefaultAsync(x => x.Id == chatMessage.Id && x.TrainerClientId == chatMessage.TrainerClientId);
         if (dupeMessage != null) return dupeMessage;
 
         var idBelongsElsewhere = await _context.ChatMessages.AnyAsync(x => x.Id == chatMessage.Id);
@@ -33,30 +40,47 @@ public class ChatRepository(AppDbContext context) : IChatRepository
         return chatMessage;
     }
 
-    /// <summary>Fetches the most recent <paramref name="range"/> messages for the trainer/client pair, then reverses them into oldest-first order for display.</summary>
-    async Task<List<ChatMessage>> IChatRepository.GetChatHistoryAsync(Guid trainerId, Guid client, int range)
+    /// <summary>
+    /// Fetches the most recent <paramref name="range"/> messages for the
+    /// trainer/client pair, then reverses them into oldest-first order for
+    /// display. Each message's <see cref="ChatMessage.Keys"/> is filtered down
+    /// to <paramref name="deviceId"/>'s own row — never another device's wrap,
+    /// even though the row for other devices exists in the same table.
+    /// </summary>
+    async Task<List<ChatMessage>> IChatRepository.GetChatHistoryAsync(Guid trainerId, Guid client, int range, string? deviceId)
     {
-        var chatHistory = await _context.ChatMessages.Where(c => c.TrainerClient.TrainerId == trainerId && c.TrainerClient.ClientId == client).OrderByDescending(c => c.SentAt).Take(range).ToListAsync();
+        var query = _context.ChatMessages
+            .Where(c => c.TrainerClient.TrainerId == trainerId && c.TrainerClient.ClientId == client)
+            .AsQueryable();
+
+        // Left as the default empty Keys list when the caller sent no device id
+        // (an old client) rather than including everything — a device this
+        // server has never heard of gets no wrapped keys, the same outcome as
+        // one that has none.
+        if (deviceId != null)
+        {
+            query = query.Include(m => m.Keys.Where(k => k.DeviceId == deviceId));
+        }
+
+        var chatHistory = await query.OrderByDescending(c => c.SentAt).Take(range).ToListAsync();
 
         chatHistory.Reverse();
         return chatHistory;
     }
 
     /// <inheritdoc/>
-    async Task<List<ChatConversationDto>> IChatRepository.GetConversationsAsync(Guid userId)
+    async Task<List<ChatConversationDto>> IChatRepository.GetConversationsAsync(Guid userId, string? deviceId)
     {
         // One query for the whole list. The last message and the unread count are
         // correlated subqueries rather than a second round trip per row, so a
         // trainer with thirty clients still costs one database call.
         //
-        // Body, IV, version and timestamp are fetched as separate scalar
+        // Body, IV, version, epk and timestamp are fetched as separate scalar
         // subqueries instead of one projected row: scalar subqueries translate
         // identically on Npgsql and Sqlite, which keeps the tests running
-        // against the same SQL shape.
-        //
-        // Note what is *not* here any more: a preview. The body is ciphertext
-        // from EncryptionVersion 1 onward, so there is nothing to truncate and
-        // nothing to read. This query moves it; the client decrypts it.
+        // against the same SQL shape. LastMessageId rides along too, purely so a
+        // second query can resolve this device's own wrapped key without a
+        // sixth correlated subquery per row.
         var rows = await _context.TrainerClients
             .Where(t => t.Status == TrainerClientStatus.Active
                         && (t.TrainerId == userId || t.ClientId == userId))
@@ -66,15 +90,16 @@ public class ChatRepository(AppDbContext context) : IChatRepository
                 OtherPartyName = t.TrainerId == userId
                     ? t.Client!.FirstName + " " + t.Client.LastName
                     : t.Trainer.FirstName + " " + t.Trainer.LastName,
+                LastMessageId = _context.ChatMessages
+                    .Where(m => m.TrainerClientId == t.Id)
+                    .OrderByDescending(m => m.SentAt)
+                    .Select(m => (Guid?)m.Id)
+                    .FirstOrDefault(),
                 LastMessagePreview = _context.ChatMessages
                     .Where(m => m.TrainerClientId == t.Id)
                     .OrderByDescending(m => m.SentAt)
                     .Select(m => m.Body)
                     .FirstOrDefault(),
-                // The IV and version ride along as two more scalar subqueries
-                // for the same reason the body does. They are useless apart: the
-                // client cannot decrypt the preview without the IV, and cannot
-                // know whether to try without the version.
                 LastMessageIv = _context.ChatMessages
                     .Where(m => m.TrainerClientId == t.Id)
                     .OrderByDescending(m => m.SentAt)
@@ -84,6 +109,11 @@ public class ChatRepository(AppDbContext context) : IChatRepository
                     .Where(m => m.TrainerClientId == t.Id)
                     .OrderByDescending(m => m.SentAt)
                     .Select(m => m.EncryptionVersion)
+                    .FirstOrDefault(),
+                LastMessageEphemeralPublicKeyJwk = _context.ChatMessages
+                    .Where(m => m.TrainerClientId == t.Id)
+                    .OrderByDescending(m => m.SentAt)
+                    .Select(m => m.EphemeralPublicKeyJwk)
                     .FirstOrDefault(),
                 LastMessageAt = _context.ChatMessages
                     .Where(m => m.TrainerClientId == t.Id)
@@ -107,18 +137,41 @@ public class ChatRepository(AppDbContext context) : IChatRepository
             })
             .ToListAsync();
 
+        // A second round trip, not a sixth correlated subquery: this device's
+        // own wrapped key for whichever message ended up as "last" in each row.
+        var messageIds = rows
+            .Where(r => r.LastMessageId != null)
+            .Select(r => r.LastMessageId!.Value)
+            .ToList();
+
+        var keysByMessage = deviceId == null || messageIds.Count == 0
+            ? new Dictionary<Guid, ChatMessageKey>()
+            : await _context.ChatMessageKeys
+                .Where(k => messageIds.Contains(k.MessageId) && k.DeviceId == deviceId)
+                .ToDictionaryAsync(k => k.MessageId);
+
         return rows
             .OrderByDescending(r => r.LastMessageAt ?? DateTime.MinValue)
             .ThenBy(r => r.OtherPartyName)
-            .Select(r => new ChatConversationDto
+            .Select(r =>
             {
-                OtherPartyId = r.OtherPartyId,
-                OtherPartyName = r.OtherPartyName.Trim(),
-                LastMessagePreview = r.LastMessagePreview,
-                LastMessageIv = r.LastMessageIv,
-                LastMessageEncryptionVersion = r.LastMessageEncryptionVersion,
-                LastMessageAt = r.LastMessageAt,
-                UnreadCount = r.UnreadCount,
+                var key = r.LastMessageId != null && keysByMessage.TryGetValue(r.LastMessageId.Value, out var found)
+                    ? found
+                    : null;
+
+                return new ChatConversationDto
+                {
+                    OtherPartyId = r.OtherPartyId,
+                    OtherPartyName = r.OtherPartyName.Trim(),
+                    LastMessagePreview = r.LastMessagePreview,
+                    LastMessageIv = r.LastMessageIv,
+                    LastMessageEncryptionVersion = r.LastMessageEncryptionVersion,
+                    LastMessageEphemeralPublicKeyJwk = r.LastMessageEphemeralPublicKeyJwk,
+                    LastMessageWrappedKey = key?.WrappedKey,
+                    LastMessageWrappedIv = key?.WrappedIv,
+                    LastMessageAt = r.LastMessageAt,
+                    UnreadCount = r.UnreadCount,
+                };
             })
             .ToList();
     }

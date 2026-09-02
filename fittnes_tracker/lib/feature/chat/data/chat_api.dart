@@ -17,19 +17,28 @@ class ChatApi {
   ChatApi({ApiClient? client})
     : _client = client ?? sl<ApiClient>(instanceName: backendApiClient);
 
+  /// [deviceId] is this install's own id — each returned message carries only
+  /// this device's own wrapped content key (encryption version 2), never
+  /// another device's. Omitted entirely rather than sent as null so an older
+  /// server build still matches the route.
   Future<List<Map<String, dynamic>>> fetchHistory(
     String otherPartyId, {
     int range = 50,
+    String? deviceId,
   }) async {
     final response = await _client.get(
       'api/chat/$otherPartyId/history',
-      queryParameters: {'range': range},
+      queryParameters: {'range': range, if (deviceId != null) 'deviceId': deviceId},
     );
     return (response.data as List).cast<Map<String, dynamic>>();
   }
 
-  Future<List<Map<String, dynamic>>> fetchConversations() async {
-    final response = await _client.get('api/chat/conversations');
+  /// See [fetchHistory] on [deviceId].
+  Future<List<Map<String, dynamic>>> fetchConversations({String? deviceId}) async {
+    final response = await _client.get(
+      'api/chat/conversations',
+      queryParameters: {if (deviceId != null) 'deviceId': deviceId},
+    );
     return (response.data as List).cast<Map<String, dynamic>>();
   }
 

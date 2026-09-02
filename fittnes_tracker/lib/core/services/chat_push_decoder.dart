@@ -61,6 +61,14 @@ Future<ChatPushContent> decodeChatPush(
 
   final keys = allowNetwork ? ChatKeyStore() : ChatKeyStore.cacheOnly();
 
+  // Version 2 only: the epk and this device's own line out of the compact
+  // `deviceId:wrappedKey:wrappedIv,...` field PushNotificationService packs
+  // every target device's wrap into. `deviceId()` is a plain vault read, so it
+  // works with no network in the background isolate exactly like the rest of
+  // this function.
+  final epk = data['epk'] as String?;
+  final ownWrap = await _ownWrap(data['keys'] as String?, await keys.deviceId());
+
   final plaintext = await WebCryptoChatCrypto(keys: keys).decrypt(
     // The push arrives at the recipient, so the other party is whoever sent it
     // — which is exactly what threadId is, from this side of the conversation.
@@ -68,6 +76,9 @@ Future<ChatPushContent> decodeChatPush(
     ciphertext: ciphertext,
     iv: iv,
     version: version,
+    ephemeralPublicKeyJwk: epk,
+    wrappedKey: ownWrap?.$1,
+    wrappedKeyIv: ownWrap?.$2,
   );
 
   return ChatPushContent(
@@ -75,6 +86,19 @@ Future<ChatPushContent> decodeChatPush(
     body: plaintext ?? newMessage,
     threadId: threadId,
   );
+}
+
+/// Picks [deviceId]'s own entry out of the packed `keys` field, or null if the
+/// push carries no field, or carries one with nothing for this device.
+(String, String)? _ownWrap(String? packed, String deviceId) {
+  if (packed == null || packed.isEmpty) return null;
+
+  for (final entry in packed.split(',')) {
+    final parts = entry.split(':');
+    if (parts.length != 3) continue;
+    if (parts[0] == deviceId) return (parts[1], parts[2]);
+  }
+  return null;
 }
 
 String _stringOr(Object? value, String fallback) {

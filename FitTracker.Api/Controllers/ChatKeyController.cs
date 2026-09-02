@@ -19,6 +19,13 @@ namespace FitTracker.Api.Controllers;
 /// inconvenient to read. See docs/chat-encryption.md.
 /// </para>
 /// <para>
+/// One row per (user, device) rather than per user — a user signed in on more
+/// than one device (a phone and the Trainer Console's web/desktop build, most
+/// commonly) has one key per install, and registering a new one is additive:
+/// it never touches another device's row. See docs/chat-encryption.md for why
+/// that used not to be true and what it cost.
+/// </para>
+/// <para>
 /// The lookup is gated on an Active trainer-client relationship, exactly like
 /// every other endpoint that exposes one user to another. A public key is not
 /// secret, but "who is this user and do they exist" is still an answer this API
@@ -29,13 +36,13 @@ namespace FitTracker.Api.Controllers;
 [Route("api/chat/keys")]
 [Authorize]
 public class ChatKeyController(
-    IUserChatKeyRepository chatKeys,
+    IChatDeviceKeyRepository chatKeys,
     ITrainerClientService trainerClientService) : ControllerBase
 {
-    private readonly IUserChatKeyRepository _chatKeys = chatKeys;
+    private readonly IChatDeviceKeyRepository _chatKeys = chatKeys;
     private readonly ITrainerClientService _trainerClientService = trainerClientService;
 
-    /// <summary>The caller's own id, and their published key if they have one.</summary>
+    /// <summary>The caller's own id, and every device they have published a key from.</summary>
     /// <remarks>
     /// The id is the load-bearing half of this response. The Flutter client has
     /// no user id of its own — see docs/chat-architecture.md §5 — and the key
@@ -49,22 +56,24 @@ public class ChatKeyController(
         var userId = GetUserId();
         if (userId is null) return Unauthorized();
 
-        var key = await _chatKeys.GetAsync(userId.Value);
+        var devices = await _chatKeys.GetForUserAsync(userId.Value);
 
         return Ok(new ChatKeyDto
         {
             UserId = userId.Value,
-            PublicKeyJwk = key?.PublicKeyJwk,
+            Devices = devices
+                .Select(d => new ChatDeviceKeyDto { DeviceId = d.DeviceId, PublicKeyJwk = d.PublicKeyJwk })
+                .ToList(),
         });
     }
 
-    /// <summary>Publishes the caller's public key, replacing any previous one.</summary>
+    /// <summary>Publishes one device's public key.</summary>
     /// <remarks>
-    /// Replacing rather than rejecting a second registration is deliberate. A
-    /// reinstall cannot recover the old private key, so refusing the new public
-    /// key would leave that user permanently unable to send anything the other
-    /// side could read. The cost — that their older messages stop being
-    /// decryptable — is the documented price of having no key backup.
+    /// Additive, not a replacement: registering a new device leaves every other
+    /// device's row untouched, so nothing this account has already sent or
+    /// received becomes unreadable anywhere else. That is the entire point —
+    /// see docs/chat-encryption.md for what the single-key-per-user version of
+    /// this endpoint used to cost.
     /// </remarks>
     [HttpPut("me")]
     public async Task<IActionResult> Publish([FromBody] PublishChatKeyRequestDto request)
@@ -72,17 +81,20 @@ public class ChatKeyController(
         var userId = GetUserId();
         if (userId is null) return Unauthorized();
 
+        if (string.IsNullOrWhiteSpace(request.DeviceId))
+            return BadRequest("A device id is required.");
+
         if (string.IsNullOrWhiteSpace(request.PublicKeyJwk))
             return BadRequest("A public key is required.");
 
-        await _chatKeys.UpsertAsync(userId.Value, request.PublicKeyJwk.Trim());
+        await _chatKeys.UpsertAsync(userId.Value, request.DeviceId.Trim(), request.PublicKeyJwk.Trim());
 
         return Ok(new ChatKeyDto { UserId = userId.Value });
     }
 
-    /// <summary>The other party's published key.</summary>
+    /// <summary>The other party's registered devices and their published keys.</summary>
     /// <returns>
-    /// 404 when they have never published one. The client treats that as "they
+    /// An empty device list when they have none. The client treats that as "they
     /// have not opened the app since this shipped" and says so, rather than
     /// failing the thread.
     /// </returns>
@@ -94,13 +106,15 @@ public class ChatKeyController(
 
         if (!await IsActivePairAsync(userId.Value, otherPartyId)) return Unauthorized();
 
-        var key = await _chatKeys.GetAsync(otherPartyId);
-        if (key == null) return NotFound();
+        var devices = await _chatKeys.GetForUserAsync(otherPartyId);
+        if (devices.Count == 0) return NotFound();
 
         return Ok(new ChatKeyDto
         {
             UserId = otherPartyId,
-            PublicKeyJwk = key.PublicKeyJwk,
+            Devices = devices
+                .Select(d => new ChatDeviceKeyDto { DeviceId = d.DeviceId, PublicKeyJwk = d.PublicKeyJwk })
+                .ToList(),
         });
     }
 

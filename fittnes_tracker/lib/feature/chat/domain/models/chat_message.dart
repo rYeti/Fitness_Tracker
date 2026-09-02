@@ -14,8 +14,22 @@ class ChatMessage {
   /// Base64 of the AES-GCM IV [body] was encrypted under. Null for a legacy row.
   final String? iv;
 
-  /// 0 = plaintext, written before encryption existed. 1 = ECDH P-256 + AES-GCM.
+  /// 0 = plaintext. 1 = pairwise ECDH P-256 + AES-GCM (one key per account).
+  /// 2 = per-device ECDH P-256 + AES-GCM (a wrapped content key per device).
   final int encryptionVersion;
+
+  /// The message's own ephemeral ECDH public key. Present only for
+  /// [encryptionVersion] 2.
+  final String? ephemeralPublicKeyJwk;
+
+  /// This device's own wrapped copy of the content key, resolved server-side
+  /// against the `deviceId` this client sent. Null when the message predates
+  /// this device, or under version 0/1 — the ordinary shape of "cannot be
+  /// decrypted here", not an error.
+  final String? wrappedKey;
+
+  /// Base64 IV [wrappedKey] was wrapped under.
+  final String? wrappedKeyIv;
 
   /// True when this message arrived with a body this device could not decrypt.
   ///
@@ -46,6 +60,9 @@ class ChatMessage {
     this.body,
     this.iv,
     this.encryptionVersion = 0,
+    this.ephemeralPublicKeyJwk,
+    this.wrappedKey,
+    this.wrappedKeyIv,
     this.isUndecryptable = false,
     required this.sentAt,
     required this.senderId,
@@ -78,6 +95,9 @@ class ChatMessage {
       // plaintext -- guessing 1 for them would render every legacy message as
       // undecryptable.
       encryptionVersion: json['encryptionVersion'] as int? ?? 0,
+      ephemeralPublicKeyJwk: json['ephemeralPublicKeyJwk'] as String?,
+      wrappedKey: json['wrappedKey'] as String?,
+      wrappedKeyIv: json['wrappedIv'] as String?,
       mediaType: media == null ? null : MediaType.values[media],
       url: json['url'] as String?,
       thumbnailUrl: json['thumbnailUrl'] as String?,

@@ -16,8 +16,13 @@ public interface IChatService
     /// The message body, already encrypted by the sender's device. This server
     /// stores it verbatim and cannot read it — see docs/chat-encryption.md.
     /// </param>
+    /// <param name="senderDeviceId">
+    /// The sending device's own id, so the returned ack carries that device's
+    /// own wrapped content key rather than none — the sender needs to read its
+    /// own message back exactly as any other device would.
+    /// </param>
     /// <exception cref="InvalidOperationException">No Active relationship joins the pair.</exception>
-    Task<ChatMessageDto> SendMessageAsync(Guid trainerId, Guid clientId, Guid senderId, Guid messageId, EncryptedChatBody body);
+    Task<ChatMessageDto> SendMessageAsync(Guid trainerId, Guid clientId, Guid senderId, Guid messageId, EncryptedChatBody body, string? senderDeviceId = null);
 
     /// <summary>
     /// Retrieves chat history for a trainer-client pair, oldest first.
@@ -25,14 +30,16 @@ public interface IChatService
     /// <param name="trainerId">The trainer id that identifies the chat pair.</param>
     /// <param name="clientId">The client id that identifies the chat pair.</param>
     /// <param name="range">How many of the most recent messages to return — a message count, not a number of days.</param>
-    Task<List<ChatMessageDto>> GetChatHistoryAsync(Guid trainerId, Guid clientId, int range);
+    /// <param name="deviceId">The caller's own device id, for resolving each message's wrapped key.</param>
+    Task<List<ChatMessageDto>> GetChatHistoryAsync(Guid trainerId, Guid clientId, int range, string? deviceId = null);
 
     /// <summary>
     /// Every Active thread this user is a party to, newest activity first, with
     /// a preview of the last message and the caller's own unread count.
     /// </summary>
     /// <param name="userId">The signed-in user — trainer or client; the "other party" is whoever they are not.</param>
-    Task<List<ChatConversationDto>> GetConversationsAsync(Guid userId);
+    /// <param name="deviceId">The caller's own device id, for resolving the last message's wrapped key.</param>
+    Task<List<ChatConversationDto>> GetConversationsAsync(Guid userId, string? deviceId = null);
 
     /// <summary>
     /// Marks this caller's side of a thread as read up to now.

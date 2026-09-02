@@ -104,8 +104,71 @@ public class ChatRepositoryTests
         ctx.AddMessage(ctx.Relationship.Id, ctx.TrainerId, "a", start);
         ctx.AddMessage(otherRelationship.Id, ctx.TrainerId, "not mine", start);
 
-        var history = await NewRepository(ctx).GetChatHistoryAsync(ctx.TrainerId, ctx.ClientId, 50);
+        var history = await NewRepository(ctx).GetChatHistoryAsync(ctx.TrainerId, ctx.ClientId, 50, deviceId: null);
 
         Assert.Equal(new[] { "a", "b" }, history.Select(m => m.Body));
+    }
+
+    [Fact]
+    public async Task A_message_carries_only_the_requesting_devices_wrapped_key()
+    {
+        // Every device of both parties gets its own row, but a caller must never
+        // see another device's wrap — not even its own other device's.
+        using var ctx = new ChatScenario();
+        var repo = NewRepository(ctx);
+
+        await repo.AddMessageAsync(new ChatMessage
+        {
+            Id = Guid.NewGuid(),
+            TrainerClientId = ctx.Relationship.Id,
+            SenderId = ctx.TrainerId,
+            Body = "cipher",
+            Iv = "iv",
+            EncryptionVersion = 2,
+            EphemeralPublicKeyJwk = "epk",
+            Keys =
+            [
+                new ChatMessageKey { DeviceId = "trainer-phone", WrappedKey = "wk-1", WrappedIv = "wi-1" },
+                new ChatMessageKey { DeviceId = "trainer-desktop", WrappedKey = "wk-2", WrappedIv = "wi-2" },
+            ],
+        });
+
+        var history = await repo.GetChatHistoryAsync(ctx.TrainerId, ctx.ClientId, 50, deviceId: "trainer-desktop");
+
+        var message = Assert.Single(history);
+        var key = Assert.Single(message.Keys);
+        Assert.Equal("trainer-desktop", key.DeviceId);
+        Assert.Equal("wk-2", key.WrappedKey);
+    }
+
+    [Fact]
+    public async Task A_replayed_send_keeps_the_originally_stored_keys()
+    {
+        using var ctx = new ChatScenario();
+        var repo = NewRepository(ctx);
+        var id = Guid.NewGuid();
+
+        await repo.AddMessageAsync(new ChatMessage
+        {
+            Id = id,
+            TrainerClientId = ctx.Relationship.Id,
+            SenderId = ctx.TrainerId,
+            Body = "first attempt",
+            EncryptionVersion = 2,
+            Keys = [new ChatMessageKey { DeviceId = "phone", WrappedKey = "wk-first", WrappedIv = "wi-first" }],
+        });
+
+        var replayed = await repo.AddMessageAsync(new ChatMessage
+        {
+            Id = id,
+            TrainerClientId = ctx.Relationship.Id,
+            SenderId = ctx.TrainerId,
+            Body = "second attempt, fresh content key",
+            EncryptionVersion = 2,
+            Keys = [new ChatMessageKey { DeviceId = "phone", WrappedKey = "wk-second", WrappedIv = "wi-second" }],
+        });
+
+        var key = Assert.Single(replayed.Keys);
+        Assert.Equal("wk-first", key.WrappedKey);
     }
 }

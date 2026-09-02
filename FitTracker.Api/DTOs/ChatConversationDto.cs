@@ -30,8 +30,17 @@ public class ChatConversationDto
     /// <summary>Base64 IV for <see cref="LastMessagePreview"/>, null for a legacy row.</summary>
     public string? LastMessageIv { get; set; }
 
-    /// <summary>How <see cref="LastMessagePreview"/> was protected. 0 = plaintext, 1 = encrypted.</summary>
+    /// <summary>How <see cref="LastMessagePreview"/> was protected. 0 = plaintext, 1 = pairwise, 2 = per-device.</summary>
     public int LastMessageEncryptionVersion { get; set; }
+
+    /// <summary>The last message's ephemeral ECDH public key. Present only for version 2.</summary>
+    public string? LastMessageEphemeralPublicKeyJwk { get; set; }
+
+    /// <summary>The caller's own device's wrapped copy of the last message's content key. Null when it predates this device, or under version 0/1.</summary>
+    public string? LastMessageWrappedKey { get; set; }
+
+    /// <summary>Base64 IV <see cref="LastMessageWrappedKey"/> was wrapped under.</summary>
+    public string? LastMessageWrappedIv { get; set; }
 
     /// <summary>Null when the pair has never exchanged a message.</summary>
     public DateTime? LastMessageAt { get; set; }
