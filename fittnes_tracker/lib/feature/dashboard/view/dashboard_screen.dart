@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/core/forge_motion.dart';
@@ -86,24 +88,43 @@ class _DashboardScreenState extends State<DashboardScreen>
     });
   }
 
+  // A tap on one of these option buttons closes the dial via setState, which
+  // only takes effect on the next frame — a fast double-tap (well within a
+  // single frame's worth of gesture processing) can land both taps on the
+  // same still-rendered button before it disappears. Each handler pushing
+  // its own route means that fired _two_ pushes onto the same navigator, and
+  // a second push racing the first mid-transition is what left the screen
+  // looking switched but inert: sometimes the stacked route, not the one the
+  // first tap opened, ended up on top with nothing on it wired to respond.
+  // Guarding re-entrancy here — rather than trying to debounce every button
+  // — covers every option with one flag.
+  bool _isNavigating = false;
+
+  Future<void> _navigate(FutureOr<void> Function() push) async {
+    if (_isNavigating) return;
+    _isNavigating = true;
+    _toggleQuickAdd();
+    try {
+      await push();
+    } finally {
+      _isNavigating = false;
+    }
+  }
+
   // The Food tab only reloads its own data when something mutates food from
   // inside it (see food_tracking_screen.dart's _refreshDashboard, which is
   // the mirror of this). Adding food from this FAB instead pushes '/add-food'
   // directly, so nothing ever told the Food (or Progress) tab to re-read —
   // they kept showing pre-add data until the user manually refreshed them.
-  Future<void> _addFood(String category) async {
-    _toggleQuickAdd();
-    await context.push('/add-food', extra: {'category': category});
-    if (!mounted) return;
-    globalFoodTrackingKey.currentState?.loadNutritionData();
-    globalProgressKey.currentState?.reloadNutritionData();
-    _loadDashboardData();
-  }
+  Future<void> _addFood(String category) => _navigate(() async {
+        await context.push('/add-food', extra: {'category': category});
+        if (!mounted) return;
+        globalFoodTrackingKey.currentState?.loadNutritionData();
+        globalProgressKey.currentState?.reloadNutritionData();
+        _loadDashboardData();
+      });
 
-  Future<void> _addWeight() async {
-    _toggleQuickAdd();
-    await context.push('/weight-tracking');
-  }
+  Future<void> _addWeight() => _navigate(() => context.push('/weight-tracking'));
 
   /// Public so callers outside this widget (via [globalDashboardKey]) can
   /// force a reload, e.g. after a food entry is added/edited/deleted on the
