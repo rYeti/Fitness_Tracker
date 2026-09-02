@@ -32,6 +32,14 @@ set(CMAKE_CXX_FLAGS_PROFILE "${CMAKE_CXX_FLAGS_RELEASE}")
 # Use Unicode for all projects.
 add_definitions(-DUNICODE -D_UNICODE)
 
+# audioplayers_windows (a transitive plugin we don't control) still compiles
+# with /await for the old Coroutines TS. Recent MSVC toolsets turned the STL's
+# warning about that into a hard static_assert (STL1011). This define is the
+# escape hatch the compiler itself points at; it must be set here, in scope
+# before the plugin subdirectories are added, because the plugin's own
+# CMakeLists.txt lives in the pub cache and gets overwritten by `flutter pub get`.
+add_compile_definitions(_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS)
+
 # Compilation settings that should be applied to most targets.
 #
 # Be cautious about adding new options here, as plugins use this function by
