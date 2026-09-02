@@ -55,6 +55,25 @@ class TrainerConsoleHome extends StatefulWidget {
   /// the landing surface and there's no route to pop back to.
   final VoidCallback? onExitConsole;
 
+  /// Whether switching sections should also update the address bar via
+  /// `GoRouter.go`.
+  ///
+  /// True only for the instance [PostAuthHome] mounts at `/` or
+  /// `/console/:section` — the one that actually owns that location. A
+  /// console reached by pushing `/trainer-console` (Settings, on any
+  /// platform) or by a notification tap is a second, independent instance
+  /// layered on top of whatever page is already showing; it must never call
+  /// `go()`. `go()` rebuilds the router's *entire* match list for the target
+  /// location, and because `/console/:section` is a single route matched by
+  /// pattern, that rebuild reuses the page already in the stack for that
+  /// pattern — the original PostAuthHome instance sitting under the push —
+  /// rather than the freshly pushed one. That page still carries whatever
+  /// `_showTraineeApp` was last set to, so a trainer who had switched to "My
+  /// Training" before opening this second console got dropped straight back
+  /// into it the moment they picked a section, instead of seeing the section
+  /// they tapped. See `docs/trainer-console-route-collision.md`.
+  final bool syncUrl;
+
   const TrainerConsoleHome({
     super.key,
     this.repository,
@@ -62,6 +81,7 @@ class TrainerConsoleHome extends StatefulWidget {
     this.licenceProvider,
     this.initialRoute = TrainerConsoleRoute.dashboard,
     this.onExitConsole,
+    this.syncUrl = false,
   });
 
   @override
@@ -160,6 +180,9 @@ class _TrainerConsoleHomeState extends State<TrainerConsoleHome> {
   void _selectRoute(TrainerConsoleRoute route) {
     if (route == _route) return;
     setState(() => _route = route);
+    // Only the instance PostAuthHome mounts at the current location owns the
+    // address bar — see the doc comment on [TrainerConsoleHome.syncUrl].
+    if (!widget.syncUrl) return;
     // maybeOf, not of: the console is mounted directly in widget tests and
     // could be embedded anywhere else, and it should not require a router to
     // function. The URL is an enhancement on top of the section state, not
