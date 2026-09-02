@@ -42,6 +42,12 @@ class TrainerConsoleGate extends StatelessWidget {
   /// Messages, which is what made the omission visible.
   final TrainerConsoleRoute initialRoute;
 
+  /// Forwarded to [TrainerConsoleHome.syncUrl] — see its doc comment. False
+  /// by default: a gate reached by pushing a route (Settings, a notification
+  /// tap) must never let switching sections rewrite the address bar out from
+  /// under the page it was pushed on top of.
+  final bool syncUrl;
+
   const TrainerConsoleGate({
     super.key,
     this.fallback,
@@ -49,6 +55,7 @@ class TrainerConsoleGate extends StatelessWidget {
     this.initialRoute = TrainerConsoleRoute.dashboard,
     this.repository,
     this.licenceProvider,
+    this.syncUrl = false,
   });
 
   @override
@@ -78,6 +85,7 @@ class TrainerConsoleGate extends StatelessWidget {
         repository: repository,
         licenceProvider: licenceProvider,
         initialRoute: initialRoute,
+        syncUrl: syncUrl,
       );
     }
     if (fallback != null) return fallback!;

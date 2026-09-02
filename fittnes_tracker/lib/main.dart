@@ -567,6 +567,11 @@ class _PostAuthHomeState extends State<PostAuthHome> {
       initialRoute:
           widget.initialConsoleRoute ?? TrainerConsoleRoute.dashboard,
       onExitConsole: () => setState(() => _showTraineeApp = true),
+      // This instance is the one PostAuthHome mounted for the current
+      // location ('/' or '/console/:section'), so it's the only console
+      // instance allowed to rewrite the URL when the trainer switches
+      // sections. See TrainerConsoleHome.syncUrl.
+      syncUrl: true,
     );
   }
 
