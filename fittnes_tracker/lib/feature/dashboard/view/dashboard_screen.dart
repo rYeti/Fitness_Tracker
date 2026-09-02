@@ -33,32 +33,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _allTimeCompleted = 0;
   int _todayCalories = 0;
 
-  // DashboardScreen is kept alive underneath whatever the SpeedDial pushes
-  // (see globalDashboardKey above), so its ticker gets muted the instant the
-  // new route lands on top. flutter_speed_dial closes itself by reversing an
-  // AnimationController and only tears down its overlay entries in that
-  // animation's whenComplete — if the controller is muted mid-reverse it
-  // never fires, and the dial's full-screen scrim/hit-tester is left
-  // permanently covering whatever we just navigated to. Closing the dial
-  // through this notifier and waiting out its animation *before* pushing
-  // keeps the close on the still-active route, so it always completes.
-  final _dialOpen = ValueNotifier<bool>(false);
-
   @override
   void initState() {
     super.initState();
     _loadDashboardData();
   }
 
-  @override
-  void dispose() {
-    _dialOpen.dispose();
-    super.dispose();
-  }
-
-  Future<void> _closeDialThenNavigate(FutureOr<void> Function() navigate) async {
-    _dialOpen.value = false;
-    await Future.delayed(const Duration(milliseconds: 150));
+  // DashboardScreen is kept alive underneath whatever the SpeedDial pushes
+  // (see globalDashboardKey above), so its ticker gets muted the instant the
+  // new route lands on top. SpeedDial closes itself by reversing an
+  // AnimationController and only tears down its overlay entries (the
+  // full-screen scrim/hit-tester) in that animation's whenComplete — if the
+  // controller is muted mid-reverse it never fires, leaving the barrier
+  // stuck over whatever we just navigated to. SpeedDial always triggers that
+  // close itself right after running a child's onTap (there's no hook to
+  // suppress it), so closing it ourselves here first would only make its
+  // own close call re-open it. Instead we just hold the navigation back
+  // until after that single, package-driven close has had time to finish
+  // while the dashboard is still the active, ticking route.
+  Future<void> _navigateAfterDialCloses(FutureOr<void> Function() navigate) async {
+    await Future.delayed(const Duration(milliseconds: 200));
     if (!mounted) return;
     await navigate();
   }
@@ -134,13 +128,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
         activeIcon: Icons.close,
         backgroundColor: colorScheme.primary,
         foregroundColor: Colors.white,
-        openCloseDial: _dialOpen,
         children: [
           SpeedDialChild(
             child: const Icon(Icons.free_breakfast),
             backgroundColor: colorScheme.primary,
             label: l10n.addBreakfast,
-            onTap: () => _closeDialThenNavigate(
+            onTap: () => _navigateAfterDialCloses(
               () => context.push('/add-food', extra: {'category': 'Breakfast'}),
             ),
           ),
@@ -148,7 +141,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: const Icon(Icons.lunch_dining),
             backgroundColor: colorScheme.primary,
             label: l10n.addLunch,
-            onTap: () => _closeDialThenNavigate(
+            onTap: () => _navigateAfterDialCloses(
               () => context.push('/add-food', extra: {'category': 'Lunch'}),
             ),
           ),
@@ -156,7 +149,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: const Icon(Icons.dinner_dining),
             backgroundColor: colorScheme.primary,
             label: l10n.addDinner,
-            onTap: () => _closeDialThenNavigate(
+            onTap: () => _navigateAfterDialCloses(
               () => context.push('/add-food', extra: {'category': 'Dinner'}),
             ),
           ),
@@ -164,7 +157,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: const Icon(Icons.cookie),
             backgroundColor: colorScheme.primary,
             label: l10n.addSnack,
-            onTap: () => _closeDialThenNavigate(
+            onTap: () => _navigateAfterDialCloses(
               () => context.push('/add-food', extra: {'category': 'Snacks'}),
             ),
           ),
@@ -172,7 +165,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: const Icon(Icons.monitor_weight),
             backgroundColor: colorScheme.primary,
             label: l10n.addWeight,
-            onTap: () => _closeDialThenNavigate(
+            onTap: () => _navigateAfterDialCloses(
               () => context.push('/weight-tracking'),
             ),
           ),
