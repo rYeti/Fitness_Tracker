@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "fittnes_tracker" "\0"
+            VALUE "CompanyName", "com.forgeform.app" "\0"
+            VALUE "FileDescription", "ForgeForm" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "fittnes_tracker" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2025 com.example. All rights reserved." "\0"
-            VALUE "OriginalFilename", "fittnes_tracker.exe" "\0"
-            VALUE "ProductName", "fittnes_tracker" "\0"
+            VALUE "InternalName", "ForgeForm" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2025 com.forgeform.app. All rights reserved." "\0"
+            VALUE "OriginalFilename", "ForgeForm.exe" "\0"
+            VALUE "ProductName", "ForgeForm" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END
