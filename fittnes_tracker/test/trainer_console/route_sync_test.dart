@@ -31,20 +31,6 @@ void main() {
   /// route pattern collision to fall into.
   final showTraineeApp = ValueNotifier<bool>(false);
 
-  Widget buildHome(TrainerConsoleRoute? section) {
-    return ValueListenableBuilder<bool>(
-      valueListenable: showTraineeApp,
-      builder: (context, isTrainee, _) {
-        if (isTrainee) return const Scaffold(body: Text('MY TRAINING'));
-        return _consoleHome(
-          initialRoute: section ?? TrainerConsoleRoute.dashboard,
-          syncUrl: true,
-          onExitConsole: () => showTraineeApp.value = true,
-        );
-      },
-    );
-  }
-
   Widget _consoleHome({
     required TrainerConsoleRoute initialRoute,
     required bool syncUrl,
@@ -69,6 +55,20 @@ void main() {
       initialRoute: initialRoute,
       syncUrl: syncUrl,
       onExitConsole: onExitConsole,
+    );
+  }
+
+  Widget buildHome(TrainerConsoleRoute? section) {
+    return ValueListenableBuilder<bool>(
+      valueListenable: showTraineeApp,
+      builder: (context, isTrainee, _) {
+        if (isTrainee) return const Scaffold(body: Text('MY TRAINING'));
+        return _consoleHome(
+          initialRoute: section ?? TrainerConsoleRoute.dashboard,
+          syncUrl: true,
+          onExitConsole: () => showTraineeApp.value = true,
+        );
+      },
     );
   }
 
