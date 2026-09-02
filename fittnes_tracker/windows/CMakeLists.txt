@@ -53,6 +53,13 @@ add_subdirectory(${FLUTTER_MANAGED_DIR})
 add_subdirectory("runner")
 
 
+# audioplayers_windows (via its C++/WinRT dependency) still targets the
+# deprecated <experimental/coroutine> header. Newer MSVC STLs (VS 18 /
+# 14.51+) turn that deprecation into a hard build error, so silence it here
+# rather than waiting on an upstream plugin fix. Applies only to targets
+# added after this point, i.e. the plugins pulled in below.
+add_compile_definitions(_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS)
+
 # Generated plugin build rules, which manage building the plugins and adding
 # them to the application.
 include(flutter/generated_plugins.cmake)
