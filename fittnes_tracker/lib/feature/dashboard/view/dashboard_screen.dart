@@ -1,18 +1,18 @@
-import 'dart:async';
-
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/design_tokens.dart';
+import 'package:ForgeForm/core/forge_motion.dart';
 import 'package:ForgeForm/feature/food_tracking/data/repositories/nutrition_repository.dart';
 import 'package:ForgeForm/feature/gym_tracking/presentation/view/workouts/active_workout_view.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/providers/user_goals_provider.dart';
-import 'package:flutter_speed_dial/flutter_speed_dial.dart';
 import '../widgets/dashboard_weight_card.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
 import 'package:ForgeForm/feature/dashboard/widgets/greeting_card.dart';
 import 'package:ForgeForm/core/widgets/content_pane.dart';
+import 'package:ForgeForm/feature/food_tracking/presentation/view/food_tracking_screen.dart';
+import 'package:ForgeForm/feature/progress_dashboard_view.dart';
 import 'package:go_router/go_router.dart';
 
 // Global key so other tabs (e.g. Food) can trigger a refresh after mutating
@@ -27,11 +27,33 @@ class DashboardScreen extends StatefulWidget {
   _DashboardScreenState createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class _DashboardScreenState extends State<DashboardScreen>
+    with SingleTickerProviderStateMixin {
   int _weekCompleted = 0;
   int _weekTotal = 0;
   int _allTimeCompleted = 0;
   int _todayCalories = 0;
+
+  // The FAB used package:flutter_speed_dial, which renders its children and
+  // scrim through a separately-inserted OverlayEntry rather than as part of
+  // this screen's own widget tree. Pushing a route from a child's onTap races
+  // that overlay's own close animation, and losing the race leaves its
+  // full-screen barrier stuck on top of whatever got navigated to, absorbing
+  // every tap — a known, unfixed bug in the package (upstream issue #327),
+  // not something fixable from here with the right delay. This local
+  // Column-based expando avoids the problem structurally: its "children" are
+  // ordinary widgets in this route's own subtree, so pushing a new route
+  // covers and hit-test-shadows them exactly like it would any other widget
+  // on this screen, with no separate overlay lifecycle to leak.
+  bool _quickAddOpen = false;
+  late final AnimationController _quickAddController = AnimationController(
+    duration: ForgeMotion.standard,
+    vsync: this,
+  );
+  late final Animation<double> _quickAddScale = CurvedAnimation(
+    parent: _quickAddController,
+    curve: ForgeMotion.curve,
+  );
 
   @override
   void initState() {
@@ -39,22 +61,48 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _loadDashboardData();
   }
 
-  // DashboardScreen is kept alive underneath whatever the SpeedDial pushes
-  // (see globalDashboardKey above), so its ticker gets muted the instant the
-  // new route lands on top. SpeedDial closes itself by reversing an
-  // AnimationController and only tears down its overlay entries (the
-  // full-screen scrim/hit-tester) in that animation's whenComplete — if the
-  // controller is muted mid-reverse it never fires, leaving the barrier
-  // stuck over whatever we just navigated to. SpeedDial always triggers that
-  // close itself right after running a child's onTap (there's no hook to
-  // suppress it), so closing it ourselves here first would only make its
-  // own close call re-open it. Instead we just hold the navigation back
-  // until after that single, package-driven close has had time to finish
-  // while the dashboard is still the active, ticking route.
-  Future<void> _navigateAfterDialCloses(FutureOr<void> Function() navigate) async {
-    await Future.delayed(const Duration(milliseconds: 200));
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // AnimationController is built in initState, before MediaQuery exists, so
+    // the reduce-motion setting can only be applied once dependencies resolve.
+    _quickAddController.duration = ForgeMotion.of(context);
+  }
+
+  @override
+  void dispose() {
+    _quickAddController.dispose();
+    super.dispose();
+  }
+
+  void _toggleQuickAdd() {
+    setState(() {
+      _quickAddOpen = !_quickAddOpen;
+      if (_quickAddOpen) {
+        _quickAddController.forward();
+      } else {
+        _quickAddController.reverse();
+      }
+    });
+  }
+
+  // The Food tab only reloads its own data when something mutates food from
+  // inside it (see food_tracking_screen.dart's _refreshDashboard, which is
+  // the mirror of this). Adding food from this FAB instead pushes '/add-food'
+  // directly, so nothing ever told the Food (or Progress) tab to re-read —
+  // they kept showing pre-add data until the user manually refreshed them.
+  Future<void> _addFood(String category) async {
+    _toggleQuickAdd();
+    await context.push('/add-food', extra: {'category': category});
     if (!mounted) return;
-    await navigate();
+    globalFoodTrackingKey.currentState?.loadNutritionData();
+    globalProgressKey.currentState?.reloadNutritionData();
+    _loadDashboardData();
+  }
+
+  Future<void> _addWeight() async {
+    _toggleQuickAdd();
+    await context.push('/weight-tracking');
   }
 
   /// Public so callers outside this widget (via [globalDashboardKey]) can
@@ -89,8 +137,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           physics: const AlwaysScrollableScrollPhysics(),
           child: ContentPane(
             child: Padding(
-              // The extra bottom padding clears the SpeedDial, which floats
-              // over the scroll view rather than displacing it.
+              // The extra bottom padding clears the quick-add FAB, which
+              // floats over the scroll view rather than displacing it.
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -114,59 +162,111 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ),
       ),
-      floatingActionButton: SpeedDial(
-        // The one control on this screen a screen reader could not name. It is
-        // also the only way to log anything from here, so "button" was the
-        // whole announcement for the screen's primary action.
-        tooltip: l10n.quickAdd,
-        animatedIcon: AnimatedIcons.menu_close,
-        spacing: 12,
-        spaceBetweenChildren: 8,
-        overlayOpacity: 0.3,
-        overlayColor: Colors.black,
-        icon: Icons.add,
-        activeIcon: Icons.close,
-        backgroundColor: colorScheme.primary,
-        foregroundColor: Colors.white,
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          SpeedDialChild(
-            child: const Icon(Icons.free_breakfast),
+          if (_quickAddOpen) ...[
+            _quickAddOption(
+              icon: Icons.monitor_weight,
+              label: l10n.addWeight,
+              onTap: _addWeight,
+            ),
+            const SizedBox(height: 12),
+            _quickAddOption(
+              icon: Icons.cookie,
+              label: l10n.addSnack,
+              onTap: () => _addFood('Snacks'),
+            ),
+            const SizedBox(height: 12),
+            _quickAddOption(
+              icon: Icons.dinner_dining,
+              label: l10n.addDinner,
+              onTap: () => _addFood('Dinner'),
+            ),
+            const SizedBox(height: 12),
+            _quickAddOption(
+              icon: Icons.lunch_dining,
+              label: l10n.addLunch,
+              onTap: () => _addFood('Lunch'),
+            ),
+            const SizedBox(height: 12),
+            _quickAddOption(
+              icon: Icons.free_breakfast,
+              label: l10n.addBreakfast,
+              onTap: () => _addFood('Breakfast'),
+            ),
+            const SizedBox(height: 12),
+          ],
+          // The one control on this screen a screen reader could not name. It
+          // is also the only way to log anything from here, so "button" was
+          // the whole announcement for the screen's primary action.
+          FloatingActionButton(
+            onPressed: _toggleQuickAdd,
+            tooltip: _quickAddOpen ? l10n.close : l10n.quickAdd,
             backgroundColor: colorScheme.primary,
-            label: l10n.addBreakfast,
-            onTap: () => _navigateAfterDialCloses(
-              () => context.push('/add-food', extra: {'category': 'Breakfast'}),
+            foregroundColor: Colors.white,
+            child: AnimatedRotation(
+              turns: _quickAddOpen ? 0.125 : 0,
+              duration: ForgeMotion.of(context),
+              curve: ForgeMotion.curve,
+              child: Icon(_quickAddOpen ? Icons.close : Icons.add),
             ),
           ),
-          SpeedDialChild(
-            child: const Icon(Icons.lunch_dining),
-            backgroundColor: colorScheme.primary,
-            label: l10n.addLunch,
-            onTap: () => _navigateAfterDialCloses(
-              () => context.push('/add-food', extra: {'category': 'Lunch'}),
+        ],
+      ),
+    );
+  }
+
+  Widget _quickAddOption({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return ScaleTransition(
+      scale: _quickAddScale,
+      alignment: Alignment.bottomRight,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Material(
+            elevation: 2,
+            borderRadius: BorderRadius.circular(8),
+            color: colorScheme.primary.withValues(alpha: 0.9),
+            child: InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
             ),
           ),
-          SpeedDialChild(
-            child: const Icon(Icons.dinner_dining),
-            backgroundColor: colorScheme.primary,
-            label: l10n.addDinner,
-            onTap: () => _navigateAfterDialCloses(
-              () => context.push('/add-food', extra: {'category': 'Dinner'}),
-            ),
-          ),
-          SpeedDialChild(
-            child: const Icon(Icons.cookie),
-            backgroundColor: colorScheme.primary,
-            label: l10n.addSnack,
-            onTap: () => _navigateAfterDialCloses(
-              () => context.push('/add-food', extra: {'category': 'Snacks'}),
-            ),
-          ),
-          SpeedDialChild(
-            child: const Icon(Icons.monitor_weight),
-            backgroundColor: colorScheme.primary,
-            label: l10n.addWeight,
-            onTap: () => _navigateAfterDialCloses(
-              () => context.push('/weight-tracking'),
+          const SizedBox(width: 12),
+          Material(
+            elevation: 4,
+            shape: const CircleBorder(),
+            color: colorScheme.primary,
+            child: InkWell(
+              onTap: onTap,
+              customBorder: const CircleBorder(),
+              child: Semantics(
+                button: true,
+                label: label,
+                child: SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: Center(child: Icon(icon, color: Colors.white)),
+                ),
+              ),
             ),
           ),
         ],
