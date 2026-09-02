@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:ForgeForm/feature/workout_planning/data/models/exercise.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:ForgeForm/l10n/app_localizations.dart';
 
 /// Widget that displays a grid of muscle groups for selection
 class MuscleGroupSelector extends StatelessWidget {
@@ -40,6 +41,7 @@ class _MuscleGroupCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
 
     return Card(
       elevation: 2,
@@ -56,7 +58,7 @@ class _MuscleGroupCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              _getMuscleGroupName(muscleGroup),
+              _getMuscleGroupName(l10n, muscleGroup),
               style: theme.textTheme.titleMedium,
               textAlign: TextAlign.center,
             ),
@@ -100,24 +102,24 @@ class _MuscleGroupCard extends StatelessWidget {
     return Icon(fallbackIcon, size: size, color: color);
   }
 
-  String _getMuscleGroupName(MuscleGroup muscleGroup) {
+  String _getMuscleGroupName(AppLocalizations l10n, MuscleGroup muscleGroup) {
     switch (muscleGroup) {
       case MuscleGroup.chest:
-        return 'Chest';
+        return l10n.muscleGroupChest;
       case MuscleGroup.back:
-        return 'Back';
+        return l10n.muscleGroupBack;
       case MuscleGroup.shoulders:
-        return 'Shoulders';
+        return l10n.muscleGroupShoulders;
       case MuscleGroup.biceps:
-        return 'Biceps';
+        return l10n.muscleGroupBiceps;
       case MuscleGroup.triceps:
-        return 'Triceps';
+        return l10n.muscleGroupTriceps;
       case MuscleGroup.legs:
-        return 'Legs';
+        return l10n.muscleGroupLegs;
       case MuscleGroup.abs:
-        return 'Abs';
+        return l10n.muscleGroupAbs;
       case MuscleGroup.fullBody:
-        return 'Full body';
+        return l10n.muscleGroupFullBody;
     }
   }
 }
