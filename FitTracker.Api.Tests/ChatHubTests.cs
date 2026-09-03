@@ -6,6 +6,8 @@ using FitTracker.Api.Services;
 using FitTracker.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace FitTracker.Api.Tests;
@@ -43,20 +45,30 @@ public class ChatHubTests
         out RecordingPushDispatcher pushes)
     {
         var trainerClientRepo = new TrainerClientRepository(ctx.Db);
+        var trainerClientService = new TrainerClientService(
+            trainerClientRepo, new TrainerLicenceRepository(ctx.Db));
         clients = new RecordingClients();
         pushes = new RecordingPushDispatcher();
 
         return new ChatHub(
-            new TrainerClientService(
-                trainerClientRepo, new TrainerLicenceRepository(ctx.Db)),
+            trainerClientService,
             new ChatService(trainerClientRepo, new ChatRepository(ctx.Db)),
-            pushes)
+            pushes,
+            NewAttachmentService(ctx, trainerClientService))
         {
             Context = new FakeHubCallerContext(callerId),
             Clients = clients,
             Groups = new RecordingGroups(),
         };
     }
+
+    private static ChatAttachmentService NewAttachmentService(ChatScenario ctx, ITrainerClientService trainerClientService) =>
+        new(
+            new InMemoryChatAttachmentStore(),
+            new ChatAttachmentRepository(ctx.Db),
+            trainerClientService,
+            new ConfigurationBuilder().Build(),
+            NullLogger<ChatAttachmentService>.Instance);
 
     [Fact]
     public async Task SendMessage_returns_the_persisted_message_as_the_ack()
@@ -143,11 +155,13 @@ public class ChatHubTests
     {
         using var ctx = new ChatScenario();
         var trainerClientRepo = new TrainerClientRepository(ctx.Db);
+        var trainerClientService = new TrainerClientService(
+            trainerClientRepo, new TrainerLicenceRepository(ctx.Db));
         var hub = new ChatHub(
-            new TrainerClientService(
-                trainerClientRepo, new TrainerLicenceRepository(ctx.Db)),
+            trainerClientService,
             new ChatService(trainerClientRepo, new ChatRepository(ctx.Db)),
-            new RecordingPushDispatcher())
+            new RecordingPushDispatcher(),
+            NewAttachmentService(ctx, trainerClientService))
         {
             // ChatController already falls back to "sub"; the hub read only
             // NameIdentifier and threw on exactly the tokens the controller
@@ -168,11 +182,13 @@ public class ChatHubTests
     {
         using var ctx = new ChatScenario();
         var trainerClientRepo = new TrainerClientRepository(ctx.Db);
+        var trainerClientService = new TrainerClientService(
+            trainerClientRepo, new TrainerLicenceRepository(ctx.Db));
         var hub = new ChatHub(
-            new TrainerClientService(
-                trainerClientRepo, new TrainerLicenceRepository(ctx.Db)),
+            trainerClientService,
             new ChatService(trainerClientRepo, new ChatRepository(ctx.Db)),
-            new RecordingPushDispatcher())
+            new RecordingPushDispatcher(),
+            NewAttachmentService(ctx, trainerClientService))
         {
             Context = new FakeHubCallerContext(userId: null),
             Clients = new RecordingClients(),
@@ -193,12 +209,14 @@ public class ChatHubTests
         var trainerGroups = new RecordingGroups();
         var clientGroups = new RecordingGroups();
         var trainerClientRepo = new TrainerClientRepository(ctx.Db);
+        var trainerClientService = new TrainerClientService(
+            trainerClientRepo, new TrainerLicenceRepository(ctx.Db));
 
         ChatHub HubFor(Guid callerId, RecordingGroups groups) => new(
-            new TrainerClientService(
-                trainerClientRepo, new TrainerLicenceRepository(ctx.Db)),
+            trainerClientService,
             new ChatService(trainerClientRepo, new ChatRepository(ctx.Db)),
-            new RecordingPushDispatcher())
+            new RecordingPushDispatcher(),
+            NewAttachmentService(ctx, trainerClientService))
         {
             Context = new FakeHubCallerContext(callerId),
             Clients = new RecordingClients(),
@@ -262,6 +280,82 @@ public class ChatHubTests
         // Authorisation is checked before anything is persisted or queued, so a
         // stranger cannot make someone else's phone buzz.
         Assert.Empty(pushes.Queued);
+    }
+
+    [Fact]
+    public async Task SendMessageV2_commits_attachments_belonging_to_the_pair()
+    {
+        using var ctx = new ChatScenario();
+        var hub = NewHub(ctx, ctx.TrainerId, out _);
+        var attachment = ctx.AddAttachment(ctx.Relationship.Id, ctx.TrainerId);
+        var messageId = Guid.NewGuid();
+
+        await hub.SendMessageV2(
+            ctx.ClientId, "check this out", messageId, iv: "iv-1", encryptionVersion: 1,
+            attachmentIds: [attachment.Id]);
+
+        var committed = ctx.Db.ChatAttachments.Single(a => a.Id == attachment.Id);
+        Assert.Equal(messageId, committed.MessageId);
+        Assert.NotNull(committed.CommittedAt);
+    }
+
+    [Fact]
+    public async Task SendMessageV2_skips_an_attachment_from_another_pair_without_failing_the_send()
+    {
+        using var ctx = new ChatScenario();
+        var otherClient = ctx.AddUser("Petra", "Voss");
+        var otherRelationship = ctx.AddRelationship(ctx.TrainerId, otherClient.Id);
+        var foreignAttachment = ctx.AddAttachment(otherRelationship.Id, ctx.TrainerId);
+        var hub = NewHub(ctx, ctx.TrainerId, out _);
+
+        var ack = await hub.SendMessageV2(
+            ctx.ClientId, "check this out", Guid.NewGuid(), iv: "iv-1", encryptionVersion: 1,
+            attachmentIds: [foreignAttachment.Id]);
+
+        // The send still succeeds — bookkeeping must never cost the message.
+        Assert.NotEqual(default, ack.SentAt);
+        var stillUncommitted = ctx.Db.ChatAttachments.Single(a => a.Id == foreignAttachment.Id);
+        Assert.Null(stillUncommitted.CommittedAt);
+        Assert.Null(stillUncommitted.MessageId);
+    }
+
+    [Fact]
+    public async Task A_replayed_SendMessageV2_does_not_recommit_an_already_committed_attachment()
+    {
+        using var ctx = new ChatScenario();
+        var hub = NewHub(ctx, ctx.TrainerId, out _);
+        var attachment = ctx.AddAttachment(ctx.Relationship.Id, ctx.TrainerId);
+        var messageId = Guid.NewGuid();
+
+        await hub.SendMessageV2(
+            ctx.ClientId, "check this out", messageId, iv: "iv-1", encryptionVersion: 1,
+            attachmentIds: [attachment.Id]);
+        var firstCommittedAt = ctx.Db.ChatAttachments.Single(a => a.Id == attachment.Id).CommittedAt;
+
+        // The outbox always resends on a lost ack, same messageId, same attachmentIds.
+        await hub.SendMessageV2(
+            ctx.ClientId, "check this out", messageId, iv: "iv-1", encryptionVersion: 1,
+            attachmentIds: [attachment.Id]);
+
+        var row = ctx.Db.ChatAttachments.Single(a => a.Id == attachment.Id);
+        Assert.Equal(firstCommittedAt, row.CommittedAt);
+        Assert.Equal(messageId, row.MessageId);
+    }
+
+    [Fact]
+    public async Task The_five_argument_SendMessage_still_works_after_SendMessageV2_was_added()
+    {
+        // The regression that matters: SignalR binds by position and arity, so
+        // adding attachmentIds directly to SendMessage would have broken every
+        // already-shipped client outright rather than merely ignoring the new
+        // argument. This is why SendMessage delegates to SendMessageV2 instead
+        // of growing a parameter.
+        using var ctx = new ChatScenario();
+        var hub = NewHub(ctx, ctx.TrainerId, out _);
+
+        var ack = await hub.SendMessage(ctx.ClientId, "still five args", Guid.NewGuid(), iv: "iv-1", encryptionVersion: 1);
+
+        Assert.Equal("still five args", ack.Body);
     }
 
     // ── Minimal SignalR harness ───────────────────────────────────────────────

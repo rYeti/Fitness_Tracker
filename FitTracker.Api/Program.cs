@@ -213,6 +213,9 @@ builder.Services.AddScoped<IChatService, ChatService>();
 builder.Services.AddScoped<IUserChatKeyRepository, UserChatKeyRepository>();
 builder.Services.AddScoped<IDeviceTokenRepository, DeviceTokenRepository>();
 builder.Services.AddScoped<IPushNotificationService, PushNotificationService>();
+builder.Services.AddScoped<IChatAttachmentRepository, ChatAttachmentRepository>();
+builder.Services.AddScoped<IChatAttachmentService, ChatAttachmentService>();
+builder.Services.AddHostedService<ChatAttachmentReaper>();
 
 // Singleton: it holds a scope factory and a logger and nothing else. It has to
 // outlive the hub invocation that queues work on it, which is the entire point.

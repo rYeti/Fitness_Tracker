@@ -10,11 +10,13 @@ namespace FitTracker.Api.Hubs;
 public class ChatHub(
     ITrainerClientService trainerClientService,
     IChatService chatService,
-    IChatPushDispatcher pushDispatcher) : Hub
+    IChatPushDispatcher pushDispatcher,
+    IChatAttachmentService attachmentService) : Hub
 {
     private ITrainerClientService TrainerClientService { get; } = trainerClientService;
     private IChatService ChatService { get; } = chatService;
     private IChatPushDispatcher PushDispatcher { get; } = pushDispatcher;
+    private IChatAttachmentService AttachmentService { get; } = attachmentService;
     private static string GroupName(Guid trainerId, Guid clientId) => $"chat:{trainerId}:{clientId}";
 
     /// <summary>
@@ -57,12 +59,35 @@ public class ChatHub(
     /// "is there an IV?", so the day a second scheme exists nothing has to guess
     /// which one an old row used.
     /// </param>
-    public async Task<ChatMessageDto> SendMessage(
+    public Task<ChatMessageDto> SendMessage(
         Guid clientId,
         string body,
         Guid messageId,
         string? iv,
-        int encryptionVersion)
+        int encryptionVersion) =>
+        // SignalR binds hub method arguments by position AND by arity, and does
+        // not fill a missing trailing argument with a default — so adding a
+        // sixth parameter directly to SendMessage would not degrade for an
+        // already-shipped five-argument caller, it would fail the invocation
+        // outright. Nor can SendMessage be overloaded; SignalR hub methods
+        // cannot be. SendMessageV2 is the only way to add attachmentIds without
+        // breaking every existing client's ability to send at all. See
+        // docs/chat-attachments.md §A.4.
+        SendMessageV2(clientId, body, messageId, iv, encryptionVersion, attachmentIds: null);
+
+    /// <param name="attachmentIds">
+    /// Attachments this message references, each already uploaded via
+    /// <c>ChatAttachmentController</c>'s mint endpoint. Committing them is
+    /// best-effort and never allowed to fail the send — see
+    /// <see cref="IChatAttachmentService.CommitAsync"/>.
+    /// </param>
+    public async Task<ChatMessageDto> SendMessageV2(
+        Guid clientId,
+        string body,
+        Guid messageId,
+        string? iv,
+        int encryptionVersion,
+        IReadOnlyList<Guid>? attachmentIds)
     {
         var userId = GetUserId();
         var (trainerId, actualClientId, ok) = await TrainerClientService.ResolvePairAsync(userId, clientId);
@@ -71,6 +96,16 @@ public class ChatHub(
         var encrypted = new EncryptedChatBody(body, iv, encryptionVersion);
 
         var message = await ChatService.SendMessageAsync(trainerId, actualClientId, senderId: userId, messageId: messageId, encrypted);
+
+        if (attachmentIds is { Count: > 0 })
+        {
+            var relationship = await TrainerClientService.GetActiveRelationshipAsync(trainerId, actualClientId);
+            if (relationship != null)
+            {
+                await AttachmentService.CommitAsync(relationship.Id, uploaderId: userId, messageId: messageId, attachmentIds);
+            }
+        }
+
         await Clients.Group(GroupName(trainerId, actualClientId)).SendAsync("ReceiveMessage", message);
 
         // The pair is (trainerId, actualClientId) and the sender is userId, so
