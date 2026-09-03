@@ -12,6 +12,7 @@ it is what those users have, and nothing new belongs in it. See
 
 ## Unreleased
 
+- Fixed a licence-screen test that was written to expire: `warns during grace and names the date` hardcoded a grace date of 3 Sep 2026 and asserted the banner named it, but the licence fake treats an elapsed grace date as unentitled — so from midnight on 3 Sep the screen rendered the *lapsed* banner and the test failed on every branch. The date is now derived from today. Its companion assertion was also strengthened: it matched `Payment failed`, which is the past-due status chip's text as well as the banner's, so it passed with no banner on screen at all.
 - Fixed the food detail screen's **Add to Template** button being permanently greyed out when you reached it from the *Recently Added* list while building or editing a meal template — the only thing you could do with the food was log it to today's diary, which is not what you opened the template for. The screen decides between "add this to the template" and "add this to the log" from a single flag passed by whoever pushed it, and the recent-foods tile never passed it (nor forwarded the chosen food back if it had). The same gap made the hand-entered **custom food** dialog write straight to today's log instead of into the template. Both are fixed, and the screen now renders only the one action that applies instead of showing both with the wrong one disabled — a mode the user cannot see should never be explained to them as a dead grey button. See `docs/meal-template-food-flow.md`.
 
 ## 1.0.2+20
