@@ -22,6 +22,10 @@ Markdown links, headings or emphasis, none of which Play renders.
 
 See `docs/android-release.md`.
 
+## Unreleased
+
+Fixed adding a food to a meal template from the Recently Added list: the Add to Template button was greyed out, so the food could only go to today's log. Creating a custom food while building a template had the same problem and logged it instead. The food details screen now shows only the action that applies.
+
 ## 1.0.2+20
 
 Fixed a bug where chat messages sent from the Trainer Console could get stuck and never actually reach a client — most noticeably when messaging more than one client, or messaging a client who hadn't opened chat before. Messages should now always get through.

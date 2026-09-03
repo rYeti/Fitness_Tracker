@@ -10,6 +10,10 @@ heading to the version it went out as, so a `## <version>` section is history:
 it is what those users have, and nothing new belongs in it. See
 `docs/android-release.md`.
 
+## Unreleased
+
+- Fixed the food detail screen's **Add to Template** button being permanently greyed out when you reached it from the *Recently Added* list while building or editing a meal template — the only thing you could do with the food was log it to today's diary, which is not what you opened the template for. The screen decides between "add this to the template" and "add this to the log" from a single flag passed by whoever pushed it, and the recent-foods tile never passed it (nor forwarded the chosen food back if it had). The same gap made the hand-entered **custom food** dialog write straight to today's log instead of into the template. Both are fixed, and the screen now renders only the one action that applies instead of showing both with the wrong one disabled — a mode the user cannot see should never be explained to them as a dead grey button. See `docs/meal-template-food-flow.md`.
+
 ## 1.0.2+20
 
 - Fixed the Trainer Console dropping a trainer back into "My Training" the instant they switched sections, whenever the console had been reopened from Settings (or a tapped chat notification) after previously exiting to the trainee app. Switching sections rewrites the address bar via `GoRouter.go`, which rebuilds the router's whole page stack by *route pattern* — so it silently reused the original, already-mounted console page still flagged to show the trainee app, and discarded the freshly pushed one the trainer was actually looking at. Only the console instance the router itself is currently showing now touches the URL; a console reached by a push leaves it alone, exactly as before URLs existed for the console. See `docs/trainer-console-route-collision.md`.

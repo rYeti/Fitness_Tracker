@@ -535,129 +535,138 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
     return getter?.call(loc) ?? category;
   }
 
+  /// The single primary action for this screen.
+  ///
+  /// Which action that is depends entirely on where the user came from: a food
+  /// opened while building a meal template belongs in the template, one opened
+  /// from a meal belongs in the log. Both buttons used to be rendered always,
+  /// with the wrong one disabled — a dead grey control that looks like a bug
+  /// whenever the caller forgets to pass [isTemplate]. Rendering only the
+  /// action that applies means a missing flag shows up as the wrong button
+  /// rather than as two buttons neither of which the user can explain.
   Widget _buildAddToMealSection() {
+    final loc = AppLocalizations.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          widget.isTemplate
-              ? AppLocalizations.of(context)!.addToMealTemplate
-              : AppLocalizations.of(context)!.addToTodayLog,
+          widget.isTemplate ? loc.addToMealTemplate : loc.addToTodayLog,
           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 12),
         // Show the selected category
         Text(
-          '${AppLocalizations.of(context)!.mealCategory}: ${_localizedMealLabel(widget.category, context)}',
+          '${loc.mealCategory}: ${_localizedMealLabel(widget.category, context)}',
           style: const TextStyle(fontSize: 16),
         ),
         const SizedBox(height: 16),
-        // Add to Daily Meal Log button - disabled if we're in template mode
-        FilledButton(
-          style: FilledButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            backgroundColor: ForgeColors.statusOkFor(Theme.of(context).brightness),
-            disabledBackgroundColor: Colors.grey.shade300,
-            disabledForegroundColor: Colors.grey.shade600,
-          ),
-          onPressed:
-              widget.isTemplate
-                  ? null
-                  : () async {
-                    final grams = _actualGrams;
-                    final base = widget.foodItem.gramm > 0
-                        ? widget.foodItem.gramm.toDouble()
-                        : 100.0;
-                    if (widget.isEditing) {
-                      await db.foodItemDao.updateFoodItem(
-                        widget.foodItem.id!,
-                        calories: (widget.foodItem.calories * grams / base).round(),
-                        protein: (widget.foodItem.protein * grams / base).round(),
-                        carbs: (widget.foodItem.carbs * grams / base).round(),
-                        fat: (widget.foodItem.fat * grams / base).round(),
-                        gramm: grams.round(),
-                      );
-                      if (!mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            '${widget.foodItem.name} (${grams.round()}g) ${AppLocalizations.of(context)!.addedSuccessfully}',
-                          ),
-                          backgroundColor: ForgeColors.statusOkFor(Theme.of(context).brightness),
-                        ),
-                      );
-                      Navigator.pop(context, true);
-                    } else {
-                      final newFoodId = await db.foodItemDao.insertFoodItem(
-                        FoodItemCompanion.insert(
-                          name: widget.foodItem.name,
-                          calories: (widget.foodItem.calories * grams / base).round(),
-                          protein: (widget.foodItem.protein * grams / base).round(),
-                          carbs: (widget.foodItem.carbs * grams / base).round(),
-                          fat: (widget.foodItem.fat * grams / base).round(),
-                          gramm: Value(grams.round()),
-                          extendedNutrientsJson: Value(
-                            widget.foodItem.extendedNutrients?.scaleTo(grams).toJsonString(),
-                          ),
-                          openFoodFactsId: Value(widget.foodItem.openFoodFactsId),
-                        ),
-                      );
-                      final newFood = await db.foodItemDao.getFoodItemById(newFoodId);
-                      if (!mounted) return;
-                      if (newFood != null) {
-                        await _repository.addFoodToMeal(widget.category, newFood, date: widget.date);
-                        if (!mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              '${widget.foodItem.name} (${grams.round()}g) ${AppLocalizations.of(context)!.addedSuccessfully}',
-                            ),
-                            backgroundColor: ForgeColors.statusOkFor(Theme.of(context).brightness),
-                          ),
-                        );
-                        Navigator.pop(context, true);
-                      }
-                    }
-                  },
-          child: Text(
-            widget.isEditing
-                ? AppLocalizations.of(context)!.updatePortion
-                : AppLocalizations.of(context)!.addToLog,
-            style: const TextStyle(fontSize: 16),
-          ),
-        ),
-        const SizedBox(height: 12),
-        // Add to Template button - disabled if we're not in template mode
-        FilledButton(
-          style: FilledButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            backgroundColor: Colors.deepPurple,
-            foregroundColor: Colors.white,
-            disabledBackgroundColor: Colors.grey.shade300,
-            disabledForegroundColor: Colors.grey.shade600,
-          ),
-          onPressed:
-              !widget.isTemplate
-                  ? null
-                  : () {
-                    final grams = _actualGrams;
-                    final base = widget.foodItem.gramm > 0
-                        ? widget.foodItem.gramm.toDouble()
-                        : 100.0;
-                    final updatedFoodItem = FoodItemModel(
-                      id: widget.foodItem.id,
-                      name: widget.foodItem.name,
-                      calories: (widget.foodItem.calories * grams / base).round(),
-                      protein: (widget.foodItem.protein * grams / base).round(),
-                      carbs: (widget.foodItem.carbs * grams / base).round(),
-                      fat: (widget.foodItem.fat * grams / base).round(),
-                      gramm: grams.round(),
-                    );
-                    Navigator.pop(context, updatedFoodItem);
-                  },
-          child: Text(AppLocalizations.of(context)!.addToTemplate, style: const TextStyle(fontSize: 16)),
-        ),
+        if (widget.isTemplate)
+          _buildAddToTemplateButton(loc)
+        else
+          _buildAddToLogButton(loc),
       ],
+    );
+  }
+
+  /// Hands the scaled food back to the template screen that pushed us. The
+  /// template owns persistence — nothing is written to the food log here.
+  Widget _buildAddToTemplateButton(AppLocalizations loc) {
+    return FilledButton(
+      style: FilledButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        backgroundColor: Colors.deepPurple,
+        foregroundColor: Colors.white,
+      ),
+      onPressed: () {
+        final grams = _actualGrams;
+        final base =
+            widget.foodItem.gramm > 0 ? widget.foodItem.gramm.toDouble() : 100.0;
+        final updatedFoodItem = FoodItemModel(
+          id: widget.foodItem.id,
+          name: widget.foodItem.name,
+          calories: (widget.foodItem.calories * grams / base).round(),
+          protein: (widget.foodItem.protein * grams / base).round(),
+          carbs: (widget.foodItem.carbs * grams / base).round(),
+          fat: (widget.foodItem.fat * grams / base).round(),
+          gramm: grams.round(),
+        );
+        Navigator.pop(context, updatedFoodItem);
+      },
+      child: Text(loc.addToTemplate, style: const TextStyle(fontSize: 16)),
+    );
+  }
+
+  Widget _buildAddToLogButton(AppLocalizations loc) {
+    return FilledButton(
+      style: FilledButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        backgroundColor: ForgeColors.statusOkFor(Theme.of(context).brightness),
+      ),
+      onPressed: () async {
+        final grams = _actualGrams;
+        final base =
+            widget.foodItem.gramm > 0 ? widget.foodItem.gramm.toDouble() : 100.0;
+        if (widget.isEditing) {
+          await db.foodItemDao.updateFoodItem(
+            widget.foodItem.id!,
+            calories: (widget.foodItem.calories * grams / base).round(),
+            protein: (widget.foodItem.protein * grams / base).round(),
+            carbs: (widget.foodItem.carbs * grams / base).round(),
+            fat: (widget.foodItem.fat * grams / base).round(),
+            gramm: grams.round(),
+          );
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                '${widget.foodItem.name} (${grams.round()}g) ${loc.addedSuccessfully}',
+              ),
+              backgroundColor:
+                  ForgeColors.statusOkFor(Theme.of(context).brightness),
+            ),
+          );
+          Navigator.pop(context, true);
+        } else {
+          final newFoodId = await db.foodItemDao.insertFoodItem(
+            FoodItemCompanion.insert(
+              name: widget.foodItem.name,
+              calories: (widget.foodItem.calories * grams / base).round(),
+              protein: (widget.foodItem.protein * grams / base).round(),
+              carbs: (widget.foodItem.carbs * grams / base).round(),
+              fat: (widget.foodItem.fat * grams / base).round(),
+              gramm: Value(grams.round()),
+              extendedNutrientsJson: Value(
+                widget.foodItem.extendedNutrients?.scaleTo(grams).toJsonString(),
+              ),
+              openFoodFactsId: Value(widget.foodItem.openFoodFactsId),
+            ),
+          );
+          final newFood = await db.foodItemDao.getFoodItemById(newFoodId);
+          if (!mounted) return;
+          if (newFood != null) {
+            await _repository.addFoodToMeal(
+              widget.category,
+              newFood,
+              date: widget.date,
+            );
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  '${widget.foodItem.name} (${grams.round()}g) ${loc.addedSuccessfully}',
+                ),
+                backgroundColor:
+                    ForgeColors.statusOkFor(Theme.of(context).brightness),
+              ),
+            );
+            Navigator.pop(context, true);
+          }
+        }
+      },
+      child: Text(
+        widget.isEditing ? loc.updatePortion : loc.addToLog,
+        style: const TextStyle(fontSize: 16),
+      ),
     );
   }
 
