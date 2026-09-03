@@ -513,6 +513,49 @@ void main() {
 
       expect(api.markedRead, [otherParty]);
     });
+
+    test('rejoins every watched group on reconnect, not just the first time each was joined',
+        () async {
+      // The bug this pins: `withAutomaticReconnect()` hands back a new
+      // connection id, and the hub's groups are keyed on that id, so a
+      // reconnect empties every group this device was in — silently, on the
+      // server, with nothing telling the client it happened. Both
+      // watchConversations' groups and openThread's group have to be rejoined,
+      // or the recipient stops receiving ReceiveMessage broadcasts for a
+      // thread it still believes it is watching.
+      const otherClient = 'another-client';
+      final repository = build();
+      await repository.watchConversations([otherClient]);
+      await repository.openThread(otherParty);
+      expect(signalR.joined, [otherClient, otherParty]);
+
+      signalR.fireReconnected();
+      await pumpEventQueue();
+
+      // Each group joined again — not just once total — because the server
+      // forgot both memberships, not merely the ones this device joined last.
+      expect(signalR.joined, [otherClient, otherParty, otherClient, otherParty]);
+    });
+
+    test('a group that fails to rejoin is dropped from what this device considers watched',
+        () async {
+      final repository = build();
+      await repository.openThread(otherParty);
+      expect(signalR.joined, [otherParty]);
+
+      signalR.throwOnJoin = StateError('socket still opening');
+      signalR.fireReconnected();
+      await pumpEventQueue();
+
+      // Left marked "watched" over a rejoin that never happened, this thread
+      // would never be retried by anything — watchConversations and openThread
+      // only join a group the first time they see it. Dropping it here gives
+      // it the same real second chance any other never-joined thread gets.
+      signalR.throwOnJoin = null;
+      await repository.watchConversations([otherParty]);
+
+      expect(signalR.joined, [otherParty, otherParty]);
+    });
   });
 
   group('encryption', () {

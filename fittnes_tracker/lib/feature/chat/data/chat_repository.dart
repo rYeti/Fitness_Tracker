@@ -55,6 +55,14 @@ class ChatRepository {
   /// Every thread whose hub group this connection has joined — the open one plus
   /// all the conversations being watched for the inbox. Kept so a re-open or a
   /// second [watchConversations] doesn't re-join a group needlessly.
+  ///
+  /// This set outlives the connection it describes. `withAutomaticReconnect()`
+  /// hands back a *new* connection id after a drop, and the hub's groups are
+  /// keyed on that id (`Groups.AddToGroupAsync(Context.ConnectionId, ...)`), not
+  /// on anything belonging to this device — so a reconnect silently empties
+  /// every group this set claims to hold, on the server, with nothing here to
+  /// notice on its own. [_rejoinWatchedGroups] is what keeps this set honest
+  /// again after that happens.
   final Set<String> _watchedThreads = {};
 
   /// Peers whose public key has already been re-fetched once after a decryption
@@ -124,7 +132,15 @@ class ChatRepository {
     // only other path back to `sendMessage`'s own network attempt is a second
     // reconnect that happens to land while that particular thread is open,
     // which for most threads never happens.
+    // Rejoin fires alongside replay rather than being awaited ahead of it:
+    // the two touch disjoint state (group membership vs. the outbox) and
+    // neither this device's own sends nor its own acks travel through a
+    // group at all, so there is nothing here for one to block on before the
+    // other starts. See [_rejoinWatchedGroups] for what a dropped connection
+    // does to group membership and why this device cannot just assume it
+    // still holds what [_watchedThreads] says it does.
     _reconnectedSubscription = _signalR.onReconnected.listen((_) {
+      unawaited(_rejoinWatchedGroups());
       unawaited(_replayAllPending());
     });
 
@@ -217,6 +233,37 @@ class ChatRepository {
 
     _activeThreadId = null;
     _knownIds.clear();
+  }
+
+  /// Re-issues `JoinClientGroup` for every thread this device believes it is
+  /// watching, after the connection comes back.
+  ///
+  /// `withAutomaticReconnect()` does not resume the old connection — it opens
+  /// a new one, with a new connection id, once the handshake succeeds again.
+  /// `ChatHub` tracks group membership against that id
+  /// (`Groups.AddToGroupAsync(Context.ConnectionId, ...)`), which the new
+  /// connection has never been added to. Nothing tells this device that: the
+  /// hub does not push a "you were dropped from your groups" event, and
+  /// [_watchedThreads] is an ordinary Dart field that has no idea the
+  /// connection underneath it was ever replaced. Without this, a thread this
+  /// device already opened once — the common case, since [openThread] and
+  /// [watchConversations] only join a thread the *first* time they see it —
+  /// silently stops receiving `ReceiveMessage` broadcasts until the app is
+  /// restarted and [_watchedThreads] starts empty again.
+  ///
+  /// Same failure handling as [watchConversations]: a thread whose rejoin
+  /// throws is dropped from [_watchedThreads] rather than left in it, so it
+  /// looks exactly like a thread that was never joined and gets a real retry
+  /// the next time [openThread] or [watchConversations] sees it — instead of
+  /// being permanently marked "watched" over a join that never happened.
+  Future<void> _rejoinWatchedGroups() async {
+    for (final id in _watchedThreads.toList()) {
+      try {
+        await _signalR.joinGroup(id);
+      } catch (_) {
+        _watchedThreads.remove(id);
+      }
+    }
   }
 
   /// History (REST) merged with anything still unsent locally, so a message the
