@@ -12,12 +12,27 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using FitTracker.Api.Hubs;
+using Npgsql;
 
 
 var builder = WebApplication.CreateBuilder(args);
 
 // ── Services ────────────────────────────────────────────────
-builder.Services.AddDbContext<AppDbContext>(options => options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Npgsql's own pool-size default (100) is sized for a handful of long-lived
+// processes, not for a service that scales horizontally. Cloud Run can run
+// this API on many instances at once (no --max-instances cap is set), and
+// each one opens its own pool against the same Postgres server — the limit
+// that matters is instances × pool size, not the pool size alone. 20 keeps a
+// generous instance count well under what a small-to-medium Postgres
+// max_connections allows, while still giving each instance enough headroom
+// for concurrent requests. Set on the builder rather than in the connection
+// string itself so it applies regardless of what's baked into DATABASE_URL.
+var connectionStringBuilder = new NpgsqlConnectionStringBuilder(builder.Configuration.GetConnectionString("DefaultConnection"))
+{
+    MaxPoolSize = 20
+};
+builder.Services.AddDbContext<AppDbContext>(options => options.UseNpgsql(connectionStringBuilder.ConnectionString));
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
