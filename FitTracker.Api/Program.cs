@@ -175,7 +175,30 @@ builder.Services.AddAuthentication(options =>
 });
 
 // Signal R
-builder.Services.AddSignalR();
+//
+// AddSignalR() alone keeps group fan-out in-process: ChatHub's
+// Clients.Group(...).SendAsync(...) only reaches connections this instance is
+// itself holding. That's invisible on a single Cloud Run instance and
+// silently wrong the moment autoscaling starts a second one — a sender and
+// recipient who land on different instances never see each other's live
+// messages, even though the message still persists to Postgres and the
+// sender's own ack still comes back clean. The Redis backplane is what makes
+// a SendAsync on one instance reach a connection held by another; it is
+// deliberately optional, the same posture as FCM above, because a single
+// instance needs no backplane at all and the app must still boot without one.
+var redisConnectionStringBase64 = builder.Configuration["Redis:ConnectionStringBase64"];
+var signalRBuilder = builder.Services.AddSignalR();
+if (!string.IsNullOrWhiteSpace(redisConnectionStringBase64))
+{
+    // Base64 for the same reason as Fcm:ServiceAccountJsonBase64 below:
+    // deploy.yml joins every setting into one comma-separated --set-env-vars
+    // string, and StackExchange.Redis's own connection string format uses
+    // commas as the separator between options
+    // (`host:6379,password=...,ssl=True,abortConnect=False`) — passed raw,
+    // gcloud would slice it into a dozen malformed variables. Base64 has none.
+    var redisConnectionString = Encoding.UTF8.GetString(Convert.FromBase64String(redisConnectionStringBase64));
+    signalRBuilder.AddStackExchangeRedis(redisConnectionString);
+}
 
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -273,6 +296,15 @@ if (string.IsNullOrWhiteSpace(fcmCredentialsBase64))
         "Push: no Fcm:ServiceAccountJsonBase64 configured — chat works, but nobody is " +
         "notified while their app is closed. Set FCM_SERVICE_ACCOUNT_BASE64 and " +
         "FCM_PROJECT_ID. See docs/chat-architecture.md.");
+}
+
+if (string.IsNullOrWhiteSpace(redisConnectionStringBase64))
+{
+    app.Logger.LogWarning(
+        "SignalR: no Redis:ConnectionStringBase64 configured — chat works on a single " +
+        "instance only; if Cloud Run ever scales past one instance, cross-instance " +
+        "message delivery will silently fail. Set REDIS_CONNECTION_STRING_BASE64. " +
+        "See docs/chat-architecture.md.");
 }
 
 // Stripe. Configured once at startup rather than per request; the SDK reads

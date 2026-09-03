@@ -48,6 +48,9 @@ jobs:
           # Secrets, not variables: the service account can send as this project.
           FCM_SERVICE_ACCOUNT_BASE64: ${{ secrets.FCM_SERVICE_ACCOUNT_BASE64 }}
           FCM_PROJECT_ID: ${{ secrets.FCM_PROJECT_ID }}
+          # SignalR scale-out backplane. Secret, not variable: a Redis
+          # connection string carries a password.
+          REDIS_CONNECTION_STRING_BASE64: ${{ secrets.REDIS_CONNECTION_STRING_BASE64 }}
         run: |
           set -euo pipefail
 
@@ -81,6 +84,19 @@ jobs:
 
           if [ -z "${FCM_SERVICE_ACCOUNT_BASE64:-}" ]; then
             echo "::warning::FCM_SERVICE_ACCOUNT_BASE64 is not set — chat works, but nobody is notified while their app is closed. See docs/push-notifications.md."
+          fi
+
+          # Base64 for the same reason as FCM_SERVICE_ACCOUNT_BASE64 above: a
+          # Redis connection string is itself comma-separated
+          # (`host:6379,password=...,ssl=True,abortConnect=False`), and the
+          # line above joins every setting with commas too — passed raw, it
+          # would be sliced into a run of malformed variables. Base64 has none.
+          if [ -n "${REDIS_CONNECTION_STRING_BASE64:-}" ]; then
+            env_vars="$env_vars,Redis__ConnectionStringBase64=$REDIS_CONNECTION_STRING_BASE64"
+          fi
+
+          if [ -z "${REDIS_CONNECTION_STRING_BASE64:-}" ]; then
+            echo "::warning::REDIS_CONNECTION_STRING_BASE64 is not set — chat works on a single instance only; if Cloud Run ever scales past one instance, cross-instance message delivery will silently fail. See docs/chat-architecture.md."
           fi
 
           gcloud run deploy ${{ env.SERVICE }} \

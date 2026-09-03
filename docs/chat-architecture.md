@@ -1119,3 +1119,141 @@ and for most clients they already aren't.
 > behind the feature that needed the refusal in the first place meant the
 > refusal could never resolve itself — the fix was never going to be in the
 > refusal, because the refusal was never the bug.
+
+## 25. A message that only reaches half the room
+
+Every fix above was reachable from a browser tab open on one running API
+process. None of them would have looked any different on two.
+
+`Clients.Group(...).SendAsync(...)` in `ChatHub` doesn't know what "the group"
+means beyond "the connections this process is currently holding that called
+`JoinClientGroup`." `AddSignalR()` with no further configuration gives every
+instance its own private idea of who's in a group, because group membership
+lives in that instance's memory and nowhere else. On one Cloud Run instance
+that's the whole truth, so nothing here was ever wrong on the deployment that
+existed. It becomes wrong the moment a second instance starts: a trainer and
+a client whose sockets happen to land on different instances can both be
+connected, both in the "same" group by name, and permanently invisible to
+each other's `SendAsync` calls. Nothing throws. The message still reaches
+`ChatMessages` — `ChatHub.SendMessage` persists before it broadcasts — and
+the sender's own ack still comes back, because the ack is the return value of
+the hub method, not a signal that the *other* party received anything. From
+the sender's side this looks exactly like every other message ever sent. From
+the recipient's side chat has quietly stopped delivering anything live, and
+the only way to see a new message is to leave the thread and reopen it,
+because that's what re-triggers the REST history load.
+
+This is why it belongs in this document and not just in a changelog: nothing
+about it is a bug in the ordinary sense. The code does exactly what
+`AddSignalR()` was always documented to do. Cloud Run scaling to two
+instances is not a bug either — it's the platform doing its job. The failure
+lives entirely in the gap between what one line of DI configuration was
+sufficient for and what the deployment target the app already claims to
+support (`docs/cors-and-signalr.md`'s CORS-for-web work, the whole reason
+`Cors:AllowedOrigins` exists) actually requires once more than one instance
+can be serving requests at the same moment. A type system has nothing to say
+about "this method call is correct for topology A and silently incomplete for
+topology B" — both compile to the same IL, and the difference only shows up
+at runtime, on infrastructure, for a subset of users determined by which
+instance the load balancer happened to pick for each of them.
+
+### The backplane is necessary and not sufficient
+
+Fixing the server side is `AddStackExchangeRedis`, and it's a small change on
+purpose: `HubLifetimeManager<T>` is the abstraction that already sits between
+`ChatHub` and the transport, and Redis's implementation of it republishes a
+`SendAsync` to every subscribed instance via pub/sub instead of only walking
+this instance's own connection list. `ChatHub` never sees the difference.
+Wired the same way `IPushSender` is — read a config value, and if it's not
+set, keep working exactly as before but say so loudly at startup — because a
+Redis outage or a missing setting should degrade chat to single-instance
+behavior, not take the API down. Single-instance was correct before this
+document existed; it doesn't stop being a legitimate deployment just because
+a bigger one is now also supported.
+
+What a backplane does *not* fix is which instance a given client's HTTP
+requests land on in the first place, and that turns out to matter more here
+than it does for an ordinary REST call. SignalR's default connection sequence
+is: negotiate (a plain HTTP POST, picks a transport and a connection id) →
+open that transport (WebSocket, Server-Sent Events, or long-polling). Only
+the WebSocket transport, once opened, stays a single held-open connection to
+whichever instance answered it — long-polling and SSE make repeated separate
+HTTP requests over the connection's lifetime, each of which the load balancer
+is free to route anywhere. Redis makes it so that *once connected*, an
+instance other than the one holding a client's socket can still deliver to
+it. It does nothing about the negotiate request landing on instance A while
+the transport it hands back gets opened against instance B — and for
+long-polling or SSE, it does nothing about poll #2 of the same "connection"
+landing somewhere else than poll #1. Microsoft's own SignalR scale-out docs
+say this plainly: **every transport except WebSockets-only requires sticky
+sessions, even with a backplane in front of them.** Cloud Run's HTTP(S) load
+balancer has no session affinity to turn on for this — it round-robins.
+Shipping the Redis package alone, with the Flutter client still negotiating
+whatever transport the browser or platform prefers, would have traded one
+silent failure mode (broadcasts that never leave the process) for another
+that's harder to notice, because it would only misfire for the specific
+clients whose negotiate request and transport happened to land on different
+instances, and only once traffic was split across more than one.
+
+The client-side fix is `signalr_hub`'s `HttpConnectionOptions(transport:
+HttpTransportType.webSockets, skipNegotiation: true)`, read straight out of
+`http_connection.dart`: skipping negotiation is only legal when the transport
+is pinned to WebSockets — the package throws
+`"Negotiation can only be skipped when using the WebSocket transport
+directly"` for any other combination, which is the library itself refusing to
+let this be done by half. With both set, `_startInternal` never makes the
+negotiate request at all; it opens the WebSocket directly against whatever
+URL `withUrl` was given, and that one HTTP Upgrade request is the entire
+handshake. There is now exactly one request per connection attempt for the
+load balancer to route, so "landed on a different instance than intended"
+stops being possible for a fresh connect — and `HubConnection._reconnect`
+calls the same `_startInternal` on every automatic-reconnect attempt, reading
+`_options.skipNegotiation` fresh each time, so this holds for a reconnect
+after a dropped socket exactly as it does for the first connection.
+
+The `?access_token=` query parameter survives this unchanged, and it's worth
+saying why rather than assuming it: that parameter exists (see the comment in
+`Program.cs`'s `OnMessageReceived`) because a WebSocket handshake is an HTTP
+`GET` with an `Upgrade` header, and browser WebSocket APIs give the caller no
+way to attach a custom `Authorization` header to it — the query string is the
+only place left to put a bearer token. Negotiation was never involved in
+carrying that token to begin with; it's a separate HTTP request that happens
+to precede the WebSocket in the non-skipped path, not a wrapper around it.
+Removing the request that didn't carry the token doesn't touch the request
+that does.
+
+### Why this couldn't have been caught by the existing tests
+
+`FitTracker.Api.Tests` exercises `ChatHub` and `ChatService` in-process,
+against one `IHubContext`/one `HubLifetimeManager`, because that's what
+`WebApplicationFactory`-style integration testing gives you — a single
+process is the only topology a test host has. Two SignalR server instances
+sharing state through Redis is not something the existing suite can stand up
+without a real Redis and a real second process, and nothing in this change
+adds one, for the same reason `docs/e2e-playwright.md`'s browser suite tests
+against a single built web bundle rather than a load-balanced pair: the
+defect this section describes is specifically a multi-process one, and a
+single-process test — however green — is structurally unable to see it. The
+same is true on the client: `signalr_hub`'s own negotiate-vs-skip branch is
+exercised by that package's tests, not this repo's, and this repo has no
+existing test that opens two real sockets against two real server processes
+and checks that a message crosses between them. That gap doesn't close with
+this change. What closes is the deployment-shaped hole the gap used to sit
+directly on top of: a single Cloud Run instance was always going to pass
+every test in this repo, backplane or not, and autoscaling to a second one
+was always going to be invisible until it happened in production. Wiring
+Redis and pinning the transport removes the condition that turns "more than
+one instance" into a live-delivery outage; it doesn't and can't add a test
+that proves two instances agree, because standing up two instances is
+infrastructure, not a unit under test.
+
+> **A config default that is correct for the topology you have can be wrong
+> for the topology your own docs already promise.** `AddSignalR()` was never
+> a bug against a single Cloud Run instance, and CORS's browser/web support
+> was never a bug either — each was right for what it was solving. The gap
+> only exists in the space between them: a deployment platform capable of
+> running more than one instance, paired with a broadcast mechanism that only
+> ever considered one. Nothing catches that gap by running the code — it
+> passes every test, on every instance count that testing can practically
+> stand up. It only shows up by reading what the infrastructure is *allowed*
+> to do and asking whether every layer underneath still agrees once it does.

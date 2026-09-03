@@ -63,7 +63,28 @@ class SignalRHubChatClient implements ChatSignalRClient {
     final connection = HubConnectionBuilder()
         .withUrl(
           '${baseUrl.endsWith('/') ? baseUrl : '$baseUrl/'}hubs/chat',
-          options: HttpConnectionOptions(accessTokenFactory: _accessToken),
+          options: HttpConnectionOptions(
+            accessTokenFactory: _accessToken,
+            // Every transport but WebSockets-only requires sticky sessions to
+            // work with a scale-out backplane — long-polling and SSE poll the
+            // same instance repeatedly, and even a plain negotiate handshake
+            // can land on a different instance than the connection it hands
+            // back. Redis fixes fan-out between instances; it does nothing
+            // about a client that never lands on the same one twice. Skipping
+            // negotiation removes the handshake that could do that, so this
+            // has to be paired with `skipNegotiation` below, not read alone.
+            transport: HttpTransportType.webSockets,
+            // The negotiate round-trip only exists to pick a transport; with
+            // the transport already pinned above it has nothing left to
+            // decide, and skipping it removes the one request in the whole
+            // handshake that isn't a WebSocket upgrade — and so the one
+            // request a scale-out deployment could route to the wrong
+            // instance. The `?access_token=` query string (see Program.cs,
+            // where it's lifted for `/hubs/chat`) still reaches the server
+            // this way: it rides the WebSocket upgrade request itself, which
+            // carries the full URL including its query string.
+            skipNegotiation: true,
+          ),
         )
         .withAutomaticReconnect()
         .build();
