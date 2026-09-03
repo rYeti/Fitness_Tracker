@@ -156,8 +156,14 @@ class AppDatabase extends _$AppDatabase {
   /// emits `CREATE TABLE IF NOT EXISTS`, so the table is created and existing
   /// ones are untouched. **Do not delete this bump as a no-op** — the bump is the
   /// entire fix.
+  /// 38 adds `attachment_manifest`, `attachment_local_path` and
+  /// `upload_status` to `chat_out_box_table`, for media attachments. See the
+  /// `if (from < 38)` branch below for why each `ALTER` needs its own
+  /// `try/catch`, not just one around the block — the 37 comment above
+  /// explains the same `createAll()`-then-`ALTER` interaction that makes it
+  /// necessary here too.
   @override
-  int get schemaVersion => 37;
+  int get schemaVersion => 38;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -364,6 +370,26 @@ class AppDatabase extends _$AppDatabase {
           'ALTER TABLE workout_set_table ADD COLUMN rpe INTEGER',
           'ALTER TABLE workout_set_table ADD COLUMN set_type INTEGER NOT NULL DEFAULT 0',
           'ALTER TABLE workout_set_table ADD COLUMN side INTEGER NOT NULL DEFAULT 0',
+        ]) {
+          try {
+            await customStatement(stmt);
+          } catch (_) {}
+        }
+      }
+
+      if (from < 38) {
+        // Each statement gets its own try/catch, not one around the whole
+        // block: an install upgrading from *before* 37 has no outbox table at
+        // all, so the `createAll()` at the top of this method creates it with
+        // these three columns already present, and the ALTER below then fails
+        // on "duplicate column name" — a failure this branch must survive to
+        // reach the next one, not abort on. Only a device already at exactly
+        // 37 (an existing table, missing these columns) needs the ALTER to
+        // actually run.
+        for (final stmt in [
+          'ALTER TABLE chat_out_box_table ADD COLUMN attachment_manifest TEXT',
+          'ALTER TABLE chat_out_box_table ADD COLUMN attachment_local_path TEXT',
+          'ALTER TABLE chat_out_box_table ADD COLUMN upload_status INTEGER NOT NULL DEFAULT 0',
         ]) {
           try {
             await customStatement(stmt);

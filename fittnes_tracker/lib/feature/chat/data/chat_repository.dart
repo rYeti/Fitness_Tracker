@@ -5,10 +5,13 @@ import 'package:uuid/uuid.dart';
 
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/feature/chat/data/chat_api.dart';
+import 'package:ForgeForm/feature/chat/data/chat_attachment_sender.dart';
 import 'package:ForgeForm/feature/chat/data/chat_key_store.dart';
 import 'package:ForgeForm/feature/chat/data/chat_signalr_client.dart';
 import 'package:ForgeForm/feature/chat/data/webcrypto_chat_crypto.dart';
+import 'package:ForgeForm/feature/chat/domain/chat_body_codec.dart';
 import 'package:ForgeForm/feature/chat/domain/chat_crypto.dart';
+import 'package:ForgeForm/feature/chat/domain/models/chat_attachment_ref.dart';
 import 'package:ForgeForm/feature/chat/domain/models/chat_message.dart';
 import 'package:ForgeForm/feature/chat/domain/models/conversation_summary.dart';
 import 'package:ForgeForm/feature/chat/domain/models/thread_message.dart';
@@ -36,6 +39,12 @@ class ChatRepository {
   /// registering it is a connection-time concern, and this is the class that
   /// already knows when a connection is being established.
   final ChatKeyStore _keys;
+
+  /// Seals and uploads attachment bytes — a distinct boundary from [_crypto],
+  /// which only ever handles the message envelope. See
+  /// docs/chat-attachments.md §B.2 for why attachment sealing is a separate
+  /// interface rather than two more methods on [ChatCrypto].
+  final ChatAttachmentSender _attachmentSender;
 
   /// How many reconnect-driven resends a message gets before it is marked
   /// `failed` and handed to the user to retry manually.
@@ -88,6 +97,7 @@ class ChatRepository {
     required ChatSignalRClient signalR,
     ChatCrypto? crypto,
     ChatKeyStore? keys,
+    ChatAttachmentSender? attachmentSender,
     int maxReplayAttempts = 3,
   }) {
     final keyStore = keys ?? ChatKeyStore();
@@ -97,6 +107,7 @@ class ChatRepository {
       signalR: signalR,
       keys: keyStore,
       crypto: crypto ?? WebCryptoChatCrypto(keys: keyStore),
+      attachmentSender: attachmentSender ?? ChatAttachmentSender(),
       maxReplayAttempts: maxReplayAttempts,
     );
   }
@@ -107,12 +118,14 @@ class ChatRepository {
     required ChatSignalRClient signalR,
     required ChatCrypto crypto,
     required ChatKeyStore keys,
+    required ChatAttachmentSender attachmentSender,
     this.maxReplayAttempts = 3,
   }) : _db = db,
        _api = api ?? ChatApi(),
        _signalR = signalR,
        _crypto = crypto,
-       _keys = keys {
+       _keys = keys,
+       _attachmentSender = attachmentSender {
     // Replay is driven by the reconnect signal, never a timer: a timer would
     // either fire uselessly while the connection is still down or sit idle after
     // it comes back.
@@ -126,6 +139,13 @@ class ChatRepository {
     // which for most threads never happens.
     _reconnectedSubscription = _signalR.onReconnected.listen((_) {
       unawaited(_replayAllPending());
+      // Independent of message replay: an attachment stuck at `uploading`
+      // (the app was killed mid-PUT) has nothing to do with the outbox's own
+      // ack state, and resuming it doesn't depend on a connection at all —
+      // it's bundled with the reconnect signal only because that's a
+      // convenient, recurring moment to check, the same reasoning
+      // `_replayAllPending` already uses.
+      unawaited(resumeAttachmentUploads());
     });
 
     // Chained rather than fired off per event. [_handleIncoming] became async
@@ -151,6 +171,62 @@ class ChatRepository {
   /// own account id the key store cannot tell its identity key from the one
   /// belonging to whoever used this device last.
   Future<void> prepareKeys() => _keys.ensureRegistered();
+
+  /// Re-uploads every attachment this device left at `uploading` — an app
+  /// kill between the file landing on disk and the PUT finishing. Same
+  /// object key as the original attempt (derived from the attachment id,
+  /// which the outbox row already carries), so this is an idempotent
+  /// overwrite, not a second upload the server has to reconcile.
+  ///
+  /// Called alongside [prepareKeys] (covers "app just launched, something
+  /// was left mid-upload") and again on every reconnect (covers "the upload
+  /// itself is what got interrupted"). Web has no local file to resume
+  /// from — see docs/chat-attachments.md §B.4 — so a row stuck `uploading`
+  /// there is marked `failed` instead, with nothing to retry from.
+  Future<void> resumeAttachmentUploads() async {
+    final stuck = await _db.chatoutboxDao.getUploadingMessages();
+    for (final row in stuck) {
+      final attachment = ChatAttachmentRef.tryFromJsonString(row.attachmentManifest);
+      final localPath = row.attachmentLocalPath;
+
+      if (attachment == null || localPath == null) {
+        await _db.chatoutboxDao.markUploadStatus(row.messageId, AttachmentUploadStatus.failed);
+        continue;
+      }
+
+      try {
+        final bytes = await _attachmentSender.readSealedBytes(localPath);
+        if (bytes == null) {
+          await _db.chatoutboxDao.markUploadStatus(row.messageId, AttachmentUploadStatus.failed);
+          continue;
+        }
+
+        await _attachmentSender.upload(
+          otherPartyId: row.otherPartyId,
+          ref: attachment,
+          ciphertext: bytes,
+        );
+        await _db.chatoutboxDao.markUploadStatus(row.messageId, AttachmentUploadStatus.uploaded);
+
+        // The upload succeeded but the wire send never got a chance to run
+        // (that's exactly what "stuck at uploading" means) — pick up where
+        // sendMessage would have continued.
+        if (row.chatMessageStatus != ChatMessageStatus.sent.index) {
+          unawaited(_attemptSend(
+            messageId: row.messageId,
+            otherPartyId: row.otherPartyId,
+            body: row.body,
+            createdAt: row.createdAt,
+            attachment: attachment,
+          ));
+        }
+      } catch (_) {
+        // Left at `uploading` rather than marked `failed`: the next
+        // reconnect or launch tries again, same as a pending text message
+        // being left for the next replay rather than guessed at.
+      }
+    }
+  }
 
   String? get activeThreadId => _activeThreadId;
 
@@ -270,13 +346,22 @@ class ChatRepository {
   /// Waiting for this method's Future instead would leave the composer looking
   /// broken for as long as the request takes — and on the connection this whole
   /// design exists for, that can be forever.
+  ///
+  /// [attachment] is already sealed (see [ChatAttachmentSender.seal]) by the
+  /// time it reaches here — this method's job is recording it durably,
+  /// uploading it, and only then attempting the wire send. That ordering, not
+  /// the upload itself, is what makes a kill mid-upload recoverable: the row,
+  /// the manifest, the key and the local path all survive because they were
+  /// written before any network call. See docs/chat-attachments.md §B.4.
   Future<ThreadMessage> sendMessage({
     required String otherPartyId,
     required String body,
+    SealedAttachmentResult? attachment,
     void Function(ThreadMessage queued)? onQueued,
   }) async {
     final messageId = _uuid.v4();
     final createdAt = DateTime.now().toUtc();
+    final ref = attachment?.ref;
 
     await _db.chatoutboxDao.insertMessagePending(
       ChatOutBoxTableCompanion.insert(
@@ -285,6 +370,15 @@ class ChatRepository {
         body: body,
         createdAt: createdAt,
         chatMessageStatus: Value(ChatMessageStatus.pending.index),
+        attachmentManifest: ref == null
+            ? const Value.absent()
+            : Value(ref.toJsonString()),
+        attachmentLocalPath: attachment?.localPath == null
+            ? const Value.absent()
+            : Value(attachment!.localPath!),
+        uploadStatus: Value(ref == null
+            ? AttachmentUploadStatus.none.index
+            : AttachmentUploadStatus.uploading.index),
       ),
     );
 
@@ -298,17 +392,49 @@ class ChatRepository {
       timestamp: createdAt,
       isMine: true,
       status: ChatMessageStatus.pending,
+      attachment: ref,
+      uploadStatus: ref == null
+          ? AttachmentUploadStatus.none
+          : AttachmentUploadStatus.uploading,
     ));
+
+    if (attachment != null) {
+      try {
+        await _attachmentSender.upload(
+          otherPartyId: otherPartyId,
+          ref: attachment.ref,
+          ciphertext: attachment.ciphertext,
+        );
+        await _db.chatoutboxDao.markUploadStatus(messageId, AttachmentUploadStatus.uploaded);
+      } catch (_) {
+        // The message stays `pending` — nothing was ever attempted on the
+        // wire, because SendMessageV2's commit step needs the attachment to
+        // already exist server-side. `resumeAttachmentUploads` and a manual
+        // retry are the two ways this moves forward from here.
+        await _db.chatoutboxDao.markUploadStatus(messageId, AttachmentUploadStatus.failed);
+        return ThreadMessage(
+          messageId: messageId,
+          body: body,
+          timestamp: createdAt,
+          isMine: true,
+          status: ChatMessageStatus.pending,
+          attachment: ref,
+          uploadStatus: AttachmentUploadStatus.failed,
+        );
+      }
+    }
 
     return _attemptSend(
       messageId: messageId,
       otherPartyId: otherPartyId,
       body: body,
       createdAt: createdAt,
+      attachment: ref,
     );
   }
 
-  /// Manual retry for a message the replay loop gave up on.
+  /// Manual retry for a message the replay loop gave up on, or whose
+  /// attachment failed to upload.
   ///
   /// Goes through the same [_attemptSend] as a first send, and deliberately
   /// keeps the original id — a retry with a fresh id would look like a brand new
@@ -320,6 +446,34 @@ class ChatRepository {
     final row = await _db.chatoutboxDao.findMessage(messageId);
     if (row == null) return null;
 
+    final attachment = ChatAttachmentRef.tryFromJsonString(row.attachmentManifest);
+
+    if (attachment != null && row.uploadStatus != AttachmentUploadStatus.uploaded.index) {
+      await _db.chatoutboxDao.markUploadStatus(messageId, AttachmentUploadStatus.uploading);
+      onQueued?.call(ThreadMessage(
+        messageId: row.messageId,
+        body: row.body,
+        timestamp: row.createdAt,
+        isMine: true,
+        status: ChatMessageStatus.pending,
+        attachment: attachment,
+        uploadStatus: AttachmentUploadStatus.uploading,
+      ));
+
+      final reuploaded = await _reuploadFromDisk(row, attachment);
+      if (!reuploaded) {
+        return ThreadMessage(
+          messageId: row.messageId,
+          body: row.body,
+          timestamp: row.createdAt,
+          isMine: true,
+          status: ChatMessageStatus.pending,
+          attachment: attachment,
+          uploadStatus: AttachmentUploadStatus.failed,
+        );
+      }
+    }
+
     await _db.chatoutboxDao.resetToPending(messageId);
     _replayAttempts.remove(messageId);
     _knownIds.add(messageId);
@@ -330,6 +484,10 @@ class ChatRepository {
       timestamp: row.createdAt,
       isMine: true,
       status: ChatMessageStatus.pending,
+      attachment: attachment,
+      uploadStatus: attachment == null
+          ? AttachmentUploadStatus.none
+          : AttachmentUploadStatus.uploaded,
     ));
 
     return _attemptSend(
@@ -337,6 +495,7 @@ class ChatRepository {
       otherPartyId: row.otherPartyId,
       body: row.body,
       createdAt: row.createdAt,
+      attachment: attachment,
     );
   }
 
@@ -344,16 +503,24 @@ class ChatRepository {
   ///
   /// Returns the resulting bubble either way: a send that failed is still a
   /// message the user wrote and must keep seeing.
+  ///
+  /// [attachment], when present, must already be uploaded — this method never
+  /// uploads anything itself, only references an id the server can commit.
   Future<ThreadMessage> _attemptSend({
     required String messageId,
     required String otherPartyId,
     required String body,
     required DateTime createdAt,
+    ChatAttachmentRef? attachment,
   }) async {
     try {
+      final plaintext = ChatBodyCodec.encode(
+        caption: body,
+        attachments: attachment == null ? const [] : [attachment],
+      );
       final sealed = await _crypto.encrypt(
         otherPartyId: otherPartyId,
-        plaintext: body,
+        plaintext: plaintext,
       );
 
       final ack = await _signalR.send(
@@ -362,6 +529,7 @@ class ChatRepository {
         body: sealed.ciphertext,
         iv: sealed.iv,
         encryptionVersion: sealed.version,
+        attachmentIds: attachment == null ? null : [attachment.id],
       );
       await _db.chatoutboxDao.markMessagePendingAsSent(messageId);
       _replayAttempts.remove(messageId);
@@ -370,8 +538,10 @@ class ChatRepository {
       // Built from the plaintext still in hand, not from the ack. The ack is a
       // faithful copy of what the server stored, which means its body is the
       // ciphertext we just sent -- rendering it would put base64 in the bubble.
+      // fromChatMessage decodes this same plaintext back into caption +
+      // attachment, so the bubble it returns already carries both.
       return ThreadMessage.fromChatMessage(
-        ack.decrypted(body),
+        ack.decrypted(plaintext),
         otherPartyId: otherPartyId,
       );
     } catch (_) {
@@ -386,7 +556,44 @@ class ChatRepository {
         timestamp: createdAt,
         isMine: true,
         status: ChatMessageStatus.pending,
+        attachment: attachment,
+        uploadStatus: attachment == null
+            ? AttachmentUploadStatus.none
+            : AttachmentUploadStatus.uploaded,
       );
+    }
+  }
+
+  /// Re-uploads [attachment] for [row] from its local temp file, for
+  /// [retryMessage]'s explicit, user-initiated retry — a further failure
+  /// here is reported immediately as `failed`, unlike
+  /// [resumeAttachmentUploads]'s automatic pass, which leaves a row at
+  /// `uploading` on failure so the next reconnect tries again silently. A
+  /// retry the user tapped on deserves to say so rather than sit mute.
+  Future<bool> _reuploadFromDisk(ChatOutBoxTableData row, ChatAttachmentRef attachment) async {
+    final localPath = row.attachmentLocalPath;
+    if (localPath == null) {
+      await _db.chatoutboxDao.markUploadStatus(row.messageId, AttachmentUploadStatus.failed);
+      return false;
+    }
+
+    final bytes = await _attachmentSender.readSealedBytes(localPath);
+    if (bytes == null) {
+      await _db.chatoutboxDao.markUploadStatus(row.messageId, AttachmentUploadStatus.failed);
+      return false;
+    }
+
+    try {
+      await _attachmentSender.upload(
+        otherPartyId: row.otherPartyId,
+        ref: attachment,
+        ciphertext: bytes,
+      );
+      await _db.chatoutboxDao.markUploadStatus(row.messageId, AttachmentUploadStatus.uploaded);
+      return true;
+    } catch (_) {
+      await _db.chatoutboxDao.markUploadStatus(row.messageId, AttachmentUploadStatus.failed);
+      return false;
     }
   }
 
@@ -414,10 +621,27 @@ class ChatRepository {
   /// concurrently would be faster but SignalR only guarantees ordering *within*
   /// one invocation, so three parallel sends can be stored in any order — and in
   /// a conversation the order is the meaning.
+  ///
+  /// No re-upload here, and this is the whole payoff of sealing an attachment
+  /// once (docs/chat-attachments.md §B.5): a replay re-encrypts the ~400-byte
+  /// envelope under the peer's *current* key with a fresh IV (an IV must
+  /// never be reused — the same reason every replay always re-encrypts, not
+  /// just this one), but the attachment's own ciphertext, already sitting in
+  /// R2 under a key independent of the conversation, is untouched.
   Future<void> replayPending(String otherPartyId) async {
     final pending = await _db.chatoutboxDao.getPendingMessages(otherPartyId);
 
     for (final row in pending) {
+      final attachment = ChatAttachmentRef.tryFromJsonString(row.attachmentManifest);
+
+      // A message whose attachment hasn't finished uploading was never
+      // attempted on the wire in the first place (see sendMessage) — nothing
+      // to replay yet. resumeAttachmentUploads owns moving this forward, and
+      // calls _attemptSend itself once the upload lands.
+      if (attachment != null && row.uploadStatus != AttachmentUploadStatus.uploaded.index) {
+        continue;
+      }
+
       try {
         // Encrypted again from the outbox plaintext rather than resending a
         // stored ciphertext, and that is not merely tolerable -- it is the
@@ -426,9 +650,13 @@ class ChatRepository {
         // for; and if the peer reinstalled since the first attempt, this is what
         // encrypts to the key they actually hold now. The server dedupes on
         // messageId, so whichever attempt landed is the one kept.
+        final plaintext = ChatBodyCodec.encode(
+          caption: row.body,
+          attachments: attachment == null ? const [] : [attachment],
+        );
         final sealed = await _crypto.encrypt(
           otherPartyId: row.otherPartyId,
-          plaintext: row.body,
+          plaintext: plaintext,
         );
 
         final ack = await _signalR.send(
@@ -439,6 +667,7 @@ class ChatRepository {
           body: sealed.ciphertext,
           iv: sealed.iv,
           encryptionVersion: sealed.version,
+          attachmentIds: attachment == null ? null : [attachment.id],
         );
         await _db.chatoutboxDao.markMessagePendingAsSent(row.messageId);
         _replayAttempts.remove(row.messageId);
@@ -448,7 +677,7 @@ class ChatRepository {
         // upsert by messageId rather than appending blindly.
         _threadMessages.add(
           ThreadMessage.fromChatMessage(
-            ack.decrypted(row.body),
+            ack.decrypted(plaintext),
             otherPartyId: otherPartyId,
           ),
         );

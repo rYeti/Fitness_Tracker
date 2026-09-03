@@ -57,7 +57,19 @@ class ChatMessage {
   });
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) {
-    final media = json['mediaType'] as int?;
+    // Guarded rather than a bare index lookup: MediaType.values[media] threw
+    // RangeError on any value this build doesn't know about, and that throw
+    // happened inside loadThread's map over a whole history — one message
+    // with an unrecognised kind took down the entire conversation. See
+    // docs/chat-attachments.md §0.1. (In practice the server never writes
+    // this field at all, for the same reason — but the client stays honest
+    // about it independently rather than trusting that.)
+    final mediaIndex = json['mediaType'] as int?;
+    final media = mediaIndex != null &&
+            mediaIndex >= 0 &&
+            mediaIndex < MediaType.values.length
+        ? MediaType.values[mediaIndex]
+        : null;
 
     return ChatMessage(
       id: json['id'] as String,
@@ -78,7 +90,7 @@ class ChatMessage {
       // plaintext -- guessing 1 for them would render every legacy message as
       // undecryptable.
       encryptionVersion: json['encryptionVersion'] as int? ?? 0,
-      mediaType: media == null ? null : MediaType.values[media],
+      mediaType: media,
       url: json['url'] as String?,
       thumbnailUrl: json['thumbnailUrl'] as String?,
     );

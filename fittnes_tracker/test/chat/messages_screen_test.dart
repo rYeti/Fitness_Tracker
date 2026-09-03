@@ -71,6 +71,7 @@ void main() {
         api: api ?? FakeChatApi(),
         signalR: signalR,
         crypto: FakeChatCrypto(),
+        attachmentSender: FakeChatAttachmentSender(),
       ),
     );
     final activeClient = ActiveClientProvider(

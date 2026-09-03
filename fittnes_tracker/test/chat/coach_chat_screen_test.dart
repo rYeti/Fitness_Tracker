@@ -48,6 +48,7 @@ void main() {
         api: api ?? FakeChatApi(),
         signalR: signalR,
         crypto: FakeChatCrypto(),
+        attachmentSender: FakeChatAttachmentSender(),
       ),
     );
     final access = AccessProvider.withState(
@@ -99,6 +100,7 @@ void main() {
         api: FakeChatApi(gate: gate),
         signalR: signalR,
         crypto: FakeChatCrypto(),
+        attachmentSender: FakeChatAttachmentSender(),
       ),
     );
     final access = AccessProvider.withState(

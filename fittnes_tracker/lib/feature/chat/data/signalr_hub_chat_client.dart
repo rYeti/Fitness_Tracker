@@ -127,21 +127,25 @@ class SignalRHubChatClient implements ChatSignalRClient {
     required String body,
     required String? iv,
     required int encryptionVersion,
+    List<String>? attachmentIds,
   }) async {
     // Positional order is the hub's, not this method's:
-    // SendMessage(Guid clientId, string body, Guid messageId, string? iv,
-    //             int encryptionVersion).
+    // SendMessageV2(Guid clientId, string body, Guid messageId, string? iv,
+    //               int encryptionVersion, IReadOnlyList<Guid>? attachmentIds).
     //
     // SignalR matches these by position and nothing checks the names, so a
     // reordering here is a runtime type error at best and a message stored with
-    // its IV in the body at worst.
+    // its IV in the body at worst. Always SendMessageV2, never the original
+    // 5-argument SendMessage — that method still exists only so an
+    // already-shipped build with no knowledge of attachments keeps working;
+    // this client always knows, so it always uses the current RPC.
     final ack = await (await _ready()).invoke(
-      'SendMessage',
-      args: [otherPartyId, body, messageId, iv, encryptionVersion],
+      'SendMessageV2',
+      args: [otherPartyId, body, messageId, iv, encryptionVersion, attachmentIds],
     );
 
     if (ack == null) {
-      throw StateError('SendMessage returned no acknowledgement.');
+      throw StateError('SendMessageV2 returned no acknowledgement.');
     }
     return ChatMessage.fromJson(_asJson(ack));
   }

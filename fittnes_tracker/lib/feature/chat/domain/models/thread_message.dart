@@ -1,6 +1,8 @@
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/providers/enums.dart';
+import 'package:ForgeForm/feature/chat/domain/chat_body_codec.dart';
 import 'package:ForgeForm/feature/chat/domain/chat_timestamps.dart';
+import 'package:ForgeForm/feature/chat/domain/models/chat_attachment_ref.dart';
 import 'package:ForgeForm/feature/chat/domain/models/chat_message.dart';
 
 /// One bubble in a thread, whatever it was built from.
@@ -16,6 +18,10 @@ class ThreadMessage {
   /// to dedupe on.
   final String messageId;
 
+  /// The caption, or the whole message for a text-only send. Never the raw
+  /// wire body — [ChatBodyCodec] has already been run by the time this type
+  /// exists, on both the server-message and the outbox path. See
+  /// [ThreadMessage.fromChatMessage] and [ThreadMessage.fromOutbox].
   final String? body;
 
   /// For a sent message the server's `sentAt`; for an unsent one the moment the
@@ -35,9 +41,23 @@ class ThreadMessage {
   /// this is what tells the reader that rather than showing them a blank bubble.
   final bool isUndecryptable;
 
+  /// Never written by the server — see docs/chat-attachments.md §0.1. Kept
+  /// only because the wire type still carries it; a media message is
+  /// represented by [attachment], not this.
   final MediaType? mediaType;
   final String? url;
   final String? thumbnailUrl;
+
+  /// The attachment this bubble carries, decoded from the envelope by
+  /// [ChatBodyCodec] — null for an ordinary text message.
+  final ChatAttachmentRef? attachment;
+
+  /// Where [attachment]'s own upload stands. `none` for every message with
+  /// no attachment, and for any message this device didn't send (a bubble
+  /// built from server history has, by definition, already finished
+  /// uploading whatever it carries). Only an outbox-sourced bubble for a
+  /// message still in flight carries a value other than `none`/`uploaded`.
+  final AttachmentUploadStatus uploadStatus;
 
   const ThreadMessage({
     required this.messageId,
@@ -49,6 +69,8 @@ class ThreadMessage {
     this.mediaType,
     this.url,
     this.thumbnailUrl,
+    this.attachment,
+    this.uploadStatus = AttachmentUploadStatus.none,
   });
 
   /// Projects a stored message, deciding which side of the thread it belongs on.
@@ -58,9 +80,18 @@ class ThreadMessage {
   /// isn't them" is the same as "the sender is me" — and unlike comparing against
   /// a stored user id, it works on a client that has never been told its own.
   factory ThreadMessage.fromChatMessage(ChatMessage message, {required String otherPartyId}) {
+    // An undecryptable message has no plaintext to run the codec over — its
+    // body is the ciphertext, and decoding that would be meaningless at best
+    // and a crash at worst. isUndecryptable already tells the bubble what to
+    // render; there is nothing here to add.
+    final decoded = message.isUndecryptable
+        ? const ChatBody()
+        : ChatBodyCodec.decode(message.body);
+    final attachment = decoded.attachments.isEmpty ? null : decoded.attachments.first;
+
     return ThreadMessage(
       messageId: message.id,
-      body: message.body,
+      body: message.isUndecryptable ? message.body : decoded.caption,
       timestamp: message.sentAt,
       isMine: message.senderId != otherPartyId,
       status: ChatMessageStatus.sent,
@@ -68,6 +99,10 @@ class ThreadMessage {
       mediaType: message.mediaType,
       url: message.url,
       thumbnailUrl: message.thumbnailUrl,
+      attachment: attachment,
+      uploadStatus: attachment == null
+          ? AttachmentUploadStatus.none
+          : AttachmentUploadStatus.uploaded,
     );
   }
 
@@ -80,20 +115,39 @@ class ThreadMessage {
       timestamp: ChatTimestamps.sanitize(row.createdAt),
       isMine: true,
       status: ChatMessageStatus.values[row.chatMessageStatus],
+      // The outbox stores the attachment's own JSON object directly (the
+      // same shape ChatAttachmentRef.toJson produces), not the full
+      // note/ff/caption envelope — so this decodes it straight rather than
+      // through ChatBodyCodec, which expects the wrapped form.
+      attachment: ChatAttachmentRef.tryFromJsonString(row.attachmentManifest),
+      uploadStatus: AttachmentUploadStatus.values[row.uploadStatus],
     );
   }
 
-  ThreadMessage copyWith({ChatMessageStatus? status}) {
+  ThreadMessage copyWith({
+    String? body,
+    DateTime? timestamp,
+    bool? isMine,
+    ChatMessageStatus? status,
+    bool? isUndecryptable,
+    MediaType? mediaType,
+    String? url,
+    String? thumbnailUrl,
+    ChatAttachmentRef? attachment,
+    AttachmentUploadStatus? uploadStatus,
+  }) {
     return ThreadMessage(
       messageId: messageId,
-      body: body,
-      timestamp: timestamp,
-      isMine: isMine,
+      body: body ?? this.body,
+      timestamp: timestamp ?? this.timestamp,
+      isMine: isMine ?? this.isMine,
       status: status ?? this.status,
-      isUndecryptable: isUndecryptable,
-      mediaType: mediaType,
-      url: url,
-      thumbnailUrl: thumbnailUrl,
+      isUndecryptable: isUndecryptable ?? this.isUndecryptable,
+      mediaType: mediaType ?? this.mediaType,
+      url: url ?? this.url,
+      thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
+      attachment: attachment ?? this.attachment,
+      uploadStatus: uploadStatus ?? this.uploadStatus,
     );
   }
 }

@@ -112,4 +112,73 @@ void main() {
 
     expect(db.schemaVersion, greaterThan(36));
   });
+
+  /// Leaves [file] with `chat_out_box_table` present but in its pre-38 shape —
+  /// an install that already has the table, just not the three attachment
+  /// columns.
+  Future<void> givenAnInstallAtVersion37() async {
+    final old = AppDatabase.test(NativeDatabase(file));
+    await old.customStatement('SELECT 1');
+    await old.customStatement('PRAGMA user_version = 37');
+    await old.close();
+  }
+
+  test('an install already at 37 gets the three attachment columns on upgrade',
+      () async {
+    await givenAnInstallAtVersion37();
+
+    final db = AppDatabase.test(NativeDatabase(file));
+    addTearDown(db.close);
+
+    // The columns exist and can hold a manifest — this is the exact shape
+    // ChatRepository.sendMessage writes for a message with an attachment.
+    await db.chatoutboxDao.insertMessagePending(
+      ChatOutBoxTableCompanion.insert(
+        messageId: 'with-attachment',
+        otherPartyId: _otherParty,
+        body: 'check this out',
+        createdAt: DateTime.utc(2026, 9, 1),
+        chatMessageStatus: Value(ChatMessageStatus.pending.index),
+        attachmentManifest: const Value('{"id":"a1"}'),
+        attachmentLocalPath: const Value('/tmp/a1.bin'),
+        uploadStatus: Value(AttachmentUploadStatus.uploading.index),
+      ),
+    );
+
+    final row = (await db.chatoutboxDao.findMessage('with-attachment'))!;
+    expect(row.attachmentManifest, '{"id":"a1"}');
+    expect(row.uploadStatus, AttachmentUploadStatus.uploading.index);
+  });
+
+  test(
+      'an install from before the outbox jumping straight to 38 does not hit '
+      'a duplicate-column error',
+      () async {
+    // The trap this pins: createAll() at the top of onUpgrade creates the
+    // table fresh (with the attachment columns already in its declared
+    // shape) for an install this far behind, so the `if (from < 38)` ALTERs
+    // then try to add columns that already exist. Each statement needs its
+    // own try/catch — a shared one around the whole block would let the
+    // first "duplicate column name" failure swallow every statement after
+    // it, silently, including ones a genuinely-37 install actually needs.
+    await givenAnInstallFromBeforeTheOutbox();
+
+    final db = AppDatabase.test(NativeDatabase(file));
+    addTearDown(db.close);
+
+    await db.chatoutboxDao.insertMessagePending(
+      ChatOutBoxTableCompanion.insert(
+        messageId: 'jumped-from-36',
+        otherPartyId: _otherParty,
+        body: 'still works',
+        createdAt: DateTime.utc(2026, 9, 1),
+        chatMessageStatus: Value(ChatMessageStatus.pending.index),
+        attachmentManifest: const Value('{"id":"a2"}'),
+        uploadStatus: Value(AttachmentUploadStatus.uploading.index),
+      ),
+    );
+
+    final row = (await db.chatoutboxDao.findMessage('jumped-from-36'))!;
+    expect(row.attachmentManifest, '{"id":"a2"}');
+  });
 }

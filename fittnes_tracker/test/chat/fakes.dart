@@ -4,11 +4,15 @@ import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 
 import 'package:ForgeForm/core/app_database.dart';
+import 'package:ForgeForm/core/providers/enums.dart';
 import 'package:ForgeForm/feature/chat/data/chat_api.dart';
+import 'package:ForgeForm/feature/chat/data/chat_attachment_sender.dart';
 import 'package:ForgeForm/feature/chat/data/chat_key_api.dart';
 import 'package:ForgeForm/feature/chat/data/chat_key_vault.dart';
 import 'package:ForgeForm/feature/chat/data/chat_signalr_client.dart';
+import 'package:ForgeForm/feature/chat/domain/attachment_crypto.dart';
 import 'package:ForgeForm/feature/chat/domain/chat_crypto.dart';
+import 'package:ForgeForm/feature/chat/domain/models/chat_attachment_ref.dart';
 import 'package:ForgeForm/feature/chat/domain/models/chat_message.dart';
 
 /// A real [AppDatabase] on an in-memory Sqlite file.
@@ -43,6 +47,7 @@ class FakeChatSignalRClient implements ChatSignalRClient {
       String body,
       String? iv,
       int encryptionVersion,
+      List<String>? attachmentIds,
     })
   >
   sent = [];
@@ -102,6 +107,7 @@ class FakeChatSignalRClient implements ChatSignalRClient {
     required String body,
     required String? iv,
     required int encryptionVersion,
+    List<String>? attachmentIds,
   }) async {
     sent.add((
       otherPartyId: otherPartyId,
@@ -109,6 +115,7 @@ class FakeChatSignalRClient implements ChatSignalRClient {
       body: body,
       iv: iv,
       encryptionVersion: encryptionVersion,
+      attachmentIds: attachmentIds,
     ));
 
     if (holdSend != null) await holdSend!.future;
@@ -364,6 +371,122 @@ class FakeChatCrypto implements ChatCrypto {
     forgotten.add(otherPartyId);
     undecryptablePeers.remove(otherPartyId);
   }
+}
+
+/// Stands in for the raw AES-256-GCM primitive [WebCryptoAttachmentCrypto]
+/// wraps.
+///
+/// Deliberately *not* the identity transform, for the same reason
+/// [FakeChatCrypto] isn't: an [AttachmentCrypto] fake that returns its input
+/// unchanged makes ciphertext and plaintext indistinguishable, and a bug that
+/// renders one where the other belongs passes every assertion.
+class FakeAttachmentCrypto implements AttachmentCrypto {
+  static const _xorByte = 0x5A;
+  int sealCount = 0;
+
+  /// When set, [open] returns null regardless of input — models a GCM tag
+  /// that fails to verify.
+  bool failOpen = false;
+
+  static Uint8List _xor(Uint8List bytes) =>
+      Uint8List.fromList([for (final b in bytes) b ^ _xorByte]);
+
+  @override
+  Future<SealedAttachment> seal(Uint8List plaintext) async {
+    sealCount++;
+    final key = Uint8List.fromList(List.filled(32, sealCount));
+    final iv = Uint8List.fromList(List.filled(12, sealCount));
+    return SealedAttachment(ciphertext: _xor(plaintext), key: key, iv: iv);
+  }
+
+  @override
+  Future<Uint8List?> open(Uint8List ciphertext, {required Uint8List key, required Uint8List iv}) async {
+    if (failOpen) return null;
+    return _xor(ciphertext);
+  }
+}
+
+/// Stands in for [ChatAttachmentSender] — the mint/upload/PUT triangle — with
+/// everything held in memory. `uploadCount` is the assertion target for "a
+/// replay does not re-upload": [ChatRepository.replayPending] re-encrypts the
+/// message envelope on every attempt, but the sealed attachment itself is
+/// only ever supposed to reach this fake's `upload` once.
+class FakeChatAttachmentSender implements ChatAttachmentSender {
+  int sealCount = 0;
+  int uploadCount = 0;
+
+  /// Every attachment id this fake has accepted a PUT for, mapped to the
+  /// bytes it received.
+  final Map<String, Uint8List> uploaded = {};
+
+  /// A fake filesystem — local path to bytes, so [readSealedBytes] and
+  /// [deleteSealedBytes] behave like the real disk-backed implementation
+  /// without touching one.
+  final Map<String, Uint8List> localFiles = {};
+
+  /// When set, the next [upload] call throws this instead of succeeding.
+  Object? throwOnUpload;
+
+  static const _xorByte = 0x5A;
+  static Uint8List _xor(Uint8List bytes) =>
+      Uint8List.fromList([for (final b in bytes) b ^ _xorByte]);
+
+  @override
+  Future<SealedAttachmentResult> seal({
+    required Uint8List plaintext,
+    required MediaType kind,
+    required String mime,
+    required String name,
+    int? width,
+    int? height,
+    String? avgColor,
+    int? durationSeconds,
+    ChatAttachmentThumbRef? thumb,
+  }) async {
+    sealCount++;
+    final id = 'fake-attachment-$sealCount';
+    final ciphertext = _xor(plaintext);
+    final ref = ChatAttachmentRef(
+      id: id,
+      kind: kind,
+      mime: mime,
+      name: name,
+      size: plaintext.length,
+      key: 'fake-key-$id',
+      iv: 'fake-iv-$id',
+      sha256: 'fake-sha-$id',
+      width: width,
+      height: height,
+      avgColor: avgColor,
+      durationSeconds: durationSeconds,
+      thumb: thumb,
+    );
+    final localPath = 'fake:///$id';
+    localFiles[localPath] = ciphertext;
+    return SealedAttachmentResult(ref: ref, ciphertext: ciphertext, localPath: localPath);
+  }
+
+  @override
+  Future<void> upload({
+    required String otherPartyId,
+    required ChatAttachmentRef ref,
+    required Uint8List ciphertext,
+    void Function(int sent, int total)? onProgress,
+  }) async {
+    uploadCount++;
+    if (throwOnUpload != null) {
+      final error = throwOnUpload!;
+      throwOnUpload = null;
+      throw error;
+    }
+    uploaded[ref.id] = ciphertext;
+  }
+
+  @override
+  Future<Uint8List?> readSealedBytes(String localPath) async => localFiles[localPath];
+
+  @override
+  Future<void> deleteSealedBytes(String localPath) async => localFiles.remove(localPath);
 }
 
 /// A [ChatKeyVault] backed by a plain map, so key-lifecycle tests do not need a

@@ -33,6 +33,13 @@ dependencies:
   dio: ^5.8.0
   get_it: ^9.2.1
   logger: ^2.0.2
+  # SHA-256 for chat attachments — hashing the ciphertext lets a device detect
+  # a swapped or truncated download before spending time decrypting it, and
+  # doubles as the device media store's cache key. Already resolved
+  # transitively (drift and others pull it in); declared directly because
+  # this code imports it, matching the convention flutter_web_plugins already
+  # states below.
+  crypto: ^3.0.6
 
   fl_chart: ^1.0.0
   # Local Database

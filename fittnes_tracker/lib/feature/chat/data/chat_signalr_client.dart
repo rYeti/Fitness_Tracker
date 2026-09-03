@@ -41,12 +41,20 @@ abstract class ChatSignalRClient {
   ///
   /// [otherPartyId] is the client's id when a trainer sends and the trainer's id
   /// when a client does; the hub resolves which side the caller is on.
+  ///
+  /// [attachmentIds] references attachments already uploaded via
+  /// `ChatAttachmentApi.mintUpload` — null or empty for an ordinary text
+  /// message. Always sent through the hub's `SendMessageV2` RPC, never the
+  /// original 5-argument `SendMessage`: SignalR binds by position *and*
+  /// arity, so a 6th argument on the original method would break every
+  /// invocation rather than degrade for it. See docs/chat-attachments.md §A.4.
   Future<ChatMessage> send({
     required String otherPartyId,
     required String messageId,
     required String body,
     required String? iv,
     required int encryptionVersion,
+    List<String>? attachmentIds,
   });
 
   /// Broadcast stream — every `ReceiveMessage` for a joined group, including

@@ -32,12 +32,14 @@ void main() {
     FakeChatApi? api,
     int maxReplayAttempts = 3,
     FakeChatCrypto? cryptoOverride,
+    FakeChatAttachmentSender? attachmentSender,
   }) {
     return ChatRepository(
       db: db,
       api: api ?? FakeChatApi(),
       signalR: signalR,
       crypto: cryptoOverride ?? crypto,
+      attachmentSender: attachmentSender ?? FakeChatAttachmentSender(),
       maxReplayAttempts: maxReplayAttempts,
     );
   }

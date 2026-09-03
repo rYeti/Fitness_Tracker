@@ -92,4 +92,51 @@ class ChatoutboxDao extends DatabaseAccessor<AppDatabase>
         .map((row) => row.read(chatOutBoxTable.otherPartyId)!)
         .get();
   }
+
+  /// Moves an attachment's own upload state along, independent of the
+  /// message's send status — the two are tracked separately, see
+  /// [ChatOutBoxTable.uploadStatus]'s own doc comment for why.
+  Future<void> markUploadStatus(String messageId, AttachmentUploadStatus status) =>
+      (update(chatOutBoxTable)..where(
+        (t) => t.messageId.equals(messageId),
+      )).write(
+        ChatOutBoxTableCompanion(uploadStatus: Value(status.index)),
+      );
+
+  /// Every row still at `uploading` — what a restart after a kill mid-upload
+  /// resumes from. See [ChatOutBoxTable.attachmentLocalPath]'s own comment on
+  /// why this only means anything on native platforms.
+  Future<List<ChatOutBoxTableData>> getUploadingMessages() {
+    return (select(chatOutBoxTable)
+          ..where((t) => t.uploadStatus.equals(AttachmentUploadStatus.uploading.index)))
+        .get();
+  }
+
+  /// Deletes `sent` rows older than [age] and returns the local file paths
+  /// their attachments were writing to, so the caller can unlink them.
+  ///
+  /// Nothing pruned the outbox before this feature, and nothing had to: a
+  /// stale `sent` row was just a few bytes of text, harmless to leave
+  /// forever. A row can now hold a 32-byte AES key and point at a temp file,
+  /// which makes an unpruned outbox a slowly growing key archive rather than
+  /// a merely untidy table.
+  Future<List<String>> pruneSent(Duration age) async {
+    final cutoff = DateTime.now().toUtc().subtract(age);
+    final toDelete = await (select(chatOutBoxTable)
+          ..where((t) =>
+              t.chatMessageStatus.equals(ChatMessageStatus.sent.index) &
+              t.createdAt.isSmallerThanValue(cutoff)))
+        .get();
+
+    if (toDelete.isEmpty) return [];
+
+    await (delete(chatOutBoxTable)
+          ..where((t) => t.messageId.isIn(toDelete.map((r) => r.messageId))))
+        .go();
+
+    return [
+      for (final row in toDelete)
+        if (row.attachmentLocalPath != null) row.attachmentLocalPath!,
+    ];
+  }
 }
