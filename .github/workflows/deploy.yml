@@ -83,9 +83,23 @@ jobs:
             echo "::warning::FCM_SERVICE_ACCOUNT_BASE64 is not set — chat works, but nobody is notified while their app is closed. See docs/push-notifications.md."
           fi
 
+          # --max-instances=1: two independent things on this API only work
+          # because there's a single process to hold them, and neither has a
+          # distributed backing store today. The login/register/password-reset
+          # rate limiter (Program.cs, "auth" policy) partitions in memory by
+          # client IP — with N instances behind the load balancer, a brute-force
+          # guard meant to be 5 requests/minute per IP silently becomes 5×N,
+          # split across whichever instance each request happens to land on.
+          # SignalR chat groups are also in-memory per instance with no Redis
+          # backplane wired up, so a second instance would just as silently
+          # drop messages between clients connected to different ones. Raise
+          # this only once one of those gets a real distributed store behind
+          # it — a Redis-backed rate limiter partition, and a SignalR backplane
+          # — not as a way to get more capacity under load.
           gcloud run deploy ${{ env.SERVICE }} \
             --image=${{ env.IMAGE }}:${{ github.sha }} \
             --region=${{ env.REGION }} \
             --platform=managed \
             --allow-unauthenticated \
+            --max-instances=1 \
             --set-env-vars="$env_vars"
