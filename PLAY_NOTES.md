@@ -22,6 +22,10 @@ Markdown links, headings or emphasis, none of which Play renders.
 
 See `docs/android-release.md`.
 
+## Unreleased
+
+Trainers can now delete a client's whole workout plan from the Workout Builder, not just one day at a time. Fixed workout and plan deletes not always reaching the server, so a deleted item could reappear after syncing.
+
 ## 1.0.2+20
 
 Fixed a bug where chat messages sent from the Trainer Console could get stuck and never actually reach a client — most noticeably when messaging more than one client, or messaging a client who hadn't opened chat before. Messages should now always get through.

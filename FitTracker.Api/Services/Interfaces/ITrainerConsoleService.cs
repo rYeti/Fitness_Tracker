@@ -32,6 +32,15 @@ public interface ITrainerConsoleService
 
     Task<WorkoutPlanResponseDto?> UpdateClientWorkoutPlanAsync(Guid trainerId, Guid clientId, Guid planId, WorkoutPlanRequestDto dto);
 
+    /// <summary>Removes one of the client's workout plans. The plan's days (and any logged
+    /// history under them) are left in place — only the plan grouping goes away; see
+    /// <c>WorkoutPlanRepository.DeletePlanAsync</c>.</summary>
+    /// <returns><see cref="TrainerWorkoutStatus.Ok"/> on success,
+    /// <see cref="TrainerWorkoutStatus.NotPermitted"/> if the caller isn't an active trainer
+    /// of the client, or <see cref="TrainerWorkoutStatus.NotFound"/> if the plan isn't the
+    /// client's.</returns>
+    Task<TrainerWorkoutStatus> DeleteClientWorkoutPlanAsync(Guid trainerId, Guid clientId, Guid planId);
+
     /// <summary>The client's workouts — the days a trainer builds and edits — each with its
     /// exercises in order and the sets prescribed for them. Retired exercise entries are
     /// filtered out: they are history, not prescription.</summary>

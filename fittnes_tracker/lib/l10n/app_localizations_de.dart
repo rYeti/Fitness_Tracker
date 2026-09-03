@@ -3484,6 +3484,9 @@ class AppLocalizationsDe extends AppLocalizations {
       'Dieser Plan konnte nicht eingeplant werden.';
 
   @override
+  String get errorDeletePlan => 'Dieser Plan konnte nicht gelöscht werden.';
+
+  @override
   String get builderDays => 'Tage';
 
   @override
@@ -3623,6 +3626,22 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String builderDayDeletedConfirmation(String name) {
+    return '$name gelöscht';
+  }
+
+  @override
+  String get builderDeletePlan => 'Plan löschen';
+
+  @override
+  String get builderDeletePlanConfirmTitle => 'Diesen Plan löschen?';
+
+  @override
+  String builderDeletePlanConfirmBody(String name) {
+    return '$name wird entfernt. Die Tage bleiben beim Klienten erhalten – nur die Gruppierung wird entfernt, und dies kann nicht rückgängig gemacht werden.';
+  }
+
+  @override
+  String builderPlanDeletedConfirmation(String name) {
     return '$name gelöscht';
   }
 

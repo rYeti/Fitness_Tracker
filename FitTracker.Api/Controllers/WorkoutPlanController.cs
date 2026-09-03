@@ -1,4 +1,5 @@
 using FitTracker.Api.DTOs;
+using FitTracker.Api.Models;
 using FitTracker.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -78,7 +79,7 @@ public class WorkoutPlanController : ControllerBase
 
     /// <summary>Deletes a workout plan belonging to the authenticated user.</summary>
     /// <param name="id">The ID of the plan to delete.</param>
-    /// <returns>204 No Content on success, or 404 if not found.</returns>
+    /// <returns>204 No Content on success, 404 if not found, or 403 if a trainer assigned it.</returns>
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeletePlan([FromRoute] Guid id)
     {
@@ -86,9 +87,16 @@ public class WorkoutPlanController : ControllerBase
         if (userId == Guid.Empty) return NotFound("User not found");
 
         var result = await _planService.DeletePlanAsync(id, userId);
-        if (!result) return NotFound("Plan not found");
-
-        return NoContent();
+        return result switch
+        {
+            PlanDeleteResult.Deleted => NoContent(),
+            PlanDeleteResult.NotFound => NotFound("Plan not found"),
+            // A trainer-assigned plan is not the owner's to remove — only the trainer who
+            // assigned it can, via the Trainer Console.
+            PlanDeleteResult.AssignedByTrainer => StatusCode(StatusCodes.Status403Forbidden,
+                "This plan was assigned by your trainer and can't be deleted."),
+            _ => NoContent(),
+        };
     }
 
     /// <summary>Adds a workout to a plan.</summary>

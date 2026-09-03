@@ -1308,6 +1308,30 @@ class SyncService {
             );
           }
         },
+        onServerDeleted: (row) async {
+          // A pending*/pendingDelete row is this device's own unsent change —
+          // resurrecting it, not deleting it, is what protects that (same
+          // rule as `_reconcileWorkoutFromServer` uses one layer down).
+          if (SyncStatus.values[row.syncStatus] != SyncStatus.synced) {
+            return false;
+          }
+          // Only ever true for a workout a trainer deleted from the console:
+          // the trainee's own delete already goes through `_syncDeleteWorkout`
+          // and leaves this device with no local row to reconcile at all.
+          // Any scheduled session — logged or merely generated — is treated
+          // conservatively as history worth keeping resolvable, the same way
+          // the server keeps a workout with logged sets rather than deleting
+          // it; this device just can't tell the two apart locally, so it
+          // errs toward not deleting rather than deleting too eagerly.
+          final hasSessions = await (_db.select(_db.scheduledWorkoutTable)
+                ..where((sw) => sw.workoutId.equals(row.id))
+                ..limit(1))
+              .getSingleOrNull();
+          if (hasSessions != null) return false;
+
+          await _db.workoutDao.deleteWorkout(row.id);
+          return true;
+        },
       ),
       _reconcileTable<WorkoutPlanTableData>(
         endpoint: 'api/WorkoutPlan',
@@ -1329,6 +1353,24 @@ class SyncService {
             ..where((t) => t.planId.equals(id))).write(
             const WorkoutPlanWorkoutTableCompanion(syncStatus: Value(0)),
           );
+        },
+        onServerDeleted: (row) async {
+          if (SyncStatus.values[row.syncStatus] != SyncStatus.synced) {
+            return false;
+          }
+          // Deleting a plan never touches its days server-side (only the
+          // grouping goes away — see TrainerConsoleService.DeleteClientWorkoutPlanAsync),
+          // so nothing here needs to protect logged history. It does need to
+          // clear the link a `ScheduledWorkout` may still hold, mirroring the
+          // server's ON DELETE SET NULL: that column has no local FK action
+          // of its own, so a bare plan delete would otherwise leave it
+          // pointing at a plan id that no longer exists.
+          await (_db.update(_db.scheduledWorkoutTable)
+            ..where((sw) => sw.workoutPlanId.equals(row.id))).write(
+            const ScheduledWorkoutTableCompanion(workoutPlanId: Value(null)),
+          );
+          await _db.workoutPlanDao.deleteWorkoutPlan(row.id);
+          return true;
         },
       ),
       _reconcileTable<ScheduledWorkoutTableData>(
@@ -1430,12 +1472,20 @@ class SyncService {
     ]);
   }
 
+  /// [onServerDeleted], when given, runs first for a row the server no longer
+  /// lists — it returns true if it actually deleted the row locally, in which
+  /// case [resetRow] (the "resurrect and re-push" fallback that fits a
+  /// single-writer table) is skipped. Without it every such row is assumed to
+  /// have been removed by hand server-side and is queued to be pushed again,
+  /// which is wrong the moment something else — a trainer, via the Trainer
+  /// Console — is also allowed to delete it: see `docs/trainer-workout-builder.md`.
   Future<void> _reconcileTable<T>({
     required String endpoint,
     required Future<List<T>> Function() localQuery,
     required String Function(T) getServerId,
     required int Function(T) getLocalId,
     required Future<void> Function(int localId) resetRow,
+    Future<bool> Function(T row)? onServerDeleted,
   }) async {
     try {
       final response = await _apiClient.get(endpoint);
@@ -1444,6 +1494,14 @@ class SyncService {
       final locals = await localQuery();
       for (final row in locals) {
         if (serverIds.contains(getServerId(row))) continue;
+
+        if (onServerDeleted != null && await onServerDeleted(row)) {
+          _logger.i(
+            'Reconcile $endpoint: deleted local ${getLocalId(row)} (server ${getServerId(row)} gone)',
+          );
+          continue;
+        }
+
         await resetRow(getLocalId(row));
         _logger.i(
           'Reconcile $endpoint: reset local ${getLocalId(row)} (server ${getServerId(row)} gone)',

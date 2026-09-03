@@ -96,15 +96,21 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
   }
 
   // Get all workouts (templates and scheduled)
-  Future<List<WorkoutTableData>> getAllWorkouts() => select(workoutTable).get();
+  // Excludes pendingDelete (3): a delete now marks rather than removes the
+  // row outright, so a workout the trainee just deleted must stop appearing
+  // here well before the sync push actually reaches the server.
+  Future<List<WorkoutTableData>> getAllWorkouts() =>
+      (select(workoutTable)..where((w) => w.syncStatus.isNotValue(3))).get();
 
   // Get workout templates only
-  Future<List<WorkoutTableData>> getWorkoutTemplates() =>
-      (select(workoutTable)..where((w) => w.isTemplate.equals(true))).get();
+  Future<List<WorkoutTableData>> getWorkoutTemplates() => (select(
+    workoutTable,
+  )..where((w) => w.isTemplate.equals(true) & w.syncStatus.isNotValue(3))).get();
 
   // Get scheduled workouts
-  Future<List<WorkoutTableData>> getScheduledWorkouts() =>
-      (select(workoutTable)..where((w) => w.isTemplate.equals(false))).get();
+  Future<List<WorkoutTableData>> getScheduledWorkouts() => (select(
+    workoutTable,
+  )..where((w) => w.isTemplate.equals(false) & w.syncStatus.isNotValue(3))).get();
 
   Future<String> getScheduledWorkoutName(DateTime date) async {
     final start = DateTime(date.year, date.month, date.day);
@@ -138,7 +144,8 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
   ) =>
       (select(workoutTable)
             ..where((w) => w.scheduledDate.isBetweenValues(startDate, endDate))
-            ..where((w) => w.isTemplate.equals(false)))
+            ..where((w) => w.isTemplate.equals(false))
+            ..where((w) => w.syncStatus.isNotValue(3)))
           .get();
 
   // Get a specific workout with all related data

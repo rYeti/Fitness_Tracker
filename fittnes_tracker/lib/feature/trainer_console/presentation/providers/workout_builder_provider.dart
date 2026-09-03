@@ -111,6 +111,8 @@ class WorkoutBuilderProvider extends ChangeNotifier {
   bool _isSaving = false;
   ConsoleError? _error;
   String? _loadedClientId;
+  bool _isDeletingPlan = false;
+  ConsoleError? _planError;
 
   bool get isNew => _isNew;
   List<WorkoutPlanTemplateSummary> get templates => _templates;
@@ -119,6 +121,8 @@ class WorkoutBuilderProvider extends ChangeNotifier {
   bool get isSaving => _isSaving;
   ConsoleError? get error => _error;
   String? get loadedClientId => _loadedClientId;
+  bool get isDeletingPlan => _isDeletingPlan;
+  ConsoleError? get planError => _planError;
 
   // ── Days (workouts) under the current plan ──────────────────────────────
 
@@ -538,6 +542,32 @@ class WorkoutBuilderProvider extends ChangeNotifier {
       return false;
     } finally {
       _isSaving = false;
+      notifyListeners();
+    }
+  }
+
+  /// Deletes the current plan. The plan's days stay with the client — only the
+  /// grouping goes away, so this lands the screen back where a client with no
+  /// plan starts: the create flow.
+  Future<bool> deletePlan(String clientId) async {
+    final plan = _currentPlan;
+    if (plan == null) return false;
+
+    _isDeletingPlan = true;
+    _planError = null;
+    notifyListeners();
+
+    try {
+      await _repository.deleteClientWorkoutPlan(clientId, plan.id);
+      _currentPlan = null;
+      _isNew = true;
+      _resetDayState();
+      return true;
+    } catch (_) {
+      _planError = ConsoleError.deletePlan;
+      return false;
+    } finally {
+      _isDeletingPlan = false;
       notifyListeners();
     }
   }

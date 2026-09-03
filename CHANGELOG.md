@@ -10,6 +10,13 @@ heading to the version it went out as, so a `## <version>` section is history:
 it is what those users have, and nothing new belongs in it. See
 `docs/android-release.md`.
 
+## Unreleased
+
+- Trainers can now delete a client's entire workout plan from the Workout Builder, not just a single day — the plan card carries a "Delete plan" action with a confirmation dialog; the plan's days (and any logged history under them) stay with the client, only the grouping goes away. See `docs/trainer-workout-builder.md`.
+- A client can no longer delete a workout or plan their trainer assigned them — the server now refuses that delete (403) regardless of client. The assigning trainer can still remove their own prescription via the Trainer Console.
+- Fixed a client's own "delete workout"/"delete plan" from the trainee app never actually reaching the server: the local delete hard-removed the row on the device instead of marking it for the next sync push, so the server kept the row and the next full sync put it right back. Deletes now mark the row `pendingDelete` and are filtered out of every workout/plan listing immediately, the same way an already-working exercise-level delete has always behaved.
+- Fixed a trainer's delete from the Trainer Console being silently undone on the client's device: the sync reconcile pass treated any local row the server no longer listed as "deleted by hand, please re-create it," which resurrected a plan or workout a trainer had just removed. It now recognizes a genuine server-side deletion for a clean (already-synced) plan or history-free workout and removes it locally instead.
+
 ## 1.0.2+20
 
 - Fixed the Trainer Console dropping a trainer back into "My Training" the instant they switched sections, whenever the console had been reopened from Settings (or a tapped chat notification) after previously exiting to the trainee app. Switching sections rewrites the address bar via `GoRouter.go`, which rebuilds the router's whole page stack by *route pattern* — so it silently reused the original, already-mounted console page still flagged to show the trainee app, and discarded the freshly pushed one the trainer was actually looking at. Only the console instance the router itself is currently showing now touches the URL; a console reached by a push leaves it alone, exactly as before URLs existed for the console. See `docs/trainer-console-route-collision.md`.

@@ -33,6 +33,11 @@ public class WorkoutPlan
     /// <summary>The number of days this plan is scheduled for. Null for legacy plans.</summary>
     public int? DurationDays { get; set; }
 
+    /// <summary>The trainer who assigned this plan, or null for one the user built
+    /// themselves. No foreign key — same reasoning as <c>Workout.AssignedByTrainerId</c>.
+    /// Set only by <c>TrainerConsoleService</c>; a client cannot delete a plan this is set on.</summary>
+    public Guid? AssignedByTrainerId { get; set; }
+
     /// <summary>Navigation property to the user who owns this plan.</summary>
     public User User { get; set; } = null!;
 

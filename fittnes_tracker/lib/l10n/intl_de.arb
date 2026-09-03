@@ -1696,6 +1696,8 @@
   "@errorUnknownExercise": {},
   "errorScheduleWorkoutPlan": "Dieser Plan konnte nicht eingeplant werden.",
   "@errorScheduleWorkoutPlan": {},
+  "errorDeletePlan": "Dieser Plan konnte nicht gelöscht werden.",
+  "@errorDeletePlan": {},
   "builderDays": "Tage",
   "@builderDays": {},
   "builderNewDay": "Neuer Tag",
@@ -1802,6 +1804,26 @@
   },
   "builderDayDeletedConfirmation": "{name} gelöscht",
   "@builderDayDeletedConfirmation": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "builderDeletePlan": "Plan löschen",
+  "@builderDeletePlan": {},
+  "builderDeletePlanConfirmTitle": "Diesen Plan löschen?",
+  "@builderDeletePlanConfirmTitle": {},
+  "builderDeletePlanConfirmBody": "{name} wird entfernt. Die Tage bleiben beim Klienten erhalten – nur die Gruppierung wird entfernt, und dies kann nicht rückgängig gemacht werden.",
+  "@builderDeletePlanConfirmBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "builderPlanDeletedConfirmation": "{name} gelöscht",
+  "@builderPlanDeletedConfirmation": {
     "placeholders": {
       "name": {
         "type": "String"

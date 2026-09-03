@@ -83,14 +83,20 @@ public class WorkoutPlanRepository : IWorkoutPlanRepository
     }
 
     /// <inheritdoc/>
-    public async Task<bool> DeletePlanAsync(Guid id, Guid userId)
+    public async Task<PlanDeleteResult> DeletePlanAsync(Guid id, Guid userId, bool actingAsTrainer = false)
     {
         var plan = await _context.WorkoutPlans.FirstOrDefaultAsync(p => p.Id == id && p.UserId == userId);
-        if (plan == null) return false;
+        if (plan == null) return PlanDeleteResult.NotFound;
+
+        // See WorkoutRepository.DeleteWorkoutAsync for the same check one level down.
+        if (!actingAsTrainer && plan.AssignedByTrainerId != null)
+        {
+            return PlanDeleteResult.AssignedByTrainer;
+        }
 
         _context.WorkoutPlans.Remove(plan);
         await _context.SaveChangesAsync();
-        return true;
+        return PlanDeleteResult.Deleted;
     }
 
     /// <inheritdoc/>

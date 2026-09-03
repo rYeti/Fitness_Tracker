@@ -70,6 +70,132 @@ public class TrainerWorkoutBuilderTests : IDisposable
         Assert.Equal(TrainerWorkoutStatus.NotPermitted, result.Status);
     }
 
+    // ── Deleting a plan ──────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task NonTrainerCannotDeleteAPlan()
+    {
+        var plan = _fx.AddPlan(_client.Id, "Hypertrophy Block", isActive: true);
+        var stranger = _fx.AddUser("Nobody", "Special");
+
+        Assert.Equal(TrainerWorkoutStatus.NotPermitted,
+            await _console.DeleteClientWorkoutPlanAsync(stranger.Id, _client.Id, plan.Id));
+        Assert.NotNull(await _fx.Db.WorkoutPlans.AsNoTracking().SingleOrDefaultAsync(p => p.Id == plan.Id));
+    }
+
+    [Fact]
+    public async Task DeletingAnotherClientsPlanIsNotFound()
+    {
+        var otherClient = _fx.AddUser("Priya", "Nair");
+        _fx.AddRelationship(_trainer.Id, otherClient.Id, TrainerClientStatus.Active);
+        var plan = _fx.AddPlan(otherClient.Id, "Someone Else's Plan", isActive: true);
+
+        Assert.Equal(TrainerWorkoutStatus.NotFound,
+            await _console.DeleteClientWorkoutPlanAsync(_trainer.Id, _client.Id, plan.Id));
+    }
+
+    [Fact]
+    public async Task DeletingAPlanKeepsItsDaysAndLoggedHistory()
+    {
+        var squat = AddExercise(null, "Back Squat");
+        var created = await _console.CreateClientWorkoutAsync(_trainer.Id, _client.Id, new ClientWorkoutRequestDto
+        {
+            Name = "Leg Day",
+            Exercises = [new ClientWorkoutExerciseRequestDto { ExerciseId = squat.Id, TargetReps = ["5"] }],
+        });
+        var planResult = await _console.CreateClientWorkoutPlanAsync(_trainer.Id, _client.Id, new WorkoutPlanRequestDto
+        {
+            Name = "Leg Day Block",
+            StartDate = DateTime.UtcNow.Date,
+            IsFreeChoice = true,
+        });
+        await _fx.Db.WorkoutPlanWorkouts.AddAsync(new WorkoutPlanWorkout
+        {
+            Id = Guid.NewGuid(),
+            PlanId = planResult!.Id,
+            WorkoutId = created.Workout!.Id,
+        });
+        await _fx.Db.SaveChangesAsync();
+        var entry = created.Workout.Exercises.Single();
+        var session = _fx.AddSession(created.Workout.Id, DateTime.UtcNow.Date, planId: planResult.Id);
+        _fx.AddLoggedSet(session.Id, entry.Id);
+
+        var status = await _console.DeleteClientWorkoutPlanAsync(_trainer.Id, _client.Id, planResult.Id);
+
+        Assert.Equal(TrainerWorkoutStatus.Ok, status);
+        Assert.Null(await _fx.Db.WorkoutPlans.AsNoTracking().SingleOrDefaultAsync(p => p.Id == planResult.Id));
+
+        // The plan is gone; the day it grouped, and the history logged against it, are not.
+        var workouts = await _console.GetClientWorkoutsAsync(_trainer.Id, _client.Id);
+        Assert.Contains(workouts!, w => w.Id == created.Workout.Id);
+        Assert.NotEmpty(await _fx.Db.WorkoutSets.AsNoTracking()
+            .Where(s => s.ScheduledWorkoutExercise.WorkoutExerciseId == entry.Id)
+            .ToListAsync());
+
+        // The link the deleted plan made no longer dangles.
+        var reloadedSession = await _fx.Db.ScheduledWorkouts.AsNoTracking().SingleAsync(s => s.Id == session.Id);
+        Assert.Null(reloadedSession.WorkoutPlanId);
+    }
+
+    // ── A client can't delete what their trainer assigned ───────────────────
+
+    [Fact]
+    public async Task AClientCannotDeleteAWorkoutTheirTrainerAssigned()
+    {
+        var squat = AddExercise(null, "Back Squat");
+        var created = await _console.CreateClientWorkoutAsync(_trainer.Id, _client.Id, new ClientWorkoutRequestDto
+        {
+            Name = "Leg Day",
+            Exercises = [new ClientWorkoutExerciseRequestDto { ExerciseId = squat.Id, TargetReps = ["5"] }],
+        });
+        var workoutService = new WorkoutService(new WorkoutRepository(_fx.Db));
+
+        // The self-service path — no actingAsTrainer flag — is what the client's own app calls.
+        var clientAttempt = await workoutService.DeleteWorkoutAsync(created.Workout!.Id, _client.Id);
+        Assert.Equal(WorkoutDeleteResult.AssignedByTrainer, clientAttempt);
+        Assert.NotNull(await _fx.Db.Workouts.AsNoTracking().SingleOrDefaultAsync(w => w.Id == created.Workout.Id));
+
+        // The assigning trainer can still remove their own prescription.
+        Assert.Equal(TrainerWorkoutStatus.Ok,
+            await _console.DeleteClientWorkoutAsync(_trainer.Id, _client.Id, created.Workout.Id));
+    }
+
+    [Fact]
+    public async Task AClientCannotDeleteAPlanTheirTrainerAssigned()
+    {
+        var planResult = await _console.CreateClientWorkoutPlanAsync(_trainer.Id, _client.Id, new WorkoutPlanRequestDto
+        {
+            Name = "Trainer's Block",
+            StartDate = DateTime.UtcNow.Date,
+            IsFreeChoice = true,
+        });
+        var planService = new WorkoutPlanService(new WorkoutPlanRepository(_fx.Db));
+
+        Assert.Equal(PlanDeleteResult.AssignedByTrainer,
+            await planService.DeletePlanAsync(planResult!.Id, _client.Id));
+
+        Assert.Equal(TrainerWorkoutStatus.Ok,
+            await _console.DeleteClientWorkoutPlanAsync(_trainer.Id, _client.Id, planResult.Id));
+    }
+
+    [Fact]
+    public async Task AClientCanStillDeleteAWorkoutAndPlanTheyBuiltThemselves()
+    {
+        var workoutService = new WorkoutService(new WorkoutRepository(_fx.Db));
+        var planService = new WorkoutPlanService(new WorkoutPlanRepository(_fx.Db));
+
+        var ownWorkout = await workoutService.CreateWorkoutAsync(new WorkoutRequestDto { Name = "My Own Day" }, _client.Id);
+        var ownPlan = await planService.CreatePlanAsync(new WorkoutPlanRequestDto
+        {
+            Name = "My Own Plan",
+            StartDate = DateTime.UtcNow.Date,
+            IsFreeChoice = true,
+        }, _client.Id);
+
+        Assert.Equal(WorkoutDeleteResult.Deleted, await workoutService.DeleteWorkoutAsync(ownWorkout.Id, _client.Id));
+        Assert.Equal(PlanDeleteResult.Deleted, await planService.DeletePlanAsync(ownPlan.Id, _client.Id));
+    }
+
     // ── Copy-on-prescribe ────────────────────────────────────────────────────
 
     [Fact]
