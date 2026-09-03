@@ -883,7 +883,11 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
                   borderRadius: BorderRadius.circular(8.0),
                 ),
               ),
-              child: Text(AppLocalizations.of(dialogContext)!.addToLog),
+              child: Text(
+                widget.isTemplate
+                    ? AppLocalizations.of(dialogContext)!.addToTemplate
+                    : AppLocalizations.of(dialogContext)!.addToLog,
+              ),
             ),
           ],
         );
@@ -894,6 +898,14 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
 
     final newFood = await db.foodItemDao.getFoodItemById(insertedId!);
     if (!mounted || newFood == null) return;
+
+    // In template mode the food library entry is all this screen persists —
+    // the template screen owns the rest. Logging it here would put a meal on
+    // today's diary that the user never asked for.
+    if (widget.isTemplate) {
+      Navigator.pop(context, FoodItemModel.fromData(newFood));
+      return;
+    }
 
     await _repository.addFoodToMeal(
       widget.category,
@@ -1339,7 +1351,11 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
       subtitle:
           '${item.calories} kcal | P: ${item.protein}g | C: ${item.carbs}g | F: ${item.fat}g',
       onTap: () async {
-        await Navigator.push<bool>(
+        // `isTemplate` has to travel with every push of the detail screen, not
+        // just the ones reached by searching: this tile is what the screen
+        // shows before a query is typed, so a template build that starts from
+        // a recent food landed on a detail screen that thought it was logging.
+        final result = await Navigator.push<dynamic>(
           context,
           MaterialPageRoute(
             builder:
@@ -1354,10 +1370,14 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
                     gramm: item.gramm,
                   ),
                   category: widget.category,
+                  isTemplate: widget.isTemplate,
                   date: widget.date,
                 ),
           ),
         );
+        if (widget.isTemplate && result is FoodItemModel && mounted) {
+          Navigator.pop(context, result);
+        }
       },
       trailing: Row(
         mainAxisSize: MainAxisSize.min,

@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:intl/intl.dart';
 
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_licence.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/trainer_licence_provider.dart';
@@ -126,27 +125,40 @@ void main() {
 
   group('banners', () {
     testWidgets('warns during grace and names the date', (tester) async {
-      // Must resolve to a future instant whenever this suite runs — the fixture's
-      // `isEntitled` depends on `graceEndsAt.isAfter(DateTime.now())` (see
-      // licence_fakes.dart), so a date hardcoded to "today" stops being in grace,
-      // and therefore stops rendering this banner at all, the moment the clock
-      // ticks past midnight on that date.
-      final graceEndsAt = DateTime.now().add(const Duration(days: 3));
+      // A licence is only in grace while the grace date is still ahead of it,
+      // so the date has to be derived from today rather than written down. It
+      // used to read `DateTime(2026, 9, 3)`, which was a passing test right up
+      // to 3 Sep 2026 and a failing one from midnight that day: the fake reads
+      // an elapsed grace date as unentitled, so the screen rendered the lapsed
+      // banner and the grace banner this test is about was never built.
+      final graceEnds = DateTime.now().add(const Duration(days: 30));
+
+      // Built by hand, day-then-month, rather than with `DateFormat` — the
+      // thing being pinned is that the banner says "3 Sep" and not "Sep 3",
+      // and formatting the expectation the same way the widget does would
+      // assert nothing at all.
+      const months = [
+        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      ];
+      final expectedDate = '${graceEnds.day} ${months[graceEnds.month - 1]}';
+
       await pump(
         tester,
         FakeTrainerLicenceRepository(
           current: licence(
             status: LicenceStatus.pastDue,
-            graceEndsAt: graceEndsAt,
+            graceEndsAt: graceEnds,
           ),
         ),
       );
       await tester.pumpAndSettle();
 
-      // Matches LicenceBanner's own `_formatDate` ('d MMM' in 'en') rather than
-      // a literal string, so this doesn't rot the next time it's run.
-      final expectedDate = DateFormat('d MMM', 'en').format(graceEndsAt);
-      expect(find.textContaining('Payment failed'), findsWidgets);
+      // Not `textContaining('Payment failed')`: the past-due *status chip*
+      // reads "Payment failed" too, so that finder passes with no banner on
+      // screen at all — which is why the real failure above showed up only on
+      // the date assertion. This wording is the banner's alone.
+      expect(find.textContaining('keeps working until'), findsOneWidget);
       expect(find.textContaining(expectedDate), findsOneWidget);
       expect(find.text('Fix payment'), findsOneWidget);
     });

@@ -24,7 +24,7 @@ See `docs/android-release.md`.
 
 ## Unreleased
 
-Trainers can now delete a client's whole workout plan from the Workout Builder, not just one day at a time. Fixed workout and plan deletes not always reaching the server, so a deleted item could reappear after syncing.
+Trainers can now delete a client's whole workout plan, not just one day at a time. Fixed workout and plan deletes not always reaching the server, so a deleted item could reappear after syncing. Fixed adding a food to a meal template from Recently Added: Add to Template was greyed out, so the food could only go to today's log. A hand-entered custom food had the same problem. The food screen now shows only the action that applies.
 
 ## 1.0.2+20
 
