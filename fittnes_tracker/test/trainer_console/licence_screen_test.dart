@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/intl.dart';
 
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_licence.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/trainer_licence_provider.dart';
@@ -125,19 +126,28 @@ void main() {
 
   group('banners', () {
     testWidgets('warns during grace and names the date', (tester) async {
+      // Must resolve to a future instant whenever this suite runs — the fixture's
+      // `isEntitled` depends on `graceEndsAt.isAfter(DateTime.now())` (see
+      // licence_fakes.dart), so a date hardcoded to "today" stops being in grace,
+      // and therefore stops rendering this banner at all, the moment the clock
+      // ticks past midnight on that date.
+      final graceEndsAt = DateTime.now().add(const Duration(days: 3));
       await pump(
         tester,
         FakeTrainerLicenceRepository(
           current: licence(
             status: LicenceStatus.pastDue,
-            graceEndsAt: DateTime(2026, 9, 3),
+            graceEndsAt: graceEndsAt,
           ),
         ),
       );
       await tester.pumpAndSettle();
 
+      // Matches LicenceBanner's own `_formatDate` ('d MMM' in 'en') rather than
+      // a literal string, so this doesn't rot the next time it's run.
+      final expectedDate = DateFormat('d MMM', 'en').format(graceEndsAt);
       expect(find.textContaining('Payment failed'), findsWidgets);
-      expect(find.textContaining('3 Sep'), findsOneWidget);
+      expect(find.textContaining(expectedDate), findsOneWidget);
       expect(find.text('Fix payment'), findsOneWidget);
     });
 
