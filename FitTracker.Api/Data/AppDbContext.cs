@@ -79,6 +79,8 @@ public class AppDbContext : DbContext
 
     public DbSet<ChatMessage> ChatMessages { get; set; }
 
+    public DbSet<ChatAttachment> ChatAttachments { get; set; }
+
     public DbSet<UserChatKey> UserChatKeys { get; set; }
 
     /// <summary>Push registration tokens, one row per signed-in device.</summary>
@@ -296,6 +298,19 @@ public class AppDbContext : DbContext
                   .HasForeignKey(m => m.TrainerClientId)
                   .OnDelete(DeleteBehavior.Cascade);
             entity.HasIndex(m => new { m.TrainerClientId, m.SentAt });
+        });
+
+        modelBuilder.Entity<ChatAttachment>(entity =>
+        {
+            entity.HasKey(a => a.Id);
+            entity.HasOne(a => a.TrainerClient)
+                  .WithMany()
+                  .HasForeignKey(a => a.TrainerClientId)
+                  .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(a => a.TrainerClientId);
+            // The reaper's own query shape: uncommitted rows past their grace
+            // period. See docs/chat-attachments.md §A.5.
+            entity.HasIndex(a => new { a.CommittedAt, a.CreatedAt });
         });
 
         modelBuilder.Entity<UserChatKey>(entity =>

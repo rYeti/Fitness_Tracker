@@ -127,6 +127,19 @@ public class TrainerClientService(
     }
 
     /// <inheritdoc/>
+    public async Task<(Guid trainerId, Guid clientId, bool ok)> ResolvePairAsync(Guid callerId, Guid otherPartyId)
+    {
+        if (await IsActiveTrainerOfAsync(callerId, otherPartyId))
+            return (callerId, otherPartyId, true);
+
+        // caller might be the client, not the trainer — swap and re-check
+        if (await IsActiveTrainerOfAsync(otherPartyId, callerId))
+            return (otherPartyId, callerId, true);
+
+        return (default, default, false);
+    }
+
+    /// <inheritdoc/>
     private static TrainerClientResponseDto ToDto(TrainerClient t) => new()
     {
         Id = t.Id,

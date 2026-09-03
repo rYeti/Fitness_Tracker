@@ -34,11 +34,9 @@ public class ChatController(IChatService chatService, ITrainerClientService trai
     {
         var userId = GetUserId();
         if (userId is null) return Unauthorized();
-        var (trainerId, ok) = await ResolveTrainerAsync(userId.Value, clientId);
+        var (trainerId, actualClientId, ok) = await _trainerClientService.ResolvePairAsync(userId.Value, clientId);
 
         if (!ok) return Unauthorized();
-
-        var actualClientId = trainerId == userId ? clientId : userId.Value;
 
         var chatHitory = await _chatService.GetChatHistoryAsync(
             trainerId,
@@ -67,7 +65,7 @@ public class ChatController(IChatService chatService, ITrainerClientService trai
         var userId = GetUserId();
         if (userId is null) return Unauthorized();
 
-        var (_, ok) = await ResolveTrainerAsync(userId.Value, otherPartyId);
+        var (_, _, ok) = await _trainerClientService.ResolvePairAsync(userId.Value, otherPartyId);
         if (!ok) return Unauthorized();
 
         await _chatService.MarkReadAsync(userId.Value, otherPartyId);
@@ -78,19 +76,5 @@ public class ChatController(IChatService chatService, ITrainerClientService trai
     {
         var claim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub");
         return claim != null && Guid.TryParse(claim.Value, out var id) ? id : null;
-    }
-
-    // Resolves whether the caller is the trainer or the client side of an
-    // Active relationship, so one hub serves both roles symmetrically.
-    private async Task<(Guid trainerId, bool ok)> ResolveTrainerAsync(Guid userId, Guid clientId)
-    {
-        if (await _trainerClientService.IsActiveTrainerOfAsync(userId, clientId))
-            return (userId, true);
-
-        // caller might be the client, not the trainer — swap and re-check
-        if (await _trainerClientService.IsActiveTrainerOfAsync(clientId, userId))
-            return (clientId, true);
-
-        return (default, false);
     }
 }

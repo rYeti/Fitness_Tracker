@@ -3,6 +3,7 @@ using System;
 using FitTracker.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace FitTracker.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260903161011_DropObsoleteSingleColumnIndexes")]
+    partial class DropObsoleteSingleColumnIndexes
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -21,43 +24,6 @@ namespace FitTracker.Api.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
-
-            modelBuilder.Entity("FitTracker.Api.Models.ChatAttachment", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime?>("CommittedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<long>("DeclaredByteLength")
-                        .HasColumnType("bigint");
-
-                    b.Property<Guid?>("MessageId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("ObjectKey")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<Guid>("TrainerClientId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("UploaderId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TrainerClientId");
-
-                    b.HasIndex("CommittedAt", "CreatedAt");
-
-                    b.ToTable("ChatAttachments");
-                });
 
             modelBuilder.Entity("FitTracker.Api.Models.ChatMessage", b =>
                 {
@@ -938,17 +904,6 @@ namespace FitTracker.Api.Migrations
                     b.HasIndex("WorkoutExerciseId");
 
                     b.ToTable("WorkoutSetTemplates");
-                });
-
-            modelBuilder.Entity("FitTracker.Api.Models.ChatAttachment", b =>
-                {
-                    b.HasOne("FitTracker.Api.Models.TrainerClient", "TrainerClient")
-                        .WithMany()
-                        .HasForeignKey("TrainerClientId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("TrainerClient");
                 });
 
             modelBuilder.Entity("FitTracker.Api.Models.ChatMessage", b =>

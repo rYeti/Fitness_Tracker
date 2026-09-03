@@ -20,17 +20,15 @@ public class ChatHub(
     /// <summary>
     /// Adds the caller's connection to the SignalR group for their chat with
     /// <paramref name="clientId"/>. Callable by either the trainer or the
-    /// client side of the pair — <see cref="ResolveTrainerAsync"/> figures out
-    /// which one the caller is.
+    /// client side of the pair — <see cref="ITrainerClientService.ResolvePairAsync"/>
+    /// figures out which one the caller is.
     /// </summary>
     public async Task JoinClientGroup(Guid clientId)
     {
         var userId = GetUserId();
-        var (trainerId, ok) = await ResolveTrainerAsync(userId, clientId);
+        var (trainerId, actualClientId, ok) = await TrainerClientService.ResolvePairAsync(userId, clientId);
 
         if (!ok) throw new HubException("Not authorized for this chat.");
-
-        var actualClientId = trainerId == userId ? clientId : userId;
 
         await Groups.AddToGroupAsync(Context.ConnectionId, GroupName(trainerId, actualClientId));
     }
@@ -67,10 +65,8 @@ public class ChatHub(
         int encryptionVersion)
     {
         var userId = GetUserId();
-        var (trainerId, ok) = await ResolveTrainerAsync(userId, clientId);
+        var (trainerId, actualClientId, ok) = await TrainerClientService.ResolvePairAsync(userId, clientId);
         if (!ok) throw new HubException("Not authorized for this chat.");
-
-        var actualClientId = trainerId == userId ? clientId : userId;
 
         var encrypted = new EncryptedChatBody(body, iv, encryptionVersion);
 
@@ -103,25 +99,10 @@ public class ChatHub(
     public async Task LeaveClientChat(Guid clientId)
     {
         var userId = GetUserId();
-        var (trainerId, ok) = await ResolveTrainerAsync(userId, clientId);
+        var (trainerId, actualClientId, ok) = await TrainerClientService.ResolvePairAsync(userId, clientId);
         if (!ok) throw new HubException("Not authorized for this chat.");
-        var actualClientId = trainerId == userId ? clientId : userId;
 
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, GroupName(trainerId, actualClientId));
-    }
-
-    // Resolves whether the caller is the trainer or the client side of an
-    // Active relationship, so one hub serves both roles symmetrically.
-    private async Task<(Guid trainerId, bool ok)> ResolveTrainerAsync(Guid userId, Guid clientId)
-    {
-        if (await TrainerClientService.IsActiveTrainerOfAsync(userId, clientId))
-            return (userId, true);
-
-        // caller might be the client, not the trainer — swap and re-check
-        if (await TrainerClientService.IsActiveTrainerOfAsync(clientId, userId))
-            return (clientId, true);
-
-        return (default, false);
     }
 
     // Same claim handling as ChatController.GetUserId. Tokens minted by the OAuth

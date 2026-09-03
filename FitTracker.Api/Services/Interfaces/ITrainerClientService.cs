@@ -35,4 +35,11 @@ public interface ITrainerClientService
     Task<bool> IsActiveTrainerOfAsync(Guid trainerId, Guid clientId);
 
     Task<TrainerClient?> GetActiveRelationshipAsync(Guid trainerId, Guid clientId);
+
+    /// <summary>Works out which side of an Active relationship the caller is on.
+    /// <paramref name="callerId"/> and <paramref name="otherPartyId"/> could be
+    /// (trainer, client) or (client, trainer) — the caller doesn't know which,
+    /// which is why chat's controller, hub and REST history endpoint all needed
+    /// this exact check and used to each carry their own copy of it.</summary>
+    Task<(Guid trainerId, Guid clientId, bool ok)> ResolvePairAsync(Guid callerId, Guid otherPartyId);
 }
