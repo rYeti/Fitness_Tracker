@@ -11,6 +11,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:ForgeForm/core/providers/enums.dart';
 import 'package:ForgeForm/feature/chat/data/chat_attachment_file.dart';
 import 'package:ForgeForm/feature/chat/data/video_blob_url.dart';
+import 'package:ForgeForm/feature/chat/domain/chat_attachment_labels.dart';
 import 'package:ForgeForm/feature/chat/domain/models/chat_attachment_ref.dart';
 import 'package:ForgeForm/feature/chat/domain/models/thread_message.dart';
 import 'package:ForgeForm/feature/chat/presentation/providers/chat_attachment_provider.dart';
@@ -25,23 +26,6 @@ Color _parseAvgColor(String? hex) {
   final value = int.tryParse(hex.substring(1), radix: 16);
   if (value == null) return const Color(0xFF808080);
   return Color(0xFF000000 | value);
-}
-
-/// The spoken label for one attachment kind — shared between the bubble's
-/// semantics value and any visible caption fallback.
-String kindLabel(AppLocalizations l10n, MediaType kind) {
-  switch (kind) {
-    case MediaType.picture:
-      return l10n.chatPhotoLabel;
-    case MediaType.document:
-      return l10n.chatDocumentLabel;
-    case MediaType.audio:
-      return l10n.chatAudioLabel;
-    case MediaType.voiceNote:
-      return l10n.chatVoiceNoteLabel;
-    case MediaType.video:
-      return l10n.chatVideoLabel;
-  }
 }
 
 /// The phrase describing [phase] for a screen reader — the second half of
@@ -75,7 +59,7 @@ String attachmentSemanticsValue(
   ChatAttachmentRef ref,
   AttachmentPhase phase,
 ) {
-  final kind = kindLabel(l10n, ref.kind);
+  final kind = attachmentKindLabel(l10n, ref.kind);
   final phaseText = _phaseLabel(l10n, phase);
   if (phaseText.isEmpty) {
     if (ref.kind == MediaType.document) return '$kind, ${ref.name}';
