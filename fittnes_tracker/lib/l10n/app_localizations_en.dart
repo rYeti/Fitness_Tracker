@@ -2482,6 +2482,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chatSendVoiceNote => 'Send voice note';
 
   @override
+  String get chatVideoLabel => 'Video';
+
+  @override
+  String get chatAttachVideo => 'Video';
+
+  @override
   String get chatUnavailable => 'Messaging is unavailable';
 
   @override

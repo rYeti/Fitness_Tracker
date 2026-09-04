@@ -4,10 +4,13 @@ import 'dart:typed_data';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:media_kit/media_kit.dart' as mk;
+import 'package:media_kit_video/media_kit_video.dart' as mk_video;
 import 'package:path_provider/path_provider.dart';
 
 import 'package:ForgeForm/core/providers/enums.dart';
 import 'package:ForgeForm/feature/chat/data/chat_attachment_file.dart';
+import 'package:ForgeForm/feature/chat/data/video_blob_url.dart';
 import 'package:ForgeForm/feature/chat/domain/models/chat_attachment_ref.dart';
 import 'package:ForgeForm/feature/chat/domain/models/thread_message.dart';
 import 'package:ForgeForm/feature/chat/presentation/providers/chat_attachment_provider.dart';
@@ -37,7 +40,7 @@ String kindLabel(AppLocalizations l10n, MediaType kind) {
     case MediaType.voiceNote:
       return l10n.chatVoiceNoteLabel;
     case MediaType.video:
-      return l10n.chatUnsupportedAttachment;
+      return l10n.chatVideoLabel;
   }
 }
 
@@ -76,7 +79,9 @@ String attachmentSemanticsValue(
   final phaseText = _phaseLabel(l10n, phase);
   if (phaseText.isEmpty) {
     if (ref.kind == MediaType.document) return '$kind, ${ref.name}';
-    if ((ref.kind == MediaType.audio || ref.kind == MediaType.voiceNote) &&
+    if ((ref.kind == MediaType.audio ||
+            ref.kind == MediaType.voiceNote ||
+            ref.kind == MediaType.video) &&
         ref.durationSeconds != null) {
       return '$kind, ${ref.durationSeconds} ${ref.durationSeconds == 1 ? 'second' : 'seconds'}';
     }
@@ -86,8 +91,8 @@ String attachmentSemanticsValue(
 }
 
 /// Renders one attachment inside a [ChatBubble] — photo, document, audio
-/// file and voice note; video renders an honest placeholder rather than a
-/// half-built player (phase 6). See docs/chat-attachments.md §C.5.
+/// file, voice note and video, all five kinds this feature ships. See
+/// docs/chat-attachments.md §C.5.
 class ChatAttachmentContent extends StatelessWidget {
   final ThreadMessage message;
   final ChatAttachmentRef ref;
@@ -128,7 +133,7 @@ class ChatAttachmentContent extends StatelessWidget {
           onTap: onTap,
         );
       case MediaType.video:
-        return _UnsupportedTile(ref: ref, textColor: textColor);
+        return _VideoTile(ref: ref, phase: phase, bytes: bytes, onTap: onTap);
     }
   }
 }
@@ -203,6 +208,147 @@ class _CenteredIcon extends StatelessWidget {
                 ),
               )
               : Icon(icon, color: Colors.white, size: 28),
+    );
+  }
+}
+
+/// Video — poster-and-play until tapped, then plays inline via `media_kit`
+/// (libmpv-backed), which is what makes desktop video real rather than an
+/// "open externally" button: `video_player` has no Windows or Linux
+/// implementation. See docs/chat-attachments.md §C.1.
+///
+/// Bytes only become playable once [phase] is `stored` — video isn't
+/// auto-fetched (§C.4's policy: images only), so a fresh bubble shows the
+/// poster and waits for the tap the caller already wires through [onTap].
+class _VideoTile extends StatefulWidget {
+  final ChatAttachmentRef ref;
+  final AttachmentPhase phase;
+  final Uint8List? bytes;
+  final VoidCallback? onTap;
+
+  const _VideoTile({
+    required this.ref,
+    required this.phase,
+    required this.bytes,
+    this.onTap,
+  });
+
+  @override
+  State<_VideoTile> createState() => _VideoTileState();
+}
+
+class _VideoTileState extends State<_VideoTile> {
+  mk.Player? _player;
+  mk_video.VideoController? _controller;
+  String? _tempPath;
+  String? _blobUrl;
+
+  @override
+  void dispose() {
+    _player?.dispose();
+    if (_tempPath != null) deleteAttachmentFile(_tempPath!).catchError((_) {});
+    if (_blobUrl != null) revokeVideoBlobUrl(_blobUrl!);
+    super.dispose();
+  }
+
+  Future<void> _startPlayback() async {
+    final bytes = widget.bytes;
+    if (bytes == null || _player != null) return;
+
+    final player = mk.Player();
+    final controller = mk_video.VideoController(player);
+
+    if (kIsWeb) {
+      final url = createVideoBlobUrl(bytes, widget.ref.mime);
+      if (url == null) return;
+      _blobUrl = url;
+      await player.open(mk.Media(url));
+    } else {
+      final dir = await getTemporaryDirectory();
+      final path = '${dir.path}/chat_video_${widget.ref.id}.bin';
+      await writeAttachmentBytes(path, bytes);
+      _tempPath = path;
+      await player.open(mk.Media(path));
+    }
+
+    if (!mounted) {
+      await player.dispose();
+      return;
+    }
+    setState(() {
+      _player = player;
+      _controller = controller;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final aspect =
+        (widget.ref.width != null &&
+                widget.ref.height != null &&
+                widget.ref.height! > 0)
+            ? widget.ref.width! / widget.ref.height!
+            : 16 / 9;
+
+    final controller = _controller;
+    if (controller != null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: AspectRatio(
+          aspectRatio: aspect,
+          child: mk_video.Video(
+            controller: controller,
+            controls: mk_video.AdaptiveVideoControls,
+          ),
+        ),
+      );
+    }
+
+    final canPlay =
+        widget.phase == AttachmentPhase.stored && widget.bytes != null;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: AspectRatio(
+        aspectRatio: aspect,
+        child: GestureDetector(
+          onTap: canPlay ? _startPlayback : widget.onTap,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Container(color: _parseAvgColor(widget.ref.avgColor)),
+              if (widget.phase == AttachmentPhase.downloading ||
+                  widget.phase == AttachmentPhase.uploading)
+                const _CenteredIcon(icon: null, showSpinner: true)
+              else if (widget.phase == AttachmentPhase.expired)
+                const _CenteredIcon(icon: Icons.videocam_off_outlined)
+              else if (widget.phase == AttachmentPhase.downloadFailed ||
+                  widget.phase == AttachmentPhase.uploadFailed)
+                const _CenteredIcon(icon: Icons.error_outline_rounded)
+              else
+                const _CenteredIcon(icon: Icons.play_circle_fill_rounded),
+              if (widget.ref.durationSeconds != null)
+                Positioned(
+                  right: 6,
+                  bottom: 6,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      '${widget.ref.durationSeconds! ~/ 60}:${(widget.ref.durationSeconds! % 60).toString().padLeft(2, '0')}',
+                      style: const TextStyle(fontSize: 11, color: Colors.white),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -434,41 +580,6 @@ class _AudioTileState extends State<_AudioTile> {
                 fontFamily: 'Exo 2',
                 fontSize: 12,
                 color: widget.textColor.withValues(alpha: 0.85),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Video — an honest placeholder rather than a half-built player. See
-/// docs/chat-attachments.md §0.3/§C.1: this kind is a later phase (6), not
-/// stubbed playback here.
-class _UnsupportedTile extends StatelessWidget {
-  final ChatAttachmentRef ref;
-  final Color textColor;
-
-  const _UnsupportedTile({required this.ref, required this.textColor});
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    return Container(
-      constraints: const BoxConstraints(minHeight: 44),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      child: Row(
-        children: [
-          Icon(Icons.attachment_rounded, color: textColor, size: 22),
-          const SizedBox(width: 8),
-          Flexible(
-            child: Text(
-              l10n.chatUnsupportedAttachment,
-              style: TextStyle(
-                fontFamily: 'Exo 2',
-                fontSize: 12.5,
-                color: textColor,
               ),
             ),
           ),

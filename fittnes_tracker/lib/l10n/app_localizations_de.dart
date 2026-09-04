@@ -2501,6 +2501,12 @@ class AppLocalizationsDe extends AppLocalizations {
   String get chatSendVoiceNote => 'Sprachnachricht senden';
 
   @override
+  String get chatVideoLabel => 'Video';
+
+  @override
+  String get chatAttachVideo => 'Video';
+
+  @override
   String get chatUnavailable => 'Nachrichten nicht verfügbar';
 
   @override

@@ -16,7 +16,7 @@ import 'package:ForgeForm/feature/chat/data/voice_recorder.dart';
 import 'package:ForgeForm/feature/chat/domain/models/chat_draft.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 
-enum _AttachChoice { gallery, camera, document, audio, voiceNote }
+enum _AttachChoice { gallery, camera, document, audio, voiceNote, video }
 
 /// The message input: attachment affordance, pill field, circular orange send.
 ///
@@ -157,6 +157,28 @@ class _ChatComposerState extends State<ChatComposer> {
     );
   }
 
+  /// The cap this feature enforces for a video attachment — twice the image
+  /// cap, and enforced client-side only, same as every other kind (see
+  /// docs/chat-attachments.md §0.2). There is no re-encode step for video:
+  /// a file over this size is refused, not compressed.
+  static const _maxVideoBytes = 16 * 1024 * 1024;
+
+  Future<void> _pickVideo() async {
+    final file = await ImagePicker().pickVideo(source: ImageSource.gallery);
+    if (file == null) return;
+    final bytes = await file.readAsBytes();
+    if (bytes.length > _maxVideoBytes) {
+      _showTooLarge();
+      return;
+    }
+    await _sendAttachment(
+      bytes,
+      kind: MediaType.video,
+      mime: 'video/mp4',
+      name: file.name,
+    );
+  }
+
   Future<void> _pickDocument() async {
     final result = await FilePicker.platform.pickFiles(withData: true);
     final file = result?.files.single;
@@ -268,6 +290,11 @@ class _ChatComposerState extends State<ChatComposer> {
           label: l10n.chatAttachCamera,
         ),
       (
+        choice: _AttachChoice.video,
+        icon: Icons.videocam_outlined,
+        label: l10n.chatAttachVideo,
+      ),
+      (
         choice: _AttachChoice.document,
         icon: Icons.description_outlined,
         label: l10n.chatAttachDocument,
@@ -340,6 +367,8 @@ class _ChatComposerState extends State<ChatComposer> {
         await _pickPhoto(source: ImageSource.gallery);
       case _AttachChoice.camera:
         await _pickPhoto(source: ImageSource.camera);
+      case _AttachChoice.video:
+        await _pickVideo();
       case _AttachChoice.document:
         await _pickDocument();
       case _AttachChoice.audio:

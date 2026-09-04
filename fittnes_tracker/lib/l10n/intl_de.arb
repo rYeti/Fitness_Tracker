@@ -1402,6 +1402,8 @@
   "chatRecordingCancel": "Aufnahme abbrechen",
   "chatMicUnavailable": "Mikrofonzugriff wurde verweigert",
   "chatSendVoiceNote": "Sprachnachricht senden",
+  "chatVideoLabel": "Video",
+  "chatAttachVideo": "Video",
   "chatUnavailable": "Nachrichten nicht verfügbar",
   "chatUnavailableBody": "Der Chat konnte auf diesem Gerät nicht starten. Starte die App neu und melde dich beim Support, falls es weiter auftritt.",
   "trainerConsole": "Trainer-Konsole",

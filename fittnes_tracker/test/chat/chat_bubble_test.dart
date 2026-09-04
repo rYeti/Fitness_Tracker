@@ -97,7 +97,7 @@ void main() {
     expect(find.text(expected), findsOneWidget);
   });
 
-  // ── Attachments (phase 4: photo + document only) ────────────────────────
+  // ── Attachments ───────────────────────────────────────────────────────
 
   ChatAttachmentRef pictureRef({int? width, int? height}) => ChatAttachmentRef(
     id: 'att-1',
@@ -121,6 +121,20 @@ void main() {
     key: 'a2V5',
     iv: 'aXY=',
     sha256: 'deadbeef',
+  );
+
+  ChatAttachmentRef videoRef({int? durationSeconds}) => ChatAttachmentRef(
+    id: 'att-3',
+    kind: MediaType.video,
+    mime: 'video/mp4',
+    name: 'form-check.mp4',
+    size: 8388608,
+    key: 'a2V5',
+    iv: 'aXY=',
+    sha256: 'deadbeef',
+    width: 1280,
+    height: 720,
+    durationSeconds: durationSeconds,
   );
 
   Future<void> pumpAttachmentBubble(
@@ -240,6 +254,32 @@ void main() {
         findBubbleSemantics(tester).properties.value,
         contains('No longer available'),
       );
+    },
+  );
+
+  testWidgets(
+    'a video not yet downloaded names itself, its duration, and invites a tap',
+    (tester) async {
+      final msg = ThreadMessage(
+        messageId: 'm1',
+        body: null,
+        timestamp: DateTime(2026, 8, 26, 9, 7),
+        isMine: false,
+        status: ChatMessageStatus.sent,
+        attachment: videoRef(durationSeconds: 42),
+        uploadStatus: AttachmentUploadStatus.uploaded,
+      );
+      // threadId null for the same reason as the document case above: video
+      // is never auto-fetched (only pictures are), so rendering it here
+      // costs no network call at all — there is no api for a stray fetch to
+      // even reach.
+      await pumpAttachmentBubble(tester, msg, threadId: null);
+      await tester.pump();
+
+      expect(find.text('0:42'), findsOneWidget);
+      final value = findBubbleSemantics(tester).properties.value!;
+      expect(value, contains('Video'));
+      expect(value, contains('tap to download'));
     },
   );
 

@@ -4556,6 +4556,18 @@ abstract class AppLocalizations {
   /// **'Send voice note'**
   String get chatSendVoiceNote;
 
+  /// No description provided for @chatVideoLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Video'**
+  String get chatVideoLabel;
+
+  /// No description provided for @chatAttachVideo.
+  ///
+  /// In en, this message translates to:
+  /// **'Video'**
+  String get chatAttachVideo;
+
   /// No description provided for @chatUnavailable.
   ///
   /// In en, this message translates to:
