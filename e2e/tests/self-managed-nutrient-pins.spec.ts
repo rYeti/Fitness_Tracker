@@ -58,10 +58,32 @@ test.describe('self-managed nutrient pins', () => {
     await page.goto('/');
     await waitForFlutterBoot(page);
     await enableFlutterSemantics(page);
+
+    // Sign in through the real form once just to get a token, then reset this
+    // account's pins to the defaults over the API directly. Without this, a
+    // leftover pin set from a previous run (or from manually exercising the
+    // endpoint, as this feature's own backend verification did) makes
+    // `wasPinned` below depend on whatever state the account happened to be
+    // in rather than on the toggle this test performs.
     await signIn(page, UNLINKED_TRAINEE_CREDENTIALS);
+    const apiBase = 'http://127.0.0.1:5080';
+    const loginResponse = await page.request.post(`${apiBase}/api/auth/login`, {
+      data: UNLINKED_TRAINEE_CREDENTIALS,
+    });
+    const { token } = await loginResponse.json();
+    await page.request.put(`${apiBase}/api/TrainerClient/my-nutrient-pins`, {
+      headers: { Authorization: `Bearer ${token}` },
+      data: ['fibre', 'sugar', 'sodium'],
+    });
 
     await navDestination(page, 'Food').click();
-    await page.waitForTimeout(1500);
+    // The card's pinned-nutrients GET is fired from initState and raced
+    // against the picker sheet's own pinnedKeys snapshot — opening the sheet
+    // before this resolves shows (and toggles from) stale, possibly-empty
+    // state. Wait for the response itself rather than a guessed delay.
+    await page.waitForResponse(
+      (r) => r.url().includes('/api/TrainerClient/my-nutrient-pins') && r.request().method() === 'GET',
+    );
 
     // Read-only for a linked client, this account has no trainer and holds
     // the entitlement, so the picker must be reachable.
@@ -76,9 +98,23 @@ test.describe('self-managed nutrient pins', () => {
 
     const ironChip = page.getByRole('button', { name: 'Iron', exact: true });
     await expect(ironChip).toBeVisible({ timeout: 10_000 });
-    const wasPinned = (await ironChip.getAttribute('aria-selected')) === 'true';
-    await ironChip.click();
-    await page.waitForTimeout(500);
+    // _NutrientChip's Semantics(selected: pinned, ...) surfaces as
+    // aria-current on a role=button element, not aria-selected -- the ARIA
+    // spec doesn't permit aria-selected on a plain button, so the engine
+    // picks the nearest valid analogue instead.
+    const wasPinned = (await ironChip.getAttribute('aria-current')) === 'true';
+    expect(wasPinned).toBe(false); // seeded to the defaults above, which don't include iron
+
+    // The toggle is a fire-and-forget PUT behind an optimistic local update
+    // (_toggleMyPin) — a plain click + fixed wait races a page reload against
+    // that request, and a reload cancels any XHR still in flight, so the
+    // toggle can silently never reach the server. Wait for the response
+    // itself instead of a guessed delay.
+    const [putResponse] = await Promise.all([
+      page.waitForResponse((r) => r.url().includes('/api/TrainerClient/my-nutrient-pins') && r.request().method() === 'PUT'),
+      ironChip.click(),
+    ]);
+    expect(putResponse.ok()).toBe(true);
 
     // Close the picker sheet.
     await page.keyboard.press('Escape');
@@ -102,7 +138,11 @@ test.describe('self-managed nutrient pins', () => {
     }
 
     await navDestination(page, 'Food').click();
-    await page.waitForTimeout(1500);
+    // Same race as the first load: wait for the pins GET this reload fires,
+    // not a guessed delay, before trusting what the picker shows.
+    await page.waitForResponse(
+      (r) => r.url().includes('/api/TrainerClient/my-nutrient-pins') && r.request().method() === 'GET',
+    );
     const chooseButtonAfterReload = page.getByRole('button', { name: 'Choose', exact: true });
     await expect(chooseButtonAfterReload).toBeVisible({ timeout: 20_000 });
     await chooseButtonAfterReload.click();
@@ -110,7 +150,7 @@ test.describe('self-managed nutrient pins', () => {
 
     const ironChipAfterReload = page.getByRole('button', { name: 'Iron', exact: true });
     await expect(ironChipAfterReload).toBeVisible({ timeout: 10_000 });
-    const isPinnedNow = (await ironChipAfterReload.getAttribute('aria-selected')) === 'true';
+    const isPinnedNow = (await ironChipAfterReload.getAttribute('aria-current')) === 'true';
     expect(isPinnedNow).toBe(!wasPinned);
   });
 });
