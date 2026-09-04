@@ -10,6 +10,10 @@ heading to the version it went out as, so a `## <version>` section is history:
 it is what those users have, and nothing new belongs in it. See
 `docs/android-release.md`.
 
+## Unreleased
+
+- Chat now supports attachments: photos, videos, voice notes, audio files and documents, all end-to-end encrypted the same way message text already is. Each attachment is sealed under its own random key carried inside the encrypted message envelope, so replaying a queued send re-encrypts a few hundred bytes rather than re-uploading the file. Storage is Cloudflare R2 (EU), with a 45-day server-side retention window matched by a permanent on-device library — the WhatsApp model, where the blob eventually expires on the server but a device that already downloaded it keeps its own copy indefinitely. Video plays inline on all six platforms including Windows and Linux via `media_kit`, not just mobile. A locked phone's notification now says what kind of attachment arrived ("Photo", "Video · caption") instead of a generic "New message". A new Settings screen shows how much of the device the attachment library is using, broken down per conversation, with a way to clear it — the store only ever grows otherwise, by design. See `docs/chat-attachments.md`.
+
 ## 1.0.2+20
 
 - Fixed the Trainer Console dropping a trainer back into "My Training" the instant they switched sections, whenever the console had been reopened from Settings (or a tapped chat notification) after previously exiting to the trainee app. Switching sections rewrites the address bar via `GoRouter.go`, which rebuilds the router's whole page stack by *route pattern* — so it silently reused the original, already-mounted console page still flagged to show the trainee app, and discarded the freshly pushed one the trainer was actually looking at. Only the console instance the router itself is currently showing now touches the URL; a console reached by a push leaves it alone, exactly as before URLs existed for the console. See `docs/trainer-console-route-collision.md`.

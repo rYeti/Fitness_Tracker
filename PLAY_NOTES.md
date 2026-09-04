@@ -22,6 +22,10 @@ Markdown links, headings or emphasis, none of which Play renders.
 
 See `docs/android-release.md`.
 
+## Unreleased
+
+You can now send photos, videos, voice notes, audio files and documents in chat, all end-to-end encrypted just like your messages. Video plays right in the chat on every device, including Windows and Linux. Notifications now show what kind of attachment you received instead of just "New message". A new Settings screen shows how much space chat media is using and lets you clear it.
+
 ## 1.0.2+20
 
 Fixed a bug where chat messages sent from the Trainer Console could get stuck and never actually reach a client — most noticeably when messaging more than one client, or messaging a client who hadn't opened chat before. Messages should now always get through.
