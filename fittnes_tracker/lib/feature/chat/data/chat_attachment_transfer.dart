@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 /// Raw PUT/GET of attachment ciphertext against the presigned URLs
 /// `ChatAttachmentApi` mints. Deliberately **not** the shared `ApiClient`,
@@ -44,7 +45,17 @@ class ChatAttachmentTransfer {
       data: Stream.fromIterable([ciphertext]),
       options: Options(
         contentType: 'application/octet-stream',
-        headers: {Headers.contentLengthHeader: ciphertext.length},
+        // Content-Length is a forbidden header name under the Fetch API,
+        // which dio_web_adapter uses on web — setting it explicitly there
+        // throws before the request ever leaves the page, failing every
+        // upload silently (caught by the caller, surfaced only as "upload
+        // failed"). The browser computes it from the body itself; native
+        // platforms still need it set explicitly because a bare Stream body
+        // has no otherwise-known length.
+        headers:
+            kIsWeb
+                ? null
+                : {Headers.contentLengthHeader: ciphertext.length},
       ),
       onSendProgress: onProgress,
     );

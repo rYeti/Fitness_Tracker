@@ -135,6 +135,12 @@ test.describe('trainer console chat', () => {
 
     // Sender side: an uploading state, then a sent bubble with a photo
     // semantics value (per docs' chat_bubble.dart table — "Photo, ...").
+    // Explicitly reject the upload-failed text too — a loose /Photo/i match
+    // would otherwise pass on "Photo, upload failed, double tap to retry",
+    // which is exactly the false-positive this pass first tripped over.
+    await expect(trainerPage.getByText('upload failed', { exact: false })).toHaveCount(0, {
+      timeout: 30_000,
+    });
     await expect(trainerPage.getByText(/Photo/i).first()).toBeVisible({ timeout: 30_000 });
 
     // Recipient side: the same attachment arrives and (per the auto-download
