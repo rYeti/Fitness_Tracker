@@ -3836,6 +3836,12 @@ abstract class AppLocalizations {
   /// **'Tap to pin the nutrients that matter'**
   String get tapToPinNutrients;
 
+  /// No description provided for @nutrientOfTarget.
+  ///
+  /// In en, this message translates to:
+  /// **'of {target} {unit}'**
+  String nutrientOfTarget(String target, String unit);
+
   /// No description provided for @nutrientLow.
   ///
   /// In en, this message translates to:
@@ -3872,6 +3878,12 @@ abstract class AppLocalizations {
   /// **'Select a meal for detail'**
   String get selectMealForDetail;
 
+  /// No description provided for @trackedNutrientsSubtitleTrainer.
+  ///
+  /// In en, this message translates to:
+  /// **'What {name} is prioritising beyond macros'**
+  String trackedNutrientsSubtitleTrainer(String name);
+
   /// No description provided for @trackedNutrientsSubtitleTrainee.
   ///
   /// In en, this message translates to:
@@ -3887,7 +3899,7 @@ abstract class AppLocalizations {
   /// No description provided for @trackedNutrientsEmptyTrainee.
   ///
   /// In en, this message translates to:
-  /// **'Your coach hasn't pinned any nutrients yet.'**
+  /// **'Your coach hasn\'t pinned any nutrients yet.'**
   String get trackedNutrientsEmptyTrainee;
 
   /// No description provided for @micronutrientsMealCaption.
@@ -3902,6 +3914,17 @@ abstract class AppLocalizations {
   /// **'No data logged today'**
   String get micronutrientsNoData;
 
+  /// No description provided for @nutrientBarSemantics.
+  ///
+  /// In en, this message translates to:
+  /// **'{label}, {value}, {ofTarget}{state}'**
+  String nutrientBarSemantics(
+    String label,
+    String value,
+    String ofTarget,
+    String state,
+  );
+
   /// No description provided for @nutrientBarSemanticsLow.
   ///
   /// In en, this message translates to:
@@ -3913,24 +3936,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **', over target'**
   String get nutrientBarSemanticsOver;
-
-  /// No description provided for @nutrientOfTarget.
-  ///
-  /// In en, this message translates to:
-  /// **'of {target} {unit}'**
-  String nutrientOfTarget(String target, String unit);
-
-  /// No description provided for @trackedNutrientsSubtitleTrainer.
-  ///
-  /// In en, this message translates to:
-  /// **'What {name} is prioritising beyond macros'**
-  String trackedNutrientsSubtitleTrainer(String name);
-
-  /// No description provided for @nutrientBarSemantics.
-  ///
-  /// In en, this message translates to:
-  /// **'{label}, {value}, {ofTarget}{state}'**
-  String nutrientBarSemantics(String label, String value, String ofTarget, String state);
 
   /// No description provided for @premiumFeatureTitle.
   ///

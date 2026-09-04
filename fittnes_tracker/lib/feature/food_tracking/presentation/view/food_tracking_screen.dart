@@ -1,7 +1,7 @@
 // lib/feature/presentation/view/food_tracking_screen.dart
 import 'dart:async';
 
-import 'package:drift/drift.dart';
+import 'package:drift/drift.dart' show Value;
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/nutrition/extended_nutrients.dart';
 import 'package:ForgeForm/core/nutrition/nutrient_pins_api.dart';

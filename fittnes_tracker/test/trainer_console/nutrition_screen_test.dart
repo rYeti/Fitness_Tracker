@@ -297,7 +297,9 @@ void main() {
     await tester.tap(find.text('Breakfast'));
     await tester.pumpAndSettle();
 
-    expect(find.text('3 foods'), findsOneWidget);
+    // Shown twice by design: once under the meal name in the header, once
+    // beside "Meal total" in the totals card.
+    expect(find.text('3 foods'), findsNWidgets(2));
     // The collapsed row joins all three names into one Text, so each name on
     // its own only matches the detail screen's per-food row.
     expect(find.text('Porridge oats'), findsOneWidget);

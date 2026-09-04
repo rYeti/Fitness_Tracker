@@ -50,7 +50,8 @@ public class TrainerRosterTests : IDisposable
         null!,
         null!,
         null!,
-        null!);
+        null!,
+        new TrainerNutrientPinRepository(_fx.Db));
 
     public void Dispose() => _fx.Dispose();
 

@@ -2074,6 +2074,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tapToPinNutrients => 'Tap to pin the nutrients that matter';
 
   @override
+  String nutrientOfTarget(String target, String unit) {
+    return 'of $target $unit';
+  }
+
+  @override
   String get nutrientLow => 'Low';
 
   @override
@@ -2092,41 +2097,44 @@ class AppLocalizationsEn extends AppLocalizations {
   String get selectMealForDetail => 'Select a meal for detail';
 
   @override
-  String get trackedNutrientsSubtitleTrainee => 'What your coach is tracking, beyond macros';
+  String trackedNutrientsSubtitleTrainer(String name) {
+    return 'What $name is prioritising beyond macros';
+  }
 
   @override
-  String get trackedNutrientsEmptyTrainer => 'Pin the nutrients you want to keep an eye on for this client.';
+  String get trackedNutrientsSubtitleTrainee =>
+      'What your coach is tracking, beyond macros';
 
   @override
-  String get trackedNutrientsEmptyTrainee => 'Your coach hasn\'t pinned any nutrients yet.';
+  String get trackedNutrientsEmptyTrainer =>
+      'Pin the nutrients you want to keep an eye on for this client.';
 
   @override
-  String get micronutrientsMealCaption => 'In this meal · bars show share of daily target';
+  String get trackedNutrientsEmptyTrainee =>
+      'Your coach hasn\'t pinned any nutrients yet.';
+
+  @override
+  String get micronutrientsMealCaption =>
+      'In this meal · bars show share of daily target';
 
   @override
   String get micronutrientsNoData => 'No data logged today';
+
+  @override
+  String nutrientBarSemantics(
+    String label,
+    String value,
+    String ofTarget,
+    String state,
+  ) {
+    return '$label, $value, $ofTarget$state';
+  }
 
   @override
   String get nutrientBarSemanticsLow => ', low';
 
   @override
   String get nutrientBarSemanticsOver => ', over target';
-
-  @override
-  String nutrientOfTarget(String target, String unit) {
-    return 'of $target $unit';
-  }
-
-  @override
-  String trackedNutrientsSubtitleTrainer(String name) {
-    return 'What $name is prioritising beyond macros';
-  }
-
-  @override
-  String nutrientBarSemantics(String label, String value, String ofTarget, String state) {
-    return '$label, $value, $ofTarget$state';
-  }
-
 
   @override
   String get premiumFeatureTitle => 'Premium Feature';
@@ -2950,7 +2958,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get errorOpenBilling => 'Could not open billing. Try again.';
 
   @override
-  String get errorSaveNutrientPins => 'Could not save your nutrient selection. Try again.';
+  String get errorSaveNutrientPins =>
+      'Could not save your nutrient selection. Try again.';
 
   @override
   String get clientDetailLoading => 'Loading client details';

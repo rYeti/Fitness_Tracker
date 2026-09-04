@@ -1,3 +1,4 @@
+using FitTracker.Api.DTOs;
 using FitTracker.Api.Models;
 using FitTracker.Api.Repositories;
 using FitTracker.Api.Services;

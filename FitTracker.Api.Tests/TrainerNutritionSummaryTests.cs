@@ -225,10 +225,10 @@ public class TrainerNutritionSummaryTests : IDisposable
 
         Assert.False(summary!.MicronutrientsLocked);
         // Breakfast: oats' fibre + blueberries' fibre; lunch never reported any.
-        Assert.Equal(0.0117, summary.Micronutrients!.Fiber, precision: 6);
+        Assert.Equal(0.0117, summary.Micronutrients!.Fiber!.Value, precision: 6);
         // Blueberries' vitamin C + salad's, across two different meals.
-        Assert.Equal(0.0278, summary.Micronutrients.VitaminC, precision: 6);
-        Assert.Equal(0.00516, summary.Micronutrients.Iron, precision: 6);
+        Assert.Equal(0.0278, summary.Micronutrients.VitaminC!.Value, precision: 6);
+        Assert.Equal(0.00516, summary.Micronutrients.Iron!.Value, precision: 6);
     }
 
     [Fact]
@@ -275,7 +275,7 @@ public class TrainerNutritionSummaryTests : IDisposable
         // Must not throw, and the good food's data must still come through.
         var summary = await _console.GetClientNutritionSummaryAsync(_trainerId, _clientId, TheTwentyFirst);
 
-        Assert.Equal(0.0093, summary!.Micronutrients!.Fiber, precision: 6);
+        Assert.Equal(0.0093, summary!.Micronutrients!.Fiber!.Value, precision: 6);
     }
 
     [Fact]
@@ -296,7 +296,7 @@ public class TrainerNutritionSummaryTests : IDisposable
         var summary = await _console.GetClientNutritionSummaryAsync(_trainerId, _clientId, TheTwentyFirst);
 
         // 0.0093 + 0.0024, once each — never doubled by the fold.
-        Assert.Equal(0.0117, summary!.Micronutrients!.Fiber, precision: 6);
+        Assert.Equal(0.0117, summary!.Micronutrients!.Fiber!.Value, precision: 6);
     }
 
     [Fact]

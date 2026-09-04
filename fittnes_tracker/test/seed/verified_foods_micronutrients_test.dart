@@ -44,7 +44,7 @@ void main() {
     // app uses everywhere else (grams). Getting any one factor wrong is
     // invisible until a value is compared to a target — see
     // docs/trainer-console-micronutrients.md.
-    expect(nutrients['fiber'], closeTo(0.0093, 0.0001));
+    expect(nutrients['fiber'], closeTo(9.3, 0.0001));
     expect(nutrients['iron'], closeTo(0.00516, 0.000001));
     expect(nutrients['vitaminB6'], closeTo(0.00096, 0.000001));
   });

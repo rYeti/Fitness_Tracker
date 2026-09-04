@@ -2087,6 +2087,11 @@ class AppLocalizationsDe extends AppLocalizations {
   String get tapToPinNutrients => 'Tippen, um wichtige Nährstoffe anzupinnen';
 
   @override
+  String nutrientOfTarget(String target, String unit) {
+    return 'von $target $unit';
+  }
+
+  @override
   String get nutrientLow => 'Niedrig';
 
   @override
@@ -2105,41 +2110,44 @@ class AppLocalizationsDe extends AppLocalizations {
   String get selectMealForDetail => 'Mahlzeit für Details auswählen';
 
   @override
-  String get trackedNutrientsSubtitleTrainee => 'Worauf dein Coach über die Makros hinaus achtet';
+  String trackedNutrientsSubtitleTrainer(String name) {
+    return 'Worauf $name über die Makros hinaus achtet';
+  }
 
   @override
-  String get trackedNutrientsEmptyTrainer => 'Pinne die Nährstoffe an, die du bei diesem Kunden im Blick behalten möchtest.';
+  String get trackedNutrientsSubtitleTrainee =>
+      'Worauf dein Coach über die Makros hinaus achtet';
 
   @override
-  String get trackedNutrientsEmptyTrainee => 'Dein Coach hat noch keine Nährstoffe angepinnt.';
+  String get trackedNutrientsEmptyTrainer =>
+      'Pinne die Nährstoffe an, die du bei diesem Kunden im Blick behalten möchtest.';
 
   @override
-  String get micronutrientsMealCaption => 'In dieser Mahlzeit · Balken zeigen Anteil am Tagesziel';
+  String get trackedNutrientsEmptyTrainee =>
+      'Dein Coach hat noch keine Nährstoffe angepinnt.';
+
+  @override
+  String get micronutrientsMealCaption =>
+      'In dieser Mahlzeit · Balken zeigen Anteil am Tagesziel';
 
   @override
   String get micronutrientsNoData => 'Heute keine Daten erfasst';
+
+  @override
+  String nutrientBarSemantics(
+    String label,
+    String value,
+    String ofTarget,
+    String state,
+  ) {
+    return '$label, $value, $ofTarget$state';
+  }
 
   @override
   String get nutrientBarSemanticsLow => ', niedrig';
 
   @override
   String get nutrientBarSemanticsOver => ', über dem Ziel';
-
-  @override
-  String nutrientOfTarget(String target, String unit) {
-    return 'von $target $unit';
-  }
-
-  @override
-  String trackedNutrientsSubtitleTrainer(String name) {
-    return 'Worauf $name über die Makros hinaus achtet';
-  }
-
-  @override
-  String nutrientBarSemantics(String label, String value, String ofTarget, String state) {
-    return '$label, $value, $ofTarget$state';
-  }
-
 
   @override
   String get premiumFeatureTitle => 'Premium-Funktion';

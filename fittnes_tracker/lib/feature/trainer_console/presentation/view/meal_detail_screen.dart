@@ -494,9 +494,11 @@ class _MicronutrientsCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Text(
-                  l10n.micronutrients,
-                  style: TextStyle(fontFamily: 'Montserrat', fontWeight: FontWeight.w700, fontSize: 15, color: colors.onSurface),
+                Expanded(
+                  child: Text(
+                    l10n.micronutrients,
+                    style: TextStyle(fontFamily: 'Montserrat', fontWeight: FontWeight.w700, fontSize: 15, color: colors.onSurface),
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Container(
