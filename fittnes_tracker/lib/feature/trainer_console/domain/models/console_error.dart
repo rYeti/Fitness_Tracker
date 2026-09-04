@@ -26,10 +26,12 @@ enum ConsoleError {
   workoutHasHistory,
   unknownExercise,
   scheduleWorkoutPlan,
+  deletePlan,
   createInvite,
   withdrawInvite,
   openCheckout,
   openBilling,
+  saveNutrientPins,
 }
 
 extension ConsoleErrorMessage on ConsoleError {
@@ -53,9 +55,11 @@ extension ConsoleErrorMessage on ConsoleError {
     ConsoleError.workoutHasHistory => l10n.errorWorkoutHasHistory,
     ConsoleError.unknownExercise => l10n.errorUnknownExercise,
     ConsoleError.scheduleWorkoutPlan => l10n.errorScheduleWorkoutPlan,
+    ConsoleError.deletePlan => l10n.errorDeletePlan,
     ConsoleError.createInvite => l10n.errorCreateInvite,
     ConsoleError.withdrawInvite => l10n.errorWithdrawInvite,
     ConsoleError.openCheckout => l10n.errorOpenCheckout,
     ConsoleError.openBilling => l10n.errorOpenBilling,
+    ConsoleError.saveNutrientPins => l10n.errorSaveNutrientPins,
   };
 }

@@ -1204,6 +1204,64 @@
   "nutrientZinc": "Zink",
   "unitMg": "mg",
   "unitUg": "µg",
+  "unitG": "g",
+  "nutrientGroupCarbohydrate": "Kohlenhydrat",
+  "nutrientGroupFat": "Fett",
+  "nutrientGroupMineral": "Mineralstoff",
+  "nutrientGroupVitamin": "Vitamin",
+  "trackedNutrients": "Erfasste N\u00e4hrstoffe",
+  "micronutrients": "Mikron\u00e4hrstoffe",
+  "chooseNutrients": "Ausw\u00e4hlen",
+  "tapToPinNutrients": "Tippen, um wichtige N\u00e4hrstoffe anzupinnen",
+  "nutrientOfTarget": "von {target} {unit}",
+  "@nutrientOfTarget": {
+    "placeholders": {
+      "target": {
+        "type": "String"
+      },
+      "unit": {
+        "type": "String"
+      }
+    }
+  },
+  "nutrientLow": "Niedrig",
+  "nutrientOver": "\u00dcber",
+  "mealTotal": "Mahlzeit gesamt",
+  "noFoodLogged": "Noch kein Essen hinzugef\u00fcgt",
+  "mealNotLoggedYet": "Noch nicht erfasst",
+  "selectMealForDetail": "Mahlzeit f\u00fcr Details ausw\u00e4hlen",
+  "trackedNutrientsSubtitleTrainer": "Worauf {name} \u00fcber die Makros hinaus achtet",
+  "@trackedNutrientsSubtitleTrainer": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "trackedNutrientsSubtitleTrainee": "Worauf dein Coach \u00fcber die Makros hinaus achtet",
+  "trackedNutrientsEmptyTrainer": "Pinne die N\u00e4hrstoffe an, die du bei diesem Kunden im Blick behalten m\u00f6chtest.",
+  "trackedNutrientsEmptyTrainee": "Dein Coach hat noch keine N\u00e4hrstoffe angepinnt.",
+  "micronutrientsMealCaption": "In dieser Mahlzeit \u00b7 Balken zeigen Anteil am Tagesziel",
+  "micronutrientsNoData": "Heute keine Daten erfasst",
+  "nutrientBarSemantics": "{label}, {value}, {ofTarget}{state}",
+  "@nutrientBarSemantics": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "value": {
+        "type": "String"
+      },
+      "ofTarget": {
+        "type": "String"
+      },
+      "state": {
+        "type": "String"
+      }
+    }
+  },
+  "nutrientBarSemanticsLow": ", niedrig",
+  "nutrientBarSemanticsOver": ", \u00fcber dem Ziel",
   "premiumFeatureTitle": "Premium-Funktion",
   "premiumFeatureBody": "Upgrade auf Premium, um detaillierte Nährwertdaten einschließlich Vitamine und Mineralstoffe zu sehen.",
   "premiumBadge": "Premium",
@@ -1548,6 +1606,7 @@
   "errorWithdrawInvite": "Die Einladung konnte nicht zurückgezogen werden. Versuch es erneut.",
   "errorOpenCheckout": "Die Kasse konnte nicht geöffnet werden. Versuch es erneut.",
   "errorOpenBilling": "Die Abrechnung konnte nicht geöffnet werden. Versuch es erneut.",
+  "errorSaveNutrientPins": "Deine Nährstoffauswahl konnte nicht gespeichert werden. Versuch es erneut.",
   "clientDetailLoading": "Kundendetails werden geladen",
   "adherence": "Planerfüllung",
   "clientCurrentWeight": "Aktuelles Gewicht",
@@ -1736,6 +1795,8 @@
   "@errorUnknownExercise": {},
   "errorScheduleWorkoutPlan": "Dieser Plan konnte nicht eingeplant werden.",
   "@errorScheduleWorkoutPlan": {},
+  "errorDeletePlan": "Dieser Plan konnte nicht gelöscht werden.",
+  "@errorDeletePlan": {},
   "builderDays": "Tage",
   "@builderDays": {},
   "builderNewDay": "Neuer Tag",
@@ -1842,6 +1903,26 @@
   },
   "builderDayDeletedConfirmation": "{name} gelöscht",
   "@builderDayDeletedConfirmation": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "builderDeletePlan": "Plan löschen",
+  "@builderDeletePlan": {},
+  "builderDeletePlanConfirmTitle": "Diesen Plan löschen?",
+  "@builderDeletePlanConfirmTitle": {},
+  "builderDeletePlanConfirmBody": "{name} wird entfernt. Die Tage bleiben beim Klienten erhalten – nur die Gruppierung wird entfernt, und dies kann nicht rückgängig gemacht werden.",
+  "@builderDeletePlanConfirmBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "builderPlanDeletedConfirmation": "{name} gelöscht",
+  "@builderPlanDeletedConfirmation": {
     "placeholders": {
       "name": {
         "type": "String"

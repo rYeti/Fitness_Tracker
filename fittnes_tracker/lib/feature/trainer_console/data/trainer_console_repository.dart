@@ -45,6 +45,9 @@ class TrainerConsoleRepository {
     );
   }
 
+  Future<void> setClientNutrientPins(String clientId, List<String> nutrientKeys) =>
+      _api.setClientNutrientPins(clientId, nutrientKeys);
+
   Future<List<WorkoutPlanTemplateSummary>> getWorkoutPlanTemplates() async {
     final raw = await _api.fetchWorkoutPlanTemplates();
     return raw.map(WorkoutPlanTemplateSummary.fromJson).toList();
@@ -194,6 +197,12 @@ class TrainerConsoleRepository {
     } on DioException catch (e) {
       throw _asWorkoutSaveException(e);
     }
+  }
+
+  /// Deletes [planId] for [clientId]. The plan's days — and any logged history under
+  /// them — stay with the client; only the plan grouping goes away.
+  Future<void> deleteClientWorkoutPlan(String clientId, String planId) async {
+    await _api.deleteClientWorkoutPlan(clientId, planId);
   }
 
   WorkoutSaveException _asWorkoutSaveException(DioException e) {

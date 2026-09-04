@@ -414,3 +414,198 @@ only ever pumps at 1400×1200 has nothing to say about a viewport where the
 same widgets, laid out the same way, leave nothing for the one thing the
 screen is for. Both needed the actual dirty state — a duplicated database
 row, a 390px-tall viewport — constructed on purpose to see at all.
+
+## 8. Deleting a plan, and three things "delete" turned out not to mean
+
+A trainer could delete a single day from the Workout Builder, but not the
+plan grouping it belonged to — a permanent "Exercise editing isn't available
+yet"-shaped gap, just one level up. Closing it surfaced three more bugs, none
+of them in the new code: they were already there, on both sides of the
+account boundary, and nothing about adding a plan-delete button would have
+made them visible on its own.
+
+### 8.1 What "delete a plan" needed, and why it was small
+
+`DeleteClientWorkoutPlanAsync` (`TrainerConsoleService.cs`) is a short
+method: check `IsActiveTrainerOfAsync`, call
+`IWorkoutPlanService.DeletePlanAsync(planId, clientId, actingAsTrainer: true)`.
+`WorkoutPlanRepository.DeletePlanAsync` already only ever removed the
+`WorkoutPlan` row and its `WorkoutPlanWorkout` links — the server's own
+cascade (`AppDbContext.cs`) sets `ScheduledWorkout.WorkoutPlanId` to null
+rather than deleting anything under it. A plan was already pure grouping
+metadata; deleting one was never going to touch a day's exercises, sets, or
+logged history, which is exactly why this needed no history check the way
+`DeleteClientWorkoutAsync` does one level down — the thing a workout delete
+has to protect (a session with logged sets) simply doesn't exist at the plan
+level. The Flutter side is the same shape as the existing day-delete: a
+`deletePlan()` on `WorkoutBuilderProvider`, a confirm dialog copying
+`_delete()`'s, and a `planError` field kept separate from the existing
+`error` field on purpose — `_Body` swaps the whole screen for a full-page
+`ErrorStateView` whenever `error != null`, and a failed delete on a plan
+that's still there is exactly the case that must not blank the screen out.
+
+### 8.2 The permission the schema never recorded
+
+Wiring up the delete button surfaced the harder question first: could a
+*client* delete a workout their trainer had built for them? Nothing stopped
+it. `Workout` and `WorkoutPlan` carry no record of who authored them —
+`TrainerConsoleService.CreateClientWorkoutAsync` writes a `Workout` row with
+`UserId = clientId`, identical in every column to one the client built
+themselves through their own app's create flow. `WorkoutController.DeleteWorkout`
+and `WorkoutPlanController.DeletePlan` only ever checked ownership, because
+ownership was the only fact in the row. A green `dotnet test` run says
+nothing about this — every existing test for those endpoints constructs a
+workout the test-caller made, because until now that was the only kind there
+was.
+
+The fix is a nullable `AssignedByTrainerId` on both `Workout` and
+`WorkoutPlan` — no foreign key, the same reasoning `Exercise.SourceExerciseId`
+already established in §2a: the row has to stay readable after the
+trainer-client relationship ends, or after the trainer's own account changes,
+so nothing can constrain it to a row that's guaranteed to still exist.
+`WorkoutRepository.DeleteWorkoutAsync` and `WorkoutPlanRepository.DeletePlanAsync`
+each gained an `actingAsTrainer` parameter rather than trying to infer intent
+from the caller's id — and inference wasn't available anyway: `TrainerConsoleService`
+already calls `_workoutService.DeleteWorkoutAsync(workoutId, clientId)` with
+the *client's* id, the same id the client's own self-service call uses,
+because every trainer-authored write in this codebase acts on the client's
+account, not the trainer's (see the class doc on `ITrainerConsoleService`).
+There is no id-based signal anywhere in that call that distinguishes "the
+client, deleting their own row" from "the trainer, deleting a row they
+authored on the client's behalf" — both pass the identical `userId`. Only the
+call site knows which one it is, so the call site says so explicitly: the
+Trainer Console's own delete calls pass `actingAsTrainer: true`, every
+self-service controller passes the default `false`, and
+`WorkoutDeleteResult.AssignedByTrainer` / `PlanDeleteResult.AssignedByTrainer`
+(distinct from `HasLoggedHistory` — this is a permission the owner never had,
+not a row being protected on their behalf) map to a 403 the client's own app
+now has to expect.
+
+**Scoped down, on purpose:** the same gap exists one level further in — a
+client can still pull an exercise out of an assigned workout, or clear its
+set templates, edits which land in `ApplyExercisePrescriptionAsync`'s own
+calls to `IWorkoutService.DeleteWorkoutExerciseAsync` and friends, using the
+exact same "no id-based signal" problem the workout/plan level had. Guarding
+that would mean threading `actingAsTrainer` through every exercise- and
+set-level method those two paths share — a wider, riskier change than
+stripping the day of exercises one at a time already lets a client
+functionally gut a prescription without formally deleting it. Left as a
+follow-up rather than folded in here, because it's a materially bigger
+surface for the same shape of fix, not because the gap is any less real.
+
+### 8.3 Deleting a row is a fact that has to travel — and one direction of it already did, silently, for a different row
+
+The database-level fix above is necessary but not sufficient on its own,
+because of what a trainer's delete does to a client device that already
+holds the row. `SyncService._reconcileAll` treats "the server no longer
+lists a row this device has a `serverId` for" as *proof* the row was deleted
+outside the app's own knowledge — and resets it to `pending`, which the next
+push re-creates under a new id. That was correct reasoning for every table it
+was written against, because every one of them had exactly one writer: the
+device itself. A `WorkoutPlan` the device doesn't recognize as deleted was,
+by construction, deleted some other way — an admin console, a support
+script — and the safest assumption was "resurrect it, the user probably
+still wants it." A trainer's own delete from the Trainer Console is the
+first time that assumption stops holding: the row is gone because someone
+with a legitimate, ongoing right to remove it did so on purpose, and
+resurrecting it is now the bug, not the safety net. This is the same trap
+`docs/trainer-workout-builder.md` §4 already named for *edits* — a pull that
+assumes it's the only reader has nothing to say about a second writer — just
+recurring one layer over, for deletes instead of updates.
+
+`_reconcileTable` gained an `onServerDeleted` hook that runs before the
+resurrect path, and only for the two tables a second writer can now delete
+from. It still refuses to touch a `pending`/`pendingUpdate`/`pendingDelete`
+row — that's this device's own unsent change, and resurrecting *that* would
+be the account-switch bug (`docs/sync-account-switch-duplication.md`) in
+another costume. For a plan it always deletes locally once satisfied of that
+(nulling any `ScheduledWorkout.WorkoutPlanId` reference first, mirroring the
+server's own `ON DELETE SET NULL`); for a workout it conservatively falls
+back to the old resurrect behaviour the moment *any* scheduled session
+exists against it, logged or not, because this device has no cheap local way
+to ask "does that session have logged sets" the way the server's own
+`WorkoutDeleteResult.HasLoggedHistory` check does — so it declines to guess,
+the same way `WorkoutRepository.DeleteWorkoutAsync` declines rather than
+guessing server-side.
+
+### 8.4 The direction nobody had wired up at all
+
+Looking for the reconcile bug surfaced a third one, in the opposite
+direction, that had nothing to do with trainers: a **client's own** "delete
+workout" and "delete plan" never reached the server either.
+`WorkoutDao.markWorkoutPendingDelete` and `WorkoutPlanDao.markPlanPendingDelete`
+— the exact mechanism `SyncService._syncDeleteWorkout` /
+`_syncDeletePlan` are written to pick up and push — had no callers anywhere
+outside the DAOs that defined them. Every trainee-facing delete screen
+(`workouts_list_view.dart`, `edit_view.dart`, the plan-level
+`WorkoutRepository.deleteWorkoutById`) instead deleted the local Drift row
+directly, immediately, with nothing marking it for the push sweep to find.
+The delete looked instant and correct on the device that made it — the row
+was gone — and stayed permanently wrong everywhere else: the server kept its
+copy forever, and the next full pull on *that same device*, the moment its
+local cache was ever rebuilt, put it right back.
+
+This is `docs/sync-account-switch-duplication.md`'s rule, read in the
+direction that document didn't need at the time: *a `syncStatus` left
+unchanged is an edit that never leaves the device* — deletion included, and
+in this case the row wasn't merely left unchanged, it was removed before
+sync ever got a chance to see it needed pushing at all. The one place this
+already worked was one level down: removing a single exercise from a workout
+(`WorkoutDao.saveCompleteWorkout`) already stamped a dropped exercise
+`pendingDelete` rather than deleting it outright, precisely so
+`_syncDeleteWorkoutExercise` could issue the server call first. Nothing
+about the plan and workout levels was harder — the marking methods already
+existed — they had simply never been wired to a caller. The fix routes all
+three trainee-facing delete paths through the existing `markPendingDelete`
+methods instead of a raw `delete(...)`, and adds a `syncStatus != pendingDelete`
+filter to every workout/plan/scheduled-workout listing query, so a delete
+still looks instant in the UI even though the row physically survives until
+the next successful push.
+
+### 8.5 What a `dotnet test`/`flutter test` run had nothing to say about, three times over
+
+None of §8.2–8.4 is a type error, a null-reference, or a query that returns
+the wrong rows. Every one of them compiles, every one of them 200s (or, now,
+correctly 403s), and the *first* call in each case does exactly what its
+caller expects. The failure only exists across two calls, sometimes on two
+different devices, sometimes days apart: create a workout as a trainer, then
+try to delete it as the client; delete a plan from the console, then run a
+sync on the client's phone; delete a workout as the client, then force a
+full resync. A single-request test — the only kind the existing suites for
+these endpoints had — has no way to construct the second half of any of
+these, which is exactly why `TrainerWorkoutBuilderTests.cs` now does:
+`AClientCannotDeleteAWorkoutTheirTrainerAssigned` and its plan-level sibling
+construct both halves in one test, on purpose, the same way §2's
+cross-account exercise-visibility tests already had to.
+
+**Known gap, and why it's left one:** the client's local database has no
+`assignedByTrainer` flag of its own, so the trainee app's delete affordance
+isn't hidden for a trainer-assigned row — the client can still tap delete,
+and now gets a 403 back instead of silently succeeding. That's correct, not
+cosmetic: the enforcement lives where it has to (the server can't trust a
+client-side hide to be the only thing standing between a user and a
+prescription that isn't theirs to remove — the same "UX guard, not a
+security boundary" rule CLAUDE.md states for the Trainer Console gate
+itself). Adding the flag needs a Drift schema bump, which regenerates a
+build-time `.g.dart` file this change didn't have the tooling available to
+regenerate safely — hand-editing thousands of lines of generated
+serialization code with no compiler to check it against is a worse risk than
+shipping the enforcement without the client-side hide for now.
+
+### 8.6 The general lesson
+
+Three different bugs, one shape: **a delete is a fact that has to travel —
+to the other account it affects, to every device already holding a copy, and
+in both directions between client and server — and nothing about "the
+request succeeded" or "the row is gone locally" says that it did.** A
+permission check that only has ownership to test against can't tell a
+client's own row from one their trainer built for them, because the schema
+never recorded the difference. A sync pass built for one writer treats a
+second writer's legitimate delete exactly like the corruption it was written
+to repair, because both look identical from the one signal it has: a
+`serverId` the server no longer lists. And a delete that only touches the
+local database is not a delete at all from the server's point of view — it's
+silence, and the next full pull is the server correcting for a bug the app
+introduced. None of the three needed new infrastructure to fix; each one
+needed the same question asked of an existing mechanism: *who else, running
+when, is going to look at this row and disagree about what happened to it?*

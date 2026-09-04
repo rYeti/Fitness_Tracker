@@ -84,4 +84,60 @@ class NutritionProvider extends ChangeNotifier {
     _selectedDate = _selectedDate.add(const Duration(days: 1));
     load(clientId);
   }
+
+  /// Transient — cleared as soon as another pin toggle is attempted, and
+  /// distinct from [error]: a failed pin write shouldn't replace the whole
+  /// screen with an error view when the trainer can just try again.
+  ConsoleError? _pinError;
+  ConsoleError? get pinError => _pinError;
+
+  /// Adds or removes [key] from the pinned set, optimistically — the bar
+  /// list updates immediately rather than waiting on a round trip. Reverts
+  /// and surfaces [pinError] if the write fails; never leaves the UI
+  /// claiming a selection the server never saved.
+  Future<void> togglePin(String clientId, String key) async {
+    final current = _summary;
+    if (current == null) return;
+
+    final before = current.pinnedNutrients;
+    final after = before.contains(key)
+        ? before.where((k) => k != key).toList()
+        : [...before, key];
+
+    _pinError = null;
+    _summary = _withPins(current, after);
+    notifyListeners();
+
+    try {
+      await _repository.setClientNutrientPins(clientId, after);
+    } catch (e, stackTrace) {
+      _logger.e(
+        'Failed to save nutrient pins for client $clientId',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      // Only revert if this is still the client/day being shown — a slow
+      // failure for a pin toggle on a screen the trainer has since navigated
+      // away from must not silently rewrite what they're looking at now.
+      if (!_isCurrentRequest(clientId, _selectedDate)) return;
+      _summary = _withPins(_summary ?? current, before);
+      _pinError = ConsoleError.saveNutrientPins;
+      notifyListeners();
+    }
+  }
+
+  static ClientNutritionSummary _withPins(
+    ClientNutritionSummary summary,
+    List<String> pins,
+  ) => ClientNutritionSummary(
+    date: summary.date,
+    calorieGoal: summary.calorieGoal,
+    totalCalories: summary.totalCalories,
+    macros: summary.macros,
+    loggedMeals: summary.loggedMeals,
+    sevenDayTrend: summary.sevenDayTrend,
+    micronutrients: summary.micronutrients,
+    micronutrientsLocked: summary.micronutrientsLocked,
+    pinnedNutrients: pins,
+  );
 }

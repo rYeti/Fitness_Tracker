@@ -1606,7 +1606,12 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
 
     if (confirmed == true) {
       try {
-        await sl<AppDatabase>().workoutPlanDao.deleteWorkoutPlan(plan.id!);
+        // Marks for deletion rather than deleting outright — the row survives
+        // until the next sync push actually tells the server; a hard local
+        // delete here left the plan on the server, which the next pull put
+        // straight back (docs/sync-account-switch-duplication.md's rule: a
+        // syncStatus left unchanged is an edit that never leaves the device).
+        await sl<AppDatabase>().workoutPlanDao.markPlanPendingDelete(plan.id!);
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

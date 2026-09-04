@@ -544,6 +544,26 @@ class _PlanWithDaysView extends StatelessWidget {
       ).format(plan.startDate),
     );
 
+    final deletePlanButton = Semantics(
+      button: true,
+      label: l10n.builderDeletePlan,
+      child: builder.isDeletingPlan
+          ? const Padding(
+              padding: EdgeInsets.all(10),
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            )
+          : IconButton(
+              icon: const Icon(Icons.delete_outline_rounded),
+              color: ForgeColors.statusBad,
+              tooltip: l10n.builderDeletePlan,
+              onPressed: () => _confirmAndDeletePlan(context, builder, clientId, plan.name),
+            ),
+    );
+
     // On mobile the exercise editor below is what the screen is for, and
     // every line spent here is a line it doesn't get — see
     // `docs/trainer-workout-builder.md`. The full card (name, date,
@@ -569,6 +589,7 @@ class _PlanWithDaysView extends StatelessWidget {
                       ),
                     ),
                     if (plan.isActive) activePill,
+                    deletePlanButton,
                   ],
                 ),
                 const SizedBox(height: 6),
@@ -618,6 +639,7 @@ class _PlanWithDaysView extends StatelessWidget {
                       ),
                     ),
                     if (plan.isActive) activePill,
+                    deletePlanButton,
                   ],
                 ),
                 const SizedBox(height: 4),
@@ -654,9 +676,59 @@ class _PlanWithDaysView extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         planCard,
+        if (builder.planError != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            builder.planError!.localizedMessage(l10n),
+            style: const TextStyle(
+              fontFamily: 'Exo 2',
+              fontSize: 12,
+              color: ForgeColors.statusBad,
+            ),
+          ),
+        ],
         SizedBox(height: isDesktop ? 24 : 16),
         Expanded(child: daysArea),
       ],
+    );
+  }
+}
+
+/// Confirms and deletes the current plan. The plan's days — and any logged
+/// history under them — stay with the client; only the copy on the dialog
+/// says so, since nothing server-side needs to change to keep that promise.
+Future<void> _confirmAndDeletePlan(
+  BuildContext context,
+  WorkoutBuilderProvider builder,
+  String clientId,
+  String planName,
+) async {
+  final l10n = AppLocalizations.of(context)!;
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(l10n.builderDeletePlanConfirmTitle),
+      content: Text(l10n.builderDeletePlanConfirmBody(planName)),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: Text(l10n.cancel),
+        ),
+        FilledButton(
+          style: FilledButton.styleFrom(backgroundColor: ForgeColors.statusBad),
+          onPressed: () => Navigator.of(context).pop(true),
+          child: Text(l10n.builderDeletePlan),
+        ),
+      ],
+    ),
+  );
+  if (confirmed != true) return;
+
+  final deleted = await builder.deletePlan(clientId);
+  if (!context.mounted) return;
+  if (deleted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(l10n.builderPlanDeletedConfirmation(planName))),
     );
   }
 }

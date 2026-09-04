@@ -156,14 +156,18 @@ class AppDatabase extends _$AppDatabase {
   /// emits `CREATE TABLE IF NOT EXISTS`, so the table is created and existing
   /// ones are untouched. **Do not delete this bump as a no-op** — the bump is the
   /// entire fix.
-  /// 38 adds `attachment_manifest`, `attachment_local_path` and
+  ///
+  /// 38 adds `verified_food_table.extended_nutrients_json` — see
+  /// `if (from < 38)` below and `docs/trainer-console-micronutrients.md`.
+  ///
+  /// 39 adds `attachment_manifest`, `attachment_local_path` and
   /// `upload_status` to `chat_out_box_table`, for media attachments. See the
-  /// `if (from < 38)` branch below for why each `ALTER` needs its own
+  /// `if (from < 39)` branch below for why each `ALTER` needs its own
   /// `try/catch`, not just one around the block — the 37 comment above
   /// explains the same `createAll()`-then-`ALTER` interaction that makes it
   /// necessary here too.
   @override
-  int get schemaVersion => 38;
+  int get schemaVersion => 39;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -378,6 +382,14 @@ class AppDatabase extends _$AppDatabase {
       }
 
       if (from < 38) {
+        try {
+          await customStatement(
+            'ALTER TABLE verified_food_table ADD COLUMN extended_nutrients_json TEXT',
+          );
+        } catch (_) {}
+      }
+
+      if (from < 39) {
         // Each statement gets its own try/catch, not one around the whole
         // block: an install upgrading from *before* 37 has no outbox table at
         // all, so the `createAll()` at the top of this method creates it with

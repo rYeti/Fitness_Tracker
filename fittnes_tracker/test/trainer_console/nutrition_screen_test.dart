@@ -5,7 +5,8 @@ import 'package:provider/provider.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_console_models.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/active_client_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/view/nutrition_screen.dart';
-import 'package:ForgeForm/feature/trainer_console/presentation/widgets/meal_detail_sheet.dart';
+import 'package:ForgeForm/feature/trainer_console/presentation/view/meal_detail_screen.dart';
+import 'package:ForgeForm/core/nutrition/extended_nutrients.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 
 import 'fakes.dart';
@@ -296,16 +297,14 @@ void main() {
     await tester.tap(find.text('Breakfast'));
     await tester.pumpAndSettle();
 
-    expect(find.text('3 foods'), findsOneWidget);
+    // Shown twice by design: once under the meal name in the header, once
+    // beside "Meal total" in the totals card.
+    expect(find.text('3 foods'), findsNWidgets(2));
     // The collapsed row joins all three names into one Text, so each name on
-    // its own only matches the sheet's per-food row.
+    // its own only matches the detail screen's per-food row.
     expect(find.text('Porridge oats'), findsOneWidget);
     expect(find.text('Greek yoghurt'), findsOneWidget);
-    expect(find.text('300 kcal'), findsOneWidget);
-    expect(find.text('80 g'), findsOneWidget);
-    expect(find.text('P 10g'), findsOneWidget);
-    expect(find.text('C 50g'), findsOneWidget);
-    expect(find.text('F 6g'), findsOneWidget);
+    expect(find.text('80 g · 300 kcal · P 10g · C 50g · F 6g'), findsOneWidget);
   });
 
   testWidgets('a food row is announced as one label, not six fragments', (
@@ -386,7 +385,7 @@ void main() {
     await tester.tap(find.text('Breakfast'), warnIfMissed: false);
     await tester.pumpAndSettle();
 
-    expect(find.byType(MealDetailSheet), findsNothing);
+    expect(find.byType(MealDetailScreen), findsNothing);
   });
 
   testWidgets('a food with no recorded serving size shows no weight', (
@@ -429,5 +428,99 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('an unlogged category still gets a row, dimmed', (tester) async {
+    await _pump(
+      tester,
+      FakeTrainerConsoleRepository(
+        rosterWithStats: [fakeRosterEntry()],
+        nutrition: fakeNutrition(
+          meals: const [
+            LoggedMeal(
+              mealId: 'm1',
+              category: 'breakfast',
+              foodNames: ['Oats'],
+              calories: 410,
+              macros: MacroTotals(protein: 20, carbs: 60, fat: 8),
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Lunch, Snack and Dinner were never logged — each still gets its own
+    // row rather than being omitted, per the design.
+    expect(find.text('Lunch'), findsOneWidget);
+    expect(find.text('Snacks'), findsOneWidget);
+    expect(find.text('Dinner'), findsOneWidget);
+    expect(find.text('Not logged yet'), findsNWidgets(3));
+    expect(find.text('—'), findsNWidgets(3));
+
+    // An unlogged row has nothing to open.
+    expect(
+      find.ancestor(of: find.text('Dinner'), matching: find.byType(InkWell)),
+      findsNothing,
+    );
+  });
+
+  testWidgets('locked micronutrients shows the upgrade prompt', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      FakeTrainerConsoleRepository(
+        rosterWithStats: [fakeRosterEntry()],
+        nutrition: fakeNutrition(micronutrientsLocked: true),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Tracked nutrients'), findsOneWidget);
+    expect(find.text('Premium'), findsOneWidget);
+  });
+
+  testWidgets(
+    'a pinned nutrient renders a bar with its value against its target',
+    (tester) async {
+      await _pump(
+        tester,
+        FakeTrainerConsoleRepository(
+          rosterWithStats: [fakeRosterEntry()],
+          nutrition: fakeNutrition(
+            micronutrientsLocked: false,
+            pinnedNutrients: const ['iron'],
+            micronutrients: const ExtendedNutrients(iron: 0.0052), // 5.2 mg
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Iron'), findsOneWidget);
+      expect(find.text('5.20 mg'), findsOneWidget);
+      expect(find.text('of 8 mg'), findsOneWidget);
+    },
+  );
+
+  testWidgets('toggling a pin calls through to the repository', (
+    tester,
+  ) async {
+    final repository = FakeTrainerConsoleRepository(
+      rosterWithStats: [fakeRosterEntry()],
+      nutrition: fakeNutrition(
+        micronutrientsLocked: false,
+        pinnedNutrients: const ['iron'],
+        micronutrients: const ExtendedNutrients(iron: 0.0052),
+      ),
+    );
+    await _pump(tester, repository);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Iron'));
+    await tester.pumpAndSettle();
+
+    expect(repository.savedNutrientPins, isNotEmpty);
+    expect(repository.savedNutrientPins.last.nutrientKeys, isEmpty);
   });
 }

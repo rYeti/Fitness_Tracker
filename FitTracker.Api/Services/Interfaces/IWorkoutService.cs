@@ -25,8 +25,11 @@ public interface IWorkoutService
     /// <summary>Creates a new workout for the specified user.</summary>
     /// <param name="dto">The workout data to create.</param>
     /// <param name="userId">The ID of the user creating the workout.</param>
+    /// <param name="assignedByTrainerId">Set only when a trainer is prescribing this
+    /// workout to <paramref name="userId"/> via the Trainer Console — null for the
+    /// trainee's own create flow. See <c>Workout.AssignedByTrainerId</c>.</param>
     /// <returns>The newly created workout DTO.</returns>
-    Task<WorkoutResponseDto> CreateWorkoutAsync(WorkoutRequestDto dto, Guid userId);
+    Task<WorkoutResponseDto> CreateWorkoutAsync(WorkoutRequestDto dto, Guid userId, Guid? assignedByTrainerId = null);
 
     /// <summary>Updates an existing workout owned by the specified user.</summary>
     /// <param name="id">The ID of the workout to update.</param>
@@ -38,13 +41,16 @@ public interface IWorkoutService
     /// <summary>Deletes a workout owned by the specified user.</summary>
     /// <param name="id">The ID of the workout to delete.</param>
     /// <param name="userId">The ID of the user who owns the workout.</param>
+    /// <param name="actingAsTrainer">See <see cref="Repositories.Interfaces.IWorkoutRepository.DeleteWorkoutAsync"/>.</param>
     /// <returns>
     /// <see cref="WorkoutDeleteResult.Deleted"/> if the workout and any never-performed
     /// sessions of it are gone; <see cref="WorkoutDeleteResult.NotFound"/> if no such
     /// workout belongs to the user; <see cref="WorkoutDeleteResult.HasLoggedHistory"/> if
-    /// sets were logged against it and it is therefore kept.
+    /// sets were logged against it and it is therefore kept;
+    /// <see cref="WorkoutDeleteResult.AssignedByTrainer"/> if it was assigned by a trainer
+    /// and <paramref name="actingAsTrainer"/> is false.
     /// </returns>
-    Task<WorkoutDeleteResult> DeleteWorkoutAsync(Guid id, Guid userId);
+    Task<WorkoutDeleteResult> DeleteWorkoutAsync(Guid id, Guid userId, bool actingAsTrainer = false);
 
     /// <summary>Adds an exercise entry to a workout owned by the specified user.</summary>
     Task<WorkoutExerciseResponseDto?> AddExerciseToWorkoutAsync(Guid workoutId, Guid userId, WorkoutExerciseRequestDto dto);

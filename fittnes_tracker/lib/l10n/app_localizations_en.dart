@@ -2047,6 +2047,96 @@ class AppLocalizationsEn extends AppLocalizations {
   String get unitUg => 'µg';
 
   @override
+  String get unitG => 'g';
+
+  @override
+  String get nutrientGroupCarbohydrate => 'Carbohydrate';
+
+  @override
+  String get nutrientGroupFat => 'Fat';
+
+  @override
+  String get nutrientGroupMineral => 'Mineral';
+
+  @override
+  String get nutrientGroupVitamin => 'Vitamin';
+
+  @override
+  String get trackedNutrients => 'Tracked nutrients';
+
+  @override
+  String get micronutrients => 'Micronutrients';
+
+  @override
+  String get chooseNutrients => 'Choose';
+
+  @override
+  String get tapToPinNutrients => 'Tap to pin the nutrients that matter';
+
+  @override
+  String nutrientOfTarget(String target, String unit) {
+    return 'of $target $unit';
+  }
+
+  @override
+  String get nutrientLow => 'Low';
+
+  @override
+  String get nutrientOver => 'Over';
+
+  @override
+  String get mealTotal => 'Meal total';
+
+  @override
+  String get noFoodLogged => 'No food added yet';
+
+  @override
+  String get mealNotLoggedYet => 'Not logged yet';
+
+  @override
+  String get selectMealForDetail => 'Select a meal for detail';
+
+  @override
+  String trackedNutrientsSubtitleTrainer(String name) {
+    return 'What $name is prioritising beyond macros';
+  }
+
+  @override
+  String get trackedNutrientsSubtitleTrainee =>
+      'What your coach is tracking, beyond macros';
+
+  @override
+  String get trackedNutrientsEmptyTrainer =>
+      'Pin the nutrients you want to keep an eye on for this client.';
+
+  @override
+  String get trackedNutrientsEmptyTrainee =>
+      'Your coach hasn\'t pinned any nutrients yet.';
+
+  @override
+  String get micronutrientsMealCaption =>
+      'In this meal · bars show share of daily target';
+
+  @override
+  String get micronutrientsNoData => 'No data logged today';
+
+  @override
+  String nutrientBarSemantics(
+    String label,
+    String value,
+    String ofTarget,
+    String state,
+  ) {
+    return '$label, $value, $ofTarget$state';
+  }
+
+  @override
+  String get nutrientBarSemanticsLow => ', low';
+
+  @override
+  String get nutrientBarSemanticsOver => ', over target';
+
+  @override
   String get premiumFeatureTitle => 'Premium Feature';
 
   @override
@@ -2994,6 +3084,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get errorOpenBilling => 'Could not open billing. Try again.';
 
   @override
+  String get errorSaveNutrientPins =>
+      'Could not save your nutrient selection. Try again.';
+
+  @override
   String get clientDetailLoading => 'Loading client details';
 
   @override
@@ -3572,6 +3666,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get errorScheduleWorkoutPlan => 'Could not schedule this plan.';
 
   @override
+  String get errorDeletePlan => 'Could not delete this plan.';
+
+  @override
   String get builderDays => 'Days';
 
   @override
@@ -3711,6 +3808,22 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String builderDayDeletedConfirmation(String name) {
+    return '$name deleted';
+  }
+
+  @override
+  String get builderDeletePlan => 'Delete plan';
+
+  @override
+  String get builderDeletePlanConfirmTitle => 'Delete this plan?';
+
+  @override
+  String builderDeletePlanConfirmBody(String name) {
+    return '$name will be removed. Its days stay with the client — this only removes the grouping, and can’t be undone.';
+  }
+
+  @override
+  String builderPlanDeletedConfirmation(String name) {
     return '$name deleted';
   }
 

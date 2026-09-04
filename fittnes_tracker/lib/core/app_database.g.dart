@@ -830,6 +830,17 @@ class $VerifiedFoodTableTable extends VerifiedFoodTable
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _extendedNutrientsJsonMeta =
+      const VerificationMeta('extendedNutrientsJson');
+  @override
+  late final GeneratedColumn<String> extendedNutrientsJson =
+      GeneratedColumn<String>(
+        'extended_nutrients_json',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -840,6 +851,7 @@ class $VerifiedFoodTableTable extends VerifiedFoodTable
     carbs,
     fat,
     sourceCode,
+    extendedNutrientsJson,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -908,6 +920,15 @@ class $VerifiedFoodTableTable extends VerifiedFoodTable
         sourceCode.isAcceptableOrUnknown(data['source_code']!, _sourceCodeMeta),
       );
     }
+    if (data.containsKey('extended_nutrients_json')) {
+      context.handle(
+        _extendedNutrientsJsonMeta,
+        extendedNutrientsJson.isAcceptableOrUnknown(
+          data['extended_nutrients_json']!,
+          _extendedNutrientsJsonMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -955,6 +976,10 @@ class $VerifiedFoodTableTable extends VerifiedFoodTable
         DriftSqlType.string,
         data['${effectivePrefix}source_code'],
       ),
+      extendedNutrientsJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}extended_nutrients_json'],
+      ),
     );
   }
 
@@ -976,6 +1001,13 @@ class VerifiedFoodTableData extends DataClass
 
   /// Source key, e.g. the BLS SBLS code — kept for attribution/versioning.
   final String? sourceCode;
+
+  /// JSON-encoded [ExtendedNutrients], joined in from the BLS 4.0 nutrient
+  /// matrix at seed-generation time (`tool/generate_verified_foods.py`), not
+  /// computed on-device. Null for a food the join found no BLS row for —
+  /// there are none as of seed v3, but the column stays nullable so a future
+  /// seed source need not guarantee full coverage.
+  final String? extendedNutrientsJson;
   const VerifiedFoodTableData({
     required this.id,
     required this.name,
@@ -985,6 +1017,7 @@ class VerifiedFoodTableData extends DataClass
     required this.carbs,
     required this.fat,
     this.sourceCode,
+    this.extendedNutrientsJson,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1000,6 +1033,9 @@ class VerifiedFoodTableData extends DataClass
     map['fat'] = Variable<double>(fat);
     if (!nullToAbsent || sourceCode != null) {
       map['source_code'] = Variable<String>(sourceCode);
+    }
+    if (!nullToAbsent || extendedNutrientsJson != null) {
+      map['extended_nutrients_json'] = Variable<String>(extendedNutrientsJson);
     }
     return map;
   }
@@ -1018,6 +1054,10 @@ class VerifiedFoodTableData extends DataClass
           sourceCode == null && nullToAbsent
               ? const Value.absent()
               : Value(sourceCode),
+      extendedNutrientsJson:
+          extendedNutrientsJson == null && nullToAbsent
+              ? const Value.absent()
+              : Value(extendedNutrientsJson),
     );
   }
 
@@ -1035,6 +1075,9 @@ class VerifiedFoodTableData extends DataClass
       carbs: serializer.fromJson<double>(json['carbs']),
       fat: serializer.fromJson<double>(json['fat']),
       sourceCode: serializer.fromJson<String?>(json['sourceCode']),
+      extendedNutrientsJson: serializer.fromJson<String?>(
+        json['extendedNutrientsJson'],
+      ),
     );
   }
   @override
@@ -1049,6 +1092,9 @@ class VerifiedFoodTableData extends DataClass
       'carbs': serializer.toJson<double>(carbs),
       'fat': serializer.toJson<double>(fat),
       'sourceCode': serializer.toJson<String?>(sourceCode),
+      'extendedNutrientsJson': serializer.toJson<String?>(
+        extendedNutrientsJson,
+      ),
     };
   }
 
@@ -1061,6 +1107,7 @@ class VerifiedFoodTableData extends DataClass
     double? carbs,
     double? fat,
     Value<String?> sourceCode = const Value.absent(),
+    Value<String?> extendedNutrientsJson = const Value.absent(),
   }) => VerifiedFoodTableData(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -1070,6 +1117,10 @@ class VerifiedFoodTableData extends DataClass
     carbs: carbs ?? this.carbs,
     fat: fat ?? this.fat,
     sourceCode: sourceCode.present ? sourceCode.value : this.sourceCode,
+    extendedNutrientsJson:
+        extendedNutrientsJson.present
+            ? extendedNutrientsJson.value
+            : this.extendedNutrientsJson,
   );
   VerifiedFoodTableData copyWithCompanion(VerifiedFoodTableCompanion data) {
     return VerifiedFoodTableData(
@@ -1082,6 +1133,10 @@ class VerifiedFoodTableData extends DataClass
       fat: data.fat.present ? data.fat.value : this.fat,
       sourceCode:
           data.sourceCode.present ? data.sourceCode.value : this.sourceCode,
+      extendedNutrientsJson:
+          data.extendedNutrientsJson.present
+              ? data.extendedNutrientsJson.value
+              : this.extendedNutrientsJson,
     );
   }
 
@@ -1095,14 +1150,24 @@ class VerifiedFoodTableData extends DataClass
           ..write('protein: $protein, ')
           ..write('carbs: $carbs, ')
           ..write('fat: $fat, ')
-          ..write('sourceCode: $sourceCode')
+          ..write('sourceCode: $sourceCode, ')
+          ..write('extendedNutrientsJson: $extendedNutrientsJson')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, name, nameDe, calories, protein, carbs, fat, sourceCode);
+  int get hashCode => Object.hash(
+    id,
+    name,
+    nameDe,
+    calories,
+    protein,
+    carbs,
+    fat,
+    sourceCode,
+    extendedNutrientsJson,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1114,7 +1179,8 @@ class VerifiedFoodTableData extends DataClass
           other.protein == this.protein &&
           other.carbs == this.carbs &&
           other.fat == this.fat &&
-          other.sourceCode == this.sourceCode);
+          other.sourceCode == this.sourceCode &&
+          other.extendedNutrientsJson == this.extendedNutrientsJson);
 }
 
 class VerifiedFoodTableCompanion
@@ -1127,6 +1193,7 @@ class VerifiedFoodTableCompanion
   final Value<double> carbs;
   final Value<double> fat;
   final Value<String?> sourceCode;
+  final Value<String?> extendedNutrientsJson;
   const VerifiedFoodTableCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
@@ -1136,6 +1203,7 @@ class VerifiedFoodTableCompanion
     this.carbs = const Value.absent(),
     this.fat = const Value.absent(),
     this.sourceCode = const Value.absent(),
+    this.extendedNutrientsJson = const Value.absent(),
   });
   VerifiedFoodTableCompanion.insert({
     this.id = const Value.absent(),
@@ -1146,6 +1214,7 @@ class VerifiedFoodTableCompanion
     required double carbs,
     required double fat,
     this.sourceCode = const Value.absent(),
+    this.extendedNutrientsJson = const Value.absent(),
   }) : name = Value(name),
        calories = Value(calories),
        protein = Value(protein),
@@ -1160,6 +1229,7 @@ class VerifiedFoodTableCompanion
     Expression<double>? carbs,
     Expression<double>? fat,
     Expression<String>? sourceCode,
+    Expression<String>? extendedNutrientsJson,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -1170,6 +1240,8 @@ class VerifiedFoodTableCompanion
       if (carbs != null) 'carbs': carbs,
       if (fat != null) 'fat': fat,
       if (sourceCode != null) 'source_code': sourceCode,
+      if (extendedNutrientsJson != null)
+        'extended_nutrients_json': extendedNutrientsJson,
     });
   }
 
@@ -1182,6 +1254,7 @@ class VerifiedFoodTableCompanion
     Value<double>? carbs,
     Value<double>? fat,
     Value<String?>? sourceCode,
+    Value<String?>? extendedNutrientsJson,
   }) {
     return VerifiedFoodTableCompanion(
       id: id ?? this.id,
@@ -1192,6 +1265,8 @@ class VerifiedFoodTableCompanion
       carbs: carbs ?? this.carbs,
       fat: fat ?? this.fat,
       sourceCode: sourceCode ?? this.sourceCode,
+      extendedNutrientsJson:
+          extendedNutrientsJson ?? this.extendedNutrientsJson,
     );
   }
 
@@ -1222,6 +1297,11 @@ class VerifiedFoodTableCompanion
     if (sourceCode.present) {
       map['source_code'] = Variable<String>(sourceCode.value);
     }
+    if (extendedNutrientsJson.present) {
+      map['extended_nutrients_json'] = Variable<String>(
+        extendedNutrientsJson.value,
+      );
+    }
     return map;
   }
 
@@ -1235,7 +1315,8 @@ class VerifiedFoodTableCompanion
           ..write('protein: $protein, ')
           ..write('carbs: $carbs, ')
           ..write('fat: $fat, ')
-          ..write('sourceCode: $sourceCode')
+          ..write('sourceCode: $sourceCode, ')
+          ..write('extendedNutrientsJson: $extendedNutrientsJson')
           ..write(')'))
         .toString();
   }
@@ -9975,6 +10056,7 @@ typedef $$VerifiedFoodTableTableCreateCompanionBuilder =
       required double carbs,
       required double fat,
       Value<String?> sourceCode,
+      Value<String?> extendedNutrientsJson,
     });
 typedef $$VerifiedFoodTableTableUpdateCompanionBuilder =
     VerifiedFoodTableCompanion Function({
@@ -9986,6 +10068,7 @@ typedef $$VerifiedFoodTableTableUpdateCompanionBuilder =
       Value<double> carbs,
       Value<double> fat,
       Value<String?> sourceCode,
+      Value<String?> extendedNutrientsJson,
     });
 
 class $$VerifiedFoodTableTableFilterComposer
@@ -10034,6 +10117,11 @@ class $$VerifiedFoodTableTableFilterComposer
 
   ColumnFilters<String> get sourceCode => $composableBuilder(
     column: $table.sourceCode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get extendedNutrientsJson => $composableBuilder(
+    column: $table.extendedNutrientsJson,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -10086,6 +10174,11 @@ class $$VerifiedFoodTableTableOrderingComposer
     column: $table.sourceCode,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get extendedNutrientsJson => $composableBuilder(
+    column: $table.extendedNutrientsJson,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$VerifiedFoodTableTableAnnotationComposer
@@ -10120,6 +10213,11 @@ class $$VerifiedFoodTableTableAnnotationComposer
 
   GeneratedColumn<String> get sourceCode => $composableBuilder(
     column: $table.sourceCode,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get extendedNutrientsJson => $composableBuilder(
+    column: $table.extendedNutrientsJson,
     builder: (column) => column,
   );
 }
@@ -10178,6 +10276,7 @@ class $$VerifiedFoodTableTableTableManager
                 Value<double> carbs = const Value.absent(),
                 Value<double> fat = const Value.absent(),
                 Value<String?> sourceCode = const Value.absent(),
+                Value<String?> extendedNutrientsJson = const Value.absent(),
               }) => VerifiedFoodTableCompanion(
                 id: id,
                 name: name,
@@ -10187,6 +10286,7 @@ class $$VerifiedFoodTableTableTableManager
                 carbs: carbs,
                 fat: fat,
                 sourceCode: sourceCode,
+                extendedNutrientsJson: extendedNutrientsJson,
               ),
           createCompanionCallback:
               ({
@@ -10198,6 +10298,7 @@ class $$VerifiedFoodTableTableTableManager
                 required double carbs,
                 required double fat,
                 Value<String?> sourceCode = const Value.absent(),
+                Value<String?> extendedNutrientsJson = const Value.absent(),
               }) => VerifiedFoodTableCompanion.insert(
                 id: id,
                 name: name,
@@ -10207,6 +10308,7 @@ class $$VerifiedFoodTableTableTableManager
                 carbs: carbs,
                 fat: fat,
                 sourceCode: sourceCode,
+                extendedNutrientsJson: extendedNutrientsJson,
               ),
           withReferenceMapper:
               (p0) =>

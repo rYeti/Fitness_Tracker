@@ -33,6 +33,13 @@ public class Workout
     /// <summary>An optional colour value associated with the workout (ARGB integer).</summary>
     public int? Color { get; set; }
 
+    /// <summary>The trainer who prescribed this workout, or null for one the user built
+    /// themselves. No foreign key, deliberately: the row must stay readable after the
+    /// trainer-client relationship ends or the trainer's account changes — see
+    /// <c>Exercise.SourceExerciseId</c> for the same reasoning. Set only by
+    /// <c>TrainerConsoleService</c>; a client cannot delete a workout this is set on.</summary>
+    public Guid? AssignedByTrainerId { get; set; }
+
     /// <summary>Navigation property to the user who owns this workout.</summary>
     public User User { get; set; } = null!;
 

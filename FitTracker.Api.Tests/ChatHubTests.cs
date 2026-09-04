@@ -46,7 +46,7 @@ public class ChatHubTests
     {
         var trainerClientRepo = new TrainerClientRepository(ctx.Db);
         var trainerClientService = new TrainerClientService(
-            trainerClientRepo, new TrainerLicenceRepository(ctx.Db));
+            trainerClientRepo, new TrainerLicenceRepository(ctx.Db), new TrainerNutrientPinRepository(ctx.Db));
         clients = new RecordingClients();
         pushes = new RecordingPushDispatcher();
 
@@ -156,7 +156,7 @@ public class ChatHubTests
         using var ctx = new ChatScenario();
         var trainerClientRepo = new TrainerClientRepository(ctx.Db);
         var trainerClientService = new TrainerClientService(
-            trainerClientRepo, new TrainerLicenceRepository(ctx.Db));
+            trainerClientRepo, new TrainerLicenceRepository(ctx.Db), new TrainerNutrientPinRepository(ctx.Db));
         var hub = new ChatHub(
             trainerClientService,
             new ChatService(trainerClientRepo, new ChatRepository(ctx.Db)),
@@ -183,7 +183,7 @@ public class ChatHubTests
         using var ctx = new ChatScenario();
         var trainerClientRepo = new TrainerClientRepository(ctx.Db);
         var trainerClientService = new TrainerClientService(
-            trainerClientRepo, new TrainerLicenceRepository(ctx.Db));
+            trainerClientRepo, new TrainerLicenceRepository(ctx.Db), new TrainerNutrientPinRepository(ctx.Db));
         var hub = new ChatHub(
             trainerClientService,
             new ChatService(trainerClientRepo, new ChatRepository(ctx.Db)),
@@ -210,7 +210,7 @@ public class ChatHubTests
         var clientGroups = new RecordingGroups();
         var trainerClientRepo = new TrainerClientRepository(ctx.Db);
         var trainerClientService = new TrainerClientService(
-            trainerClientRepo, new TrainerLicenceRepository(ctx.Db));
+            trainerClientRepo, new TrainerLicenceRepository(ctx.Db), new TrainerNutrientPinRepository(ctx.Db));
 
         ChatHub HubFor(Guid callerId, RecordingGroups groups) => new(
             trainerClientService,

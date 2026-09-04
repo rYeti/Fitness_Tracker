@@ -80,8 +80,8 @@ public class WorkoutController : ControllerBase
     /// <summary>Deletes a workout belonging to the authenticated user.</summary>
     /// <param name="id">The ID of the workout to delete.</param>
     /// <returns>
-    /// 204 No Content on success, 404 if not found, or 409 Conflict if the workout has
-    /// sessions with logged sets and is therefore kept.
+    /// 204 No Content on success, 404 if not found, 403 if a trainer assigned it, or 409
+    /// Conflict if the workout has sessions with logged sets and is therefore kept.
     /// </returns>
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteWorkout([FromRoute] Guid id)
@@ -98,6 +98,10 @@ public class WorkoutController : ControllerBase
             // is understood and will never succeed, so the client should stop retrying.
             WorkoutDeleteResult.HasLoggedHistory => Conflict(
                 "Workout has logged training sessions and cannot be deleted"),
+            // A trainer-assigned workout is not the owner's to remove — only the trainer who
+            // assigned it can, via the Trainer Console.
+            WorkoutDeleteResult.AssignedByTrainer => StatusCode(StatusCodes.Status403Forbidden,
+                "This workout was assigned by your trainer and can't be deleted."),
             _ => NoContent(),
         };
     }

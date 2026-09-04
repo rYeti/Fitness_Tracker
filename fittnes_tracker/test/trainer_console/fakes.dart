@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:ForgeForm/core/nutrition/extended_nutrients.dart';
 import 'package:ForgeForm/feature/trainer_console/data/trainer_console_repository.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_console_models.dart';
 
@@ -127,6 +128,21 @@ class FakeTrainerConsoleRepository implements TrainerConsoleRepository {
     if (throwOnNutrition) throw Exception('boom');
     if (nutrition == null) throw StateError('no nutrition fixture supplied');
     return nutrition!;
+  }
+
+  /// Records every pin-set write, newest last, so a test can assert what was
+  /// sent without a real backend.
+  final List<({String clientId, List<String> nutrientKeys})> savedNutrientPins = [];
+
+  /// Set to make the next `setClientNutrientPins` call throw, for the
+  /// pin-toggle-failure/revert test.
+  bool throwOnSetNutrientPins = false;
+
+  @override
+  Future<void> setClientNutrientPins(String clientId, List<String> nutrientKeys) async {
+    _record('setNutrientPins');
+    if (throwOnSetNutrientPins) throw Exception('boom');
+    savedNutrientPins.add((clientId: clientId, nutrientKeys: nutrientKeys));
   }
 
   @override
@@ -343,6 +359,13 @@ ClientNutritionSummary fakeNutrition({
   int goal = 2200,
   List<LoggedMeal> meals = const [],
   List<DailyCalorieTotal>? trend,
+  ExtendedNutrients? micronutrients,
+  // Defaults locked: none of the existing screen tests are about
+  // micronutrients, so they see the same upgrade-prompt card a Free-tier
+  // trainer would. Tests of the tracked-nutrients card itself pass
+  // `micronutrientsLocked: false` explicitly.
+  bool micronutrientsLocked = true,
+  List<String> pinnedNutrients = const [],
 }) => ClientNutritionSummary(
   date: DateTime(2026, 8, 20),
   calorieGoal: goal,
@@ -358,4 +381,7 @@ ClientNutritionSummary fakeNutrition({
             goal: goal,
           ),
       ],
+  micronutrients: micronutrients,
+  micronutrientsLocked: micronutrientsLocked,
+  pinnedNutrients: pinnedNutrients,
 );

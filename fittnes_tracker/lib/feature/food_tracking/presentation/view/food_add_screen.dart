@@ -9,7 +9,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
-import '../../data/models/extended_nutrients.dart';
+import 'package:ForgeForm/core/nutrition/extended_nutrients.dart';
 import '../../data/models/food_item_model.dart';
 import '../../data/models/portion_option.dart';
 import '../../data/repositories/nutrition_repository.dart';
@@ -202,6 +202,7 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
           },
           'id': 'verified-${v.id}',
           '_source': 'verified',
+          '_extended_nutrients_json': v.extendedNutrientsJson,
         };
       }).toList();
 
@@ -482,9 +483,16 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
 
   void _selectFoodItem(Map<String, dynamic> productData) async {
     final isLocal = productData['_source'] == 'local';
+    // Verified (BLS-seeded) foods carry their micronutrients the same way a
+    // re-added local food does — a pre-built ExtendedNutrients JSON blob,
+    // not raw OpenFoodFacts nutriment keys — because tool/generate_verified_
+    // foods.py already resolved BLS's own units to ExtendedNutrients' grams
+    // at seed time. Falling through to fromNutriments() here would silently
+    // find none of its OFF-shaped keys and drop every verified food's data.
+    final isVerified = productData['_source'] == 'verified';
 
     ExtendedNutrients? extended;
-    if (isLocal) {
+    if (isLocal || isVerified) {
       final json = productData['_extended_nutrients_json'] as String?;
       if (json != null) extended = ExtendedNutrients.fromJsonString(json);
     } else {
@@ -883,7 +891,11 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
                   borderRadius: BorderRadius.circular(8.0),
                 ),
               ),
-              child: Text(AppLocalizations.of(dialogContext)!.addToLog),
+              child: Text(
+                widget.isTemplate
+                    ? AppLocalizations.of(dialogContext)!.addToTemplate
+                    : AppLocalizations.of(dialogContext)!.addToLog,
+              ),
             ),
           ],
         );
@@ -894,6 +906,14 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
 
     final newFood = await db.foodItemDao.getFoodItemById(insertedId!);
     if (!mounted || newFood == null) return;
+
+    // In template mode the food library entry is all this screen persists —
+    // the template screen owns the rest. Logging it here would put a meal on
+    // today's diary that the user never asked for.
+    if (widget.isTemplate) {
+      Navigator.pop(context, FoodItemModel.fromData(newFood));
+      return;
+    }
 
     await _repository.addFoodToMeal(
       widget.category,
@@ -1339,7 +1359,11 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
       subtitle:
           '${item.calories} kcal | P: ${item.protein}g | C: ${item.carbs}g | F: ${item.fat}g',
       onTap: () async {
-        await Navigator.push<bool>(
+        // `isTemplate` has to travel with every push of the detail screen, not
+        // just the ones reached by searching: this tile is what the screen
+        // shows before a query is typed, so a template build that starts from
+        // a recent food landed on a detail screen that thought it was logging.
+        final result = await Navigator.push<dynamic>(
           context,
           MaterialPageRoute(
             builder:
@@ -1354,10 +1378,14 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
                     gramm: item.gramm,
                   ),
                   category: widget.category,
+                  isTemplate: widget.isTemplate,
                   date: widget.date,
                 ),
           ),
         );
+        if (widget.isTemplate && result is FoodItemModel && mounted) {
+          Navigator.pop(context, result);
+        }
       },
       trailing: Row(
         mainAxisSize: MainAxisSize.min,

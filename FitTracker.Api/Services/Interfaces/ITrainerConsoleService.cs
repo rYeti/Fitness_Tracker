@@ -28,9 +28,25 @@ public interface ITrainerConsoleService
 
     Task<ClientNutritionSummaryDto?> GetClientNutritionSummaryAsync(Guid trainerId, Guid clientId, DateTime date);
 
+    /// <summary>Replaces the whole set of nutrients this trainer has pinned to
+    /// track for this client. Rejects an unrecognised nutrient key and a
+    /// trainer who isn't this client's active trainer — see
+    /// <see cref="SetNutrientPinsStatus"/>.</summary>
+    Task<SetNutrientPinsResult> SetClientNutrientPinsAsync(
+        Guid trainerId, Guid clientId, List<string> nutrientKeys);
+
     Task<WorkoutPlanResponseDto?> CreateClientWorkoutPlanAsync(Guid trainerId, Guid clientId, WorkoutPlanRequestDto dto);
 
     Task<WorkoutPlanResponseDto?> UpdateClientWorkoutPlanAsync(Guid trainerId, Guid clientId, Guid planId, WorkoutPlanRequestDto dto);
+
+    /// <summary>Removes one of the client's workout plans. The plan's days (and any logged
+    /// history under them) are left in place — only the plan grouping goes away; see
+    /// <c>WorkoutPlanRepository.DeletePlanAsync</c>.</summary>
+    /// <returns><see cref="TrainerWorkoutStatus.Ok"/> on success,
+    /// <see cref="TrainerWorkoutStatus.NotPermitted"/> if the caller isn't an active trainer
+    /// of the client, or <see cref="TrainerWorkoutStatus.NotFound"/> if the plan isn't the
+    /// client's.</returns>
+    Task<TrainerWorkoutStatus> DeleteClientWorkoutPlanAsync(Guid trainerId, Guid clientId, Guid planId);
 
     /// <summary>The client's workouts — the days a trainer builds and edits — each with its
     /// exercises in order and the sets prescribed for them. Retired exercise entries are

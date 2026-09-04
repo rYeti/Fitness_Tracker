@@ -10,13 +10,17 @@ class WorkoutPlanDao extends DatabaseAccessor<AppDatabase>
     with _$WorkoutPlanDaoMixin {
   WorkoutPlanDao(super.db);
 
-  // Get all workout plans
+  // Get all workout plans. Excludes pendingDelete (3): a delete now marks
+  // rather than removes the row outright, so a plan the trainee just deleted
+  // must stop appearing here well before the sync push actually reaches the
+  // server — see WorkoutPlanDao.markPlanPendingDelete.
   Future<List<WorkoutPlanTableData>> getAllPlans() =>
-      select(workoutPlanTable).get();
+      (select(workoutPlanTable)..where((p) => p.syncStatus.isNotValue(3))).get();
 
   // Get active workout plans
-  Future<List<WorkoutPlanTableData>> getActivePlans() =>
-      (select(workoutPlanTable)..where((p) => p.isActive.equals(true))).get();
+  Future<List<WorkoutPlanTableData>> getActivePlans() => (select(
+    workoutPlanTable,
+  )..where((p) => p.isActive.equals(true) & p.syncStatus.isNotValue(3))).get();
 
   // Get a specific plan with its workouts
   Future<WorkoutPlan?> getCompletePlanById(int id) async {

@@ -2060,6 +2060,96 @@ class AppLocalizationsDe extends AppLocalizations {
   String get unitUg => 'µg';
 
   @override
+  String get unitG => 'g';
+
+  @override
+  String get nutrientGroupCarbohydrate => 'Kohlenhydrat';
+
+  @override
+  String get nutrientGroupFat => 'Fett';
+
+  @override
+  String get nutrientGroupMineral => 'Mineralstoff';
+
+  @override
+  String get nutrientGroupVitamin => 'Vitamin';
+
+  @override
+  String get trackedNutrients => 'Erfasste Nährstoffe';
+
+  @override
+  String get micronutrients => 'Mikronährstoffe';
+
+  @override
+  String get chooseNutrients => 'Auswählen';
+
+  @override
+  String get tapToPinNutrients => 'Tippen, um wichtige Nährstoffe anzupinnen';
+
+  @override
+  String nutrientOfTarget(String target, String unit) {
+    return 'von $target $unit';
+  }
+
+  @override
+  String get nutrientLow => 'Niedrig';
+
+  @override
+  String get nutrientOver => 'Über';
+
+  @override
+  String get mealTotal => 'Mahlzeit gesamt';
+
+  @override
+  String get noFoodLogged => 'Noch kein Essen hinzugefügt';
+
+  @override
+  String get mealNotLoggedYet => 'Noch nicht erfasst';
+
+  @override
+  String get selectMealForDetail => 'Mahlzeit für Details auswählen';
+
+  @override
+  String trackedNutrientsSubtitleTrainer(String name) {
+    return 'Worauf $name über die Makros hinaus achtet';
+  }
+
+  @override
+  String get trackedNutrientsSubtitleTrainee =>
+      'Worauf dein Coach über die Makros hinaus achtet';
+
+  @override
+  String get trackedNutrientsEmptyTrainer =>
+      'Pinne die Nährstoffe an, die du bei diesem Kunden im Blick behalten möchtest.';
+
+  @override
+  String get trackedNutrientsEmptyTrainee =>
+      'Dein Coach hat noch keine Nährstoffe angepinnt.';
+
+  @override
+  String get micronutrientsMealCaption =>
+      'In dieser Mahlzeit · Balken zeigen Anteil am Tagesziel';
+
+  @override
+  String get micronutrientsNoData => 'Heute keine Daten erfasst';
+
+  @override
+  String nutrientBarSemantics(
+    String label,
+    String value,
+    String ofTarget,
+    String state,
+  ) {
+    return '$label, $value, $ofTarget$state';
+  }
+
+  @override
+  String get nutrientBarSemanticsLow => ', niedrig';
+
+  @override
+  String get nutrientBarSemanticsOver => ', über dem Ziel';
+
+  @override
   String get premiumFeatureTitle => 'Premium-Funktion';
 
   @override
@@ -3027,6 +3117,10 @@ class AppLocalizationsDe extends AppLocalizations {
       'Die Abrechnung konnte nicht geöffnet werden. Versuch es erneut.';
 
   @override
+  String get errorSaveNutrientPins =>
+      'Deine Nährstoffauswahl konnte nicht gespeichert werden. Versuch es erneut.';
+
+  @override
   String get clientDetailLoading => 'Kundendetails werden geladen';
 
   @override
@@ -3613,6 +3707,9 @@ class AppLocalizationsDe extends AppLocalizations {
       'Dieser Plan konnte nicht eingeplant werden.';
 
   @override
+  String get errorDeletePlan => 'Dieser Plan konnte nicht gelöscht werden.';
+
+  @override
   String get builderDays => 'Tage';
 
   @override
@@ -3752,6 +3849,22 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String builderDayDeletedConfirmation(String name) {
+    return '$name gelöscht';
+  }
+
+  @override
+  String get builderDeletePlan => 'Plan löschen';
+
+  @override
+  String get builderDeletePlanConfirmTitle => 'Diesen Plan löschen?';
+
+  @override
+  String builderDeletePlanConfirmBody(String name) {
+    return '$name wird entfernt. Die Tage bleiben beim Klienten erhalten – nur die Gruppierung wird entfernt, und dies kann nicht rückgängig gemacht werden.';
+  }
+
+  @override
+  String builderPlanDeletedConfirmation(String name) {
     return '$name gelöscht';
   }
 

@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:ForgeForm/core/app_database.dart';
+import 'package:ForgeForm/core/nutrition/extended_nutrients.dart';
 import 'package:ForgeForm/core/utils/app_logger.dart';
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart' show compute;
@@ -15,7 +16,7 @@ const _kSeedVersionKey = 'verified_foods_seed_version';
 /// is read and decoded — reading the version out of the JSON meant paying the
 /// full parse on every launch just to discover there was nothing to do.
 /// `test/seed/seed_versions_test.dart` fails if this drifts from the asset.
-const kVerifiedFoodsSeedVersion = 2;
+const kVerifiedFoodsSeedVersion = 3;
 
 /// Seeds the verified-food layer from the bundled JSON asset.
 ///
@@ -49,6 +50,7 @@ Future<void> seedVerifiedFoodsIfNeeded(AppDatabase db) async {
             carbs: (f['carbs'] as num).toDouble(),
             fat: (f['fat'] as num).toDouble(),
             sourceCode: Value(f['sourceCode'] as String?),
+            extendedNutrientsJson: Value(_encodeExtendedNutrients(f)),
           ),
       ]);
     });
@@ -66,4 +68,15 @@ Future<void> seedVerifiedFoodsIfNeeded(AppDatabase db) async {
 List<Map<String, dynamic>> _parseFoods(String raw) {
   final json = jsonDecode(raw) as Map<String, dynamic>;
   return (json['foods'] as List).cast<Map<String, dynamic>>();
+}
+
+/// Re-encodes a food's `extendedNutrients` object (added by
+/// `tool/generate_verified_foods.py`, joined in from BLS 4.0) as the same
+/// JSON shape [ExtendedNutrients.toJsonString] produces, so a verified food
+/// and an OpenFoodFacts food are indistinguishable to every reader of this
+/// column. Null when the asset carries no micronutrient data for this food.
+String? _encodeExtendedNutrients(Map<String, dynamic> f) {
+  final raw = f['extendedNutrients'] as Map<String, dynamic>?;
+  if (raw == null) return null;
+  return ExtendedNutrients.fromJson(raw).toJsonString();
 }
