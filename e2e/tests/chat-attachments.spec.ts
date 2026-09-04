@@ -68,7 +68,12 @@ test.describe('trainer console chat', () => {
     // Sent, not merely queued: the composer's own tooltip on the trailing
     // button flips from "Sending" back to "Send message" once the hub acks,
     // and the bubble text is on screen either way.
-    await expect(trainerPage.getByText(body)).toBeVisible({ timeout: 30_000 });
+    //
+    // .first() because the same text appears twice once sent: once in the
+    // thread bubble, and again in the roster's "last message" preview on
+    // the client-switcher button — both real, both correct, so this only
+    // needs to see one of them.
+    await expect(trainerPage.getByText(body).first()).toBeVisible({ timeout: 30_000 });
   });
 
   test('attach affordance is enabled and its menu lists Photo, Video and Document', async ({
