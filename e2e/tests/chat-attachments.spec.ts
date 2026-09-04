@@ -1,7 +1,16 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { test, expect, navDestination, typeReliably } from '../fixtures/flutter';
+import {
+  test,
+  expect,
+  navDestination,
+  typeReliably,
+  waitForFlutterBoot,
+  enableFlutterSemantics,
+  signIn,
+  TRAINEE_CREDENTIALS,
+} from '../fixtures/flutter';
 import type { Page } from '@playwright/test';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -91,8 +100,22 @@ test.describe('trainer console chat', () => {
 
   test('uploads a photo end to end: sender sees it sent, recipient sees it arrive', async ({
     trainerPage,
-    traineePage,
+    browser,
   }) => {
+    // Both parties need genuinely separate sessions. `traineePage` is not
+    // usable alongside `trainerPage` here: both derive from the single
+    // `page` fixture Playwright hands each test, so requesting them together
+    // would silently hand back the *same* tab, already signed in as the
+    // trainer — the trainee's own signIn() would then wait forever for a
+    // Login button that already scrolled off screen. A second, independent
+    // browser context is what a second real device actually is.
+    const traineeContext = await browser.newContext();
+    const traineePage = await traineeContext.newPage();
+    await traineePage.goto('/');
+    await waitForFlutterBoot(traineePage);
+    await enableFlutterSemantics(traineePage);
+    await signIn(traineePage, TRAINEE_CREDENTIALS);
+
     // Both parties open the same conversation from opposite ends.
     await navDestination(trainerPage, 'Messages').click();
     await trainerPage.getByRole('button', { name: /Robert Meyer/i }).first().click();
@@ -118,5 +141,7 @@ test.describe('trainer console chat', () => {
     // policy) fetches without a tap, ending in a rendered/stored state
     // rather than "tap to download" staying forever.
     await expect(traineePage.getByText(/Photo/i).first()).toBeVisible({ timeout: 45_000 });
+
+    await traineeContext.close();
   });
 });
