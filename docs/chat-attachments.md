@@ -473,16 +473,87 @@ deploy.
 
 ---
 
-## What this leaves unbuilt
+## 15. Three bugs that only a real browser found
 
-- **Size-bucket padding** for the ciphertext-size leak (§10).
-- **Poster-frame capture** at pick time for video (§11).
+Every unit and widget test for this feature passed from the day it was
+written. Phase 7b — a real Playwright pass driving the built web bundle
+against a seeded local API (`Attachments__Provider=local`, per
+`docs/e2e-playwright.md`) — found three genuine defects anyway, none of
+which any of that coverage could have caught, because none of them is
+reachable without a real browser, a real HTTP stack, and a real second
+signed-in session. `e2e/tests/chat-attachments.spec.ts` is where they were
+found and is what now guards against them recurring.
+
+**An enabled button with no name.** `ChatComposer`'s attach `IconButton`
+set `tooltip: attachEnabled ? null : l10n.chatAttachmentsUnavailable` —
+a tooltip only in the *disabled* state, on the theory (never written down)
+that the icon alone was enough otherwise. `Icon(Icons.add_rounded)` carries
+no `semanticLabel`, so the enabled button's accessible name was empty: a
+screen reader announced "button", nothing else, and a Playwright
+`getByRole('button', { name: … })` query could not find it either — the
+same invisibility, for the same reason, on both sides. Widget tests never
+exercise the button by role or name (they drive it, when they drive it at
+all, through the picker seams), so nothing failed. Fixed by giving the
+button a real label, `chatOpenAttachMenu` ("Add attachment"), in both
+states — the same `tooltip:` mechanism the existing code comment already
+explains is required for a screen reader to see it on web at all.
+
+**Every attachment upload silently failed in a browser.**
+`ChatAttachmentTransfer.upload` set `Headers.contentLengthHeader` explicitly
+on every PUT, on every platform, because a `Stream` body has no
+otherwise-knowable length. On web, `dio_web_adapter` sends requests through
+the Fetch API, and `Content-Length` is on [the Fetch spec's forbidden
+header list](https://fetch.spec.whatwg.org/#forbidden-request-header) —
+setting it throws before the request leaves the page. The failure crossed
+two silences at once: dio wraps it as a `DioException` with no `response`,
+which `classifyAuthError`-style code (here, the attachment sender's own
+error handling) can only report as a generic "upload failed", and
+`ApiClient`'s own error logging goes through `Logger()`, whose default
+filter drops everything below debug builds — so a release build, which is
+what a web bundle always is, printed nothing at all. No widget test could
+have caught this: `ChatAttachmentSender` is always exercised through a
+`FakeChatAttachmentTransfer` there, which never touches `dio_web_adapter`
+or the Fetch API's header restrictions. It took a real browser sending a
+real request to see it fail with no explanation. Fixed by omitting the
+header on web (`kIsWeb`) and letting the browser compute it from the body,
+keeping it on native platforms where it's still required.
+
+**The local dev store's own signature never matched.** This is the same
+shape of bug §1 opens with — code that had never run. `LocalDiskChatAttachmentStore`
+exists specifically so a developer or this Playwright suite can exercise a
+real upload/download round trip without an R2 account (§7's two-tier store
+made this possible in the first place). Its presigned URL embeds the object
+key with `Uri.EscapeDataString`, turning the key's internal `/` into `%2F`
+— and ASP.NET Core's `{*objectKey}` catch-all route parameter does not
+decode a `%2F` back into `/` when binding it, by design, so an encoded
+slash inside one path segment can never be mistaken for a literal separator
+during routing. `Sign()` HMACs the raw key; `ValidateToken` was given the
+still-encoded one. Every signature check failed, silently, as a plain 403 —
+correct behavior for a tampered or forged URL, wrong diagnosis for a key
+nobody tampered with. `FitTracker.Api.Tests` never catches this class of
+bug for the same reason `EnsureCreated()` misses a migration drift (§5):
+building the model in memory and calling a service method directly skips
+routing entirely, so a value that round-trips cleanly in a unit test never
+passes through the URL encode/decode step that broke it. Fixed by decoding
+the bound route value back to the raw key — `Uri.UnescapeDataString` —
+before validating or touching the filesystem, in both `PutLocal` and
+`GetLocal`.
+
+**The general shape.** All three bugs lived at a boundary this feature's
+own test suite structurally cannot cross: real ARIA semantics in a real
+DOM, a real browser's Fetch implementation, and real ASP.NET Core routing.
+Every fake and seam built for this feature (§B.2's `AttachmentCrypto`,
+`FakeChatAttachmentTransfer`, `InMemoryChatAttachmentStore`) is correct and
+was built for good reasons — but a fake, by construction, cannot fail the
+way the real thing fails at an integration boundary it was built to skip
+past. None of these three would have been caught by *more* unit tests
+without first suspecting they existed; they were only found by actually
+running the feature.
+
+- **Size-bucket padding** for the ciphertext-size leak (§10) — not built.
+- **Poster-frame capture** at pick time for video (§11) — not built.
 - **Test coverage for `chat_push_decoder.dart`** — it has none, before or
   after this feature; `ChatKeyStore` and `WebCryptoChatCrypto` are
   constructed directly inside `decodeChatPush` rather than through an
   injectable seam, and building fake infrastructure for that was judged
   disproportionate to the manifest-decoding change itself.
-- **A Playwright pass over the built web bundle** driving real file
-  uploads, per `docs/e2e-playwright.md`'s constraints (the accessibility
-  tree is the only thing a canvas-painted Flutter web app exposes to a
-  test) — planned as its own verification phase, not yet run.
