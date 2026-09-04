@@ -2426,6 +2426,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get chatAttachmentsUnavailable => 'Anhänge sind noch nicht verfügbar';
 
   @override
+  String get chatOpenAttachMenu => 'Anhang hinzufügen';
+
+  @override
   String get chatAttachPhoto => 'Foto';
 
   @override

@@ -1378,6 +1378,7 @@
   "chatSendFailed": "Nachricht nicht gesendet. Prüfe deine Verbindung und versuche es erneut.",
   "chatDismiss": "Schließen",
   "chatAttachmentsUnavailable": "Anhänge sind noch nicht verfügbar",
+  "chatOpenAttachMenu": "Anhang hinzufügen",
   "chatAttachPhoto": "Foto",
   "chatAttachCamera": "Kamera",
   "chatAttachDocument": "Dokument",

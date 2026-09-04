@@ -402,7 +402,10 @@ class _ChatComposerState extends State<ChatComposer> {
             // merge its label into the child's semantics node on web, so a
             // screen reader saw a nameless button here.
             IconButton(
-              tooltip: attachEnabled ? null : l10n.chatAttachmentsUnavailable,
+              tooltip:
+                  attachEnabled
+                      ? l10n.chatOpenAttachMenu
+                      : l10n.chatAttachmentsUnavailable,
               onPressed: attachEnabled ? _openAttachMenu : null,
               icon:
                   _preparing

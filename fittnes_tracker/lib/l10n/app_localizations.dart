@@ -4412,6 +4412,12 @@ abstract class AppLocalizations {
   /// **'Attachments are not available yet'**
   String get chatAttachmentsUnavailable;
 
+  /// No description provided for @chatOpenAttachMenu.
+  ///
+  /// In en, this message translates to:
+  /// **'Add attachment'**
+  String get chatOpenAttachMenu;
+
   /// No description provided for @chatAttachPhoto.
   ///
   /// In en, this message translates to:

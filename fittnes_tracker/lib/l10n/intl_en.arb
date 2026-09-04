@@ -1410,6 +1410,8 @@
   "@chatDismiss": {},
   "chatAttachmentsUnavailable": "Attachments are not available yet",
   "@chatAttachmentsUnavailable": {},
+  "chatOpenAttachMenu": "Add attachment",
+  "@chatOpenAttachMenu": {},
   "chatAttachPhoto": "Photo",
   "@chatAttachPhoto": {},
   "chatAttachCamera": "Camera",
