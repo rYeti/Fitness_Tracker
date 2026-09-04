@@ -21,15 +21,18 @@ class ChatAttachmentTransfer {
   final Dio _dio;
 
   ChatAttachmentTransfer({Dio? dio})
-    : _dio = dio ??
-          Dio(BaseOptions(
-            // 16 MB (the video cap) can genuinely take a while on a poor
-            // connection; the shared ApiClient's 15s receive timeout is
-            // tuned for ordinary JSON responses and is far too short here.
-            connectTimeout: const Duration(seconds: 15),
-            sendTimeout: const Duration(minutes: 5),
-            receiveTimeout: const Duration(minutes: 5),
-          ));
+    : _dio =
+          dio ??
+          Dio(
+            BaseOptions(
+              // 16 MB (the video cap) can genuinely take a while on a poor
+              // connection; the shared ApiClient's 15s receive timeout is
+              // tuned for ordinary JSON responses and is far too short here.
+              connectTimeout: const Duration(seconds: 15),
+              sendTimeout: const Duration(minutes: 5),
+              receiveTimeout: const Duration(minutes: 5),
+            ),
+          );
 
   Future<void> upload(
     Uri url,

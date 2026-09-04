@@ -32,9 +32,10 @@ class ConversationRow extends StatelessWidget {
       label: _semanticsLabel(context),
       excludeSemantics: true,
       child: Material(
-        color: selected
-            ? ForgeColors.forgeOrange.withValues(alpha: 0.08)
-            : Colors.transparent,
+        color:
+            selected
+                ? ForgeColors.forgeOrange.withValues(alpha: 0.08)
+                : Colors.transparent,
         child: InkWell(
           onTap: onTap,
           child: Container(
@@ -43,7 +44,8 @@ class ConversationRow extends StatelessWidget {
             decoration: BoxDecoration(
               border: Border(
                 left: BorderSide(
-                  color: selected ? ForgeColors.forgeOrange : Colors.transparent,
+                  color:
+                      selected ? ForgeColors.forgeOrange : Colors.transparent,
                   width: 3,
                 ),
               ),
@@ -134,9 +136,8 @@ class ConversationRow extends StatelessWidget {
   }
 
   String _semanticsLabel(BuildContext context) {
-    final unread = conversation.hasUnread
-        ? ', ${conversation.unreadCount} unread'
-        : '';
+    final unread =
+        conversation.hasUnread ? ', ${conversation.unreadCount} unread' : '';
     // Reads out whatever the row draws, including the unreadable fallback: a
     // screen reader user must not be told a conversation is empty when the
     // sighted one beside them can see it is not.

@@ -2471,6 +2471,36 @@ class AppLocalizationsDe extends AppLocalizations {
   String get chatAttachmentOpen => 'Öffnen';
 
   @override
+  String get chatVoiceNoteLabel => 'Sprachnachricht';
+
+  @override
+  String get chatAudioLabel => 'Audio';
+
+  @override
+  String get chatAttachmentPlay => 'Abspielen';
+
+  @override
+  String get chatAttachmentPause => 'Pause';
+
+  @override
+  String get chatAttachVoiceNote => 'Sprachnachricht';
+
+  @override
+  String get chatAttachAudio => 'Audiodatei';
+
+  @override
+  String get chatRecording => 'Aufnahme läuft';
+
+  @override
+  String get chatRecordingCancel => 'Aufnahme abbrechen';
+
+  @override
+  String get chatMicUnavailable => 'Mikrofonzugriff wurde verweigert';
+
+  @override
+  String get chatSendVoiceNote => 'Sprachnachricht senden';
+
+  @override
   String get chatUnavailable => 'Nachrichten nicht verfügbar';
 
   @override

@@ -10,6 +10,7 @@ import 'package:ForgeForm/feature/chat/data/chat_attachment_sender.dart';
 import 'package:ForgeForm/feature/chat/data/chat_key_api.dart';
 import 'package:ForgeForm/feature/chat/data/chat_key_vault.dart';
 import 'package:ForgeForm/feature/chat/data/chat_signalr_client.dart';
+import 'package:ForgeForm/feature/chat/data/voice_recorder.dart';
 import 'package:ForgeForm/feature/chat/domain/attachment_crypto.dart';
 import 'package:ForgeForm/feature/chat/domain/chat_crypto.dart';
 import 'package:ForgeForm/feature/chat/domain/models/chat_attachment_ref.dart';
@@ -241,7 +242,8 @@ class FakeChatApi implements ChatApi {
   }
 
   @override
-  Future<void> markRead(String otherPartyId) async => markedRead.add(otherPartyId);
+  Future<void> markRead(String otherPartyId) async =>
+      markedRead.add(otherPartyId);
 }
 
 /// One server-side message in the JSON shape `ChatMessageDto` serialises to.
@@ -400,7 +402,11 @@ class FakeAttachmentCrypto implements AttachmentCrypto {
   }
 
   @override
-  Future<Uint8List?> open(Uint8List ciphertext, {required Uint8List key, required Uint8List iv}) async {
+  Future<Uint8List?> open(
+    Uint8List ciphertext, {
+    required Uint8List key,
+    required Uint8List iv,
+  }) async {
     if (failOpen) return null;
     return _xor(ciphertext);
   }
@@ -463,7 +469,11 @@ class FakeChatAttachmentSender implements ChatAttachmentSender {
     );
     final localPath = 'fake:///$id';
     localFiles[localPath] = ciphertext;
-    return SealedAttachmentResult(ref: ref, ciphertext: ciphertext, localPath: localPath);
+    return SealedAttachmentResult(
+      ref: ref,
+      ciphertext: ciphertext,
+      localPath: localPath,
+    );
   }
 
   @override
@@ -483,10 +493,12 @@ class FakeChatAttachmentSender implements ChatAttachmentSender {
   }
 
   @override
-  Future<Uint8List?> readSealedBytes(String localPath) async => localFiles[localPath];
+  Future<Uint8List?> readSealedBytes(String localPath) async =>
+      localFiles[localPath];
 
   @override
-  Future<void> deleteSealedBytes(String localPath) async => localFiles.remove(localPath);
+  Future<void> deleteSealedBytes(String localPath) async =>
+      localFiles.remove(localPath);
 }
 
 /// A [ChatKeyVault] backed by a plain map, so key-lifecycle tests do not need a
@@ -548,4 +560,53 @@ class FakeChatKeyApi implements ChatKeyApi {
     fetchPeerCalls++;
     return published[otherPartyId];
   }
+}
+
+/// Stands in for [VoiceRecorder] — records nothing real, so composer tests
+/// never touch a microphone or a platform channel.
+class FakeVoiceRecorder implements VoiceRecorder {
+  /// When false, [start] reports permission denied, like a real device whose
+  /// user refused the mic prompt.
+  bool permissionGranted = true;
+
+  /// Fed to the [VoiceRecording] a subsequent [stop] returns.
+  int nextDurationSeconds = 3;
+
+  bool _recording = false;
+  int stopCalls = 0;
+  int cancelCalls = 0;
+
+  @override
+  bool get isRecording => _recording;
+
+  @override
+  int get elapsedSeconds => _recording ? nextDurationSeconds : 0;
+
+  @override
+  Future<bool> start() async {
+    if (!permissionGranted) return false;
+    _recording = true;
+    return true;
+  }
+
+  @override
+  Future<VoiceRecording?> stop() async {
+    stopCalls++;
+    if (!_recording) return null;
+    _recording = false;
+    if (nextDurationSeconds < 1) return null;
+    return VoiceRecording(
+      path: 'fake:///voice-note.m4a',
+      durationSeconds: nextDurationSeconds,
+    );
+  }
+
+  @override
+  Future<void> cancel() async {
+    cancelCalls++;
+    _recording = false;
+  }
+
+  @override
+  Future<void> dispose() async {}
 }

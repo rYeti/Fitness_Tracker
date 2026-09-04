@@ -42,7 +42,9 @@ class ChatAttachmentApi {
   }
 
   Future<Map<String, dynamic>> mintDownload(String attachmentId) async {
-    final response = await _client.get('api/chat/attachments/$attachmentId/url');
+    final response = await _client.get(
+      'api/chat/attachments/$attachmentId/url',
+    );
     return response.data as Map<String, dynamic>;
   }
 }

@@ -1,8 +1,13 @@
+import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
 
 import 'package:ForgeForm/core/providers/enums.dart';
+import 'package:ForgeForm/feature/chat/data/chat_attachment_file.dart';
 import 'package:ForgeForm/feature/chat/domain/models/chat_attachment_ref.dart';
 import 'package:ForgeForm/feature/chat/domain/models/thread_message.dart';
 import 'package:ForgeForm/feature/chat/presentation/providers/chat_attachment_provider.dart';
@@ -27,9 +32,11 @@ String kindLabel(AppLocalizations l10n, MediaType kind) {
       return l10n.chatPhotoLabel;
     case MediaType.document:
       return l10n.chatDocumentLabel;
-    case MediaType.video:
     case MediaType.audio:
+      return l10n.chatAudioLabel;
     case MediaType.voiceNote:
+      return l10n.chatVoiceNoteLabel;
+    case MediaType.video:
       return l10n.chatUnsupportedAttachment;
   }
 }
@@ -68,14 +75,19 @@ String attachmentSemanticsValue(
   final kind = kindLabel(l10n, ref.kind);
   final phaseText = _phaseLabel(l10n, phase);
   if (phaseText.isEmpty) {
-    return ref.kind == MediaType.document ? '$kind, ${ref.name}' : kind;
+    if (ref.kind == MediaType.document) return '$kind, ${ref.name}';
+    if ((ref.kind == MediaType.audio || ref.kind == MediaType.voiceNote) &&
+        ref.durationSeconds != null) {
+      return '$kind, ${ref.durationSeconds} ${ref.durationSeconds == 1 ? 'second' : 'seconds'}';
+    }
+    return kind;
   }
   return '$kind, $phaseText';
 }
 
-/// Renders one attachment inside a [ChatBubble] — photo and document only in
-/// this phase; video, audio and voice notes render an honest placeholder
-/// rather than a half-built player. See docs/chat-attachments.md §C.5.
+/// Renders one attachment inside a [ChatBubble] — photo, document, audio
+/// file and voice note; video renders an honest placeholder rather than a
+/// half-built player (phase 6). See docs/chat-attachments.md §C.5.
 class ChatAttachmentContent extends StatelessWidget {
   final ThreadMessage message;
   final ChatAttachmentRef ref;
@@ -106,9 +118,16 @@ class ChatAttachmentContent extends StatelessWidget {
           textColor: textColor,
           onTap: onTap,
         );
-      case MediaType.video:
       case MediaType.audio:
       case MediaType.voiceNote:
+        return _AudioTile(
+          ref: ref,
+          phase: phase,
+          bytes: bytes,
+          textColor: textColor,
+          onTap: onTap,
+        );
+      case MediaType.video:
         return _UnsupportedTile(ref: ref, textColor: textColor);
     }
   }
@@ -264,9 +283,169 @@ class _DocumentTile extends StatelessWidget {
   }
 }
 
-/// Video, audio and voice notes — an honest placeholder rather than a
-/// half-built player. See docs/chat-attachments.md §0.3/§C.1: those kinds are
-/// later phases (5 and 6), not stubbed playback here.
+/// Audio files and voice notes — a play/pause pill with a duration readout.
+/// `audioplayers.BytesSource` is unsupported on desktop, so this writes the
+/// decrypted bytes to a temp file on every platform but web and plays from
+/// there; web plays the bytes directly. See docs/chat-attachments.md §C.1.
+class _AudioTile extends StatefulWidget {
+  final ChatAttachmentRef ref;
+  final AttachmentPhase phase;
+  final Uint8List? bytes;
+  final Color textColor;
+  final VoidCallback? onTap;
+
+  const _AudioTile({
+    required this.ref,
+    required this.phase,
+    required this.bytes,
+    required this.textColor,
+    this.onTap,
+  });
+
+  @override
+  State<_AudioTile> createState() => _AudioTileState();
+}
+
+class _AudioTileState extends State<_AudioTile> {
+  final _player = AudioPlayer();
+  bool _playing = false;
+  String? _tempPath;
+  late final StreamSubscription<void> _completeSub;
+  late final StreamSubscription<PlayerState> _stateSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _completeSub = _player.onPlayerComplete.listen((_) {
+      if (mounted) setState(() => _playing = false);
+    });
+    _stateSub = _player.onPlayerStateChanged.listen((state) {
+      if (mounted) setState(() => _playing = state == PlayerState.playing);
+    });
+  }
+
+  @override
+  void dispose() {
+    _completeSub.cancel();
+    _stateSub.cancel();
+    _player.dispose();
+    if (_tempPath != null) {
+      // Best-effort cleanup; a leftover temp file costs nothing the OS
+      // doesn't already reclaim, so a failure here is not worth surfacing.
+      deleteAttachmentFile(_tempPath!).catchError((_) {});
+    }
+    super.dispose();
+  }
+
+  Future<void> _toggle() async {
+    final bytes = widget.bytes;
+    if (bytes == null) return;
+
+    if (_playing) {
+      await _player.pause();
+      return;
+    }
+
+    if (kIsWeb) {
+      await _player.play(BytesSource(bytes));
+      return;
+    }
+
+    var path = _tempPath;
+    if (path == null) {
+      final dir = await getTemporaryDirectory();
+      path = '${dir.path}/chat_audio_${widget.ref.id}.bin';
+      await writeAttachmentBytes(path, bytes);
+      _tempPath = path;
+    }
+    await _player.play(DeviceFileSource(path));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final canPlay =
+        widget.phase == AttachmentPhase.stored && widget.bytes != null;
+    final duration = widget.ref.durationSeconds;
+    final durationText =
+        duration == null
+            ? null
+            : '${(duration ~/ 60).toString().padLeft(1, '0')}:${(duration % 60).toString().padLeft(2, '0')}';
+
+    final subtitle = switch (widget.phase) {
+      AttachmentPhase.downloading => l10n.chatAttachmentDownloading,
+      AttachmentPhase.downloadFailed => l10n.chatAttachmentDownloadFailed,
+      AttachmentPhase.uploading => l10n.chatAttachmentUploading,
+      AttachmentPhase.uploadFailed => l10n.chatAttachmentUploadFailed,
+      AttachmentPhase.expired => l10n.chatAttachmentExpired,
+      AttachmentPhase.stored => durationText ?? '',
+      AttachmentPhase.notDownloaded =>
+        durationText ?? l10n.chatAttachmentTapToDownload,
+    };
+
+    return Container(
+      constraints: const BoxConstraints(minHeight: 44),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          InkWell(
+            onTap: canPlay ? _toggle : widget.onTap,
+            customBorder: const CircleBorder(),
+            child: Container(
+              width: 36,
+              height: 36,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: widget.textColor.withValues(alpha: 0.15),
+              ),
+              child:
+                  canPlay
+                      ? Icon(
+                        _playing
+                            ? Icons.pause_rounded
+                            : Icons.play_arrow_rounded,
+                        color: widget.textColor,
+                        size: 20,
+                      )
+                      : widget.phase == AttachmentPhase.downloading ||
+                          widget.phase == AttachmentPhase.uploading
+                      ? SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: widget.textColor,
+                        ),
+                      )
+                      : Icon(
+                        Icons.graphic_eq_rounded,
+                        color: widget.textColor,
+                        size: 18,
+                      ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Flexible(
+            child: Text(
+              subtitle,
+              style: TextStyle(
+                fontFamily: 'Exo 2',
+                fontSize: 12,
+                color: widget.textColor.withValues(alpha: 0.85),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Video — an honest placeholder rather than a half-built player. See
+/// docs/chat-attachments.md §0.3/§C.1: this kind is a later phase (6), not
+/// stubbed playback here.
 class _UnsupportedTile extends StatelessWidget {
   final ChatAttachmentRef ref;
   final Color textColor;

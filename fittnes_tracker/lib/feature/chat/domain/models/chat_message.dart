@@ -65,11 +65,12 @@ class ChatMessage {
     // this field at all, for the same reason — but the client stays honest
     // about it independently rather than trusting that.)
     final mediaIndex = json['mediaType'] as int?;
-    final media = mediaIndex != null &&
-            mediaIndex >= 0 &&
-            mediaIndex < MediaType.values.length
-        ? MediaType.values[mediaIndex]
-        : null;
+    final media =
+        mediaIndex != null &&
+                mediaIndex >= 0 &&
+                mediaIndex < MediaType.values.length
+            ? MediaType.values[mediaIndex]
+            : null;
 
     return ChatMessage(
       id: json['id'] as String,
@@ -82,7 +83,8 @@ class ChatMessage {
       // to reach the thread as the year 1 and be drawn as a "01/01/0001" day
       // divider; approximately-now is wrong by seconds instead of by two
       // millennia, and puts the bubble where the reader just watched it arrive.
-      sentAt: ChatTimestamps.parseInstant(json['sentAt']) ?? DateTime.now().toUtc(),
+      sentAt:
+          ChatTimestamps.parseInstant(json['sentAt']) ?? DateTime.now().toUtc(),
       body: json['body'] as String?,
       iv: json['iv'] as String?,
       // Defaulted rather than required. A payload with no version is one the

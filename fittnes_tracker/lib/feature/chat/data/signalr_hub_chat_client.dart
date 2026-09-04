@@ -33,7 +33,8 @@ class SignalRHubChatClient implements ChatSignalRClient {
   final _reconnected = StreamController<void>.broadcast();
   final _status = StreamController<ChatConnectionStatus>.broadcast();
 
-  SignalRHubChatClient({String? baseUrl}) : baseUrl = baseUrl ?? serverUrlDefault;
+  SignalRHubChatClient({String? baseUrl})
+    : baseUrl = baseUrl ?? serverUrlDefault;
 
   /// `Program.cs` lifts the JWT off `?access_token=` for `/hubs/chat` because a
   /// browser WebSocket handshake cannot carry an Authorization header. The
@@ -55,18 +56,20 @@ class SignalRHubChatClient implements ChatSignalRClient {
     // own: clearing the field from inside that method's `finally` would run
     // before `??=` had stored it if it ever threw ahead of its first await,
     // leaving a permanently-failed future cached in its place.
-    return _connecting ??=
-        _openConnection().whenComplete(() => _connecting = null);
+    return _connecting ??= _openConnection().whenComplete(
+      () => _connecting = null,
+    );
   }
 
   Future<void> _openConnection() async {
-    final connection = HubConnectionBuilder()
-        .withUrl(
-          '${baseUrl.endsWith('/') ? baseUrl : '$baseUrl/'}hubs/chat',
-          options: HttpConnectionOptions(accessTokenFactory: _accessToken),
-        )
-        .withAutomaticReconnect()
-        .build();
+    final connection =
+        HubConnectionBuilder()
+            .withUrl(
+              '${baseUrl.endsWith('/') ? baseUrl : '$baseUrl/'}hubs/chat',
+              options: HttpConnectionOptions(accessTokenFactory: _accessToken),
+            )
+            .withAutomaticReconnect()
+            .build();
 
     connection.on('ReceiveMessage', _onReceiveMessage);
 
@@ -141,7 +144,14 @@ class SignalRHubChatClient implements ChatSignalRClient {
     // this client always knows, so it always uses the current RPC.
     final ack = await (await _ready()).invoke(
       'SendMessageV2',
-      args: [otherPartyId, body, messageId, iv, encryptionVersion, attachmentIds],
+      args: [
+        otherPartyId,
+        body,
+        messageId,
+        iv,
+        encryptionVersion,
+        attachmentIds,
+      ],
     );
 
     if (ack == null) {

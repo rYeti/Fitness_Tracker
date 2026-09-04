@@ -13,7 +13,11 @@ class SealedAttachment {
   /// The 12-byte IV.
   final Uint8List iv;
 
-  const SealedAttachment({required this.ciphertext, required this.key, required this.iv});
+  const SealedAttachment({
+    required this.ciphertext,
+    required this.key,
+    required this.iv,
+  });
 }
 
 /// Encrypts and decrypts attachment bytes — separate from [ChatCrypto], and
@@ -44,5 +48,9 @@ abstract class AttachmentCrypto {
   /// can offer to retry. A missing key or absent ciphertext is the caller's
   /// problem to check before calling this at all; this method assumes both
   /// are present and well-formed apart from their content.
-  Future<Uint8List?> open(Uint8List ciphertext, {required Uint8List key, required Uint8List iv});
+  Future<Uint8List?> open(
+    Uint8List ciphertext, {
+    required Uint8List key,
+    required Uint8List iv,
+  });
 }

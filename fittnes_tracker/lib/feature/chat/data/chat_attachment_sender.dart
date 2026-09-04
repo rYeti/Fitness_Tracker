@@ -23,7 +23,11 @@ class SealedAttachmentResult {
   final Uint8List ciphertext;
   final String? localPath;
 
-  const SealedAttachmentResult({required this.ref, required this.ciphertext, this.localPath});
+  const SealedAttachmentResult({
+    required this.ref,
+    required this.ciphertext,
+    this.localPath,
+  });
 }
 
 /// Prepares an attachment for sending and drives its upload.
@@ -84,7 +88,11 @@ class ChatAttachmentSender {
     );
 
     final localPath = await _writeToTempFile(id, sealed.ciphertext);
-    return SealedAttachmentResult(ref: ref, ciphertext: sealed.ciphertext, localPath: localPath);
+    return SealedAttachmentResult(
+      ref: ref,
+      ciphertext: sealed.ciphertext,
+      localPath: localPath,
+    );
   }
 
   /// Mints a presigned URL for [ref] against the thread with [otherPartyId]
@@ -110,9 +118,11 @@ class ChatAttachmentSender {
   /// Re-reads a previously-sealed attachment's ciphertext from its temp file
   /// — the resume path after an app restart. Null on web (nothing was ever
   /// written) or if the file has since been cleaned up.
-  Future<Uint8List?> readSealedBytes(String localPath) => readAttachmentBytes(localPath);
+  Future<Uint8List?> readSealedBytes(String localPath) =>
+      readAttachmentBytes(localPath);
 
-  Future<void> deleteSealedBytes(String localPath) => deleteAttachmentFile(localPath);
+  Future<void> deleteSealedBytes(String localPath) =>
+      deleteAttachmentFile(localPath);
 
   Future<String?> _writeToTempFile(String id, Uint8List bytes) async {
     if (kIsWeb) return null;

@@ -4496,6 +4496,66 @@ abstract class AppLocalizations {
   /// **'Open'**
   String get chatAttachmentOpen;
 
+  /// No description provided for @chatVoiceNoteLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Voice message'**
+  String get chatVoiceNoteLabel;
+
+  /// No description provided for @chatAudioLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio'**
+  String get chatAudioLabel;
+
+  /// No description provided for @chatAttachmentPlay.
+  ///
+  /// In en, this message translates to:
+  /// **'Play'**
+  String get chatAttachmentPlay;
+
+  /// No description provided for @chatAttachmentPause.
+  ///
+  /// In en, this message translates to:
+  /// **'Pause'**
+  String get chatAttachmentPause;
+
+  /// No description provided for @chatAttachVoiceNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Voice note'**
+  String get chatAttachVoiceNote;
+
+  /// No description provided for @chatAttachAudio.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio file'**
+  String get chatAttachAudio;
+
+  /// No description provided for @chatRecording.
+  ///
+  /// In en, this message translates to:
+  /// **'Recording'**
+  String get chatRecording;
+
+  /// No description provided for @chatRecordingCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel recording'**
+  String get chatRecordingCancel;
+
+  /// No description provided for @chatMicUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Microphone access was denied'**
+  String get chatMicUnavailable;
+
+  /// No description provided for @chatSendVoiceNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Send voice note'**
+  String get chatSendVoiceNote;
+
   /// No description provided for @chatUnavailable.
   ///
   /// In en, this message translates to:

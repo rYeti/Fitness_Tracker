@@ -55,7 +55,10 @@ class ChatBodyCodec {
 
   /// Builds the plaintext to hand to [ChatCrypto.encrypt]. Returns
   /// [caption] unchanged when there are no attachments.
-  static String encode({String? caption, List<ChatAttachmentRef> attachments = const []}) {
+  static String encode({
+    String? caption,
+    List<ChatAttachmentRef> attachments = const [],
+  }) {
     if (attachments.isEmpty) return caption ?? '';
 
     return jsonEncode({
@@ -106,7 +109,10 @@ class ChatBodyCodec {
         return ChatBody(caption: json['note'] as String? ?? plaintext);
       }
 
-      return ChatBody(caption: json['caption'] as String?, attachments: attachments);
+      return ChatBody(
+        caption: json['caption'] as String?,
+        attachments: attachments,
+      );
     } catch (_) {
       // Not valid JSON after all, or some other structural surprise. Falls
       // back to rendering the raw string — which, if this really was a

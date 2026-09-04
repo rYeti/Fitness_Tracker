@@ -124,11 +124,12 @@ class ChatAttachmentRef {
   static ChatAttachmentRef? tryFromJson(Map<String, dynamic> json) {
     try {
       final kindIndex = json['kind'] as int?;
-      final kind = kindIndex != null &&
-              kindIndex >= 0 &&
-              kindIndex < MediaType.values.length
-          ? MediaType.values[kindIndex]
-          : MediaType.document;
+      final kind =
+          kindIndex != null &&
+                  kindIndex >= 0 &&
+                  kindIndex < MediaType.values.length
+              ? MediaType.values[kindIndex]
+              : MediaType.document;
 
       final thumbJson = json['thumb'] as Map<String, dynamic>?;
 
@@ -145,7 +146,10 @@ class ChatAttachmentRef {
         height: json['h'] as int?,
         avgColor: json['avg'] as String?,
         durationSeconds: json['dur'] as int?,
-        thumb: thumbJson == null ? null : ChatAttachmentThumbRef.fromJson(thumbJson),
+        thumb:
+            thumbJson == null
+                ? null
+                : ChatAttachmentThumbRef.fromJson(thumbJson),
       );
     } catch (_) {
       // Missing a required field, a wrong type — anything at all. One bad

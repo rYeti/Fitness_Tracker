@@ -79,15 +79,20 @@ class ThreadMessage {
   /// id in the trainee app. A thread has exactly two parties, so "the sender
   /// isn't them" is the same as "the sender is me" — and unlike comparing against
   /// a stored user id, it works on a client that has never been told its own.
-  factory ThreadMessage.fromChatMessage(ChatMessage message, {required String otherPartyId}) {
+  factory ThreadMessage.fromChatMessage(
+    ChatMessage message, {
+    required String otherPartyId,
+  }) {
     // An undecryptable message has no plaintext to run the codec over — its
     // body is the ciphertext, and decoding that would be meaningless at best
     // and a crash at worst. isUndecryptable already tells the bubble what to
     // render; there is nothing here to add.
-    final decoded = message.isUndecryptable
-        ? const ChatBody()
-        : ChatBodyCodec.decode(message.body);
-    final attachment = decoded.attachments.isEmpty ? null : decoded.attachments.first;
+    final decoded =
+        message.isUndecryptable
+            ? const ChatBody()
+            : ChatBodyCodec.decode(message.body);
+    final attachment =
+        decoded.attachments.isEmpty ? null : decoded.attachments.first;
 
     return ThreadMessage(
       messageId: message.id,
@@ -100,9 +105,10 @@ class ThreadMessage {
       url: message.url,
       thumbnailUrl: message.thumbnailUrl,
       attachment: attachment,
-      uploadStatus: attachment == null
-          ? AttachmentUploadStatus.none
-          : AttachmentUploadStatus.uploaded,
+      uploadStatus:
+          attachment == null
+              ? AttachmentUploadStatus.none
+              : AttachmentUploadStatus.uploaded,
     );
   }
 

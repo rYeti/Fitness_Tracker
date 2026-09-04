@@ -34,7 +34,11 @@ class WebCryptoAttachmentCrypto implements AttachmentCrypto {
   }
 
   @override
-  Future<Uint8List?> open(Uint8List ciphertext, {required Uint8List key, required Uint8List iv}) async {
+  Future<Uint8List?> open(
+    Uint8List ciphertext, {
+    required Uint8List key,
+    required Uint8List iv,
+  }) async {
     try {
       final secretKey = await AesGcmSecretKey.importRawKey(key);
       final plaintext = await secretKey.decryptBytes(ciphertext, iv);

@@ -255,6 +255,9 @@ void main() {
       );
 
       await tester.enterText(find.byType(TextField), 'great set today');
+      // The trailing button swaps from a voice-note mic to send once the
+      // field has text — enterText doesn't itself pump that rebuild through.
+      await tester.pump();
       await tester.tap(find.byTooltip('Send message'));
       await tester.pumpAndSettle();
 

@@ -186,18 +186,26 @@ class ChatRepository {
   Future<void> resumeAttachmentUploads() async {
     final stuck = await _db.chatoutboxDao.getUploadingMessages();
     for (final row in stuck) {
-      final attachment = ChatAttachmentRef.tryFromJsonString(row.attachmentManifest);
+      final attachment = ChatAttachmentRef.tryFromJsonString(
+        row.attachmentManifest,
+      );
       final localPath = row.attachmentLocalPath;
 
       if (attachment == null || localPath == null) {
-        await _db.chatoutboxDao.markUploadStatus(row.messageId, AttachmentUploadStatus.failed);
+        await _db.chatoutboxDao.markUploadStatus(
+          row.messageId,
+          AttachmentUploadStatus.failed,
+        );
         continue;
       }
 
       try {
         final bytes = await _attachmentSender.readSealedBytes(localPath);
         if (bytes == null) {
-          await _db.chatoutboxDao.markUploadStatus(row.messageId, AttachmentUploadStatus.failed);
+          await _db.chatoutboxDao.markUploadStatus(
+            row.messageId,
+            AttachmentUploadStatus.failed,
+          );
           continue;
         }
 
@@ -206,19 +214,24 @@ class ChatRepository {
           ref: attachment,
           ciphertext: bytes,
         );
-        await _db.chatoutboxDao.markUploadStatus(row.messageId, AttachmentUploadStatus.uploaded);
+        await _db.chatoutboxDao.markUploadStatus(
+          row.messageId,
+          AttachmentUploadStatus.uploaded,
+        );
 
         // The upload succeeded but the wire send never got a chance to run
         // (that's exactly what "stuck at uploading" means) — pick up where
         // sendMessage would have continued.
         if (row.chatMessageStatus != ChatMessageStatus.sent.index) {
-          unawaited(_attemptSend(
-            messageId: row.messageId,
-            otherPartyId: row.otherPartyId,
-            body: row.body,
-            createdAt: row.createdAt,
-            attachment: attachment,
-          ));
+          unawaited(
+            _attemptSend(
+              messageId: row.messageId,
+              otherPartyId: row.otherPartyId,
+              body: row.body,
+              createdAt: row.createdAt,
+              attachment: attachment,
+            ),
+          );
         }
       } catch (_) {
         // Left at `uploading` rather than marked `failed`: the next
@@ -230,7 +243,8 @@ class ChatRepository {
 
   String? get activeThreadId => _activeThreadId;
 
-  Stream<ChatConnectionStatus> get connectionStatus => _signalR.connectionStatus;
+  Stream<ChatConnectionStatus> get connectionStatus =>
+      _signalR.connectionStatus;
 
   // ── Thread lifecycle ──────────────────────────────────────────────────────
 
@@ -322,8 +336,9 @@ class ChatRepository {
       byId.putIfAbsent(row.messageId, () => ThreadMessage.fromOutbox(row));
     }
 
-    final messages = byId.values.toList()
-      ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+    final messages =
+        byId.values.toList()
+          ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
 
     _knownIds
       ..clear()
@@ -370,15 +385,17 @@ class ChatRepository {
         body: body,
         createdAt: createdAt,
         chatMessageStatus: Value(ChatMessageStatus.pending.index),
-        attachmentManifest: ref == null
-            ? const Value.absent()
-            : Value(ref.toJsonString()),
-        attachmentLocalPath: attachment?.localPath == null
-            ? const Value.absent()
-            : Value(attachment!.localPath!),
-        uploadStatus: Value(ref == null
-            ? AttachmentUploadStatus.none.index
-            : AttachmentUploadStatus.uploading.index),
+        attachmentManifest:
+            ref == null ? const Value.absent() : Value(ref.toJsonString()),
+        attachmentLocalPath:
+            attachment?.localPath == null
+                ? const Value.absent()
+                : Value(attachment!.localPath!),
+        uploadStatus: Value(
+          ref == null
+              ? AttachmentUploadStatus.none.index
+              : AttachmentUploadStatus.uploading.index,
+        ),
       ),
     );
 
@@ -386,17 +403,20 @@ class ChatRepository {
     // back to us, is recognised as our own and dropped.
     _knownIds.add(messageId);
 
-    onQueued?.call(ThreadMessage(
-      messageId: messageId,
-      body: body,
-      timestamp: createdAt,
-      isMine: true,
-      status: ChatMessageStatus.pending,
-      attachment: ref,
-      uploadStatus: ref == null
-          ? AttachmentUploadStatus.none
-          : AttachmentUploadStatus.uploading,
-    ));
+    onQueued?.call(
+      ThreadMessage(
+        messageId: messageId,
+        body: body,
+        timestamp: createdAt,
+        isMine: true,
+        status: ChatMessageStatus.pending,
+        attachment: ref,
+        uploadStatus:
+            ref == null
+                ? AttachmentUploadStatus.none
+                : AttachmentUploadStatus.uploading,
+      ),
+    );
 
     if (attachment != null) {
       try {
@@ -405,13 +425,19 @@ class ChatRepository {
           ref: attachment.ref,
           ciphertext: attachment.ciphertext,
         );
-        await _db.chatoutboxDao.markUploadStatus(messageId, AttachmentUploadStatus.uploaded);
+        await _db.chatoutboxDao.markUploadStatus(
+          messageId,
+          AttachmentUploadStatus.uploaded,
+        );
       } catch (_) {
         // The message stays `pending` — nothing was ever attempted on the
         // wire, because SendMessageV2's commit step needs the attachment to
         // already exist server-side. `resumeAttachmentUploads` and a manual
         // retry are the two ways this moves forward from here.
-        await _db.chatoutboxDao.markUploadStatus(messageId, AttachmentUploadStatus.failed);
+        await _db.chatoutboxDao.markUploadStatus(
+          messageId,
+          AttachmentUploadStatus.failed,
+        );
         return ThreadMessage(
           messageId: messageId,
           body: body,
@@ -446,19 +472,27 @@ class ChatRepository {
     final row = await _db.chatoutboxDao.findMessage(messageId);
     if (row == null) return null;
 
-    final attachment = ChatAttachmentRef.tryFromJsonString(row.attachmentManifest);
+    final attachment = ChatAttachmentRef.tryFromJsonString(
+      row.attachmentManifest,
+    );
 
-    if (attachment != null && row.uploadStatus != AttachmentUploadStatus.uploaded.index) {
-      await _db.chatoutboxDao.markUploadStatus(messageId, AttachmentUploadStatus.uploading);
-      onQueued?.call(ThreadMessage(
-        messageId: row.messageId,
-        body: row.body,
-        timestamp: row.createdAt,
-        isMine: true,
-        status: ChatMessageStatus.pending,
-        attachment: attachment,
-        uploadStatus: AttachmentUploadStatus.uploading,
-      ));
+    if (attachment != null &&
+        row.uploadStatus != AttachmentUploadStatus.uploaded.index) {
+      await _db.chatoutboxDao.markUploadStatus(
+        messageId,
+        AttachmentUploadStatus.uploading,
+      );
+      onQueued?.call(
+        ThreadMessage(
+          messageId: row.messageId,
+          body: row.body,
+          timestamp: row.createdAt,
+          isMine: true,
+          status: ChatMessageStatus.pending,
+          attachment: attachment,
+          uploadStatus: AttachmentUploadStatus.uploading,
+        ),
+      );
 
       final reuploaded = await _reuploadFromDisk(row, attachment);
       if (!reuploaded) {
@@ -478,17 +512,20 @@ class ChatRepository {
     _replayAttempts.remove(messageId);
     _knownIds.add(messageId);
 
-    onQueued?.call(ThreadMessage(
-      messageId: row.messageId,
-      body: row.body,
-      timestamp: row.createdAt,
-      isMine: true,
-      status: ChatMessageStatus.pending,
-      attachment: attachment,
-      uploadStatus: attachment == null
-          ? AttachmentUploadStatus.none
-          : AttachmentUploadStatus.uploaded,
-    ));
+    onQueued?.call(
+      ThreadMessage(
+        messageId: row.messageId,
+        body: row.body,
+        timestamp: row.createdAt,
+        isMine: true,
+        status: ChatMessageStatus.pending,
+        attachment: attachment,
+        uploadStatus:
+            attachment == null
+                ? AttachmentUploadStatus.none
+                : AttachmentUploadStatus.uploaded,
+      ),
+    );
 
     return _attemptSend(
       messageId: row.messageId,
@@ -557,9 +594,10 @@ class ChatRepository {
         isMine: true,
         status: ChatMessageStatus.pending,
         attachment: attachment,
-        uploadStatus: attachment == null
-            ? AttachmentUploadStatus.none
-            : AttachmentUploadStatus.uploaded,
+        uploadStatus:
+            attachment == null
+                ? AttachmentUploadStatus.none
+                : AttachmentUploadStatus.uploaded,
       );
     }
   }
@@ -570,16 +608,25 @@ class ChatRepository {
   /// [resumeAttachmentUploads]'s automatic pass, which leaves a row at
   /// `uploading` on failure so the next reconnect tries again silently. A
   /// retry the user tapped on deserves to say so rather than sit mute.
-  Future<bool> _reuploadFromDisk(ChatOutBoxTableData row, ChatAttachmentRef attachment) async {
+  Future<bool> _reuploadFromDisk(
+    ChatOutBoxTableData row,
+    ChatAttachmentRef attachment,
+  ) async {
     final localPath = row.attachmentLocalPath;
     if (localPath == null) {
-      await _db.chatoutboxDao.markUploadStatus(row.messageId, AttachmentUploadStatus.failed);
+      await _db.chatoutboxDao.markUploadStatus(
+        row.messageId,
+        AttachmentUploadStatus.failed,
+      );
       return false;
     }
 
     final bytes = await _attachmentSender.readSealedBytes(localPath);
     if (bytes == null) {
-      await _db.chatoutboxDao.markUploadStatus(row.messageId, AttachmentUploadStatus.failed);
+      await _db.chatoutboxDao.markUploadStatus(
+        row.messageId,
+        AttachmentUploadStatus.failed,
+      );
       return false;
     }
 
@@ -589,10 +636,16 @@ class ChatRepository {
         ref: attachment,
         ciphertext: bytes,
       );
-      await _db.chatoutboxDao.markUploadStatus(row.messageId, AttachmentUploadStatus.uploaded);
+      await _db.chatoutboxDao.markUploadStatus(
+        row.messageId,
+        AttachmentUploadStatus.uploaded,
+      );
       return true;
     } catch (_) {
-      await _db.chatoutboxDao.markUploadStatus(row.messageId, AttachmentUploadStatus.failed);
+      await _db.chatoutboxDao.markUploadStatus(
+        row.messageId,
+        AttachmentUploadStatus.failed,
+      );
       return false;
     }
   }
@@ -608,7 +661,8 @@ class ChatRepository {
   /// at the first error) can't be misread as reason to stop the others — each
   /// gets its own independent attempt.
   Future<void> _replayAllPending() async {
-    final threads = await _db.chatoutboxDao.getOtherPartyIdsWithPendingMessages();
+    final threads =
+        await _db.chatoutboxDao.getOtherPartyIdsWithPendingMessages();
     for (final otherPartyId in threads) {
       await replayPending(otherPartyId);
     }
@@ -632,13 +686,16 @@ class ChatRepository {
     final pending = await _db.chatoutboxDao.getPendingMessages(otherPartyId);
 
     for (final row in pending) {
-      final attachment = ChatAttachmentRef.tryFromJsonString(row.attachmentManifest);
+      final attachment = ChatAttachmentRef.tryFromJsonString(
+        row.attachmentManifest,
+      );
 
       // A message whose attachment hasn't finished uploading was never
       // attempted on the wire in the first place (see sendMessage) — nothing
       // to replay yet. resumeAttachmentUploads owns moving this forward, and
       // calls _attemptSend itself once the upload lands.
-      if (attachment != null && row.uploadStatus != AttachmentUploadStatus.uploaded.index) {
+      if (attachment != null &&
+          row.uploadStatus != AttachmentUploadStatus.uploaded.index) {
         continue;
       }
 
@@ -767,7 +824,8 @@ class ChatRepository {
     // The trainee app has one thread and never calls watchConversations, so the
     // open thread is the only membership it has.
     final thread = _activeThreadId;
-    if (thread == message.clientId || thread == message.trainerId) return thread;
+    if (thread == message.clientId || thread == message.trainerId)
+      return thread;
 
     return null;
   }
@@ -811,7 +869,10 @@ class ChatRepository {
   /// draws (see `ThreadMessage.isUndecryptable`). It happens whenever the key
   /// that could read this body no longer exists: the sender reinstalled, or
   /// this device did, and there is no backup of either private key by design.
-  Future<ChatMessage> _decrypt(ChatMessage message, String? otherPartyId) async {
+  Future<ChatMessage> _decrypt(
+    ChatMessage message,
+    String? otherPartyId,
+  ) async {
     // No peer means no key, which is the same outcome as a key that no longer
     // works: the message is real and this device cannot read it.
     if (otherPartyId == null) return message.decrypted(null);

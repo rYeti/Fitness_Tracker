@@ -2452,6 +2452,36 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chatAttachmentOpen => 'Open';
 
   @override
+  String get chatVoiceNoteLabel => 'Voice message';
+
+  @override
+  String get chatAudioLabel => 'Audio';
+
+  @override
+  String get chatAttachmentPlay => 'Play';
+
+  @override
+  String get chatAttachmentPause => 'Pause';
+
+  @override
+  String get chatAttachVoiceNote => 'Voice note';
+
+  @override
+  String get chatAttachAudio => 'Audio file';
+
+  @override
+  String get chatRecording => 'Recording';
+
+  @override
+  String get chatRecordingCancel => 'Cancel recording';
+
+  @override
+  String get chatMicUnavailable => 'Microphone access was denied';
+
+  @override
+  String get chatSendVoiceNote => 'Send voice note';
+
+  @override
   String get chatUnavailable => 'Messaging is unavailable';
 
   @override
