@@ -48,8 +48,18 @@ public interface ITrainerClientService
     /// visible to the server. See docs/trainer-console-micronutrients.md.</summary>
     Task<bool> DerivesProAsync(Guid userId);
 
-    /// <summary>The nutrient keys this user's trainer has pinned for them —
-    /// read-only on the trainee side. Returns <see cref="Nutrition.NutrientKeys.Defaults"/>
-    /// for a user with no active trainer, or whose trainer never chose.</summary>
+    /// <summary>The nutrient keys this user tracks. A linked client's trainer
+    /// picks for them (read-only on the trainee side); an unlinked user with
+    /// their own RevenueCat entitlement picks their own via
+    /// <see cref="SetMyNutrientPinsAsync"/>. Returns
+    /// <see cref="Nutrition.NutrientKeys.Defaults"/> for anyone else — no
+    /// trainer and not entitled, or a trainer/entitled user who's never
+    /// chosen.</summary>
     Task<List<string>> GetMyNutrientPinsAsync(Guid userId);
+
+    /// <summary>Replaces the caller's own pinned-nutrients selection. Only
+    /// for a user with no active trainer who holds the RevenueCat
+    /// entitlement — a linked client's pins are their trainer's to set; see
+    /// <see cref="SetMyNutrientPinsStatus"/> for the refusal reasons.</summary>
+    Task<SetMyNutrientPinsResult> SetMyNutrientPinsAsync(Guid userId, List<string> nutrientKeys);
 }

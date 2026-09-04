@@ -177,7 +177,9 @@ public class TrainerProvisioningTests : IDisposable
         var status = await new TrainerClientService(
             new TrainerClientRepository(_fx.Db),
             new TrainerLicenceRepository(_fx.Db),
-            new TrainerNutrientPinRepository(_fx.Db)).GetStatusAsync(user.Id);
+            new TrainerNutrientPinRepository(_fx.Db),
+            new UserNutrientPinRepository(_fx.Db),
+            new RevenueCatSubscriptionRepository(_fx.Db)).GetStatusAsync(user.Id);
 
         Assert.True(status.IsTrainer);
 

@@ -32,7 +32,8 @@ public class ChatKeyControllerTests
         return new ChatKeyController(
             new UserChatKeyRepository(ctx.Db),
             new TrainerClientService(
-                trainerClientRepo, new TrainerLicenceRepository(ctx.Db), new TrainerNutrientPinRepository(ctx.Db)))
+                trainerClientRepo, new TrainerLicenceRepository(ctx.Db), new TrainerNutrientPinRepository(ctx.Db),
+                new UserNutrientPinRepository(ctx.Db), new RevenueCatSubscriptionRepository(ctx.Db)))
         {
             ControllerContext = new ControllerContext
             {

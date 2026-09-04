@@ -36,6 +36,28 @@ which makes CLAUDE.md's accessibility rules load-bearing rather than aspirationa
 CanvasKit from `gstatic.com` at boot and the app never starts on a machine that
 cannot reach it. See `docs/e2e-playwright.md`.
 
+## Granting the RevenueCat entitlement to a seeded account
+
+`tests/self-managed-nutrient-pins.spec.ts` needs `UNLINKED_TRAINEE_CREDENTIALS`
+(`lena.fischer`) to hold the RevenueCat premium entitlement — something neither
+`tools/seed-review-data.mjs` nor the app itself can grant, since it only ever
+arrives over the RevenueCat webhook (see `docs/revenuecat-self-managed-pins.md`).
+Grant it by POSTing a fabricated webhook event against a running API with
+`RevenueCat:WebhookAuthHeader` configured, using that account's user id (from
+`GET api/auth/login`'s response or the database) and matching the `entitlement_ids`
+this app grants premium for (`ForgeForm Pro`, the constant in
+`RevenueCatService.EntitlementId`):
+
+```bash
+curl -X POST http://127.0.0.1:5080/api/revenuecat/webhook \
+  -H "Authorization: $REVENUECAT_WEBHOOK_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{"event":{"type":"INITIAL_PURCHASE","app_user_id":"<lena.fischer user id>","entitlement_ids":["ForgeForm Pro"],"expiration_at_ms":<30-days-from-now-ms>,"event_timestamp_ms":<now-ms>}}'
+```
+
+This grant lives only in the API's database, not in this suite's fixtures —
+re-run it after reseeding against a fresh database.
+
 ## Layout
 
 | Path | What it is |

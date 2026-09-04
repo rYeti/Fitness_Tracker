@@ -102,7 +102,9 @@ public class TraineeNutrientPinReadTests : IDisposable
     private TrainerClientService BuildService() => new(
         new TrainerClientRepository(_fx.Db),
         new TrainerLicenceRepository(_fx.Db),
-        new TrainerNutrientPinRepository(_fx.Db));
+        new TrainerNutrientPinRepository(_fx.Db),
+        new UserNutrientPinRepository(_fx.Db),
+        new RevenueCatSubscriptionRepository(_fx.Db));
 
     [Fact]
     public async Task ATraineeWithNoTrainerGetsTheDefaults()
@@ -138,5 +140,124 @@ public class TraineeNutrientPinReadTests : IDisposable
         var pins = await BuildService().GetMyNutrientPinsAsync(clientId);
 
         Assert.Equal(["fibre", "sugar", "sodium"], pins);
+    }
+}
+
+/// <summary>An unlinked user's own RevenueCat-entitled pins — the case the
+/// trainer-console feature (PR #83) left uncovered: a premium user with no
+/// trainer to curate pins for them. Covers both the read
+/// (<c>GetMyNutrientPinsAsync</c>'s third branch) and the write
+/// (<c>SetMyNutrientPinsAsync</c>) on the real <see cref="TrainerClientService"/>.</summary>
+public class SelfManagedNutrientPinTests : IDisposable
+{
+    private readonly DbFixture _fx = new();
+
+    public void Dispose() => _fx.Dispose();
+
+    private TrainerClientService BuildService() => new(
+        new TrainerClientRepository(_fx.Db),
+        new TrainerLicenceRepository(_fx.Db),
+        new TrainerNutrientPinRepository(_fx.Db),
+        new UserNutrientPinRepository(_fx.Db),
+        new RevenueCatSubscriptionRepository(_fx.Db));
+
+    private async Task GrantEntitlement(Guid userId)
+    {
+        var subscription = await new RevenueCatSubscriptionRepository(_fx.Db).GetOrCreateAsync(userId);
+        subscription.ExpiresAt = DateTime.UtcNow.AddDays(30);
+        subscription.LastEventAt = DateTime.UtcNow;
+        await new RevenueCatSubscriptionRepository(_fx.Db).SaveAsync(subscription);
+    }
+
+    [Fact]
+    public async Task AnEntitledUnlinkedUserCanSetAndReadTheirOwnPins()
+    {
+        var user = _fx.AddUser().Id;
+        await GrantEntitlement(user);
+
+        var setResult = await BuildService().SetMyNutrientPinsAsync(user, ["iron", "vitc"]);
+        Assert.Equal(SetMyNutrientPinsStatus.Ok, setResult.Status);
+
+        var pins = await BuildService().GetMyNutrientPinsAsync(user);
+        Assert.Equal(["iron", "vitc"], pins);
+    }
+
+    [Fact]
+    public async Task AnEntitledUnlinkedUserWithNoChoiceYetGetsTheDefaults()
+    {
+        var user = _fx.AddUser().Id;
+        await GrantEntitlement(user);
+
+        var pins = await BuildService().GetMyNutrientPinsAsync(user);
+
+        Assert.Equal(["fibre", "sugar", "sodium"], pins);
+    }
+
+    [Fact]
+    public async Task ANonEntitledUnlinkedUserIsRefused()
+    {
+        var user = _fx.AddUser().Id;
+
+        var result = await BuildService().SetMyNutrientPinsAsync(user, ["iron"]);
+
+        Assert.Equal(SetMyNutrientPinsStatus.NotEntitled, result.Status);
+        var pins = await new UserNutrientPinRepository(_fx.Db).GetPinsAsync(user);
+        Assert.Empty(pins);
+    }
+
+    [Fact]
+    public async Task ALinkedClientIsRefusedEvenIfEntitled()
+    {
+        // A linked client's pins are their trainer's to set — this isn't a
+        // bypass around the coach-driven picker.
+        var trainerId = _fx.AddUser("Dana", "Whitfield").Id;
+        var clientId = _fx.AddUser("Marco", "Fenn").Id;
+        _fx.AddRelationship(trainerId, clientId, TrainerClientStatus.Active);
+        await GrantEntitlement(clientId);
+
+        var result = await BuildService().SetMyNutrientPinsAsync(clientId, ["iron"]);
+
+        Assert.Equal(SetMyNutrientPinsStatus.HasActiveTrainer, result.Status);
+    }
+
+    [Fact]
+    public async Task UnknownKeysAreRejectedAndNothingIsWritten()
+    {
+        var user = _fx.AddUser().Id;
+        await GrantEntitlement(user);
+
+        var result = await BuildService().SetMyNutrientPinsAsync(user, ["iron", "not-a-real-nutrient"]);
+
+        Assert.Equal(SetMyNutrientPinsStatus.InvalidNutrientKey, result.Status);
+        var pins = await new UserNutrientPinRepository(_fx.Db).GetPinsAsync(user);
+        Assert.Empty(pins);
+    }
+
+    [Fact]
+    public async Task SettingReplacesRatherThanAppends()
+    {
+        var user = _fx.AddUser().Id;
+        await GrantEntitlement(user);
+
+        await BuildService().SetMyNutrientPinsAsync(user, ["fibre", "sugar"]);
+        await BuildService().SetMyNutrientPinsAsync(user, ["iron"]);
+
+        var pins = await new UserNutrientPinRepository(_fx.Db).GetPinsAsync(user);
+        Assert.Equal(["iron"], pins);
+    }
+
+    [Fact]
+    public async Task ALapsedEntitlementIsTreatedAsNotEntitled()
+    {
+        var user = _fx.AddUser().Id;
+        var repo = new RevenueCatSubscriptionRepository(_fx.Db);
+        var subscription = await repo.GetOrCreateAsync(user);
+        subscription.ExpiresAt = DateTime.UtcNow.AddDays(-1);
+        subscription.LastEventAt = DateTime.UtcNow;
+        await repo.SaveAsync(subscription);
+
+        var result = await BuildService().SetMyNutrientPinsAsync(user, ["iron"]);
+
+        Assert.Equal(SetMyNutrientPinsStatus.NotEntitled, result.Status);
     }
 }
