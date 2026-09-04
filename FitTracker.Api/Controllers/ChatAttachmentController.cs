@@ -78,9 +78,17 @@ public class ChatAttachmentController(IChatAttachmentService attachmentService, 
         var localStore = _services.GetService<LocalDiskChatAttachmentStore>();
         if (localStore == null) return NotFound();
 
-        if (!localStore.ValidateToken(objectKey, "PUT", exp, sig)) return Forbid();
+        // ASP.NET Core's catch-all route parameter does not decode a %2F in the
+        // path back into "/" (by design — decoding it would make an encoded
+        // slash indistinguishable from a real path separator during routing).
+        // Sign() below HMACs the *raw* key ("chat/<id>/<id>"), so the bound
+        // value here has to be decoded back to that same string before the
+        // signature can ever match.
+        var decodedKey = Uri.UnescapeDataString(objectKey);
 
-        await localStore.WriteAsync(objectKey, Request.Body);
+        if (!localStore.ValidateToken(decodedKey, "PUT", exp, sig)) return Forbid();
+
+        await localStore.WriteAsync(decodedKey, Request.Body);
         return Ok();
     }
 
@@ -91,9 +99,11 @@ public class ChatAttachmentController(IChatAttachmentService attachmentService, 
         var localStore = _services.GetService<LocalDiskChatAttachmentStore>();
         if (localStore == null) return NotFound();
 
-        if (!localStore.ValidateToken(objectKey, "GET", exp, sig)) return Forbid();
+        var decodedKey = Uri.UnescapeDataString(objectKey);
 
-        var stream = localStore.OpenRead(objectKey);
+        if (!localStore.ValidateToken(decodedKey, "GET", exp, sig)) return Forbid();
+
+        var stream = localStore.OpenRead(decodedKey);
         if (stream == null) return NotFound();
 
         return File(stream, "application/octet-stream");
