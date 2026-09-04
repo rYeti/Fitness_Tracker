@@ -30,27 +30,29 @@ import {
  * before the app boots, standing in for a device that already knows it is
  * premium — exactly the state a real paying user's browser would be in — so
  * `hasPremiumAccess` unlocks the card the same way it would off a genuine
- * cold-start cache hit. `LENA_FISCHER_USER_ID` must match the account the
- * README's webhook command was run against.
+ * cold-start cache hit. The cache key is this account's *username*, not its
+ * server id — `main.dart` calls `accessProvider.initialize(userId:
+ * restoredAuth.user!.username, ...)`, despite the parameter's name — so the
+ * seed below must match `UNLINKED_TRAINEE_CREDENTIALS.username` for
+ * `cacheIsOurs` (`access_provider.dart:158`) to accept it.
  */
-const LENA_FISCHER_USER_ID = 'a158d657-db33-4bcc-96d2-daa4641b4ddb';
-
 test.describe('self-managed nutrient pins', () => {
   test('an unlinked premium user can choose and persist their own tracked nutrients', async ({
     page,
   }) => {
     test.setTimeout(120_000);
 
-    // shared_preferences_web prefixes every key with "flutter." and stores a
-    // bool or a plain String verbatim (no JSON-quoting) — only List<String>
-    // gets JSON-encoded. Must run before the app's first paint, so it's an
-    // init script rather than a post-navigation page.evaluate.
+    // shared_preferences_web prefixes every key with "flutter." and
+    // JSON-encodes every value, strings included — a bare `true` for the
+    // bool, but a quoted `"lena.fischer"` for the string. Must run before the
+    // app's first paint, so it's an init script rather than a
+    // post-navigation page.evaluate.
     await page.addInitScript(
-      ({ userId }) => {
+      ({ username }) => {
         window.localStorage.setItem('flutter.access_is_premium', 'true');
-        window.localStorage.setItem('flutter.access_cached_user_id', userId);
+        window.localStorage.setItem('flutter.access_cached_user_id', JSON.stringify(username));
       },
-      { userId: LENA_FISCHER_USER_ID },
+      { username: UNLINKED_TRAINEE_CREDENTIALS.username },
     );
 
     await page.goto('/');
