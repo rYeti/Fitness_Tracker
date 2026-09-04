@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/feature/chat/domain/models/conversation_summary.dart';
+import 'package:ForgeForm/feature/chat/presentation/providers/chat_attachment_provider.dart';
 import 'package:ForgeForm/feature/chat/presentation/providers/chat_provider.dart';
 import 'package:ForgeForm/feature/chat/presentation/widgets/chat_composer.dart';
 import 'package:ForgeForm/feature/chat/presentation/widgets/chat_connection_banner.dart';
@@ -58,41 +59,44 @@ class _MessagesScreenState extends State<MessagesScreen> {
     final isDesktop = Breakpoints.isDesktop(context);
     final l10n = AppLocalizations.of(context)!;
 
-    return Scaffold(
-      body: SafeArea(
-        child: Consumer<ChatProvider>(
-          builder: (context, chat, _) {
-            if (chat.isLoading && chat.conversations.isEmpty) {
-              return Padding(
-                padding: const EdgeInsets.all(16),
-                child: LoadingSkeleton(
-                  semanticsLabel: l10n.conversationsLoading,
-                ),
-              );
-            }
-            if (chat.error != null) {
-              return ErrorStateView(
-                message: l10n.conversationsLoadError,
-                onRetry: chat.loadConversations,
-              );
-            }
-            if (chat.conversations.isEmpty) {
-              return EmptyStateView(
-                icon: Icons.forum_outlined,
-                title: l10n.conversationsEmpty,
-                message: l10n.conversationsEmptyBody,
-              );
-            }
+    return ChangeNotifierProvider(
+      create: (_) => ChatAttachmentProvider(),
+      child: Scaffold(
+        body: SafeArea(
+          child: Consumer<ChatProvider>(
+            builder: (context, chat, _) {
+              if (chat.isLoading && chat.conversations.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: LoadingSkeleton(
+                    semanticsLabel: l10n.conversationsLoading,
+                  ),
+                );
+              }
+              if (chat.error != null) {
+                return ErrorStateView(
+                  message: l10n.conversationsLoadError,
+                  onRetry: chat.loadConversations,
+                );
+              }
+              if (chat.conversations.isEmpty) {
+                return EmptyStateView(
+                  icon: Icons.forum_outlined,
+                  title: l10n.conversationsEmpty,
+                  message: l10n.conversationsEmptyBody,
+                );
+              }
 
-            return isDesktop
-                ? _DesktopLayout(chat: chat, onSelect: _openThread)
-                : _MobileLayout(
+              return isDesktop
+                  ? _DesktopLayout(chat: chat, onSelect: _openThread)
+                  : _MobileLayout(
                     chat: chat,
                     threadOpen: _threadOpenOnMobile,
                     onSelect: _openThread,
                     onBack: _backToList,
                   );
-          },
+            },
+          ),
         ),
       ),
     );
@@ -280,7 +284,14 @@ class _ThreadPane extends StatelessWidget {
           error: chat.sendError,
           onDismiss: chat.clearSendError,
         ),
-        ChatComposer(onSend: (body) => chat.sendMessage(clientId, body)),
+        ChatComposer(
+          onSend:
+              (draft) => chat.sendMessage(
+                clientId,
+                draft.caption,
+                attachment: draft.attachment,
+              ),
+        ),
       ],
     );
   }

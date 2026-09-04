@@ -57,6 +57,11 @@ dependencies:
   shared_preferences: ^2.5.3
   flutter_secure_storage: ^9.2.4
   file_picker: ^10.3.7
+  # Camera/gallery capture for chat attachments (phase 4). Pure-Dart JPEG
+  # re-encoder — see ImageDownscale for why dart:ui's own encoder (PNG-only)
+  # isn't enough on its own.
+  image_picker: ^1.1.2
+  image: ^4.3.0
   csv: ^6.0.0
   flutter_svg: ^2.0.7
   audioplayers: ^6.1.0

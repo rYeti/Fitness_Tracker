@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/feature/chat/domain/chat_timestamps.dart';
 import 'package:ForgeForm/feature/chat/domain/models/thread_message.dart';
+import 'package:ForgeForm/feature/chat/presentation/providers/chat_attachment_provider.dart';
+import 'package:ForgeForm/feature/chat/presentation/widgets/chat_attachment_content.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 
 /// One message in a thread.
@@ -14,10 +17,21 @@ import 'package:ForgeForm/l10n/app_localizations.dart';
 class ChatBubble extends StatelessWidget {
   final ThreadMessage message;
 
+  /// The thread this bubble belongs to — needed only to record a freshly
+  /// downloaded attachment against the right thread in the device store.
+  /// Null is fine wherever no [ChatAttachmentProvider] is in the tree either
+  /// (existing text-only call sites and tests).
+  final String? threadId;
+
   /// Invoked when the user taps a failed message to send it again.
   final ValueChanged<String>? onRetry;
 
-  const ChatBubble({super.key, required this.message, this.onRetry});
+  const ChatBubble({
+    super.key,
+    required this.message,
+    this.threadId,
+    this.onRetry,
+  });
 
   static const _mineRadius = BorderRadius.only(
     topLeft: Radius.circular(14),
@@ -36,6 +50,7 @@ class ChatBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
     final mine = message.isMine;
     final pending = message.status == ChatMessageStatus.pending;
     final failed = message.status == ChatMessageStatus.failed;
@@ -50,9 +65,107 @@ class ChatBubble extends StatelessWidget {
     // What the reader is told when the key is gone. Phrased as an explanation
     // rather than an error, because nothing went wrong and there is nothing to
     // retry: this device simply never held the key for this message.
-    final undecryptableText = AppLocalizations.of(context)!.chatUndecryptable;
+    final undecryptableText = l10n.chatUndecryptable;
 
     final textColor = mine ? Colors.white : colors.onSurface;
+    final ref = message.attachment;
+
+    // Optional: text-only call sites (and most existing tests) never mount a
+    // ChatAttachmentProvider above this widget, and a bubble with no
+    // attachment has no use for one either.
+    ChatAttachmentProvider? attachments;
+    if (ref != null) {
+      try {
+        attachments = context.watch<ChatAttachmentProvider>();
+      } catch (_) {
+        attachments = null;
+      }
+    }
+
+    final attachmentState =
+        ref == null
+            ? null
+            : (attachments?.stateFor(message) ??
+                const AttachmentState(AttachmentPhase.notDownloaded));
+
+    if (ref != null && attachments != null && threadId != null) {
+      // No-ops once bytes are known or a fetch is already running — cheap to
+      // call on every build. Per docs/chat-attachments.md §C.4: images only,
+      // everything else waits for a tap.
+      attachments.ensureAutoFetched(message, threadId: threadId!);
+    }
+
+    String semanticsValue;
+    if (unreadable) {
+      semanticsValue = undecryptableText;
+    } else if (ref != null) {
+      final attValue = attachmentSemanticsValue(
+        l10n,
+        ref,
+        attachmentState!.phase,
+      );
+      final caption = message.body;
+      semanticsValue =
+          (caption != null && caption.isNotEmpty)
+              ? '$attValue, $caption'
+              : attValue;
+    } else {
+      semanticsValue = message.body ?? '';
+    }
+    if (settled) {
+      semanticsValue =
+          '$semanticsValue, ${ChatTimestamps.accessibleLabel(message.timestamp)}';
+    }
+
+    VoidCallback? attachmentTap;
+    if (ref != null) {
+      switch (attachmentState!.phase) {
+        case AttachmentPhase.uploadFailed:
+          attachmentTap =
+              onRetry == null ? null : () => onRetry!(message.messageId);
+        case AttachmentPhase.downloadFailed:
+        case AttachmentPhase.notDownloaded:
+          attachmentTap =
+              (attachments == null || threadId == null)
+                  ? null
+                  : () => attachments!.fetch(message, threadId: threadId!);
+        case AttachmentPhase.uploading:
+        case AttachmentPhase.downloading:
+        case AttachmentPhase.stored:
+        case AttachmentPhase.expired:
+          attachmentTap = null;
+      }
+    }
+
+    final Widget content;
+    if (unreadable) {
+      content = _UndecryptableContent(
+        text: undecryptableText,
+        textColor: textColor,
+      );
+    } else if (ref != null) {
+      final caption = message.body;
+      content = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ChatAttachmentContent(
+            message: message,
+            ref: ref,
+            phase: attachmentState!.phase,
+            bytes: attachmentState.bytes,
+            textColor: textColor,
+            onTap: attachmentTap,
+          ),
+          if (caption != null && caption.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            _TextContent(text: caption, textColor: textColor),
+          ],
+        ],
+      );
+    } else {
+      content = _TextContent(text: message.body ?? '', textColor: textColor);
+    }
 
     final bubble = Container(
       constraints: const BoxConstraints(maxWidth: 420),
@@ -61,42 +174,7 @@ class ChatBubble extends StatelessWidget {
         color: mine ? ForgeColors.forgeOrange : colors.surfaceContainerHighest,
         borderRadius: mine ? _mineRadius : _theirsRadius,
       ),
-      child: unreadable
-          ? Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Paired with the italic text rather than carrying the meaning
-                // alone: an icon-only signal is no signal at all to anyone who
-                // does not already know what it means.
-                Icon(
-                  Icons.lock_outline,
-                  size: 15,
-                  color: textColor.withValues(alpha: 0.75),
-                ),
-                const SizedBox(width: 6),
-                Flexible(
-                  child: Text(
-                    undecryptableText,
-                    style: TextStyle(
-                      fontFamily: 'Exo 2',
-                      fontSize: 13.5,
-                      height: 1.35,
-                      fontStyle: FontStyle.italic,
-                      color: textColor.withValues(alpha: 0.75),
-                    ),
-                  ),
-                ),
-              ],
-            )
-          : Text(
-              message.body ?? '',
-              style: TextStyle(
-                fontFamily: 'Exo 2',
-                fontSize: 13.5,
-                height: 1.35,
-                color: textColor,
-              ),
-            ),
+      child: content,
     );
 
     return Padding(
@@ -110,16 +188,11 @@ class ChatBubble extends StatelessWidget {
             // The time is part of what was said, not decoration: a screen reader
             // gets no day divider and no small grey text, so without it a thread
             // reads as one undated run of messages.
-            // The spoken text has to say the same thing the drawn one does. A
-            // screen reader gets neither the lock icon nor the italics, so
-            // reading out an empty body would present an unreadable message as
-            // a message with nothing in it.
-            value: settled
-                ? '${unreadable ? undecryptableText : message.body ?? ''}, '
-                    '${ChatTimestamps.accessibleLabel(message.timestamp)}'
-                : unreadable
-                ? undecryptableText
-                : message.body ?? '',
+            // Every visual state — uploading, upload failed, downloading,
+            // download failed, expired — is spelled into this value, not left
+            // visual-only: a progress ring or a broken-image glyph is exactly
+            // as invisible to a screen reader as colour would be.
+            value: semanticsValue,
             excludeSemantics: true,
             child: Opacity(
               // Dimmed rather than hidden: the message is real and the user
@@ -143,6 +216,67 @@ class ChatBubble extends StatelessWidget {
             ExcludeSemantics(child: _MessageTime(at: message.timestamp)),
         ],
       ),
+    );
+  }
+}
+
+/// Plain message text — the common case, split out from [ChatBubble] now
+/// that it has a third rendering path (attachments) alongside this and
+/// [_UndecryptableContent].
+class _TextContent extends StatelessWidget {
+  final String text;
+  final Color textColor;
+
+  const _TextContent({required this.text, required this.textColor});
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: TextStyle(
+        fontFamily: 'Exo 2',
+        fontSize: 13.5,
+        height: 1.35,
+        color: textColor,
+      ),
+    );
+  }
+}
+
+/// What renders when this device never held the key for a message.
+class _UndecryptableContent extends StatelessWidget {
+  final String text;
+  final Color textColor;
+
+  const _UndecryptableContent({required this.text, required this.textColor});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Paired with the italic text rather than carrying the meaning
+        // alone: an icon-only signal is no signal at all to anyone who does
+        // not already know what it means.
+        Icon(
+          Icons.lock_outline,
+          size: 15,
+          color: textColor.withValues(alpha: 0.75),
+        ),
+        const SizedBox(width: 6),
+        Flexible(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontFamily: 'Exo 2',
+              fontSize: 13.5,
+              height: 1.35,
+              fontStyle: FontStyle.italic,
+              color: textColor.withValues(alpha: 0.75),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

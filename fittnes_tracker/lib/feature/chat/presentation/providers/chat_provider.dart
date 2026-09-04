@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import 'package:ForgeForm/feature/chat/data/chat_attachment_sender.dart';
 import 'package:ForgeForm/feature/chat/data/chat_repository.dart';
 import 'package:ForgeForm/feature/chat/data/chat_signalr_client.dart';
 import 'package:ForgeForm/feature/chat/domain/models/chat_message.dart';
@@ -19,7 +20,8 @@ export 'package:ForgeForm/feature/chat/data/chat_signalr_client.dart'
 class ChatProvider extends ChangeNotifier {
   final ChatRepository _repository;
 
-  ChatProvider({required ChatRepository repository}) : _repository = repository {
+  ChatProvider({required ChatRepository repository})
+    : _repository = repository {
     _statusSubscription = _repository.connectionStatus.listen((status) {
       _connectionStatus = status;
       notifyListeners();
@@ -107,8 +109,9 @@ class ChatProvider extends ChangeNotifier {
       await _repository.openThread(otherPartyId);
 
       await _incomingSubscription?.cancel();
-      _incomingSubscription =
-          _repository.incomingFor(otherPartyId).listen(_upsert);
+      _incomingSubscription = _repository
+          .incomingFor(otherPartyId)
+          .listen(_upsert);
 
       final loaded = await _repository.loadThread(otherPartyId);
       // A message can land between subscribing and the history returning.
@@ -140,9 +143,18 @@ class ChatProvider extends ChangeNotifier {
 
   /// Sends [body], showing the bubble straight away rather than waiting for the
   /// server — a slow network shouldn't look like a dead send button.
-  Future<void> sendMessage(String otherPartyId, String body) async {
+  ///
+  /// [attachment] is already sealed by the composer (see
+  /// [ChatAttachmentSender.seal]) by the time it reaches here. An attachment
+  /// with no caption is still a valid send — only a caption-less,
+  /// attachment-less body is ignored.
+  Future<void> sendMessage(
+    String otherPartyId,
+    String body, {
+    SealedAttachmentResult? attachment,
+  }) async {
     final trimmed = body.trim();
-    if (trimmed.isEmpty) return;
+    if (trimmed.isEmpty && attachment == null) return;
 
     _sendError = null;
 
@@ -153,6 +165,7 @@ class ChatProvider extends ChangeNotifier {
       final sent = await _repository.sendMessage(
         otherPartyId: otherPartyId,
         body: trimmed,
+        attachment: attachment,
         onQueued: _upsert,
       );
       _upsert(sent);
@@ -184,8 +197,10 @@ class ChatProvider extends ChangeNotifier {
   /// Retries one message the replay loop gave up on. Same path as a first send,
   /// so there is only ever one implementation of "get this message out".
   Future<void> retryMessage(String messageId) async {
-    final retried =
-        await _repository.retryMessage(messageId, onQueued: _upsert);
+    final retried = await _repository.retryMessage(
+      messageId,
+      onQueued: _upsert,
+    );
     if (retried != null) _upsert(retried);
   }
 
@@ -194,8 +209,7 @@ class ChatProvider extends ChangeNotifier {
   /// Replacement is what settles a pending bubble to sent when its ack finally
   /// arrives — the same message, a later state, not a second bubble.
   void _upsert(ThreadMessage message) {
-    final index =
-        _thread.indexWhere((m) => m.messageId == message.messageId);
+    final index = _thread.indexWhere((m) => m.messageId == message.messageId);
     if (index == -1) {
       _thread = [..._thread, message];
     } else {
@@ -248,15 +262,17 @@ class ChatProvider extends ChangeNotifier {
         .withPreview(message.body);
 
     // Same ordering the server uses, so a live update and a reload agree.
-    next.sort((a, b) => (b.lastMessageAt ?? DateTime(0))
-        .compareTo(a.lastMessageAt ?? DateTime(0)));
+    next.sort(
+      (a, b) => (b.lastMessageAt ?? DateTime(0)).compareTo(
+        a.lastMessageAt ?? DateTime(0),
+      ),
+    );
     _conversations = next;
     notifyListeners();
   }
 
   void _markConversationRead(String otherPartyId) {
-    final index =
-        _conversations.indexWhere((c) => c.clientId == otherPartyId);
+    final index = _conversations.indexWhere((c) => c.clientId == otherPartyId);
     if (index == -1 || _conversations[index].unreadCount == 0) return;
 
     final next = [..._conversations];

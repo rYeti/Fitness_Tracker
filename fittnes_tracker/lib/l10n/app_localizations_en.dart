@@ -2408,6 +2408,50 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chatAttachmentsUnavailable => 'Attachments are not available yet';
 
   @override
+  String get chatAttachPhoto => 'Photo';
+
+  @override
+  String get chatAttachCamera => 'Camera';
+
+  @override
+  String get chatAttachDocument => 'Document';
+
+  @override
+  String get chatAttachmentTooLarge => 'File is too large to attach';
+
+  @override
+  String get chatPhotoLabel => 'Photo';
+
+  @override
+  String get chatDocumentLabel => 'Document';
+
+  @override
+  String get chatUnsupportedAttachment =>
+      'This attachment isn\'t supported on this device yet';
+
+  @override
+  String get chatAttachmentUploading => 'uploading';
+
+  @override
+  String get chatAttachmentUploadFailed => 'upload failed, double tap to retry';
+
+  @override
+  String get chatAttachmentDownloading => 'downloading';
+
+  @override
+  String get chatAttachmentDownloadFailed =>
+      'could not be downloaded, double tap to retry';
+
+  @override
+  String get chatAttachmentExpired => 'No longer available';
+
+  @override
+  String get chatAttachmentTapToDownload => 'tap to download';
+
+  @override
+  String get chatAttachmentOpen => 'Open';
+
+  @override
   String get chatUnavailable => 'Messaging is unavailable';
 
   @override

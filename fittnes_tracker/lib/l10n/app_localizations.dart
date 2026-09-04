@@ -4412,6 +4412,90 @@ abstract class AppLocalizations {
   /// **'Attachments are not available yet'**
   String get chatAttachmentsUnavailable;
 
+  /// No description provided for @chatAttachPhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Photo'**
+  String get chatAttachPhoto;
+
+  /// No description provided for @chatAttachCamera.
+  ///
+  /// In en, this message translates to:
+  /// **'Camera'**
+  String get chatAttachCamera;
+
+  /// No description provided for @chatAttachDocument.
+  ///
+  /// In en, this message translates to:
+  /// **'Document'**
+  String get chatAttachDocument;
+
+  /// No description provided for @chatAttachmentTooLarge.
+  ///
+  /// In en, this message translates to:
+  /// **'File is too large to attach'**
+  String get chatAttachmentTooLarge;
+
+  /// No description provided for @chatPhotoLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Photo'**
+  String get chatPhotoLabel;
+
+  /// No description provided for @chatDocumentLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Document'**
+  String get chatDocumentLabel;
+
+  /// No description provided for @chatUnsupportedAttachment.
+  ///
+  /// In en, this message translates to:
+  /// **'This attachment isn\'t supported on this device yet'**
+  String get chatUnsupportedAttachment;
+
+  /// No description provided for @chatAttachmentUploading.
+  ///
+  /// In en, this message translates to:
+  /// **'uploading'**
+  String get chatAttachmentUploading;
+
+  /// No description provided for @chatAttachmentUploadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'upload failed, double tap to retry'**
+  String get chatAttachmentUploadFailed;
+
+  /// No description provided for @chatAttachmentDownloading.
+  ///
+  /// In en, this message translates to:
+  /// **'downloading'**
+  String get chatAttachmentDownloading;
+
+  /// No description provided for @chatAttachmentDownloadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'could not be downloaded, double tap to retry'**
+  String get chatAttachmentDownloadFailed;
+
+  /// No description provided for @chatAttachmentExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'No longer available'**
+  String get chatAttachmentExpired;
+
+  /// No description provided for @chatAttachmentTapToDownload.
+  ///
+  /// In en, this message translates to:
+  /// **'tap to download'**
+  String get chatAttachmentTapToDownload;
+
+  /// No description provided for @chatAttachmentOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'Open'**
+  String get chatAttachmentOpen;
+
   /// No description provided for @chatUnavailable.
   ///
   /// In en, this message translates to:

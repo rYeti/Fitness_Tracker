@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
 
 import 'package:ForgeForm/core/app_database.dart';
+import 'package:ForgeForm/core/network/api_client.dart';
+import 'package:ForgeForm/core/providers/enums.dart';
+import 'package:ForgeForm/feature/chat/data/chat_attachment_api.dart';
+import 'package:ForgeForm/feature/chat/domain/models/chat_attachment_ref.dart';
 import 'package:ForgeForm/feature/chat/domain/models/thread_message.dart';
+import 'package:ForgeForm/feature/chat/presentation/providers/chat_attachment_provider.dart';
 import 'package:ForgeForm/feature/chat/presentation/widgets/chat_bubble.dart';
 import 'package:ForgeForm/feature/chat/presentation/widgets/chat_date_divider.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
@@ -64,13 +70,12 @@ void main() {
     expect(find.text('09:07'), findsNothing);
   });
 
-  testWidgets('the day divider names the local day, padded and with the year',
-      (tester) async {
+  testWidgets('the day divider names the local day, padded and with the year', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(
-        home: Scaffold(
-          body: ChatDateDivider(date: DateTime(2026, 8, 4, 9)),
-        ),
+        home: Scaffold(body: ChatDateDivider(date: DateTime(2026, 8, 4, 9))),
       ),
     );
 
@@ -86,8 +91,175 @@ void main() {
     );
 
     final local = instant.toLocal();
-    final expected = '${local.day.toString().padLeft(2, '0')}/'
+    final expected =
+        '${local.day.toString().padLeft(2, '0')}/'
         '${local.month.toString().padLeft(2, '0')}/${local.year}';
     expect(find.text(expected), findsOneWidget);
+  });
+
+  // ── Attachments (phase 4: photo + document only) ────────────────────────
+
+  ChatAttachmentRef pictureRef({int? width, int? height}) => ChatAttachmentRef(
+    id: 'att-1',
+    kind: MediaType.picture,
+    mime: 'image/jpeg',
+    name: 'photo.jpg',
+    size: 204800,
+    key: 'a2V5',
+    iv: 'aXY=',
+    sha256: 'deadbeef',
+    width: width,
+    height: height,
+  );
+
+  ChatAttachmentRef documentRef() => const ChatAttachmentRef(
+    id: 'att-2',
+    kind: MediaType.document,
+    mime: 'application/pdf',
+    name: 'plan-week-3.pdf',
+    size: 245760,
+    key: 'a2V5',
+    iv: 'aXY=',
+    sha256: 'deadbeef',
+  );
+
+  Future<void> pumpAttachmentBubble(
+    WidgetTester tester,
+    ThreadMessage message, {
+    String? threadId = 'thread-1',
+  }) {
+    return tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: ChangeNotifierProvider(
+          // Never actually reaches the network in these tests: threadId is
+          // non-null only where a fetch is expected to be a genuine no-op
+          // (an already-settled upload/download state), and every case here
+          // is checked against that assumption via the semantics value.
+          create:
+              (_) => ChatAttachmentProvider(
+                api: ChatAttachmentApi(
+                  client: ApiClient(baseUrl: 'http://localhost'),
+                ),
+              ),
+          child: Scaffold(
+            body: ChatBubble(message: message, threadId: threadId),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Semantics findBubbleSemantics(WidgetTester tester) {
+    return tester
+        .widgetList<Semantics>(find.byType(Semantics))
+        .firstWhere((s) => s.properties.value != null);
+  }
+
+  testWidgets('an uploading photo is spelled out for a screen reader', (
+    tester,
+  ) async {
+    final msg = ThreadMessage(
+      messageId: 'm1',
+      body: null,
+      timestamp: DateTime(2026, 8, 26, 9, 7),
+      isMine: true,
+      status: ChatMessageStatus.pending,
+      attachment: pictureRef(width: 800, height: 600),
+      uploadStatus: AttachmentUploadStatus.uploading,
+    );
+    await pumpAttachmentBubble(tester, msg);
+    await tester.pump();
+
+    expect(findBubbleSemantics(tester).properties.value, contains('uploading'));
+  });
+
+  testWidgets('an upload failure is spelled out with the retry hint', (
+    tester,
+  ) async {
+    final msg = ThreadMessage(
+      messageId: 'm1',
+      body: null,
+      timestamp: DateTime(2026, 8, 26, 9, 7),
+      isMine: true,
+      status: ChatMessageStatus.pending,
+      attachment: pictureRef(width: 800, height: 600),
+      uploadStatus: AttachmentUploadStatus.failed,
+    );
+    await pumpAttachmentBubble(tester, msg);
+    await tester.pump();
+
+    final value = findBubbleSemantics(tester).properties.value!;
+    expect(value, contains('upload failed'));
+    expect(value, contains('double tap to retry'));
+  });
+
+  testWidgets('a document not yet downloaded names itself and invites a tap', (
+    tester,
+  ) async {
+    final msg = ThreadMessage(
+      messageId: 'm1',
+      body: null,
+      timestamp: DateTime(2026, 8, 26, 9, 7),
+      isMine: false,
+      status: ChatMessageStatus.sent,
+      attachment: documentRef(),
+      uploadStatus: AttachmentUploadStatus.uploaded,
+    );
+    // threadId null: a document waits for a tap, never auto-fetches, so this
+    // also stands as evidence that rendering it costs no network call —
+    // there is no attachment id the fake api could even be asked for.
+    await pumpAttachmentBubble(tester, msg, threadId: null);
+    await tester.pump();
+
+    expect(find.text('plan-week-3.pdf'), findsOneWidget);
+    expect(findBubbleSemantics(tester).properties.value, contains('Document'));
+  });
+
+  testWidgets(
+    'an attachment past the retention window renders expired and never fetches',
+    (tester) async {
+      final msg = ThreadMessage(
+        messageId: 'm1',
+        body: null,
+        timestamp: DateTime.now().subtract(const Duration(days: 90)),
+        isMine: false,
+        status: ChatMessageStatus.sent,
+        attachment: pictureRef(width: 800, height: 600),
+        uploadStatus: AttachmentUploadStatus.uploaded,
+      );
+      // threadId is non-null here specifically so the auto-download policy
+      // (images fetch on first paint) gets a chance to run — the assertion is
+      // that ChatAttachmentProvider.stateFor's expiry check stops it before it
+      // does, not that nothing tried.
+      await pumpAttachmentBubble(tester, msg);
+      await tester.pumpAndSettle();
+
+      expect(
+        findBubbleSemantics(tester).properties.value,
+        contains('No longer available'),
+      );
+    },
+  );
+
+  testWidgets('a caption rides alongside the attachment in the spoken value', (
+    tester,
+  ) async {
+    final msg = ThreadMessage(
+      messageId: 'm1',
+      body: 'great session today',
+      timestamp: DateTime(2026, 8, 26, 9, 7),
+      isMine: true,
+      status: ChatMessageStatus.pending,
+      attachment: pictureRef(width: 800, height: 600),
+      uploadStatus: AttachmentUploadStatus.uploading,
+    );
+    await pumpAttachmentBubble(tester, msg);
+    await tester.pump();
+
+    final value = findBubbleSemantics(tester).properties.value!;
+    expect(value, contains('great session today'));
+    expect(find.text('great session today'), findsOneWidget);
   });
 }

@@ -139,6 +139,7 @@ class _ChatThreadListState extends State<ChatThreadList> {
         if (item is DateTime) return ChatDateDivider(date: item);
         return ChatBubble(
           message: item as ThreadMessage,
+          threadId: chat.activeThreadId,
           onRetry: chat.retryMessage,
         );
       },
