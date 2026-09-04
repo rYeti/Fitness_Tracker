@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import '../models/extended_nutrients.dart';
+import 'package:ForgeForm/core/nutrition/extended_nutrients.dart';
 import '../models/food_item_model.dart';
 import '../models/portion_option.dart';
 

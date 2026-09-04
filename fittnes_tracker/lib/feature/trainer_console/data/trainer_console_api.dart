@@ -160,6 +160,16 @@ class TrainerConsoleApi {
     return data['sessionsCreated'] as int? ?? 0;
   }
 
+  /// Replaces the whole pinned-nutrients set for this client. The server
+  /// treats this as a full replacement, never an add/remove — see
+  /// `docs/trainer-console-micronutrients.md`.
+  Future<void> setClientNutrientPins(String clientId, List<String> nutrientKeys) async {
+    await _client.put(
+      'api/TrainerConsole/$clientId/nutrient-pins',
+      data: nutrientKeys,
+    );
+  }
+
   /// Date-only, so a device in a timezone behind UTC doesn't ask the server
   /// for the previous day.
   static String _dateParam(DateTime date) =>

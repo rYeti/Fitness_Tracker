@@ -45,6 +45,13 @@ class FoodItemDao extends DatabaseAccessor<AppDatabase>
       ..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
   }
 
+  /// [extendedNutrientsJson] defaults to leaving the column untouched
+  /// (`Value.absent()`) — most callers only ever touch macros/weight and
+  /// have no micronutrient data to say anything about. A caller that *does*
+  /// have a rescaled blob for the new weight must pass it explicitly: an
+  /// edit that changes [gramm] but leaves this absent silently leaves the
+  /// food's micronutrients scaled to its old weight. See
+  /// `docs/trainer-console-micronutrients.md`.
   Future<void> updateFoodItem(
     int id, {
     required int calories,
@@ -52,6 +59,7 @@ class FoodItemDao extends DatabaseAccessor<AppDatabase>
     required int carbs,
     required int fat,
     required int gramm,
+    Value<String?> extendedNutrientsJson = const Value.absent(),
   }) async {
     await (update(foodItem)..where((t) => t.id.equals(id))).write(
       FoodItemCompanion(
@@ -60,6 +68,7 @@ class FoodItemDao extends DatabaseAccessor<AppDatabase>
         carbs: Value(carbs),
         fat: Value(fat),
         gramm: Value(gramm),
+        extendedNutrientsJson: extendedNutrientsJson,
         syncStatus: const Value(2), // pendingUpdate
       ),
     );

@@ -48,7 +48,7 @@ public class ChatHubTests
 
         return new ChatHub(
             new TrainerClientService(
-                trainerClientRepo, new TrainerLicenceRepository(ctx.Db)),
+                trainerClientRepo, new TrainerLicenceRepository(ctx.Db), new TrainerNutrientPinRepository(ctx.Db)),
             new ChatService(trainerClientRepo, new ChatRepository(ctx.Db)),
             pushes)
         {
@@ -145,7 +145,7 @@ public class ChatHubTests
         var trainerClientRepo = new TrainerClientRepository(ctx.Db);
         var hub = new ChatHub(
             new TrainerClientService(
-                trainerClientRepo, new TrainerLicenceRepository(ctx.Db)),
+                trainerClientRepo, new TrainerLicenceRepository(ctx.Db), new TrainerNutrientPinRepository(ctx.Db)),
             new ChatService(trainerClientRepo, new ChatRepository(ctx.Db)),
             new RecordingPushDispatcher())
         {
@@ -170,7 +170,7 @@ public class ChatHubTests
         var trainerClientRepo = new TrainerClientRepository(ctx.Db);
         var hub = new ChatHub(
             new TrainerClientService(
-                trainerClientRepo, new TrainerLicenceRepository(ctx.Db)),
+                trainerClientRepo, new TrainerLicenceRepository(ctx.Db), new TrainerNutrientPinRepository(ctx.Db)),
             new ChatService(trainerClientRepo, new ChatRepository(ctx.Db)),
             new RecordingPushDispatcher())
         {
@@ -196,7 +196,7 @@ public class ChatHubTests
 
         ChatHub HubFor(Guid callerId, RecordingGroups groups) => new(
             new TrainerClientService(
-                trainerClientRepo, new TrainerLicenceRepository(ctx.Db)),
+                trainerClientRepo, new TrainerLicenceRepository(ctx.Db), new TrainerNutrientPinRepository(ctx.Db)),
             new ChatService(trainerClientRepo, new ChatRepository(ctx.Db)),
             new RecordingPushDispatcher())
         {

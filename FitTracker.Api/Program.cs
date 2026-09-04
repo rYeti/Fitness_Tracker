@@ -204,6 +204,7 @@ builder.Services.AddScoped<ITrainerLicenceService, TrainerLicenceService>();
 builder.Services.AddSingleton<LicencePlanCatalog>();
 builder.Services.AddSingleton<LicenceStateMachine>();
 builder.Services.AddScoped<FitTracker.Api.Filters.RequireEntitledLicenceFilter>();
+builder.Services.AddScoped<ITrainerNutrientPinRepository, TrainerNutrientPinRepository>();
 builder.Services.AddScoped<ITrainerConsoleService, TrainerConsoleService>();
 builder.Services.AddScoped<IWorkoutPlanTemplateRepository, WorkoutPlanTemplateRepository>();
 builder.Services.AddScoped<IWorkoutPlanTemplateService, WorkoutPlanTemplateService>();

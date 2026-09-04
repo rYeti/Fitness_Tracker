@@ -1,6 +1,8 @@
 using FitTracker.Api.DTOs;
 using FitTracker.Api.Models;
+using FitTracker.Api.Nutrition;
 using FitTracker.Api.Repositories;
+using FitTracker.Api.Repositories.Interfaces;
 using FitTracker.Api.Services.Interfaces;
 
 namespace FitTracker.Api.Services;
@@ -14,7 +16,8 @@ public class TrainerConsoleService(
     IUserSettingsService userSettingsService,
     IExerciseService exerciseService,
     IFoodItemService foodItemService,
-    IWorkoutService workoutService) : ITrainerConsoleService
+    IWorkoutService workoutService,
+    ITrainerNutrientPinRepository nutrientPins) : ITrainerConsoleService
 {
     private readonly ITrainerClientService _trainerClientService = trainerClientService;
     private readonly IWeightTrackingService _weightTrackingService = weightTrackingService;
@@ -24,6 +27,7 @@ public class TrainerConsoleService(
     private readonly IUserSettingsService _userSettingsService = userSettingsService;
     private readonly IFoodItemService _foodItemService = foodItemService;
     private readonly IWorkoutService _workoutService = workoutService;
+    private readonly ITrainerNutrientPinRepository _nutrientPins = nutrientPins;
 
     private readonly IExerciseService _exerciseService = exerciseService;
 
@@ -645,6 +649,21 @@ public class TrainerConsoleService(
         var isTrainer = await _trainerClientService.IsActiveTrainerOfAsync(trainerId, clientId);
         if (!isTrainer) return null;
 
+        // Entitlement is checked for BOTH parties and enforced here, not by the
+        // console hiding the card: CLAUDE.md's rule that the console gate is a
+        // UX guard, never the security boundary, applies to premium data the
+        // same as to relationship data. A client of a paying trainer already
+        // derives Pro from that trainer's own licence (see DerivesProAsync), so
+        // in practice this only locks once the trainer's licence has lapsed —
+        // device-side IAP premium is invisible here either way, since it never
+        // reaches the server. See docs/trainer-console-micronutrients.md.
+        var micronutrientsLocked =
+            !await _trainerClientService.DerivesProAsync(trainerId) ||
+            !await _trainerClientService.DerivesProAsync(clientId);
+
+        var pinnedNutrients = await _nutrientPins.GetPinsAsync(trainerId, clientId);
+        if (pinnedNutrients.Count == 0) pinnedNutrients = [.. NutrientKeys.Defaults];
+
         var settings = await _userSettingsService.GetSettingsAsync(clientId);
         // Fall back to the same default the model and the Flutter client use,
         // not to zero. A client who has never opened settings has no row here,
@@ -699,46 +718,84 @@ public class TrainerConsoleService(
         // invisible there; this screen listed the rows raw and showed the trainer two
         // of every meal. Creating is idempotent now (see MealService.CreateMealAsync),
         // but rows written before that stay in the database, so the read folds them.
-        var loggedMeals = todaysMeals
-            .GroupBy(meal => MealCategory.Key(meal.Category))
-            .Select(sameCategory =>
-            {
-                var meal = sameCategory.First();
-                var foods = CollapseRepushedMeals([.. sameCategory.OrderBy(m => m.Date)])
-                    .SelectMany(m => m.FoodEntries)
-                    .Select(entry => foodItemsById.GetValueOrDefault(entry.FoodItemId))
-                    .Where(food => food is not null)
-                    .Select(food => food!)
-                    .ToList();
+        // Micronutrients travel alongside each LoggedMealDto here as a parallel
+        // `ExtendedNutrients?` — the *pre-DTO* value, kept null-preserving —
+        // rather than being re-derived later. The day total below sums THESE
+        // per-meal values, never a second pass over `todaysMeals`: that second
+        // pass is exactly what re-introduced double-counting for calories once
+        // (docs/trainer-nutrition-duplicate-meals.md), and a fresh traversal
+        // here would risk the same drift for micronutrients — `foods` above is
+        // already the CollapseRepushedMeals-cleaned list, so summing anything
+        // else would silently disagree with it.
+        (LoggedMealDto Dto, ExtendedNutrients? Nutrients) BuildLoggedMeal(
+            IGrouping<string, MealResponseDto> sameCategory)
+        {
+            var meal = sameCategory.First();
+            var foods = CollapseRepushedMeals([.. sameCategory.OrderBy(m => m.Date)])
+                .SelectMany(m => m.FoodEntries)
+                .Select(entry => foodItemsById.GetValueOrDefault(entry.FoodItemId))
+                .Where(food => food is not null)
+                .Select(food => food!)
+                .ToList();
 
-                return new LoggedMealDto
+            // Never parsed when locked: the values must be absent from the
+            // payload, not merely unrendered client-side.
+            var foodNutrients = micronutrientsLocked
+                ? new List<ExtendedNutrients?>()
+                : foods.Select(f => ExtendedNutrients.TryParse(f.ExtendedNutrientsJson)).ToList();
+            var mealNutrients = foodNutrients.Count == 0
+                ? null
+                : ExtendedNutrients.Sum(foodNutrients.Where(n => n is not null).Select(n => n!)) is { HasAnyData: true } sum
+                    ? sum
+                    : null;
+
+            var dto = new LoggedMealDto
+            {
+                MealId = meal.Id,
+                Category = meal.Category,
+                FoodNames = foods.Select(f => f.Name).ToList(),
+                Foods = foods.Select((f, i) => new LoggedFoodDto
                 {
-                    MealId = meal.Id,
-                    Category = meal.Category,
-                    FoodNames = foods.Select(f => f.Name).ToList(),
-                    Foods = foods.Select(f => new LoggedFoodDto
-                    {
-                        FoodItemId = f.Id,
-                        Name = f.Name,
-                        Grams = f.Gramm,
-                        Calories = f.Calories,
-                        Macros = new MacroTotalsDto
-                        {
-                            Protein = f.Protein,
-                            Carbs = f.Carbs,
-                            Fat = f.Fat,
-                        },
-                    }).ToList(),
-                    Calories = foods.Sum(f => f.Calories),
+                    FoodItemId = f.Id,
+                    Name = f.Name,
+                    Grams = f.Gramm,
+                    Calories = f.Calories,
                     Macros = new MacroTotalsDto
                     {
-                        Protein = foods.Sum(f => f.Protein),
-                        Carbs = foods.Sum(f => f.Carbs),
-                        Fat = foods.Sum(f => f.Fat),
+                        Protein = f.Protein,
+                        Carbs = f.Carbs,
+                        Fat = f.Fat,
                     },
-                };
-            })
+                    Micronutrients = foodNutrients.Count == 0 || foodNutrients[i] is null
+                        ? null
+                        : MicronutrientTotalsDto.From(foodNutrients[i]!),
+                }).ToList(),
+                Calories = foods.Sum(f => f.Calories),
+                Macros = new MacroTotalsDto
+                {
+                    Protein = foods.Sum(f => f.Protein),
+                    Carbs = foods.Sum(f => f.Carbs),
+                    Fat = foods.Sum(f => f.Fat),
+                },
+                Micronutrients = mealNutrients is null ? null : MicronutrientTotalsDto.From(mealNutrients),
+            };
+            return (dto, mealNutrients);
+        }
+
+        var loggedMealResults = todaysMeals
+            .GroupBy(meal => MealCategory.Key(meal.Category))
+            .Select(BuildLoggedMeal)
             .ToList();
+        var loggedMeals = loggedMealResults.Select(r => r.Dto).ToList();
+
+        // The day total, folded from the per-meal values above — see the
+        // remark on BuildLoggedMeal for why this must not re-scan the meals.
+        var dayNutrientsRaw = loggedMealResults
+            .Select(r => r.Nutrients)
+            .Where(n => n is not null)
+            .Select(n => n!)
+            .ToList();
+        var dayNutrients = dayNutrientsRaw.Count == 0 ? null : ExtendedNutrients.Sum(dayNutrientsRaw);
 
         // Days with nothing logged still get an entry, so the chart keeps seven bars.
         var sevenDayTrend = trendDays.Select(day => new DailyCalorieTotalDto
@@ -766,6 +823,36 @@ public class TrainerConsoleService(
             },
             CalorieGoal = calorieGoal,
             SevenDayTrend = sevenDayTrend,
+            Micronutrients = dayNutrients is null ? null : MicronutrientTotalsDto.From(dayNutrients),
+            MicronutrientsLocked = micronutrientsLocked,
+            PinnedNutrients = pinnedNutrients,
+        };
+    }
+
+    /// <inheritdoc/>
+    public async Task<SetNutrientPinsResult> SetClientNutrientPinsAsync(
+        Guid trainerId, Guid clientId, List<string> nutrientKeys)
+    {
+        var isTrainer = await _trainerClientService.IsActiveTrainerOfAsync(trainerId, clientId);
+        if (!isTrainer)
+        {
+            return new SetNutrientPinsResult { Status = SetNutrientPinsStatus.NotAuthorized };
+        }
+
+        if (nutrientKeys.Any(key => !NutrientKeys.IsValid(key)))
+        {
+            return new SetNutrientPinsResult { Status = SetNutrientPinsStatus.InvalidNutrientKey };
+        }
+
+        // Replaces the whole set rather than adding/removing individual rows —
+        // see the remarks on TrainerNutrientPin for why a partial write here
+        // isn't safe.
+        await _nutrientPins.ReplacePinsAsync(trainerId, clientId, nutrientKeys);
+
+        return new SetNutrientPinsResult
+        {
+            Status = SetNutrientPinsStatus.Ok,
+            PinnedNutrients = nutrientKeys,
         };
     }
 

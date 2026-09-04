@@ -24,7 +24,7 @@ See `docs/android-release.md`.
 
 ## Unreleased
 
-Fixed adding a food to a meal template from the Recently Added list: the Add to Template button was greyed out, so the food could only go to today's log. Creating a custom food while building a template had the same problem and logged it instead. The food details screen now shows only the action that applies.
+Added vitamin and mineral tracking, with data for thousands of German staple foods. Trainers can pin the nutrients that matter for a client and track them against daily targets. Fixed vitamin/mineral amounts sometimes showing far smaller than they actually were, and fixed adding a food to a meal template from Recently Added, which was greyed out and could only log to today.
 
 ## 1.0.2+20
 

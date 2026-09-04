@@ -45,6 +45,9 @@ class TrainerConsoleRepository {
     );
   }
 
+  Future<void> setClientNutrientPins(String clientId, List<String> nutrientKeys) =>
+      _api.setClientNutrientPins(clientId, nutrientKeys);
+
   Future<List<WorkoutPlanTemplateSummary>> getWorkoutPlanTemplates() async {
     final raw = await _api.fetchWorkoutPlanTemplates();
     return raw.map(WorkoutPlanTemplateSummary.fromJson).toList();

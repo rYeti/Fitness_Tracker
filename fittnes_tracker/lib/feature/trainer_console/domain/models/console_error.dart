@@ -30,6 +30,7 @@ enum ConsoleError {
   withdrawInvite,
   openCheckout,
   openBilling,
+  saveNutrientPins,
 }
 
 extension ConsoleErrorMessage on ConsoleError {
@@ -57,5 +58,6 @@ extension ConsoleErrorMessage on ConsoleError {
     ConsoleError.withdrawInvite => l10n.errorWithdrawInvite,
     ConsoleError.openCheckout => l10n.errorOpenCheckout,
     ConsoleError.openBilling => l10n.errorOpenBilling,
+    ConsoleError.saveNutrientPins => l10n.errorSaveNutrientPins,
   };
 }

@@ -84,6 +84,24 @@ public class TrainerConsoleController(ITrainerConsoleService service) : Controll
         return Ok(result);
     }
 
+    /// <summary>Replaces the whole set of nutrients pinned to track for this
+    /// client on the Nutrition tab. Requires an entitled licence — this is a
+    /// write, unlike every read above.</summary>
+    [ServiceFilter(typeof(RequireEntitledLicenceFilter))]
+    [HttpPut("{clientId}/nutrient-pins")]
+    public async Task<IActionResult> SetClientNutrientPins(Guid clientId, [FromBody] List<string> nutrientKeys)
+    {
+        var trainerId = GetUserId();
+        if (trainerId == null) return Unauthorized();
+        var result = await _service.SetClientNutrientPinsAsync(trainerId.Value, clientId, nutrientKeys);
+        return result.Status switch
+        {
+            SetNutrientPinsStatus.Ok => Ok(result),
+            SetNutrientPinsStatus.InvalidNutrientKey => BadRequest("Unrecognised nutrient key."),
+            _ => NotFound(),
+        };
+    }
+
     [ServiceFilter(typeof(RequireEntitledLicenceFilter))]
     [HttpPost("{clientId}/workout-plans")]
     public async Task<IActionResult> CreateClientWorkoutPlan(Guid clientId, [FromBody] WorkoutPlanRequestDto dto)

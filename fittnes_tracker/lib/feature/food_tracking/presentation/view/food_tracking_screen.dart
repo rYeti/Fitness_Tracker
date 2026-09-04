@@ -1,6 +1,13 @@
 // lib/feature/presentation/view/food_tracking_screen.dart
+import 'dart:async';
+
+import 'package:drift/drift.dart';
 import 'package:ForgeForm/core/app_database.dart';
+import 'package:ForgeForm/core/nutrition/extended_nutrients.dart';
+import 'package:ForgeForm/core/nutrition/nutrient_pins_api.dart';
+import 'package:ForgeForm/core/providers/access_provider.dart';
 import 'package:ForgeForm/core/providers/user_goals_provider.dart';
+import 'package:ForgeForm/core/widgets/tracked_nutrients_card.dart';
 import 'package:ForgeForm/feature/dashboard/view/dashboard_screen.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:ForgeForm/feature/progress_dashboard_view.dart';
@@ -32,6 +39,23 @@ class _FoodTrackingScreenState extends State<FoodTrackingScreen> {
   bool _isLoading = false;
   DateTime _selectedDate = DateTime.now();
 
+  /// Not day-specific — a coach's pin selection applies to every day, so this
+  /// is fetched once rather than re-fetched on every date change.
+  List<String> _pinnedNutrients = const [];
+
+  /// Every food logged today, summed. Each [FoodItemData] already stores its
+  /// nutrients scaled to the amount actually logged (see
+  /// `docs/trainer-console-micronutrients.md` for the two bugs that made that
+  /// untrue before this feature), so no rescaling happens here — a plain
+  /// null-preserving sum across every meal's foods.
+  ExtendedNutrients get _dayMicronutrients => ExtendedNutrients.sum(
+        _mealFoods.values.expand((foods) => foods).map(
+              (food) => food.extendedNutrientsJson == null
+                  ? ExtendedNutrients.empty
+                  : ExtendedNutrients.fromJsonString(food.extendedNutrientsJson!),
+            ),
+      );
+
   bool get _isToday {
     final now = DateTime.now();
     return _selectedDate.year == now.year &&
@@ -61,6 +85,17 @@ class _FoodTrackingScreenState extends State<FoodTrackingScreen> {
     db = Provider.of<AppDatabase>(context, listen: false);
     _repository = NutritionRepository(db);
     loadNutritionData();
+    unawaited(_loadPinnedNutrients());
+  }
+
+  Future<void> _loadPinnedNutrients() async {
+    try {
+      final pins = await NutrientPinsApi().fetchMyPins();
+      if (mounted) setState(() => _pinnedNutrients = pins);
+    } catch (_) {
+      // Leave the card unrendered (empty pin list) rather than surfacing a
+      // second error state on a screen whose main job is the food log.
+    }
   }
 
   void _prevDay() => setState(() {
@@ -143,6 +178,17 @@ class _FoodTrackingScreenState extends State<FoodTrackingScreen> {
     if (newGramm == null || newGramm == food.gramm) return;
     final base = food.gramm > 0 ? food.gramm : 100;
     final ratio = newGramm / base;
+    // Rescale from `base`, not implicitly from 100 — a food's stored
+    // micronutrients represent its own current serving, which for a
+    // re-added local food is not always 100g. See
+    // `docs/trainer-console-micronutrients.md`.
+    final existingNutrients = food.extendedNutrientsJson == null
+        ? null
+        : ExtendedNutrients.fromJsonString(food.extendedNutrientsJson!);
+    final rescaledNutrients = existingNutrients?.rescale(
+      fromGrams: base.toDouble(),
+      toGrams: newGramm.toDouble(),
+    );
     await db.foodItemDao.updateFoodItem(
       food.id,
       calories: (food.calories * ratio).round(),
@@ -150,6 +196,7 @@ class _FoodTrackingScreenState extends State<FoodTrackingScreen> {
       carbs: (food.carbs * ratio).round(),
       fat: (food.fat * ratio).round(),
       gramm: newGramm,
+      extendedNutrientsJson: Value(rescaledNutrients?.toJsonString()),
     );
     loadNutritionData();
     _refreshDashboard();
@@ -236,6 +283,8 @@ class _FoodTrackingScreenState extends State<FoodTrackingScreen> {
                 _buildDateNav(),
                 const SizedBox(height: 8),
                 _buildDailySummary(),
+                const SizedBox(height: 16),
+                _buildTrackedNutrients(),
                 const SizedBox(height: 24),
                 _buildMealsList(),
               ],
@@ -279,6 +328,23 @@ class _FoodTrackingScreenState extends State<FoodTrackingScreen> {
             child: Text(l10n.today),
           ),
       ],
+    );
+  }
+
+  /// Read-only: what a coach chose to track, not something the trainee
+  /// edits here. Gated on the same premium flag as the per-food card
+  /// (`food_detail_view.dart`) — see docs/trainer-console-micronutrients.md
+  /// for why the gate is enforced server-side too, and why device-side IAP
+  /// premium is invisible to that server-side check.
+  Widget _buildTrackedNutrients() {
+    final l10n = AppLocalizations.of(context)!;
+    final isPremium = context.read<AccessProvider>().hasPremiumAccess;
+    return TrackedNutrientsCard(
+      locked: !isPremium,
+      pinnedKeys: _pinnedNutrients,
+      nutrients: _dayMicronutrients,
+      dayScope: true,
+      subtitle: l10n.trackedNutrientsSubtitleTrainee,
     );
   }
 

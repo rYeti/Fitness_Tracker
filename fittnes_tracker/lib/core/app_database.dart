@@ -156,8 +156,11 @@ class AppDatabase extends _$AppDatabase {
   /// emits `CREATE TABLE IF NOT EXISTS`, so the table is created and existing
   /// ones are untouched. **Do not delete this bump as a no-op** — the bump is the
   /// entire fix.
+  ///
+  /// 38 adds `verified_food_table.extended_nutrients_json` — see
+  /// `if (from < 38)` below and `docs/trainer-console-micronutrients.md`.
   @override
-  int get schemaVersion => 37;
+  int get schemaVersion => 38;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -369,6 +372,14 @@ class AppDatabase extends _$AppDatabase {
             await customStatement(stmt);
           } catch (_) {}
         }
+      }
+
+      if (from < 38) {
+        try {
+          await customStatement(
+            'ALTER TABLE verified_food_table ADD COLUMN extended_nutrients_json TEXT',
+          );
+        } catch (_) {}
       }
     },
   );

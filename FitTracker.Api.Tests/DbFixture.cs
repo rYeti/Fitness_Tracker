@@ -136,7 +136,8 @@ public sealed class DbFixture : IDisposable
         int calories = 100,
         int protein = 10,
         int carbs = 20,
-        int fat = 5)
+        int fat = 5,
+        string? extendedNutrientsJson = null)
     {
         var food = new FoodItem
         {
@@ -147,6 +148,7 @@ public sealed class DbFixture : IDisposable
             Protein = protein,
             Carbs = carbs,
             Fat = fat,
+            ExtendedNutrientsJson = extendedNutrientsJson,
         };
         Db.FoodItems.Add(food);
         Db.SaveChanges();
