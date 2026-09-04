@@ -2507,6 +2507,51 @@ class AppLocalizationsDe extends AppLocalizations {
   String get chatAttachVideo => 'Video';
 
   @override
+  String get chatStorageTitle => 'Chat-Speicher';
+
+  @override
+  String get chatStorageLoading => 'Speichernutzung wird geladen';
+
+  @override
+  String get chatStorageLoadError =>
+      'Speichernutzung konnte nicht geladen werden.';
+
+  @override
+  String get chatStorageEmpty => 'Keine gespeicherten Chat-Medien';
+
+  @override
+  String get chatStorageEmptyBody =>
+      'Fotos, Videos und Dateien, die du erhalten hast, erscheinen hier, sobald sie heruntergeladen wurden.';
+
+  @override
+  String get chatStorageTotalUsed => 'Insgesamt genutzt';
+
+  @override
+  String get chatStorageByThread => 'Nach Unterhaltung';
+
+  @override
+  String get chatStorageClearAll => 'Alles löschen';
+
+  @override
+  String get chatStorageClear => 'Löschen';
+
+  @override
+  String get chatStorageClearThreadTitle =>
+      'Medien dieser Unterhaltung löschen?';
+
+  @override
+  String chatStorageClearThreadBody(String name) {
+    return 'Dadurch werden heruntergeladene Fotos, Videos und Dateien für $name von diesem Gerät entfernt. Sie können erneut heruntergeladen werden, sofern noch verfügbar.';
+  }
+
+  @override
+  String get chatStorageClearAllTitle => 'Alle Chat-Medien löschen?';
+
+  @override
+  String get chatStorageClearAllBody =>
+      'Dadurch werden alle heruntergeladenen Fotos, Videos und Dateien aus allen Unterhaltungen von diesem Gerät entfernt. Sie können erneut heruntergeladen werden, sofern noch verfügbar.';
+
+  @override
   String get chatUnavailable => 'Nachrichten nicht verfügbar';
 
   @override

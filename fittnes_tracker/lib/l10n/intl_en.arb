@@ -1462,6 +1462,38 @@
   "@chatVideoLabel": {},
   "chatAttachVideo": "Video",
   "@chatAttachVideo": {},
+  "chatStorageTitle": "Chat storage",
+  "@chatStorageTitle": {},
+  "chatStorageLoading": "Loading storage usage",
+  "@chatStorageLoading": {},
+  "chatStorageLoadError": "Could not load storage usage.",
+  "@chatStorageLoadError": {},
+  "chatStorageEmpty": "No chat media stored",
+  "@chatStorageEmpty": {},
+  "chatStorageEmptyBody": "Photos, videos and files you've received will appear here once downloaded.",
+  "@chatStorageEmptyBody": {},
+  "chatStorageTotalUsed": "Total used",
+  "@chatStorageTotalUsed": {},
+  "chatStorageByThread": "By conversation",
+  "@chatStorageByThread": {},
+  "chatStorageClearAll": "Clear all",
+  "@chatStorageClearAll": {},
+  "chatStorageClear": "Clear",
+  "@chatStorageClear": {},
+  "chatStorageClearThreadTitle": "Clear this conversation's media?",
+  "@chatStorageClearThreadTitle": {},
+  "chatStorageClearThreadBody": "This removes downloaded photos, videos and files for {name} from this device. They can be downloaded again if still available.",
+  "@chatStorageClearThreadBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "chatStorageClearAllTitle": "Clear all chat media?",
+  "@chatStorageClearAllTitle": {},
+  "chatStorageClearAllBody": "This removes every downloaded photo, video and file from this device across all conversations. They can be downloaded again if still available.",
+  "@chatStorageClearAllBody": {},
   "chatUnavailable": "Messaging is unavailable",
   "@chatUnavailable": {},
   "chatUnavailableBody": "Chat could not start on this device. Restart the app, and if it keeps happening let support know.",

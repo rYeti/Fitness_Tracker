@@ -4568,6 +4568,84 @@ abstract class AppLocalizations {
   /// **'Video'**
   String get chatAttachVideo;
 
+  /// No description provided for @chatStorageTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Chat storage'**
+  String get chatStorageTitle;
+
+  /// No description provided for @chatStorageLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading storage usage'**
+  String get chatStorageLoading;
+
+  /// No description provided for @chatStorageLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load storage usage.'**
+  String get chatStorageLoadError;
+
+  /// No description provided for @chatStorageEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No chat media stored'**
+  String get chatStorageEmpty;
+
+  /// No description provided for @chatStorageEmptyBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Photos, videos and files you\'ve received will appear here once downloaded.'**
+  String get chatStorageEmptyBody;
+
+  /// No description provided for @chatStorageTotalUsed.
+  ///
+  /// In en, this message translates to:
+  /// **'Total used'**
+  String get chatStorageTotalUsed;
+
+  /// No description provided for @chatStorageByThread.
+  ///
+  /// In en, this message translates to:
+  /// **'By conversation'**
+  String get chatStorageByThread;
+
+  /// No description provided for @chatStorageClearAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear all'**
+  String get chatStorageClearAll;
+
+  /// No description provided for @chatStorageClear.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear'**
+  String get chatStorageClear;
+
+  /// No description provided for @chatStorageClearThreadTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear this conversation\'s media?'**
+  String get chatStorageClearThreadTitle;
+
+  /// No description provided for @chatStorageClearThreadBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This removes downloaded photos, videos and files for {name} from this device. They can be downloaded again if still available.'**
+  String chatStorageClearThreadBody(String name);
+
+  /// No description provided for @chatStorageClearAllTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear all chat media?'**
+  String get chatStorageClearAllTitle;
+
+  /// No description provided for @chatStorageClearAllBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This removes every downloaded photo, video and file from this device across all conversations. They can be downloaded again if still available.'**
+  String get chatStorageClearAllBody;
+
   /// No description provided for @chatUnavailable.
   ///
   /// In en, this message translates to:
