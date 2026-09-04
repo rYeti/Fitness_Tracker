@@ -48,7 +48,8 @@ public class TrainerWorkoutBuilderTests : IDisposable
             null!,
             _exercises,
             null!,
-            new WorkoutService(new WorkoutRepository(_fx.Db)));
+            new WorkoutService(new WorkoutRepository(_fx.Db)),
+            null!);
     }
 
     public void Dispose() => _fx.Dispose();

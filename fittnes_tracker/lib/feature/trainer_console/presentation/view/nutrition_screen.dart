@@ -9,10 +9,12 @@ import 'package:ForgeForm/feature/trainer_console/presentation/providers/nutriti
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/calorie_ring.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/client_switcher.dart';
 import 'package:ForgeForm/core/widgets/app_widgets.dart';
+import 'package:ForgeForm/core/widgets/tracked_nutrients_card.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/macro_summary.dart';
-import 'package:ForgeForm/feature/trainer_console/presentation/widgets/meal_detail_sheet.dart';
+import 'package:ForgeForm/feature/trainer_console/presentation/view/meal_detail_screen.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/console_error.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
+import 'package:ForgeForm/core/nutrition/extended_nutrients.dart';
 import 'package:ForgeForm/core/nutrition/meal_category.dart';
 
 /// Client-switcher (shared ActiveClientProvider) + a day-switcher, so the
@@ -285,7 +287,20 @@ class _Body extends StatelessWidget {
     }
 
     final ringCard = _RingCard(summary: summary);
-    final mealsCard = _MealsCard(summary: summary, clientName: client.firstName);
+    final mealsCard = _MealsCard(
+      summary: summary,
+      clientName: client.firstName,
+      clientId: client.clientId,
+      nutrition: nutrition,
+    );
+    final trackedCard = TrackedNutrientsCard(
+      locked: summary.micronutrientsLocked,
+      pinnedKeys: summary.pinnedNutrients,
+      nutrients: summary.micronutrients ?? ExtendedNutrients.empty,
+      dayScope: true,
+      subtitle: l10n.trackedNutrientsSubtitleTrainer(client.firstName),
+      onTogglePin: (key) => nutrition.togglePin(client.clientId, key),
+    );
     final trendCard = _TrendCard(trend: summary.sevenDayTrend);
 
     if (isDesktop) {
@@ -302,6 +317,8 @@ class _Body extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 16),
+            trackedCard,
+            const SizedBox(height: 16),
             trendCard,
           ],
         ),
@@ -315,6 +332,8 @@ class _Body extends StatelessWidget {
           ringCard,
           const SizedBox(height: 14),
           mealsCard,
+          const SizedBox(height: 14),
+          trackedCard,
           const SizedBox(height: 14),
           trendCard,
         ],
@@ -355,8 +374,15 @@ class _RingCard extends StatelessWidget {
 class _MealsCard extends StatelessWidget {
   final ClientNutritionSummary summary;
   final String clientName;
+  final String clientId;
+  final NutritionProvider nutrition;
 
-  const _MealsCard({required this.summary, required this.clientName});
+  const _MealsCard({
+    required this.summary,
+    required this.clientName,
+    required this.clientId,
+    required this.nutrition,
+  });
 
   /// The design orders meals by time of day rather than insertion order.
   static const _categoryOrder = ['breakfast', 'lunch', 'snack', 'dinner'];
@@ -393,22 +419,49 @@ class _MealsCard extends StatelessWidget {
       );
     }
 
-    final meals = [...summary.loggedMeals]..sort((a, b) {
-      final ai = _categoryOrder.indexOf(_key(a.category));
-      final bi = _categoryOrder.indexOf(_key(b.category));
-      // Unknown categories sort last rather than to the front.
-      return (ai < 0 ? _categoryOrder.length : ai)
-          .compareTo(bi < 0 ? _categoryOrder.length : bi);
-    });
+    final byCategory = <String, LoggedMeal>{
+      for (final meal in summary.loggedMeals) _key(meal.category): meal,
+    };
+    // Every known category gets a row whether or not it was logged — an
+    // unlogged one renders dimmed with an em dash rather than being omitted,
+    // per the design. A category the app doesn't recognise (an old build's
+    // wording, say) still gets its own row, appended after the four fixed
+    // ones, exactly as it did before this rendered a fixed set of slots.
+    final knownRows = [for (final cat in _categoryOrder) byCategory[cat]];
+    final extraMeals = summary.loggedMeals
+        .where((meal) => !_categoryOrder.contains(_key(meal.category)))
+        .toList();
+    final rows = [
+      for (var i = 0; i < _categoryOrder.length; i++)
+        _MealRowData(category: _categoryOrder[i], meal: knownRows[i]),
+      for (final meal in extraMeals)
+        _MealRowData(category: meal.category, meal: meal),
+    ];
 
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SectionTitle(title: l10n.mealsLogged),
-          for (final meal in meals) ...[
-            _MealRow(meal: meal),
-            if (meal != meals.last)
+          SectionTitle(
+            title: l10n.mealsLogged,
+            trailing: Text(
+              l10n.selectMealForDetail,
+              style: TextStyle(
+                fontFamily: 'Exo 2',
+                fontSize: 11.5,
+                color: colors.onSurface.withValues(alpha: 0.55),
+              ),
+            ),
+          ),
+          for (final row in rows) ...[
+            _MealRow(
+              category: row.category,
+              meal: row.meal,
+              clientId: clientId,
+              clientName: clientName,
+              nutrition: nutrition,
+            ),
+            if (row != rows.last)
               Divider(height: 1, color: colors.onSurface.withValues(alpha: 0.08)),
           ],
         ],
@@ -430,58 +483,86 @@ class _MealsCard extends StatelessWidget {
       };
 }
 
-/// One meal in the "Meals logged" list. Tapping opens [MealDetailSheet] with
-/// every food in the meal — the row itself only has space for a one-line,
-/// ellipsised list of names.
-class _MealRow extends StatelessWidget {
-  final LoggedMeal meal;
+class _MealRowData {
+  final String category;
+  final LoggedMeal? meal;
 
-  const _MealRow({required this.meal});
+  const _MealRowData({required this.category, required this.meal});
+}
+
+/// One row in the "Meals logged" list — one of the four fixed categories, or
+/// an unrecognised one appended after them. [meal] is null for a category
+/// nothing was logged under today, which renders dimmed with an em dash
+/// rather than being left out entirely.
+///
+/// Tapping a logged meal pushes [MealDetailScreen] with every food in the
+/// meal — the row itself only has space for a one-line, ellipsised list of
+/// names.
+class _MealRow extends StatelessWidget {
+  final String category;
+  final LoggedMeal? meal;
+  final String clientId;
+  final String clientName;
+  final NutritionProvider nutrition;
+
+  const _MealRow({
+    required this.category,
+    required this.meal,
+    required this.clientId,
+    required this.clientName,
+    required this.nutrition,
+  });
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final l10n = AppLocalizations.of(context)!;
-    final label = _MealsCard._categoryLabel(meal.category, l10n);
-    final icon = _MealsCard._iconFor(meal.category);
+    final meal = this.meal;
+    final label = _MealsCard._categoryLabel(category, l10n);
+    final icon = _MealsCard._iconFor(category);
+    final logged = meal != null;
 
-    // Nothing to drill into when the meal came back without per-food detail
-    // (an empty meal, or an API build older than the detail view) — the row
-    // stays a plain, non-tappable summary rather than opening a blank sheet.
-    final canOpen = meal.foods.isNotEmpty;
-
-    final content = Padding(
-      // 44px min tap target per CLAUDE.md, with the icon tile at 36px.
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: ForgeColors.forgeOrange.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(8),
+    final content = Opacity(
+      opacity: logged ? 1 : 0.5,
+      child: Padding(
+        // 44px min tap target per CLAUDE.md, with the icon tile at 36px.
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: meal != null
+                    ? ForgeColors.forgeOrange.withValues(alpha: 0.12)
+                    : colors.onSurface.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                icon,
+                size: 19,
+                color: meal != null ? ForgeColors.forgeOrange : colors.onSurface.withValues(alpha: 0.45),
+              ),
             ),
-            child: Icon(icon, size: 19, color: ForgeColors.forgeOrange),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontFamily: 'Exo 2',
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
-                    color: colors.onSurface,
-                  ),
-                ),
-                if (meal.foodNames.isNotEmpty)
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Text(
-                    meal.foodNames.join(', '),
+                    label,
+                    style: TextStyle(
+                      fontFamily: 'Exo 2',
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                      color: colors.onSurface,
+                    ),
+                  ),
+                  Text(
+                    meal != null && meal.foodNames.isNotEmpty
+                        ? meal.foodNames.join(', ')
+                        : l10n.mealNotLoggedYet,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -490,32 +571,40 @@ class _MealRow extends StatelessWidget {
                       color: colors.onSurface.withValues(alpha: 0.55),
                     ),
                   ),
-              ],
+                ],
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            '${meal.calories} kcal',
-            style: TextStyle(
-              fontFamily: 'Montserrat',
-              fontWeight: FontWeight.w700,
-              fontSize: 13,
-              color: colors.onSurface,
+            const SizedBox(width: 8),
+            Text(
+              meal != null ? '${meal.calories} kcal' : '—',
+              style: TextStyle(
+                fontFamily: 'Montserrat',
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+                color: colors.onSurface,
+              ),
             ),
-          ),
-          if (canOpen) ...[
-            const SizedBox(width: 4),
-            Icon(
-              Icons.chevron_right_rounded,
-              size: 20,
-              color: colors.onSurface.withValues(alpha: 0.45),
-            ),
+            if (meal != null && meal.foods.isNotEmpty) ...[
+              const SizedBox(width: 4),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 20,
+                color: colors.onSurface.withValues(alpha: 0.45),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
 
-    if (!canOpen) return content;
+    // Nothing to drill into for an unlogged category, or a meal that came
+    // back without per-food detail (an empty meal, or an API build older
+    // than the detail screen) — the row stays a plain, non-tappable summary
+    // rather than opening a blank screen. The explicit `meal == null` check
+    // (rather than a bool flag computed earlier) is what lets Dart treat
+    // `meal` as non-null for the rest of this method — a flag doesn't carry
+    // that promotion the way a direct null-check does.
+    if (meal == null || meal.foods.isEmpty) return content;
 
     return Semantics(
       container: true,
@@ -527,11 +616,20 @@ class _MealRow extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         child: InkWell(
           borderRadius: BorderRadius.circular(8),
-          onTap: () => MealDetailSheet.show(
-            context,
-            meal: meal,
-            mealLabel: label,
-            icon: icon,
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => MealDetailScreen(
+                meal: meal,
+                mealLabel: label,
+                icon: icon,
+                clientName: clientName,
+                micronutrientsLocked: nutrition.summary?.micronutrientsLocked ?? true,
+                pinnedNutrients: nutrition.summary?.pinnedNutrients ?? const [],
+                onTogglePin: (nutrition.summary?.micronutrientsLocked ?? true)
+                    ? null
+                    : (key) => nutrition.togglePin(clientId, key),
+              ),
+            ),
           ),
           child: content,
         ),

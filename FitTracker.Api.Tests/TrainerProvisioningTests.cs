@@ -176,7 +176,8 @@ public class TrainerProvisioningTests : IDisposable
         var user = await _fx.Db.Users.FirstAsync(u => u.UserName == "coach_ana");
         var status = await new TrainerClientService(
             new TrainerClientRepository(_fx.Db),
-            new TrainerLicenceRepository(_fx.Db)).GetStatusAsync(user.Id);
+            new TrainerLicenceRepository(_fx.Db),
+            new TrainerNutrientPinRepository(_fx.Db)).GetStatusAsync(user.Id);
 
         Assert.True(status.IsTrainer);
 

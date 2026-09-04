@@ -42,7 +42,8 @@ public class TrainerNutritionSummaryTests : IDisposable
             new UserSettingsService(new UserSettingsRepository(_fx.Db)),
             null!,
             new FoodItemService(new FoodItemRepository(_fx.Db)),
-            null!);
+            null!,
+            new TrainerNutrientPinRepository(_fx.Db));
     }
 
     public void Dispose() => _fx.Dispose();
@@ -201,5 +202,134 @@ public class TrainerNutritionSummaryTests : IDisposable
         var stranger = _fx.AddUser().Id;
 
         Assert.Null(await _console.GetClientNutritionSummaryAsync(_trainerId, stranger, TheTwentyFirst));
+    }
+
+    // ── Micronutrients ────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task MicronutrientsSumAcrossFoodsInAMealAndAcrossMeals()
+    {
+        var oats = _fx.AddFoodItem(_clientId, "Oats", calories: 320,
+            extendedNutrientsJson: """{"fiber":0.0093,"iron":0.00516}""");
+        var berries = _fx.AddFoodItem(_clientId, "Blueberries", calories: 80,
+            extendedNutrientsJson: """{"fiber":0.0024,"vitaminC":0.0098}""");
+        var salad = _fx.AddFoodItem(_clientId, "Salad", calories: 60,
+            extendedNutrientsJson: """{"vitaminC":0.018}""");
+
+        var breakfast = _fx.AddMeal(_clientId, StoredOnTheTwentyFirst, "Breakfast");
+        _fx.AddFoodToMeal(breakfast.Id, oats.Id);
+        _fx.AddFoodToMeal(breakfast.Id, berries.Id);
+        _fx.AddFoodToMeal(_fx.AddMeal(_clientId, StoredOnTheTwentyFirst, "Lunch").Id, salad.Id);
+
+        var summary = await _console.GetClientNutritionSummaryAsync(_trainerId, _clientId, TheTwentyFirst);
+
+        Assert.False(summary!.MicronutrientsLocked);
+        // Breakfast: oats' fibre + blueberries' fibre; lunch never reported any.
+        Assert.Equal(0.0117, summary.Micronutrients!.Fiber!.Value, precision: 6);
+        // Blueberries' vitamin C + salad's, across two different meals.
+        Assert.Equal(0.0278, summary.Micronutrients.VitaminC!.Value, precision: 6);
+        Assert.Equal(0.00516, summary.Micronutrients.Iron!.Value, precision: 6);
+    }
+
+    [Fact]
+    public async Task AnUnreportedNutrientStaysNullNotZero()
+    {
+        // Not one food today reports zinc — the day total must say "unknown",
+        // not "0 mg", or a trainer reads a real deficiency signal into a food
+        // catalogue gap.
+        var oats = _fx.AddFoodItem(_clientId, "Oats", calories: 320,
+            extendedNutrientsJson: """{"fiber":0.0093}""");
+        _fx.AddFoodToMeal(_fx.AddMeal(_clientId, StoredOnTheTwentyFirst, "Breakfast").Id, oats.Id);
+
+        var summary = await _console.GetClientNutritionSummaryAsync(_trainerId, _clientId, TheTwentyFirst);
+
+        Assert.NotNull(summary!.Micronutrients);
+        Assert.Null(summary.Micronutrients!.Zinc);
+    }
+
+    [Fact]
+    public async Task ADayWithNoMicronutrientDataAtAllIsNullNotAnEmptyObject()
+    {
+        var oats = _fx.AddFoodItem(_clientId, "Oats", calories: 320); // no blob at all
+        _fx.AddFoodToMeal(_fx.AddMeal(_clientId, StoredOnTheTwentyFirst, "Breakfast").Id, oats.Id);
+
+        var summary = await _console.GetClientNutritionSummaryAsync(_trainerId, _clientId, TheTwentyFirst);
+
+        Assert.Null(summary!.Micronutrients);
+        Assert.Null(Assert.Single(summary.LoggedMeals).Micronutrients);
+        Assert.Null(Assert.Single(Assert.Single(summary.LoggedMeals).Foods).Micronutrients);
+    }
+
+    [Fact]
+    public async Task AMalformedBlobIsSkippedNotFatal()
+    {
+        var good = _fx.AddFoodItem(_clientId, "Oats", calories: 320,
+            extendedNutrientsJson: """{"fiber":0.0093}""");
+        var bad = _fx.AddFoodItem(_clientId, "Mystery bar", calories: 200,
+            extendedNutrientsJson: "{not valid json");
+
+        var breakfast = _fx.AddMeal(_clientId, StoredOnTheTwentyFirst, "Breakfast");
+        _fx.AddFoodToMeal(breakfast.Id, good.Id);
+        _fx.AddFoodToMeal(breakfast.Id, bad.Id);
+
+        // Must not throw, and the good food's data must still come through.
+        var summary = await _console.GetClientNutritionSummaryAsync(_trainerId, _clientId, TheTwentyFirst);
+
+        Assert.Equal(0.0093, summary!.Micronutrients!.Fiber!.Value, precision: 6);
+    }
+
+    [Fact]
+    public async Task RepushedMealRowsDoNotDoubleTheMicronutrientTotal()
+    {
+        var oats = _fx.AddFoodItem(_clientId, "Oats", calories: 320,
+            extendedNutrientsJson: """{"fiber":0.0093}""");
+        var berries = _fx.AddFoodItem(_clientId, "Blueberries", calories: 80,
+            extendedNutrientsJson: """{"fiber":0.0024}""");
+
+        // Same shape as TwoRowsForTheSameCategoryAreOneMeal: a re-pushed meal,
+        // foods split across the two rows for the same category and day.
+        var first = _fx.AddMeal(_clientId, StoredOnTheTwentyFirst, "Breakfast");
+        var repushed = _fx.AddMeal(_clientId, StoredOnTheTwentyFirst, "Breakfast");
+        _fx.AddFoodToMeal(first.Id, oats.Id);
+        _fx.AddFoodToMeal(repushed.Id, berries.Id);
+
+        var summary = await _console.GetClientNutritionSummaryAsync(_trainerId, _clientId, TheTwentyFirst);
+
+        // 0.0093 + 0.0024, once each — never doubled by the fold.
+        Assert.Equal(0.0117, summary!.Micronutrients!.Fiber!.Value, precision: 6);
+    }
+
+    [Fact]
+    public async Task LockedWhenTheTrainerIsNotEntitled()
+    {
+        var oats = _fx.AddFoodItem(_clientId, "Oats", calories: 320,
+            extendedNutrientsJson: """{"fiber":0.0093}""");
+        _fx.AddFoodToMeal(_fx.AddMeal(_clientId, StoredOnTheTwentyFirst, "Breakfast").Id, oats.Id);
+
+        var lockedConsole = new TrainerConsoleService(
+            new ActiveRelationshipStub(_trainerId, _clientId, grantsPro: false),
+            null!, null!, null!,
+            new MealService(new MealRepository(_fx.Db)),
+            new UserSettingsService(new UserSettingsRepository(_fx.Db)),
+            null!,
+            new FoodItemService(new FoodItemRepository(_fx.Db)),
+            null!,
+            new TrainerNutrientPinRepository(_fx.Db));
+
+        var summary = await lockedConsole.GetClientNutritionSummaryAsync(_trainerId, _clientId, TheTwentyFirst);
+
+        Assert.True(summary!.MicronutrientsLocked);
+        // Absent from the payload, not merely a hint the client should hide it.
+        Assert.Null(summary.Micronutrients);
+        Assert.Null(Assert.Single(summary.LoggedMeals).Micronutrients);
+        Assert.Null(Assert.Single(Assert.Single(summary.LoggedMeals).Foods).Micronutrients);
+    }
+
+    [Fact]
+    public async Task PinnedNutrientsDefaultWhenNoneAreSaved()
+    {
+        var summary = await _console.GetClientNutritionSummaryAsync(_trainerId, _clientId, TheTwentyFirst);
+
+        Assert.Equal(new[] { "fibre", "sugar", "sodium" }, summary!.PinnedNutrients);
     }
 }

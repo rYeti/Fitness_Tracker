@@ -1,6 +1,6 @@
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:drift/drift.dart';
-import 'extended_nutrients.dart';
+import 'package:ForgeForm/core/nutrition/extended_nutrients.dart';
 
 class FoodItemModel {
   final int? id;

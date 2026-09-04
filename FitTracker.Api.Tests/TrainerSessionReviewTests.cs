@@ -48,7 +48,8 @@ public class TrainerSessionReviewTests : IDisposable
             null!,
             new ExerciseService(new ExerciseRepository(_fx.Db)),
             null!,
-            _workouts);
+            _workouts,
+            null!);
     }
 
     public void Dispose() => _fx.Dispose();

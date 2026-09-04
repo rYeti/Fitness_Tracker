@@ -28,6 +28,13 @@ public interface ITrainerConsoleService
 
     Task<ClientNutritionSummaryDto?> GetClientNutritionSummaryAsync(Guid trainerId, Guid clientId, DateTime date);
 
+    /// <summary>Replaces the whole set of nutrients this trainer has pinned to
+    /// track for this client. Rejects an unrecognised nutrient key and a
+    /// trainer who isn't this client's active trainer — see
+    /// <see cref="SetNutrientPinsStatus"/>.</summary>
+    Task<SetNutrientPinsResult> SetClientNutrientPinsAsync(
+        Guid trainerId, Guid clientId, List<string> nutrientKeys);
+
     Task<WorkoutPlanResponseDto?> CreateClientWorkoutPlanAsync(Guid trainerId, Guid clientId, WorkoutPlanRequestDto dto);
 
     Task<WorkoutPlanResponseDto?> UpdateClientWorkoutPlanAsync(Guid trainerId, Guid clientId, Guid planId, WorkoutPlanRequestDto dto);

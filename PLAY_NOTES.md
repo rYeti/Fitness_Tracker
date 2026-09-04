@@ -24,7 +24,7 @@ See `docs/android-release.md`.
 
 ## Unreleased
 
-Trainers can now delete a client's whole workout plan, not just one day at a time. Fixed workout and plan deletes not always reaching the server, so a deleted item could reappear after syncing. Fixed adding a food to a meal template from Recently Added: Add to Template was greyed out, so the food could only go to today's log. A hand-entered custom food had the same problem. The food screen now shows only the action that applies.
+Added vitamin and mineral tracking, with data for thousands of German staple foods. Trainers can pin the nutrients that matter for a client and track them against daily targets, and can now delete a client's whole workout plan, not just one day. Fixed vitamin/mineral amounts sometimes showing far smaller than they actually were, workout and plan deletes not always reaching the server, and adding a food to a meal template from Recently Added, which was greyed out and could only log to today.
 
 ## 1.0.2+20
 

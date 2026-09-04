@@ -141,6 +141,17 @@ public class TrainerClientController(ITrainerClientService service) : Controller
         return Ok(await _service.GetClientsAsync(userId.Value));
     }
 
+    /// <summary>The nutrients the caller's trainer has pinned for them to track,
+    /// read-only. Defaults for a caller with no active trainer, or whose trainer
+    /// never chose — see <see cref="ITrainerClientService.GetMyNutrientPinsAsync"/>.</summary>
+    [HttpGet("my-nutrient-pins")]
+    public async Task<IActionResult> GetMyNutrientPins()
+    {
+        var userId = GetUserId();
+        if (userId == null) return Unauthorized();
+        return Ok(await _service.GetMyNutrientPinsAsync(userId.Value));
+    }
+
     /// <summary>Trainer removes a client, or client leaves their trainer.</summary>
     [HttpDelete("{relationshipId}")]
     public async Task<IActionResult> Remove(Guid relationshipId)

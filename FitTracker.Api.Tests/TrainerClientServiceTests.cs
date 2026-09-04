@@ -21,7 +21,8 @@ public class TrainerClientServiceTests : IDisposable
     {
         _service = new TrainerClientService(
             new TrainerClientRepository(_fx.Db),
-            new TrainerLicenceRepository(_fx.Db));
+            new TrainerLicenceRepository(_fx.Db),
+            new TrainerNutrientPinRepository(_fx.Db));
     }
 
     public void Dispose() => _fx.Dispose();

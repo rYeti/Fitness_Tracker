@@ -3,6 +3,8 @@
 // fromJson bodies are left as stubs since the backend endpoints themselves
 // are still NotImplementedException stubs.
 
+import 'package:ForgeForm/core/nutrition/extended_nutrients.dart';
+
 class TrainerDashboardKpis {
   final int activeClientCount;
   final double avgAdherencePercent;
@@ -250,22 +252,32 @@ class LoggedFood {
   final int calories;
   final MacroTotals macros;
 
+  /// Parsed from this food's own stored blob server-side. Null when
+  /// micronutrients are locked, when the food never recorded any, or against
+  /// an API build older than this field — the meal detail screen's per-item
+  /// chips simply have nothing to show in that case.
+  final ExtendedNutrients? micronutrients;
+
   const LoggedFood({
     required this.foodItemId,
     required this.name,
     this.grams = 0,
     this.calories = 0,
     this.macros = const MacroTotals(),
+    this.micronutrients,
   });
 
   factory LoggedFood.fromJson(Map<String, dynamic> json) {
     final macros = json['macros'] as Map<String, dynamic>?;
+    final micronutrients = json['micronutrients'] as Map<String, dynamic>?;
     return LoggedFood(
       foodItemId: json['foodItemId'] as String? ?? '',
       name: json['name'] as String? ?? '',
       grams: json['grams'] as int? ?? 0,
       calories: json['calories'] as int? ?? 0,
       macros: macros == null ? const MacroTotals() : MacroTotals.fromJson(macros),
+      micronutrients:
+          micronutrients == null ? null : ExtendedNutrients.fromJson(micronutrients),
     );
   }
 }
@@ -283,6 +295,12 @@ class LoggedMeal {
   final int calories;
   final MacroTotals macros;
 
+  /// This meal's own micronutrient totals — summed server-side across
+  /// [foods], not derivable client-side from them (a food missing data must
+  /// stay missing, not fold to zero). Null when locked or when none of this
+  /// meal's foods reported any.
+  final ExtendedNutrients? micronutrients;
+
   const LoggedMeal({
     required this.mealId,
     required this.category,
@@ -290,10 +308,12 @@ class LoggedMeal {
     required this.calories,
     required this.macros,
     this.foods = const [],
+    this.micronutrients,
   });
 
   factory LoggedMeal.fromJson(Map<String, dynamic> json) {
     final macros = json['macros'] as Map<String, dynamic>?;
+    final micronutrients = json['micronutrients'] as Map<String, dynamic>?;
     return LoggedMeal(
       mealId: json['mealId'] as String,
       category: json['category'] as String? ?? '',
@@ -303,6 +323,8 @@ class LoggedMeal {
           .toList(),
       calories: json['calories'] as int? ?? 0,
       macros: macros == null ? const MacroTotals() : MacroTotals.fromJson(macros),
+      micronutrients:
+          micronutrients == null ? null : ExtendedNutrients.fromJson(micronutrients),
     );
   }
 }
@@ -317,6 +339,23 @@ class ClientNutritionSummary {
   /// Oldest-first, so it renders left-to-right as a bar chart.
   final List<DailyCalorieTotal> sevenDayTrend;
 
+  /// Day totals for every nutrient, folded server-side from [loggedMeals].
+  /// Null when [micronutrientsLocked] is true, or when nothing logged today
+  /// reported any micronutrient data at all — those are different states and
+  /// this field alone can't be trusted to tell them apart; check
+  /// [micronutrientsLocked] first.
+  final ExtendedNutrients? micronutrients;
+
+  /// True when either party (this trainer or this client) lacks a paid,
+  /// current licence. [micronutrients] and every food/meal's own are absent
+  /// from the payload in that case, not merely hidden — see
+  /// `docs/trainer-console-micronutrients.md`.
+  final bool micronutrientsLocked;
+
+  /// The nutrient keys this trainer has pinned for this client — or the
+  /// design's defaults, if they never chose. Never empty.
+  final List<String> pinnedNutrients;
+
   const ClientNutritionSummary({
     required this.date,
     required this.calorieGoal,
@@ -324,10 +363,14 @@ class ClientNutritionSummary {
     required this.macros,
     required this.loggedMeals,
     required this.sevenDayTrend,
+    this.micronutrients,
+    this.micronutrientsLocked = false,
+    this.pinnedNutrients = const [],
   });
 
   factory ClientNutritionSummary.fromJson(Map<String, dynamic> json) {
     final macros = json['macros'] as Map<String, dynamic>?;
+    final micronutrients = json['micronutrients'] as Map<String, dynamic>?;
     return ClientNutritionSummary(
       date: DateTime.parse(json['date'] as String),
       calorieGoal: json['calorieGoal'] as int? ?? 0,
@@ -339,6 +382,11 @@ class ClientNutritionSummary {
       sevenDayTrend: ((json['sevenDayTrend'] as List?) ?? const [])
           .map((d) => DailyCalorieTotal.fromJson(d as Map<String, dynamic>))
           .toList(),
+      micronutrients:
+          micronutrients == null ? null : ExtendedNutrients.fromJson(micronutrients),
+      micronutrientsLocked: json['micronutrientsLocked'] as bool? ?? false,
+      pinnedNutrients:
+          ((json['pinnedNutrients'] as List?) ?? const []).cast<String>(),
     );
   }
 

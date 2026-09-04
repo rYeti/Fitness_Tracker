@@ -25,10 +25,12 @@ public class TrainerDashboardKpiTests : IDisposable
         _console = new TrainerConsoleService(
             new TrainerClientService(
                 new TrainerClientRepository(_fx.Db),
-                new TrainerLicenceRepository(_fx.Db)),
+                new TrainerLicenceRepository(_fx.Db),
+                new TrainerNutrientPinRepository(_fx.Db)),
             null!,
             new WorkoutPlanService(new WorkoutPlanRepository(_fx.Db)),
             new ScheduledWorkoutService(new ScheduledWorkoutRepository(_fx.Db)),
+            null!,
             null!,
             null!,
             null!,

@@ -1211,6 +1211,64 @@
   "nutrientZinc": "Zinc",
   "unitMg": "mg",
   "unitUg": "µg",
+  "unitG": "g",
+  "nutrientGroupCarbohydrate": "Carbohydrate",
+  "nutrientGroupFat": "Fat",
+  "nutrientGroupMineral": "Mineral",
+  "nutrientGroupVitamin": "Vitamin",
+  "trackedNutrients": "Tracked nutrients",
+  "micronutrients": "Micronutrients",
+  "chooseNutrients": "Choose",
+  "tapToPinNutrients": "Tap to pin the nutrients that matter",
+  "nutrientOfTarget": "of {target} {unit}",
+  "@nutrientOfTarget": {
+    "placeholders": {
+      "target": {
+        "type": "String"
+      },
+      "unit": {
+        "type": "String"
+      }
+    }
+  },
+  "nutrientLow": "Low",
+  "nutrientOver": "Over",
+  "mealTotal": "Meal total",
+  "noFoodLogged": "No food added yet",
+  "mealNotLoggedYet": "Not logged yet",
+  "selectMealForDetail": "Select a meal for detail",
+  "trackedNutrientsSubtitleTrainer": "What {name} is prioritising beyond macros",
+  "@trackedNutrientsSubtitleTrainer": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "trackedNutrientsSubtitleTrainee": "What your coach is tracking, beyond macros",
+  "trackedNutrientsEmptyTrainer": "Pin the nutrients you want to keep an eye on for this client.",
+  "trackedNutrientsEmptyTrainee": "Your coach hasn't pinned any nutrients yet.",
+  "micronutrientsMealCaption": "In this meal \u00b7 bars show share of daily target",
+  "micronutrientsNoData": "No data logged today",
+  "nutrientBarSemantics": "{label}, {value}, {ofTarget}{state}",
+  "@nutrientBarSemantics": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "value": {
+        "type": "String"
+      },
+      "ofTarget": {
+        "type": "String"
+      },
+      "state": {
+        "type": "String"
+      }
+    }
+  },
+  "nutrientBarSemanticsLow": ", low",
+  "nutrientBarSemanticsOver": ", over target",
   "premiumFeatureTitle": "Premium Feature",
   "premiumFeatureBody": "Upgrade to Premium to see detailed nutrition data including vitamins and minerals.",
   "premiumBadge": "Premium",
@@ -1822,6 +1880,7 @@
   "errorOpenCheckout": "Could not open checkout. Try again.",
   "@errorOpenCheckout": {},
   "errorOpenBilling": "Could not open billing. Try again.",
+  "errorSaveNutrientPins": "Could not save your nutrient selection. Try again.",
   "@errorOpenBilling": {},
   "clientDetailLoading": "Loading client details",
   "@clientDetailLoading": {},

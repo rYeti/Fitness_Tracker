@@ -1,5 +1,6 @@
 using FitTracker.Api.DTOs;
 using FitTracker.Api.Models;
+using FitTracker.Api.Nutrition;
 
 namespace FitTracker.Api.Services.Interfaces;
 
@@ -35,4 +36,20 @@ public interface ITrainerClientService
     Task<bool> IsActiveTrainerOfAsync(Guid trainerId, Guid clientId);
 
     Task<TrainerClient?> GetActiveRelationshipAsync(Guid trainerId, Guid clientId);
+
+    /// <summary>Whether this user's premium is licence-derived Pro: either
+    /// their own trainer licence, or their trainer's — the same rule
+    /// <see cref="GetStatusAsync"/> computes as <c>ProFromLicence</c>, exposed
+    /// as a plain bool for callers (micronutrient entitlement) that only need
+    /// the yes/no and not the rest of the status payload.
+    ///
+    /// Deliberately does not know about device-side IAP premium
+    /// (<c>AccessProvider._isPremium</c> on the client) — that state is never
+    /// visible to the server. See docs/trainer-console-micronutrients.md.</summary>
+    Task<bool> DerivesProAsync(Guid userId);
+
+    /// <summary>The nutrient keys this user's trainer has pinned for them —
+    /// read-only on the trainee side. Returns <see cref="Nutrition.NutrientKeys.Defaults"/>
+    /// for a user with no active trainer, or whose trainer never chose.</summary>
+    Task<List<string>> GetMyNutrientPinsAsync(Guid userId);
 }

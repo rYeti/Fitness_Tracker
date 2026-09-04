@@ -3782,6 +3782,161 @@ abstract class AppLocalizations {
   /// **'µg'**
   String get unitUg;
 
+  /// No description provided for @unitG.
+  ///
+  /// In en, this message translates to:
+  /// **'g'**
+  String get unitG;
+
+  /// No description provided for @nutrientGroupCarbohydrate.
+  ///
+  /// In en, this message translates to:
+  /// **'Carbohydrate'**
+  String get nutrientGroupCarbohydrate;
+
+  /// No description provided for @nutrientGroupFat.
+  ///
+  /// In en, this message translates to:
+  /// **'Fat'**
+  String get nutrientGroupFat;
+
+  /// No description provided for @nutrientGroupMineral.
+  ///
+  /// In en, this message translates to:
+  /// **'Mineral'**
+  String get nutrientGroupMineral;
+
+  /// No description provided for @nutrientGroupVitamin.
+  ///
+  /// In en, this message translates to:
+  /// **'Vitamin'**
+  String get nutrientGroupVitamin;
+
+  /// No description provided for @trackedNutrients.
+  ///
+  /// In en, this message translates to:
+  /// **'Tracked nutrients'**
+  String get trackedNutrients;
+
+  /// No description provided for @micronutrients.
+  ///
+  /// In en, this message translates to:
+  /// **'Micronutrients'**
+  String get micronutrients;
+
+  /// No description provided for @chooseNutrients.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose'**
+  String get chooseNutrients;
+
+  /// No description provided for @tapToPinNutrients.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to pin the nutrients that matter'**
+  String get tapToPinNutrients;
+
+  /// No description provided for @nutrientOfTarget.
+  ///
+  /// In en, this message translates to:
+  /// **'of {target} {unit}'**
+  String nutrientOfTarget(String target, String unit);
+
+  /// No description provided for @nutrientLow.
+  ///
+  /// In en, this message translates to:
+  /// **'Low'**
+  String get nutrientLow;
+
+  /// No description provided for @nutrientOver.
+  ///
+  /// In en, this message translates to:
+  /// **'Over'**
+  String get nutrientOver;
+
+  /// No description provided for @mealTotal.
+  ///
+  /// In en, this message translates to:
+  /// **'Meal total'**
+  String get mealTotal;
+
+  /// No description provided for @noFoodLogged.
+  ///
+  /// In en, this message translates to:
+  /// **'No food added yet'**
+  String get noFoodLogged;
+
+  /// No description provided for @mealNotLoggedYet.
+  ///
+  /// In en, this message translates to:
+  /// **'Not logged yet'**
+  String get mealNotLoggedYet;
+
+  /// No description provided for @selectMealForDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a meal for detail'**
+  String get selectMealForDetail;
+
+  /// No description provided for @trackedNutrientsSubtitleTrainer.
+  ///
+  /// In en, this message translates to:
+  /// **'What {name} is prioritising beyond macros'**
+  String trackedNutrientsSubtitleTrainer(String name);
+
+  /// No description provided for @trackedNutrientsSubtitleTrainee.
+  ///
+  /// In en, this message translates to:
+  /// **'What your coach is tracking, beyond macros'**
+  String get trackedNutrientsSubtitleTrainee;
+
+  /// No description provided for @trackedNutrientsEmptyTrainer.
+  ///
+  /// In en, this message translates to:
+  /// **'Pin the nutrients you want to keep an eye on for this client.'**
+  String get trackedNutrientsEmptyTrainer;
+
+  /// No description provided for @trackedNutrientsEmptyTrainee.
+  ///
+  /// In en, this message translates to:
+  /// **'Your coach hasn\'t pinned any nutrients yet.'**
+  String get trackedNutrientsEmptyTrainee;
+
+  /// No description provided for @micronutrientsMealCaption.
+  ///
+  /// In en, this message translates to:
+  /// **'In this meal · bars show share of daily target'**
+  String get micronutrientsMealCaption;
+
+  /// No description provided for @micronutrientsNoData.
+  ///
+  /// In en, this message translates to:
+  /// **'No data logged today'**
+  String get micronutrientsNoData;
+
+  /// No description provided for @nutrientBarSemantics.
+  ///
+  /// In en, this message translates to:
+  /// **'{label}, {value}, {ofTarget}{state}'**
+  String nutrientBarSemantics(
+    String label,
+    String value,
+    String ofTarget,
+    String state,
+  );
+
+  /// No description provided for @nutrientBarSemanticsLow.
+  ///
+  /// In en, this message translates to:
+  /// **', low'**
+  String get nutrientBarSemanticsLow;
+
+  /// No description provided for @nutrientBarSemanticsOver.
+  ///
+  /// In en, this message translates to:
+  /// **', over target'**
+  String get nutrientBarSemanticsOver;
+
   /// No description provided for @premiumFeatureTitle.
   ///
   /// In en, this message translates to:
@@ -5191,6 +5346,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Could not open billing. Try again.'**
   String get errorOpenBilling;
+
+  /// No description provided for @errorSaveNutrientPins.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not save your nutrient selection. Try again.'**
+  String get errorSaveNutrientPins;
 
   /// No description provided for @clientDetailLoading.
   ///

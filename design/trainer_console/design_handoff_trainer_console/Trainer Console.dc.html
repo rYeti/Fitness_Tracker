@@ -69,6 +69,9 @@
         <button onClick="{{ goBuilder }}" style="display:flex;align-items:center;gap:13px;width:100%;border:none;text-align:left;cursor:pointer;padding:11px 12px;border-radius:10px;font-family:var(--font-body);font-size:14px;font-weight:600;background:{{ navWkBg }};color:{{ navWkCol }}">
           <span class="material-symbols-rounded" style="font-size:22px">fitness_center</span><span>Workout Builder</span>
         </button>
+        <button onClick="{{ goSessions }}" style="display:flex;align-items:center;gap:13px;width:100%;border:none;text-align:left;cursor:pointer;padding:11px 12px;border-radius:10px;font-family:var(--font-body);font-size:14px;font-weight:600;background:{{ navSesBg }};color:{{ navSesCol }}">
+          <span class="material-symbols-rounded" style="font-size:22px">assignment_turned_in</span><span>Session Review</span>
+        </button>
         <button onClick="{{ goNutrition }}" style="display:flex;align-items:center;gap:13px;width:100%;border:none;text-align:left;cursor:pointer;padding:11px 12px;border-radius:10px;font-family:var(--font-body);font-size:14px;font-weight:600;background:{{ navNutBg }};color:{{ navNutCol }}">
           <span class="material-symbols-rounded" style="font-size:22px">nutrition</span><span>Nutrition</span>
         </button>
@@ -734,6 +737,208 @@
       </div>
       </sc-if>
 
+      <!-- ===== SESSION REVIEW ===== -->
+      <sc-if value="{{ isSessions }}" hint-placeholder-val="{{ false }}">
+      <div data-screen-label="Session review">
+        <div style="display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:22px">
+          <div style="flex:1;min-width:220px">
+            <div style="font-family:var(--font-display);font-weight:800;font-size:26px;letter-spacing:-0.01em">Session Review</div>
+            <div style="font-size:13.5px;color:var(--text-secondary);margin-top:4px">What {{ sel.first }} actually logged &mdash; {{ sesSummary.logged }} sessions, {{ sesSummary.done }} completed, {{ sesSummary.missed }} missed</div>
+          </div>
+          <div style="position:relative">
+            <button onClick="{{ togglePicker }}" style="display:flex;align-items:center;gap:8px;background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:999px;padding:5px 12px 5px 6px;cursor:pointer;font-family:var(--font-body)">
+              <div style="{{ sel.avatarSm }}">{{ sel.initials }}</div>
+              <span style="font-size:13px;font-weight:600;color:var(--text-primary)">{{ sel.name }}</span>
+              <span class="material-symbols-rounded" style="font-size:18px;color:var(--text-muted)">expand_more</span>
+            </button>
+            <sc-if value="{{ picker }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;top:calc(100% + 6px);right:0;z-index:50;width:262px;background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:0 12px 32px rgba(0,0,0,0.28);border-radius:12px;padding:6px;max-height:360px;overflow-y:auto">
+              <div style="font-size:10px;font-weight:700;letter-spacing:0.08em;color:var(--text-muted);padding:8px 9px 6px">SWITCH CLIENT</div>
+              <sc-for list="{{ convos }}" as="c" hint-placeholder-count="5">
+              <div onClick="{{ c.pick }}" style="{{ c.pickRowStyle }}"><div style="{{ c.pickAvatarStyle }}">{{ c.initials }}</div><div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">{{ c.name }}</div><div style="font-size:11px;color:var(--text-muted)">{{ c.program }}</div></div><sc-if value="{{ c.isSel }}" hint-placeholder-val="{{ false }}"><span class="material-symbols-rounded" style="font-size:19px;color:var(--ff-orange)">check</span></sc-if></div>
+              </sc-for>
+            </div>
+            </sc-if>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:minmax(0,330px) minmax(0,1fr);gap:18px;align-items:start">
+          <!-- Session history list -->
+          <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);overflow:hidden">
+            <div style="padding:14px 16px 11px;border-bottom:0.5px solid var(--border-subtle);font-family:var(--font-display);font-weight:700;font-size:14px">Session history</div>
+            <sc-for list="{{ sessionList }}" as="s" hint-placeholder-count="3">
+            <div onClick="{{ s.pick }}" style="{{ s.rowStyle }}">
+              <div style="{{ s.iconStyle }}"><span class="material-symbols-rounded" style="font-size:19px">{{ s.stIcon }}</span></div>
+              <div style="flex:1;min-width:0">
+                <div style="display:flex;align-items:center;gap:6px"><span style="font-weight:700;font-size:13.5px">{{ s.n }}</span><sc-if value="{{ s.pr }}" hint-placeholder-val="{{ false }}"><span style="font-size:9.5px;font-weight:800;letter-spacing:0.05em;color:var(--ff-orange);background:var(--color-primary-tint);padding:2px 6px;border-radius:999px">PR</span></sc-if></div>
+                <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px">{{ s.d }}</div>
+              </div>
+              <div style="text-align:right;flex-shrink:0">
+                <div style="font-size:11.5px;font-weight:700;color:{{ s.stCol }}">{{ s.stLabel }}</div>
+                <div style="font-size:11px;color:var(--text-muted);margin-top:2px">{{ s.dur }}</div>
+              </div>
+            </div>
+            </sc-for>
+          </div>
+
+          <!-- Session detail -->
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-lg);padding:20px">
+              <div style="display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap">
+                <div style="flex:1 1 260px;min-width:0">
+                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                    <span style="font-family:var(--font-display);font-weight:800;font-size:20px">{{ sessionDetail.n }}</span>
+                    <span style="font-size:11px;font-weight:700;color:{{ sessionDetail.stCol }};background:{{ sessionDetail.stBg }};padding:3px 10px;border-radius:999px">{{ sessionDetail.stLabel }}</span>
+                    <sc-if value="{{ sessionDetail.pr }}" hint-placeholder-val="{{ false }}"><span style="font-size:11px;font-weight:800;color:var(--ff-orange);background:var(--color-primary-tint);padding:3px 10px;border-radius:999px">NEW PR</span></sc-if>
+                  </div>
+                  <div style="font-size:12.5px;color:var(--text-secondary);margin-top:5px">{{ sessionDetail.d }}</div>
+                </div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap">
+                  <div style="flex:1 1 88px;background:var(--surface-sunken);border-radius:10px;padding:10px 12px;text-align:center"><div style="font-family:var(--font-display);font-weight:800;font-size:16px">{{ sessionDetail.dur }}</div><div style="font-size:10px;color:var(--text-muted);font-weight:600;margin-top:2px">Duration</div></div>
+                  <div style="flex:1 1 88px;background:var(--surface-sunken);border-radius:10px;padding:10px 12px;text-align:center"><div style="font-family:var(--font-display);font-weight:800;font-size:16px">{{ sessionDetail.vol }}</div><div style="font-size:10px;color:var(--text-muted);font-weight:600;margin-top:2px">Volume</div></div>
+                  <div style="flex:1 1 88px;background:var(--surface-sunken);border-radius:10px;padding:10px 12px;text-align:center"><div style="font-family:var(--font-display);font-weight:800;font-size:16px;color:var(--ff-orange)">{{ sessionDetail.rpe }}</div><div style="font-size:10px;color:var(--text-muted);font-weight:600;margin-top:2px">Avg RPE</div></div>
+                </div>
+              </div>
+              <sc-if value="{{ sessionDetail.hasNote }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;gap:10px;align-items:flex-start;background:var(--surface-sunken);border-radius:10px;padding:12px 14px;margin-top:16px">
+                <span class="material-symbols-rounded" style="font-size:19px;color:var(--text-muted);flex-shrink:0">chat_bubble</span>
+                <div><div style="font-size:10.5px;font-weight:700;letter-spacing:0.05em;color:var(--text-muted);margin-bottom:3px">CLIENT NOTE</div><div style="font-size:13px;line-height:1.5;text-wrap:pretty">{{ sessionDetail.note }}</div></div>
+              </div>
+              </sc-if>
+            </div>
+
+            <sc-if value="{{ sessionDetail.empty }}" hint-placeholder-val="{{ false }}">
+            <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:44px 20px;text-align:center">
+              <span class="material-symbols-rounded" style="font-size:38px;color:var(--text-muted)">event_busy</span>
+              <div style="font-family:var(--font-display);font-weight:700;font-size:15px;margin-top:10px">No workout logged</div>
+              <div style="font-size:12.5px;color:var(--text-secondary);margin-top:4px">{{ sel.first }} didn&rsquo;t record this session.</div>
+              <div style="margin-top:16px;display:flex;justify-content:center"><x-import component-from-global-scope="ForgeFormDesignSystem_03b27d.Button" variant="outlined" icon="forum" hint-size="180px,40px">Message {{ sel.first }}</x-import></div>
+            </div>
+            </sc-if>
+
+            <sc-if value="{{ sessionDetail.hasEx }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;flex-direction:column;gap:11px">
+              <sc-for list="{{ sessionDetail.exs }}" as="e" hint-placeholder-count="3">
+              <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:16px">
+                <div style="display:flex;align-items:center;gap:11px;margin-bottom:12px">
+                  <div style="flex:1;min-width:0">
+                    <div style="display:flex;align-items:center;gap:7px"><span style="font-weight:700;font-size:14px">{{ e.n }}</span><sc-if value="{{ e.pr }}" hint-placeholder-val="{{ false }}"><span style="font-size:9.5px;font-weight:800;letter-spacing:0.05em;color:var(--ff-orange);background:var(--color-primary-tint);padding:2px 6px;border-radius:999px">PR</span></sc-if></div>
+                    <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px">Prescribed {{ e.p }}</div>
+                  </div>
+                  <sc-if value="{{ e.skipped }}" hint-placeholder-val="{{ false }}"><span style="font-size:11px;font-weight:700;color:var(--ff-danger);background:rgba(229,57,53,0.14);padding:3px 10px;border-radius:999px">Skipped</span></sc-if>
+                </div>
+                <sc-if value="{{ e.logged }}" hint-placeholder-val="{{ true }}">
+                <div style="display:grid;grid-template-columns:36px 1fr 1fr 1fr;gap:9px;font-size:10px;font-weight:700;letter-spacing:0.04em;color:var(--text-muted);padding:0 2px 6px"><div>SET</div><div>REPS</div><div>WEIGHT</div><div>RPE</div></div>
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  <sc-for list="{{ e.sets }}" as="t" hint-placeholder-count="3">
+                  <div style="display:grid;grid-template-columns:36px 1fr 1fr 1fr;gap:9px;align-items:center">
+                    <div style="width:28px;height:28px;border-radius:7px;background:var(--surface-sunken);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:700;font-size:11.5px">{{ t.i }}</div>
+                    <div style="background:var(--surface-sunken);border-radius:7px;padding:7px 11px;font-size:13px;font-weight:600;color:{{ t.repCol }}">{{ t.reps }}</div>
+                    <div style="background:var(--surface-sunken);border-radius:7px;padding:7px 11px;font-size:13px;font-weight:600">{{ t.weight }}</div>
+                    <div style="background:var(--surface-sunken);border-radius:7px;padding:7px 11px;font-size:13px;color:var(--text-secondary)">{{ t.rpe }}</div>
+                  </div>
+                  </sc-for>
+                </div>
+                </sc-if>
+              </div>
+              </sc-for>
+            </div>
+            </sc-if>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- ===== FOOD DETAIL ===== -->
+      <sc-if value="{{ isFood }}" hint-placeholder-val="{{ false }}">
+      <div data-screen-label="Food detail">
+        <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:22px">
+          <button onClick="{{ backToNutrition }}" style="width:38px;height:38px;border:none;background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:10px;cursor:pointer;color:var(--text-secondary);display:flex;align-items:center;justify-content:center" style-hover="color:var(--ff-orange)"><span class="material-symbols-rounded" style="font-size:21px">arrow_back</span></button>
+          <div style="flex:1;min-width:200px">
+            <div style="font-family:var(--font-display);font-weight:800;font-size:26px;letter-spacing:-0.01em">{{ foodDetail.name }}</div>
+            <div style="font-size:13.5px;color:var(--text-secondary);margin-top:4px">{{ sel.name }} &middot; {{ foodDetail.desc }}</div>
+          </div>
+        </div>
+
+        <sc-if value="{{ foodDetail.empty }}" hint-placeholder-val="{{ false }}">
+        <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:48px 20px;text-align:center">
+          <span class="material-symbols-rounded" style="font-size:38px;color:var(--text-muted)">no_meals</span>
+          <div style="font-size:13px;color:var(--text-muted);margin-top:10px">No food added yet</div>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ foodDetail.logged }}" hint-placeholder-val="{{ true }}">
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,340px);gap:18px;align-items:start">
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <!-- Meal summary -->
+            <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-lg);padding:20px">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px"><span style="font-family:var(--font-display);font-weight:700;font-size:15px">Meal total</span><span style="font-size:11.5px;color:var(--text-muted)">{{ foodDetail.itemCount }}</span></div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px">
+                <div style="background:var(--surface-sunken);border-radius:10px;padding:11px;text-align:center"><div style="font-family:var(--font-display);font-weight:800;font-size:18px">{{ foodDetail.kcalStr }}</div><div style="font-size:10px;color:var(--text-muted);font-weight:600;margin-top:2px">KCAL</div></div>
+                <div style="background:var(--surface-sunken);border-radius:10px;padding:11px;text-align:center"><div style="font-family:var(--font-display);font-weight:800;font-size:18px;color:var(--ff-protein)">{{ foodDetail.pStr }}</div><div style="font-size:10px;color:var(--text-muted);font-weight:600;margin-top:2px">PROTEIN</div></div>
+                <div style="background:var(--surface-sunken);border-radius:10px;padding:11px;text-align:center"><div style="font-family:var(--font-display);font-weight:800;font-size:18px;color:var(--ff-carbs)">{{ foodDetail.cStr }}</div><div style="font-size:10px;color:var(--text-muted);font-weight:600;margin-top:2px">CARBS</div></div>
+                <div style="background:var(--surface-sunken);border-radius:10px;padding:11px;text-align:center"><div style="font-family:var(--font-display);font-weight:800;font-size:18px;color:var(--ff-fat)">{{ foodDetail.fStr }}</div><div style="font-size:10px;color:var(--text-muted);font-weight:600;margin-top:2px">FAT</div></div>
+              </div>
+            </div>
+
+            <!-- Per-item breakdown -->
+            <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:12px 16px">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <span style="font-weight:600;font-size:16px">{{ foodDetail.name }}</span>
+                <span style="font-size:13px;color:var(--text-secondary)">{{ foodDetail.kcalStr }} kcal</span>
+              </div>
+              <div style="height:1px;background:var(--divider);margin:10px 0"></div>
+              <div style="display:flex;flex-direction:column;gap:10px">
+                <sc-for list="{{ mealItems }}" as="it" hint-placeholder-count="4">
+                <div style="background:var(--surface-sunken);border-radius:11px;padding:13px 14px">
+                  <div style="display:flex;align-items:center;padding:2px 0">
+                    <div style="flex:1;min-width:0">
+                      <div style="font-size:14px;color:var(--text-primary)">{{ it.n }} <span style="font-size:12px;color:var(--text-muted)">{{ it.q }}</span></div>
+                      <div style="font-size:12px;color:var(--text-muted);margin-top:2px">{{ it.macroLine }}</div>
+                    </div>
+                  </div>
+                  <sc-if value="{{ it.hasPins }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:9px;padding-top:9px;border-top:1px solid var(--divider)">
+                    <sc-for list="{{ it.pins }}" as="p" hint-placeholder-count="3">
+                    <span style="font-size:11px;color:var(--text-secondary);background:var(--surface-card);border-radius:999px;padding:3px 10px">{{ p.label }} <b style="color:var(--text-primary)">{{ p.valueStr }}</b></span>
+                    </sc-for>
+                  </div>
+                  </sc-if>
+                </div>
+                </sc-for>
+              </div>
+              <div style="display:flex;justify-content:flex-end;margin-top:6px">
+                <x-import component-from-global-scope="ForgeFormDesignSystem_03b27d.Button" variant="text" size="sm" icon="add" hint-size="80px,34px">Add</x-import>
+              </div>
+            </div>
+          </div>
+
+          <!-- Micronutrients -->
+          <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:18px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+              <span style="font-family:var(--font-display);font-weight:700;font-size:15px">Micronutrients</span>
+              <button onClick="{{ toggleNutrPicker }}" style="margin-left:auto;display:flex;align-items:center;gap:5px;border:1px solid var(--border-default);background:transparent;cursor:pointer;border-radius:8px;padding:5px 10px;font-family:var(--font-body);font-size:11.5px;font-weight:700;color:var(--text-secondary)" style-hover="border-color:var(--ff-orange);color:var(--ff-orange)"><span class="material-symbols-rounded" style="font-size:15px">push_pin</span>Pin</button>
+            </div>
+            <div style="font-size:12px;color:var(--text-secondary);margin-bottom:14px">In this meal &middot; bars show share of daily target</div>
+            <div style="display:flex;flex-direction:column;gap:12px">
+              <sc-for list="{{ mealMicro }}" as="n" hint-placeholder-count="10">
+              <div onClick="{{ n.toggle }}" style="cursor:pointer">
+                <div style="display:flex;align-items:baseline;gap:7px;margin-bottom:5px">
+                  <sc-if value="{{ n.pinned }}" hint-placeholder-val="{{ false }}"><span class="material-symbols-rounded" style="font-size:14px;color:var(--ff-orange)">push_pin</span></sc-if>
+                  <span style="font-size:12.5px;font-weight:700">{{ n.label }}</span>
+                  <span style="font-size:10.5px;color:var(--text-muted)">{{ n.group }}</span>
+                  <span style="margin-left:auto;font-family:var(--font-display);font-weight:700;font-size:13px">{{ n.valueStr }}</span>
+                </div>
+                <x-import component-from-global-scope="ForgeFormDesignSystem_03b27d.ProgressBar" value="{{ n.ratio }}" color="{{ n.barColor }}" hint-size="100%,6px"></x-import>
+              </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+        </sc-if>
+      </div>
+      </sc-if>
+
       <!-- ===== NUTRITION ===== -->
       <sc-if value="{{ isNutrition }}" hint-placeholder-val="{{ false }}">
       <div data-screen-label="Nutrition">
@@ -786,16 +991,52 @@
 
             <!-- Meals -->
             <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:18px">
-              <div style="font-family:var(--font-display);font-weight:700;font-size:15px;margin-bottom:14px">Today&rsquo;s meals</div>
-              <div style="display:flex;flex-direction:column">
-                <div style="display:flex;align-items:center;gap:12px;padding:11px 0"><div style="width:36px;height:36px;border-radius:8px;background:rgba(255,107,62,0.12);color:var(--ff-orange);display:flex;align-items:center;justify-content:center"><span class="material-symbols-rounded" style="font-size:19px">wb_twilight</span></div><div style="flex:1"><div style="font-weight:700;font-size:13.5px">Breakfast</div><div style="font-size:11.5px;color:var(--text-muted)">Oats, whey, banana, peanut butter</div></div><div style="font-family:var(--font-display);font-weight:700;font-size:14px">620</div></div>
-                <div style="height:1px;background:var(--divider)"></div>
-                <div style="display:flex;align-items:center;gap:12px;padding:11px 0"><div style="width:36px;height:36px;border-radius:8px;background:rgba(255,107,62,0.12);color:var(--ff-orange);display:flex;align-items:center;justify-content:center"><span class="material-symbols-rounded" style="font-size:19px">lunch_dining</span></div><div style="flex:1"><div style="font-weight:700;font-size:13.5px">Lunch</div><div style="font-size:11.5px;color:var(--text-muted)">Chicken, rice, veg, olive oil</div></div><div style="font-family:var(--font-display);font-weight:700;font-size:14px">720</div></div>
-                <div style="height:1px;background:var(--divider)"></div>
-                <div style="display:flex;align-items:center;gap:12px;padding:11px 0"><div style="width:36px;height:36px;border-radius:8px;background:rgba(255,107,62,0.12);color:var(--ff-orange);display:flex;align-items:center;justify-content:center"><span class="material-symbols-rounded" style="font-size:19px">bakery_dining</span></div><div style="flex:1"><div style="font-weight:700;font-size:13.5px">Snack</div><div style="font-size:11.5px;color:var(--text-muted)">Greek yogurt, almonds</div></div><div style="font-family:var(--font-display);font-weight:700;font-size:14px">300</div></div>
-                <div style="height:1px;background:var(--divider)"></div>
-                <div style="display:flex;align-items:center;gap:12px;padding:11px 0;opacity:0.5"><div style="width:36px;height:36px;border-radius:8px;background:var(--surface-sunken);color:var(--text-muted);display:flex;align-items:center;justify-content:center"><span class="material-symbols-rounded" style="font-size:19px">dinner_dining</span></div><div style="flex:1"><div style="font-weight:700;font-size:13.5px">Dinner</div><div style="font-size:11.5px;color:var(--text-muted)">Not logged yet</div></div><div style="font-family:var(--font-display);font-weight:700;font-size:14px;color:var(--text-muted)">—</div></div>
+              <div style="display:flex;align-items:center;margin-bottom:14px"><span style="font-family:var(--font-display);font-weight:700;font-size:15px">Today&rsquo;s meals</span><span style="margin-left:auto;font-size:11.5px;color:var(--text-muted)">Select a meal for detail</span></div>
+              <div style="display:flex;flex-direction:column;gap:2px">
+                <sc-for list="{{ mealList }}" as="m" hint-placeholder-count="4">
+                <div onClick="{{ m.open }}" style="{{ m.rowStyle }}">
+                  <div style="{{ m.iconStyle }}"><span class="material-symbols-rounded" style="font-size:19px">{{ m.icon }}</span></div>
+                  <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13.5px">{{ m.name }}</div><div style="font-size:11.5px;color:var(--text-muted)">{{ m.desc }}</div></div>
+                  <div style="font-family:var(--font-display);font-weight:700;font-size:14px;color:{{ m.kcalCol }}">{{ m.kcalStr }}</div>
+                  <span class="material-symbols-rounded" style="font-size:19px;color:var(--text-muted)">chevron_right</span>
+                </div>
+                </sc-for>
               </div>
+            </div>
+
+            <!-- Tracked nutrients -->
+            <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:18px">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+                <span style="font-family:var(--font-display);font-weight:700;font-size:15px">Tracked nutrients</span>
+                <button onClick="{{ toggleNutrPicker }}" style="margin-left:auto;display:flex;align-items:center;gap:5px;border:1px solid var(--border-default);background:transparent;cursor:pointer;border-radius:8px;padding:6px 11px;font-family:var(--font-body);font-size:12px;font-weight:700;color:var(--text-secondary)" style-hover="border-color:var(--ff-orange);color:var(--ff-orange)"><span class="material-symbols-rounded" style="font-size:16px">tune</span>Choose</button>
+              </div>
+              <div style="font-size:12px;color:var(--text-secondary);margin-bottom:14px">What {{ sel.first }} is prioritising beyond macros</div>
+
+              <sc-if value="{{ nutrPicker }}" hint-placeholder-val="{{ false }}">
+              <div style="background:var(--surface-sunken);border-radius:11px;padding:13px;margin-bottom:14px">
+                <div style="font-size:10.5px;font-weight:700;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:10px">TAP TO PIN THE NUTRIENTS THAT MATTER</div>
+                <div style="display:flex;flex-wrap:wrap;gap:7px">
+                  <sc-for list="{{ dayNutrients }}" as="n" hint-placeholder-count="10">
+                  <button onClick="{{ n.toggle }}" style="{{ n.chipStyle }}"><span class="material-symbols-rounded" style="font-size:15px">{{ n.chipIcon }}</span>{{ n.label }}</button>
+                  </sc-for>
+                </div>
+              </div>
+              </sc-if>
+
+              <sc-if value="{{ hasPinned }}" hint-placeholder-val="{{ true }}">
+              <div style="display:flex;flex-direction:column;gap:13px">
+                <sc-for list="{{ pinnedNutrients }}" as="n" hint-placeholder-count="3">
+                <div>
+                  <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:6px">
+                    <span style="font-size:13px;font-weight:700">{{ n.label }}</span>
+                    <span style="font-size:11px;color:var(--text-muted)">{{ n.targetStr }}</span>
+                    <span style="margin-left:auto;font-family:var(--font-display);font-weight:800;font-size:14px">{{ n.valueStr }}</span>
+                  </div>
+                  <x-import component-from-global-scope="ForgeFormDesignSystem_03b27d.ProgressBar" value="{{ n.ratio }}" color="{{ n.barColor }}" hint-size="100%,6px"></x-import>
+                </div>
+                </sc-for>
+              </div>
+              </sc-if>
             </div>
 
             <!-- 7-day trend -->
@@ -874,6 +1115,16 @@
         <span onClick="{{ goDash }}" class="material-symbols-rounded" style="font-size:24px;cursor:pointer">arrow_back</span>
         <div style="flex:1"><div style="font-weight:700;font-size:15px;font-family:var(--font-display)">Workout Builder</div><div style="font-size:10.5px;color:rgba(255,255,255,0.55)">{{ sel.name }} · {{ sel.focusTag }}</div></div>
         <span class="material-symbols-rounded" style="font-size:22px">check</span>
+        </sc-if>
+        <sc-if value="{{ isFood }}" hint-placeholder-val="{{ false }}">
+        <span onClick="{{ backToNutrition }}" class="material-symbols-rounded" style="font-size:24px;cursor:pointer">arrow_back</span>
+        <div style="flex:1"><div style="font-weight:700;font-size:15px;font-family:var(--font-display)">{{ foodDetail.name }}</div><div style="font-size:10.5px;color:rgba(255,255,255,0.55)">{{ sel.name }} · {{ foodDetail.kcalStr }} kcal</div></div>
+        <span class="material-symbols-rounded" style="font-size:22px">edit</span>
+        </sc-if>
+        <sc-if value="{{ isSessions }}" hint-placeholder-val="{{ false }}">
+        <span onClick="{{ goDash }}" class="material-symbols-rounded" style="font-size:24px;cursor:pointer">arrow_back</span>
+        <div style="flex:1"><div style="font-weight:700;font-size:15px;font-family:var(--font-display)">Session Review</div><div style="font-size:10.5px;color:rgba(255,255,255,0.55)">{{ sel.name }}</div></div>
+        <span class="material-symbols-rounded" style="font-size:22px">filter_list</span>
         </sc-if>
         <sc-if value="{{ isNutrition }}" hint-placeholder-val="{{ false }}">
         <span onClick="{{ goDash }}" class="material-symbols-rounded" style="font-size:24px;cursor:pointer">arrow_back</span>
@@ -1038,7 +1289,6 @@
             <button onClick="{{ newWorkout }}" style="margin-left:auto;display:flex;align-items:center;gap:4px;border:1px solid var(--border-default);background:transparent;cursor:pointer;border-radius:999px;padding:5px 11px;font-family:var(--font-body);font-size:11px;font-weight:700;color:var(--text-secondary)"><span class="material-symbols-rounded" style="font-size:15px">add</span>New</button>
           </div>
           <div style="font-size:11px;color:var(--text-muted);font-weight:600;margin:-9px 0 14px">{{ sel.days }}</div>
-          </div>
 
           <!-- Day tabs -->
           <div style="display:flex;gap:8px;overflow-x:auto;margin:0 -16px 16px;padding:0 16px 2px">
@@ -1089,6 +1339,162 @@
         </div>
         </sc-if>
 
+        <!-- MOBILE FOOD DETAIL -->
+        <sc-if value="{{ isFood }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:16px 16px 20px">
+          <sc-if value="{{ foodDetail.empty }}" hint-placeholder-val="{{ false }}">
+          <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:38px 18px;text-align:center">
+            <span class="material-symbols-rounded" style="font-size:34px;color:var(--text-muted)">no_meals</span>
+            <div style="font-size:13px;color:var(--text-muted);margin-top:9px">No food added yet</div>
+          </div>
+          </sc-if>
+
+          <sc-if value="{{ foodDetail.logged }}" hint-placeholder-val="{{ true }}">
+          <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-lg);padding:16px;margin-bottom:13px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px"><span style="font-family:var(--font-display);font-weight:700;font-size:14px">Meal total</span><span style="margin-left:auto;font-size:11px;color:var(--text-muted)">{{ foodDetail.itemCount }}</span></div>
+            <div style="display:flex;gap:7px">
+              <div style="flex:1;background:var(--surface-sunken);border-radius:10px;padding:9px;text-align:center"><div style="font-family:var(--font-display);font-weight:800;font-size:15px">{{ foodDetail.kcalStr }}</div><div style="font-size:9.5px;color:var(--text-muted);font-weight:600;margin-top:2px">KCAL</div></div>
+              <div style="flex:1;background:var(--surface-sunken);border-radius:10px;padding:9px;text-align:center"><div style="font-family:var(--font-display);font-weight:800;font-size:15px;color:var(--ff-protein)">{{ foodDetail.pStr }}</div><div style="font-size:9.5px;color:var(--text-muted);font-weight:600;margin-top:2px">PROTEIN</div></div>
+              <div style="flex:1;background:var(--surface-sunken);border-radius:10px;padding:9px;text-align:center"><div style="font-family:var(--font-display);font-weight:800;font-size:15px;color:var(--ff-carbs)">{{ foodDetail.cStr }}</div><div style="font-size:9.5px;color:var(--text-muted);font-weight:600;margin-top:2px">CARBS</div></div>
+              <div style="flex:1;background:var(--surface-sunken);border-radius:10px;padding:9px;text-align:center"><div style="font-family:var(--font-display);font-weight:800;font-size:15px;color:var(--ff-fat)">{{ foodDetail.fStr }}</div><div style="font-size:9.5px;color:var(--text-muted);font-weight:600;margin-top:2px">FAT</div></div>
+            </div>
+          </div>
+
+          <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:12px 16px;margin-bottom:13px">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span style="font-weight:600;font-size:15px">{{ foodDetail.name }}</span>
+              <span style="font-size:12.5px;color:var(--text-secondary)">{{ foodDetail.kcalStr }} kcal</span>
+            </div>
+            <div style="height:1px;background:var(--divider);margin:10px 0"></div>
+            <div style="display:flex;flex-direction:column;gap:9px">
+              <sc-for list="{{ mealItems }}" as="it" hint-placeholder-count="4">
+              <div style="background:var(--surface-sunken);border-radius:11px;padding:12px 13px">
+                <div style="font-size:14px;color:var(--text-primary)">{{ it.n }} <span style="font-size:12px;color:var(--text-muted)">{{ it.q }}</span></div>
+                <div style="font-size:12px;color:var(--text-muted);margin-top:2px">{{ it.macroLine }}</div>
+                <sc-if value="{{ it.hasPins }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px solid var(--divider)">
+                  <sc-for list="{{ it.pins }}" as="p" hint-placeholder-count="3">
+                  <span style="font-size:10.5px;color:var(--text-secondary);background:var(--surface-card);border-radius:999px;padding:3px 9px">{{ p.label }} <b style="color:var(--text-primary)">{{ p.valueStr }}</b></span>
+                  </sc-for>
+                </div>
+                </sc-if>
+              </div>
+              </sc-for>
+            </div>
+            <div style="display:flex;justify-content:flex-end;margin-top:6px">
+              <x-import component-from-global-scope="ForgeFormDesignSystem_03b27d.Button" variant="text" size="sm" icon="add" hint-size="80px,34px">Add</x-import>
+            </div>
+          </div>
+
+          <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:16px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+              <span style="font-family:var(--font-display);font-weight:700;font-size:14px">Micronutrients</span>
+              <span style="margin-left:auto;font-size:10.5px;color:var(--text-muted)">Tap to pin</span>
+            </div>
+            <div style="font-size:11.5px;color:var(--text-secondary);margin-bottom:13px">Share of daily target</div>
+            <div style="display:flex;flex-direction:column;gap:11px">
+              <sc-for list="{{ mealMicro }}" as="n" hint-placeholder-count="10">
+              <div onClick="{{ n.toggle }}" style="cursor:pointer">
+                <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:5px">
+                  <sc-if value="{{ n.pinned }}" hint-placeholder-val="{{ false }}"><span class="material-symbols-rounded" style="font-size:13px;color:var(--ff-orange)">push_pin</span></sc-if>
+                  <span style="font-size:12px;font-weight:700">{{ n.label }}</span>
+                  <span style="font-size:10px;color:var(--text-muted)">{{ n.group }}</span>
+                  <span style="margin-left:auto;font-family:var(--font-display);font-weight:700;font-size:12.5px">{{ n.valueStr }}</span>
+                </div>
+                <x-import component-from-global-scope="ForgeFormDesignSystem_03b27d.ProgressBar" value="{{ n.ratio }}" color="{{ n.barColor }}" hint-size="100%,6px"></x-import>
+              </div>
+              </sc-for>
+            </div>
+          </div>
+          </sc-if>
+        </div>
+        </sc-if>
+
+        <!-- MOBILE SESSION REVIEW -->
+        <sc-if value="{{ isSessions }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:14px 16px 20px">
+          <div style="position:relative;margin-bottom:14px">
+            <button onClick="{{ togglePicker }}" style="width:100%;display:flex;align-items:center;gap:9px;background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:12px;padding:9px 12px;cursor:pointer;font-family:var(--font-body)">
+              <div style="{{ sel.avatarSm }}">{{ sel.initials }}</div>
+              <div style="flex:1;text-align:left;min-width:0"><div style="font-weight:700;font-size:13px">{{ sel.name }}</div><div style="font-size:10.5px;color:var(--text-muted)">{{ sesSummary.done }} completed &middot; {{ sesSummary.missed }} missed</div></div>
+              <span class="material-symbols-rounded" style="font-size:20px;color:var(--text-muted)">expand_more</span>
+            </button>
+            <sc-if value="{{ picker }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:50;background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:0 12px 32px rgba(0,0,0,0.28);border-radius:12px;padding:6px;max-height:300px;overflow-y:auto">
+              <sc-for list="{{ convos }}" as="c" hint-placeholder-count="5">
+              <div onClick="{{ c.pick }}" style="{{ c.pickRowStyle }}"><div style="{{ c.pickAvatarStyle }}">{{ c.initials }}</div><div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">{{ c.name }}</div><div style="font-size:11px;color:var(--text-muted)">{{ c.program }}</div></div><sc-if value="{{ c.isSel }}" hint-placeholder-val="{{ false }}"><span class="material-symbols-rounded" style="font-size:19px;color:var(--ff-orange)">check</span></sc-if></div>
+              </sc-for>
+            </div>
+            </sc-if>
+          </div>
+
+          <div style="display:flex;gap:8px;overflow-x:auto;margin:0 -16px 16px;padding:0 16px 2px">
+            <sc-for list="{{ sessionList }}" as="s" hint-placeholder-count="3">
+            <div onClick="{{ s.pick }}" style="{{ s.mTabStyle }}">
+              <span style="font-weight:700;font-size:12.5px">{{ s.n }}</span>
+              <span style="font-size:9.5px;opacity:0.8">{{ s.d }}</span>
+            </div>
+            </sc-for>
+          </div>
+
+          <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-lg);padding:16px;margin-bottom:13px">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+              <span style="font-family:var(--font-display);font-weight:800;font-size:17px">{{ sessionDetail.n }}</span>
+              <span style="font-size:10.5px;font-weight:700;color:{{ sessionDetail.stCol }};background:{{ sessionDetail.stBg }};padding:3px 9px;border-radius:999px">{{ sessionDetail.stLabel }}</span>
+              <sc-if value="{{ sessionDetail.pr }}" hint-placeholder-val="{{ false }}"><span style="font-size:10.5px;font-weight:800;color:var(--ff-orange);background:var(--color-primary-tint);padding:3px 9px;border-radius:999px">NEW PR</span></sc-if>
+            </div>
+            <div style="display:flex;gap:7px">
+              <div style="flex:1;background:var(--surface-sunken);border-radius:10px;padding:9px;text-align:center"><div style="font-family:var(--font-display);font-weight:800;font-size:15px">{{ sessionDetail.dur }}</div><div style="font-size:9.5px;color:var(--text-muted);font-weight:600;margin-top:2px">Duration</div></div>
+              <div style="flex:1;background:var(--surface-sunken);border-radius:10px;padding:9px;text-align:center"><div style="font-family:var(--font-display);font-weight:800;font-size:15px">{{ sessionDetail.vol }}</div><div style="font-size:9.5px;color:var(--text-muted);font-weight:600;margin-top:2px">Volume</div></div>
+              <div style="flex:1;background:var(--surface-sunken);border-radius:10px;padding:9px;text-align:center"><div style="font-family:var(--font-display);font-weight:800;font-size:15px;color:var(--ff-orange)">{{ sessionDetail.rpe }}</div><div style="font-size:9.5px;color:var(--text-muted);font-weight:600;margin-top:2px">Avg RPE</div></div>
+            </div>
+            <sc-if value="{{ sessionDetail.hasNote }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;gap:9px;align-items:flex-start;background:var(--surface-sunken);border-radius:10px;padding:11px 12px;margin-top:12px">
+              <span class="material-symbols-rounded" style="font-size:18px;color:var(--text-muted);flex-shrink:0">chat_bubble</span>
+              <div><div style="font-size:9.5px;font-weight:700;letter-spacing:0.05em;color:var(--text-muted);margin-bottom:3px">CLIENT NOTE</div><div style="font-size:12.5px;line-height:1.5;text-wrap:pretty">{{ sessionDetail.note }}</div></div>
+            </div>
+            </sc-if>
+          </div>
+
+          <sc-if value="{{ sessionDetail.empty }}" hint-placeholder-val="{{ false }}">
+          <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:34px 18px;text-align:center">
+            <span class="material-symbols-rounded" style="font-size:34px;color:var(--text-muted)">event_busy</span>
+            <div style="font-family:var(--font-display);font-weight:700;font-size:14px;margin-top:9px">No workout logged</div>
+            <div style="font-size:12px;color:var(--text-secondary);margin-top:4px">{{ sel.first }} didn&rsquo;t record this session.</div>
+          </div>
+          </sc-if>
+
+          <sc-if value="{{ sessionDetail.hasEx }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;flex-direction:column;gap:11px">
+            <sc-for list="{{ sessionDetail.exs }}" as="e" hint-placeholder-count="3">
+            <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:14px">
+              <div style="display:flex;align-items:center;gap:9px;margin-bottom:11px">
+                <div style="flex:1;min-width:0">
+                  <div style="display:flex;align-items:center;gap:6px"><span style="font-weight:700;font-size:13.5px">{{ e.n }}</span><sc-if value="{{ e.pr }}" hint-placeholder-val="{{ false }}"><span style="font-size:9px;font-weight:800;color:var(--ff-orange);background:var(--color-primary-tint);padding:2px 6px;border-radius:999px">PR</span></sc-if></div>
+                  <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Prescribed {{ e.p }}</div>
+                </div>
+                <sc-if value="{{ e.skipped }}" hint-placeholder-val="{{ false }}"><span style="font-size:10.5px;font-weight:700;color:var(--ff-danger);background:rgba(229,57,53,0.14);padding:3px 9px;border-radius:999px">Skipped</span></sc-if>
+              </div>
+              <sc-if value="{{ e.logged }}" hint-placeholder-val="{{ true }}">
+              <div style="display:grid;grid-template-columns:30px 1fr 1fr 1fr;gap:7px;font-size:9.5px;font-weight:700;color:var(--text-muted);padding:0 2px 5px"><div>SET</div><div>REPS</div><div>WEIGHT</div><div>RPE</div></div>
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <sc-for list="{{ e.sets }}" as="t" hint-placeholder-count="3">
+                <div style="display:grid;grid-template-columns:30px 1fr 1fr 1fr;gap:7px;align-items:center">
+                  <div style="width:26px;height:26px;border-radius:7px;background:var(--surface-sunken);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:700;font-size:11px">{{ t.i }}</div>
+                  <div style="background:var(--surface-sunken);border-radius:7px;padding:7px 10px;font-size:12.5px;font-weight:600;color:{{ t.repCol }}">{{ t.reps }}</div>
+                  <div style="background:var(--surface-sunken);border-radius:7px;padding:7px 10px;font-size:12.5px;font-weight:600">{{ t.weight }}</div>
+                  <div style="background:var(--surface-sunken);border-radius:7px;padding:7px 10px;font-size:12.5px;color:var(--text-secondary)">{{ t.rpe }}</div>
+                </div>
+                </sc-for>
+              </div>
+              </sc-if>
+            </div>
+            </sc-for>
+          </div>
+          </sc-if>
+        </div>
+        </sc-if>
+
         <!-- MOBILE NUTRITION -->
         <sc-if value="{{ isNutrition }}" hint-placeholder-val="{{ false }}">
         <div style="padding:16px 16px 20px">
@@ -1124,16 +1530,50 @@
 
           <!-- Meals -->
           <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:16px;margin-bottom:14px">
-            <div style="font-family:var(--font-display);font-weight:700;font-size:14px;margin-bottom:10px">Today's meals</div>
-            <div style="display:flex;flex-direction:column">
-              <div style="display:flex;align-items:center;gap:11px;padding:10px 0"><div style="width:34px;height:34px;border-radius:8px;background:rgba(255,107,62,0.12);color:var(--ff-orange);display:flex;align-items:center;justify-content:center"><span class="material-symbols-rounded" style="font-size:18px">wb_twilight</span></div><div style="flex:1"><div style="font-weight:700;font-size:13px">Breakfast</div><div style="font-size:11px;color:var(--text-muted)">Oats, whey, banana</div></div><div style="font-family:var(--font-display);font-weight:700;font-size:13.5px">620</div></div>
-              <div style="height:1px;background:var(--divider)"></div>
-              <div style="display:flex;align-items:center;gap:11px;padding:10px 0"><div style="width:34px;height:34px;border-radius:8px;background:rgba(255,107,62,0.12);color:var(--ff-orange);display:flex;align-items:center;justify-content:center"><span class="material-symbols-rounded" style="font-size:18px">lunch_dining</span></div><div style="flex:1"><div style="font-weight:700;font-size:13px">Lunch</div><div style="font-size:11px;color:var(--text-muted)">Chicken, rice, veg</div></div><div style="font-family:var(--font-display);font-weight:700;font-size:13.5px">720</div></div>
-              <div style="height:1px;background:var(--divider)"></div>
-              <div style="display:flex;align-items:center;gap:11px;padding:10px 0"><div style="width:34px;height:34px;border-radius:8px;background:rgba(255,107,62,0.12);color:var(--ff-orange);display:flex;align-items:center;justify-content:center"><span class="material-symbols-rounded" style="font-size:18px">bakery_dining</span></div><div style="flex:1"><div style="font-weight:700;font-size:13px">Snack</div><div style="font-size:11px;color:var(--text-muted)">Greek yogurt, almonds</div></div><div style="font-family:var(--font-display);font-weight:700;font-size:13.5px">300</div></div>
-              <div style="height:1px;background:var(--divider)"></div>
-              <div style="display:flex;align-items:center;gap:11px;padding:10px 0;opacity:0.5"><div style="width:34px;height:34px;border-radius:8px;background:var(--surface-sunken);color:var(--text-muted);display:flex;align-items:center;justify-content:center"><span class="material-symbols-rounded" style="font-size:18px">dinner_dining</span></div><div style="flex:1"><div style="font-weight:700;font-size:13px">Dinner</div><div style="font-size:11px;color:var(--text-muted)">Not logged yet</div></div><div style="font-family:var(--font-display);font-weight:700;font-size:13.5px;color:var(--text-muted)">—</div></div>
+            <div style="display:flex;align-items:center;margin-bottom:10px"><span style="font-family:var(--font-display);font-weight:700;font-size:14px">Today's meals</span><span style="margin-left:auto;font-size:10.5px;color:var(--text-muted)">Tap for detail</span></div>
+            <div style="display:flex;flex-direction:column;gap:2px">
+              <sc-for list="{{ mealList }}" as="m" hint-placeholder-count="4">
+              <div onClick="{{ m.open }}" style="{{ m.rowStyle }}">
+                <div style="{{ m.iconStyle }}"><span class="material-symbols-rounded" style="font-size:18px">{{ m.icon }}</span></div>
+                <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">{{ m.name }}</div><div style="font-size:11px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ m.desc }}</div></div>
+                <div style="font-family:var(--font-display);font-weight:700;font-size:13.5px;color:{{ m.kcalCol }}">{{ m.kcalStr }}</div>
+                <span class="material-symbols-rounded" style="font-size:18px;color:var(--text-muted)">chevron_right</span>
+              </div>
+              </sc-for>
             </div>
+          </div>
+
+          <!-- Tracked nutrients -->
+          <div style="background:var(--surface-card);border:0.5px solid var(--border-subtle);box-shadow:var(--shadow-card);border-radius:var(--radius-md);padding:16px;margin-bottom:14px">
+            <div style="display:flex;align-items:center;gap:9px;margin-bottom:3px">
+              <span style="font-family:var(--font-display);font-weight:700;font-size:14px">Tracked nutrients</span>
+              <button onClick="{{ toggleNutrPicker }}" style="margin-left:auto;display:flex;align-items:center;gap:4px;border:1px solid var(--border-default);background:transparent;cursor:pointer;border-radius:8px;padding:5px 10px;font-family:var(--font-body);font-size:11px;font-weight:700;color:var(--text-secondary)"><span class="material-symbols-rounded" style="font-size:15px">tune</span>Choose</button>
+            </div>
+            <div style="font-size:11.5px;color:var(--text-secondary);margin-bottom:13px">Beyond macros</div>
+            <sc-if value="{{ nutrPicker }}" hint-placeholder-val="{{ false }}">
+            <div style="background:var(--surface-sunken);border-radius:11px;padding:12px;margin-bottom:13px">
+              <div style="font-size:9.5px;font-weight:700;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:9px">TAP TO PIN WHAT MATTERS</div>
+              <div style="display:flex;flex-wrap:wrap;gap:6px">
+                <sc-for list="{{ dayNutrients }}" as="n" hint-placeholder-count="10">
+                <button onClick="{{ n.toggle }}" style="{{ n.chipStyle }}"><span class="material-symbols-rounded" style="font-size:14px">{{ n.chipIcon }}</span>{{ n.label }}</button>
+                </sc-for>
+              </div>
+            </div>
+            </sc-if>
+            <sc-if value="{{ hasPinned }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;flex-direction:column;gap:12px">
+              <sc-for list="{{ pinnedNutrients }}" as="n" hint-placeholder-count="3">
+              <div>
+                <div style="display:flex;align-items:baseline;gap:7px;margin-bottom:5px">
+                  <span style="font-size:12.5px;font-weight:700">{{ n.label }}</span>
+                  <span style="font-size:10.5px;color:var(--text-muted)">{{ n.targetStr }}</span>
+                  <span style="margin-left:auto;font-family:var(--font-display);font-weight:800;font-size:13px">{{ n.valueStr }}</span>
+                </div>
+                <x-import component-from-global-scope="ForgeFormDesignSystem_03b27d.ProgressBar" value="{{ n.ratio }}" color="{{ n.barColor }}" hint-size="100%,6px"></x-import>
+              </div>
+              </sc-for>
+            </div>
+            </sc-if>
           </div>
 
           <!-- 7-day trend -->
@@ -1168,6 +1608,7 @@
         <button onClick="{{ goDash }}" class="{{ homeFill }}" style="flex:1;border:none;background:transparent;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;color:{{ mNavHomeCol }}"><span class="material-symbols-rounded" style="font-size:24px">space_dashboard</span><span style="font-size:10px;font-weight:600">Home</span></button>
         <button onClick="{{ goBuilder }}" class="{{ wkFill }}" style="flex:1;border:none;background:transparent;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;color:{{ mNavWkCol }}"><span class="material-symbols-rounded" style="font-size:24px">fitness_center</span><span style="font-size:10px;font-weight:600">Workouts</span></button>
         <button onClick="{{ goMessages }}" class="{{ msgFill }}" style="flex:1;border:none;background:transparent;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;color:{{ mNavMsgCol }};position:relative"><span class="material-symbols-rounded" style="font-size:24px">forum</span><span style="position:absolute;top:-2px;right:28px;background:var(--ff-orange);color:#fff;font-size:9px;font-weight:700;min-width:16px;height:16px;border-radius:999px;display:flex;align-items:center;justify-content:center;padding:0 4px">5</span><span style="font-size:10px;font-weight:600">Messages</span></button>
+        <button onClick="{{ goSessions }}" class="{{ sesFill }}" style="flex:1;border:none;background:transparent;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;color:{{ mNavSesCol }}"><span class="material-symbols-rounded" style="font-size:23px">assignment_turned_in</span><span style="font-size:9.5px;font-weight:600">Review</span></button>
         <button onClick="{{ goNutrition }}" class="{{ nutFill }}" style="flex:1;border:none;background:transparent;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;color:{{ mNavNutCol }}"><span class="material-symbols-rounded" style="font-size:24px">nutrition</span><span style="font-size:10px;font-weight:600">Nutrition</span></button>
       </div>
       </sc-if>
@@ -1185,6 +1626,10 @@ class Component extends DCLogic {
     route: 'dashboard',
     layout: this.props.rosterLayout || 'grid',
     client: 0,
+    session: 0,
+    meal: 0,
+    pinned: ['fibre', 'sugar', 'sodium'],
+    nutrPicker: false,
     picker: false,
     chatView: 'list',
   };
@@ -1232,6 +1677,107 @@ class Component extends DCLogic {
         {who:'me', text:'Session moved to Tuesday 6pm — works for you?', time:'Sat'},
         {who:'them', text:'See you Tuesday!', time:'14:02'},
       ] },
+  ];
+  sessions = {
+    0: [
+      { d:'Today · Mon 17 Aug', n:'Push Day A', dur:'62 min', st:'done', vol:'8,420 kg', rpe:'8.2', pr:true, note:'Felt strong today, hit 82.5 on bench!',
+        ex:[ {n:'Barbell Bench Press', p:'3 × 8 @ 82.5 kg', pr:true, s:[[8,70,7,1],[6,77.5,8,1],[4,82.5,9,1]]},
+             {n:'Overhead Press', p:'3 × 10 @ 45 kg', s:[[10,42.5,7,1],[8,45,8,1],[7,45,9,0]]},
+             {n:'Cable Fly', p:'3 × 12 @ 20 kg', s:[[12,20,7,1],[12,20,8,1],[10,20,9,0]]} ] },
+      { d:'Sat 15 Aug', n:'Legs', dur:'71 min', st:'done', vol:'11,180 kg', rpe:'8.6', note:'Legs were fried by the last set.',
+        ex:[ {n:'Back Squat', p:'4 × 6 @ 110 kg', s:[[6,100,7,1],[6,105,8,1],[6,110,9,1],[5,110,10,0]]},
+             {n:'Romanian Deadlift', p:'3 × 10 @ 80 kg', s:[[10,80,7,1],[10,80,8,1],[9,80,9,0]]},
+             {n:'Leg Press', p:'3 × 12 @ 160 kg', s:[[12,160,7,1],[12,160,8,1],[12,160,9,1]]} ] },
+      { d:'Thu 13 Aug', n:'Pull Day A', dur:'58 min', st:'partial', vol:'6,240 kg', rpe:'7.4', note:'Cut it short, shoulder felt off.',
+        ex:[ {n:'Barbell Row', p:'4 × 8 @ 75 kg', s:[[8,70,7,1],[8,75,8,1],[6,75,9,0]]},
+             {n:'Lat Pulldown', p:'3 × 12 @ 60 kg', s:[[12,60,7,1],[11,60,8,0]]},
+             {n:'Face Pull', p:'3 × 15 @ 25 kg', skipped:true, s:[]} ] }
+    ],
+    1: [
+      { d:'Tue 11 Aug', n:'Upper A', dur:'44 min', st:'partial', vol:'4,120 kg', rpe:'6.8', note:'Short on time, skipped accessories.',
+        ex:[ {n:'Incline Press', p:'3 × 10 @ 50 kg', s:[[10,45,7,1],[9,50,8,0]]},
+             {n:'Seated Row', p:'3 × 12 @ 55 kg', s:[[12,55,7,1],[10,55,8,0]]},
+             {n:'Lateral Raise', p:'3 × 15 @ 10 kg', skipped:true, s:[]} ] },
+      { d:'Fri 7 Aug', n:'Lower A', st:'missed', dur:'—', vol:'—', rpe:'—', note:'No log recorded.', ex:[] },
+      { d:'Wed 5 Aug', n:'Upper B', dur:'51 min', st:'done', vol:'5,380 kg', rpe:'7.5',
+        ex:[ {n:'Bench Press', p:'3 × 10 @ 60 kg', s:[[10,55,7,1],[10,60,8,1],[8,60,9,0]]},
+             {n:'Pull-up', p:'3 × 8 BW', s:[[8,0,7,1],[7,0,8,0],[6,0,9,0]]} ] }
+    ],
+    2: [
+      { d:'Yesterday · Sun 16 Aug', n:'Full Body A', dur:'55 min', st:'done', vol:'6,910 kg', rpe:'7.9', note:'Good session, weekend eating was rough though.',
+        ex:[ {n:'Goblet Squat', p:'3 × 12 @ 28 kg', s:[[12,28,7,1],[12,28,8,1],[11,28,9,0]]},
+             {n:'Dumbbell Bench', p:'3 × 10 @ 30 kg', s:[[10,30,7,1],[10,30,8,1],[9,30,9,0]]},
+             {n:'Cable Row', p:'3 × 12 @ 50 kg', s:[[12,50,7,1],[12,50,8,1],[12,50,8,1]]} ] },
+      { d:'Thu 13 Aug', n:'Full Body B', dur:'49 min', st:'done', vol:'6,340 kg', rpe:'7.6',
+        ex:[ {n:'Deadlift', p:'3 × 6 @ 90 kg', s:[[6,85,7,1],[6,90,8,1],[6,90,9,1]]},
+             {n:'Overhead Press', p:'3 × 10 @ 35 kg', s:[[10,35,7,1],[9,35,8,0]]} ] },
+      { d:'Mon 10 Aug', n:'Full Body A', st:'missed', dur:'—', vol:'—', rpe:'—', note:'Asked to move this to Friday.', ex:[] }
+    ],
+    3: [
+      { d:'Yesterday · Sun 16 Aug', n:'5×5 Day A', dur:'66 min', st:'done', vol:'9,750 kg', rpe:'8.4', pr:true, note:'New PR on squats today',
+        ex:[ {n:'Back Squat', p:'5 × 5 @ 85 kg', pr:true, s:[[5,80,7,1],[5,82.5,8,1],[5,85,8,1],[5,85,9,1],[5,85,9,1]]},
+             {n:'Bench Press', p:'5 × 5 @ 60 kg', s:[[5,60,7,1],[5,60,8,1],[5,60,8,1],[5,60,9,1],[5,60,9,1]]},
+             {n:'Barbell Row', p:'5 × 5 @ 55 kg', s:[[5,55,7,1],[5,55,8,1],[5,55,8,1],[5,55,9,1],[5,55,9,1]]} ] },
+      { d:'Fri 14 Aug', n:'5×5 Day B', dur:'63 min', st:'done', vol:'9,120 kg', rpe:'8.1',
+        ex:[ {n:'Overhead Press', p:'5 × 5 @ 40 kg', s:[[5,40,7,1],[5,40,8,1],[5,40,8,1],[5,40,9,1],[4,40,10,0]]},
+             {n:'Deadlift', p:'1 × 5 @ 105 kg', s:[[5,105,9,1]]} ] },
+      { d:'Wed 12 Aug', n:'5×5 Day A', dur:'64 min', st:'done', vol:'9,410 kg', rpe:'8.0',
+        ex:[ {n:'Back Squat', p:'5 × 5 @ 82.5 kg', s:[[5,82.5,7,1],[5,82.5,8,1],[5,82.5,8,1],[5,82.5,9,1],[5,82.5,9,1]]} ] }
+    ],
+    4: [
+      { d:'Fri 14 Aug', n:'Hybrid — Conditioning', dur:'38 min', st:'done', vol:'2,240 kg', rpe:'8.8', note:'Intervals were brutal but done.',
+        ex:[ {n:'Kettlebell Swing', p:'5 × 20 @ 20 kg', s:[[20,20,8,1],[20,20,8,1],[20,20,9,1],[18,20,9,0],[18,20,10,0]]},
+             {n:'Row Erg Intervals', p:'6 × 250 m', s:[[250,0,8,1],[250,0,8,1],[250,0,9,1],[250,0,9,1],[250,0,9,1],[250,0,10,1]]} ] },
+      { d:'Wed 12 Aug', n:'Hybrid — Strength', dur:'54 min', st:'done', vol:'6,180 kg', rpe:'7.8',
+        ex:[ {n:'Front Squat', p:'4 × 8 @ 55 kg', s:[[8,50,7,1],[8,55,8,1],[8,55,8,1],[7,55,9,0]]},
+             {n:'Push Press', p:'3 × 8 @ 35 kg', s:[[8,35,7,1],[8,35,8,1],[7,35,9,0]]} ] },
+      { d:'Mon 10 Aug', n:'Hybrid — Conditioning', dur:'35 min', st:'done', vol:'1,980 kg', rpe:'8.5',
+        ex:[ {n:'Assault Bike', p:'8 × 20 s', s:[[20,0,8,1],[20,0,8,1],[20,0,9,1],[20,0,9,1]]} ] }
+    ],
+  };
+  meals = [
+    { id:'b', icon:'wb_twilight', name:'Breakfast', desc:'Oats, whey, banana, peanut butter', kcal:620, logged:true,
+      items:[
+        { n:'Rolled oats', q:'80 g', kcal:304, p:10.6, c:54.8, f:5.4,
+          micro:{ fibre:8.1, sugar:0.8, sodium:6, potassium:344, calcium:42, iron:3.7, magnesium:141, vitc:0, vitd:0, satfat:1.0 } },
+        { n:'Whey protein', q:'30 g', kcal:117, p:24.0, c:2.1, f:1.5,
+          micro:{ fibre:0.3, sugar:1.8, sodium:52, potassium:160, calcium:110, iron:0.3, magnesium:24, vitc:0, vitd:0, satfat:0.9 } },
+        { n:'Banana', q:'120 g', kcal:107, p:1.3, c:27.4, f:0.4,
+          micro:{ fibre:3.1, sugar:14.6, sodium:1, potassium:430, calcium:6, iron:0.3, magnesium:32, vitc:10.4, vitd:0, satfat:0.1 } },
+        { n:'Peanut butter', q:'15 g', kcal:92, p:3.5, c:2.7, f:7.6,
+          micro:{ fibre:1.0, sugar:1.4, sodium:68, potassium:105, calcium:7, iron:0.3, magnesium:26, vitc:0, vitd:0, satfat:1.5 } },
+      ] },
+    { id:'l', icon:'lunch_dining', name:'Lunch', desc:'Chicken, rice, veg, olive oil', kcal:720, logged:true,
+      items:[
+        { n:'Chicken breast', q:'180 g', kcal:297, p:55.8, c:0, f:6.5,
+          micro:{ fibre:0, sugar:0, sodium:132, potassium:459, calcium:14, iron:0.7, magnesium:52, vitc:0, vitd:0.2, satfat:1.8 } },
+        { n:'White rice, cooked', q:'220 g', kcal:286, p:5.9, c:62.9, f:0.6,
+          micro:{ fibre:0.9, sugar:0.1, sodium:2, potassium:77, calcium:22, iron:0.5, magnesium:26, vitc:0, vitd:0, satfat:0.2 } },
+        { n:'Mixed vegetables', q:'150 g', kcal:66, p:3.2, c:11.4, f:0.5,
+          micro:{ fibre:4.8, sugar:5.1, sodium:34, potassium:298, calcium:48, iron:1.1, magnesium:29, vitc:38.5, vitd:0, satfat:0.1 } },
+        { n:'Olive oil', q:'8 g', kcal:71, p:0, c:0, f:8.0,
+          micro:{ fibre:0, sugar:0, sodium:0, potassium:0, calcium:0, iron:0, magnesium:0, vitc:0, vitd:0, satfat:1.1 } },
+      ] },
+    { id:'s', icon:'bakery_dining', name:'Snack', desc:'Greek yogurt, almonds', kcal:300, logged:true,
+      items:[
+        { n:'Greek yogurt 0%', q:'200 g', kcal:118, p:20.4, c:7.2, f:0.8,
+          micro:{ fibre:0, sugar:7.2, sodium:72, potassium:282, calcium:220, iron:0.1, magnesium:22, vitc:0, vitd:0, satfat:0.4 } },
+        { n:'Almonds', q:'30 g', kcal:182, p:6.4, c:6.5, f:15.6,
+          micro:{ fibre:3.8, sugar:1.3, sodium:0, potassium:220, calcium:79, iron:1.1, magnesium:81, vitc:0, vitd:0, satfat:1.2 } },
+      ] },
+    { id:'d', icon:'dinner_dining', name:'Dinner', desc:'Not logged yet', kcal:0, logged:false, items:[] },
+  ];
+  nutrientDefs = [
+    { k:'fibre', label:'Fibre', unit:'g', target:30, group:'Carbohydrate' },
+    { k:'sugar', label:'Sugar', unit:'g', target:50, group:'Carbohydrate', invert:true },
+    { k:'satfat', label:'Saturated fat', unit:'g', target:22, group:'Fat', invert:true },
+    { k:'sodium', label:'Sodium', unit:'mg', target:2300, group:'Mineral', invert:true },
+    { k:'potassium', label:'Potassium', unit:'mg', target:3500, group:'Mineral' },
+    { k:'calcium', label:'Calcium', unit:'mg', target:1000, group:'Mineral' },
+    { k:'iron', label:'Iron', unit:'mg', target:8, group:'Mineral' },
+    { k:'magnesium', label:'Magnesium', unit:'mg', target:400, group:'Mineral' },
+    { k:'vitc', label:'Vitamin C', unit:'mg', target:90, group:'Vitamin' },
+    { k:'vitd', label:'Vitamin D', unit:'µg', target:20, group:'Vitamin' },
   ];
   go(route) { this.setState({ route, picker: false }); }
   renderVals() {
@@ -1304,6 +1850,135 @@ class Component extends DCLogic {
       avgStr: c.avg, overNote: c.overNote,
     };
 
+    const SES_ST = {
+      done: { label:'Completed', col:'var(--ff-fat)', bg:'rgba(67,160,71,0.14)', icon:'check_circle' },
+      partial: { label:'Partial', col:'var(--ff-warning)', bg:'rgba(255,167,38,0.16)', icon:'error' },
+      missed: { label:'Missed', col:'var(--ff-danger)', bg:'rgba(229,57,53,0.14)', icon:'cancel' },
+    };
+    const rawSessions = this.sessions[ci] || [];
+    const si = Math.min(this.state.session || 0, Math.max(rawSessions.length - 1, 0));
+    const sessionList = rawSessions.map((x, i) => {
+      const ss = SES_ST[x.st];
+      const isSel = i === si;
+      return {
+        d: x.d, n: x.n, dur: x.dur, rpe: x.rpe, vol: x.vol, pr: !!x.pr,
+        stLabel: ss.label, stCol: ss.col, stBg: ss.bg, stIcon: ss.icon, isSel,
+        rowStyle: 'display:flex;align-items:center;gap:11px;padding:12px 14px;cursor:pointer;'+(isSel?'background:var(--color-primary-tint);border-left:3px solid var(--ff-orange)':'border-left:3px solid transparent'),
+        iconStyle: 'width:34px;height:34px;border-radius:9px;background:'+ss.bg+';color:'+ss.col+';display:flex;align-items:center;justify-content:center;flex-shrink:0',
+        pick: () => this.setState({ session: i }),
+        mTabStyle: 'flex-shrink:0;display:flex;flex-direction:column;gap:2px;align-items:flex-start;padding:9px 14px;border-radius:11px;cursor:pointer;'+(isSel?'background:var(--ff-orange);color:#fff':'background:var(--surface-card);border:0.5px solid var(--border-subtle);color:var(--text-primary)'),
+      };
+    });
+    const rs = rawSessions[si];
+    const sessionDetail = rs ? (function(){
+      const ss = SES_ST[rs.st];
+      const exs = (rs.ex || []).map(e => ({
+        n: e.n, p: e.p, pr: !!e.pr, skipped: !!e.skipped, logged: !e.skipped,
+        sets: (e.s || []).map((t, k) => ({
+          i: k + 1, reps: t[0], weight: t[1] > 0 ? t[1] + ' kg' : 'BW', rpe: t[2], hit: !!t[3],
+          repCol: t[3] ? 'var(--text-primary)' : 'var(--ff-warning)',
+          markIcon: t[3] ? 'check' : 'remove',
+          markCol: t[3] ? 'var(--ff-fat)' : 'var(--ff-warning)',
+        })),
+      }));
+      return {
+        d: rs.d, n: rs.n, dur: rs.dur, vol: rs.vol, rpe: rs.rpe, pr: !!rs.pr,
+        note: rs.note, hasNote: !!rs.note,
+        stLabel: ss.label, stCol: ss.col, stBg: ss.bg, stIcon: ss.icon,
+        exs, hasEx: exs.length > 0, empty: exs.length === 0,
+      };
+    })() : { empty: true, hasEx: false, exs: [] };
+    const doneCt = rawSessions.filter(x => x.st === 'done').length;
+    const missedCt = rawSessions.filter(x => x.st === 'missed').length;
+    const sesSummary = { logged: rawSessions.length, done: doneCt, missed: missedCt };
+
+    const pinned = this.state.pinned || [];
+    const mealIdx = Math.min(this.state.meal || 0, this.meals.length - 1);
+    const rawMeal = this.meals[mealIdx];
+    const scale = c.goal / 2200;
+    const sc1 = (v) => Math.round(v * scale * 10) / 10;
+    const totals = {};
+    this.nutrientDefs.forEach(d => { totals[d.k] = 0; });
+    this.meals.forEach(m => m.items.forEach(it => {
+      this.nutrientDefs.forEach(d => { totals[d.k] += (it.micro[d.k] || 0); });
+    }));
+    const bar = (v, target, invert, dayScope) => {
+      const pct = Math.max(0, Math.min(v / target, 1)) * 100;
+      const low = dayScope && !invert && v < target * 0.6;
+      return {
+        pct: pct.toFixed(0) + '%',
+        col: low ? 'var(--ff-warning)' : 'var(--color-primary)',
+      };
+    };
+    // dayScope: only day-level bars may flag "low" — one meal structurally
+    // can't reach a daily target, so per-meal bars use the DS default.
+    const mkNutrient = (d, value, dayScope) => {
+      const v = Math.round(value * 10) / 10;
+      const b = bar(v, d.target, d.invert, dayScope);
+      return {
+        k: d.k, label: d.label, unit: d.unit, group: d.group,
+        value: v, valueStr: v + ' ' + d.unit,
+        targetStr: 'of ' + d.target + ' ' + d.unit,
+        ratio: v / d.target,
+        barColor: b.col,
+        pinned: pinned.indexOf(d.k) >= 0,
+        chipIcon: pinned.indexOf(d.k) >= 0 ? 'push_pin' : 'add',
+        chipStyle: 'display:flex;align-items:center;gap:5px;border-radius:999px;padding:6px 12px;cursor:pointer;font-family:var(--font-body);font-size:12px;font-weight:600;' + (pinned.indexOf(d.k) >= 0 ? 'background:var(--ff-orange);color:#fff;border:1px solid var(--ff-orange)' : 'background:transparent;color:var(--text-secondary);border:1px solid var(--border-default)'),
+        pctStr: b.pct, barCol: b.col,
+        toggle: () => this.setState(s => {
+          const cur = s.pinned || [];
+          return { pinned: cur.indexOf(d.k) >= 0 ? cur.filter(x => x !== d.k) : cur.concat([d.k]) };
+        }),
+      };
+    };
+    const dayNutrients = this.nutrientDefs.map(d => mkNutrient(d, sc1(totals[d.k]), true));
+    const pinnedNutrients = dayNutrients.filter(n => n.pinned);
+    const hasPinned = pinnedNutrients.length > 0;
+
+    const mealList = this.meals.map((m, i) => {
+      const isSel = i === mealIdx;
+      const kc = Math.round(m.kcal * scale);
+      return {
+        name: m.name, desc: m.desc, icon: m.icon, logged: m.logged,
+        kcalStr: m.logged ? String(kc) : '\u2014', isSel,
+        rowStyle: 'display:flex;align-items:center;gap:12px;padding:11px 12px;margin:0 -12px;border-radius:10px;cursor:pointer;' + (isSel ? 'background:var(--color-primary-tint)' : '') + (m.logged ? '' : 'opacity:0.5;'),
+        iconStyle: 'width:36px;height:36px;border-radius:8px;background:' + (m.logged ? 'rgba(255,107,62,0.12)' : 'var(--surface-sunken)') + ';color:' + (m.logged ? 'var(--ff-orange)' : 'var(--text-muted)') + ';display:flex;align-items:center;justify-content:center;flex-shrink:0',
+        kcalCol: m.logged ? 'var(--text-primary)' : 'var(--text-muted)',
+        open: () => this.setState({ route: 'food', meal: i, picker: false }),
+      };
+    });
+
+    const mealItems = rawMeal.items.map(it => {
+      const pins = pinned.map(k => {
+        const d = this.nutrientDefs.filter(x => x.k === k)[0];
+        if (!d) return null;
+        const v = Math.round((it.micro[k] || 0) * 10) / 10;
+        return { k, label: d.label, valueStr: v + ' ' + d.unit };
+      }).filter(Boolean);
+      return {
+        n: it.n, q: it.q, kcal: it.kcal,
+        macroLine: it.kcal + ' kcal · P ' + it.p + 'g · C ' + it.c + 'g · F ' + it.f + 'g',
+        pins, hasPins: pins.length > 0,
+      };
+    });
+    const mealMicro = this.nutrientDefs.map(d => {
+      let sum = 0;
+      rawMeal.items.forEach(it => { sum += (it.micro[d.k] || 0); });
+      return mkNutrient(d, sum, false);
+    });
+    const mealTotals = (function(){
+      let kc=0,p=0,cb=0,f=0;
+      rawMeal.items.forEach(it => { kc+=it.kcal; p+=it.p; cb+=it.c; f+=it.f; });
+      return { kcal: Math.round(kc), p: Math.round(p*10)/10, c: Math.round(cb*10)/10, f: Math.round(f*10)/10 };
+    })();
+    const foodDetail = {
+      name: rawMeal.name, desc: rawMeal.desc, icon: rawMeal.icon,
+      logged: rawMeal.logged, empty: !rawMeal.logged,
+      kcalStr: fmt(mealTotals.kcal),
+      pStr: mealTotals.p + ' g', cStr: mealTotals.c + ' g', fStr: mealTotals.f + ' g',
+      itemCount: rawMeal.items.length + ' items',
+    };
+
     const selThread = c.thread.map((m) => {
       const me = m.who === 'me', them = m.who === 'them', card = m.who === 'card';
       return {
@@ -1343,6 +2018,17 @@ class Component extends DCLogic {
       isDesktop: s === 'desktop', isMobile: s === 'mobile',
       isDashboard: r === 'dashboard', isClient: r === 'client',
       isMessages: r === 'messages', isBuilder: r === 'builder', isNutrition: r === 'nutrition',
+      isSessions: r === 'sessions',
+      isFood: r === 'food',
+      dayNutrients, pinnedNutrients, hasPinned, mealList, mealItems, mealMicro, foodDetail,
+      nutrPicker: !!this.state.nutrPicker,
+      toggleNutrPicker: () => this.setState(s => ({ nutrPicker: !s.nutrPicker })),
+      backToNutrition: () => this.setState({ route: 'nutrition', nutrPicker: false }),
+      navSesBg: navBg('sessions'), navSesCol: navCol('sessions'),
+      sesFill: r === 'sessions' ? 'fill' : '',
+      mNavSesCol: r === 'sessions' ? 'var(--ff-orange)' : 'var(--text-muted)',
+      goSessions: () => this.setState({ route: 'sessions', session: 0, picker: false }),
+      sessionList: sessionList, sessionDetail: sessionDetail, sesSummary: sesSummary,
       layoutGrid: l === 'grid', layoutTable: l === 'table',
       navDashBg: navBg('dashboard'), navDashCol: navCol('dashboard'),
       navMsgBg: navBg('messages'), navMsgCol: navCol('messages'),
@@ -1358,7 +2044,7 @@ class Component extends DCLogic {
       mProtein: 168, mCarbs: 232, mFat: 62, mGoal: 2200,
       msgBtn: { onClick: () => this.go('messages') },
       editBtn: { onClick: () => this.go('builder') },
-      mobileNav: !(r === 'messages' && chatView === 'thread'),
+      mobileNav: !(r === 'messages' && chatView === 'thread') && r !== 'food',
       homeFill: r === 'dashboard' ? 'fill' : '',
       msgFill: r === 'messages' ? 'fill' : '',
       wkFill: r === 'builder' ? 'fill' : '',

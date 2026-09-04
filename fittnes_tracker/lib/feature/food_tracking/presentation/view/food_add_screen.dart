@@ -9,7 +9,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
-import '../../data/models/extended_nutrients.dart';
+import 'package:ForgeForm/core/nutrition/extended_nutrients.dart';
 import '../../data/models/food_item_model.dart';
 import '../../data/models/portion_option.dart';
 import '../../data/repositories/nutrition_repository.dart';
@@ -202,6 +202,7 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
           },
           'id': 'verified-${v.id}',
           '_source': 'verified',
+          '_extended_nutrients_json': v.extendedNutrientsJson,
         };
       }).toList();
 
@@ -482,9 +483,16 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
 
   void _selectFoodItem(Map<String, dynamic> productData) async {
     final isLocal = productData['_source'] == 'local';
+    // Verified (BLS-seeded) foods carry their micronutrients the same way a
+    // re-added local food does — a pre-built ExtendedNutrients JSON blob,
+    // not raw OpenFoodFacts nutriment keys — because tool/generate_verified_
+    // foods.py already resolved BLS's own units to ExtendedNutrients' grams
+    // at seed time. Falling through to fromNutriments() here would silently
+    // find none of its OFF-shaped keys and drop every verified food's data.
+    final isVerified = productData['_source'] == 'verified';
 
     ExtendedNutrients? extended;
-    if (isLocal) {
+    if (isLocal || isVerified) {
       final json = productData['_extended_nutrients_json'] as String?;
       if (json != null) extended = ExtendedNutrients.fromJsonString(json);
     } else {

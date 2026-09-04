@@ -1,5 +1,6 @@
 using FitTracker.Api.DTOs;
 using FitTracker.Api.Models;
+using FitTracker.Api.Nutrition;
 using FitTracker.Api.Repositories.Interfaces;
 using FitTracker.Api.Services.Interfaces;
 
@@ -7,10 +8,12 @@ namespace FitTracker.Api.Services;
 
 public class TrainerClientService(
     ITrainerClientRepository repo,
-    ITrainerLicenceRepository licences) : ITrainerClientService
+    ITrainerLicenceRepository licences,
+    ITrainerNutrientPinRepository nutrientPins) : ITrainerClientService
 {
     private readonly ITrainerClientRepository _repo = repo;
     private readonly ITrainerLicenceRepository _licences = licences;
+    private readonly ITrainerNutrientPinRepository _nutrientPins = nutrientPins;
 
     /// <inheritdoc/>
     public async Task<CreateInviteOutcome> CreateInviteAsync(Guid trainerId)
@@ -124,6 +127,28 @@ public class TrainerClientService(
     public async Task<TrainerClient?> GetActiveRelationshipAsync(Guid trainerId, Guid clientId)
     {
         return await _repo.GetActiveRelationshipAsync(trainerId, clientId);
+    }
+
+    /// <inheritdoc/>
+    public async Task<bool> DerivesProAsync(Guid userId)
+    {
+        var asClient = await _repo.GetActiveRelationshipForClientAsync(userId);
+        var ownLicence = await _licences.GetByTrainerAsync(userId);
+        var trainersLicence = asClient == null
+            ? null
+            : await _licences.GetByTrainerAsync(asClient.TrainerId);
+
+        return (ownLicence?.GrantsPro ?? false) || (trainersLicence?.GrantsPro ?? false);
+    }
+
+    /// <inheritdoc/>
+    public async Task<List<string>> GetMyNutrientPinsAsync(Guid userId)
+    {
+        var asClient = await _repo.GetActiveRelationshipForClientAsync(userId);
+        if (asClient == null) return [.. NutrientKeys.Defaults];
+
+        var pins = await _nutrientPins.GetPinsAsync(asClient.TrainerId, userId);
+        return pins.Count == 0 ? [.. NutrientKeys.Defaults] : pins;
     }
 
     /// <inheritdoc/>

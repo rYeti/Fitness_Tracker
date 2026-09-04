@@ -87,6 +87,13 @@ class VerifiedFoodTable extends Table {
 
   /// Source key, e.g. the BLS SBLS code — kept for attribution/versioning.
   TextColumn get sourceCode => text().nullable()();
+
+  /// JSON-encoded [ExtendedNutrients], joined in from the BLS 4.0 nutrient
+  /// matrix at seed-generation time (`tool/generate_verified_foods.py`), not
+  /// computed on-device. Null for a food the join found no BLS row for —
+  /// there are none as of seed v3, but the column stays nullable so a future
+  /// seed source need not guarantee full coverage.
+  TextColumn get extendedNutrientsJson => text().nullable()();
 }
 
 // Persistent search cache table

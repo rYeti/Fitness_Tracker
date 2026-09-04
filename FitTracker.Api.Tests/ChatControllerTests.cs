@@ -26,7 +26,7 @@ public class ChatControllerTests
             // Licensing gates invites and seats, not chat; the real repository is
             // passed rather than a stub so this stays honest if that changes.
             new TrainerClientService(
-                trainerClientRepo, new TrainerLicenceRepository(ctx.Db)))
+                trainerClientRepo, new TrainerLicenceRepository(ctx.Db), new TrainerNutrientPinRepository(ctx.Db)))
         {
             ControllerContext = new ControllerContext
             {

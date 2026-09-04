@@ -84,6 +84,10 @@ public class AppDbContext : DbContext
     /// <summary>Push registration tokens, one row per signed-in device.</summary>
     public DbSet<DeviceToken> DeviceTokens { get; set; }
 
+    /// <summary>Which nutrients a trainer has pinned to track, per client —
+    /// Nutrition tab "Tracked nutrients".</summary>
+    public DbSet<TrainerNutrientPin> TrainerNutrientPins { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<User>(entity =>
@@ -344,6 +348,25 @@ public class AppDbContext : DbContext
             // messages going to that phone.
             entity.HasIndex(d => d.Token).IsUnique();
             entity.HasIndex(d => d.UserId);
+        });
+
+        modelBuilder.Entity<TrainerNutrientPin>(entity =>
+        {
+            entity.HasKey(p => p.Id);
+            entity.HasOne(p => p.Trainer)
+                  .WithMany()
+                  .HasForeignKey(p => p.TrainerId)
+                  .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(p => p.Client)
+                  .WithMany()
+                  .HasForeignKey(p => p.ClientId)
+                  .OnDelete(DeleteBehavior.Cascade);
+            // The read path fetches by (trainer, client); the write path
+            // replaces the whole set for that pair in one statement, so the
+            // constraint doubles as what stops a re-applied write from ever
+            // producing two rows for the same nutrient.
+            entity.HasIndex(p => new { p.TrainerId, p.ClientId, p.NutrientKey })
+                  .IsUnique();
         });
     }
 }
