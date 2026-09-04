@@ -94,10 +94,19 @@ public class WorkoutRepository : IWorkoutRepository
     }
 
     /// <inheritdoc/>
-    public async Task<WorkoutDeleteResult> DeleteWorkoutAsync(Guid id, Guid userId)
+    public async Task<WorkoutDeleteResult> DeleteWorkoutAsync(Guid id, Guid userId, bool actingAsTrainer = false)
     {
         var workout = await _context.Workouts.FirstOrDefaultAsync(w => w.Id == id && w.UserId == userId);
         if (workout == null) return WorkoutDeleteResult.NotFound;
+
+        // A trainer's own delete (actingAsTrainer, reached only via TrainerConsoleService
+        // after it has already checked IsActiveTrainerOfAsync) bypasses this: the trainer is
+        // removing their own prescription. Every other caller is the workout's owner acting
+        // for themselves, and a workout their trainer assigned is not theirs to remove.
+        if (!actingAsTrainer && workout.AssignedByTrainerId != null)
+        {
+            return WorkoutDeleteResult.AssignedByTrainer;
+        }
 
         // Same restricted foreign key that DeleteWorkoutExerciseAsync had to learn about,
         // one level up: ScheduledWorkouts points here with Restrict, so removing a workout

@@ -35,11 +35,16 @@ public interface IWorkoutPlanRepository
     /// <returns>The updated workout plan, or <c>null</c> if not found.</returns>
     Task<WorkoutPlan?> UpdatePlanAsync(Guid id, Guid userId, WorkoutPlanRequestDto dto);
 
-    /// <summary>Deletes a workout plan owned by the specified user.</summary>
+    /// <summary>Deletes a workout plan owned by the specified user. Its days are left in
+    /// place — see <c>WorkoutPlanRepository.DeletePlanAsync</c>.</summary>
     /// <param name="id">The ID of the plan to delete.</param>
     /// <param name="userId">The ID of the user who owns the plan.</param>
-    /// <returns><c>true</c> if deleted; <c>false</c> if not found.</returns>
-    Task<bool> DeletePlanAsync(Guid id, Guid userId);
+    /// <param name="actingAsTrainer">True only when the caller is the trainer who assigned
+    /// this plan, deleting it via the Trainer Console. False (the default) is every
+    /// self-service call, where a plan with a non-null <c>AssignedByTrainerId</c> is not
+    /// the caller's to delete.</param>
+    /// <returns><see cref="PlanDeleteResult"/> describing the outcome.</returns>
+    Task<PlanDeleteResult> DeletePlanAsync(Guid id, Guid userId, bool actingAsTrainer = false);
 
     /// <summary>Adds a workout to a plan by persisting the join record, if both are owned by the specified user.</summary>
     /// <param name="link">The plan-workout join entity to persist.</param>

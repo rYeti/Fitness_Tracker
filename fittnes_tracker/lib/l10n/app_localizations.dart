@@ -6110,6 +6110,12 @@ abstract class AppLocalizations {
   /// **'Could not schedule this plan.'**
   String get errorScheduleWorkoutPlan;
 
+  /// No description provided for @errorDeletePlan.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not delete this plan.'**
+  String get errorDeletePlan;
+
   /// No description provided for @builderDays.
   ///
   /// In en, this message translates to:
@@ -6373,6 +6379,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{name} deleted'**
   String builderDayDeletedConfirmation(String name);
+
+  /// No description provided for @builderDeletePlan.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete plan'**
+  String get builderDeletePlan;
+
+  /// No description provided for @builderDeletePlanConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this plan?'**
+  String get builderDeletePlanConfirmTitle;
+
+  /// No description provided for @builderDeletePlanConfirmBody.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} will be removed. Its days stay with the client — this only removes the grouping, and can’t be undone.'**
+  String builderDeletePlanConfirmBody(String name);
+
+  /// No description provided for @builderPlanDeletedConfirmation.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} deleted'**
+  String builderPlanDeletedConfirmation(String name);
 
   /// No description provided for @builderUnsavedChangesBadge.
   ///

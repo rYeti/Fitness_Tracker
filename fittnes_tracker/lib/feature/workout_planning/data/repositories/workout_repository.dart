@@ -39,8 +39,12 @@ class WorkoutRepository {
     return db.workoutDao.getCompleteWorkoutById(id);
   }
 
+  /// Marks the workout for deletion rather than deleting it outright — the
+  /// row survives locally until the next sync push actually tells the
+  /// server (or, for a workout that never reached the server, is dropped
+  /// straight away by that same push) — see `SyncService._syncDeleteWorkout`.
   Future<void> deleteWorkoutById(int id) async {
-    await db.workoutDao.deleteWorkout(id);
+    await db.workoutDao.markWorkoutPendingDelete(id);
   }
 
   Future<bool> updateWorkout(Workout workout) async {

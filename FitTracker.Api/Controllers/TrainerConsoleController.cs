@@ -106,6 +106,22 @@ public class TrainerConsoleController(ITrainerConsoleService service) : Controll
         return Ok(result);
     }
 
+    /// <summary>Deletes one of the client's workout plans. The plan's days and their logged
+    /// history stay with the client — only the plan grouping goes away.</summary>
+    [ServiceFilter(typeof(RequireEntitledLicenceFilter))]
+    [HttpDelete("{clientId}/workout-plans/{planId}")]
+    public async Task<IActionResult> DeleteClientWorkoutPlan(Guid clientId, Guid planId)
+    {
+        var trainerId = GetUserId();
+        if (trainerId == null) return Unauthorized();
+        var status = await _service.DeleteClientWorkoutPlanAsync(trainerId.Value, clientId, planId);
+        return status switch
+        {
+            TrainerWorkoutStatus.Ok => NoContent(),
+            _ => NotFound(),
+        };
+    }
+
     [HttpGet("{clientId}/workouts")]
     public async Task<IActionResult> GetClientWorkouts(Guid clientId)
     {

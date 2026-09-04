@@ -28,4 +28,10 @@ public enum WorkoutDeleteResult
     /// resolvable; the caller should stop retrying rather than treat this as failure.
     /// </summary>
     HasLoggedHistory,
+
+    /// <summary>The workout was assigned by a trainer (<c>Workout.AssignedByTrainerId</c>)
+    /// and the caller is its owner, not the assigning trainer — only the trainer can remove
+    /// their own prescription. Distinct from <see cref="HasLoggedHistory"/>: this is a
+    /// permission the owner never had, not a row the server is protecting on their behalf.</summary>
+    AssignedByTrainer,
 }

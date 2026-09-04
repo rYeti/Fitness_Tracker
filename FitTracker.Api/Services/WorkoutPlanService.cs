@@ -36,7 +36,7 @@ public class WorkoutPlanService : IWorkoutPlanService
     }
 
     /// <inheritdoc/>
-    public async Task<WorkoutPlanResponseDto> CreatePlanAsync(WorkoutPlanRequestDto dto, Guid userId)
+    public async Task<WorkoutPlanResponseDto> CreatePlanAsync(WorkoutPlanRequestDto dto, Guid userId, Guid? assignedByTrainerId = null)
     {
         var plan = new WorkoutPlan
         {
@@ -50,6 +50,7 @@ public class WorkoutPlanService : IWorkoutPlanService
             CyclePatternJson = dto.CyclePatternJson,
             IsFreeChoice = dto.IsFreeChoice,
             DurationDays = dto.DurationDays,
+            AssignedByTrainerId = assignedByTrainerId,
         };
 
         var created = await _planRepository.CreatePlanAsync(plan);
@@ -64,9 +65,9 @@ public class WorkoutPlanService : IWorkoutPlanService
     }
 
     /// <inheritdoc/>
-    public async Task<bool> DeletePlanAsync(Guid id, Guid userId)
+    public async Task<PlanDeleteResult> DeletePlanAsync(Guid id, Guid userId, bool actingAsTrainer = false)
     {
-        return await _planRepository.DeletePlanAsync(id, userId);
+        return await _planRepository.DeletePlanAsync(id, userId, actingAsTrainer);
     }
 
     /// <inheritdoc/>
@@ -107,6 +108,7 @@ public class WorkoutPlanService : IWorkoutPlanService
         CyclePatternJson = p.CyclePatternJson,
         IsFreeChoice = p.IsFreeChoice,
         DurationDays = p.DurationDays,
+        AssignedByTrainer = p.AssignedByTrainerId != null,
         WorkoutIds = [.. p.PlanWorkouts.Select(pw => pw.WorkoutId)],
     };
 }

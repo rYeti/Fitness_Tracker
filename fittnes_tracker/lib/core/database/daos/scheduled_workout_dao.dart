@@ -17,14 +17,19 @@ class ScheduledWorkoutDao extends DatabaseAccessor<AppDatabase>
     with _$ScheduledWorkoutDaoMixin {
   ScheduledWorkoutDao(super.db);
 
+  // Excludes pendingDelete (3): a delete now marks rather than removes the
+  // row outright, so a session the trainee just deleted must stop appearing
+  // here well before the sync push actually reaches the server.
   Future<List<ScheduledWorkoutTableData>> getForDate(DateTime date) {
-    return (select(scheduledWorkoutTable)
-      ..where((t) => t.scheduledDate.equals(date))).get();
+    return (select(scheduledWorkoutTable)..where(
+      (t) => t.scheduledDate.equals(date) & t.syncStatus.isNotValue(3),
+    )).get();
   }
 
   Stream<List<ScheduledWorkoutTableData>> watchForDate(DateTime date) {
-    return (select(scheduledWorkoutTable)
-      ..where((t) => t.scheduledDate.equals(date))).watch();
+    return (select(scheduledWorkoutTable)..where(
+      (t) => t.scheduledDate.equals(date) & t.syncStatus.isNotValue(3),
+    )).watch();
   }
 
   Future<int> scheduleWorkout(Insertable<ScheduledWorkoutTableData> item) {
@@ -113,7 +118,8 @@ class ScheduledWorkoutDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<List<ScheduledWorkoutTableData>> getAll() =>
-      select(scheduledWorkoutTable).get();
+      (select(scheduledWorkoutTable)
+        ..where((t) => t.syncStatus.isNotValue(3))).get();
 
   /// Counts scheduled workouts in the half-open range [start, end).
   ///
