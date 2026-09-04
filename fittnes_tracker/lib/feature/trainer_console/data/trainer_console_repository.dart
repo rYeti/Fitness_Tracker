@@ -199,6 +199,12 @@ class TrainerConsoleRepository {
     }
   }
 
+  /// Deletes [planId] for [clientId]. The plan's days — and any logged history under
+  /// them — stay with the client; only the plan grouping goes away.
+  Future<void> deleteClientWorkoutPlan(String clientId, String planId) async {
+    await _api.deleteClientWorkoutPlan(clientId, planId);
+  }
+
   WorkoutSaveException _asWorkoutSaveException(DioException e) {
     return switch (e.response?.statusCode) {
       409 => const WorkoutSaveException(WorkoutSaveFailure.hasLoggedHistory),

@@ -146,6 +146,10 @@ class TrainerConsoleApi {
     await _client.delete('api/TrainerConsole/$clientId/workouts/$workoutId');
   }
 
+  Future<void> deleteClientWorkoutPlan(String clientId, String planId) async {
+    await _client.delete('api/TrainerConsole/$clientId/workout-plans/$planId');
+  }
+
   /// Returns the number of sessions the schedule call actually created.
   Future<int> scheduleClientPlan(
     String clientId,

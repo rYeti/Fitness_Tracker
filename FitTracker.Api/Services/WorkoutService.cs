@@ -43,7 +43,7 @@ public class WorkoutService : IWorkoutService
     }
 
     /// <inheritdoc/>
-    public async Task<WorkoutResponseDto> CreateWorkoutAsync(WorkoutRequestDto dto, Guid userId)
+    public async Task<WorkoutResponseDto> CreateWorkoutAsync(WorkoutRequestDto dto, Guid userId, Guid? assignedByTrainerId = null)
     {
         var workout = new Workout
         {
@@ -56,6 +56,7 @@ public class WorkoutService : IWorkoutService
             IsTemplate = dto.IsTemplate,
             ScheduledDate = dto.ScheduledDate,
             Color = dto.Color,
+            AssignedByTrainerId = assignedByTrainerId,
         };
 
         var created = await _workoutRepository.CreateWorkoutAsync(workout);
@@ -70,9 +71,9 @@ public class WorkoutService : IWorkoutService
     }
 
     /// <inheritdoc/>
-    public async Task<WorkoutDeleteResult> DeleteWorkoutAsync(Guid id, Guid userId)
+    public async Task<WorkoutDeleteResult> DeleteWorkoutAsync(Guid id, Guid userId, bool actingAsTrainer = false)
     {
-        return await _workoutRepository.DeleteWorkoutAsync(id, userId);
+        return await _workoutRepository.DeleteWorkoutAsync(id, userId, actingAsTrainer);
     }
 
     /// <inheritdoc/>
@@ -200,6 +201,7 @@ public class WorkoutService : IWorkoutService
         ScheduledDate = w.ScheduledDate,
         CompletedDate = w.CompletedDate,
         Color = w.Color,
+        AssignedByTrainer = w.AssignedByTrainerId != null,
         Exercises = [.. w.Exercises.Select(ToExerciseDto)],
     };
 

@@ -3540,6 +3540,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get errorScheduleWorkoutPlan => 'Could not schedule this plan.';
 
   @override
+  String get errorDeletePlan => 'Could not delete this plan.';
+
+  @override
   String get builderDays => 'Days';
 
   @override
@@ -3679,6 +3682,22 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String builderDayDeletedConfirmation(String name) {
+    return '$name deleted';
+  }
+
+  @override
+  String get builderDeletePlan => 'Delete plan';
+
+  @override
+  String get builderDeletePlanConfirmTitle => 'Delete this plan?';
+
+  @override
+  String builderDeletePlanConfirmBody(String name) {
+    return '$name will be removed. Its days stay with the client — this only removes the grouping, and can’t be undone.';
+  }
+
+  @override
+  String builderPlanDeletedConfirmation(String name) {
     return '$name deleted';
   }
 

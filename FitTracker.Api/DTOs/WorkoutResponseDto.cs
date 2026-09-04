@@ -33,6 +33,12 @@ public class WorkoutResponseDto
     /// <summary>An optional colour value associated with the workout (ARGB integer).</summary>
     public int? Color { get; set; }
 
+    /// <summary>Whether a trainer prescribed this workout, rather than the owner building it
+    /// themselves. Only the assigning trainer can delete it — see
+    /// <c>Workout.AssignedByTrainerId</c>. The trainer's own id doesn't cross the wire; the
+    /// client has no use for it.</summary>
+    public bool AssignedByTrainer { get; set; }
+
     /// <summary>The list of exercises that make up this workout.</summary>
     public List<WorkoutExerciseResponseDto> Exercises { get; set; } = new();
 }

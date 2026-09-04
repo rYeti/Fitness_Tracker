@@ -3,6 +3,7 @@ using System;
 using FitTracker.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace FitTracker.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260903120000_AddWorkoutAssignedByTrainer")]
+    partial class AddWorkoutAssignedByTrainer
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -539,35 +542,6 @@ namespace FitTracker.Api.Migrations
                         .IsUnique();
 
                     b.ToTable("TrainerLicences");
-                });
-
-            modelBuilder.Entity("FitTracker.Api.Models.TrainerNutrientPin", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("ClientId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("NutrientKey")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int>("SortOrder")
-                        .HasColumnType("integer");
-
-                    b.Property<Guid>("TrainerId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ClientId");
-
-                    b.HasIndex("TrainerId", "ClientId", "NutrientKey")
-                        .IsUnique();
-
-                    b.ToTable("TrainerNutrientPins");
                 });
 
             modelBuilder.Entity("FitTracker.Api.Models.User", b =>
@@ -1115,25 +1089,6 @@ namespace FitTracker.Api.Migrations
                         .HasForeignKey("TrainerId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.Navigation("Trainer");
-                });
-
-            modelBuilder.Entity("FitTracker.Api.Models.TrainerNutrientPin", b =>
-                {
-                    b.HasOne("FitTracker.Api.Models.User", "Client")
-                        .WithMany()
-                        .HasForeignKey("ClientId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("FitTracker.Api.Models.User", "Trainer")
-                        .WithMany()
-                        .HasForeignKey("TrainerId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Client");
 
                     b.Navigation("Trainer");
                 });

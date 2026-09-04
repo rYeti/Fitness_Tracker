@@ -2494,6 +2494,8 @@
   "@errorUnknownExercise": {},
   "errorScheduleWorkoutPlan": "Could not schedule this plan.",
   "@errorScheduleWorkoutPlan": {},
+  "errorDeletePlan": "Could not delete this plan.",
+  "@errorDeletePlan": {},
   "builderDays": "Days",
   "@builderDays": {},
   "builderNewDay": "New day",
@@ -2600,6 +2602,26 @@
   },
   "builderDayDeletedConfirmation": "{name} deleted",
   "@builderDayDeletedConfirmation": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "builderDeletePlan": "Delete plan",
+  "@builderDeletePlan": {},
+  "builderDeletePlanConfirmTitle": "Delete this plan?",
+  "@builderDeletePlanConfirmTitle": {},
+  "builderDeletePlanConfirmBody": "{name} will be removed. Its days stay with the client — this only removes the grouping, and can’t be undone.",
+  "@builderDeletePlanConfirmBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "builderPlanDeletedConfirmation": "{name} deleted",
+  "@builderPlanDeletedConfirmation": {
     "placeholders": {
       "name": {
         "type": "String"

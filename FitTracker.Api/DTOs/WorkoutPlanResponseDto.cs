@@ -33,6 +33,11 @@ public class WorkoutPlanResponseDto
     /// <summary>The number of days this plan is scheduled for. Null for free-choice plans.</summary>
     public int? DurationDays { get; set; }
 
+    /// <summary>Whether a trainer assigned this plan, rather than the owner building it
+    /// themselves. Only the assigning trainer can delete it — see
+    /// <c>WorkoutPlan.AssignedByTrainerId</c>.</summary>
+    public bool AssignedByTrainer { get; set; }
+
     /// <summary>The list of workout IDs that are part of this plan.</summary>
     public List<Guid> WorkoutIds { get; set; } = new();
 }

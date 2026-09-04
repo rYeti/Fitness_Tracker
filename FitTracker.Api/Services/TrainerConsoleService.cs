@@ -861,7 +861,7 @@ public class TrainerConsoleService(
     {
         var isTrainer = await _trainerClientService.IsActiveTrainerOfAsync(trainerId, clientId);
         if (!isTrainer) return null;
-        return await _workoutPlanService.CreatePlanAsync(dto, clientId);
+        return await _workoutPlanService.CreatePlanAsync(dto, clientId, assignedByTrainerId: trainerId);
     }
 
     /// <inheritdoc/>
@@ -870,6 +870,20 @@ public class TrainerConsoleService(
         var isTrainer = await _trainerClientService.IsActiveTrainerOfAsync(trainerId, clientId);
         if (!isTrainer) return null;
         return await _workoutPlanService.UpdatePlanAsync(planId, clientId, dto);
+    }
+
+    /// <inheritdoc/>
+    public async Task<TrainerWorkoutStatus> DeleteClientWorkoutPlanAsync(Guid trainerId, Guid clientId, Guid planId)
+    {
+        var isTrainer = await _trainerClientService.IsActiveTrainerOfAsync(trainerId, clientId);
+        if (!isTrainer) return TrainerWorkoutStatus.NotPermitted;
+
+        var result = await _workoutPlanService.DeletePlanAsync(planId, clientId, actingAsTrainer: true);
+        return result switch
+        {
+            PlanDeleteResult.Deleted => TrainerWorkoutStatus.Ok,
+            _ => TrainerWorkoutStatus.NotFound,
+        };
     }
 
     // ── Workout Builder: create/edit a client's workouts ────────────────────
@@ -964,7 +978,7 @@ public class TrainerConsoleService(
             Difficulty = dto.Difficulty,
             EstimatedDurationMinutes = dto.EstimatedDurationMinutes,
             IsTemplate = true,
-        }, clientId);
+        }, clientId, assignedByTrainerId: trainerId);
 
         if (dto.PlanId is Guid planId)
         {
@@ -1015,7 +1029,7 @@ public class TrainerConsoleService(
         var isTrainer = await _trainerClientService.IsActiveTrainerOfAsync(trainerId, clientId);
         if (!isTrainer) return TrainerWorkoutStatus.NotPermitted;
 
-        var result = await _workoutService.DeleteWorkoutAsync(workoutId, clientId);
+        var result = await _workoutService.DeleteWorkoutAsync(workoutId, clientId, actingAsTrainer: true);
         return result switch
         {
             WorkoutDeleteResult.Deleted => TrainerWorkoutStatus.Ok,

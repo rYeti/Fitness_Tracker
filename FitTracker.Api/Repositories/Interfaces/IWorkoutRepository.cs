@@ -27,7 +27,8 @@ public interface IWorkoutRepository
     Task<Workout?> GetWorkoutByIdAsync(Guid id, Guid userId);
 
     /// <summary>Creates and persists a new workout.</summary>
-    /// <param name="workout">The workout entity to persist.</param>
+    /// <param name="workout">The workout entity to persist. Its <c>AssignedByTrainerId</c>
+    /// is persisted as set by the caller — this method does not decide it.</param>
     /// <returns>The newly created workout.</returns>
     Task<Workout> CreateWorkoutAsync(Workout workout);
 
@@ -41,13 +42,19 @@ public interface IWorkoutRepository
     /// <summary>Deletes a workout owned by the specified user.</summary>
     /// <param name="id">The ID of the workout to delete.</param>
     /// <param name="userId">The ID of the user who owns the workout.</param>
+    /// <param name="actingAsTrainer">True only when the caller is the trainer who assigned
+    /// this workout, deleting their own prescription via the Trainer Console — see
+    /// <c>TrainerConsoleService</c>. False (the default) is every self-service call, where
+    /// a workout with a non-null <c>AssignedByTrainerId</c> is not the caller's to delete.</param>
     /// <returns>
     /// <see cref="WorkoutDeleteResult.Deleted"/> if the workout and any never-performed
     /// sessions of it are gone; <see cref="WorkoutDeleteResult.NotFound"/> if no such
     /// workout belongs to the user; <see cref="WorkoutDeleteResult.HasLoggedHistory"/> if
-    /// sets were logged against it and it is therefore kept.
+    /// sets were logged against it and it is therefore kept;
+    /// <see cref="WorkoutDeleteResult.AssignedByTrainer"/> if it was assigned by a trainer
+    /// and <paramref name="actingAsTrainer"/> is false.
     /// </returns>
-    Task<WorkoutDeleteResult> DeleteWorkoutAsync(Guid id, Guid userId);
+    Task<WorkoutDeleteResult> DeleteWorkoutAsync(Guid id, Guid userId, bool actingAsTrainer = false);
 
     /// <summary>Adds an exercise entry to a workout owned by the specified user.</summary>
     /// <param name="we">The workout exercise entity to persist.</param>
