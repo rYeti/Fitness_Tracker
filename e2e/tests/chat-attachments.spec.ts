@@ -77,11 +77,12 @@ test.describe('trainer console chat', () => {
     await attachButton.click();
 
     // Desktop viewport (this project is chromium-desktop, 1440x900) renders
-    // the attach choices as a PopupMenuButton, not a bottom sheet.
-    await expect(trainerPage.getByRole('button', { name: 'Photo', exact: true })).toBeVisible();
-    await expect(trainerPage.getByRole('button', { name: 'Video', exact: true })).toBeVisible();
+    // the attach choices as a PopupMenuButton (Flutter's MenuItemButton
+    // semantics — role="menuitem", not "button"), not a bottom sheet.
+    await expect(trainerPage.getByRole('menuitem', { name: 'Photo', exact: true })).toBeVisible();
+    await expect(trainerPage.getByRole('menuitem', { name: 'Video', exact: true })).toBeVisible();
     await expect(
-      trainerPage.getByRole('button', { name: 'Document', exact: true }),
+      trainerPage.getByRole('menuitem', { name: 'Document', exact: true }),
     ).toBeVisible();
 
     // Dismiss the menu so it doesn't leak into the next test.
@@ -105,7 +106,7 @@ test.describe('trainer console chat', () => {
     // flow starts, so the chooser has to be armed with filChooser handling
     // before the click that triggers it, then driven by path.
     const fileChooserPromise = trainerPage.waitForEvent('filechooser');
-    await trainerPage.getByRole('button', { name: 'Photo', exact: true }).click();
+    await trainerPage.getByRole('menuitem', { name: 'Photo', exact: true }).click();
     const chooser = await fileChooserPromise;
     await chooser.setFiles(TEST_PHOTO);
 
