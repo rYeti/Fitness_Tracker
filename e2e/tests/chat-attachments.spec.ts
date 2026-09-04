@@ -39,9 +39,21 @@ async function openCoachChat(page: Page): Promise<void> {
  * queryable. A `waitFor` on a locator matching nothing resolves instantly,
  * so every assertion here is positive presence of a named node, never
  * absence.
+ *
+ * Skipped by default, same reason and same gate as audit.spec.ts: this needs
+ * a running API behind the served bundle (FORGE_API_URL baked into the
+ * build, plus Attachments__Provider=local and a database seeded by
+ * tools/seed-review-data.mjs), which web.yml does not provision. Running it
+ * unguarded is what sent this suite into CI on every PR against nothing —
+ * every test failed at sign-in and the job ran for 38 minutes retrying it.
+ * Run locally with `E2E_API=1 npx playwright test chat-attachments.spec.ts`
+ * against a real API on FORGE_API_URL, seeded first.
  */
+const API_ENABLED = !!process.env.E2E_API;
 
 test.describe('trainer console chat', () => {
+  test.skip(!API_ENABLED, 'set E2E_API=1 and run tools/seed-review-data.mjs against a running API first');
+
   test('opens Messages and finds the seeded conversation', async ({ trainerPage }) => {
     await navDestination(trainerPage, 'Messages').click();
 
