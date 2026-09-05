@@ -74,6 +74,14 @@
       }
     }
   },
+  "failedToSaveTrackedNutrients": "Verfolgte Nährstoffe konnten nicht gespeichert werden: {error}",
+  "@failedToSaveTrackedNutrients": {
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
+  },
   "sex": "Geschlecht",
   "activity": "Aktivität",
   "goal": "Ziel",

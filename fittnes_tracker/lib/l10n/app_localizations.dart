@@ -320,6 +320,12 @@ abstract class AppLocalizations {
   /// **'Failed to load data: {error}'**
   String failedToLoadData(Object error);
 
+  /// No description provided for @failedToSaveTrackedNutrients.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to save tracked nutrients: {error}'**
+  String failedToSaveTrackedNutrients(Object error);
+
   /// No description provided for @sex.
   ///
   /// In en, this message translates to:
