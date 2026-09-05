@@ -212,7 +212,7 @@ void main() async {
     );
     unawaited(
       accessProvider.initialize(
-        userId: restoredAuth.user!.username,
+        userId: restoredAuth.user!.id,
         serverBaseUrl: serverUrlDefault,
         bearerToken: restoredAuth.user!.token,
       ),

@@ -271,6 +271,7 @@ public class AuthService : IAuthService
 
         var response = new AuthResponseDto
         {
+            Id = user.Id,
             Token = accessToken,
             Expiration = DateTime.UtcNow.AddMinutes(accessMinutes),
             RefreshToken = rawRefreshToken,

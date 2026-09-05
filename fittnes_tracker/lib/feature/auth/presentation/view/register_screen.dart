@@ -151,7 +151,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
         if (!context.mounted) return;
         context.read<AccessProvider>().initialize(
-          userId: newUserId,
+          userId: next.user!.id,
           serverBaseUrl: serverUrl,
           bearerToken: next.user!.token,
         );

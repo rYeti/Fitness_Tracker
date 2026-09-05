@@ -4,6 +4,16 @@ namespace FitTracker.Api.DTOs;
 public class AuthResponseDto
 {
     /// <summary>
+    /// The authenticated user's server id. The JWT already carries this as its
+    /// <c>sub</c> claim, but nothing in the client decodes a JWT — this is the
+    /// only place a stable, server-assigned identifier reaches the client
+    /// (everything else on this DTO can change, including <see cref="Username"/>).
+    /// Callers that need to identify this user to a *third* party (RevenueCat's
+    /// <c>appUserID</c>, for one) must use this, not <see cref="Username"/>.
+    /// </summary>
+    public Guid Id { get; set; }
+
+    /// <summary>
     /// JWT token that can be used for authenticated requests.
     /// </summary>
     public string Token { get; set; } = string.Empty;

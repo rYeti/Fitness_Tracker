@@ -12,6 +12,7 @@ it is what those users have, and nothing new belongs in it. See
 
 ## Unreleased
 
+- Fixed the RevenueCat entitlement webhook never being able to match a real purchase to a real user: the client has always logged in to RevenueCat using the account's username, not its server id, so every webhook event's `app_user_id` failed to parse as the id it was expected to be and was silently dropped — no genuinely premium user could ever be recognized as entitled server-side, regardless of how they subscribed. The login/register/refresh response now carries the account's actual id, and the client passes that to RevenueCat instead. See `docs/revenuecat-self-managed-pins.md`.
 - Fixed a nutrient toggle on the trainee's own "Tracked nutrients" card silently reverting to the defaults with no explanation whenever the server refused the write (no active RevenueCat entitlement, or an active trainer). The tap now shows the server's own reason ("Choosing your own tracked nutrients requires Premium." / "Your trainer manages your tracked nutrients.") instead of appearing to do nothing.
 
 ## 1.0.2+22

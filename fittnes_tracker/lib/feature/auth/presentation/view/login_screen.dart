@@ -84,7 +84,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
         if (!context.mounted) return;
         context.read<AccessProvider>().initialize(
-          userId: newUserId,
+          userId: next.user!.id,
           serverBaseUrl: serverUrl,
           bearerToken: next.user!.token,
         );
