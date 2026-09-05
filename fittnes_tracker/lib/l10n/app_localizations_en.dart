@@ -132,6 +132,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String failedToSaveTrackedNutrients(Object error) {
+    return 'Failed to save tracked nutrients: $error';
+  }
+
+  @override
   String get sex => 'Sex';
 
   @override

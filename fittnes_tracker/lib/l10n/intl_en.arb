@@ -75,6 +75,14 @@
       }
     }
   },
+  "failedToSaveTrackedNutrients": "Failed to save tracked nutrients: {error}",
+  "@failedToSaveTrackedNutrients": {
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
+  },
   "sex": "Sex",
   "activity": "Activity",
   "goal": "Goal",

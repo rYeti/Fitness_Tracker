@@ -132,6 +132,11 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
+  String failedToSaveTrackedNutrients(Object error) {
+    return 'Verfolgte Nährstoffe konnten nicht gespeichert werden: $error';
+  }
+
+  @override
   String get sex => 'Geschlecht';
 
   @override

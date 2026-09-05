@@ -1,6 +1,7 @@
 // lib/feature/presentation/view/food_tracking_screen.dart
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/nutrition/extended_nutrients.dart';
@@ -364,8 +365,23 @@ class _FoodTrackingScreenState extends State<FoodTrackingScreen> {
 
     try {
       await NutrientPinsApi().setMyPins(after);
-    } catch (_) {
-      if (mounted) setState(() => _pinnedNutrients = before);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _pinnedNutrients = before);
+      // The server's 403 body already names the exact reason (has an active
+      // trainer, or isn't entitled) in copy meant for this screen — show it
+      // rather than a generic failure, so the revert isn't silent.
+      final serverMessage = e is DioException && e.response?.data is Map
+          ? (e.response!.data as Map)['message'] as String?
+          : null;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            serverMessage ??
+                AppLocalizations.of(context)!.failedToSaveTrackedNutrients(e),
+          ),
+        ),
+      );
     }
   }
 
