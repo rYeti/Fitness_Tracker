@@ -17,4 +17,12 @@ class NutrientPinsApi {
     final response = await _client.get('api/TrainerClient/my-nutrient-pins');
     return (response.data as List).cast<String>();
   }
+
+  /// Replaces the caller's own pinned-nutrients selection. Only valid for a
+  /// user with no active trainer who holds the RevenueCat premium
+  /// entitlement — the server refuses with 403 otherwise (a linked client's
+  /// pins are their trainer's to set).
+  Future<void> setMyPins(List<String> keys) async {
+    await _client.put('api/TrainerClient/my-nutrient-pins', data: keys);
+  }
 }

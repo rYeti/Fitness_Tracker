@@ -88,6 +88,13 @@ public class AppDbContext : DbContext
     /// Nutrition tab "Tracked nutrients".</summary>
     public DbSet<TrainerNutrientPin> TrainerNutrientPins { get; set; }
 
+    /// <summary>Which nutrients a user with no trainer has pinned to track for
+    /// themselves — the self-service counterpart to <see cref="TrainerNutrientPins"/>.</summary>
+    public DbSet<UserNutrientPin> UserNutrientPins { get; set; }
+
+    /// <summary>A user's own app-store subscription, as reported by RevenueCat.</summary>
+    public DbSet<RevenueCatSubscription> RevenueCatSubscriptions { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<User>(entity =>
@@ -367,6 +374,30 @@ public class AppDbContext : DbContext
             // producing two rows for the same nutrient.
             entity.HasIndex(p => new { p.TrainerId, p.ClientId, p.NutrientKey })
                   .IsUnique();
+        });
+
+        modelBuilder.Entity<UserNutrientPin>(entity =>
+        {
+            entity.HasKey(p => p.Id);
+            entity.HasOne(p => p.User)
+                  .WithMany()
+                  .HasForeignKey(p => p.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+            // Mirrors TrainerNutrientPin's constraint, one axis narrower: the
+            // write path replaces the whole set for this user in one
+            // statement, so this is what stops a re-applied write from ever
+            // producing two rows for the same nutrient.
+            entity.HasIndex(p => new { p.UserId, p.NutrientKey }).IsUnique();
+        });
+
+        modelBuilder.Entity<RevenueCatSubscription>(entity =>
+        {
+            entity.HasKey(s => s.Id);
+            entity.HasOne(s => s.User)
+                  .WithMany()
+                  .HasForeignKey(s => s.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(s => s.UserId).IsUnique(); // one subscription row per user
         });
     }
 }

@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using FitTracker.Api.DTOs;
 using FitTracker.Api.Models;
 using FitTracker.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -150,6 +151,34 @@ public class TrainerClientController(ITrainerClientService service) : Controller
         var userId = GetUserId();
         if (userId == null) return Unauthorized();
         return Ok(await _service.GetMyNutrientPinsAsync(userId.Value));
+    }
+
+    /// <summary>Replaces the caller's own pinned-nutrients selection — only for
+    /// a user with no active trainer who holds the RevenueCat premium
+    /// entitlement. See <see cref="ITrainerClientService.SetMyNutrientPinsAsync"/>.</summary>
+    [HttpPut("my-nutrient-pins")]
+    public async Task<IActionResult> SetMyNutrientPins([FromBody] List<string> nutrientKeys)
+    {
+        var userId = GetUserId();
+        if (userId == null) return Unauthorized();
+
+        var result = await _service.SetMyNutrientPinsAsync(userId.Value, nutrientKeys);
+        return result.Status switch
+        {
+            SetMyNutrientPinsStatus.Ok => Ok(result),
+            SetMyNutrientPinsStatus.InvalidNutrientKey => BadRequest("Unrecognised nutrient key."),
+            SetMyNutrientPinsStatus.HasActiveTrainer => StatusCode(StatusCodes.Status403Forbidden, new
+            {
+                error = "has_active_trainer",
+                message = "Your trainer manages your tracked nutrients.",
+            }),
+            SetMyNutrientPinsStatus.NotEntitled => StatusCode(StatusCodes.Status403Forbidden, new
+            {
+                error = "not_entitled",
+                message = "Choosing your own tracked nutrients requires Premium.",
+            }),
+            _ => StatusCode(StatusCodes.Status403Forbidden),
+        };
     }
 
     /// <summary>Trainer removes a client, or client leaves their trainer.</summary>

@@ -138,6 +138,20 @@ builder.Services.AddRateLimiter(options =>
                 Window = TimeSpan.FromMinutes(1),
                 QueueLimit = 0
             }));
+
+    // Same generous, anonymous-webhook shape as "webhook" above, but its own
+    // policy rather than shared: that one's partition key is hardcoded to
+    // "stripe-webhook", and reusing it would silently pool RevenueCat's
+    // traffic into Stripe's bucket.
+    options.AddPolicy("revenuecat-webhook", _ =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: "revenuecat-webhook",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 300,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
 });
 
 builder.Services.AddAuthentication(options =>
@@ -205,6 +219,10 @@ builder.Services.AddSingleton<LicencePlanCatalog>();
 builder.Services.AddSingleton<LicenceStateMachine>();
 builder.Services.AddScoped<FitTracker.Api.Filters.RequireEntitledLicenceFilter>();
 builder.Services.AddScoped<ITrainerNutrientPinRepository, TrainerNutrientPinRepository>();
+builder.Services.AddScoped<IUserNutrientPinRepository, UserNutrientPinRepository>();
+builder.Services.AddScoped<IRevenueCatSubscriptionRepository, RevenueCatSubscriptionRepository>();
+builder.Services.AddScoped<IRevenueCatService, RevenueCatService>();
+builder.Services.AddSingleton<RevenueCatStateMachine>();
 builder.Services.AddScoped<ITrainerConsoleService, TrainerConsoleService>();
 builder.Services.AddScoped<IWorkoutPlanTemplateRepository, WorkoutPlanTemplateRepository>();
 builder.Services.AddScoped<IWorkoutPlanTemplateService, WorkoutPlanTemplateService>();
@@ -301,6 +319,18 @@ else
     app.Logger.LogWarning(
         "Stripe: no Stripe:SecretKey configured — trainer licences will stay on the free tier " +
         "and no checkout or webhook handling will work. See docs/trainer-licensing.md.");
+}
+
+// RevenueCat. Unlike Stripe there's no SDK to configure — the webhook secret
+// is read per-request by RevenueCatService, this is just the boot-time
+// visibility into whether it's set at all.
+if (string.IsNullOrWhiteSpace(builder.Configuration["RevenueCat:WebhookAuthHeader"]))
+{
+    app.Logger.LogWarning(
+        "RevenueCat: no RevenueCat:WebhookAuthHeader configured — every RevenueCat webhook will " +
+        "be rejected, so a user's own app-store purchase can never be recognised server-side. " +
+        "A user with no trainer stays on the default tracked nutrients with no way to choose " +
+        "their own, even if they're actually a paying subscriber.");
 }
 
 // ── Middleware pipeline ──────────────────────────────────────
