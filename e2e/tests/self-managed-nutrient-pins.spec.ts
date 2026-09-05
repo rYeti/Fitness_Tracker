@@ -30,11 +30,9 @@ import {
  * before the app boots, standing in for a device that already knows it is
  * premium — exactly the state a real paying user's browser would be in — so
  * `hasPremiumAccess` unlocks the card the same way it would off a genuine
- * cold-start cache hit. The cache key is this account's *username*, not its
- * server id — `main.dart` calls `accessProvider.initialize(userId:
- * restoredAuth.user!.username, ...)`, despite the parameter's name — so the
- * seed below must match `UNLINKED_TRAINEE_CREDENTIALS.username` for
- * `cacheIsOurs` (`access_provider.dart:158`) to accept it.
+ * cold-start cache hit. The cache key is this account's server id, so the
+ * seed below fetches it via `POST api/auth/login` first — same call the
+ * pins-reset below already needs a token from.
  *
  * Signs in for real, so — like `audit-flows.spec.ts` — it needs a live API
  * seeded with `tools/seed-review-data.mjs` and the RevenueCat grant above,
@@ -52,39 +50,39 @@ test.describe('self-managed nutrient pins', () => {
   }) => {
     test.setTimeout(120_000);
 
+    const apiBase = 'http://127.0.0.1:5080';
+    const loginResponse = await page.request.post(`${apiBase}/api/auth/login`, {
+      data: UNLINKED_TRAINEE_CREDENTIALS,
+    });
+    const { token, id } = await loginResponse.json();
+
+    // Reset this account's pins to the defaults before touching the UI.
+    // Without this, a leftover pin set from a previous run (or from manually
+    // exercising the endpoint, as this feature's own backend verification
+    // did) makes `wasPinned` below depend on whatever state the account
+    // happened to be in rather than on the toggle this test performs.
+    await page.request.put(`${apiBase}/api/TrainerClient/my-nutrient-pins`, {
+      headers: { Authorization: `Bearer ${token}` },
+      data: ['fibre', 'sugar', 'sodium'],
+    });
+
     // shared_preferences_web prefixes every key with "flutter." and
     // JSON-encodes every value, strings included — a bare `true` for the
-    // bool, but a quoted `"lena.fischer"` for the string. Must run before the
-    // app's first paint, so it's an init script rather than a
-    // post-navigation page.evaluate.
+    // bool, but a quoted string for the id. Must run before the app's first
+    // paint, so it's an init script rather than a post-navigation
+    // page.evaluate.
     await page.addInitScript(
-      ({ username }) => {
+      ({ userId }) => {
         window.localStorage.setItem('flutter.access_is_premium', 'true');
-        window.localStorage.setItem('flutter.access_cached_user_id', JSON.stringify(username));
+        window.localStorage.setItem('flutter.access_cached_user_id', JSON.stringify(userId));
       },
-      { username: UNLINKED_TRAINEE_CREDENTIALS.username },
+      { userId: id },
     );
 
     await page.goto('/');
     await waitForFlutterBoot(page);
     await enableFlutterSemantics(page);
-
-    // Sign in through the real form once just to get a token, then reset this
-    // account's pins to the defaults over the API directly. Without this, a
-    // leftover pin set from a previous run (or from manually exercising the
-    // endpoint, as this feature's own backend verification did) makes
-    // `wasPinned` below depend on whatever state the account happened to be
-    // in rather than on the toggle this test performs.
     await signIn(page, UNLINKED_TRAINEE_CREDENTIALS);
-    const apiBase = 'http://127.0.0.1:5080';
-    const loginResponse = await page.request.post(`${apiBase}/api/auth/login`, {
-      data: UNLINKED_TRAINEE_CREDENTIALS,
-    });
-    const { token } = await loginResponse.json();
-    await page.request.put(`${apiBase}/api/TrainerClient/my-nutrient-pins`, {
-      headers: { Authorization: `Bearer ${token}` },
-      data: ['fibre', 'sugar', 'sodium'],
-    });
 
     await navDestination(page, 'Food').click();
     // The card's pinned-nutrients GET is fired from initState and raced

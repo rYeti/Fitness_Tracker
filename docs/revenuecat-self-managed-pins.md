@@ -190,6 +190,66 @@ the trainee side exactly as it does on the trainer side, rather than the two
 surfaces of the same feature behaving differently for no reason a user could
 tell you.
 
+## The webhook that could never match a real user
+
+The design above assumed one fact that turned out to be false: that
+`app_user_id` on an incoming webhook would always be the server's own
+`User.Id`, because `Purchases.logIn(userId)` is called with it at sign-in.
+`RevenueCatService.Parse` was written against that assumption —
+`Guid.TryParse(userIdProp.GetString(), out var userId)` failing is treated as
+an unparseable/foreign event to ignore, not an error, on the theory that it
+can only mean a stray webhook about someone else's app.
+
+It meant something else in practice. `main.dart`'s restore path calls
+`accessProvider.initialize(userId: restoredAuth.user!.username, ...)` —
+`login_screen.dart` and `register_screen.dart` did the same, from a local
+`newUserId` that is also, despite its name, the username. `AccessProvider`
+passes that straight into `Purchases.logIn`, so RevenueCat's dashboard has
+never recorded a single ForgeForm purchase under a GUID — every `app_user_id`
+it has ever seen is a username string. Every webhook event this feature ever
+received would hit `Guid.TryParse`, fail, log a warning, and return null. No
+`RevenueCatSubscription` row could ever be created for a real purchase, for
+any user, ever — a genuinely paying, premium user would still see `not
+entitled` on every attempt to pick their own nutrients, indistinguishable
+from someone who never subscribed at all. This shipped in the same PR as the
+feature it silently broke.
+
+Nothing here was a bug the type system or the test suite could have caught.
+`RevenueCatStateMachineTests` and the `TrainerClientService` tests all
+construct a `RevenueCatSnapshot`/webhook payload directly with a real `Guid`
+already in hand — none of them go through `Purchases.logIn` or exercise what
+the client actually sends as `app_user_id`, because nothing in this codebase
+had ever needed that value to be anything more specific than "some string
+RevenueCat also has," until this feature made the identity of that string
+load-bearing. The gap was findable only by asking, for a genuinely-entitled
+account, "does this actually work end-to-end" — which surfaced it on the
+first real attempt.
+
+**The fix**: the client never had a GUID to give `Purchases.logIn` in the
+first place — `AuthResponseDto`/`AuthResponseModel` (the login/register/
+refresh/profile-update response) carried a username, email and name, but
+never the user's `Id`, even though the JWT it ships alongside already encodes
+it as the `sub` claim. Rather than have the client decode its own JWT to
+recover an identifier the server already has to hand, `AuthResponseDto`
+gained an `Id` field, set once at its single construction site
+(`AuthService.IssueTokensInternalAsync`, shared by login, register, refresh
+and profile update), and the three call sites that feed
+`AccessProvider.initialize` now pass `.id` instead of `.username`.
+
+The account-switch detection in `login_screen.dart`/`register_screen.dart`
+(`last_logged_in_user`, wiping the local database when a different account
+signs in) deliberately keeps using the username-derived `newUserId` it
+already had — that comparison has nothing to do with RevenueCat, and
+changing what it's keyed on would only be a second, unrelated identity change
+riding on this one. Only the `userId:` argument to `initialize` moved to the
+GUID.
+
+A session restored from a cache written before this field existed sees `id:
+''` until the next silent token refresh — every refresh response goes through
+the same `IssueTokensInternalAsync`, so the cached user JSON self-heals
+within one access-token lifetime (`Jwt:AccessTokenMinutes`, an hour by
+default) without a migration step.
+
 ## What this deliberately doesn't do
 
 - No change to `AccessProvider.hasPremiumAccess` or any other feature reading

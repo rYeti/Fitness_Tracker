@@ -12,6 +12,9 @@ it is what those users have, and nothing new belongs in it. See
 
 ## Unreleased
 
+- Fixed the RevenueCat entitlement webhook never being able to match a real purchase to a real user: the client has always logged in to RevenueCat using the account's username, not its server id, so every webhook event's `app_user_id` failed to parse as the id it was expected to be and was silently dropped — no genuinely premium user could ever be recognized as entitled server-side, regardless of how they subscribed. The login/register/refresh response now carries the account's actual id, and the client passes that to RevenueCat instead. See `docs/revenuecat-self-managed-pins.md`.
+- Fixed a nutrient toggle on the trainee's own "Tracked nutrients" card silently reverting to the defaults with no explanation whenever the server refused the write (no active RevenueCat entitlement, or an active trainer). The tap now shows the server's own reason ("Choosing your own tracked nutrients requires Premium." / "Your trainer manages your tracked nutrients.") instead of appearing to do nothing.
+
 ## 1.0.2+22
 
 - Fixed the app being pulled from the Play Store catalog on devices without a microphone or camera. Adding voice-note recording and photo/video attachments to chat pulled in `RECORD_AUDIO` and camera permissions transitively, and Android's manifest merger turns an unguarded permission like that into an implied `<uses-feature required="true">` — which Play reads as "this app needs a microphone/camera to run" and stops offering it to any device lacking one. The app's manifest now explicitly marks `android.hardware.microphone`, `android.hardware.camera` and `android.hardware.camera.autofocus` as `required="false"`, since attachments are optional and everything else in the app works without either.
