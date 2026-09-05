@@ -5,7 +5,11 @@ publish_to: "none"
 version: 1.0.2+20
 
 environment:
-  sdk: ^3.7.0
+  # signalr_hub (every published version) pulls sse_channel ^0.2.2, whose
+  # own floor is Dart ^3.9.2 -- that's the project's real minimum, not
+  # ^3.7.0. Declaring it here surfaces a clear "needs Dart 3.9.2+" from pub
+  # itself instead of a confusing failure buried three packages deep.
+  sdk: ^3.9.2
 
 dependencies:
   flutter:
