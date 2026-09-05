@@ -557,3 +557,65 @@ running the feature.
   constructed directly inside `decodeChatPush` rather than through an
   injectable seam, and building fake infrastructure for that was judged
   disproportionate to the manifest-decoding change itself.
+
+---
+
+## 14. A permission is not just a permission — the device catalog shrank
+
+The release that shipped this feature (1.0.2+21) pulled the app from the
+Google Play catalog on 18 devices, discovered only from the Play Console's
+"unsupported devices" warning on the *next* upload — nothing in the build,
+the tests, or the diff itself said anything was wrong.
+
+`record` (voice notes) requests `RECORD_AUDIO`. `image_picker` (photos and
+video) touches the camera. Neither permission is declared directly in this
+app's own `AndroidManifest.xml` — they arrive transitively, merged in from
+each plugin's own manifest at build time. That merge is exactly the point:
+Android's manifest merger doesn't stop at permissions. For a set of
+permissions it recognises as hardware-backed (`RECORD_AUDIO`, `CAMERA`
+among them), it silently synthesizes a matching `<uses-feature>` entry —
+`android.hardware.microphone`, `android.hardware.camera` — and the default
+for a `<uses-feature>` with no `android:required` attribute is `true`. Play
+reads a `required="true"` feature as a hard install-time filter: it simply
+stops offering the app to any device that doesn't report that hardware.
+Chromebooks, some tablets, some set-top and in-car Android targets have no
+microphone or camera at all, and permission-triggered though this was, none
+of them are devices ForgeForm has any reason to exclude — attachments are
+one optional feature among many, not a requirement to use the app.
+
+Nothing in the type system or the test suite has any way to know this. A
+`<uses-feature>` requirement isn't a compile error, a runtime exception, or
+a failing assertion — it's a filter Google Play applies to its device
+catalog, evaluated against a manifest that was itself assembled by a build
+step neither the plugin author nor this app's author fully controls alone.
+The manifest merger's behavior here is documented, but it is documented as
+an Android platform behavior, not surfaced anywhere in `record`'s or
+`image_picker`'s own README, changelog, or API surface — there is no
+signal at the point you add the dependency that it just changed who your
+app is offered to.
+
+The fix is a merge override, not a permission removal: this app's own
+`AndroidManifest.xml` now explicitly declares
+`android.hardware.microphone`, `android.hardware.camera`, and
+`android.hardware.camera.autofocus` with `android:required="false"`. An
+app-level declaration always wins the manifest merge over a
+library-contributed one for the same feature name, so this doesn't touch
+what `record` or `image_picker` declare — it just overrides the
+`required` value Play ultimately sees. The permissions themselves are
+still requested and still work identically on devices that do have the
+hardware; a device without it just can't use that one feature, exactly as
+intended.
+
+**The general lesson.** Adding a plugin that touches a piece of hardware
+(microphone, camera, NFC, Bluetooth, sensors) is not just an API surface
+change — it is a manifest change with its own default policy, and that
+policy defaults to *excluding hardware-less devices* unless the app
+explicitly says otherwise. This is easy to miss because the cost isn't
+paid by the developer or by CI; it's paid silently, as a shrinking device
+catalog, and the only place it surfaces is a warning on the *next* Play
+Console upload — by which point the previous release has already gone out
+under the narrower catalog. Any dependency added for its permission,
+rather than for a `<uses-feature>` it declares itself, is worth checking
+against Android's own list of permissions that imply a feature
+requirement, and declaring the override up front rather than after Play
+reports the drop.

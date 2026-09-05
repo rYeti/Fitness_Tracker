@@ -10,6 +10,10 @@ heading to the version it went out as, so a `## <version>` section is history:
 it is what those users have, and nothing new belongs in it. See
 `docs/android-release.md`.
 
+## Unreleased
+
+- Fixed the app being pulled from the Play Store catalog on devices without a microphone or camera. Adding voice-note recording and photo/video attachments to chat pulled in `RECORD_AUDIO` and camera permissions transitively, and Android's manifest merger turns an unguarded permission like that into an implied `<uses-feature required="true">` — which Play reads as "this app needs a microphone/camera to run" and stops offering it to any device lacking one. The app's manifest now explicitly marks `android.hardware.microphone`, `android.hardware.camera` and `android.hardware.camera.autofocus` as `required="false"`, since attachments are optional and everything else in the app works without either.
+
 ## 1.0.2+21
 
 - Chat now supports attachments: photos, videos, voice notes, audio files and documents, all end-to-end encrypted the same way message text already is. Each attachment is sealed under its own random key carried inside the encrypted message envelope, so replaying a queued send re-encrypts a few hundred bytes rather than re-uploading the file. Storage is Cloudflare R2 (EU), with a 45-day server-side retention window matched by a permanent on-device library — the WhatsApp model, where the blob eventually expires on the server but a device that already downloaded it keeps its own copy indefinitely. Video plays inline on all six platforms including Windows and Linux via `media_kit`, not just mobile. A locked phone's notification now says what kind of attachment arrived ("Photo", "Video · caption") instead of a generic "New message". A new Settings screen shows how much of the device the attachment library is using, broken down per conversation, with a way to clear it — the store only ever grows otherwise, by design. See `docs/chat-attachments.md`.
