@@ -48,6 +48,23 @@ jobs:
           # Secrets, not variables: the service account can send as this project.
           FCM_SERVICE_ACCOUNT_BASE64: ${{ secrets.FCM_SERVICE_ACCOUNT_BASE64 }}
           FCM_PROJECT_ID: ${{ secrets.FCM_PROJECT_ID }}
+          # Cloudflare R2 — chat attachment storage. Secrets: an access key pair
+          # that can write to the bucket. None of the four values below can
+          # contain a comma (an account id is hex, a bucket name is DNS-safe, an
+          # R2 access key id and secret access key are both plain alphanumeric),
+          # which is what makes it safe to pass them the plain way rather than
+          # base64'd like the FCM JSON above — that's a property of R2's
+          # credential grammar, not something forgotten. See
+          # docs/chat-attachments.md §A.7.
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          # Must match the R2 bucket's own lifecycle rule (a manual dashboard
+          # step, not something this workflow provisions — see
+          # docs/chat-attachments.md §A.8). A variable, not a secret: it's a
+          # plain number with a sane default in code (45) if unset.
+          ATTACHMENT_RETENTION_DAYS: ${{ vars.ATTACHMENT_RETENTION_DAYS }}
         run: |
           set -euo pipefail
 
@@ -81,6 +98,19 @@ jobs:
 
           if [ -z "${FCM_SERVICE_ACCOUNT_BASE64:-}" ]; then
             echo "::warning::FCM_SERVICE_ACCOUNT_BASE64 is not set — chat works, but nobody is notified while their app is closed. See docs/push-notifications.md."
+          fi
+
+          # Chat attachment storage. All four required together — Provider is
+          # only set to r2 once the credentials are actually present, so a
+          # partially-configured bucket can't half-boot into a broken state.
+          if [ -n "${R2_ACCOUNT_ID:-}" ] && [ -n "${R2_BUCKET:-}" ] && [ -n "${R2_ACCESS_KEY_ID:-}" ] && [ -n "${R2_SECRET_ACCESS_KEY:-}" ]; then
+            env_vars="$env_vars,Attachments__Provider=r2,Attachments__R2__AccountId=$R2_ACCOUNT_ID,Attachments__R2__Bucket=$R2_BUCKET,Attachments__R2__AccessKeyId=$R2_ACCESS_KEY_ID,Attachments__R2__SecretAccessKey=$R2_SECRET_ACCESS_KEY"
+          else
+            echo "::warning::R2 attachment storage is not fully configured — chat works, but the attach affordance stays disabled on every client. See docs/chat-attachments.md."
+          fi
+
+          if [ -n "${ATTACHMENT_RETENTION_DAYS:-}" ]; then
+            env_vars="$env_vars,Attachments__RetentionDays=$ATTACHMENT_RETENTION_DAYS"
           fi
 
           gcloud run deploy ${{ env.SERVICE }} \

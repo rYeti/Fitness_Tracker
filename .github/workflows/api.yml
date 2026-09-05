@@ -24,3 +24,12 @@ jobs:
       - run: dotnet build FitTracker.sln --configuration Release --no-restore
 
       - run: dotnet test FitTracker.sln --configuration Release --no-build --verbosity normal
+
+      # Catches the gap that let three indexes drift out of sync with the model
+      # for months (see the DropObsoleteSingleColumnIndexes migration): the test
+      # fixture builds its schema from EnsureCreated() against the *model*, not
+      # the migrations, so a migration that disagrees with an entity change is
+      # invisible to every test in this suite. This is the only thing that
+      # would have caught it before it shipped, not after.
+      - run: dotnet tool install --global dotnet-ef --version 8.0.10
+      - run: dotnet ef migrations has-pending-model-changes --project FitTracker.Api --startup-project FitTracker.Api

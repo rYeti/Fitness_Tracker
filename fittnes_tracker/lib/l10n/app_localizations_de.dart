@@ -2516,6 +2516,135 @@ class AppLocalizationsDe extends AppLocalizations {
   String get chatAttachmentsUnavailable => 'Anhänge sind noch nicht verfügbar';
 
   @override
+  String get chatOpenAttachMenu => 'Anhang hinzufügen';
+
+  @override
+  String get chatAttachPhoto => 'Foto';
+
+  @override
+  String get chatAttachCamera => 'Kamera';
+
+  @override
+  String get chatAttachDocument => 'Dokument';
+
+  @override
+  String get chatAttachmentTooLarge => 'Die Datei ist zu groß zum Anhängen';
+
+  @override
+  String get chatPhotoLabel => 'Foto';
+
+  @override
+  String get chatDocumentLabel => 'Dokument';
+
+  @override
+  String get chatUnsupportedAttachment =>
+      'Dieser Anhang wird auf diesem Gerät noch nicht unterstützt';
+
+  @override
+  String get chatAttachmentUploading => 'wird hochgeladen';
+
+  @override
+  String get chatAttachmentUploadFailed =>
+      'Hochladen fehlgeschlagen, zum Wiederholen doppelt tippen';
+
+  @override
+  String get chatAttachmentDownloading => 'wird heruntergeladen';
+
+  @override
+  String get chatAttachmentDownloadFailed =>
+      'Herunterladen fehlgeschlagen, zum Wiederholen doppelt tippen';
+
+  @override
+  String get chatAttachmentExpired => 'Nicht mehr verfügbar';
+
+  @override
+  String get chatAttachmentTapToDownload => 'zum Herunterladen tippen';
+
+  @override
+  String get chatAttachmentOpen => 'Öffnen';
+
+  @override
+  String get chatVoiceNoteLabel => 'Sprachnachricht';
+
+  @override
+  String get chatAudioLabel => 'Audio';
+
+  @override
+  String get chatAttachmentPlay => 'Abspielen';
+
+  @override
+  String get chatAttachmentPause => 'Pause';
+
+  @override
+  String get chatAttachVoiceNote => 'Sprachnachricht';
+
+  @override
+  String get chatAttachAudio => 'Audiodatei';
+
+  @override
+  String get chatRecording => 'Aufnahme läuft';
+
+  @override
+  String get chatRecordingCancel => 'Aufnahme abbrechen';
+
+  @override
+  String get chatMicUnavailable => 'Mikrofonzugriff wurde verweigert';
+
+  @override
+  String get chatSendVoiceNote => 'Sprachnachricht senden';
+
+  @override
+  String get chatVideoLabel => 'Video';
+
+  @override
+  String get chatAttachVideo => 'Video';
+
+  @override
+  String get chatStorageTitle => 'Chat-Speicher';
+
+  @override
+  String get chatStorageLoading => 'Speichernutzung wird geladen';
+
+  @override
+  String get chatStorageLoadError =>
+      'Speichernutzung konnte nicht geladen werden.';
+
+  @override
+  String get chatStorageEmpty => 'Keine gespeicherten Chat-Medien';
+
+  @override
+  String get chatStorageEmptyBody =>
+      'Fotos, Videos und Dateien, die du erhalten hast, erscheinen hier, sobald sie heruntergeladen wurden.';
+
+  @override
+  String get chatStorageTotalUsed => 'Insgesamt genutzt';
+
+  @override
+  String get chatStorageByThread => 'Nach Unterhaltung';
+
+  @override
+  String get chatStorageClearAll => 'Alles löschen';
+
+  @override
+  String get chatStorageClear => 'Löschen';
+
+  @override
+  String get chatStorageClearThreadTitle =>
+      'Medien dieser Unterhaltung löschen?';
+
+  @override
+  String chatStorageClearThreadBody(String name) {
+    return 'Dadurch werden heruntergeladene Fotos, Videos und Dateien für $name von diesem Gerät entfernt. Sie können erneut heruntergeladen werden, sofern noch verfügbar.';
+  }
+
+  @override
+  String get chatStorageClearAllTitle => 'Alle Chat-Medien löschen?';
+
+  @override
+  String get chatStorageClearAllBody =>
+      'Dadurch werden alle heruntergeladenen Fotos, Videos und Dateien aus allen Unterhaltungen von diesem Gerät entfernt. Sie können erneut heruntergeladen werden, sofern noch verfügbar.';
+
+  @override
   String get chatUnavailable => 'Nachrichten nicht verfügbar';
 
   @override

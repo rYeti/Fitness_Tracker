@@ -1,5 +1,6 @@
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
+import 'package:media_kit/media_kit.dart';
 import 'package:ForgeForm/core/app_router.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ForgeForm/core/dao/meal_template_dao.dart';
@@ -118,6 +119,11 @@ void main() async {
     widgetsBinding: WidgetsFlutterBinding.ensureInitialized(),
   );
 
+  // Loads media_kit's native libmpv bindings — cheap and a no-op on web,
+  // but required before the first Player() is constructed on every native
+  // platform, so it happens once here rather than lazily inside chat.
+  MediaKit.ensureInitialized();
+
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -149,11 +155,12 @@ void main() async {
 
   // Independent of each other, so opened together rather than in series. Both
   // queries go through the same drift connection, which serialises internally.
-  final (prefs, userSettings, latestWeight) = await (
-    SharedPreferences.getInstance(),
-    db.userSettingsDao.getSettings(),
-    db.weightRecordDao.getLatestWeightRecord(),
-  ).wait;
+  final (prefs, userSettings, latestWeight) =
+      await (
+        SharedPreferences.getInstance(),
+        db.userSettingsDao.getSettings(),
+        db.weightRecordDao.getLatestWeightRecord(),
+      ).wait;
 
   // Loaded before runApp so providers start with correct values.
   final initialTheme =
@@ -304,10 +311,7 @@ Future<void> _registerBackgroundSync() async {
 class MyApp extends StatefulWidget {
   final bool hasToken;
 
-  const MyApp({
-    super.key,
-    required this.hasToken,
-  });
+  const MyApp({super.key, required this.hasToken});
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -427,18 +431,18 @@ void _openChatFor(ChatNotificationTarget target) {
   }
 
   final context = nav.context;
-  final isTrainer = provider.Provider.of<AccessProvider>(
-    context,
-    listen: false,
-  ).isTrainer;
+  final isTrainer =
+      provider.Provider.of<AccessProvider>(context, listen: false).isTrainer;
 
   nav.push(
     MaterialPageRoute(
-      builder: (_) => isTrainer
-          ? const TrainerConsoleGate(
-              initialRoute: TrainerConsoleRoute.messages,
-            )
-          : const CoachChatEntry(),
+      builder:
+          (_) =>
+              isTrainer
+                  ? const TrainerConsoleGate(
+                    initialRoute: TrainerConsoleRoute.messages,
+                  )
+                  : const CoachChatEntry(),
     ),
   );
 }
@@ -448,8 +452,8 @@ class _MyAppState extends State<MyApp> {
   // capturing widget.hasToken, which is only true of the moment the app
   // started.
   late final GoRouter _router = AppRouter.build(
-    isSignedIn: () =>
-        rootContainer.read(authProvider).user != null || widget.hasToken,
+    isSignedIn:
+        () => rootContainer.read(authProvider).user != null || widget.hasToken,
   );
 
   StreamSubscription<Uri>? _linkSub;
@@ -482,11 +486,15 @@ class _MyAppState extends State<MyApp> {
     if (token == null) return;
     final nav = navigatorKey.currentState;
     if (nav == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _tryNavigateToReset());
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _tryNavigateToReset(),
+      );
       return;
     }
     _pendingResetToken = null;
-    nav.push(MaterialPageRoute(builder: (_) => ResetPasswordScreen(token: token)));
+    nav.push(
+      MaterialPageRoute(builder: (_) => ResetPasswordScreen(token: token)),
+    );
   }
 
   @override
@@ -518,7 +526,8 @@ class _MyAppState extends State<MyApp> {
       builder: (context, child) {
         final isDark = Theme.of(context).brightness == Brightness.dark;
         return AnnotatedRegion<SystemUiOverlayStyle>(
-          value: isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
+          value:
+              isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
           child: child!,
         );
       },
@@ -564,8 +573,7 @@ class _PostAuthHomeState extends State<PostAuthHome> {
       // Everyone who isn't a trainer gets the normal app rather than a
       // "trainer access only" wall — the gate is the router here, not a bouncer.
       fallback: const HomeScreen(),
-      initialRoute:
-          widget.initialConsoleRoute ?? TrainerConsoleRoute.dashboard,
+      initialRoute: widget.initialConsoleRoute ?? TrainerConsoleRoute.dashboard,
       onExitConsole: () => setState(() => _showTraineeApp = true),
       // This instance is the one PostAuthHome mounted for the current
       // location ('/' or '/console/:section'), so it's the only console
@@ -603,7 +611,11 @@ class ProfileSetupGate extends StatefulWidget {
   final String? userId;
   final WidgetBuilder onDone;
 
-  const ProfileSetupGate({super.key, required this.userId, required this.onDone});
+  const ProfileSetupGate({
+    super.key,
+    required this.userId,
+    required this.onDone,
+  });
 
   @override
   State<ProfileSetupGate> createState() => _ProfileSetupGateState();
@@ -650,10 +662,10 @@ class _ProfileSetupGateState extends State<ProfileSetupGate> {
 /// watched: the gate already rebuilds on AccessProvider changes, and auth
 /// state cannot change underneath a signed-in user without a full remount.
 String? _currentUserId(BuildContext context) =>
-    ProviderScope.containerOf(context, listen: false)
-        .read(authProvider)
-        .user
-        ?.username;
+    ProviderScope.containerOf(
+      context,
+      listen: false,
+    ).read(authProvider).user?.username;
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -831,7 +843,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 }
-
 
 /// Warns a trainee that the Pro they get through their trainer is ending, and
 /// offers them a way to keep it. Dismissible, and silent whenever nothing is

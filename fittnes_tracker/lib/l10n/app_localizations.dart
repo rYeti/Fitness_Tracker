@@ -4567,6 +4567,246 @@ abstract class AppLocalizations {
   /// **'Attachments are not available yet'**
   String get chatAttachmentsUnavailable;
 
+  /// No description provided for @chatOpenAttachMenu.
+  ///
+  /// In en, this message translates to:
+  /// **'Add attachment'**
+  String get chatOpenAttachMenu;
+
+  /// No description provided for @chatAttachPhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Photo'**
+  String get chatAttachPhoto;
+
+  /// No description provided for @chatAttachCamera.
+  ///
+  /// In en, this message translates to:
+  /// **'Camera'**
+  String get chatAttachCamera;
+
+  /// No description provided for @chatAttachDocument.
+  ///
+  /// In en, this message translates to:
+  /// **'Document'**
+  String get chatAttachDocument;
+
+  /// No description provided for @chatAttachmentTooLarge.
+  ///
+  /// In en, this message translates to:
+  /// **'File is too large to attach'**
+  String get chatAttachmentTooLarge;
+
+  /// No description provided for @chatPhotoLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Photo'**
+  String get chatPhotoLabel;
+
+  /// No description provided for @chatDocumentLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Document'**
+  String get chatDocumentLabel;
+
+  /// No description provided for @chatUnsupportedAttachment.
+  ///
+  /// In en, this message translates to:
+  /// **'This attachment isn\'t supported on this device yet'**
+  String get chatUnsupportedAttachment;
+
+  /// No description provided for @chatAttachmentUploading.
+  ///
+  /// In en, this message translates to:
+  /// **'uploading'**
+  String get chatAttachmentUploading;
+
+  /// No description provided for @chatAttachmentUploadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'upload failed, double tap to retry'**
+  String get chatAttachmentUploadFailed;
+
+  /// No description provided for @chatAttachmentDownloading.
+  ///
+  /// In en, this message translates to:
+  /// **'downloading'**
+  String get chatAttachmentDownloading;
+
+  /// No description provided for @chatAttachmentDownloadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'could not be downloaded, double tap to retry'**
+  String get chatAttachmentDownloadFailed;
+
+  /// No description provided for @chatAttachmentExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'No longer available'**
+  String get chatAttachmentExpired;
+
+  /// No description provided for @chatAttachmentTapToDownload.
+  ///
+  /// In en, this message translates to:
+  /// **'tap to download'**
+  String get chatAttachmentTapToDownload;
+
+  /// No description provided for @chatAttachmentOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'Open'**
+  String get chatAttachmentOpen;
+
+  /// No description provided for @chatVoiceNoteLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Voice message'**
+  String get chatVoiceNoteLabel;
+
+  /// No description provided for @chatAudioLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio'**
+  String get chatAudioLabel;
+
+  /// No description provided for @chatAttachmentPlay.
+  ///
+  /// In en, this message translates to:
+  /// **'Play'**
+  String get chatAttachmentPlay;
+
+  /// No description provided for @chatAttachmentPause.
+  ///
+  /// In en, this message translates to:
+  /// **'Pause'**
+  String get chatAttachmentPause;
+
+  /// No description provided for @chatAttachVoiceNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Voice note'**
+  String get chatAttachVoiceNote;
+
+  /// No description provided for @chatAttachAudio.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio file'**
+  String get chatAttachAudio;
+
+  /// No description provided for @chatRecording.
+  ///
+  /// In en, this message translates to:
+  /// **'Recording'**
+  String get chatRecording;
+
+  /// No description provided for @chatRecordingCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel recording'**
+  String get chatRecordingCancel;
+
+  /// No description provided for @chatMicUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Microphone access was denied'**
+  String get chatMicUnavailable;
+
+  /// No description provided for @chatSendVoiceNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Send voice note'**
+  String get chatSendVoiceNote;
+
+  /// No description provided for @chatVideoLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Video'**
+  String get chatVideoLabel;
+
+  /// No description provided for @chatAttachVideo.
+  ///
+  /// In en, this message translates to:
+  /// **'Video'**
+  String get chatAttachVideo;
+
+  /// No description provided for @chatStorageTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Chat storage'**
+  String get chatStorageTitle;
+
+  /// No description provided for @chatStorageLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading storage usage'**
+  String get chatStorageLoading;
+
+  /// No description provided for @chatStorageLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load storage usage.'**
+  String get chatStorageLoadError;
+
+  /// No description provided for @chatStorageEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No chat media stored'**
+  String get chatStorageEmpty;
+
+  /// No description provided for @chatStorageEmptyBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Photos, videos and files you\'ve received will appear here once downloaded.'**
+  String get chatStorageEmptyBody;
+
+  /// No description provided for @chatStorageTotalUsed.
+  ///
+  /// In en, this message translates to:
+  /// **'Total used'**
+  String get chatStorageTotalUsed;
+
+  /// No description provided for @chatStorageByThread.
+  ///
+  /// In en, this message translates to:
+  /// **'By conversation'**
+  String get chatStorageByThread;
+
+  /// No description provided for @chatStorageClearAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear all'**
+  String get chatStorageClearAll;
+
+  /// No description provided for @chatStorageClear.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear'**
+  String get chatStorageClear;
+
+  /// No description provided for @chatStorageClearThreadTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear this conversation\'s media?'**
+  String get chatStorageClearThreadTitle;
+
+  /// No description provided for @chatStorageClearThreadBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This removes downloaded photos, videos and files for {name} from this device. They can be downloaded again if still available.'**
+  String chatStorageClearThreadBody(String name);
+
+  /// No description provided for @chatStorageClearAllTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear all chat media?'**
+  String get chatStorageClearAllTitle;
+
+  /// No description provided for @chatStorageClearAllBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This removes every downloaded photo, video and file from this device across all conversations. They can be downloaded again if still available.'**
+  String get chatStorageClearAllBody;
+
   /// No description provided for @chatUnavailable.
   ///
   /// In en, this message translates to:

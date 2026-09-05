@@ -48,6 +48,7 @@ void main() {
         api: api ?? FakeChatApi(),
         signalR: signalR,
         crypto: FakeChatCrypto(),
+        attachmentSender: FakeChatAttachmentSender(),
       ),
     );
     final access = AccessProvider.withState(
@@ -99,6 +100,7 @@ void main() {
         api: FakeChatApi(gate: gate),
         signalR: signalR,
         crypto: FakeChatCrypto(),
+        attachmentSender: FakeChatAttachmentSender(),
       ),
     );
     final access = AccessProvider.withState(
@@ -169,6 +171,9 @@ void main() {
     await pump(tester);
 
     await tester.enterText(find.byType(TextField), 'ready for thursday');
+    // The trailing button swaps from a voice-note mic to send once the field
+    // has text — enterText doesn't itself pump that rebuild through.
+    await tester.pump();
     await tester.tap(find.byTooltip('Send message'));
     await tester.pumpAndSettle();
 

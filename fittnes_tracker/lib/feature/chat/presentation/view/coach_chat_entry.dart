@@ -45,7 +45,10 @@ class _CoachChatEntryState extends State<CoachChatEntry> {
     } else if (sl.isRegistered<AppDatabase>()) {
       final signalR = SignalRHubChatClient();
       _signalR = signalR;
-      final repository = ChatRepository(db: sl<AppDatabase>(), signalR: signalR);
+      final repository = ChatRepository(
+        db: sl<AppDatabase>(),
+        signalR: signalR,
+      );
       _chat = ChatProvider(repository: repository);
 
       // Publishing this device's chat key, alongside the connect and for the

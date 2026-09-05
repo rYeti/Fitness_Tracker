@@ -26,11 +26,12 @@ class ChatConnectionBanner extends StatelessWidget {
 
     return Semantics(
       liveRegion: true,
-      label: reconnecting
-          ? 'Reconnecting. Messages you send will be delivered once the '
-              'connection is back.'
-          : 'Offline. Messages you send will be delivered once the connection '
-              'is back.',
+      label:
+          reconnecting
+              ? 'Reconnecting. Messages you send will be delivered once the '
+                  'connection is back.'
+              : 'Offline. Messages you send will be delivered once the connection '
+                  'is back.',
       excludeSemantics: true,
       child: Container(
         width: double.infinity,
@@ -40,9 +41,7 @@ class ChatConnectionBanner extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              reconnecting
-                  ? Icons.sync_rounded
-                  : Icons.cloud_off_rounded,
+              reconnecting ? Icons.sync_rounded : Icons.cloud_off_rounded,
               size: 14,
               color: tone,
             ),

@@ -7,6 +7,7 @@ import 'package:ForgeForm/core/network/services/sync_service.dart';
 import 'package:ForgeForm/core/providers/access_provider.dart';
 import 'package:ForgeForm/core/providers/user_goals_provider.dart';
 import 'package:ForgeForm/feature/auth/presentation/providers/auth_provider.dart';
+import 'package:ForgeForm/feature/chat/data/attachment_store.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
@@ -102,6 +103,10 @@ Future<bool> confirmAndSignOut(BuildContext context, WidgetRef ref) async {
   await ref.read(authProvider.notifier).logout();
   await db.clearAllUserData();
   await clearPerAccountPrefs();
+  // The identity key deliberately survives sign-out (docs/chat-encryption.md
+  // §8); a library of somebody's progress photos and form-check videos must
+  // not — see docs/chat-attachments.md §C.4.
+  await AttachmentStore().clearAll();
   await goals.reload();
   return true;
 }

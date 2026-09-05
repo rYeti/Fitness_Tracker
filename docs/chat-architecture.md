@@ -408,6 +408,20 @@ turns a correct implementation into one that *looks* broken: a message that
 vanishes for two seconds and reappears, or silence on a flaky line with nothing
 to explain it.
 
+An attachment bubble adds four more, on top of these seven — see
+`docs/chat-attachments.md` §C.7 for the full split. `Uploading` and `Upload
+failed` live in the outbox's own `uploadStatus` column, a durable send-side
+ledger that survives an app kill. `Downloading` and `Download failed` live
+in `ChatAttachmentProvider`, in memory, per device — read-side and
+ephemeral, on purpose: writing them to the outbox would turn a send-side
+ledger into a general cache and make "pending" mean two different things.
+Two further states are *derived* rather than stored anywhere: `Stored`
+(checked before any network call, so a fetched attachment never touches the
+network again) and `Expired` (from the message's own `sentAt` plus a store
+miss, or a `404`/`410` from any other cause — one state, two routes, no
+retry button, and critically, no request issued once a bubble is past the
+retention window).
+
 Two details worth keeping:
 
 - **The bubble appears before the network call, not after it.** `sendMessage`

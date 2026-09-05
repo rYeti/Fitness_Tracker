@@ -61,5 +61,30 @@ public sealed class ChatScenario : IDisposable
         return message;
     }
 
+    /// <summary>Writes an attachment row straight to the table, bypassing the service under test.</summary>
+    public ChatAttachment AddAttachment(
+        Guid trainerClientId,
+        Guid uploaderId,
+        long declaredByteLength = 1024,
+        DateTime? createdAt = null,
+        DateTime? committedAt = null,
+        Guid? messageId = null)
+    {
+        var attachment = new ChatAttachment
+        {
+            Id = Guid.NewGuid(),
+            TrainerClientId = trainerClientId,
+            UploaderId = uploaderId,
+            ObjectKey = $"chat/{trainerClientId:N}/{Guid.NewGuid():N}",
+            DeclaredByteLength = declaredByteLength,
+            CreatedAt = createdAt ?? DateTime.UtcNow,
+            CommittedAt = committedAt,
+            MessageId = messageId,
+        };
+        Db.ChatAttachments.Add(attachment);
+        Db.SaveChanges();
+        return attachment;
+    }
+
     public void Dispose() => _fixture.Dispose();
 }

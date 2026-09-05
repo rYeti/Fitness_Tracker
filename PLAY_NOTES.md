@@ -24,7 +24,7 @@ See `docs/android-release.md`.
 
 ## Unreleased
 
-Added vitamin and mineral tracking, with data for thousands of German staple foods. Trainers can pin the nutrients that matter for a client and track them against daily targets, and can now delete a client's whole workout plan, not just one day. Fixed vitamin/mineral amounts sometimes showing far smaller than they actually were, workout and plan deletes not always reaching the server, and adding a food to a meal template from Recently Added, which was greyed out and could only log to today.
+You can now send photos, videos, voice notes, audio files and documents in chat, all end-to-end encrypted, with video playing right in the chat on every device. Added vitamin and mineral tracking, with data for thousands of German foods — trainers can pin the nutrients that matter for a client and track them against daily targets. Trainers can also delete a client's whole workout plan, not just one day. Plus fixes to vitamin amounts, workout deletes, and meal templates.
 
 ## 1.0.2+20
 

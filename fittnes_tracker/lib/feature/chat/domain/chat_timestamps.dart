@@ -43,18 +43,19 @@ class ChatTimestamps {
     // `tryParse` marks a string carrying `Z` or an explicit offset as UTC. One
     // with neither comes back local, and that is exactly the case that has to be
     // reinterpreted rather than converted.
-    final utc = parsed.isUtc
-        ? parsed
-        : DateTime.utc(
-            parsed.year,
-            parsed.month,
-            parsed.day,
-            parsed.hour,
-            parsed.minute,
-            parsed.second,
-            parsed.millisecond,
-            parsed.microsecond,
-          );
+    final utc =
+        parsed.isUtc
+            ? parsed
+            : DateTime.utc(
+              parsed.year,
+              parsed.month,
+              parsed.day,
+              parsed.hour,
+              parsed.minute,
+              parsed.second,
+              parsed.millisecond,
+              parsed.microsecond,
+            );
 
     return _rejectSentinel(utc);
   }

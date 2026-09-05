@@ -51,6 +51,7 @@ void main() {
         api: FakeChatApi(),
         signalR: FakeChatSignalRClient(),
         crypto: FakeChatCrypto(),
+        attachmentSender: FakeChatAttachmentSender(),
       ),
       initialRoute: initialRoute,
       syncUrl: syncUrl,

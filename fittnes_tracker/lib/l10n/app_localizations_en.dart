@@ -2498,6 +2498,132 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chatAttachmentsUnavailable => 'Attachments are not available yet';
 
   @override
+  String get chatOpenAttachMenu => 'Add attachment';
+
+  @override
+  String get chatAttachPhoto => 'Photo';
+
+  @override
+  String get chatAttachCamera => 'Camera';
+
+  @override
+  String get chatAttachDocument => 'Document';
+
+  @override
+  String get chatAttachmentTooLarge => 'File is too large to attach';
+
+  @override
+  String get chatPhotoLabel => 'Photo';
+
+  @override
+  String get chatDocumentLabel => 'Document';
+
+  @override
+  String get chatUnsupportedAttachment =>
+      'This attachment isn\'t supported on this device yet';
+
+  @override
+  String get chatAttachmentUploading => 'uploading';
+
+  @override
+  String get chatAttachmentUploadFailed => 'upload failed, double tap to retry';
+
+  @override
+  String get chatAttachmentDownloading => 'downloading';
+
+  @override
+  String get chatAttachmentDownloadFailed =>
+      'could not be downloaded, double tap to retry';
+
+  @override
+  String get chatAttachmentExpired => 'No longer available';
+
+  @override
+  String get chatAttachmentTapToDownload => 'tap to download';
+
+  @override
+  String get chatAttachmentOpen => 'Open';
+
+  @override
+  String get chatVoiceNoteLabel => 'Voice message';
+
+  @override
+  String get chatAudioLabel => 'Audio';
+
+  @override
+  String get chatAttachmentPlay => 'Play';
+
+  @override
+  String get chatAttachmentPause => 'Pause';
+
+  @override
+  String get chatAttachVoiceNote => 'Voice note';
+
+  @override
+  String get chatAttachAudio => 'Audio file';
+
+  @override
+  String get chatRecording => 'Recording';
+
+  @override
+  String get chatRecordingCancel => 'Cancel recording';
+
+  @override
+  String get chatMicUnavailable => 'Microphone access was denied';
+
+  @override
+  String get chatSendVoiceNote => 'Send voice note';
+
+  @override
+  String get chatVideoLabel => 'Video';
+
+  @override
+  String get chatAttachVideo => 'Video';
+
+  @override
+  String get chatStorageTitle => 'Chat storage';
+
+  @override
+  String get chatStorageLoading => 'Loading storage usage';
+
+  @override
+  String get chatStorageLoadError => 'Could not load storage usage.';
+
+  @override
+  String get chatStorageEmpty => 'No chat media stored';
+
+  @override
+  String get chatStorageEmptyBody =>
+      'Photos, videos and files you\'ve received will appear here once downloaded.';
+
+  @override
+  String get chatStorageTotalUsed => 'Total used';
+
+  @override
+  String get chatStorageByThread => 'By conversation';
+
+  @override
+  String get chatStorageClearAll => 'Clear all';
+
+  @override
+  String get chatStorageClear => 'Clear';
+
+  @override
+  String get chatStorageClearThreadTitle => 'Clear this conversation\'s media?';
+
+  @override
+  String chatStorageClearThreadBody(String name) {
+    return 'This removes downloaded photos, videos and files for $name from this device. They can be downloaded again if still available.';
+  }
+
+  @override
+  String get chatStorageClearAllTitle => 'Clear all chat media?';
+
+  @override
+  String get chatStorageClearAllBody =>
+      'This removes every downloaded photo, video and file from this device across all conversations. They can be downloaded again if still available.';
+
+  @override
   String get chatUnavailable => 'Messaging is unavailable';
 
   @override

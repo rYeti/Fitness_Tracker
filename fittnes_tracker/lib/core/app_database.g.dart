@@ -8943,6 +8943,40 @@ class $ChatOutBoxTableTable extends ChatOutBoxTable
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _attachmentManifestMeta =
+      const VerificationMeta('attachmentManifest');
+  @override
+  late final GeneratedColumn<String> attachmentManifest =
+      GeneratedColumn<String>(
+        'attachment_manifest',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _attachmentLocalPathMeta =
+      const VerificationMeta('attachmentLocalPath');
+  @override
+  late final GeneratedColumn<String> attachmentLocalPath =
+      GeneratedColumn<String>(
+        'attachment_local_path',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _uploadStatusMeta = const VerificationMeta(
+    'uploadStatus',
+  );
+  @override
+  late final GeneratedColumn<int> uploadStatus = GeneratedColumn<int>(
+    'upload_status',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     messageId,
@@ -8950,6 +8984,9 @@ class $ChatOutBoxTableTable extends ChatOutBoxTable
     body,
     createdAt,
     chatMessageStatus,
+    attachmentManifest,
+    attachmentLocalPath,
+    uploadStatus,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -9007,6 +9044,33 @@ class $ChatOutBoxTableTable extends ChatOutBoxTable
         ),
       );
     }
+    if (data.containsKey('attachment_manifest')) {
+      context.handle(
+        _attachmentManifestMeta,
+        attachmentManifest.isAcceptableOrUnknown(
+          data['attachment_manifest']!,
+          _attachmentManifestMeta,
+        ),
+      );
+    }
+    if (data.containsKey('attachment_local_path')) {
+      context.handle(
+        _attachmentLocalPathMeta,
+        attachmentLocalPath.isAcceptableOrUnknown(
+          data['attachment_local_path']!,
+          _attachmentLocalPathMeta,
+        ),
+      );
+    }
+    if (data.containsKey('upload_status')) {
+      context.handle(
+        _uploadStatusMeta,
+        uploadStatus.isAcceptableOrUnknown(
+          data['upload_status']!,
+          _uploadStatusMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -9041,6 +9105,19 @@ class $ChatOutBoxTableTable extends ChatOutBoxTable
             DriftSqlType.int,
             data['${effectivePrefix}chat_message_status'],
           )!,
+      attachmentManifest: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}attachment_manifest'],
+      ),
+      attachmentLocalPath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}attachment_local_path'],
+      ),
+      uploadStatus:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.int,
+            data['${effectivePrefix}upload_status'],
+          )!,
     );
   }
 
@@ -9059,12 +9136,20 @@ class ChatOutBoxTableData extends DataClass
 
   /// Maps to [ChatMessageStatus] by index.
   final int chatMessageStatus;
+  final String? attachmentManifest;
+  final String? attachmentLocalPath;
+
+  /// Maps to [AttachmentUploadStatus] by index.
+  final int uploadStatus;
   const ChatOutBoxTableData({
     required this.messageId,
     required this.otherPartyId,
     required this.body,
     required this.createdAt,
     required this.chatMessageStatus,
+    this.attachmentManifest,
+    this.attachmentLocalPath,
+    required this.uploadStatus,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -9074,6 +9159,13 @@ class ChatOutBoxTableData extends DataClass
     map['body'] = Variable<String>(body);
     map['created_at'] = Variable<DateTime>(createdAt);
     map['chat_message_status'] = Variable<int>(chatMessageStatus);
+    if (!nullToAbsent || attachmentManifest != null) {
+      map['attachment_manifest'] = Variable<String>(attachmentManifest);
+    }
+    if (!nullToAbsent || attachmentLocalPath != null) {
+      map['attachment_local_path'] = Variable<String>(attachmentLocalPath);
+    }
+    map['upload_status'] = Variable<int>(uploadStatus);
     return map;
   }
 
@@ -9084,6 +9176,15 @@ class ChatOutBoxTableData extends DataClass
       body: Value(body),
       createdAt: Value(createdAt),
       chatMessageStatus: Value(chatMessageStatus),
+      attachmentManifest:
+          attachmentManifest == null && nullToAbsent
+              ? const Value.absent()
+              : Value(attachmentManifest),
+      attachmentLocalPath:
+          attachmentLocalPath == null && nullToAbsent
+              ? const Value.absent()
+              : Value(attachmentLocalPath),
+      uploadStatus: Value(uploadStatus),
     );
   }
 
@@ -9098,6 +9199,13 @@ class ChatOutBoxTableData extends DataClass
       body: serializer.fromJson<String>(json['body']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       chatMessageStatus: serializer.fromJson<int>(json['chatMessageStatus']),
+      attachmentManifest: serializer.fromJson<String?>(
+        json['attachmentManifest'],
+      ),
+      attachmentLocalPath: serializer.fromJson<String?>(
+        json['attachmentLocalPath'],
+      ),
+      uploadStatus: serializer.fromJson<int>(json['uploadStatus']),
     );
   }
   @override
@@ -9109,6 +9217,9 @@ class ChatOutBoxTableData extends DataClass
       'body': serializer.toJson<String>(body),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'chatMessageStatus': serializer.toJson<int>(chatMessageStatus),
+      'attachmentManifest': serializer.toJson<String?>(attachmentManifest),
+      'attachmentLocalPath': serializer.toJson<String?>(attachmentLocalPath),
+      'uploadStatus': serializer.toJson<int>(uploadStatus),
     };
   }
 
@@ -9118,12 +9229,24 @@ class ChatOutBoxTableData extends DataClass
     String? body,
     DateTime? createdAt,
     int? chatMessageStatus,
+    Value<String?> attachmentManifest = const Value.absent(),
+    Value<String?> attachmentLocalPath = const Value.absent(),
+    int? uploadStatus,
   }) => ChatOutBoxTableData(
     messageId: messageId ?? this.messageId,
     otherPartyId: otherPartyId ?? this.otherPartyId,
     body: body ?? this.body,
     createdAt: createdAt ?? this.createdAt,
     chatMessageStatus: chatMessageStatus ?? this.chatMessageStatus,
+    attachmentManifest:
+        attachmentManifest.present
+            ? attachmentManifest.value
+            : this.attachmentManifest,
+    attachmentLocalPath:
+        attachmentLocalPath.present
+            ? attachmentLocalPath.value
+            : this.attachmentLocalPath,
+    uploadStatus: uploadStatus ?? this.uploadStatus,
   );
   ChatOutBoxTableData copyWithCompanion(ChatOutBoxTableCompanion data) {
     return ChatOutBoxTableData(
@@ -9138,6 +9261,18 @@ class ChatOutBoxTableData extends DataClass
           data.chatMessageStatus.present
               ? data.chatMessageStatus.value
               : this.chatMessageStatus,
+      attachmentManifest:
+          data.attachmentManifest.present
+              ? data.attachmentManifest.value
+              : this.attachmentManifest,
+      attachmentLocalPath:
+          data.attachmentLocalPath.present
+              ? data.attachmentLocalPath.value
+              : this.attachmentLocalPath,
+      uploadStatus:
+          data.uploadStatus.present
+              ? data.uploadStatus.value
+              : this.uploadStatus,
     );
   }
 
@@ -9148,14 +9283,25 @@ class ChatOutBoxTableData extends DataClass
           ..write('otherPartyId: $otherPartyId, ')
           ..write('body: $body, ')
           ..write('createdAt: $createdAt, ')
-          ..write('chatMessageStatus: $chatMessageStatus')
+          ..write('chatMessageStatus: $chatMessageStatus, ')
+          ..write('attachmentManifest: $attachmentManifest, ')
+          ..write('attachmentLocalPath: $attachmentLocalPath, ')
+          ..write('uploadStatus: $uploadStatus')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(messageId, otherPartyId, body, createdAt, chatMessageStatus);
+  int get hashCode => Object.hash(
+    messageId,
+    otherPartyId,
+    body,
+    createdAt,
+    chatMessageStatus,
+    attachmentManifest,
+    attachmentLocalPath,
+    uploadStatus,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -9164,7 +9310,10 @@ class ChatOutBoxTableData extends DataClass
           other.otherPartyId == this.otherPartyId &&
           other.body == this.body &&
           other.createdAt == this.createdAt &&
-          other.chatMessageStatus == this.chatMessageStatus);
+          other.chatMessageStatus == this.chatMessageStatus &&
+          other.attachmentManifest == this.attachmentManifest &&
+          other.attachmentLocalPath == this.attachmentLocalPath &&
+          other.uploadStatus == this.uploadStatus);
 }
 
 class ChatOutBoxTableCompanion extends UpdateCompanion<ChatOutBoxTableData> {
@@ -9173,6 +9322,9 @@ class ChatOutBoxTableCompanion extends UpdateCompanion<ChatOutBoxTableData> {
   final Value<String> body;
   final Value<DateTime> createdAt;
   final Value<int> chatMessageStatus;
+  final Value<String?> attachmentManifest;
+  final Value<String?> attachmentLocalPath;
+  final Value<int> uploadStatus;
   final Value<int> rowid;
   const ChatOutBoxTableCompanion({
     this.messageId = const Value.absent(),
@@ -9180,6 +9332,9 @@ class ChatOutBoxTableCompanion extends UpdateCompanion<ChatOutBoxTableData> {
     this.body = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.chatMessageStatus = const Value.absent(),
+    this.attachmentManifest = const Value.absent(),
+    this.attachmentLocalPath = const Value.absent(),
+    this.uploadStatus = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   ChatOutBoxTableCompanion.insert({
@@ -9188,6 +9343,9 @@ class ChatOutBoxTableCompanion extends UpdateCompanion<ChatOutBoxTableData> {
     required String body,
     required DateTime createdAt,
     this.chatMessageStatus = const Value.absent(),
+    this.attachmentManifest = const Value.absent(),
+    this.attachmentLocalPath = const Value.absent(),
+    this.uploadStatus = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : messageId = Value(messageId),
        otherPartyId = Value(otherPartyId),
@@ -9199,6 +9357,9 @@ class ChatOutBoxTableCompanion extends UpdateCompanion<ChatOutBoxTableData> {
     Expression<String>? body,
     Expression<DateTime>? createdAt,
     Expression<int>? chatMessageStatus,
+    Expression<String>? attachmentManifest,
+    Expression<String>? attachmentLocalPath,
+    Expression<int>? uploadStatus,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -9207,6 +9368,11 @@ class ChatOutBoxTableCompanion extends UpdateCompanion<ChatOutBoxTableData> {
       if (body != null) 'body': body,
       if (createdAt != null) 'created_at': createdAt,
       if (chatMessageStatus != null) 'chat_message_status': chatMessageStatus,
+      if (attachmentManifest != null)
+        'attachment_manifest': attachmentManifest,
+      if (attachmentLocalPath != null)
+        'attachment_local_path': attachmentLocalPath,
+      if (uploadStatus != null) 'upload_status': uploadStatus,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -9217,6 +9383,9 @@ class ChatOutBoxTableCompanion extends UpdateCompanion<ChatOutBoxTableData> {
     Value<String>? body,
     Value<DateTime>? createdAt,
     Value<int>? chatMessageStatus,
+    Value<String?>? attachmentManifest,
+    Value<String?>? attachmentLocalPath,
+    Value<int>? uploadStatus,
     Value<int>? rowid,
   }) {
     return ChatOutBoxTableCompanion(
@@ -9225,6 +9394,9 @@ class ChatOutBoxTableCompanion extends UpdateCompanion<ChatOutBoxTableData> {
       body: body ?? this.body,
       createdAt: createdAt ?? this.createdAt,
       chatMessageStatus: chatMessageStatus ?? this.chatMessageStatus,
+      attachmentManifest: attachmentManifest ?? this.attachmentManifest,
+      attachmentLocalPath: attachmentLocalPath ?? this.attachmentLocalPath,
+      uploadStatus: uploadStatus ?? this.uploadStatus,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -9247,6 +9419,17 @@ class ChatOutBoxTableCompanion extends UpdateCompanion<ChatOutBoxTableData> {
     if (chatMessageStatus.present) {
       map['chat_message_status'] = Variable<int>(chatMessageStatus.value);
     }
+    if (attachmentManifest.present) {
+      map['attachment_manifest'] = Variable<String>(attachmentManifest.value);
+    }
+    if (attachmentLocalPath.present) {
+      map['attachment_local_path'] = Variable<String>(
+        attachmentLocalPath.value,
+      );
+    }
+    if (uploadStatus.present) {
+      map['upload_status'] = Variable<int>(uploadStatus.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -9261,6 +9444,9 @@ class ChatOutBoxTableCompanion extends UpdateCompanion<ChatOutBoxTableData> {
           ..write('body: $body, ')
           ..write('createdAt: $createdAt, ')
           ..write('chatMessageStatus: $chatMessageStatus, ')
+          ..write('attachmentManifest: $attachmentManifest, ')
+          ..write('attachmentLocalPath: $attachmentLocalPath, ')
+          ..write('uploadStatus: $uploadStatus, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();

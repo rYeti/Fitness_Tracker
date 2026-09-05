@@ -8,6 +8,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Chat attachment storage (Cloudflare R2), spoken to entirely through
+         its S3-compatible API — this SDK has no idea it isn't talking to AWS.
+         See docs/chat-attachments.md. -->
+    <PackageReference Include="AWSSDK.S3" Version="3.7.511.8" />
     <PackageReference Include="BCrypt.Net-Next" Version="4.1.0" />
     <!-- Cloud Messaging only. Firebase is the push transport for Android, not a
          database and not an auth provider: user data stays in Postgres and

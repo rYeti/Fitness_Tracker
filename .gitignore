@@ -19,3 +19,6 @@ appsettings.Production.json
 # OS
 .DS_Store
 Thumbs.db
+
+# Claude Code agent scratch state (per-session worktrees), not project content
+.claude/worktrees/

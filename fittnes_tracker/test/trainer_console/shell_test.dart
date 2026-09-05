@@ -53,6 +53,7 @@ Future<void> _pump(
           api: chatApi ?? FakeChatApi(),
           signalR: signalR,
           crypto: FakeChatCrypto(),
+          attachmentSender: FakeChatAttachmentSender(),
         ),
       ),
     ),

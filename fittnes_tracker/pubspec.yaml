@@ -33,6 +33,13 @@ dependencies:
   dio: ^5.8.0
   get_it: ^9.2.1
   logger: ^2.0.2
+  # SHA-256 for chat attachments — hashing the ciphertext lets a device detect
+  # a swapped or truncated download before spending time decrypting it, and
+  # doubles as the device media store's cache key. Already resolved
+  # transitively (drift and others pull it in); declared directly because
+  # this code imports it, matching the convention flutter_web_plugins already
+  # states below.
+  crypto: ^3.0.6
 
   fl_chart: ^1.0.0
   # Local Database
@@ -50,6 +57,26 @@ dependencies:
   shared_preferences: ^2.5.3
   flutter_secure_storage: ^9.2.4
   file_picker: ^10.3.7
+  # Camera/gallery capture for chat attachments (phase 4). Pure-Dart JPEG
+  # re-encoder — see ImageDownscale for why dart:ui's own encoder (PNG-only)
+  # isn't enough on its own.
+  image_picker: ^1.1.2
+  image: ^4.3.0
+  # Voice note recording (phase 5). Linux needs an external binary this repo
+  # does not ship, so the mic affordance is hidden there — see
+  # ChatComposer._micAvailable.
+  record: ^6.1.1
+  # Video attachment playback (phase 6) — video_player has no Windows or
+  # Linux implementation, so media_kit (libmpv-backed) is what makes desktop
+  # video real instead of an "open externally" button. Falls back to an
+  # HTML5 <video> element on web, which needs a URL rather than bytes — see
+  # video_blob_url.dart.
+  media_kit: ^1.2.0
+  media_kit_video: ^1.3.0
+  media_kit_libs_video: ^1.0.5
+  # Already pulled in transitively (flutter_web_plugins' web dependency);
+  # named explicitly because video_blob_url_web.dart imports it directly.
+  web: ^1.1.0
   csv: ^6.0.0
   flutter_svg: ^2.0.7
   audioplayers: ^6.1.0

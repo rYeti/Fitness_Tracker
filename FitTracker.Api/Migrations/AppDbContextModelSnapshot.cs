@@ -22,6 +22,43 @@ namespace FitTracker.Api.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("FitTracker.Api.Models.ChatAttachment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("CommittedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("DeclaredByteLength")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid?>("MessageId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ObjectKey")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("TrainerClientId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UploaderId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TrainerClientId");
+
+                    b.HasIndex("CommittedAt", "CreatedAt");
+
+                    b.ToTable("ChatAttachments");
+                });
+
             modelBuilder.Entity("FitTracker.Api.Models.ChatMessage", b =>
                 {
                     b.Property<Guid>("Id")
@@ -989,6 +1026,17 @@ namespace FitTracker.Api.Migrations
                     b.HasIndex("WorkoutExerciseId");
 
                     b.ToTable("WorkoutSetTemplates");
+                });
+
+            modelBuilder.Entity("FitTracker.Api.Models.ChatAttachment", b =>
+                {
+                    b.HasOne("FitTracker.Api.Models.TrainerClient", "TrainerClient")
+                        .WithMany()
+                        .HasForeignKey("TrainerClientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("TrainerClient");
                 });
 
             modelBuilder.Entity("FitTracker.Api.Models.ChatMessage", b =>

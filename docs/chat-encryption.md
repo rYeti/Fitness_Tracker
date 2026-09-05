@@ -434,6 +434,12 @@ Also, explicitly, still true after this change:
 - **The local outbox stores plaintext.** It is on the user's own device, behind
   the OS sandbox, and it is wiped on sign-out. It is also what makes §5's
   re-encryption possible.
+- **An attachment's ciphertext size is visible, coarsely.** A message
+  carrying a photo, a video and a voice note are distinguishable from each
+  other and from a text-only message by size alone, even though the bytes
+  themselves are opaque. See `docs/chat-attachments.md` §10 for the full
+  accounting and why this is accepted on the same grounds as the metadata
+  point above.
 
 ---
 

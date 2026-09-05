@@ -232,6 +232,9 @@ builder.Services.AddScoped<IChatService, ChatService>();
 builder.Services.AddScoped<IUserChatKeyRepository, UserChatKeyRepository>();
 builder.Services.AddScoped<IDeviceTokenRepository, DeviceTokenRepository>();
 builder.Services.AddScoped<IPushNotificationService, PushNotificationService>();
+builder.Services.AddScoped<IChatAttachmentRepository, ChatAttachmentRepository>();
+builder.Services.AddScoped<IChatAttachmentService, ChatAttachmentService>();
+builder.Services.AddHostedService<ChatAttachmentReaper>();
 
 // Singleton: it holds a scope factory and a logger and nothing else. It has to
 // outlive the hub invocation that queues work on it, which is the entire point.
@@ -258,6 +261,42 @@ if (!string.IsNullOrWhiteSpace(fcmCredentialsBase64))
 else
 {
     builder.Services.AddSingleton<IPushSender, DisabledPushSender>();
+}
+
+// Attachment blob store. Same posture as push above: configured or not, the API
+// serves chat identically — without a store, `GET api/chat/attachments/capabilities`
+// reports itself disabled and the client never shows the attach affordance in
+// the first place, rather than the endpoint failing on first use. See
+// docs/chat-attachments.md.
+var attachmentsProvider = builder.Configuration["Attachments:Provider"];
+switch (attachmentsProvider)
+{
+    case "r2":
+        builder.Services.AddSingleton<IChatAttachmentStore>(_ => new R2ChatAttachmentStore(
+            accountId: builder.Configuration["Attachments:R2:AccountId"]!,
+            bucket: builder.Configuration["Attachments:R2:Bucket"]!,
+            accessKeyId: builder.Configuration["Attachments:R2:AccessKeyId"]!,
+            secretAccessKey: builder.Configuration["Attachments:R2:SecretAccessKey"]!,
+            // The bucket's jurisdiction is a property of the bucket itself, set
+            // once at creation and unable to change afterward — this flag exists
+            // so the endpoint we sign against matches whichever bucket was
+            // actually created, not so anyone can flip it later.
+            euJurisdiction: builder.Configuration.GetValue("Attachments:R2:EuJurisdiction", true)));
+        break;
+
+    case "local":
+        // Dev/E2E only. See LocalDiskChatAttachmentStore's own remarks for why
+        // "bytes never pass through the API" is deliberately not true here.
+        builder.Services.AddSingleton<LocalDiskChatAttachmentStore>(_ => new LocalDiskChatAttachmentStore(
+            root: builder.Configuration["Attachments:Local:Root"] ?? Path.Combine(Path.GetTempPath(), "forgeform-chat-attachments"),
+            signingKey: builder.Configuration["Attachments:Local:SigningKey"] ?? "local-dev-signing-key-not-for-production",
+            baseUrl: builder.Configuration["Attachments:Local:BaseUrl"] ?? "http://localhost:5000"));
+        builder.Services.AddSingleton<IChatAttachmentStore>(sp => sp.GetRequiredService<LocalDiskChatAttachmentStore>());
+        break;
+
+    default:
+        builder.Services.AddSingleton<IChatAttachmentStore, DisabledChatAttachmentStore>();
+        break;
 }
 
 

@@ -5,10 +5,15 @@
 list(APPEND FLUTTER_PLUGIN_LIST
   app_links
   audioplayers_windows
+  file_selector_windows
   firebase_core
   flutter_secure_storage_windows
+  media_kit_libs_windows_video
+  media_kit_video
+  record_windows
   sqlite3_flutter_libs
   url_launcher_windows
+  volume_controller
   webcrypto
 )
 

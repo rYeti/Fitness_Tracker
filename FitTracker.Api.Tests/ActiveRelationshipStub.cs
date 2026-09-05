@@ -38,4 +38,15 @@ internal sealed class ActiveRelationshipStub(Guid expectedTrainer, Guid expected
     public Task<TrainerClientStatusDto> GetStatusAsync(Guid userId) => throw new NotSupportedException();
     public Task<bool> RemoveRelationshipAsync(Guid relationshipId, Guid requestingUserId) => throw new NotSupportedException();
     public Task<TrainerClient?> GetActiveRelationshipAsync(Guid trainerId, Guid clientId) => throw new NotSupportedException();
+
+    public async Task<(Guid trainerId, Guid clientId, bool ok)> ResolvePairAsync(Guid callerId, Guid otherPartyId)
+    {
+        if (await IsActiveTrainerOfAsync(callerId, otherPartyId))
+            return (callerId, otherPartyId, true);
+
+        if (await IsActiveTrainerOfAsync(otherPartyId, callerId))
+            return (otherPartyId, callerId, true);
+
+        return (default, default, false);
+    }
 }

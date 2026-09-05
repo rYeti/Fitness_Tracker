@@ -10,27 +10,27 @@ namespace FitTracker.Api.Hubs;
 public class ChatHub(
     ITrainerClientService trainerClientService,
     IChatService chatService,
-    IChatPushDispatcher pushDispatcher) : Hub
+    IChatPushDispatcher pushDispatcher,
+    IChatAttachmentService attachmentService) : Hub
 {
     private ITrainerClientService TrainerClientService { get; } = trainerClientService;
     private IChatService ChatService { get; } = chatService;
     private IChatPushDispatcher PushDispatcher { get; } = pushDispatcher;
+    private IChatAttachmentService AttachmentService { get; } = attachmentService;
     private static string GroupName(Guid trainerId, Guid clientId) => $"chat:{trainerId}:{clientId}";
 
     /// <summary>
     /// Adds the caller's connection to the SignalR group for their chat with
     /// <paramref name="clientId"/>. Callable by either the trainer or the
-    /// client side of the pair — <see cref="ResolveTrainerAsync"/> figures out
-    /// which one the caller is.
+    /// client side of the pair — <see cref="ITrainerClientService.ResolvePairAsync"/>
+    /// figures out which one the caller is.
     /// </summary>
     public async Task JoinClientGroup(Guid clientId)
     {
         var userId = GetUserId();
-        var (trainerId, ok) = await ResolveTrainerAsync(userId, clientId);
+        var (trainerId, actualClientId, ok) = await TrainerClientService.ResolvePairAsync(userId, clientId);
 
         if (!ok) throw new HubException("Not authorized for this chat.");
-
-        var actualClientId = trainerId == userId ? clientId : userId;
 
         await Groups.AddToGroupAsync(Context.ConnectionId, GroupName(trainerId, actualClientId));
     }
@@ -59,22 +59,53 @@ public class ChatHub(
     /// "is there an IV?", so the day a second scheme exists nothing has to guess
     /// which one an old row used.
     /// </param>
-    public async Task<ChatMessageDto> SendMessage(
+    public Task<ChatMessageDto> SendMessage(
         Guid clientId,
         string body,
         Guid messageId,
         string? iv,
-        int encryptionVersion)
+        int encryptionVersion) =>
+        // SignalR binds hub method arguments by position AND by arity, and does
+        // not fill a missing trailing argument with a default — so adding a
+        // sixth parameter directly to SendMessage would not degrade for an
+        // already-shipped five-argument caller, it would fail the invocation
+        // outright. Nor can SendMessage be overloaded; SignalR hub methods
+        // cannot be. SendMessageV2 is the only way to add attachmentIds without
+        // breaking every existing client's ability to send at all. See
+        // docs/chat-attachments.md §A.4.
+        SendMessageV2(clientId, body, messageId, iv, encryptionVersion, attachmentIds: null);
+
+    /// <param name="attachmentIds">
+    /// Attachments this message references, each already uploaded via
+    /// <c>ChatAttachmentController</c>'s mint endpoint. Committing them is
+    /// best-effort and never allowed to fail the send — see
+    /// <see cref="IChatAttachmentService.CommitAsync"/>.
+    /// </param>
+    public async Task<ChatMessageDto> SendMessageV2(
+        Guid clientId,
+        string body,
+        Guid messageId,
+        string? iv,
+        int encryptionVersion,
+        IReadOnlyList<Guid>? attachmentIds)
     {
         var userId = GetUserId();
-        var (trainerId, ok) = await ResolveTrainerAsync(userId, clientId);
+        var (trainerId, actualClientId, ok) = await TrainerClientService.ResolvePairAsync(userId, clientId);
         if (!ok) throw new HubException("Not authorized for this chat.");
-
-        var actualClientId = trainerId == userId ? clientId : userId;
 
         var encrypted = new EncryptedChatBody(body, iv, encryptionVersion);
 
         var message = await ChatService.SendMessageAsync(trainerId, actualClientId, senderId: userId, messageId: messageId, encrypted);
+
+        if (attachmentIds is { Count: > 0 })
+        {
+            var relationship = await TrainerClientService.GetActiveRelationshipAsync(trainerId, actualClientId);
+            if (relationship != null)
+            {
+                await AttachmentService.CommitAsync(relationship.Id, uploaderId: userId, messageId: messageId, attachmentIds);
+            }
+        }
+
         await Clients.Group(GroupName(trainerId, actualClientId)).SendAsync("ReceiveMessage", message);
 
         // The pair is (trainerId, actualClientId) and the sender is userId, so
@@ -103,25 +134,10 @@ public class ChatHub(
     public async Task LeaveClientChat(Guid clientId)
     {
         var userId = GetUserId();
-        var (trainerId, ok) = await ResolveTrainerAsync(userId, clientId);
+        var (trainerId, actualClientId, ok) = await TrainerClientService.ResolvePairAsync(userId, clientId);
         if (!ok) throw new HubException("Not authorized for this chat.");
-        var actualClientId = trainerId == userId ? clientId : userId;
 
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, GroupName(trainerId, actualClientId));
-    }
-
-    // Resolves whether the caller is the trainer or the client side of an
-    // Active relationship, so one hub serves both roles symmetrically.
-    private async Task<(Guid trainerId, bool ok)> ResolveTrainerAsync(Guid userId, Guid clientId)
-    {
-        if (await TrainerClientService.IsActiveTrainerOfAsync(userId, clientId))
-            return (userId, true);
-
-        // caller might be the client, not the trainer — swap and re-check
-        if (await TrainerClientService.IsActiveTrainerOfAsync(clientId, userId))
-            return (clientId, true);
-
-        return (default, false);
     }
 
     // Same claim handling as ChatController.GetUserId. Tokens minted by the OAuth
