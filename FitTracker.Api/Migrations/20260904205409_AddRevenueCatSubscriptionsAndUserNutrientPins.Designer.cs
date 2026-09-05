@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace FitTracker.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260903161011_DropObsoleteSingleColumnIndexes")]
-    partial class DropObsoleteSingleColumnIndexes
+    [Migration("20260904205409_AddRevenueCatSubscriptionsAndUserNutrientPins")]
+    partial class AddRevenueCatSubscriptionsAndUserNutrientPins
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -371,6 +371,35 @@ namespace FitTracker.Api.Migrations
                     b.ToTable("RefreshTokens");
                 });
 
+            modelBuilder.Entity("FitTracker.Api.Models.RevenueCatSubscription", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("LastEventAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("RevenueCatSubscriptions");
+                });
+
             modelBuilder.Entity("FitTracker.Api.Models.ScheduledWorkout", b =>
                 {
                     b.Property<Guid>("Id")
@@ -538,6 +567,35 @@ namespace FitTracker.Api.Migrations
                     b.ToTable("TrainerLicences");
                 });
 
+            modelBuilder.Entity("FitTracker.Api.Models.TrainerNutrientPin", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ClientId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("NutrientKey")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TrainerId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClientId");
+
+                    b.HasIndex("TrainerId", "ClientId", "NutrientKey")
+                        .IsUnique();
+
+                    b.ToTable("TrainerNutrientPins");
+                });
+
             modelBuilder.Entity("FitTracker.Api.Models.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -602,6 +660,30 @@ namespace FitTracker.Api.Migrations
                     b.HasKey("UserId");
 
                     b.ToTable("UserChatKeys");
+                });
+
+            modelBuilder.Entity("FitTracker.Api.Models.UserNutrientPin", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("NutrientKey")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "NutrientKey")
+                        .IsUnique();
+
+                    b.ToTable("UserNutrientPins");
                 });
 
             modelBuilder.Entity("FitTracker.Api.Models.UserSettings", b =>
@@ -685,6 +767,9 @@ namespace FitTracker.Api.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("AssignedByTrainerId")
+                        .HasColumnType("uuid");
+
                     b.Property<int?>("Color")
                         .HasColumnType("integer");
 
@@ -755,6 +840,9 @@ namespace FitTracker.Api.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AssignedByTrainerId")
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("CreatedAt")
@@ -1015,6 +1103,17 @@ namespace FitTracker.Api.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("FitTracker.Api.Models.RevenueCatSubscription", b =>
+                {
+                    b.HasOne("FitTracker.Api.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("FitTracker.Api.Models.ScheduledWorkout", b =>
                 {
                     b.HasOne("FitTracker.Api.Models.Workout", "Workout")
@@ -1081,7 +1180,37 @@ namespace FitTracker.Api.Migrations
                     b.Navigation("Trainer");
                 });
 
+            modelBuilder.Entity("FitTracker.Api.Models.TrainerNutrientPin", b =>
+                {
+                    b.HasOne("FitTracker.Api.Models.User", "Client")
+                        .WithMany()
+                        .HasForeignKey("ClientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FitTracker.Api.Models.User", "Trainer")
+                        .WithMany()
+                        .HasForeignKey("TrainerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Client");
+
+                    b.Navigation("Trainer");
+                });
+
             modelBuilder.Entity("FitTracker.Api.Models.UserChatKey", b =>
+                {
+                    b.HasOne("FitTracker.Api.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("FitTracker.Api.Models.UserNutrientPin", b =>
                 {
                     b.HasOne("FitTracker.Api.Models.User", "User")
                         .WithMany()

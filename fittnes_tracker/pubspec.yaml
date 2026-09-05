@@ -121,7 +121,12 @@ dependencies:
   # in its WebSocket transport, so it cannot compile for web -- and web is how
   # the Trainer Console ships.
   signalr_hub: ^2.1.0
-  go_router: ^18.0.0
+  # Capped below 18.0.0 deliberately: go_router >=17.3.0 requires Dart
+  # ^3.10.0, and >=18.0.0 requires ^3.12.0, both newer than what the current
+  # Flutter stable channel bundles (Dart 3.9.x), which broke `flutter run`/
+  # `pub get` for anyone on stable. 17.2.x is the newest release whose own
+  # environment constraint (^3.9.0) is satisfied by stable.
+  go_router: ^17.2.0
 
 dev_dependencies:
   flutter_test:

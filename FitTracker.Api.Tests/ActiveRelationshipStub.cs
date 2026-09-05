@@ -18,6 +18,8 @@ internal sealed class ActiveRelationshipStub(Guid expectedTrainer, Guid expected
     public Task<bool> DerivesProAsync(Guid userId) => Task.FromResult(grantsPro);
 
     public Task<List<string>> GetMyNutrientPinsAsync(Guid userId) => throw new NotSupportedException();
+    public Task<SetMyNutrientPinsResult> SetMyNutrientPinsAsync(Guid userId, List<string> nutrientKeys) =>
+        throw new NotSupportedException();
 
     public Task<List<TrainerClientResponseDto>> GetClientsAsync(Guid trainer)
     {

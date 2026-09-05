@@ -21,7 +21,8 @@ public class ChatAttachmentControllerTests
     {
         var trainerClientRepo = new TrainerClientRepository(ctx.Db);
         var trainerClientService = new TrainerClientService(
-            trainerClientRepo, new TrainerLicenceRepository(ctx.Db), new TrainerNutrientPinRepository(ctx.Db));
+            trainerClientRepo, new TrainerLicenceRepository(ctx.Db), new TrainerNutrientPinRepository(ctx.Db),
+            new UserNutrientPinRepository(ctx.Db), new RevenueCatSubscriptionRepository(ctx.Db));
         var store = new InMemoryChatAttachmentStore();
         var attachmentRepo = new ChatAttachmentRepository(ctx.Db);
         var attachmentService = new ChatAttachmentService(

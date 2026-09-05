@@ -9,11 +9,15 @@ namespace FitTracker.Api.Services;
 public class TrainerClientService(
     ITrainerClientRepository repo,
     ITrainerLicenceRepository licences,
-    ITrainerNutrientPinRepository nutrientPins) : ITrainerClientService
+    ITrainerNutrientPinRepository nutrientPins,
+    IUserNutrientPinRepository userNutrientPins,
+    IRevenueCatSubscriptionRepository revenueCat) : ITrainerClientService
 {
     private readonly ITrainerClientRepository _repo = repo;
     private readonly ITrainerLicenceRepository _licences = licences;
     private readonly ITrainerNutrientPinRepository _nutrientPins = nutrientPins;
+    private readonly IUserNutrientPinRepository _userNutrientPins = userNutrientPins;
+    private readonly IRevenueCatSubscriptionRepository _revenueCat = revenueCat;
 
     /// <inheritdoc/>
     public async Task<CreateInviteOutcome> CreateInviteAsync(Guid trainerId)
@@ -158,10 +162,46 @@ public class TrainerClientService(
     public async Task<List<string>> GetMyNutrientPinsAsync(Guid userId)
     {
         var asClient = await _repo.GetActiveRelationshipForClientAsync(userId);
-        if (asClient == null) return [.. NutrientKeys.Defaults];
+        if (asClient != null)
+        {
+            var trainerPins = await _nutrientPins.GetPinsAsync(asClient.TrainerId, userId);
+            return trainerPins.Count == 0 ? [.. NutrientKeys.Defaults] : trainerPins;
+        }
 
-        var pins = await _nutrientPins.GetPinsAsync(asClient.TrainerId, userId);
-        return pins.Count == 0 ? [.. NutrientKeys.Defaults] : pins;
+        if (await _revenueCat.IsEntitledAsync(userId))
+        {
+            var ownPins = await _userNutrientPins.GetPinsAsync(userId);
+            return ownPins.Count == 0 ? [.. NutrientKeys.Defaults] : ownPins;
+        }
+
+        return [.. NutrientKeys.Defaults];
+    }
+
+    /// <inheritdoc/>
+    public async Task<SetMyNutrientPinsResult> SetMyNutrientPinsAsync(Guid userId, List<string> nutrientKeys)
+    {
+        var asClient = await _repo.GetActiveRelationshipForClientAsync(userId);
+        if (asClient != null)
+        {
+            return new SetMyNutrientPinsResult { Status = SetMyNutrientPinsStatus.HasActiveTrainer };
+        }
+
+        if (!await _revenueCat.IsEntitledAsync(userId))
+        {
+            return new SetMyNutrientPinsResult { Status = SetMyNutrientPinsStatus.NotEntitled };
+        }
+
+        if (nutrientKeys.Any(key => !NutrientKeys.IsValid(key)))
+        {
+            return new SetMyNutrientPinsResult { Status = SetMyNutrientPinsStatus.InvalidNutrientKey };
+        }
+
+        await _userNutrientPins.ReplacePinsAsync(userId, nutrientKeys);
+        return new SetMyNutrientPinsResult
+        {
+            Status = SetMyNutrientPinsStatus.Ok,
+            PinnedNutrients = nutrientKeys,
+        };
     }
 
     /// <inheritdoc/>

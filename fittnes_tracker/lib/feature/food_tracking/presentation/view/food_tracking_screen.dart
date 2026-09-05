@@ -331,21 +331,42 @@ class _FoodTrackingScreenState extends State<FoodTrackingScreen> {
     );
   }
 
-  /// Read-only: what a coach chose to track, not something the trainee
-  /// edits here. Gated on the same premium flag as the per-food card
-  /// (`food_detail_view.dart`) — see docs/trainer-console-micronutrients.md
-  /// for why the gate is enforced server-side too, and why device-side IAP
-  /// premium is invisible to that server-side check.
+  /// Read-only for a linked client — their coach chose what to track. An
+  /// unlinked, premium user has nobody to choose for them, so they pick
+  /// their own via `PUT api/TrainerClient/my-nutrient-pins`; the server
+  /// refuses that write for anyone with an active trainer, so this client
+  /// gate is UX only, not the enforcement. Gated on the same premium flag as
+  /// the per-food card (`food_detail_view.dart`) — see
+  /// docs/trainer-console-micronutrients.md for why the gate is enforced
+  /// server-side too, and why device-side IAP premium is invisible to that
+  /// server-side check.
   Widget _buildTrackedNutrients() {
     final l10n = AppLocalizations.of(context)!;
-    final isPremium = context.read<AccessProvider>().hasPremiumAccess;
+    final access = context.read<AccessProvider>();
+    final canSelfPick = access.hasPremiumAccess && !access.isTrainerClient;
     return TrackedNutrientsCard(
-      locked: !isPremium,
+      locked: !access.hasPremiumAccess,
       pinnedKeys: _pinnedNutrients,
       nutrients: _dayMicronutrients,
       dayScope: true,
       subtitle: l10n.trackedNutrientsSubtitleTrainee,
+      onTogglePin: canSelfPick ? _toggleMyPin : null,
     );
+  }
+
+  Future<void> _toggleMyPin(String key) async {
+    final before = _pinnedNutrients;
+    final after = before.contains(key)
+        ? before.where((k) => k != key).toList()
+        : [...before, key];
+
+    setState(() => _pinnedNutrients = after);
+
+    try {
+      await NutrientPinsApi().setMyPins(after);
+    } catch (_) {
+      if (mounted) setState(() => _pinnedNutrients = before);
+    }
   }
 
   Widget _buildDailySummary() {
