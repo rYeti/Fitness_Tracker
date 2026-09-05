@@ -10,7 +10,7 @@ heading to the version it went out as, so a `## <version>` section is history:
 it is what those users have, and nothing new belongs in it. See
 `docs/android-release.md`.
 
-## Unreleased
+## 1.0.2+22
 
 - Fixed the app being pulled from the Play Store catalog on devices without a microphone or camera. Adding voice-note recording and photo/video attachments to chat pulled in `RECORD_AUDIO` and camera permissions transitively, and Android's manifest merger turns an unguarded permission like that into an implied `<uses-feature required="true">` — which Play reads as "this app needs a microphone/camera to run" and stops offering it to any device lacking one. The app's manifest now explicitly marks `android.hardware.microphone`, `android.hardware.camera` and `android.hardware.camera.autofocus` as `required="false"`, since attachments are optional and everything else in the app works without either.
 
