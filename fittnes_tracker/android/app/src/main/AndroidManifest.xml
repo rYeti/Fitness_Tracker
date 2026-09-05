@@ -66,4 +66,14 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+
+    <!-- Chat attachments (docs/chat-attachments.md) pull in RECORD_AUDIO (record)
+         and camera access (image_picker) transitively. Android's manifest merger
+         turns those into implied <uses-feature> requirements with required="true"
+         by default, which drops the app from the Play Store catalog for any
+         device without a microphone or camera. Attachments are optional — a
+         device missing either can still use everything else. -->
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
 </manifest>

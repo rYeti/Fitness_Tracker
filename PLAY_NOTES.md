@@ -22,6 +22,10 @@ Markdown links, headings or emphasis, none of which Play renders.
 
 See `docs/android-release.md`.
 
+## Unreleased
+
+Fixed the app becoming unavailable on some devices without a microphone or camera. No user-facing changes otherwise.
+
 ## 1.0.2+21
 
 You can now send photos, videos, voice notes, audio files and documents in chat, all end-to-end encrypted, with video playing right in the chat on every device. Added vitamin and mineral tracking, with data for thousands of German foods — trainers can pin the nutrients that matter for a client and track them against daily targets. Trainers can also delete a client's whole workout plan, not just one day. Plus fixes to vitamin amounts, workout deletes, and meal templates.
