@@ -24,6 +24,8 @@ See `docs/android-release.md`.
 
 ## Unreleased
 
+If you don't have a trainer and have Premium, you can now choose which nutrients you track yourself — previously only a trainer could set this for you. If a change can't be saved, the app now tells you why instead of quietly undoing it.
+
 ## 1.0.2+22
 
 Fixed the app becoming unavailable on some devices without a microphone or camera. No user-facing changes otherwise.
