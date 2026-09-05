@@ -35,8 +35,18 @@ import {
  * restoredAuth.user!.username, ...)`, despite the parameter's name — so the
  * seed below must match `UNLINKED_TRAINEE_CREDENTIALS.username` for
  * `cacheIsOurs` (`access_provider.dart:158`) to accept it.
+ *
+ * Signs in for real, so — like `audit-flows.spec.ts` — it needs a live API
+ * seeded with `tools/seed-review-data.mjs` and the RevenueCat grant above,
+ * neither of which CI's `web.yml` provides. Gated the same way: skipped
+ * unless `AUDIT=1`, so it doesn't hang the whole job waiting on a login that
+ * can never succeed against no backend at all.
  */
+const AUDIT_ENABLED = !!process.env.AUDIT;
+
 test.describe('self-managed nutrient pins', () => {
+  test.skip(!AUDIT_ENABLED, 'set AUDIT=1 and run tools/seed-review-data.mjs first');
+
   test('an unlinked premium user can choose and persist their own tracked nutrients', async ({
     page,
   }) => {
