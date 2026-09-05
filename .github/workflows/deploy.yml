@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+  # Lets a config-only change (e.g. a new WEB_ORIGIN repository variable)
+  # redeploy without needing a throwaway commit to main.
+  workflow_dispatch:
 
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
