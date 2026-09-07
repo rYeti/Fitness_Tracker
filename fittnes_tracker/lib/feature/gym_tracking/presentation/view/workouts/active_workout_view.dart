@@ -1610,6 +1610,29 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
           ),
           const SizedBox(height: 24),
 
+          if (_currentWorkoutBestSet(exerciseData) case final currentBest?) ...[
+            PremiumGate(
+              // Masked, not the real card dimmed — see the all-time PB above
+              // for why PremiumGate's own overlay isn't opaque enough.
+              placeholder: _PersonalBestCard(
+                icon: Icons.emoji_events_outlined,
+                label: l10n.workoutBest,
+                valueText: '-- kg × -- reps',
+                background: theme.colorScheme.tertiaryContainer,
+                foreground: theme.colorScheme.onTertiaryContainer,
+              ),
+              child: _PersonalBestCard(
+                icon: Icons.emoji_events_outlined,
+                label: l10n.workoutBest,
+                valueText:
+                    '${_formatPersonalBestWeight(currentBest.weight)} kg × ${currentBest.reps} reps',
+                background: theme.colorScheme.tertiaryContainer,
+                foreground: theme.colorScheme.onTertiaryContainer,
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+
           if (previousSet != null)
             Card(
               color: theme.colorScheme.surfaceContainerHighest,
@@ -1681,29 +1704,6 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                 ),
               ),
             ),
-
-          if (_currentWorkoutBestSet(exerciseData) case final currentBest?) ...[
-            const SizedBox(height: 16),
-            PremiumGate(
-              // Masked, not the real card dimmed — see the all-time PB above
-              // for why PremiumGate's own overlay isn't opaque enough.
-              placeholder: _PersonalBestCard(
-                icon: Icons.emoji_events_outlined,
-                label: l10n.workoutBest,
-                valueText: '-- kg × -- reps',
-                background: theme.colorScheme.tertiaryContainer,
-                foreground: theme.colorScheme.onTertiaryContainer,
-              ),
-              child: _PersonalBestCard(
-                icon: Icons.emoji_events_outlined,
-                label: l10n.workoutBest,
-                valueText:
-                    '${_formatPersonalBestWeight(currentBest.weight)} kg × ${currentBest.reps} reps',
-                background: theme.colorScheme.tertiaryContainer,
-                foreground: theme.colorScheme.onTertiaryContainer,
-              ),
-            ),
-          ],
           const SizedBox(height: 24),
 
           Card(
