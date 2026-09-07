@@ -80,12 +80,27 @@ public class RevenueCatStateMachineTests
     }
 
     [Fact]
-    public void ANullExpiryLeavesTheSubscriptionNotEntitled()
+    public void ANullExpiryAfterARecordedEventIsEntitledWithNoExpiry()
     {
+        // RevenueCat omits expiration_at_ms entirely for a product that never
+        // expires (a lifetime purchase, or an "unlimited duration" promotional
+        // grant) — not a signal that nothing happened. Once an event has been
+        // recorded (LastEventAt set), a null expiry means "entitled forever,"
+        // not "never entitled".
         var subscription = FreshSubscription();
         var machine = new RevenueCatStateMachine();
 
         machine.Apply(subscription, Snapshot(expiresAt: null));
+
+        Assert.True(subscription.IsEntitled);
+    }
+
+    [Fact]
+    public void NoEventEverAppliedIsNotEntitled()
+    {
+        // The one case a null ExpiresAt does mean "not entitled": a row
+        // nothing has ever been applied to has LastEventAt null too.
+        var subscription = FreshSubscription();
 
         Assert.False(subscription.IsEntitled);
     }

@@ -13,6 +13,7 @@ it is what those users have, and nothing new belongs in it. See
 ## Unreleased
 
 - Fixed the RevenueCat entitlement webhook still being unable to match a real purchase to a real user even after 1.0.2+23's fix: that release corrected what the *client* sends as `app_user_id` going forward, but every RevenueCat customer created before it — including a real subscriber granted premium from the dashboard for testing — still carries a username as its `app_user_id` on RevenueCat's side, and can never be renamed to match. The webhook now also resolves a customer by username (and by `original_app_user_id`/`aliases`) when the id isn't a GUID, so those pre-existing customers are recognized too, and a rejected event now logs which id it couldn't resolve instead of a generic warning. See `docs/revenuecat-self-managed-pins.md`.
+- Fixed a RevenueCat entitlement with no expiry (a lifetime purchase, or an "unlimited duration" promotional grant) being treated as permanently *not* entitled, since RevenueCat omits `expiration_at_ms` entirely for that case and a null expiry was read identically to "no event has ever been recorded." A user genuinely holding such a grant now correctly passes the self-managed nutrient pins entitlement check. See `docs/revenuecat-self-managed-pins.md`.
 
 ## 1.0.2+23
 

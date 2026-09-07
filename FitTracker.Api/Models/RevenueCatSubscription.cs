@@ -28,22 +28,35 @@ public class RevenueCatSubscription
     public Guid UserId { get; set; }
     public User User { get; set; } = null!;
 
-    /// <summary>When the entitlement RevenueCat last reported expires. Null
-    /// means no event has ever been recorded for this user.</summary>
+    /// <summary>When the entitlement RevenueCat last reported expires, or null
+    /// if the winning event reported no expiry at all — RevenueCat omits
+    /// <c>expiration_at_ms</c> entirely for a product that never expires (a
+    /// lifetime purchase, or an "unlimited duration" promotional grant), and
+    /// only for that case: an event for anything that actually ends —
+    /// including <c>EXPIRATION</c> itself — always carries a real, if past,
+    /// timestamp instead. Null therefore means "entitled with no expiry," not
+    /// "not entitled" — see <see cref="IsEntitled"/>, which uses
+    /// <see cref="LastEventAt"/> to tell that apart from no event ever having
+    /// been recorded.</summary>
     public DateTime? ExpiresAt { get; set; }
 
     /// <summary>Timestamp of the most recent RevenueCat event applied. RevenueCat
     /// retries and can deliver out of order, so an event older than this one is
     /// stale and must be ignored — the same guard
-    /// <see cref="TrainerLicence.LastStripeEventAt"/> provides for Stripe.</summary>
+    /// <see cref="TrainerLicence.LastStripeEventAt"/> provides for Stripe. Also
+    /// what tells a genuine "no expiry" grant (<see cref="ExpiresAt"/> null,
+    /// this set) apart from a row nothing has ever applied to (both null).</summary>
     public DateTime? LastEventAt { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
-    /// <summary>Whether this user currently holds the entitlement. A pure
-    /// function of "now" vs the last-reported expiry — an EXPIRATION event
-    /// needs no special handling, because its own expiration timestamp
-    /// already puts us in the past by the time anyone reads this.</summary>
-    public bool IsEntitled => ExpiresAt is DateTime exp && exp > DateTime.UtcNow;
+    /// <summary>Whether this user currently holds the entitlement. An event
+    /// must have been recorded at all (<see cref="LastEventAt"/>), and then
+    /// either no expiry was ever reported for it, or the reported expiry is
+    /// still in the future — an EXPIRATION event needs no special handling
+    /// beyond that, because its own expiration timestamp already puts us in
+    /// the past by the time anyone reads this.</summary>
+    public bool IsEntitled =>
+        LastEventAt is not null && (ExpiresAt is null || ExpiresAt > DateTime.UtcNow);
 }

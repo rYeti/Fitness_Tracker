@@ -333,6 +333,67 @@ alongside the GUID case, the alias-fallback case, and the two silent-drop
 cases (an unresolvable id, a well-formed GUID for nobody) that must stay
 silent without throwing.
 
+## A null expiry meant "never entitled" — even for a grant that was working
+
+Fixing identity resolution above was necessary but not sufficient. Once the
+owner's own account resolved correctly and the row existed, the trainee app's
+"Tracked nutrients" picker *still* refused with `NotEntitled` — despite
+`AccessProvider.hasPremiumAccess` correctly showing premium on the device by
+this point. Two different bugs, discovered in sequence, because the second
+one is invisible until the first is fixed.
+
+`RevenueCatSubscription.IsEntitled` was:
+```csharp
+public bool IsEntitled => ExpiresAt is DateTime exp && exp > DateTime.UtcNow;
+```
+A promotional grant made with no duration ("unlimited duration" in RevenueCat's
+dashboard) sends a webhook event with no `expiration_at_ms` at all — confirmed
+against RevenueCat's own documentation: that field is omitted only for a
+product that never expires, and an event for anything that actually *does*
+end — including `EXPIRATION` itself — always carries a real, if past, timestamp
+instead of omitting it. `ExpiresAt` therefore ends up `null` for a perfectly
+valid, active, no-expiry grant, and `IsEntitled` read that identically to "no
+event has ever reached this row" — the exact case the field's own doc comment
+described. A null expiry meant two different things, and the code only handled
+one of them.
+
+The distinguishing fact was already sitting on the row and simply wasn't
+consulted: `LastEventAt` is set by `RevenueCatStateMachine.Apply` on every
+event that's ever applied, and a subscription's *first* event always applies
+(`LastEventAt is DateTime last` is false when there's nothing to compare
+against yet) — so a persisted row's `LastEventAt` is never null, and a fresh,
+never-touched row's `ExpiresAt` and `LastEventAt` are both null together. That
+makes `LastEventAt is not null` the correct test for "an event happened",
+freeing `ExpiresAt is null` to mean exactly what it says: no expiry was ever
+reported, not that nothing occurred.
+
+Why the tests had nothing to say: `ANullExpiryLeavesTheSubscriptionNotEntitled`
+existed and passed — it just encoded the bug as the intended behavior, because
+nobody had a genuine no-expiry grant to test against yet. A test suite is only
+as good as the cases someone thought to write down; this one wasn't wrong
+until a real "unlimited duration" grant existed for it to be wrong about. The
+lesson that outlives this change: a nullable field whose meaning depends on a
+*second* field's state (here, whether an event was ever recorded at all) is a
+standing hazard — the moment one of them gets read alone, "no event yet" and
+"an event with no data in this particular slot" collapse into the same value,
+and whichever one nobody tested for silently loses.
+
+**One more thing worth recording, not a code fix but the reason this took a
+live device and several rounds of dashboard screenshots to diagnose**: testing
+this end-to-end on a debug build (`flutter run`) can never see a
+dashboard-granted promotional entitlement at all, regardless of anything in
+this codebase. RevenueCat treats a debug-signed build as a Sandbox session
+unconditionally, and a promotional grant is recorded as Production-only —
+there is no such thing as a "sandbox grant." The two environments are
+genuinely separate views of the same customer (RevenueCat's dashboard has a
+"Show sandbox data" toggle specifically because of this split), so no amount
+of re-granting, force-stopping, or reinstalling the debug build changes
+anything. Verifying a promotional grant requires either a release-mode build
+(`flutter run --release`, or a real Play Store release) or, for exercising the
+end-to-end flow while still on a debug build, an actual sandbox purchase
+through a license-tester account — which also has the advantage of carrying a
+real expiry, sidestepping the null-expiry case entirely.
+
 ## What this still deliberately doesn't do
 
 - No change to `AccessProvider.hasPremiumAccess` or any other feature reading
