@@ -137,6 +137,27 @@ rather than reinvented. A free user sees the badge/card dimmed with a lock
 icon and taps through to the paywall, exactly like the other gated cards;
 premium and pro-via-trainer-licence users see the live numbers.
 
+### 5a. "Dimmed" is not "hidden" — the first version leaked the real numbers
+
+`PremiumGate`'s own placeholder path is `IgnorePointer(child: placeholder ??
+child)` under a `Colors.black.withValues(alpha: 0.38)` overlay
+(`premium_gate.dart:41-47`). `0.38` alpha is a stylistic darkening, not an
+opaque mask — it's tuned for cards like the adaptive-TDEE chart where the
+gate is selling *interactivity and interpretation*, not hiding the numbers
+printed on the axis. A PB is nothing but the numbers: `PremiumGate(child:
+card)` with no `placeholder` painted the real "105 kg × 3 reps" text at
+~62% opacity, which is trivially legible on both light and dark
+backgrounds. Passing `omit placeholder` here would gate the tap target
+while giving away exactly the thing the gate exists to withhold.
+
+The fix is `_PersonalBestCard` (active_workout_view.dart, defined after
+`_ExerciseWithSets`): one widget, parameterized by `valueText`, built twice
+per card — once with the real formatted string as `child`, once with a
+masked `'-- kg × -- reps'` as `placeholder`. `PremiumGate` still applies its
+dim+lock chrome on top, but there's no real data underneath it to dim
+*through*. Same shape, same size, so the free-vs-premium swap doesn't shift
+any layout — only masked text swaps for real text.
+
 ## 6. The lesson
 
 A feature described as "show X" that turns out to have two legitimate

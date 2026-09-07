@@ -1566,32 +1566,25 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
           if (exerciseData.allTimeBest != null) ...[
             const SizedBox(height: 16),
             PremiumGate(
-              child: Card(
-                color: theme.colorScheme.secondaryContainer,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 12.0,
-                    horizontal: 16.0,
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.emoji_events,
-                        size: 20,
-                        color: theme.colorScheme.onSecondaryContainer,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${l10n.allTimeBest}: ${_formatPersonalBestWeight(exerciseData.allTimeBest!.weight)} kg × ${exerciseData.allTimeBest!.reps} reps',
-                        style: theme.textTheme.labelLarge?.copyWith(
-                          color: theme.colorScheme.onSecondaryContainer,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+              // A masked placeholder, not the real card with a dim overlay on
+              // top — PremiumGate's overlay is translucent, so the actual
+              // weight/reps would still be readable through it otherwise.
+              placeholder: _PersonalBestCard(
+                icon: Icons.emoji_events,
+                label: l10n.allTimeBest,
+                valueText: '-- kg × -- reps',
+                background: theme.colorScheme.secondaryContainer,
+                foreground: theme.colorScheme.onSecondaryContainer,
+                compact: true,
+              ),
+              child: _PersonalBestCard(
+                icon: Icons.emoji_events,
+                label: l10n.allTimeBest,
+                valueText:
+                    '${_formatPersonalBestWeight(exerciseData.allTimeBest!.weight)} kg × ${exerciseData.allTimeBest!.reps} reps',
+                background: theme.colorScheme.secondaryContainer,
+                foreground: theme.colorScheme.onSecondaryContainer,
+                compact: true,
               ),
             ),
           ],
@@ -1692,40 +1685,22 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
           if (_currentWorkoutBestSet(exerciseData) case final currentBest?) ...[
             const SizedBox(height: 16),
             PremiumGate(
-              child: Card(
-                color: theme.colorScheme.tertiaryContainer,
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.emoji_events_outlined,
-                            size: 20,
-                            color: theme.colorScheme.onTertiaryContainer,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            l10n.workoutBest,
-                            style: theme.textTheme.labelLarge?.copyWith(
-                              color: theme.colorScheme.onTertiaryContainer,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '${_formatPersonalBestWeight(currentBest.weight)} kg × ${currentBest.reps} reps',
-                        style: theme.textTheme.headlineSmall?.copyWith(
-                          color: theme.colorScheme.onTertiaryContainer,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+              // Masked, not the real card dimmed — see the all-time PB above
+              // for why PremiumGate's own overlay isn't opaque enough.
+              placeholder: _PersonalBestCard(
+                icon: Icons.emoji_events_outlined,
+                label: l10n.workoutBest,
+                valueText: '-- kg × -- reps',
+                background: theme.colorScheme.tertiaryContainer,
+                foreground: theme.colorScheme.onTertiaryContainer,
+              ),
+              child: _PersonalBestCard(
+                icon: Icons.emoji_events_outlined,
+                label: l10n.workoutBest,
+                valueText:
+                    '${_formatPersonalBestWeight(currentBest.weight)} kg × ${currentBest.reps} reps',
+                background: theme.colorScheme.tertiaryContainer,
+                foreground: theme.colorScheme.onTertiaryContainer,
               ),
             ),
           ],
@@ -3023,6 +2998,90 @@ class _ExerciseWithSets {
     this.supersetGroupId,
     this.allTimeBest,
   });
+}
+
+/// Renders a PB (icon + label + weight/reps) as a `Card`. Shared by the
+/// all-time and this-workout PB displays, and also by their `PremiumGate`
+/// placeholders — a masked `valueText` ('-- kg × -- reps') gives the
+/// placeholder the exact same size and shape as the real card, rather than
+/// PremiumGate's default of dimming the real card, which would leave the
+/// real numbers readable through the translucent overlay.
+class _PersonalBestCard extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String valueText;
+  final Color background;
+  final Color foreground;
+
+  /// Compact renders "icon label: value" on one line (used next to the
+  /// exercise name); non-compact renders the label above a larger value line
+  /// (used next to "Last time", matching that card's layout).
+  final bool compact;
+
+  const _PersonalBestCard({
+    required this.icon,
+    required this.label,
+    required this.valueText,
+    required this.background,
+    required this.foreground,
+    this.compact = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    if (compact) {
+      return Card(
+        color: background,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 20, color: foreground),
+              const SizedBox(width: 8),
+              Text(
+                '$label: $valueText',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: foreground,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    return Card(
+      color: background,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 20, color: foreground),
+                const SizedBox(width: 8),
+                Text(
+                  label,
+                  style: theme.textTheme.labelLarge?.copyWith(color: foreground),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              valueText,
+              style: theme.textTheme.headlineSmall?.copyWith(
+                color: foreground,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 /// A trainer's guidance on one exercise (`WorkoutExercise.notes`), shown
