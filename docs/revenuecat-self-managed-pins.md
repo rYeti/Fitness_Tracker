@@ -256,7 +256,97 @@ default) without a migration step.
   it — `IRevenueCatService.IsEntitledAsync` has exactly one caller
   (`TrainerClientService`), not a platform-wide premium refactor.
 - No `TRANSFER` handling beyond the log-and-drop above.
-- No HTTP-layer test of `RevenueCatWebhookController` itself, matching the
-  existing gap around `StripeWebhookController` — the state machine and the
-  service/endpoint-level authorization tests cover the logic; the controller
-  is a thin, already-mirrored shim.
+
+## A fixed client still couldn't reach an already-existing customer
+
+The fix above corrected what the client sends as `app_user_id` — but only
+*from that point forward*. It shipped, was deployed, and the very first real
+test of it — granting the account's own RevenueCat customer premium from the
+dashboard, to confirm a genuinely entitled user now gets recognized —
+produced an empty `RevenueCatSubscriptions` table all over again. Same
+symptom, different cause, and the second one is the more general lesson:
+
+**Fixing what a client sends next time does nothing for what a third party
+already recorded.** The RevenueCat customer being granted premium had App
+User Id `Robe••••` — a username, RevenueCat's record of `Purchases.logIn`
+calls made by every build shipped before the client fix. That identity isn't
+stored anywhere this codebase can migrate; it lives in RevenueCat's own
+customer database, keyed by whatever string the SDK was given at the time.
+`Purchases.logIn(realGuid)` on a later sign-in creates an *alias* between the
+old username and the new GUID — it does not rename the customer or retarget
+which id a webhook's `app_user_id` carries for it. The account was, and
+remains, "the customer RevenueCat calls `Robe••••`," and every event RevenueCat
+sends about them still says so.
+
+`RevenueCatService.Parse` (as it was) knew nothing about this: it read only
+`app_user_id`, `Guid.TryParse`d it, and gave up otherwise. For this customer
+that GUID parse fails on every single event, forever — not because anything
+is still broken about what the client sends today, but because "what the
+client sends today" was never the question for a customer that predates
+today. The fix that shipped in 1.0.2+23 closed the leak for new subscribers
+and left every existing one exactly as unreachable as before.
+
+The general shape of this mistake: **an identifier a third-party system has
+already recorded outlives the code path that produced it.** Correcting the
+write doesn't retroactively correct what was already written elsewhere, and a
+third party's records are not this codebase's to migrate — the fix has to
+meet the old identity where it still lives, not just stop producing new ones.
+The same trap is why `docs/sync-dangling-references.md`'s retired
+`WorkoutExerciseTable` rows are kept rather than deleted, and why
+`docs/chat-timestamps.md` treats a pre-epoch date as missing data rather than
+assuming every row was written by the current, corrected code.
+
+**The fix**: `RevenueCatService` now resolves a customer id in the order a
+real customer's history can actually present it — parse as a GUID and confirm
+a user exists with that id; failing that, try it as a username; failing
+that, repeat both checks against `original_app_user_id` and each entry of
+`aliases`, since an id that doesn't resolve directly might still be aliased to
+one that does. Confirming existence (rather than just parsing) also closes a
+smaller gap the alias scan would otherwise have widened: a well-formed but
+unrelated GUID used to reach `GetOrCreateAsync` and fail on the foreign key as
+an unhandled 500; now it's rejected before any database write is attempted.
+
+The other half of why this cost a screenshot instead of a log line: an event
+that resolves to nobody has always returned a silent 200 OK (deliberately —
+see "Two premium sources that stay siblings" above, a non-2xx would make
+RevenueCat retry forever for events that are genuinely someone else's app or
+entitlement). That's still correct, but the warning it logged on the way out
+used to say only "app_user_id was not a parseable user id" — true, but not
+enough to tell "this event is not for us" apart from "this event is for us
+and something is wrong," which is what turned a two-line root cause into a
+round of screenshots and a dashboard customer-profile inspection. It now
+names the event type and the id it tried and failed to resolve.
+
+**Why the tests couldn't have caught either version of this bug.** Both times,
+the compiler and the existing suite had nothing to say, and for the same root
+reason: nothing in this codebase had ever needed an `app_user_id` string to be
+anything more specific than "some identifier RevenueCat also has," until this
+feature made *which* identifier load-bearing.
+`RevenueCatStateMachineTests` — the only coverage that existed before this
+change — never touches `Parse` at all; every test builds a `RevenueCatSnapshot`
+directly with a `Guid.NewGuid()` already in hand, so a test suite that was
+green throughout is not evidence the resolution logic ever ran. This is what
+`RevenueCatWebhookTests.cs` now exists to close: it drives
+`HandleWebhookAsync` from an actual JSON payload — the same shape RevenueCat
+sends — asserting the username-resolves-to-a-real-user case specifically,
+alongside the GUID case, the alias-fallback case, and the two silent-drop
+cases (an unresolvable id, a well-formed GUID for nobody) that must stay
+silent without throwing.
+
+## What this still deliberately doesn't do
+
+- No change to `AccessProvider.hasPremiumAccess` or any other feature reading
+  it — `IRevenueCatService.IsEntitledAsync` has exactly one caller
+  (`TrainerClientService`), not a platform-wide premium refactor.
+- No `TRANSFER` handling beyond the log-and-drop above; alias resolution
+  covers the case this codebase actually hits (an old username-keyed
+  customer), not a full reconciliation of RevenueCat's transfer semantics.
+- Still no signature/replay protection beyond the shared-secret header — that
+  was already RevenueCat's whole authentication story, not something this
+  change touches.
+- No backfill of historical events. If RevenueCat's own retry window for the
+  original grant has already elapsed, the fix makes the *next* event for that
+  customer land correctly; it doesn't reach back and construct the row a past
+  delivery would have written had resolution worked at the time. Re-sending
+  the event from RevenueCat's dashboard delivery log, or re-granting the
+  entitlement, produces a fresh one.

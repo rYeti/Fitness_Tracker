@@ -8,11 +8,13 @@ namespace FitTracker.Api.Services;
 
 public class RevenueCatService(
     IRevenueCatSubscriptionRepository repository,
+    IUserRepository userRepository,
     RevenueCatStateMachine stateMachine,
     IConfiguration configuration,
     ILogger<RevenueCatService> logger) : IRevenueCatService
 {
     private readonly IRevenueCatSubscriptionRepository _repository = repository;
+    private readonly IUserRepository _userRepository = userRepository;
     private readonly RevenueCatStateMachine _stateMachine = stateMachine;
     private readonly IConfiguration _configuration = configuration;
     private readonly ILogger<RevenueCatService> _logger = logger;
@@ -45,7 +47,7 @@ public class RevenueCatService(
             throw new UnauthorizedAccessException("RevenueCat webhook Authorization header did not match.");
         }
 
-        var snapshot = Parse(payload);
+        var snapshot = await ParseAsync(payload);
         if (snapshot == null) return;
 
         var subscription = await _repository.GetOrCreateAsync(snapshot.UserId);
@@ -59,29 +61,22 @@ public class RevenueCatService(
     public async Task<bool> IsEntitledAsync(Guid userId) => await _repository.IsEntitledAsync(userId);
 
     /// <summary>Extracts the fields we act on, or null for a payload we don't
-    /// handle — an unparseable <c>app_user_id</c>, an event carrying none of
-    /// our entitlement ids, or a <c>TRANSFER</c> (moving a subscription
-    /// between app_user_ids — a real edge case with real complexity this
-    /// app's login flow, always <c>Purchases.logIn(serverUserId)</c>, isn't
-    /// expected to hit; deliberately unhandled rather than silently
-    /// mishandled).</summary>
-    private RevenueCatSnapshot? Parse(string payload)
+    /// handle — a customer id that resolves to no known user, an event
+    /// carrying none of our entitlement ids, or a <c>TRANSFER</c> (moving a
+    /// subscription between app_user_ids — a real edge case with real
+    /// complexity this app's login flow, always
+    /// <c>Purchases.logIn(serverUserId)</c>, isn't expected to hit;
+    /// deliberately unhandled rather than silently mishandled).</summary>
+    private async Task<RevenueCatSnapshot?> ParseAsync(string payload)
     {
         using var doc = JsonDocument.Parse(payload);
         if (!doc.RootElement.TryGetProperty("event", out var evt)) return null;
 
-        var type = evt.TryGetProperty("type", out var typeProp) ? typeProp.GetString() : null;
+        var type = GetString(evt, "type");
         if (type == "TRANSFER")
         {
             _logger.LogWarning(
-                "Ignoring a RevenueCat TRANSFER event — not handled, see RevenueCatService.Parse");
-            return null;
-        }
-
-        if (!evt.TryGetProperty("app_user_id", out var userIdProp)
-            || !Guid.TryParse(userIdProp.GetString(), out var userId))
-        {
-            _logger.LogWarning("RevenueCat event's app_user_id was not a parseable user id");
+                "Ignoring a RevenueCat TRANSFER event — not handled, see RevenueCatService.ParseAsync");
             return null;
         }
 
@@ -96,6 +91,35 @@ public class RevenueCatService(
             return null;
         }
 
+        var appUserId = GetString(evt, "app_user_id");
+        var userId = await ResolveUserIdAsync(appUserId)
+            ?? await ResolveUserIdAsync(GetString(evt, "original_app_user_id"));
+
+        if (userId == null && evt.TryGetProperty("aliases", out var aliasesProp)
+            && aliasesProp.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var alias in aliasesProp.EnumerateArray())
+            {
+                userId = await ResolveUserIdAsync(
+                    alias.ValueKind == JsonValueKind.String ? alias.GetString() : null);
+                if (userId != null) break;
+            }
+        }
+
+        if (userId == null)
+        {
+            // Not necessarily an error: an anonymous RevenueCat customer that
+            // was never logged in as a real account resolves to nothing, and
+            // that's expected. What made this worth logging by name is that
+            // it also used to be the *only* outcome for every genuine
+            // customer, back when the client sent a username here instead of
+            // the account's id — see docs/revenuecat-self-managed-pins.md.
+            _logger.LogWarning(
+                "RevenueCat {EventType} event's app_user_id {AppUserId} did not resolve to a known user",
+                type ?? "(no type)", appUserId ?? "(none)");
+            return null;
+        }
+
         DateTime? expiresAt = evt.TryGetProperty("expiration_at_ms", out var expProp)
             && expProp.ValueKind == JsonValueKind.Number
                 ? DateTimeOffset.FromUnixTimeMilliseconds(expProp.GetInt64()).UtcDateTime
@@ -107,10 +131,39 @@ public class RevenueCatService(
                 : DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
         return new RevenueCatSnapshot(
-            UserId: userId,
+            UserId: userId.Value,
             ExpiresAt: expiresAt,
             EventTime: DateTimeOffset.FromUnixTimeMilliseconds(eventTimeMs).UtcDateTime);
     }
+
+    /// <summary>Resolves a RevenueCat customer identifier to a real user's
+    /// id, or null if it doesn't name one. Tried as a server user id first
+    /// (the current client's <c>appUserID</c>, per
+    /// <c>AccessProvider.initialize</c>), then as a username (what every
+    /// RevenueCat customer created before that fix still carries as its
+    /// <c>app_user_id</c>, and can never be renamed to match) — never
+    /// guessed, always confirmed to name a real, still-existing user, so a
+    /// well-formed but stale or unrelated id can't reach
+    /// <see cref="IRevenueCatSubscriptionRepository.GetOrCreateAsync"/> and
+    /// fail there on the foreign key instead.</summary>
+    private async Task<Guid?> ResolveUserIdAsync(string? candidateId)
+    {
+        if (string.IsNullOrWhiteSpace(candidateId)) return null;
+
+        if (Guid.TryParse(candidateId, out var parsedId))
+        {
+            var userById = await _userRepository.GetUserByIdAsync(parsedId);
+            return userById?.Id;
+        }
+
+        var userByUsername = await _userRepository.GetUserByUsernameAsync(candidateId);
+        return userByUsername?.Id;
+    }
+
+    private static string? GetString(JsonElement obj, string property) =>
+        obj.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString()
+            : null;
 
     private static bool FixedTimeEquals(string? actual, string expected)
     {
