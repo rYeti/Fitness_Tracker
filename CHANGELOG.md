@@ -10,6 +10,10 @@ heading to the version it went out as, so a `## <version>` section is history:
 it is what those users have, and nothing new belongs in it. See
 `docs/android-release.md`.
 
+## Unreleased
+
+- Fixed the RevenueCat entitlement webhook still being unable to match a real purchase to a real user even after 1.0.2+23's fix: that release corrected what the *client* sends as `app_user_id` going forward, but every RevenueCat customer created before it — including a real subscriber granted premium from the dashboard for testing — still carries a username as its `app_user_id` on RevenueCat's side, and can never be renamed to match. The webhook now also resolves a customer by username (and by `original_app_user_id`/`aliases`) when the id isn't a GUID, so those pre-existing customers are recognized too, and a rejected event now logs which id it couldn't resolve instead of a generic warning. See `docs/revenuecat-self-managed-pins.md`.
+
 ## 1.0.2+23
 
 - Fixed the RevenueCat entitlement webhook never being able to match a real purchase to a real user: the client has always logged in to RevenueCat using the account's username, not its server id, so every webhook event's `app_user_id` failed to parse as the id it was expected to be and was silently dropped — no genuinely premium user could ever be recognized as entitled server-side, regardless of how they subscribed. The login/register/refresh response now carries the account's actual id, and the client passes that to RevenueCat instead. See `docs/revenuecat-self-managed-pins.md`.
