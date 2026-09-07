@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/utils/app_logger.dart';
+import 'package:ForgeForm/feature/premium/premium_gate.dart';
 import 'package:ForgeForm/feature/workout_planning/data/models/workout_set.dart'
     show SetType, SetSide;
 import 'package:ForgeForm/l10n/app_localizations.dart';
@@ -1538,10 +1539,12 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                   ),
                   if (exerciseData.allTimeBest != null) ...[
                     const SizedBox(height: 8),
-                    _PersonalBestBadge(
-                      label: l10n.allTimeBest,
-                      best: exerciseData.allTimeBest!,
-                      color: theme.colorScheme.onPrimaryContainer,
+                    PremiumGate(
+                      child: _PersonalBestBadge(
+                        label: l10n.allTimeBest,
+                        best: exerciseData.allTimeBest!,
+                        color: theme.colorScheme.onPrimaryContainer,
+                      ),
                     ),
                   ],
                   if (exerciseData.exercise.localizedDescription(
@@ -1665,38 +1668,40 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
 
           if (_currentWorkoutBestSet(exerciseData) case final currentBest?) ...[
             const SizedBox(height: 16),
-            Card(
-              color: theme.colorScheme.tertiaryContainer,
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.emoji_events_outlined,
-                          size: 20,
-                          color: theme.colorScheme.onTertiaryContainer,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          l10n.workoutBest,
-                          style: theme.textTheme.labelLarge?.copyWith(
+            PremiumGate(
+              child: Card(
+                color: theme.colorScheme.tertiaryContainer,
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.emoji_events_outlined,
+                            size: 20,
                             color: theme.colorScheme.onTertiaryContainer,
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '${_formatPersonalBestWeight(currentBest.weight)} kg × ${currentBest.reps} reps',
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        color: theme.colorScheme.onTertiaryContainer,
-                        fontWeight: FontWeight.bold,
+                          const SizedBox(width: 8),
+                          Text(
+                            l10n.workoutBest,
+                            style: theme.textTheme.labelLarge?.copyWith(
+                              color: theme.colorScheme.onTertiaryContainer,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 8),
+                      Text(
+                        '${_formatPersonalBestWeight(currentBest.weight)} kg × ${currentBest.reps} reps',
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          color: theme.colorScheme.onTertiaryContainer,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

@@ -111,7 +111,23 @@ best.reps)`): reps only break a tie on equal weight, they never outrank a
 heavier set with fewer reps, because "best" here means heaviest, not
 highest-volume.
 
-## 5. The lesson
+## 5. Both displays are premium-gated
+
+Both the all-time badge and the this-workout card are wrapped in the
+existing `PremiumGate` widget (`lib/feature/premium/premium_gate.dart`),
+the same one `progress_dashboard_view.dart` already uses for the adaptive
+TDEE card and the weight-correlation chart. `PremiumGate` reads
+`AccessProvider.hasPremiumAccess` — the trainee's own RevenueCat
+entitlement, `_isPremium`, OR-ed with `_proFromLicence` for a trainee whose
+trainer's licence currently grants it. That's a different flag from
+`TrainerLicence` itself: nothing here mints, checks, or touches a trainer's
+seat count or licence tier — it's the ordinary trainee-side premium gate
+that already exists for other stats features on this same dashboard, reused
+rather than reinvented. A free user sees the badge/card dimmed with a lock
+icon and taps through to the paywall, exactly like the other gated cards;
+premium and pro-via-trainer-licence users see the live numbers.
+
+## 6. The lesson
 
 A feature described as "show X" that turns out to have two legitimate
 readings of X is a scoping decision, not a display decision — and the two
