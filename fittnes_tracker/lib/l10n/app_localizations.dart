@@ -4099,6 +4099,12 @@ abstract class AppLocalizations {
   /// **'All-time history & custom date ranges'**
   String get paywallFeatureProgress;
 
+  /// No description provided for @paywallFeaturePersonalBest.
+  ///
+  /// In en, this message translates to:
+  /// **'Personal bests — all-time and per-workout, for every exercise'**
+  String get paywallFeaturePersonalBest;
+
   /// No description provided for @paywallFeaturePlans.
   ///
   /// In en, this message translates to:

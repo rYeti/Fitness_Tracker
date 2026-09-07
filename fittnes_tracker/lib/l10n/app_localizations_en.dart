@@ -2229,6 +2229,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get paywallFeatureProgress => 'All-time history & custom date ranges';
 
   @override
+  String get paywallFeaturePersonalBest => 'Personal bests — all-time and per-workout, for every exercise';
+
+  @override
   String get paywallFeaturePlans => 'Unlimited workout plans';
 
   @override

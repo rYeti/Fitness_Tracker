@@ -1320,6 +1320,7 @@
   "paywallPeriodYear": "year",
   "paywallPeriodYears": "years",
   "paywallFeatureProgress": "All-time history & custom date ranges",
+  "paywallFeaturePersonalBest": "Personal bests — all-time and per-workout, for every exercise",
   "paywallFeaturePlans": "Unlimited workout plans",
   "paywallFeatureTemplates": "Unlimited meal templates",
   "paywallFeatureCorrelation": "Weight & calorie correlation chart",

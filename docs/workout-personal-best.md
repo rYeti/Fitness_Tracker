@@ -149,6 +149,21 @@ RevenueCat entitlement OR-ed with pro-via-trainer-licence. That's a
 different flag from `TrainerLicence` itself: nothing here mints, checks, or
 touches a trainer's seat count or licence tier.
 
+### 5a. A gate a free user can't see is a gate that never sells anything
+
+Hiding the cards outright (§5) solves the leak, but it creates a second
+problem on its own: `PaywallScreen._features()`
+(`lib/feature/premium/paywall_screen.dart`) is the trainee's only listing of
+what premium actually buys — the bullet list under "Unlock your potential"
+that a user reads before paying. A feature nobody can see for free and
+nobody is told about on the paywall doesn't just fail to advertise itself;
+there's no path back to it at all for someone who didn't already know it
+existed. `paywallFeaturePersonalBest` closes that: one line
+("Personal bests — all-time and per-workout, for every exercise") added to
+`_features()` alongside the existing progress/plans/nutrition bullets, so
+the feature a free user's workout screen now says nothing about is still
+something they were told they'd get.
+
 ## 6. The lesson
 
 A feature described as "show X" that turns out to have two legitimate

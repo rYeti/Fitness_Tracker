@@ -2242,6 +2242,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get paywallFeatureProgress => 'Gesamter Verlauf & eigene Zeiträume';
 
   @override
+  String get paywallFeaturePersonalBest => 'Bestleistungen — gesamt und pro Training, für jede Übung';
+
+  @override
   String get paywallFeaturePlans => 'Unbegrenzte Trainingspläne';
 
   @override
