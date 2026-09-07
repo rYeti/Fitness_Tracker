@@ -1320,6 +1320,7 @@
   "paywallFeatureCustomFoods": "Unbegrenzte eigene Lebensmittel (kostenlos: bis zu 10)",
   "paywallFeatureLongPlans": "Erweiterte Trainingsplandauer — bis zu 1 Jahr",
   "paywallFeatureFreeChoice": "Freie Auswahl — beliebige Workouts an beliebigen Tagen einplanen",
+  "paywallFeatureDeloads": "Deload-Wochen — Erholungswochen in deinen Trainingsplan einplanen",
   "deleteAccount": "Konto löschen",
   "deleteAccountWarning": "Dies löscht dauerhaft dein Konto und alle deine Daten, einschließlich Trainings, Mahlzeiten und Gewichtsverlauf. Trainer-Beziehungen werden ebenfalls entfernt. Dies kann nicht rückgängig gemacht werden.",
   "deleteAccountError": "Konto konnte nicht gelöscht werden. Bitte überprüfe dein Passwort und versuche es erneut.",

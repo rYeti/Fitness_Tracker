@@ -1327,6 +1327,7 @@
   "paywallFeatureCustomFoods": "Unlimited custom foods (free: up to 10)",
   "paywallFeatureLongPlans": "Extended workout plan durations — up to 1 year",
   "paywallFeatureFreeChoice": "Free choice workout mode — schedule any workout on any day",
+  "paywallFeatureDeloads": "Deload weeks — plan recovery weeks into your programme",
   "deleteAccount": "Delete Account",
   "deleteAccountWarning": "This will permanently delete your account and all your data including workouts, meals, and weight history. Any trainer relationships will also be removed. This cannot be undone.",
   "deleteAccountError": "Failed to delete account. Please check your password and try again.",

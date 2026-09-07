@@ -296,6 +296,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
     l10n.paywallFeatureNutrition,
     l10n.paywallFeatureLongPlans,
     l10n.paywallFeatureFreeChoice,
+    l10n.paywallFeatureDeloads,
   ];
 }
 

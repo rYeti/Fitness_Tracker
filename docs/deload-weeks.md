@@ -1,11 +1,12 @@
 # Deload weeks: how to calculate one, show one, and decide who gets to set one
 
 A design walkthrough for adding deload weeks to ForgeForm, written to be read on
-its own. It covers where a "week" actually comes from in this codebase, why the
-obvious storage choice is the wrong one, the three places the plumbing is
-already broken in ways that would silently swallow the feature, and the
-authority rule that makes "the user sets it, unless their trainer does" fall out
-of data we already have instead of a new permission system.
+its own. It covers where a "week" actually comes from in this codebase, what the
+training-science literature says a deload is (and what it says the app must not
+claim), why the obvious storage choice is the wrong one, the three places the
+plumbing is already broken in ways that would silently swallow the feature, and
+the authority rule that makes "the user sets it, unless their trainer does" fall
+out of data we already have instead of a new permission system.
 
 No code has been written yet. This is the plan and the reasoning behind it.
 
@@ -15,19 +16,25 @@ Line references are to the commit that introduces this document.
 
 ## 1. What the feature has to answer
 
-A deload is a planned week of reduced training stress inside a programme —
-lighter loads, fewer working sets, or both — so accumulated fatigue can clear
-without the trainee stopping. Three questions have to be answerable, and they
-are more separable than they look:
+A deload is a planned week of reduced training stress inside a programme, so
+accumulated fatigue can clear without the trainee stopping. Four questions have
+to be answerable, and they are more separable than they look:
 
 1. **Which week of the programme is today?** — arithmetic.
 2. **Is that week a deload?** — a stored declaration.
 3. **Who is allowed to make that declaration?** — authority.
+4. **Who is allowed to see it?** — entitlement.
 
-Almost every mistake available here comes from collapsing two of the three. The
-most tempting collapse is answering (2) by writing a flag onto every session in
-the week, which quietly makes (1) and (2) the same thing and then makes (3)
-impossible to enforce. Section 4 is about why not.
+Almost every mistake available here comes from collapsing two of the first
+three. The most tempting collapse is answering (2) by writing a flag onto every
+session in the week, which quietly makes (1) and (2) the same thing and then
+makes (3) impossible to enforce. §4a is about why not.
+
+The fourth question is new to this feature relative to the rest of the workout
+domain — plans, workouts and sessions are not entitlement-gated at the row
+level, and deload weeks are (§7). That asymmetry is the source of the one rule
+in this document most likely to be got wrong: **an absent field means "not
+provided", never "clear it".**
 
 ---
 
@@ -64,7 +71,7 @@ reasons, in order of weight:
 - `startDate` is not editable after creation — `edit_view.dart` sets it once at
   `DateTime.now()` and never offers a picker. So plan-relative week numbers are
   stable. (If start-date editing is ever added, it must renumber or clear the
-  deload set; see §11.)
+  deload set; see §13.)
 
 The cost is honest and should be stated in the UI rather than engineered away:
 the trainer's attendance bars will not line up with the deload week when the
@@ -129,7 +136,7 @@ down.
 Both sides need this arithmetic. The trainee app is offline-first — the drift
 database is the source of truth for a device with no connection, so it must be
 able to decide "today is a deload" with no server. The server needs it to stamp
-completed sessions (§7) and to answer trainer-facing reads.
+completed sessions (§9) and to answer trainer-facing reads.
 
 That is two implementations of one rule, which will drift. There is no way to
 avoid the duplication, so the mitigation is to make the drift visible:
@@ -145,7 +152,93 @@ duplication that cannot be collapsed to one copy.
 
 ---
 
-## 3. Where the declaration lives
+## 3. What the evidence actually says
+
+The first draft of this design invented its numbers — "every 4 weeks", "60% of
+normal load" — and got the main lever backwards. The literature is worth reading
+before building this, because it disagrees with the intuitive design in one
+specific and load-bearing way.
+
+### 3a. The parameters
+
+| Variable | Finding | Source |
+|---|---|---|
+| Duration | 6.4 ± 1.7 days — one week | Bell et al. 2024 survey (n = 246 competitive strength/physique athletes) |
+| Cadence | every 5.6 ± 2.3 weeks; pre-planned every 4–8 weeks | Bell et al. 2024; Bell et al. 2025 |
+| Volume | **the primary lever.** −25–45% (low recovery need), −40–60% (moderate), −60–90% (high), via fewer reps per set, fewer sets, or both | Bell et al. 2025 |
+| Load | reduced, but *secondary* to volume | Bell et al. 2024 |
+| Effort | reduced by **increasing reps-in-reserve** | Bell et al. 2024 |
+| Frequency | **unchanged** | Bell et al. 2024; Bosquet et al. 2007 |
+| Exercise selection | generally unchanged | Bell et al. 2024 |
+| Trigger | pre-planned, often combined with autoregulation: stalled performance, elevated soreness, joint aches | Bell et al. 2024; Rogerson et al. 2023 (coach interviews) |
+| Training age | novices accumulate fatigue more slowly, so tolerate longer blocks | practitioner consensus; weakly evidenced, and must be labelled as such wherever the app repeats it |
+
+Sources: Bell et al., *Deloading Practices in Strength and Physique Sports: A
+Cross-sectional Survey*, Sports Medicine – Open (2024); Bell et al., *A
+Practical Approach to Deloading*, Strength & Conditioning Journal (2025);
+Rogerson et al., *"You can't shoot another bullet until you've reloaded the
+gun"*, Frontiers in Sports and Active Living (2023); Bosquet et al., *Effects of
+Tapering on Performance: a Meta-Analysis*, MSSE (2007).
+
+**Volume first, frequency held.** That is the finding that changes the design.
+The intuitive implementation — "make the weights lighter this week" — is the
+*secondary* lever, and cutting sessions out of the week is not a lever at all:
+every source holds training frequency constant. §8 is rewritten around it.
+
+### 3b. What the evidence does *not* say
+
+Direct trials are few and they do not show a benefit.
+
+- **Coleman et al. 2024** (*PeerJ*; 39 resistance-trained men and women, 9-week
+  programme): a midpoint deload week produced **worse** lower-body strength than
+  continuous training, with no difference in hypertrophy, power or local
+  endurance, and no psychological benefit on a readiness-to-train questionnaire.
+  The important caveat: that study's "deload" was one week of **complete
+  cessation**, so it is evidence about a rest week, not about a reduced-volume
+  one.
+- **Scientific Reports 2026** (19 untrained men, within-subject, 8 weeks; deload
+  = one session of 2 sets replacing two sessions of 6–8): **no difference** in
+  muscle thickness or 10RM strength-endurance either way.
+
+The best-evidenced adjacent result is the taper literature. Bosquet et al.'s
+meta-analysis found volume reduced 41–60% with **intensity and frequency
+maintained** produced ~2.2% performance improvement — in endurance athletes, so
+it is a mechanistic analogue rather than direct evidence, and it is the
+strongest support there is for "cut volume, hold frequency".
+
+The honest reading is that over 8–9 week horizons a deload neither clearly helps
+nor clearly hurts. The case for it is long-horizon fatigue, joint health and
+adherence — exactly the things a two-month trial cannot measure. That is a real
+case, and it is not the case a marketing screen wants to make. Hence:
+
+> A deload is fatigue management, not an optimisation. Nothing this feature says
+> — in the app, in a notification, or on the paywall — may imply that taking a
+> deload produces better results than not taking one. The evidence does not
+> support it, and a fitness app that overclaims is indistinguishable from every
+> other fitness app.
+
+That rule binds the copy in §7, §8 and §10, and it is the reason the paywall
+bullet added for this feature names a capability ("plan recovery weeks into your
+programme") rather than an outcome.
+
+### 3c. What the numbers become in the product
+
+- **Default cadence: every 5 weeks.** Closest single value to the survey's
+  5.6 ± 2.3. Offer 4, 5, 6.
+- **Duration: one week, always.** 6.4 ± 1.7 days is a week, which is why the
+  whole model in §4 is week-shaped and there is no "deload for N days".
+- **Volume reduction: the moderate band (~50%)**, expressed as marking roughly
+  half of each exercise's prescribed sets optional (§8). The three bands are
+  recorded here because they are the natural shape of a future per-week tier;
+  they are deliberately not stored yet (§4).
+- **Frequency: untouched.** A deload week keeps every session and every rest day
+  the cycle pattern laid out. This costs nothing to honour, because the sessions
+  already exist — but it does mean "deload" must never be implemented as
+  auto-skipping sessions, which is the obvious shortcut.
+
+---
+
+## 4. Where the declaration lives
 
 **Recommendation: one column on the plan, holding a JSON array of week numbers.**
 
@@ -163,10 +256,17 @@ the same rule `docs/trainer-console-micronutrients.md` landed on for nutrient
 pins — "a pin write always replaces the whole set, never edits one row" — and it
 exists for the same reason. A replace is idempotent by construction. An
 add/remove pair is two operations that can interleave, and
-`docs/trainer-console-duplicate-rows.md` is 100% about what happens when a write
-path's idempotency is assumed rather than built.
+`docs/trainer-console-duplicate-rows.md` is entirely about what happens when a
+write path's idempotency is assumed rather than built.
 
-### 3a. What was rejected, and what it would have cost
+**No recovery-need tier is stored.** §3a gives three volume bands, and a
+per-week tier is the obvious next step — but it is not this step. The guidance
+text is fixed at the moderate band, and if a tier is wanted later the column
+widens from `[5, 10]` to `[{"week":5,"tier":"moderate"}]` behind a parser that
+accepts both shapes. That shim is about five lines and needs no migration, which
+is cheaper than carrying a structure nothing reads today.
+
+### 4a. What was rejected, and what it would have cost
 
 **A boolean on every `ScheduledWorkout` row.** The obvious one. Rejected:
 
@@ -181,18 +281,30 @@ path's idempotency is assumed rather than built.
 - Rows created later don't get the flag. `postponeWorkout` moves a session to a
   new date; ad-hoc scheduling inserts one. Both would land in a deload week
   carrying a `false` nobody set.
-- Authority becomes unenforceable. §5's rule is "whoever owns the plan owns the
+- Authority becomes unenforceable. §6's rule is "whoever owns the plan owns the
   deload". Spread across N session rows, that check has to be repeated N times
-  on every write path that touches a session, including the trainee's own sync
-  push.
+  on every write path that touches a session — and §7's entitlement check with
+  it.
 
 **A `deloadEveryNWeeks` rule instead of an explicit set.** Tempting, because
-"every 4th week" is how most programmes are written. Rejected: changing `N`
+"every 5th week" is how most programmes are written. Rejected: changing `N`
 retroactively rewrites which past weeks were deloads, and a single-week override
 then needs *both* a rule and an exception list — two sources of truth for one
-answer. Keep the generator in the UI: "repeat every 4 weeks" is a button that
-**expands** to `[4, 8, 12]` at save time and stores the expansion. The rule is
-authoring convenience; the set is the truth.
+answer.
+
+Keep the generator in the UI instead. "Repeat every N weeks" is a button that
+**expands** to explicit week numbers at save time and stores the expansion; the
+rule is authoring convenience, the set is the truth. Two details it needs:
+
+- Offer N ∈ {4, 5, 6} and default to **5** (§3c).
+- `generate(N, durationWeeks) = [N, 2N, 3N, …]` filtered to `< durationWeeks`,
+  **strictly**. A block that ends on its easiest week is a bug, not a taper.
+  Without that filter "every 4 weeks" on a 12-week plan yields `[4, 8, 12]` and
+  week 12 is the plan's last.
+- Plan durations are a fixed set: `create_view.dart:701` offers 4, 8 and 12
+  weeks free, 26 and 52 premium, defaulting to 12. A 4-week plan therefore
+  generates nothing, and the generator must *say so* rather than silently
+  producing `[]`. Manual toggles still work on it.
 
 **A separate `WorkoutPlanDeloadWeek` table.** Correct in the abstract, and
 against YAGNI here: the set is bounded at 52 entries by `DurationWeeks`'s own
@@ -206,13 +318,13 @@ week rolls over, and nothing in the system would ever clear it.
 
 ---
 
-## 4. Three things already broken that would swallow this feature
+## 5. Three things already broken that would swallow this feature
 
 These are pre-existing, none of them are visible to the compiler or to the
 current test suite, and each one would make the feature appear to work in
 development and fail in the hands of a real pair of users.
 
-### 4a. `_pullWorkoutPlans` never updates a plan it already has
+### 5a. `_pullWorkoutPlans` never updates a plan it already has
 
 `sync_service.dart:2650`:
 
@@ -250,23 +362,36 @@ the membership logic exactly as it is. The `syncStatus` guard matters:
 must not be overwritten by a pull, and a plan the user just edited offline is
 precisely that case.
 
-### 4b. The trainee's plan push is a full-document PUT
+One extra rule the reconcile needs because of §7, and only because of §7:
+
+> An absent `deloadWeeks` in a plan payload means "not provided", never "clear
+> it". The field is omitted when the reader isn't entitled to see it, so a
+> reconcile that treats absence as `[]` will wipe a user's deload weeks the
+> first time they sync after a subscription lapses — and re-subscribing will not
+> bring them back.
+
+### 5b. The trainee's plan push is a full-document PUT
 
 `_syncUpdatePlan` sends `name`, `description`, `startDate`, `cyclePatternJson`,
 `isFreeChoice`, `durationDays` as one document to `PUT api/WorkoutPlan/{id}`,
 and `WorkoutPlanRepository.UpdatePlanAsync` applies it. Add `deloadWeeksJson`
-to that document naively and a trainee's device that hasn't pulled the trainer's
-change yet will push a stale `[]` over it — last writer wins, and the loser is
-the trainer.
+to that document and a trainee's device that hasn't pulled the trainer's change
+yet will push a stale `[]` over it — last writer wins, and the loser is the
+trainer.
 
-The fix is not to add a dedicated endpoint and a second sync path. It is to make
-the server the boundary, which §5 requires anyway: **the trainee's plan update
-ignores `deloadWeeksJson` when the plan is trainer-assigned.** The field is
-dropped, the response echoes the authoritative value, and 4a's reconcile puts
-the device right on the next pull. Failing the whole PUT instead would stall
-every unrelated plan edit behind one field the client didn't mean to send.
+**So don't put it in the document.** `deloadWeeksJson` is not a plan-document
+field; it has its own endpoint (§6), exactly as nutrient pins do. That is one
+write path, not two, and the bulk PUT can never clobber a deload set because it
+never carries one. The alternative — carrying the field and having the server
+selectively ignore it — leaves a payload whose meaning depends on who is sending
+it, and a client that cannot tell whether its write took effect.
 
-### 4c. The Flutter client cannot tell a trainer-assigned plan from its own
+The same reasoning applies to the entitlement gate. Refusing the whole plan PUT
+because one field wasn't allowed would stall every unrelated plan edit behind
+it; a separate endpoint refuses precisely the thing that wasn't allowed, and
+says why (§7).
+
+### 5c. The Flutter client cannot tell a trainer-assigned plan from its own
 
 `WorkoutPlanResponseDto.AssignedByTrainer` and
 `WorkoutResponseDto.AssignedByTrainer` both exist and are both populated
@@ -277,14 +402,17 @@ column for it.
 So the trainee app currently has no way to know whether it should offer the
 deload toggle. Carrying it needs a `boolean assignedByTrainer` column on
 `WorkoutPlanTable`, read in `_pullWorkoutPlans` from a field already in the
-payload. Small, but it is a prerequisite, not a nice-to-have — without it the
-trainee UI has to guess, and the guess is the difference between "your trainer
-sets your deloads" and a toggle that appears to work and is silently discarded
-by the server on every sync.
+payload.
+
+Under §7 this stops being merely a prerequisite for the toggle and becomes a
+prerequisite for the **gate**: the entitlement rule turns on whether a plan is
+the trainee's own or their trainer's, so without this column a free user's own
+deload weeks and their trainer's are indistinguishable and the gate cannot be
+implemented at all.
 
 ---
 
-## 5. Who may set it — authority falls out of plan ownership
+## 6. Who may set it — authority falls out of plan ownership
 
 The requirement is "the user sets their own deload if they have no trainer; the
 trainer sets it for their clients". Resist turning that into a permission
@@ -295,9 +423,8 @@ concept. It already exists in the schema:
 > `AssignedByTrainerId == <trainer>` → that trainer sets it, and only that trainer.
 
 This is the same field that already decides who may delete a plan
-(`PlanDeleteResult.AssignedByTrainer`), so it needs no new invariant and no new
-tests of its own beyond the two below. It also gets the awkward cases right for
-free:
+(`PlanDeleteResult.AssignedByTrainer`), so it needs no new invariant. It also
+gets the awkward cases right for free:
 
 | Situation | Who sets the deload |
 |---|---|
@@ -313,16 +440,36 @@ the licensing doc refuses elsewhere ("lapsing gives 14 days of grace, then
 read-only — never deletion"). If it proves annoying in practice, the answer is a
 "make this plan mine" action with a confirmation, not an implicit rule.
 
-**Enforce it server-side, on both endpoints.** CLAUDE.md is explicit that the
-console gate is a UX guard and every trainer endpoint re-checks the caller
-against an Active relationship; the same applies here in both directions:
+Note this is a *narrower* question than the one nutrient pins ask.
+`SetMyNutrientPinsStatus.HasActiveTrainer` refuses any linked client, on the
+grounds that a coached client's pins are their coach's. Deloads key on the plan
+instead, because a client can legitimately have a trainer *and* be running a
+programme they wrote themselves — and on that programme the deloads are theirs.
 
-- `PUT api/TrainerConsole/{clientId}/workout-plans/{planId}/deload-weeks` —
-  body is the replacement list, mirroring the existing
-  `PUT .../nutrient-pins` shape exactly. Refuses unless the caller is an active
-  trainer of the client **and** `AssignedByTrainerId == callerId`.
-- The trainee's own path goes through the existing sync push, with the server
-  dropping the field for a trainer-assigned plan (§4b).
+### 6a. The two endpoints
+
+Both replace the whole set; neither adds or removes individual weeks.
+
+- **`PUT api/WorkoutPlan/{planId}/deload-weeks`** — the trainee's own write,
+  mirroring `PUT api/TrainerClient/my-nutrient-pins`. Returns
+  `SetMyDeloadWeeksResult { Status, DeloadWeeks }` with
+
+  ```csharp
+  enum SetMyDeloadWeeksStatus { Ok, PlanNotFound, AssignedByTrainer, NotEntitled, InvalidWeek }
+  ```
+
+  `AssignedByTrainer` and `NotEntitled` are deliberately distinct, for the reason
+  `SetMyNutrientPinsStatus` already records: "your coach manages this" and "you
+  need Premium" point the user at two completely different next steps, and
+  collapsing them into one refusal makes the app unable to say which.
+  `InvalidWeek` covers a week number outside `1..durationWeeks`.
+
+- **`PUT api/TrainerConsole/{clientId}/workout-plans/{planId}/deload-weeks`** —
+  the trainer's write, mirroring `PUT api/TrainerConsole/{clientId}/nutrient-pins`.
+  Refuses unless the caller is an active trainer of the client **and**
+  `AssignedByTrainerId == callerId`. Opts into `RequireEntitledLicenceFilter`
+  like every other mutating console endpoint, so the trainer's own licence is
+  the entitlement gate on that side and no new check is invented.
 
 Two regression tests, in the spirit of `TrainerProvisioningTests`: a trainee's
 PUT cannot change the deload set on a trainer-assigned plan; a trainer who did
@@ -330,17 +477,107 @@ not assign the plan cannot change it either.
 
 ---
 
-## 6. What a deload actually does to the prescription
+## 7. What premium unlocks, and what it must never take away
+
+Deload weeks are a premium feature. `PremiumFeatures` already lists plan
+structure as the premium column — free choice mode, extended plan durations —
+and periodisation belongs with them.
+
+**Setting is premium. A trainer-set deload is always visible.** Three reader
+states, decided by two facts: whether the plan is trainer-assigned (§5c), and
+`AccessProvider.hasPremiumAccess`.
+
+| Plan | Entitled | Behaviour |
+|---|---|---|
+| Trainer-assigned | either | Deload weeks **always shown**, read-only, with "Your trainer sets the deload weeks for this plan" |
+| Own plan | yes | Full week strip: toggle any week, plus the "every N weeks" generator |
+| Own plan | no | Strip locked — lock chip, tap opens the paywall; self-set deload weeks are not rendered |
+
+There is no fourth case. A plan is either trainer-assigned or it isn't, and a
+user is either entitled or isn't.
+
+The middle row is the one that matters most and the one a naive gate gets wrong.
+A client whose trainer's licence lapses loses derived Pro
+(`AccessProvider.hasPremiumAccess` is `_isPremium || _proFromLicence`), and if
+the gate were "premium or nothing" they would stop seeing the deload weeks their
+own programme still contains. That is not a locked control, it is information
+loss from a programme they are actively training against — and
+`docs/trainer-licensing.md` is explicit that lapsing means read-only, never
+deletion.
+
+### 7a. Absent, not hidden — and absent means unchanged
+
+`docs/trainer-console-micronutrients.md`'s rule applies unchanged: when a value
+is locked it is **absent from the payload**, not merely hidden by the client.
+This feature adds one corollary, because unlike micronutrients the deload set is
+also stored locally on an offline-first device:
+
+> The server keeps storing the deload set while it is locked, and omits it from
+> the read payload. An omitted field means "not provided", never "clear it". A
+> lapse must not delete a programme's deload weeks, and re-subscribing must find
+> them intact.
+
+That is the rule §5a's reconcile has to implement. Get it wrong and the failure
+is silent, permanent, and only reachable by a user who cancelled — which is to
+say, by nobody who is going to file a bug.
+
+Because the client caches the plan locally, the client also has to gate
+*rendering* on `hasPremiumAccess` — a device that was premium yesterday still
+holds the values. Both halves are needed and each has its own job, which is the
+same split `docs/revenuecat-self-managed-pins.md` records for the nutrient
+picker:
+
+> the client decides what to *show*, `PUT api/TrainerClient/my-nutrient-pins`
+> decides what's *allowed*.
+
+### 7b. Which entitlement the server checks
+
+This is the one judgement call in the design rather than a derivation, so it is
+recorded as such.
+
+`docs/revenuecat-self-managed-pins.md` argues — correctly — against merging
+`IRevenueCatService.IsEntitledAsync` (a user's own app-store purchase) and
+`ITrainerClientService.DerivesProAsync` (licence-derived Pro) into a single
+"is premium" helper, because every gate already built on `DerivesProAsync` would
+silently start accepting RevenueCat entitlement too.
+
+But the client's `hasPremiumAccess` ORs both (`access_provider.dart:139`). Check
+only RevenueCat server-side and a derived-Pro user sees an unlocked strip and
+gets a refusal when they use it — the client/server disagreement the
+micronutrients doc calls "the defect" ("Neither side was wrong on its own — the
+disagreement was the defect").
+
+**So call both, explicitly, at this one call site, and introduce no shared
+helper.** That honours the actual concern in the RevenueCat doc — no
+platform-wide widening — without shipping a gate the UI disagrees with. The
+comment at the call site should say that client parity is the reason, so the
+next person doesn't "simplify" it back to one call.
+
+### 7c. Where it appears in the offer
+
+- `PremiumFeatures` — under *Planning & Scheduling*, and in the free/premium
+  split table.
+- The paywall's `_features()` list (`paywall_screen.dart:291`), via a new
+  `paywallFeatureDeloads` key in both ARBs.
+
+The copy names a capability, not a result, per §3b: *"Deload weeks — plan
+recovery weeks into your programme"*. It sits next to `paywallFeatureFreeChoice`
+and `paywallFeatureLongPlans`, which are the other plan-structure bullets.
+
+---
+
+## 8. What a deload actually does to the prescription
 
 Look at what a prescription contains before deciding. `WorkoutSetTemplate` has
 `SetNumber`, `TargetReps` (a string, so `"8-12"` is legal) and `OrderPosition`.
 **There is no prescribed weight anywhere in the schema.** Load is something the
 trainee logs, not something the plan states.
 
-That settles it: a deload cannot mechanically reduce a prescribed load, because
-there isn't one. Two options remain.
+That is convenient, because §3a says load is the *secondary* lever anyway. The
+primary lever is volume, and volume is exactly what the schema does describe:
+a count of set-template rows per exercise.
 
-**Rewriting the set templates for the week** — dropping a set, widening the rep
+**Rewriting the set templates for the week** — deleting rows, widening the rep
 range. Rejected. `WorkoutSetTemplate` rows belong to the `WorkoutExercise`, not
 to a date, so a week-scoped rewrite would have to mutate the template and put it
 back afterwards. `docs/trainer-session-review.md` describes what happens when
@@ -349,32 +586,49 @@ saved"), and a deload that permanently deletes a working set from someone's
 programme because the restore didn't run is a bad trade for a feature whose
 whole point is to be temporary.
 
-**An advisory target beside the existing "previous" hint** — recommended.
-`active_workout_view.dart:1518` already renders `100 kg × 8` from the previous
-session for each set. That line is the natural home:
+**Marking the surplus sets optional at render time** — recommended. In a deload
+week, the back half of each exercise's set rows render de-emphasised and labelled
+optional:
 
 ```
-Previous   100 kg × 8
-Deload     ~65 kg × 8          ← derived, never stored
+  Set 1    8-12     ▸ log
+  Set 2    8-12     ▸ log
+  Set 3    8-12     optional this week      (dimmed)
+  Set 4    8-12     optional this week      (dimmed)
 ```
 
-Derived at render time from the previous *non-deload* session's logged weight
-times a factor. Nothing is written, nothing needs restoring, and a trainee who
-ignores it has simply ignored a hint.
+Roughly 50% of prescribed sets, the moderate band from §3a. Derived from
+`weekNumberFor(today)` at build time — nothing is written, nothing needs
+restoring, and a trainee who logs all four sets has simply logged all four sets.
+The rows stay tappable: this is guidance, not enforcement, and greying a row out
+while still accepting a log is the honest version of both.
 
-Start with a single constant factor (60% is the common prescription) and a
-short line of guidance in the week banner. Do **not** add a per-plan
-`deloadLoadPercent` column until a trainer asks for one — YAGNI, and the number
-is guidance, not a target the app should pretend to enforce.
+**Frequency is untouched.** The deload week keeps every scheduled session and
+every rest day exactly as the cycle pattern laid them out (§3c). Auto-skipping
+sessions is the obvious shortcut and it is the one thing every source in §3a
+agrees you should not do.
 
-One detail that matters: the previous-session lookup must skip deload sessions
-when finding "last time", or the week *after* a deload will anchor its hints to
-the deload's reduced loads and the trainee will spend two weeks light. This is
-the sort of thing that is obvious once stated and invisible in review.
+**Effort guidance goes in the session header, not per set** — one line, "Reduced
+volume this week — stay 3–4 reps short", covering the RIR half of the
+prescription. Per-set repetition of it is noise.
+
+**No derived load number.** The first draft proposed rendering "~65 kg × 8"
+beside the existing previous-session hint at `active_workout_view.dart:1518`.
+Dropped: load is the weaker-evidenced lever, and a specific kilo figure claims a
+precision that a survey range of "reduced, secondarily" does not support. If a
+trainer wants to prescribe a load for a deload week, that is a conversation in
+chat, which they already have.
+
+One detail that survives from the first draft and matters more now: **the
+previous-session lookup must skip deload sessions** when finding "last time"
+(`active_workout_view.dart:387–521`), or the week after a deload anchors its
+hints to the deload's reduced work. Under optional-set marking this is worse
+than it was under a load hint, because a deload session may hold half as many
+logged sets — so the comparison is missing rows, not merely light.
 
 ---
 
-## 7. History needs a stamp, not a re-derivation
+## 9. History needs a stamp, not a re-derivation
 
 `docs/trainer-session-review.md` states the rule this feature has to obey:
 
@@ -393,12 +647,16 @@ every one of these is wrong:
   programme.
 - The plan is deleted. Its history survives (sessions are kept); its deload
   weeks don't.
+- The client's subscription lapses. Under §7 the plan's deload set stops being
+  readable — and a past session's badge would vanish with it, rewriting history
+  as a side effect of billing.
 
 **Recommendation: `ScheduledWorkout.WasDeload` (`bool?`), stamped at
 completion.** Null everywhere else. Readers use the stamp when it is non-null
 and derive from the plan when it is null — which is exactly right, because null
 means "not performed yet", and for a future session the plan *is* the current
-truth.
+truth. The stamp is a record of what the trainee did, so it is readable
+regardless of entitlement; §7 gates the *declaration*, not the history.
 
 Stamp it at completion rather than at generation, because generating the sessions
 happens weeks or months before anyone decides where the deloads go. The edge
@@ -409,7 +667,7 @@ then read on Session Review.
 
 ---
 
-## 8. Showing it
+## 10. Showing it
 
 One shared widget, per CLAUDE.md's "one shared widget per repeated pattern —
 never re-implement the same visual pattern inline". Call it `DeloadChip` and use
@@ -432,9 +690,9 @@ the word "Deload" and an icon, and the icon alone is never used.
 |---|---|
 | `scheduled_workouts_view.dart` day cards | Chip on each day in a deload week |
 | The calendar grid (`_weekdays`, ~line 877) | A subtle band behind the deload week's row — with the chip in the day card as the non-colour signal |
-| `active_workout_view.dart` header | Chip + one line of guidance ("Reduced load — stop 3–4 reps short") |
-| Per-set rows (~line 1492) | The derived deload target beside "previous" (§6) |
-| Plan screen | The week strip with toggles — see below |
+| `active_workout_view.dart` header | Chip + the effort line ("Reduced volume this week — stay 3–4 reps short") |
+| Per-set rows (~line 1492) | Surplus sets de-emphasised and labelled optional (§8) |
+| Plan screen | The week strip — see below |
 
 **Trainer surfaces**
 
@@ -442,7 +700,7 @@ the word "Deload" and an icon, and the icon alone is never used.
 |---|---|
 | Workout Builder plan section | The week strip, `1..durationWeeks`, tap to toggle |
 | Client Detail | "This week is a deload" chip in the header |
-| Session Review | Chip on past sessions, from `WasDeload` (§7) |
+| Session Review | Chip on past sessions, from `WasDeload` (§9) |
 | Dashboard roster | Optional: chip per client currently in a deload week |
 
 The roster one is cheap but not free, and it has a rule attached.
@@ -457,27 +715,39 @@ existing projection respects that; adding a per-client query does not.
 widget:
 
 ```
- 1   2   3   4●  5   6   7   8●
-             ▲ deload          ▲ deload
+ 1   2   3   4   5●  6   7   8   9   10●  11  12
+                 ▲ deload                ▲ deload
 ```
 
 One-tap toggle on a week; "repeat every N weeks" as a secondary action that
-expands into explicit toggles (§3a) so the user can immediately see and override
-what it did. Weeks before the current one are shown but not editable — editing
-the past is the retroactive-rewrite problem from §7 wearing a friendlier hat.
+expands into explicit toggles (§4a) so the user can immediately see and override
+what it did. Its copy carries the evidence rather than a bare number: *"Most
+lifters deload every 4–6 weeks. Newer lifters can usually go longer."* Weeks
+before the current one are shown but not editable — editing the past is the
+retroactive-rewrite problem from §9 wearing a friendlier hat.
 
-**States.** Every data-bound surface needs the four (CLAUDE.md): the week strip
+**The locked state** reuses the pattern already in `create_view.dart:722–742`
+for the premium plan durations — a lock icon on the chip, `openPaywall(context)`
+on tap — rather than the `PremiumGate` overlay widget, which dims and covers a
+whole card and is the wrong shape for a row of chips.
+
+**Free-choice plans have no `durationDays`**, so the strip has no end and the
+generator has nothing to bound. For `isFreeChoice`, offer "mark this week" and
+"mark next week" only, not an unbounded strip.
+
+**States.** Every data-bound surface needs the four (CLAUDE.md). The week strip
 has no meaningful loading state of its own if the plan is already loaded, but
 "no active plan" is a real empty state and must say so ("Deloads are set per
 plan — create one first"), not render an empty strip. And on the trainee's side,
 a trainer-assigned plan renders the strip **read-only with an explanation** —
 "Your trainer sets the deload weeks for this plan" — rather than hiding it.
 Hiding a control makes a user think the feature doesn't exist; disabling it with
-a reason tells them where to ask.
+a reason tells them where to ask. The same applies to the locked state: it says
+what it is, it does not pretend to be absent.
 
 ---
 
-## 9. Telling the client their trainer set a deload
+## 11. Telling the client their trainer set a deload
 
 The obvious answer — have the server post a chat message — is impossible here,
 and it is worth writing down why so nobody tries.
@@ -501,12 +771,12 @@ how chat push already works. Correct, and more machinery than the first release
 needs. If it happens, it goes through the existing path in
 `docs/push-notifications.md` — data-only, device composes.
 
-Either way, the badge itself arrives with the next sync, and after §4a is fixed
+Either way, the badge itself arrives with the next sync, and after §5a is fixed
 that is a real guarantee rather than a hope.
 
 ---
 
-## 10. Things that will be got wrong
+## 12. Things that will be got wrong
 
 A checklist for review, and for the tests:
 
@@ -514,27 +784,38 @@ A checklist for review, and for the tests:
 - [ ] `weekNumberFor` is one-based and returns null outside the plan.
 - [ ] Clock read once per render pass.
 - [ ] Both language implementations pinned by the same case table (§2b).
-- [ ] `_pullWorkoutPlans` reconciles a clean plan's columns (§4a) — without
+- [ ] `_pullWorkoutPlans` reconciles a clean plan's columns (§5a) — without
       which nothing else in this feature works between two people.
 - [ ] Reconcile is guarded on `syncStatus == synced` so it can't eat an offline
       edit (`docs/sync-account-switch-duplication.md`).
-- [ ] Server drops `deloadWeeksJson` from a trainee push on a trainer-assigned
-      plan, and echoes the authoritative value (§4b).
-- [ ] `assignedByTrainer` is actually carried into the local plan table (§4c).
-- [ ] Deload writes replace the whole set; never add/remove (§3).
-- [ ] "Every N weeks" expands at save time; the rule is not stored (§3a).
-- [ ] The previous-session hint skips deload sessions when looking back (§6).
-- [ ] Past sessions read `WasDeload`, never re-derive (§7).
+- [ ] **An absent `deloadWeeks` is "unchanged", never "clear"** (§5a, §7a). The
+      test is: entitled user sets weeks, entitlement lapses, sync runs, the
+      server's copy is intact and re-entitlement shows it again.
+- [ ] `deloadWeeksJson` is **not** in the plan-document PUT (§5b).
+- [ ] `assignedByTrainer` is carried into the local plan table (§5c) — the gate
+      as well as the toggle depends on it.
+- [ ] The server checks both entitlement sources at the one call site, and no
+      shared "is premium" helper is introduced (§7b).
+- [ ] Trainer-set deload weeks render for a non-entitled client (§7). This is
+      the row a naive gate gets wrong.
+- [ ] Deload writes replace the whole set; never add/remove (§4).
+- [ ] "Every N weeks" expands at save time; the rule is not stored (§4a).
+- [ ] The generator filters the final week strictly, and says something rather
+      than returning `[]` on a 4-week plan (§4a).
+- [ ] A deload week keeps every scheduled session — nothing auto-skips (§3c, §8).
+- [ ] The previous-session lookup skips deload sessions (§8).
+- [ ] Past sessions read `WasDeload`, never re-derive, and stay readable when
+      entitlement lapses (§9).
 - [ ] `DeloadChip` is not `StatusBadge`; contrast pair added to
-      `test/core/contrast_test.dart` (§8).
-- [ ] Trainee UI on a trainer-assigned plan is read-only **with a reason**, not
-      hidden (§8).
-- [ ] A free-choice plan still resolves a week number (it has a `startDate`), and
-      a user with no active plan gets a clean "nothing to mark" state.
+      `test/core/contrast_test.dart` (§10).
+- [ ] Locked and trainer-assigned states are *explained*, not hidden (§10).
+- [ ] No string anywhere claims a deload improves results (§3b).
+- [ ] A free-choice plan resolves a week number (it has a `startDate`) but gets
+      the two-button control, not the strip (§10).
 
 ---
 
-## 11. Suggested phasing
+## 13. Suggested phasing
 
 **Phase 0 — the plumbing, shippable on its own.** Fix `_pullWorkoutPlans` to
 reconcile a clean plan's columns; carry `assignedByTrainer` into
@@ -542,34 +823,51 @@ reconcile a clean plan's columns; carry `assignedByTrainer` into
 both are prerequisites. Landing them separately means the deload PR is about
 deloads.
 
-**Phase 1 — trainee-owned deloads.** `deloadWeeksJson` on both schemas, the
-`PlanWeek`/`PlanWeeks` helpers with their shared case table, the week strip on
-the trainee's plan screen, `DeloadChip` on the schedule and active-workout
-screens. No trainer involvement, no stamp — everything derives from the plan,
-which is correct while nothing but the current programme is being shown.
+**Phase 1 — trainee-owned deloads, gated.** `deloadWeeksJson` on both schemas,
+the `PlanWeek`/`PlanWeeks` helpers with their shared case table,
+`PUT api/WorkoutPlan/{planId}/deload-weeks` with its status enum and both
+entitlement checks, the week strip on the trainee's plan screen with its locked
+state, `DeloadChip` and optional-set marking on the schedule and active-workout
+screens, and the paywall bullet. No trainer involvement, no stamp — everything
+derives from the plan, which is correct while nothing but the current programme
+is being shown.
 
 **Phase 2 — trainer-set deloads.** The console endpoint and its two authority
 tests, the week strip in the Workout Builder, the read-only strip with its
-explanation on the trainee side, the optional chat message on save.
+explanation on the trainee side, and the always-visible rule from §7 — which is
+only testable once a trainer can set one. The optional chat message on save.
 
 **Phase 3 — history.** `ScheduledWorkout.WasDeload`, stamped at completion; the
 chip on Session Review and on the trainee's own history. Worth splitting out
 because it is the only part that touches the completion path, and the completion
 path is where logged sets live.
 
-**Deliberately not planned:** automatic deload *detection* — suggesting a week
-based on RPE trend, adherence, or volume drop. The signals exist
-(`WorkoutSetTable.rpe`, the attendance aggregate, `setType` for excluding
-warmups) and it is a genuinely interesting feature. It is also a different
-feature: it is a recommendation engine, and it must never auto-apply. An app
-that silently decides someone's week is now a deload is worse than one that
-never mentions it. If it is built, it is a suggestion chip on the week strip
-that the user or trainer taps to accept — which is to say, it is a UI on top of
-everything above, and nothing above has to change to accommodate it.
+**Phase 4 — recovery-need tiers, if asked for.** The three bands from §3a as a
+per-week choice, widening `deloadWeeksJson` behind a parser that accepts both
+shapes (§4). Not speculative work now; recorded so the shape is known.
+
+**Phase 5 — deload suggestion.** A recommendation, never an application.
+
+What this schema can actually see: `WorkoutSetTable.rpe` (nullable, 6–10) gives
+RPE drift at matched load — "the same weight felt harder" — which is the single
+best signal available and the one the coach interviews describe most often.
+`isCompleted`/`isSkipped` on `ScheduledWorkoutTable` gives adherence. Logged
+weight gives a stalled top set. `setType` excludes warmups from any volume fold.
+
+What it cannot see, and which is most of what coaches actually cite: soreness,
+sleep, joint aches, motivation. The app collects none of them. Say that plainly
+rather than pretending the available signals are the right ones — a suggestion
+built on RPE drift alone is a suggestion built on the one signal that happens to
+be in the database, and the literature's own advice is to look for several
+indicators converging rather than to trust one.
+
+Output is a suggestion chip on the week strip that the user or trainer taps to
+accept. It never writes `deloadWeeksJson` on its own. An app that silently
+decides someone's week is now a deload is worse than one that never mentions it.
 
 ---
 
-## 12. The general lesson
+## 14. The general lesson
 
 The interesting part of this design was not the deload. It was that three
 separate pieces of existing plumbing would have swallowed it silently:
@@ -590,3 +888,16 @@ plumbing built, reasonably, for fields that never do.
 > entity has ever changed after creation. If none has, the sync path, the write
 > path and the client model have almost certainly never been tested for it —
 > and none of them will say so.
+
+There is a second lesson, cheaper to state and easier to skip. The first draft
+of this document was written from the codebase alone, and it got the domain
+backwards: it proposed reducing *load* as the primary effect of a deload, when
+every source says volume is the lever and frequency is held constant. Nothing in
+the repository could have told me that. The schema is equally happy to express
+either, the compiler has no opinion, and a reviewer who trains would have caught
+it in a sentence.
+
+> A design that is internally consistent can still be wrong about the world it
+> models. For a feature that encodes domain practice — training, nutrition,
+> medicine, finance — read the domain before designing the schema, not after.
+> The codebase can only tell you what is *representable*, never what is *right*.

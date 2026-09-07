@@ -12,6 +12,13 @@ Planning & Scheduling
 Cycle length limit — free capped at e.g. 180-day cycles, premium unlimited
 Workout history beyond 30/90 days — archive access is a classic paywall
 Export workout data (CSV/JSON) — data portability as premium perk
+Deload weeks — free plans train every week straight through; premium can mark
+  weeks of a plan as reduced-volume recovery weeks (own plans only — a
+  trainer-assigned plan's deload weeks, if the trainer sets any, are always
+  visible to the client regardless of the client's own premium status).
+  Capability only, never a results claim: the evidence for a deload improving
+  outcomes is thin, so this is sold as programming flexibility, not as "train
+  smarter."
 Progress & Analytics
 Full progress dashboard — charts, trends, streaks beyond basic stats
 Weight & calorie correlation chart — already exists, easy to gate
@@ -31,4 +38,5 @@ Free Premium
 Basic progress (weight chart) Full analytics dashboard
 Manual food search Barcode scanner + online DB
 Standard colors Full color palette
+No deload weeks Deload weeks on own plans (trainer-set ones always show)
 The strongest paywalls tend to be barcode scanning, unlimited plans, and full analytics — these are features users feel the value of immediately and justify a subscription.

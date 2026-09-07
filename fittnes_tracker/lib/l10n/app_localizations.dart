@@ -4141,6 +4141,12 @@ abstract class AppLocalizations {
   /// **'Free choice workout mode — schedule any workout on any day'**
   String get paywallFeatureFreeChoice;
 
+  /// No description provided for @paywallFeatureDeloads.
+  ///
+  /// In en, this message translates to:
+  /// **'Deload weeks — plan recovery weeks into your programme'**
+  String get paywallFeatureDeloads;
+
   /// No description provided for @deleteAccount.
   ///
   /// In en, this message translates to:

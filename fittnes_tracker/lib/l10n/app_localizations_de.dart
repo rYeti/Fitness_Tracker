@@ -2268,6 +2268,10 @@ class AppLocalizationsDe extends AppLocalizations {
       'Freie Auswahl — beliebige Workouts an beliebigen Tagen einplanen';
 
   @override
+  String get paywallFeatureDeloads =>
+      'Deload-Wochen — Erholungswochen in deinen Trainingsplan einplanen';
+
+  @override
   String get deleteAccount => 'Konto löschen';
 
   @override

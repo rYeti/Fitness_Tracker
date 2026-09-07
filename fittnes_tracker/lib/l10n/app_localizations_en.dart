@@ -2254,6 +2254,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Free choice workout mode — schedule any workout on any day';
 
   @override
+  String get paywallFeatureDeloads =>
+      'Deload weeks — plan recovery weeks into your programme';
+
+  @override
   String get deleteAccount => 'Delete Account';
 
   @override
