@@ -1076,6 +1076,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get lastTime => 'Last Time';
 
   @override
+  String get workoutBest => 'This Workout\'s Best';
+
+  @override
+  String get allTimeBest => 'All-Time Best';
+
+  @override
   String get actual => 'Actual';
 
   @override

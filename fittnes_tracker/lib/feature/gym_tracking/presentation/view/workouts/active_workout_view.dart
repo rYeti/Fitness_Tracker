@@ -14,6 +14,19 @@ import '../../widgets/expandable_description.dart';
 import '../../widgets/reset_timer_widget.dart';
 import '../../../../../core/providers/theme_provider.dart';
 
+/// The heaviest logged set for an exercise, plus the reps it was performed
+/// at. Used both for the all-time PB (every completed session) and the
+/// current-workout PB (this session only) — the two are computed
+/// differently but rendered the same way.
+typedef PersonalBestSet = ({double weight, int reps});
+
+/// Drops the decimal point for whole-number weights (`100 kg`, not `100.0
+/// kg`) while still showing one decimal place for fractional plates.
+String _formatPersonalBestWeight(double weight) =>
+    weight.truncateToDouble() == weight
+        ? weight.toStringAsFixed(0)
+        : weight.toStringAsFixed(1);
+
 // Keys used to persist an in-progress workout so the session can be resumed
 // if the OS kills the app while it is minimised.
 const _kActiveWorkoutIdKey = 'active_workout_scheduled_id';
@@ -258,6 +271,10 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
         final existingSetsMap = {
           for (var set in existingSets) set.setNumber: set,
         };
+        final allTimeBest = await _loadAllTimeBestSet(
+          db,
+          workoutExercise.exerciseId,
+        );
 
         exercises.add(
           _ExerciseWithSets(
@@ -269,6 +286,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
             existingSets: existingSetsMap,
             previousExerciseNote: previousExerciseNote,
             supersetGroupId: workoutExercise.supersetGroupId,
+            allTimeBest: allTimeBest,
           ),
         );
       }
@@ -521,6 +539,82 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
       AppLogger.i('Error loading previous sets: $e\n$st');
       return (<WorkoutSetTableData>[], null);
     }
+  }
+
+  /// The heaviest completed, non-warmup set ever logged for [exerciseId],
+  /// across every workout it has appeared in — the all-time PB shown next to
+  /// the exercise name. Ties on weight are broken by the higher rep count.
+  /// Distinct from [_currentWorkoutBestSet], which only looks at sets
+  /// entered in *this* session.
+  Future<PersonalBestSet?> _loadAllTimeBestSet(
+    AppDatabase db,
+    int exerciseId,
+  ) async {
+    final row = await db.customSelect(
+      '''
+      SELECT ws.weight AS weight, ws.reps AS reps
+      FROM workout_set_table ws
+      JOIN scheduled_workout_exercise_table swe ON swe.id = ws.scheduled_workout_exercise_id
+      JOIN scheduled_workout_table sw ON sw.id = swe.scheduled_workout_id
+      JOIN workout_exercise_table we ON we.id = swe.workout_exercise_id
+      WHERE we.exercise_id = ?
+        AND sw.is_completed = 1
+        AND ws.set_type != ?
+        AND ws.weight IS NOT NULL
+      ORDER BY ws.weight DESC, ws.reps DESC
+      LIMIT 1
+      ''',
+      variables: [
+        Variable<int>(exerciseId),
+        Variable<int>(SetType.warmup.index),
+      ],
+    ).getSingleOrNull();
+    if (row == null) return null;
+    final weight = row.readNullable<double>('weight');
+    if (weight == null) return null;
+    return (weight: weight, reps: row.readNullable<int>('reps') ?? 0);
+  }
+
+  /// The heaviest non-warmup set typed into this exercise's fields so far in
+  /// *this* workout — read live from the text controllers rather than the
+  /// database, so it updates as the user logs sets without waiting on the
+  /// debounced save. Returns null once nothing with a weight has been
+  /// entered for any of the exercise's sets yet.
+  PersonalBestSet? _currentWorkoutBestSet(_ExerciseWithSets exerciseData) {
+    PersonalBestSet? best;
+    for (final template in exerciseData.templates) {
+      final typeKey = _getSetControllerKey(
+        exerciseData.workoutExercise.id,
+        template.setNumber,
+        'setType',
+      );
+      if ((_setTypes[typeKey] ?? SetType.normal) == SetType.warmup) continue;
+
+      final weight = double.tryParse(
+        _getController(
+          exerciseData.workoutExercise.id,
+          template.setNumber,
+          'weight',
+        ).text,
+      );
+      if (weight == null) continue;
+      final reps =
+          int.tryParse(
+            _getController(
+              exerciseData.workoutExercise.id,
+              template.setNumber,
+              'reps',
+            ).text,
+          ) ??
+          0;
+
+      if (best == null ||
+          weight > best.weight ||
+          (weight == best.weight && reps > best.reps)) {
+        best = (weight: weight, reps: reps);
+      }
+    }
+    return best;
   }
 
   TextEditingController _getController(
@@ -1442,6 +1536,14 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                     ),
                     textAlign: TextAlign.center,
                   ),
+                  if (exerciseData.allTimeBest != null) ...[
+                    const SizedBox(height: 8),
+                    _PersonalBestBadge(
+                      label: l10n.allTimeBest,
+                      best: exerciseData.allTimeBest!,
+                      color: theme.colorScheme.onPrimaryContainer,
+                    ),
+                  ],
                   if (exerciseData.exercise.localizedDescription(
                         Localizations.localeOf(context).languageCode,
                       ) !=
@@ -1560,6 +1662,45 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                 ),
               ),
             ),
+
+          if (_currentWorkoutBestSet(exerciseData) case final currentBest?) ...[
+            const SizedBox(height: 16),
+            Card(
+              color: theme.colorScheme.tertiaryContainer,
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.emoji_events_outlined,
+                          size: 20,
+                          color: theme.colorScheme.onTertiaryContainer,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          l10n.workoutBest,
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            color: theme.colorScheme.onTertiaryContainer,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '${_formatPersonalBestWeight(currentBest.weight)} kg × ${currentBest.reps} reps',
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        color: theme.colorScheme.onTertiaryContainer,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 24),
 
           Card(
@@ -1590,7 +1731,13 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                       hintText: '0.0',
                       border: OutlineInputBorder(),
                     ),
-                    onChanged: (_) => _scheduleSave(),
+                    // setState (not just the debounced save) so the "this
+                    // workout's best" card above reflects the new value
+                    // immediately instead of waiting on the save timer.
+                    onChanged: (_) {
+                      setState(() {});
+                      _scheduleSave();
+                    },
                   ),
                 ],
               ),
@@ -1622,7 +1769,10 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                       hintText: '0',
                       border: OutlineInputBorder(),
                     ),
-                    onChanged: (_) => _scheduleSave(),
+                    onChanged: (_) {
+                      setState(() {});
+                      _scheduleSave();
+                    },
                   ),
                 ],
               ),
@@ -2831,6 +2981,9 @@ class _ExerciseWithSets {
   final String? previousExerciseNote;
   int? scheduledExerciseId;
   int? supersetGroupId;
+  // The all-time PB for this exercise, from every completed session
+  // (including ones for other workouts). Null if never logged with a weight.
+  final PersonalBestSet? allTimeBest;
   _ExerciseWithSets({
     required this.exercise,
     required this.workoutExercise,
@@ -2840,7 +2993,46 @@ class _ExerciseWithSets {
     required this.existingSets,
     this.previousExerciseNote,
     this.supersetGroupId,
+    this.allTimeBest,
   });
+}
+
+/// A compact "label: weight kg × reps reps" pill. Used for the all-time PB
+/// next to the exercise name — the in-session PB card next to "Last time"
+/// is a full Card, not a pill, so it isn't built from this widget, but both
+/// share the same weight/reps formatting rule.
+class _PersonalBestBadge extends StatelessWidget {
+  final String label;
+  final PersonalBestSet best;
+  final Color color;
+
+  const _PersonalBestBadge({
+    required this.label,
+    required this.best,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final text =
+        '$label: ${_formatPersonalBestWeight(best.weight)} kg × ${best.reps} reps';
+    return Semantics(
+      label: text,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.emoji_events, size: 16, color: color),
+          const SizedBox(width: 4),
+          Text(
+            text,
+            style: theme.textTheme.labelLarge?.copyWith(color: color),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// A trainer's guidance on one exercise (`WorkoutExercise.notes`), shown

@@ -586,6 +586,8 @@
   "rpeTrackingSettingSubtitle": "Log Rate of Perceived Exertion (6–10) for each set",
   "rpeLabel": "RPE",
   "lastTime": "Last Time",
+  "workoutBest": "This Workout's Best",
+  "allTimeBest": "All-Time Best",
   "actual": "Actual",
   "tapButtonToAddExercises": "Tap + to add exercises",
   "addExercisesToTemplate": "Add Exercises to Template",
