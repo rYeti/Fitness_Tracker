@@ -111,52 +111,43 @@ best.reps)`): reps only break a tie on equal weight, they never outrank a
 heavier set with fewer reps, because "best" here means heaviest, not
 highest-volume.
 
-## 5. Both displays are premium-gated
+## 5. Both displays are premium-only, and free users see nothing at all
 
-The all-time PB first shipped as a small pill embedded inside the exercise
-header card, next to the description. Under `PremiumGate`'s default
-treatment — dim the content, center a lock icon on top — that read as
-broken rather than locked: the lock icon is sized and centered for a full
-card, so on a one-line pill it rendered as an oversized icon overlapping
-half the exercise description underneath it, in a spot that had nothing to
-do with premium content. It's now its own standalone `Card` between the
-header and "Set 1" (active_workout_view.dart, `_buildSetFocusedView`),
-sized and gated the same way as the this-workout-best card below it, so the
-lock affordance actually fits what it's covering. Both the all-time card
-and the this-workout card are wrapped in the
-existing `PremiumGate` widget (`lib/feature/premium/premium_gate.dart`),
-the same one `progress_dashboard_view.dart` already uses for the adaptive
-TDEE card and the weight-correlation chart. `PremiumGate` reads
-`AccessProvider.hasPremiumAccess` — the trainee's own RevenueCat
-entitlement, `_isPremium`, OR-ed with `_proFromLicence` for a trainee whose
-trainer's licence currently grants it. That's a different flag from
-`TrainerLicence` itself: nothing here mints, checks, or touches a trainer's
-seat count or licence tier — it's the ordinary trainee-side premium gate
-that already exists for other stats features on this same dashboard, reused
-rather than reinvented. A free user sees the badge/card dimmed with a lock
-icon and taps through to the paywall, exactly like the other gated cards;
-premium and pro-via-trainer-licence users see the live numbers.
+Both cards went through two earlier shapes before landing here, and both
+are worth recording because they're the two ways a "premium feature" can go
+wrong.
 
-### 5a. "Dimmed" is not "hidden" — the first version leaked the real numbers
+**First shape:** no gate at all — every trainee saw both PBs.
 
-`PremiumGate`'s own placeholder path is `IgnorePointer(child: placeholder ??
-child)` under a `Colors.black.withValues(alpha: 0.38)` overlay
-(`premium_gate.dart:41-47`). `0.38` alpha is a stylistic darkening, not an
-opaque mask — it's tuned for cards like the adaptive-TDEE chart where the
-gate is selling *interactivity and interpretation*, not hiding the numbers
-printed on the axis. A PB is nothing but the numbers: `PremiumGate(child:
-card)` with no `placeholder` painted the real "105 kg × 3 reps" text at
-~62% opacity, which is trivially legible on both light and dark
-backgrounds. Passing `omit placeholder` here would gate the tap target
-while giving away exactly the thing the gate exists to withhold.
+**Second shape:** gated with the existing `PremiumGate` widget
+(`lib/feature/premium/premium_gate.dart`), the same one
+`progress_dashboard_view.dart` uses for the adaptive-TDEE card. `PremiumGate`
+with no explicit `placeholder` dims the *real* child at `Colors.black
+.withValues(alpha: 0.38)` and lays a lock icon over it — a stylistic darken,
+tuned for a card like a chart where the gate is selling interpretation, not
+hiding the axis labels. A PB is nothing but the numbers, so `PremiumGate(
+child: card)` painted the real "105 kg × 3 reps" at ~62% opacity: trivially
+legible, gate defeated. Passing an explicit masked `placeholder` (a second
+`_PersonalBestCard` built with `'-- kg × -- reps'` instead of the real
+`valueText`) fixed the leak, but kept the free user staring at a locked card
+promising a number they'd never see without paying — a teaser for a stat,
+not a feature.
 
-The fix is `_PersonalBestCard` (active_workout_view.dart, defined after
-`_ExerciseWithSets`): one widget, parameterized by `valueText`, built twice
-per card — once with the real formatted string as `child`, once with a
-masked `'-- kg × -- reps'` as `placeholder`. `PremiumGate` still applies its
-dim+lock chrome on top, but there's no real data underneath it to dim
-*through*. Same shape, same size, so the free-vs-premium swap doesn't shift
-any layout — only masked text swaps for real text.
+**Current shape:** the PB cards simply don't build for a free user.
+`hasPremiumAccess` (`context.watch<AccessProvider>().hasPremiumAccess`,
+active_workout_view.dart, `_buildSetFocusedView`) gates both `if`s directly —
+`if (hasPremiumAccess && exerciseData.allTimeBest != null)` for the all-time
+card, `if (_currentWorkoutBestSet(exerciseData) case final currentBest?
+when hasPremiumAccess)` for the this-workout card. No `PremiumGate`, no
+placeholder, no lock icon: a free user's screen looks exactly like it did
+before this feature existed. `_PersonalBestCard` lost the masking role it
+was built for and is now just the one real layout, built once, for
+premium users only.
+
+`hasPremiumAccess` is `_isPremium || _proFromLicence` — the trainee's own
+RevenueCat entitlement OR-ed with pro-via-trainer-licence. That's a
+different flag from `TrainerLicence` itself: nothing here mints, checks, or
+touches a trainer's seat count or licence tier.
 
 ## 6. The lesson
 

@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/core/app_database.dart';
+import 'package:ForgeForm/core/providers/access_provider.dart';
 import 'package:ForgeForm/core/utils/app_logger.dart';
-import 'package:ForgeForm/feature/premium/premium_gate.dart';
 import 'package:ForgeForm/feature/workout_planning/data/models/workout_set.dart'
     show SetType, SetSide;
 import 'package:ForgeForm/l10n/app_localizations.dart';
@@ -1509,6 +1509,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
 
   Widget _buildSetFocusedView(_ExerciseWithSets exerciseData, ThemeData theme) {
     final l10n = AppLocalizations.of(context)!;
+    final hasPremiumAccess = context.watch<AccessProvider>().hasPremiumAccess;
     final currentTemplate = exerciseData.templates[_currentSetIndex];
     final previousSet = exerciseData.previousSets[currentTemplate.setNumber];
     final exerciseNoteKey = _getExerciseNoteKey(
@@ -1563,29 +1564,16 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
             ),
           ),
 
-          if (exerciseData.allTimeBest != null) ...[
+          if (hasPremiumAccess && exerciseData.allTimeBest != null) ...[
             const SizedBox(height: 16),
-            PremiumGate(
-              // A masked placeholder, not the real card with a dim overlay on
-              // top — PremiumGate's overlay is translucent, so the actual
-              // weight/reps would still be readable through it otherwise.
-              placeholder: _PersonalBestCard(
-                icon: Icons.emoji_events,
-                label: l10n.allTimeBest,
-                valueText: '-- kg × -- reps',
-                background: theme.colorScheme.secondaryContainer,
-                foreground: theme.colorScheme.onSecondaryContainer,
-                compact: true,
-              ),
-              child: _PersonalBestCard(
-                icon: Icons.emoji_events,
-                label: l10n.allTimeBest,
-                valueText:
-                    '${_formatPersonalBestWeight(exerciseData.allTimeBest!.weight)} kg × ${exerciseData.allTimeBest!.reps} reps',
-                background: theme.colorScheme.secondaryContainer,
-                foreground: theme.colorScheme.onSecondaryContainer,
-                compact: true,
-              ),
+            _PersonalBestCard(
+              icon: Icons.emoji_events,
+              label: l10n.allTimeBest,
+              valueText:
+                  '${_formatPersonalBestWeight(exerciseData.allTimeBest!.weight)} kg × ${exerciseData.allTimeBest!.reps} reps',
+              background: theme.colorScheme.secondaryContainer,
+              foreground: theme.colorScheme.onSecondaryContainer,
+              compact: true,
             ),
           ],
           const SizedBox(height: 24),
@@ -1610,25 +1598,15 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
           ),
           const SizedBox(height: 24),
 
-          if (_currentWorkoutBestSet(exerciseData) case final currentBest?) ...[
-            PremiumGate(
-              // Masked, not the real card dimmed — see the all-time PB above
-              // for why PremiumGate's own overlay isn't opaque enough.
-              placeholder: _PersonalBestCard(
-                icon: Icons.emoji_events_outlined,
-                label: l10n.workoutBest,
-                valueText: '-- kg × -- reps',
-                background: theme.colorScheme.tertiaryContainer,
-                foreground: theme.colorScheme.onTertiaryContainer,
-              ),
-              child: _PersonalBestCard(
-                icon: Icons.emoji_events_outlined,
-                label: l10n.workoutBest,
-                valueText:
-                    '${_formatPersonalBestWeight(currentBest.weight)} kg × ${currentBest.reps} reps',
-                background: theme.colorScheme.tertiaryContainer,
-                foreground: theme.colorScheme.onTertiaryContainer,
-              ),
+          if (_currentWorkoutBestSet(exerciseData) case final currentBest?
+              when hasPremiumAccess) ...[
+            _PersonalBestCard(
+              icon: Icons.emoji_events_outlined,
+              label: l10n.workoutBest,
+              valueText:
+                  '${_formatPersonalBestWeight(currentBest.weight)} kg × ${currentBest.reps} reps',
+              background: theme.colorScheme.tertiaryContainer,
+              foreground: theme.colorScheme.onTertiaryContainer,
             ),
             const SizedBox(height: 16),
           ],
@@ -3001,11 +2979,9 @@ class _ExerciseWithSets {
 }
 
 /// Renders a PB (icon + label + weight/reps) as a `Card`. Shared by the
-/// all-time and this-workout PB displays, and also by their `PremiumGate`
-/// placeholders — a masked `valueText` ('-- kg × -- reps') gives the
-/// placeholder the exact same size and shape as the real card, rather than
-/// PremiumGate's default of dimming the real card, which would leave the
-/// real numbers readable through the translucent overlay.
+/// all-time and this-workout PB displays — both are premium-only, so
+/// neither is ever built for a free user; there's no locked/masked variant
+/// to keep pixel-identical to a real one.
 class _PersonalBestCard extends StatelessWidget {
   final IconData icon;
   final String label;
