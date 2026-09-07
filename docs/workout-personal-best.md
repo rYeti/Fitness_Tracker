@@ -113,7 +113,17 @@ highest-volume.
 
 ## 5. Both displays are premium-gated
 
-Both the all-time badge and the this-workout card are wrapped in the
+The all-time PB first shipped as a small pill embedded inside the exercise
+header card, next to the description. Under `PremiumGate`'s default
+treatment — dim the content, center a lock icon on top — that read as
+broken rather than locked: the lock icon is sized and centered for a full
+card, so on a one-line pill it rendered as an oversized icon overlapping
+half the exercise description underneath it, in a spot that had nothing to
+do with premium content. It's now its own standalone `Card` between the
+header and "Set 1" (active_workout_view.dart, `_buildSetFocusedView`),
+sized and gated the same way as the this-workout-best card below it, so the
+lock affordance actually fits what it's covering. Both the all-time card
+and the this-workout card are wrapped in the
 existing `PremiumGate` widget (`lib/feature/premium/premium_gate.dart`),
 the same one `progress_dashboard_view.dart` already uses for the adaptive
 TDEE card and the weight-correlation chart. `PremiumGate` reads

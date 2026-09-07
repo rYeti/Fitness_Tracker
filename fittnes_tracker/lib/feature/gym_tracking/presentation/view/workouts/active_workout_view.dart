@@ -1537,16 +1537,6 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                     ),
                     textAlign: TextAlign.center,
                   ),
-                  if (exerciseData.allTimeBest != null) ...[
-                    const SizedBox(height: 8),
-                    PremiumGate(
-                      child: _PersonalBestBadge(
-                        label: l10n.allTimeBest,
-                        best: exerciseData.allTimeBest!,
-                        color: theme.colorScheme.onPrimaryContainer,
-                      ),
-                    ),
-                  ],
                   if (exerciseData.exercise.localizedDescription(
                         Localizations.localeOf(context).languageCode,
                       ) !=
@@ -1572,6 +1562,39 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
               ),
             ),
           ),
+
+          if (exerciseData.allTimeBest != null) ...[
+            const SizedBox(height: 16),
+            PremiumGate(
+              child: Card(
+                color: theme.colorScheme.secondaryContainer,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 12.0,
+                    horizontal: 16.0,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.emoji_events,
+                        size: 20,
+                        color: theme.colorScheme.onSecondaryContainer,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${l10n.allTimeBest}: ${_formatPersonalBestWeight(exerciseData.allTimeBest!.weight)} kg × ${exerciseData.allTimeBest!.reps} reps',
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: theme.colorScheme.onSecondaryContainer,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 24),
 
           Center(
@@ -3000,44 +3023,6 @@ class _ExerciseWithSets {
     this.supersetGroupId,
     this.allTimeBest,
   });
-}
-
-/// A compact "label: weight kg × reps reps" pill. Used for the all-time PB
-/// next to the exercise name — the in-session PB card next to "Last time"
-/// is a full Card, not a pill, so it isn't built from this widget, but both
-/// share the same weight/reps formatting rule.
-class _PersonalBestBadge extends StatelessWidget {
-  final String label;
-  final PersonalBestSet best;
-  final Color color;
-
-  const _PersonalBestBadge({
-    required this.label,
-    required this.best,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final text =
-        '$label: ${_formatPersonalBestWeight(best.weight)} kg × ${best.reps} reps';
-    return Semantics(
-      label: text,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.emoji_events, size: 16, color: color),
-          const SizedBox(width: 4),
-          Text(
-            text,
-            style: theme.textTheme.labelLarge?.copyWith(color: color),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 /// A trainer's guidance on one exercise (`WorkoutExercise.notes`), shown
