@@ -2362,6 +2362,9 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get errorSaveDeloadWeeks => 'Couldn\'t save the deload weeks. Try again.';
+
+  @override
   String get deleteAccount => 'Delete Account';
 
   @override

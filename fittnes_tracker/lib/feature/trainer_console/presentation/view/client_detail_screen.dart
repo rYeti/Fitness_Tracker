@@ -1,3 +1,4 @@
+import 'package:ForgeForm/core/widgets/deload_chip.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -238,6 +239,14 @@ class _PlanCard extends StatelessWidget {
                     color: colors.onSurface,
                   ),
                 ),
+                // Where this client is right now, so a trainer sees it before
+                // messaging them. Derived from the *current* plan, which is
+                // correct for a live question — unlike a past session, whose
+                // answer is stamped (§9).
+                if (plan.deloadFor(DateTime.now()) case final deload?) ...[
+                  const SizedBox(height: 4),
+                  DeloadChip(volumePercent: deload.volumePercent, compact: true),
+                ],
                 Text(
                   AppLocalizations.of(context)!.planStartedOn(
                     DateFormat(

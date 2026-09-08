@@ -1,3 +1,4 @@
+import 'package:ForgeForm/feature/workout_planning/domain/deload_schedule.dart';
 import 'package:dio/dio.dart';
 import 'package:ForgeForm/feature/trainer_console/data/trainer_console_api.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_console_models.dart';
@@ -47,6 +48,12 @@ class TrainerConsoleRepository {
 
   Future<void> setClientNutrientPins(String clientId, List<String> nutrientKeys) =>
       _api.setClientNutrientPins(clientId, nutrientKeys);
+
+  Future<void> setClientDeloadWeeks(
+    String clientId,
+    String planId,
+    DeloadSchedule schedule,
+  ) => _api.setClientDeloadWeeks(clientId, planId, schedule.toJson());
 
   Future<List<WorkoutPlanTemplateSummary>> getWorkoutPlanTemplates() async {
     final raw = await _api.fetchWorkoutPlanTemplates();

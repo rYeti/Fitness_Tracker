@@ -4303,6 +4303,12 @@ abstract class AppLocalizations {
   /// **'{percent}%'**
   String deloadPercentShort(int percent);
 
+  /// No description provided for @errorSaveDeloadWeeks.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t save the deload weeks. Try again.'**
+  String get errorSaveDeloadWeeks;
+
   /// No description provided for @deleteAccount.
   ///
   /// In en, this message translates to:

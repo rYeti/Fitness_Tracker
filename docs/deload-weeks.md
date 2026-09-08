@@ -954,7 +954,122 @@ decides someone's week is now a deload is worse than one that never mentions it.
 
 ---
 
-## 14. The general lesson
+## 14. The Trainer Console side, and the two things it changed
+
+Sections 1–13 were written before any of this existed. Building the console
+half changed two of the decisions they record, which is worth setting down
+next to the originals rather than quietly editing them.
+
+### 14a. A bypass flag is not an authority check
+
+`SetDeloadWeeksAsync` was built with a `bool actingAsTrainer` that skipped the
+ownership and entitlement checks wholesale. That is the shape
+`DeleteClientWorkoutPlanAsync` already uses one layer up: check
+`IsActiveTrainerOfAsync`, then pass the bypass.
+
+It is the wrong shape, and the reason is not stylistic. A flag says *trust me*.
+Nothing downstream can tell whether the caller had the right to set it, so the
+only thing standing between any active trainer and any of their client's plans
+is the caller remembering to check first. Add a second call site later — a bulk
+action, a template apply, an admin path — and the check is one forgotten line
+away from being absent, with nothing to notice.
+
+The fix is to pass the trainer's **identity** rather than their claim:
+
+```csharp
+Task<SetDeloadWeeksResult> SetDeloadWeeksAsync(
+    Guid planId, Guid userId, IEnumerable<DeloadWeek> weeks, Guid? actingTrainerId = null);
+```
+
+and check it where the plan is already loaded:
+
+```csharp
+if (actingTrainerId != null)
+{
+    return plan.AssignedByTrainerId == actingTrainerId
+        ? await ApplyDeloadWeeksAsync(plan, planId, userId, weeks)
+        : new SetDeloadWeeksResult { Status = SetDeloadWeeksStatus.NotPermitted };
+}
+```
+
+This is not a theoretical improvement. It is what makes §6's ownership table
+true. A client who has a coach but is running a programme they wrote for
+themselves owns its deloads — and under the bypass, their trainer could have
+rewritten them, because `AssignedByTrainerId` was never consulted on that path.
+Delete still behaves the looser way; deloads deliberately do not, and a test
+names the divergence so the next person doesn't "fix" the inconsistency in the
+wrong direction.
+
+> An authority parameter should carry an identity that can be verified, not a
+> boolean that can only be trusted. If the callee cannot check the claim, the
+> check does not exist — it has merely moved somewhere nobody is looking.
+
+### 14b. A widget that reads a provider has decided which question it answers
+
+`DeloadWeekStrip` read `AccessProvider.hasPremiumAccess` internally to decide
+whether to show its lock. That was correct on the trainee's plan screen and
+made the widget unusable on the console, because the two surfaces are gated on
+entirely different questions:
+
+| Surface | The gate | On a locked tap |
+| --- | --- | --- |
+| Trainee plan screen | *Their own* Premium (`hasPremiumAccess`) | Open the paywall |
+| Trainer Console builder | The *trainer's licence*, server-side (`RequireEntitledLicenceFilter`, 402) | Nothing — the server refuses |
+
+A trainer is not short of Premium; a lapsed trainer is short of a licence, which
+the client can't see and shouldn't. Reading the provider inside the widget baked
+the trainee's question into a component whose whole value was being shared.
+
+So the gate is lifted out — `locked` and `onLockedTap` are parameters. The
+trainee screen passes its premium state and `openPaywall`; the console passes
+neither and lets the endpoint refuse. The widget got simpler by learning less.
+
+> A shared widget must not read the ambient state that decides *whether* it may
+> be used. Take the answer as a parameter: the second caller is where you find
+> out that the question was never as universal as it looked.
+
+### 14c. What the console needed that was already there
+
+Worth recording because it is the pleasant kind of surprise.
+`ClientWorkoutSummaryDto.CurrentPlan` is a `WorkoutPlanResponseDto` — the same
+type the trainee's own reads return — so adding `DeloadWeeks` to that DTO in
+Phase 1 had *already* delivered deload weeks, the plan's duration, its start
+date and `AssignedByTrainer` to every console read. No DTO change, no new query,
+no new round trip. The console work was an endpoint, a provider method and three
+render sites.
+
+That is what putting a field on the shared response type buys, versus minting a
+console-specific summary DTO that would have had to be widened separately.
+
+### 14d. The stamp, and why the server writes it
+
+The Session Review chip is the reason `ScheduledWorkout.WasDeload` exists now
+rather than in a later phase: §9 forbids deriving a past session's deload state
+from the current plan, so the chip could not be built without the stamp.
+
+It is written **server-side, on the transition into completed, once**. Each
+clause is load-bearing:
+
+- *Server-side*, because everything needed is already there — the session's
+  date, its plan's start date and deload set — and a stamp written by the device
+  would simply be missing from anything an older build saved. History that
+  disagrees with itself depending on which client version logged it is worse
+  than history that is uniformly absent.
+- *On the transition*, because generating sessions happens months before anyone
+  decides where the deloads go.
+- *Once*, because re-saving a completed session must never restamp it. A trainer
+  clearing the deload set afterwards must not relabel training the client has
+  already done.
+
+And `false` is not `null`. False means "settled, and it was a normal week";
+null means "nobody has settled this". That is why the drift column is nullable
+with no default: `NOT NULL DEFAULT 0` would have asserted that every session
+predating the column was performed in a normal week — a claim nothing checked,
+and one the server would then contradict for any of them that weren't.
+
+---
+
+## 15. The general lesson
 
 The interesting part of this design was not the deload. It was that three
 separate pieces of existing plumbing would have swallowed it silently:

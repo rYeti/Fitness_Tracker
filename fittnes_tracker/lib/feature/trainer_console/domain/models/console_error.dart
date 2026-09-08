@@ -32,6 +32,7 @@ enum ConsoleError {
   openCheckout,
   openBilling,
   saveNutrientPins,
+  saveDeloadWeeks,
 }
 
 extension ConsoleErrorMessage on ConsoleError {
@@ -61,5 +62,6 @@ extension ConsoleErrorMessage on ConsoleError {
     ConsoleError.openCheckout => l10n.errorOpenCheckout,
     ConsoleError.openBilling => l10n.errorOpenBilling,
     ConsoleError.saveNutrientPins => l10n.errorSaveNutrientPins,
+    ConsoleError.saveDeloadWeeks => l10n.errorSaveDeloadWeeks,
   };
 }

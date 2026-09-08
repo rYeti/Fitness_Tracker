@@ -2376,6 +2376,9 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
+  String get errorSaveDeloadWeeks => 'Deload-Wochen konnten nicht gespeichert werden. Bitte erneut versuchen.';
+
+  @override
   String get deleteAccount => 'Konto löschen';
 
   @override

@@ -13,6 +13,9 @@ import 'package:ForgeForm/feature/workout_planning/data/models/workout_set.dart'
 import 'package:ForgeForm/feature/workout_planning/domain/deload_schedule.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:drift/drift.dart' as drift;
+import 'package:provider/provider.dart';
+import 'package:ForgeForm/core/providers/access_provider.dart';
+import 'package:ForgeForm/feature/premium/paywall_launcher.dart';
 import 'package:flutter/material.dart';
 import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
 
@@ -413,6 +416,12 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
         durationWeeks: durationWeeks,
         currentWeek: plan.weekNumberFor(DateTime.now()),
         assignedByTrainer: plan.assignedByTrainer,
+        // The trainee's gate is their own Premium, and a locked tap should
+        // sell it. The console asks a different question entirely, which is
+        // why the strip no longer decides this for itself.
+        locked: !context.watch<AccessProvider>().hasPremiumAccess,
+        onLockedTap: () => openPaywall(context),
+        trainerManagedLabel: AppLocalizations.of(context)!.deloadTrainerManaged,
         onChanged: (next) => _saveDeloadWeeks(plan, next),
       ),
     );

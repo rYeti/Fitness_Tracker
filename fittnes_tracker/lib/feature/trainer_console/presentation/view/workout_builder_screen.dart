@@ -1,3 +1,4 @@
+import 'package:ForgeForm/feature/gym_tracking/presentation/widgets/deload_week_strip.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -672,10 +673,29 @@ class _PlanWithDaysView extends StatelessWidget {
       );
     }
 
+    final durationWeeks = plan.durationWeeks;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         planCard,
+        // Only for a plan this trainer assigned and that has a fixed length.
+        // A client's own plan is theirs to deload (§6) and the server refuses
+        // it, so offering the control here would be a button that only ever
+        // fails; a free-choice plan has no weeks to lay out.
+        if (plan.assignedByTrainer && durationWeeks != null && durationWeeks > 0) ...[
+          const SizedBox(height: 16),
+          DeloadWeekStrip(
+            schedule: plan.deloadWeeks,
+            durationWeeks: durationWeeks,
+            currentWeek: plan.weekNumberFor(DateTime.now()),
+            // Not locked client-side: the gate here is the trainer's licence,
+            // which RequireEntitledLicenceFilter enforces on the endpoint. A
+            // lapsed trainer gets a 402 and the provider surfaces it, rather
+            // than the console guessing at entitlement it doesn't hold.
+            onChanged: (next) => builder.setDeloadWeeks(clientId, next),
+          ),
+        ],
         if (builder.planError != null) ...[
           const SizedBox(height: 8),
           Text(

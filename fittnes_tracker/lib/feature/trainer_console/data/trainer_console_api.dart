@@ -150,6 +150,21 @@ class TrainerConsoleApi {
     await _client.delete('api/TrainerConsole/$clientId/workout-plans/$planId');
   }
 
+  /// Replaces the deload weeks on a plan this trainer assigned to [clientId].
+  ///
+  /// A full replacement, never an add or a remove — the same rule the pin write
+  /// above follows, and for the same reason (`docs/deload-weeks.md` §4).
+  Future<void> setClientDeloadWeeks(
+    String clientId,
+    String planId,
+    List<Map<String, dynamic>> weeks,
+  ) async {
+    await _client.put(
+      'api/TrainerConsole/$clientId/workout-plans/$planId/deload-weeks',
+      data: weeks,
+    );
+  }
+
   /// Returns the number of sessions the schedule call actually created.
   Future<int> scheduleClientPlan(
     String clientId,

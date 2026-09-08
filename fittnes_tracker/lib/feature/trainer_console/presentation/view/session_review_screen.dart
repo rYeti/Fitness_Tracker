@@ -1,3 +1,4 @@
+import 'package:ForgeForm/core/widgets/deload_chip.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -610,6 +611,10 @@ class _SessionHeroCard extends StatelessWidget {
               ),
               StatusBadge(tone: status.tone, label: status.label),
               if (session.isPr) _PrPill(label: l10n.newPr),
+              // From the stamp only. A session with no stamp shows nothing
+              // rather than being measured against the plan's current deload
+              // set, which would relabel old training whenever it changed.
+              if (session.wasDeload == true) const DeloadChip(compact: true),
             ],
           ),
           const SizedBox(height: 4),

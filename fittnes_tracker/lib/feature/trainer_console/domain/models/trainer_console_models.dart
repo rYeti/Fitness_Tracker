@@ -1,3 +1,4 @@
+import 'package:ForgeForm/feature/workout_planning/domain/deload_schedule.dart';
 // Domain models for the new TrainerConsoleController/WorkoutPlanTemplateController
 // endpoints. Field shapes mirror the backend DTOs (see TrainerConsoleDtos.cs);
 // fromJson bodies are left as stubs since the backend endpoints themselves
@@ -141,21 +142,71 @@ class WorkoutPlanSummary {
   final bool isActive;
   final DateTime startDate;
 
+  /// Plan length in days, or null for a free-choice plan.
+  final int? durationDays;
+
+  /// The plan's deload weeks. See `docs/deload-weeks.md`.
+  final DeloadSchedule deloadWeeks;
+
+  /// Whether this trainer assigned the plan. False for one the client built
+  /// themselves — which they, not their coach, own the deloads of (§6).
+  final bool assignedByTrainer;
+
   const WorkoutPlanSummary({
     required this.id,
     required this.name,
     this.description,
     required this.isActive,
     required this.startDate,
+    this.durationDays,
+    this.deloadWeeks = DeloadSchedule.empty,
+    this.assignedByTrainer = false,
   });
 
+  /// Plan length in whole weeks, or null when it has no fixed length.
+  int? get durationWeeks =>
+      durationDays == null ? null : PlanWeek.weeksIn(durationDays!);
+
+  /// The 1-based programme week [date] falls in, or null outside the plan.
+  int? weekNumberFor(DateTime date) =>
+      PlanWeek.weekNumberFor(startDate, date, durationDays: durationDays);
+
+  /// The deload declared for the week containing [date], if any.
+  DeloadWeek? deloadFor(DateTime date) =>
+      deloadWeeks.forWeek(weekNumberFor(date));
+
+  WorkoutPlanSummary copyWith({DeloadSchedule? deloadWeeks}) =>
+      WorkoutPlanSummary(
+        id: id,
+        name: name,
+        description: description,
+        isActive: isActive,
+        startDate: startDate,
+        durationDays: durationDays,
+        deloadWeeks: deloadWeeks ?? this.deloadWeeks,
+        assignedByTrainer: assignedByTrainer,
+      );
+
   factory WorkoutPlanSummary.fromJson(Map<String, dynamic> json) {
+    // `deloadWeeks` is absent, not empty, when the server withheld it — see
+    // `docs/deload-weeks.md` §7a. Absent and empty coincide here because a
+    // console read has nothing local to preserve, but the distinction is worth
+    // not erasing: `?? const []` would quietly make them the same thing.
+    final rawDeloads = json['deloadWeeks'];
     return WorkoutPlanSummary(
       id: json['id'] as String,
       name: json['name'] as String? ?? '',
       description: json['description'] as String?,
       isActive: json['isActive'] as bool? ?? false,
       startDate: DateTime.parse(json['startDate'] as String),
+      durationDays: json['durationDays'] as int?,
+      assignedByTrainer: json['assignedByTrainer'] as bool? ?? false,
+      deloadWeeks: rawDeloads is List
+          ? DeloadSchedule([
+              for (final entry in rawDeloads)
+                if (DeloadWeek.tryFromJson(entry) case final week?) week,
+            ])
+          : DeloadSchedule.empty,
     );
   }
 }
@@ -564,6 +615,13 @@ class ClientSessionSummary {
   final bool isPr;
   final double totalVolume;
   final double? avgRpe;
+
+  /// Whether this session was performed in a deload week, as stamped when it
+  /// was completed. Null for a session that predates the stamp or was never
+  /// completed — "not known", never "no", and never re-derived from the
+  /// client's current plan (`docs/deload-weeks.md` §9).
+  final bool? wasDeload;
+
   final String? clientNote;
   final List<SessionExerciseLog> exercises;
 
@@ -575,6 +633,7 @@ class ClientSessionSummary {
     required this.isPr,
     required this.totalVolume,
     this.avgRpe,
+    this.wasDeload,
     this.clientNote,
     required this.exercises,
   });
@@ -593,6 +652,7 @@ class ClientSessionSummary {
       isPr: json['isPr'] as bool? ?? false,
       totalVolume: (json['totalVolume'] as num?)?.toDouble() ?? 0,
       avgRpe: (json['avgRpe'] as num?)?.toDouble(),
+      wasDeload: json['wasDeload'] as bool?,
       clientNote: json['clientNote'] as String?,
       exercises: ((json['exercises'] as List?) ?? const [])
           .map((e) => SessionExerciseLog.fromJson(e as Map<String, dynamic>))

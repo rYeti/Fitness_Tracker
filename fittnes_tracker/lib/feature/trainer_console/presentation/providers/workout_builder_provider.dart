@@ -1,3 +1,4 @@
+import 'package:ForgeForm/feature/workout_planning/domain/deload_schedule.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -543,6 +544,33 @@ class WorkoutBuilderProvider extends ChangeNotifier {
     } finally {
       _isSaving = false;
       notifyListeners();
+    }
+  }
+
+  /// Replaces the current plan's deload weeks.
+  ///
+  /// Optimistic: the strip is a tap-to-toggle control and waiting on a round
+  /// trip before the chip moves makes it feel broken. The previous schedule is
+  /// held so a refusal can put it back — the server refuses a plan this trainer
+  /// did not assign, and the client must not be left showing a deload that was
+  /// never saved.
+  Future<bool> setDeloadWeeks(String clientId, DeloadSchedule schedule) async {
+    final plan = _currentPlan;
+    if (plan == null) return false;
+
+    final previous = plan.deloadWeeks;
+    _currentPlan = plan.copyWith(deloadWeeks: schedule);
+    _planError = null;
+    notifyListeners();
+
+    try {
+      await _repository.setClientDeloadWeeks(clientId, plan.id, schedule);
+      return true;
+    } catch (_) {
+      _currentPlan = plan.copyWith(deloadWeeks: previous);
+      _planError = ConsoleError.saveDeloadWeeks;
+      notifyListeners();
+      return false;
     }
   }
 

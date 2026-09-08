@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 import 'package:ForgeForm/core/design_tokens.dart';
-import 'package:ForgeForm/core/providers/access_provider.dart';
 import 'package:ForgeForm/core/widgets/deload_chip.dart';
-import 'package:ForgeForm/feature/premium/paywall_launcher.dart';
 import 'package:ForgeForm/feature/workout_planning/domain/deload_schedule.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 
@@ -30,6 +27,9 @@ class DeloadWeekStrip extends StatelessWidget {
     required this.onChanged,
     this.currentWeek,
     this.assignedByTrainer = false,
+    this.locked = false,
+    this.onLockedTap,
+    this.trainerManagedLabel,
   });
 
   final DeloadSchedule schedule;
@@ -49,19 +49,32 @@ class DeloadWeekStrip extends StatelessWidget {
   /// it with a reason tells them where to ask.
   final bool assignedByTrainer;
 
-  /// Entitlement as read from an event handler.
+  /// Whether editing is locked, and what to do when someone taps anyway.
   ///
-  /// `read`, not `watch`: `watch` may only be called during `build`, and
-  /// provider throws if a tap handler reaches for it. [build] does its own
-  /// `watch` below so the strip still repaints when entitlement changes.
-  bool _isLocked(BuildContext context) =>
-      !context.read<AccessProvider>().hasPremiumAccess;
+  /// Passed in rather than read from a provider, because the two surfaces this
+  /// widget serves are gated on completely different questions. On the trainee's
+  /// plan screen the gate is *their own* Premium, and a tap should open the
+  /// paywall. On the Trainer Console it is the *trainer's licence*, enforced
+  /// server-side by `RequireEntitledLicenceFilter` — there is no paywall to
+  /// open and no client-side flag worth consulting, so the console passes
+  /// `locked: false` and lets the server refuse.
+  ///
+  /// Reading `AccessProvider` in here, as this widget first did, silently made
+  /// the trainee's question the only one it could ask.
+  final bool locked;
+
+  /// Invoked instead of the edit when [locked]. Null makes a locked strip inert.
+  final VoidCallback? onLockedTap;
+
+  /// Shown in place of the editing hint when [assignedByTrainer]. The trainee
+  /// says "your trainer sets these"; the console has no equivalent to say, so
+  /// it passes null and gets the ordinary hint.
+  final String? trainerManagedLabel;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
-    final locked = !context.watch<AccessProvider>().hasPremiumAccess;
     final readOnly = locked || assignedByTrainer;
 
     return Card(
@@ -90,8 +103,8 @@ class DeloadWeekStrip extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              assignedByTrainer
-                  ? l10n.deloadTrainerManaged
+              assignedByTrainer && trainerManagedLabel != null
+                  ? trainerManagedLabel!
                   : l10n.deloadStripHint,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
@@ -131,8 +144,8 @@ class DeloadWeekStrip extends StatelessWidget {
 
   void _onWeekTapped(BuildContext context, int week) {
     if (assignedByTrainer) return;
-    if (_isLocked(context)) {
-      openPaywall(context);
+    if (locked) {
+      onLockedTap?.call();
       return;
     }
     onChanged(schedule.toggle(week));
@@ -140,8 +153,8 @@ class DeloadWeekStrip extends StatelessWidget {
 
   Future<void> _openVolumeSheet(BuildContext context, int week) async {
     if (assignedByTrainer || !schedule.isDeload(week)) return;
-    if (_isLocked(context)) {
-      openPaywall(context);
+    if (locked) {
+      onLockedTap?.call();
       return;
     }
 
@@ -154,8 +167,8 @@ class DeloadWeekStrip extends StatelessWidget {
   }
 
   Future<void> _openCadenceSheet(BuildContext context) async {
-    if (_isLocked(context)) {
-      openPaywall(context);
+    if (locked) {
+      onLockedTap?.call();
       return;
     }
 
