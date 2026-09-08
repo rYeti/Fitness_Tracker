@@ -41,11 +41,16 @@ public interface IWorkoutPlanService
     /// <param name="userId">The plan's owner.</param>
     /// <param name="weeks">The replacement set. Rejected as a whole if any entry is invalid,
     /// rather than normalised, so a save never silently stores something else.</param>
-    /// <param name="actingAsTrainer">Set only when the assigning trainer is writing via the
-    /// Trainer Console, which bypasses the trainee's ownership and entitlement checks — the
-    /// trainer's own licence is the gate there. See <c>docs/deload-weeks.md</c> §6a.</param>
+    /// <param name="actingTrainerId">The trainer writing via the Trainer Console, or null
+    /// for the plan owner's own write. Deliberately an identity rather than an
+    /// <c>actingAsTrainer</c> flag: the id is <em>checked</em> against the plan's
+    /// <c>AssignedByTrainerId</c>, where a flag could only be trusted. That check is what
+    /// keeps a programme the client wrote for themselves out of their coach's hands, which
+    /// §6's ownership table requires and which a bypass cannot express. The trainer's own
+    /// entitlement is separately gated by <c>RequireEntitledLicenceFilter</c> on the
+    /// console endpoint. See <c>docs/deload-weeks.md</c> §6a.</param>
     Task<SetDeloadWeeksResult> SetDeloadWeeksAsync(
-        Guid planId, Guid userId, IEnumerable<DeloadWeek> weeks, bool actingAsTrainer = false);
+        Guid planId, Guid userId, IEnumerable<DeloadWeek> weeks, Guid? actingTrainerId = null);
 
     /// <summary>Deletes a workout plan owned by the specified user. Its days are left in
     /// place — only the plan grouping goes away.</summary>

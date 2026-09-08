@@ -1,4 +1,5 @@
 using FitTracker.Api.DTOs;
+using FitTracker.Api.Models;
 
 namespace FitTracker.Api.Services.Interfaces;
 
@@ -47,6 +48,16 @@ public interface ITrainerConsoleService
     /// of the client, or <see cref="TrainerWorkoutStatus.NotFound"/> if the plan isn't the
     /// client's.</returns>
     Task<TrainerWorkoutStatus> DeleteClientWorkoutPlanAsync(Guid trainerId, Guid clientId, Guid planId);
+
+    /// <summary>Replaces the deload weeks on a plan this trainer assigned to this client.</summary>
+    /// <remarks>
+    /// Refuses a plan the client built for themselves, even though the caller is their
+    /// trainer — <c>docs/deload-weeks.md</c> §6 gives those deloads to the client. That is a
+    /// deliberate divergence from <see cref="DeleteClientWorkoutPlanAsync"/>, which lets a
+    /// trainer delete any plan of their client's.
+    /// </remarks>
+    Task<SetDeloadWeeksResult> SetClientDeloadWeeksAsync(
+        Guid trainerId, Guid clientId, Guid planId, IEnumerable<DeloadWeek> weeks);
 
     /// <summary>The client's workouts — the days a trainer builds and edits — each with its
     /// exercises in order and the sets prescribed for them. Retired exercise entries are

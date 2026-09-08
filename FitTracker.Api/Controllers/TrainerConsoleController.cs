@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using FitTracker.Api.DTOs;
 using FitTracker.Api.Filters;
+using FitTracker.Api.Models;
 using FitTracker.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -99,6 +100,38 @@ public class TrainerConsoleController(ITrainerConsoleService service) : Controll
             SetNutrientPinsStatus.Ok => Ok(result),
             SetNutrientPinsStatus.InvalidNutrientKey => BadRequest("Unrecognised nutrient key."),
             _ => NotFound(),
+        };
+    }
+
+    /// <summary>Replaces the deload weeks on a plan this trainer assigned to this client.
+    /// Requires an entitled licence — a write, like the plan endpoints below.</summary>
+    /// <remarks>
+    /// A plan the client built themselves is refused with <c>not_permitted</c> even though
+    /// the caller is their trainer: <c>docs/deload-weeks.md</c> §6 gives a self-built
+    /// programme's deloads to its owner. The trainer's entitlement is the filter's job, so
+    /// no entitlement check is repeated here.
+    /// </remarks>
+    [ServiceFilter(typeof(RequireEntitledLicenceFilter))]
+    [HttpPut("{clientId}/workout-plans/{planId}/deload-weeks")]
+    public async Task<IActionResult> SetClientDeloadWeeks(
+        Guid clientId, Guid planId, [FromBody] List<DeloadWeek> weeks)
+    {
+        var trainerId = GetUserId();
+        if (trainerId == null) return Unauthorized();
+
+        var result = await _service.SetClientDeloadWeeksAsync(trainerId.Value, clientId, planId, weeks);
+        return result.Status switch
+        {
+            SetDeloadWeeksStatus.Ok => Ok(result),
+            SetDeloadWeeksStatus.PlanNotFound => NotFound("Plan not found"),
+            SetDeloadWeeksStatus.InvalidWeek => BadRequest(
+                "A deload week must be within the plan, at 10-90% volume."),
+            SetDeloadWeeksStatus.NotPermitted => StatusCode(StatusCodes.Status403Forbidden, new
+            {
+                error = "not_permitted",
+                message = "You can only set deload weeks on a plan you assigned.",
+            }),
+            _ => StatusCode(StatusCodes.Status403Forbidden),
         };
     }
 

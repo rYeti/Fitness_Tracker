@@ -73,26 +73,53 @@ public class WorkoutPlanService : IWorkoutPlanService
 
     /// <inheritdoc/>
     public async Task<SetDeloadWeeksResult> SetDeloadWeeksAsync(
-        Guid planId, Guid userId, IEnumerable<DeloadWeek> weeks, bool actingAsTrainer = false)
+        Guid planId, Guid userId, IEnumerable<DeloadWeek> weeks, Guid? actingTrainerId = null)
     {
         var plan = await _planRepository.GetPlanByIdAsync(planId, userId);
         if (plan == null) return new SetDeloadWeeksResult { Status = SetDeloadWeeksStatus.PlanNotFound };
+
+        // A trainer identifies themselves rather than asserting a bypass.
+        //
+        // The obvious shape here is a `bool actingAsTrainer` that skips the checks below,
+        // which is what DeleteClientWorkoutPlanAsync does one layer up. It is the wrong
+        // shape: a flag says "trust me" and nothing downstream can tell whether the caller
+        // had the right to set it, so the only thing standing between any active trainer
+        // and any of their client's plans is the caller remembering to check first. An
+        // identity can be verified here, where the plan is already loaded.
+        //
+        // Concretely, this is what stops a trainer editing the deloads on a programme the
+        // client wrote for themselves. §6's ownership table gives those to the client even
+        // when they have a coach, and delete's looser rule does not honour that.
+        if (actingTrainerId != null)
+        {
+            return plan.AssignedByTrainerId == actingTrainerId
+                ? await ApplyDeloadWeeksAsync(plan, planId, userId, weeks)
+                : new SetDeloadWeeksResult { Status = SetDeloadWeeksStatus.NotPermitted };
+        }
 
         // Ownership before entitlement, deliberately. A client on a trainer-assigned plan
         // must be told their coach manages this, not that they need to buy something —
         // buying would not give them the pen. Keyed on the plan, not on "has a trainer": a
         // client can have a trainer and still run a programme they wrote themselves, and on
         // that programme the deloads are their own.
-        if (!actingAsTrainer && plan.AssignedByTrainerId != null)
+        if (plan.AssignedByTrainerId != null)
         {
             return new SetDeloadWeeksResult { Status = SetDeloadWeeksStatus.AssignedByTrainer };
         }
 
-        if (!actingAsTrainer && !await IsEntitledAsync(userId))
+        if (!await IsEntitledAsync(userId))
         {
             return new SetDeloadWeeksResult { Status = SetDeloadWeeksStatus.NotEntitled };
         }
 
+        return await ApplyDeloadWeeksAsync(plan, planId, userId, weeks);
+    }
+
+    /// <summary>Validates and writes a deload set, once the caller's right to write it is
+    /// settled. Shared by the trainee's own path and the trainer's.</summary>
+    private async Task<SetDeloadWeeksResult> ApplyDeloadWeeksAsync(
+        WorkoutPlan plan, Guid planId, Guid userId, IEnumerable<DeloadWeek> weeks)
+    {
         // Rejects rather than normalising. Silently dropping a bad week would save a
         // schedule the caller never asked for and report it as success.
         var requested = weeks.ToList();

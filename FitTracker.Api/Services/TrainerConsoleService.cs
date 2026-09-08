@@ -873,6 +873,24 @@ public class TrainerConsoleService(
     }
 
     /// <inheritdoc/>
+    public async Task<SetDeloadWeeksResult> SetClientDeloadWeeksAsync(
+        Guid trainerId, Guid clientId, Guid planId, IEnumerable<DeloadWeek> weeks)
+    {
+        var isTrainer = await _trainerClientService.IsActiveTrainerOfAsync(trainerId, clientId);
+        if (!isTrainer)
+        {
+            return new SetDeloadWeeksResult { Status = SetDeloadWeeksStatus.NotPermitted };
+        }
+
+        // The trainer's id is passed down to be *checked* against the plan's
+        // AssignedByTrainerId, not to wave the plan service's own checks away. The
+        // relationship check above says this is their client; only the plan itself can say
+        // whether this is their plan. See docs/deload-weeks.md §6.
+        return await _workoutPlanService.SetDeloadWeeksAsync(
+            planId, clientId, weeks, actingTrainerId: trainerId);
+    }
+
+    /// <inheritdoc/>
     public async Task<TrainerWorkoutStatus> DeleteClientWorkoutPlanAsync(Guid trainerId, Guid clientId, Guid planId)
     {
         var isTrainer = await _trainerClientService.IsActiveTrainerOfAsync(trainerId, clientId);

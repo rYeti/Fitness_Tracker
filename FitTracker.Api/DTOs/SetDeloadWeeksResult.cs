@@ -29,6 +29,12 @@ public enum SetDeloadWeeksStatus
 
     /// <summary>A week outside <c>1..durationWeeks</c>, or a volume outside 10–90.</summary>
     InvalidWeek,
+
+    /// <summary>A trainer tried to write to a plan they did not assign — including one the
+    /// client built for themselves, which stays theirs however entitled the trainer is.
+    /// Distinct from <see cref="PlanNotFound"/>: the plan exists and the caller can see it,
+    /// they just do not hold the pen.</summary>
+    NotPermitted,
 }
 
 /// <summary>Outcome of a deload-weeks write, echoing the saved set on success.</summary>

@@ -271,17 +271,70 @@ public class DeloadWeekWriteTests : IDisposable
     [Fact]
     public async Task TheAssigningTrainerCanWriteThroughTheConsolePath()
     {
+        var trainer = Guid.NewGuid();
+        var user = _fx.AddUser().Id;
+        var plan = _fx.AddPlan(user, "Coached block", isActive: true);
+        plan.AssignedByTrainerId = trainer;
+        await _fx.Db.SaveChangesAsync();
+
+        // The trainer's own entitlement is the console endpoint's filter to enforce; what
+        // this layer checks is that the plan is theirs.
+        var result = await BuildService()
+            .SetDeloadWeeksAsync(plan.Id, user, OneWeek, actingTrainerId: trainer);
+
+        Assert.Equal(SetDeloadWeeksStatus.Ok, result.Status);
+    }
+
+    [Fact]
+    public async Task ADifferentTrainerCannotWriteToThisTrainersPlan()
+    {
         var user = _fx.AddUser().Id;
         var plan = _fx.AddPlan(user, "Coached block", isActive: true);
         plan.AssignedByTrainerId = Guid.NewGuid();
         await _fx.Db.SaveChangesAsync();
 
-        // actingAsTrainer bypasses the trainee's ownership and entitlement checks; the
-        // trainer's own licence is the gate on that path.
         var result = await BuildService()
-            .SetDeloadWeeksAsync(plan.Id, user, OneWeek, actingAsTrainer: true);
+            .SetDeloadWeeksAsync(plan.Id, user, OneWeek, actingTrainerId: Guid.NewGuid());
 
-        Assert.Equal(SetDeloadWeeksStatus.Ok, result.Status);
+        Assert.Equal(SetDeloadWeeksStatus.NotPermitted, result.Status);
+        Assert.Equal("[]", _fx.Db.WorkoutPlans.Single(p => p.Id == plan.Id).DeloadWeeksJson);
+    }
+
+    [Fact]
+    public async Task ATrainerCannotWriteToAPlanTheClientBuiltThemselves()
+    {
+        // The rule that makes an identity better than a bypass flag, and the one place
+        // this deliberately diverges from DeleteClientWorkoutPlanAsync — which lets a
+        // trainer delete any of their client's plans. §6's ownership table gives a
+        // self-built programme's deloads to the client, even when they have a coach.
+        var user = _fx.AddUser().Id;
+        var plan = _fx.AddPlan(user, "My own block", isActive: true);
+        // AssignedByTrainerId stays null: the client made this one.
+
+        var result = await BuildService()
+            .SetDeloadWeeksAsync(plan.Id, user, OneWeek, actingTrainerId: Guid.NewGuid());
+
+        Assert.Equal(SetDeloadWeeksStatus.NotPermitted, result.Status);
+        Assert.Equal("[]", _fx.Db.WorkoutPlans.Single(p => p.Id == plan.Id).DeloadWeeksJson);
+    }
+
+    [Fact]
+    public async Task ATrainerWriteStillRejectsAnOutOfRangeWeek()
+    {
+        // Validation is shared with the trainee path rather than skipped for trainers:
+        // holding the pen is not the same as being right.
+        var trainer = Guid.NewGuid();
+        var user = _fx.AddUser().Id;
+        var plan = _fx.AddPlan(user, "Coached block", isActive: true);
+        plan.AssignedByTrainerId = trainer;
+        plan.DurationDays = 56; // 8 weeks
+        await _fx.Db.SaveChangesAsync();
+
+        var result = await BuildService().SetDeloadWeeksAsync(
+            plan.Id, user, [new DeloadWeek { Week = 9, VolumePercent = 50 }],
+            actingTrainerId: trainer);
+
+        Assert.Equal(SetDeloadWeeksStatus.InvalidWeek, result.Status);
     }
 
     [Fact]
@@ -380,11 +433,81 @@ public class DeloadWeekWriteTests : IDisposable
         var plan = _fx.AddPlan(user, "Coached block", isActive: true);
         plan.AssignedByTrainerId = Guid.NewGuid();
         await _fx.Db.SaveChangesAsync();
-        await BuildService().SetDeloadWeeksAsync(plan.Id, user, OneWeek, actingAsTrainer: true);
+        await BuildService().SetDeloadWeeksAsync(
+            plan.Id, user, OneWeek, actingTrainerId: plan.AssignedByTrainerId);
 
         var dto = await BuildService().GetPlanByIdAsync(plan.Id, user);
 
         Assert.NotNull(dto!.DeloadWeeks);
         Assert.Equal(4, Assert.Single(dto.DeloadWeeks!).Week);
+    }
+}
+
+/// <summary>The Trainer Console's own path into the same write.</summary>
+public class TrainerDeloadWeekTests : IDisposable
+{
+    private readonly DbFixture _fx = new();
+
+    public void Dispose() => _fx.Dispose();
+
+    private static readonly DeloadWeek[] OneWeek =
+        [new DeloadWeek { Week = 5, VolumePercent = 40 }];
+
+    private TrainerConsoleService BuildConsole(Guid trainer, Guid client) =>
+        new(
+            new ActiveRelationshipStub(trainer, client),
+            null!,
+            new WorkoutPlanService(new WorkoutPlanRepository(_fx.Db)),
+            null!, null!, null!, null!, null!, null!, null!);
+
+    [Fact]
+    public async Task ATrainerSetsDeloadWeeksOnThePlanTheyAssigned()
+    {
+        var trainer = _fx.AddUser("Nina", "Brandt").Id;
+        var client = _fx.AddUser().Id;
+        var plan = _fx.AddPlan(client, "Coached block", isActive: true);
+        plan.AssignedByTrainerId = trainer;
+        await _fx.Db.SaveChangesAsync();
+
+        var result = await BuildConsole(trainer, client)
+            .SetClientDeloadWeeksAsync(trainer, client, plan.Id, OneWeek);
+
+        Assert.Equal(SetDeloadWeeksStatus.Ok, result.Status);
+        Assert.Equal(40, Assert.Single(result.DeloadWeeks).VolumePercent);
+    }
+
+    [Fact]
+    public async Task SomeoneElsesTrainerIsRefused()
+    {
+        // The relationship gate, one layer above the plan check.
+        var trainer = _fx.AddUser("Nina", "Brandt").Id;
+        var client = _fx.AddUser().Id;
+        var plan = _fx.AddPlan(client, "Coached block", isActive: true);
+        plan.AssignedByTrainerId = trainer;
+        await _fx.Db.SaveChangesAsync();
+
+        var stranger = Guid.NewGuid();
+        var result = await BuildConsole(trainer, client)
+            .SetClientDeloadWeeksAsync(stranger, client, plan.Id, OneWeek);
+
+        Assert.Equal(SetDeloadWeeksStatus.NotPermitted, result.Status);
+        Assert.Equal("[]", _fx.Db.WorkoutPlans.Single(p => p.Id == plan.Id).DeloadWeeksJson);
+    }
+
+    [Fact]
+    public async Task ATrainerIsRefusedOnAPlanTheClientBuiltThemselves()
+    {
+        // Being someone's coach is not the same as owning their programme. This is the
+        // case a bool bypass could not have expressed, and the one that diverges from
+        // DeleteClientWorkoutPlanAsync.
+        var trainer = _fx.AddUser("Nina", "Brandt").Id;
+        var client = _fx.AddUser().Id;
+        var plan = _fx.AddPlan(client, "My own block", isActive: true);
+
+        var result = await BuildConsole(trainer, client)
+            .SetClientDeloadWeeksAsync(trainer, client, plan.Id, OneWeek);
+
+        Assert.Equal(SetDeloadWeeksStatus.NotPermitted, result.Status);
+        Assert.Equal("[]", _fx.Db.WorkoutPlans.Single(p => p.Id == plan.Id).DeloadWeeksJson);
     }
 }
