@@ -431,9 +431,13 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
       await _loadPlans();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Could not save deload weeks: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            AppLocalizations.of(context)!.deloadSaveFailed(e.toString()),
+          ),
+        ),
+      );
     }
   }
 

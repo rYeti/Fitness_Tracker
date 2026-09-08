@@ -1321,6 +1321,135 @@
   "paywallFeatureLongPlans": "Erweiterte Trainingsplandauer — bis zu 1 Jahr",
   "paywallFeatureFreeChoice": "Freie Auswahl — beliebige Workouts an beliebigen Tagen einplanen",
   "paywallFeatureDeloads": "Deload-Wochen — Erholungswochen in deinen Trainingsplan einplanen",
+  "deloadLabel": "Deload",
+  "deloadLabelWithVolume": "Deload · {percent}%",
+  "@deloadLabelWithVolume": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "deloadSemanticPlain": "Deload-Woche",
+  "deloadSemanticWithVolume": "Deload-Woche, {percent} Prozent des normalen Volumens",
+  "@deloadSemanticWithVolume": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "deloadWeeksTitle": "Deload-Wochen",
+  "deloadRepeatAction": "Wiederholen…",
+  "deloadTrainerManaged": "Dein Trainer legt die Deload-Wochen für diesen Plan fest.",
+  "deloadStripHint": "Tippe auf eine Woche, um sie zur Erholungswoche zu machen. Die meisten machen alle 4–6 Wochen einen Deload; Einsteiger kommen meist länger ohne aus.",
+  "deloadVolumeHint": "Halte eine Deload-Woche gedrückt, um ihr Volumen zu ändern.",
+  "deloadNoRoom": "Ein {durationWeeks}-Wochen-Plan hat keinen Platz für einen Deload alle {everyN} Wochen.",
+  "@deloadNoRoom": {
+    "placeholders": {
+      "durationWeeks": {
+        "type": "int"
+      },
+      "everyN": {
+        "type": "int"
+      }
+    }
+  },
+  "deloadWeekSemantic": "Woche {week}",
+  "@deloadWeekSemantic": {
+    "placeholders": {
+      "week": {
+        "type": "int"
+      }
+    }
+  },
+  "deloadWeekSemanticWithVolume": "Woche {week}, Deload mit {percent} Prozent Volumen",
+  "@deloadWeekSemanticWithVolume": {
+    "placeholders": {
+      "week": {
+        "type": "int"
+      },
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "deloadVolumeSheetTitle": "Volumen für Woche {week}",
+  "@deloadVolumeSheetTitle": {
+    "placeholders": {
+      "week": {
+        "type": "int"
+      }
+    }
+  },
+  "deloadVolumeSheetHint": "Wie viel deines normalen Volumens du diese Woche machst — {percent}% heißt, du machst {percent}% deiner üblichen Sätze.",
+  "@deloadVolumeSheetHint": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "deloadVolumePreset": "{percent}% Volumen",
+  "@deloadVolumePreset": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "deloadPresetLow": "Leichte Reduktion — geringer Erholungsbedarf",
+  "deloadPresetModerate": "Standard — mittlerer Erholungsbedarf",
+  "deloadPresetHigh": "Starke Reduktion — hoher Erholungsbedarf",
+  "deloadCadenceTitle": "Deload wiederholen",
+  "deloadCadenceHint": "Markiert jede n-te Woche und behält bereits gesetzte Wochen. Die letzte Woche des Plans bleibt unberührt.",
+  "deloadCadenceEvery": "Alle {n} Wochen",
+  "@deloadCadenceEvery": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "deloadSaveFailed": "Deload-Wochen konnten nicht gespeichert werden: {error}",
+  "@deloadSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "deloadEffortLine": "Reduziertes Volumen diese Woche — halte 3–4 Wiederholungen Reserve.",
+  "deloadOptionalSet": "Diese Woche optional — Deload behält {kept} von {total} Sätzen",
+  "@deloadOptionalSet": {
+    "placeholders": {
+      "kept": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "deloadOptionalSetSemantic": "Diese Woche optional. Dein Deload behält {kept} von {total} Sätzen.",
+  "@deloadOptionalSetSemantic": {
+    "placeholders": {
+      "kept": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "deloadPercentShort": "{percent}%",
+  "@deloadPercentShort": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
   "deleteAccount": "Konto löschen",
   "deleteAccountWarning": "Dies löscht dauerhaft dein Konto und alle deine Daten, einschließlich Trainings, Mahlzeiten und Gewichtsverlauf. Trainer-Beziehungen werden ebenfalls entfernt. Dies kann nicht rückgängig gemacht werden.",
   "deleteAccountError": "Konto konnte nicht gelöscht werden. Bitte überprüfe dein Passwort und versuche es erneut.",

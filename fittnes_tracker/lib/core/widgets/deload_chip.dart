@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/feature/workout_planning/domain/deload_schedule.dart';
+import 'package:ForgeForm/l10n/app_localizations.dart';
 
 /// Marks a week, a day or a session as a deload.
 ///
@@ -53,15 +54,19 @@ class DeloadChip extends StatelessWidget {
     final background = backgroundFor(brightness);
     final foreground = foregroundFor(brightness);
 
-    final label = volumePercent == null ? 'Deload' : 'Deload · $volumePercent%';
+    final l10n = AppLocalizations.of(context)!;
+    final percent = volumePercent;
+    final label = percent == null
+        ? l10n.deloadLabel
+        : l10n.deloadLabelWithVolume(percent);
 
     return Semantics(
       // Spelled out for a screen reader: "50%" beside "Deload" is ambiguous
       // read aloud, and the direction of the number is the one thing about
       // this feature a user must not get backwards.
-      label: volumePercent == null
-          ? 'Deload week'
-          : 'Deload week, $volumePercent percent of normal volume',
+      label: percent == null
+          ? l10n.deloadSemanticPlain
+          : l10n.deloadSemanticWithVolume(percent),
       excludeSemantics: true,
       child: Container(
         padding: EdgeInsets.symmetric(

@@ -2272,6 +2272,110 @@ class AppLocalizationsDe extends AppLocalizations {
       'Deload-Wochen — Erholungswochen in deinen Trainingsplan einplanen';
 
   @override
+  String get deloadLabel => 'Deload';
+
+  @override
+  String deloadLabelWithVolume(int percent) {
+    return 'Deload · $percent%';
+  }
+
+  @override
+  String get deloadSemanticPlain => 'Deload-Woche';
+
+  @override
+  String deloadSemanticWithVolume(int percent) {
+    return 'Deload-Woche, $percent Prozent des normalen Volumens';
+  }
+
+  @override
+  String get deloadWeeksTitle => 'Deload-Wochen';
+
+  @override
+  String get deloadRepeatAction => 'Wiederholen…';
+
+  @override
+  String get deloadTrainerManaged => 'Dein Trainer legt die Deload-Wochen für diesen Plan fest.';
+
+  @override
+  String get deloadStripHint => 'Tippe auf eine Woche, um sie zur Erholungswoche zu machen. Die meisten machen alle 4–6 Wochen einen Deload; Einsteiger kommen meist länger ohne aus.';
+
+  @override
+  String get deloadVolumeHint => 'Halte eine Deload-Woche gedrückt, um ihr Volumen zu ändern.';
+
+  @override
+  String deloadNoRoom(int durationWeeks, int everyN) {
+    return 'Ein $durationWeeks-Wochen-Plan hat keinen Platz für einen Deload alle $everyN Wochen.';
+  }
+
+  @override
+  String deloadWeekSemantic(int week) {
+    return 'Woche $week';
+  }
+
+  @override
+  String deloadWeekSemanticWithVolume(int week, int percent) {
+    return 'Woche $week, Deload mit $percent Prozent Volumen';
+  }
+
+  @override
+  String deloadVolumeSheetTitle(int week) {
+    return 'Volumen für Woche $week';
+  }
+
+  @override
+  String deloadVolumeSheetHint(int percent) {
+    return 'Wie viel deines normalen Volumens du diese Woche machst — $percent% heißt, du machst $percent% deiner üblichen Sätze.';
+  }
+
+  @override
+  String deloadVolumePreset(int percent) {
+    return '$percent% Volumen';
+  }
+
+  @override
+  String get deloadPresetLow => 'Leichte Reduktion — geringer Erholungsbedarf';
+
+  @override
+  String get deloadPresetModerate => 'Standard — mittlerer Erholungsbedarf';
+
+  @override
+  String get deloadPresetHigh => 'Starke Reduktion — hoher Erholungsbedarf';
+
+  @override
+  String get deloadCadenceTitle => 'Deload wiederholen';
+
+  @override
+  String get deloadCadenceHint => 'Markiert jede n-te Woche und behält bereits gesetzte Wochen. Die letzte Woche des Plans bleibt unberührt.';
+
+  @override
+  String deloadCadenceEvery(int n) {
+    return 'Alle $n Wochen';
+  }
+
+  @override
+  String deloadSaveFailed(String error) {
+    return 'Deload-Wochen konnten nicht gespeichert werden: $error';
+  }
+
+  @override
+  String get deloadEffortLine => 'Reduziertes Volumen diese Woche — halte 3–4 Wiederholungen Reserve.';
+
+  @override
+  String deloadOptionalSet(int kept, int total) {
+    return 'Diese Woche optional — Deload behält $kept von $total Sätzen';
+  }
+
+  @override
+  String deloadOptionalSetSemantic(int kept, int total) {
+    return 'Diese Woche optional. Dein Deload behält $kept von $total Sätzen.';
+  }
+
+  @override
+  String deloadPercentShort(int percent) {
+    return '$percent%';
+  }
+
+  @override
   String get deleteAccount => 'Konto löschen';
 
   @override

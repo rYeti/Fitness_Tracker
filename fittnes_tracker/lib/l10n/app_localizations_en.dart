@@ -2258,6 +2258,110 @@ class AppLocalizationsEn extends AppLocalizations {
       'Deload weeks — plan recovery weeks into your programme';
 
   @override
+  String get deloadLabel => 'Deload';
+
+  @override
+  String deloadLabelWithVolume(int percent) {
+    return 'Deload · $percent%';
+  }
+
+  @override
+  String get deloadSemanticPlain => 'Deload week';
+
+  @override
+  String deloadSemanticWithVolume(int percent) {
+    return 'Deload week, $percent percent of normal volume';
+  }
+
+  @override
+  String get deloadWeeksTitle => 'Deload weeks';
+
+  @override
+  String get deloadRepeatAction => 'Repeat…';
+
+  @override
+  String get deloadTrainerManaged => 'Your trainer sets the deload weeks for this plan.';
+
+  @override
+  String get deloadStripHint => 'Tap a week to make it a recovery week. Most lifters deload every 4–6 weeks; newer lifters can usually go longer.';
+
+  @override
+  String get deloadVolumeHint => 'Long-press a deload week to change how much volume it keeps.';
+
+  @override
+  String deloadNoRoom(int durationWeeks, int everyN) {
+    return 'A $durationWeeks-week plan has no room for a deload every $everyN weeks.';
+  }
+
+  @override
+  String deloadWeekSemantic(int week) {
+    return 'Week $week';
+  }
+
+  @override
+  String deloadWeekSemanticWithVolume(int week, int percent) {
+    return 'Week $week, deload at $percent percent volume';
+  }
+
+  @override
+  String deloadVolumeSheetTitle(int week) {
+    return 'Week $week volume';
+  }
+
+  @override
+  String deloadVolumeSheetHint(int percent) {
+    return 'How much of your normal volume to do this week — $percent% means you do $percent% of your usual sets.';
+  }
+
+  @override
+  String deloadVolumePreset(int percent) {
+    return '$percent% volume';
+  }
+
+  @override
+  String get deloadPresetLow => 'Light cut — low recovery need';
+
+  @override
+  String get deloadPresetModerate => 'Standard — moderate recovery need';
+
+  @override
+  String get deloadPresetHigh => 'Deep cut — high recovery need';
+
+  @override
+  String get deloadCadenceTitle => 'Repeat a deload';
+
+  @override
+  String get deloadCadenceHint => 'Marks every Nth week, keeping any week you already set. The last week of the plan is left alone.';
+
+  @override
+  String deloadCadenceEvery(int n) {
+    return 'Every $n weeks';
+  }
+
+  @override
+  String deloadSaveFailed(String error) {
+    return 'Could not save deload weeks: $error';
+  }
+
+  @override
+  String get deloadEffortLine => 'Reduced volume this week — stay 3–4 reps short.';
+
+  @override
+  String deloadOptionalSet(int kept, int total) {
+    return 'Optional this week — deload keeps $kept of $total sets';
+  }
+
+  @override
+  String deloadOptionalSetSemantic(int kept, int total) {
+    return 'Optional this week. Your deload keeps $kept of $total sets.';
+  }
+
+  @override
+  String deloadPercentShort(int percent) {
+    return '$percent%';
+  }
+
+  @override
   String get deleteAccount => 'Delete Account';
 
   @override

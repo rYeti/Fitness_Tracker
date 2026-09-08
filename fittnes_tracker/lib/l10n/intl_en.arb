@@ -1328,6 +1328,135 @@
   "paywallFeatureLongPlans": "Extended workout plan durations — up to 1 year",
   "paywallFeatureFreeChoice": "Free choice workout mode — schedule any workout on any day",
   "paywallFeatureDeloads": "Deload weeks — plan recovery weeks into your programme",
+  "deloadLabel": "Deload",
+  "deloadLabelWithVolume": "Deload · {percent}%",
+  "@deloadLabelWithVolume": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "deloadSemanticPlain": "Deload week",
+  "deloadSemanticWithVolume": "Deload week, {percent} percent of normal volume",
+  "@deloadSemanticWithVolume": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "deloadWeeksTitle": "Deload weeks",
+  "deloadRepeatAction": "Repeat…",
+  "deloadTrainerManaged": "Your trainer sets the deload weeks for this plan.",
+  "deloadStripHint": "Tap a week to make it a recovery week. Most lifters deload every 4–6 weeks; newer lifters can usually go longer.",
+  "deloadVolumeHint": "Long-press a deload week to change how much volume it keeps.",
+  "deloadNoRoom": "A {durationWeeks}-week plan has no room for a deload every {everyN} weeks.",
+  "@deloadNoRoom": {
+    "placeholders": {
+      "durationWeeks": {
+        "type": "int"
+      },
+      "everyN": {
+        "type": "int"
+      }
+    }
+  },
+  "deloadWeekSemantic": "Week {week}",
+  "@deloadWeekSemantic": {
+    "placeholders": {
+      "week": {
+        "type": "int"
+      }
+    }
+  },
+  "deloadWeekSemanticWithVolume": "Week {week}, deload at {percent} percent volume",
+  "@deloadWeekSemanticWithVolume": {
+    "placeholders": {
+      "week": {
+        "type": "int"
+      },
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "deloadVolumeSheetTitle": "Week {week} volume",
+  "@deloadVolumeSheetTitle": {
+    "placeholders": {
+      "week": {
+        "type": "int"
+      }
+    }
+  },
+  "deloadVolumeSheetHint": "How much of your normal volume to do this week — {percent}% means you do {percent}% of your usual sets.",
+  "@deloadVolumeSheetHint": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "deloadVolumePreset": "{percent}% volume",
+  "@deloadVolumePreset": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "deloadPresetLow": "Light cut — low recovery need",
+  "deloadPresetModerate": "Standard — moderate recovery need",
+  "deloadPresetHigh": "Deep cut — high recovery need",
+  "deloadCadenceTitle": "Repeat a deload",
+  "deloadCadenceHint": "Marks every Nth week, keeping any week you already set. The last week of the plan is left alone.",
+  "deloadCadenceEvery": "Every {n} weeks",
+  "@deloadCadenceEvery": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "deloadSaveFailed": "Could not save deload weeks: {error}",
+  "@deloadSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "deloadEffortLine": "Reduced volume this week — stay 3–4 reps short.",
+  "deloadOptionalSet": "Optional this week — deload keeps {kept} of {total} sets",
+  "@deloadOptionalSet": {
+    "placeholders": {
+      "kept": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "deloadOptionalSetSemantic": "Optional this week. Your deload keeps {kept} of {total} sets.",
+  "@deloadOptionalSetSemantic": {
+    "placeholders": {
+      "kept": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "deloadPercentShort": "{percent}%",
+  "@deloadPercentShort": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
   "deleteAccount": "Delete Account",
   "deleteAccountWarning": "This will permanently delete your account and all your data including workouts, meals, and weight history. Any trainer relationships will also be removed. This cannot be undone.",
   "deleteAccountError": "Failed to delete account. Please check your password and try again.",

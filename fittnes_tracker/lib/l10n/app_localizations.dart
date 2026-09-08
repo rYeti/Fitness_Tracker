@@ -4147,6 +4147,162 @@ abstract class AppLocalizations {
   /// **'Deload weeks — plan recovery weeks into your programme'**
   String get paywallFeatureDeloads;
 
+  /// No description provided for @deloadLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Deload'**
+  String get deloadLabel;
+
+  /// No description provided for @deloadLabelWithVolume.
+  ///
+  /// In en, this message translates to:
+  /// **'Deload · {percent}%'**
+  String deloadLabelWithVolume(int percent);
+
+  /// No description provided for @deloadSemanticPlain.
+  ///
+  /// In en, this message translates to:
+  /// **'Deload week'**
+  String get deloadSemanticPlain;
+
+  /// No description provided for @deloadSemanticWithVolume.
+  ///
+  /// In en, this message translates to:
+  /// **'Deload week, {percent} percent of normal volume'**
+  String deloadSemanticWithVolume(int percent);
+
+  /// No description provided for @deloadWeeksTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Deload weeks'**
+  String get deloadWeeksTitle;
+
+  /// No description provided for @deloadRepeatAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Repeat…'**
+  String get deloadRepeatAction;
+
+  /// No description provided for @deloadTrainerManaged.
+  ///
+  /// In en, this message translates to:
+  /// **'Your trainer sets the deload weeks for this plan.'**
+  String get deloadTrainerManaged;
+
+  /// No description provided for @deloadStripHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap a week to make it a recovery week. Most lifters deload every 4–6 weeks; newer lifters can usually go longer.'**
+  String get deloadStripHint;
+
+  /// No description provided for @deloadVolumeHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Long-press a deload week to change how much volume it keeps.'**
+  String get deloadVolumeHint;
+
+  /// No description provided for @deloadNoRoom.
+  ///
+  /// In en, this message translates to:
+  /// **'A {durationWeeks}-week plan has no room for a deload every {everyN} weeks.'**
+  String deloadNoRoom(int durationWeeks, int everyN);
+
+  /// No description provided for @deloadWeekSemantic.
+  ///
+  /// In en, this message translates to:
+  /// **'Week {week}'**
+  String deloadWeekSemantic(int week);
+
+  /// No description provided for @deloadWeekSemanticWithVolume.
+  ///
+  /// In en, this message translates to:
+  /// **'Week {week}, deload at {percent} percent volume'**
+  String deloadWeekSemanticWithVolume(int week, int percent);
+
+  /// No description provided for @deloadVolumeSheetTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Week {week} volume'**
+  String deloadVolumeSheetTitle(int week);
+
+  /// No description provided for @deloadVolumeSheetHint.
+  ///
+  /// In en, this message translates to:
+  /// **'How much of your normal volume to do this week — {percent}% means you do {percent}% of your usual sets.'**
+  String deloadVolumeSheetHint(int percent);
+
+  /// No description provided for @deloadVolumePreset.
+  ///
+  /// In en, this message translates to:
+  /// **'{percent}% volume'**
+  String deloadVolumePreset(int percent);
+
+  /// No description provided for @deloadPresetLow.
+  ///
+  /// In en, this message translates to:
+  /// **'Light cut — low recovery need'**
+  String get deloadPresetLow;
+
+  /// No description provided for @deloadPresetModerate.
+  ///
+  /// In en, this message translates to:
+  /// **'Standard — moderate recovery need'**
+  String get deloadPresetModerate;
+
+  /// No description provided for @deloadPresetHigh.
+  ///
+  /// In en, this message translates to:
+  /// **'Deep cut — high recovery need'**
+  String get deloadPresetHigh;
+
+  /// No description provided for @deloadCadenceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Repeat a deload'**
+  String get deloadCadenceTitle;
+
+  /// No description provided for @deloadCadenceHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Marks every Nth week, keeping any week you already set. The last week of the plan is left alone.'**
+  String get deloadCadenceHint;
+
+  /// No description provided for @deloadCadenceEvery.
+  ///
+  /// In en, this message translates to:
+  /// **'Every {n} weeks'**
+  String deloadCadenceEvery(int n);
+
+  /// No description provided for @deloadSaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not save deload weeks: {error}'**
+  String deloadSaveFailed(String error);
+
+  /// No description provided for @deloadEffortLine.
+  ///
+  /// In en, this message translates to:
+  /// **'Reduced volume this week — stay 3–4 reps short.'**
+  String get deloadEffortLine;
+
+  /// No description provided for @deloadOptionalSet.
+  ///
+  /// In en, this message translates to:
+  /// **'Optional this week — deload keeps {kept} of {total} sets'**
+  String deloadOptionalSet(int kept, int total);
+
+  /// No description provided for @deloadOptionalSetSemantic.
+  ///
+  /// In en, this message translates to:
+  /// **'Optional this week. Your deload keeps {kept} of {total} sets.'**
+  String deloadOptionalSetSemantic(int kept, int total);
+
+  /// No description provided for @deloadPercentShort.
+  ///
+  /// In en, this message translates to:
+  /// **'{percent}%'**
+  String deloadPercentShort(int percent);
+
   /// No description provided for @deleteAccount.
   ///
   /// In en, this message translates to:

@@ -1132,7 +1132,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                           // Both halves of the prescription: the volume the
                           // chip carries, and the effort this line does.
                           // Never a claim that deloading improves results.
-                          'Reduced volume this week — stay 3–4 reps short.',
+                          l10n.deloadEffortLine,
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
@@ -1558,10 +1558,10 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
             const SizedBox(height: 12),
             Center(
               child: Semantics(
-                label:
-                    'Optional this week. Your deload keeps '
-                    '${_keptSets(exerciseData)} of '
-                    '${exerciseData.templates.length} sets.',
+                label: l10n.deloadOptionalSetSemantic(
+                  _keptSets(exerciseData),
+                  exerciseData.templates.length,
+                ),
                 excludeSemantics: true,
                 child: Container(
                   padding: const EdgeInsets.symmetric(
@@ -1573,9 +1573,10 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
-                    'Optional this week — deload keeps '
-                    '${_keptSets(exerciseData)} of '
-                    '${exerciseData.templates.length} sets',
+                    l10n.deloadOptionalSet(
+                      _keptSets(exerciseData),
+                      exerciseData.templates.length,
+                    ),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: DeloadChip.foregroundFor(theme.brightness),
                       fontWeight: FontWeight.w600,

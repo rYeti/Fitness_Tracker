@@ -6,6 +6,7 @@ import 'package:ForgeForm/core/providers/access_provider.dart';
 import 'package:ForgeForm/core/widgets/deload_chip.dart';
 import 'package:ForgeForm/feature/premium/paywall_launcher.dart';
 import 'package:ForgeForm/feature/workout_planning/domain/deload_schedule.dart';
+import 'package:ForgeForm/l10n/app_localizations.dart';
 
 /// The plan's weeks, with the deload ones marked.
 ///
@@ -59,6 +60,7 @@ class DeloadWeekStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
     final locked = !context.watch<AccessProvider>().hasPremiumAccess;
     final readOnly = locked || assignedByTrainer;
 
@@ -72,7 +74,7 @@ class DeloadWeekStrip extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    'Deload weeks',
+                    l10n.deloadWeeksTitle,
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -82,17 +84,15 @@ class DeloadWeekStrip extends StatelessWidget {
                   TextButton.icon(
                     onPressed: () => _openCadenceSheet(context),
                     icon: const Icon(Icons.repeat_rounded, size: 18),
-                    label: const Text('Repeat…'),
+                    label: Text(l10n.deloadRepeatAction),
                   ),
               ],
             ),
             const SizedBox(height: 4),
             Text(
               assignedByTrainer
-                  ? 'Your trainer sets the deload weeks for this plan.'
-                  : 'Tap a week to make it a recovery week. Most lifters '
-                        'deload every 4–6 weeks; newer lifters can usually go '
-                        'longer.',
+                  ? l10n.deloadTrainerManaged
+                  : l10n.deloadStripHint,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -117,7 +117,7 @@ class DeloadWeekStrip extends StatelessWidget {
             if (schedule.isNotEmpty && !readOnly) ...[
               const SizedBox(height: 12),
               Text(
-                'Long-press a deload week to change how much volume it keeps.',
+                l10n.deloadVolumeHint,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -173,8 +173,7 @@ class DeloadWeekStrip extends StatelessWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'A $durationWeeks-week plan has no room for a deload every '
-              '$everyN weeks.',
+              AppLocalizations.of(context)!.deloadNoRoom(durationWeeks, everyN),
             ),
           ),
         );
@@ -207,6 +206,7 @@ class _WeekChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
     final isDeload = deload != null;
     final accent = DeloadChip.foregroundFor(theme.brightness);
 
@@ -214,8 +214,8 @@ class _WeekChip extends StatelessWidget {
       button: !readOnly,
       selected: isDeload,
       label: isDeload
-          ? 'Week $week, deload at ${deload!.volumePercent} percent volume'
-          : 'Week $week',
+          ? l10n.deloadWeekSemanticWithVolume(week, deload!.volumePercent)
+          : l10n.deloadWeekSemantic(week),
       excludeSemantics: true,
       child: InkWell(
         onTap: onTap,
@@ -262,7 +262,7 @@ class _WeekChip extends StatelessWidget {
               // state never depends on colour alone.
               if (isDeload)
                 Text(
-                  '${deload!.volumePercent}%',
+                  l10n.deloadPercentShort(deload!.volumePercent),
                   style: theme.textTheme.labelSmall?.copyWith(color: accent),
                 ),
             ],
@@ -288,15 +288,20 @@ class _VolumeSheet extends StatefulWidget {
 class _VolumeSheetState extends State<_VolumeSheet> {
   late int _value = widget.current.volumePercent;
 
-  static const _presets = <int, String>{
-    65: 'Light cut — low recovery need',
-    50: 'Standard — moderate recovery need',
-    30: 'Deep cut — high recovery need',
+  /// The literature's three recovery-need bands, at the midpoint of each.
+  /// See `docs/deload-weeks.md` §3a.
+  static const _presets = <int>[65, 50, 30];
+
+  String _presetLabel(AppLocalizations l10n, int percent) => switch (percent) {
+    65 => l10n.deloadPresetLow,
+    50 => l10n.deloadPresetModerate,
+    _ => l10n.deloadPresetHigh,
   };
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -305,7 +310,7 @@ class _VolumeSheetState extends State<_VolumeSheet> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Week ${widget.week} volume',
+              l10n.deloadVolumeSheetTitle(widget.week),
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -314,20 +319,19 @@ class _VolumeSheetState extends State<_VolumeSheet> {
             Text(
               // The one ambiguity that would invert the feature, said plainly
               // wherever a user sets the number.
-              'How much of your normal volume to do this week — $_value% means '
-              'you do $_value% of your usual sets.',
+              l10n.deloadVolumeSheetHint(_value),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
             const SizedBox(height: 16),
-            for (final entry in _presets.entries)
+            for (final preset in _presets)
               RadioListTile<int>(
-                value: entry.key,
+                value: preset,
                 groupValue: _value,
                 onChanged: (v) => setState(() => _value = v!),
-                title: Text('${entry.key}% volume'),
-                subtitle: Text(entry.value),
+                title: Text(l10n.deloadVolumePreset(preset)),
+                subtitle: Text(_presetLabel(l10n, preset)),
                 contentPadding: EdgeInsets.zero,
               ),
             const SizedBox(height: 8),
@@ -338,7 +342,7 @@ class _VolumeSheetState extends State<_VolumeSheet> {
               divisions:
                   (DeloadWeek.maxVolumePercent - DeloadWeek.minVolumePercent) ~/
                   5,
-              label: '$_value%',
+              label: l10n.deloadPercentShort(_value),
               onChanged: (v) => setState(() => _value = v.round()),
             ),
             const SizedBox(height: 8),
@@ -346,7 +350,7 @@ class _VolumeSheetState extends State<_VolumeSheet> {
               alignment: Alignment.centerRight,
               child: FilledButton(
                 onPressed: () => Navigator.of(context).pop(_value),
-                child: const Text('Save'),
+                child: Text(l10n.save),
               ),
             ),
           ],
@@ -364,6 +368,7 @@ class _CadenceSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -372,15 +377,14 @@ class _CadenceSheet extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Repeat a deload',
+              l10n.deloadCadenceTitle,
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 4),
             Text(
-              'Marks every Nth week, keeping any week you already set. The '
-              'last week of the plan is left alone.',
+              l10n.deloadCadenceHint,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -390,7 +394,7 @@ class _CadenceSheet extends StatelessWidget {
             for (final n in const [4, 5, 6])
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                title: Text('Every $n weeks'),
+                title: Text(l10n.deloadCadenceEvery(n)),
                 onTap: () => Navigator.of(context).pop(n),
               ),
           ],
