@@ -2,12 +2,14 @@ import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/core/forge_motion.dart';
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/di/service_locator.dart';
+import 'package:ForgeForm/core/widgets/deload_chip.dart';
 import 'package:ForgeForm/feature/gym_tracking/presentation/providers/workout_provider.dart';
 import 'package:ForgeForm/feature/gym_tracking/presentation/view/workouts/create_view.dart';
 import 'package:ForgeForm/feature/gym_tracking/presentation/view/workouts/workouts_list_view.dart';
 import 'package:ForgeForm/feature/gym_tracking/presentation/view/exercises/exercise_management_screen.dart';
 import 'package:ForgeForm/feature/workout_planning/data/models/workout.dart';
 import 'package:ForgeForm/feature/workout_planning/data/models/workout_plan.dart';
+import 'package:ForgeForm/feature/workout_planning/domain/deload_schedule.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:flutter/material.dart';
@@ -35,6 +37,13 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
   _calendarData = {};
   bool _isCalendarExpanded = false;
 
+  /// The active plan, for resolving whether a given day is in a deload week.
+  ///
+  /// Held in state and loaded once rather than fetched per card:
+  /// `ScheduledWorkoutWithDetails` carries the session and its workout but no
+  /// plan row, and a day list can hold many cards.
+  WorkoutPlan? _activePlan;
+
   @override
   void initState() {
     super.initState();
@@ -43,10 +52,29 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
       if (!mounted) return;
       final provider = context.read<ScheduleWorkoutProvider>();
       provider.loadForDate(selectedDate);
+      await _loadActivePlan();
       await _loadCalendarData();
       await _checkForInProgressWorkout();
     });
   }
+
+  Future<void> _loadActivePlan() async {
+    final db = context.read<AppDatabase>();
+    final active = await db.workoutPlanDao.getActivePlans();
+    if (active.isEmpty) {
+      if (mounted) setState(() => _activePlan = null);
+      return;
+    }
+    final plan = await db.workoutPlanDao.getCompletePlanById(active.first.id);
+    if (mounted) setState(() => _activePlan = plan);
+  }
+
+  /// The deload declared for [date], or null when the day is a normal one.
+  ///
+  /// Only the *active* plan is consulted: a date that falls inside an old
+  /// plan's range is not being trained under that plan any more, and reading
+  /// its deloads would be reading history as fact.
+  DeloadWeek? _deloadFor(DateTime date) => _activePlan?.deloadFor(date);
 
   Future<void> _loadCalendarData() async {
     final db = context.read<AppDatabase>();
@@ -496,6 +524,18 @@ class _ScheduledWorkoutsViewState extends State<ScheduledWorkoutsView> {
                               )
                             else if (!isRestDay && workout != null) ...[
                               const SizedBox(height: 4),
+                              // A rest day carries no chip: a deload reduces
+                              // the work on training days and never removes a
+                              // session, so labelling a scheduled rest as a
+                              // deload would say something untrue about it.
+                              if (_deloadFor(item.scheduled.scheduledDate)
+                                  case final deload?) ...[
+                                DeloadChip(
+                                  volumePercent: deload.volumePercent,
+                                  compact: true,
+                                ),
+                                const SizedBox(height: 4),
+                              ],
                               Text(
                                 l10n.minutesShort(
                                   workout.estimatedDurationMinutes!,

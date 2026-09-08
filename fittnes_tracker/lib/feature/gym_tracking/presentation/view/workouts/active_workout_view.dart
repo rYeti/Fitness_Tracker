@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/utils/app_logger.dart';
+import 'package:ForgeForm/core/widgets/deload_chip.dart';
+import 'package:ForgeForm/feature/workout_planning/domain/deload_schedule.dart';
 import 'package:ForgeForm/feature/workout_planning/data/models/workout_set.dart'
     show SetType, SetSide;
 import 'package:ForgeForm/l10n/app_localizations.dart';
@@ -40,6 +42,12 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     with WidgetsBindingObserver {
   int _currentExerciseIndex = 0;
   int _currentSetIndex = 0;
+
+  /// The deload this session falls in, or null for a normal week. Resolved
+  /// once from the active plan when the screen loads — the answer cannot
+  /// change while a single session is open.
+  DeloadWeek? _deload;
+
   bool _isLoading = true;
   bool _isSaving = false;
   bool _restTimerEnabled = true;
@@ -72,9 +80,41 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _loadWorkoutData();
+    _loadDeload();
     _loadRestTimerPreference();
     if (!widget.isReadOnly) {
       _saveInProgressWorkout();
+    }
+  }
+
+  /// How many of this exercise's sets the current deload prescribes.
+  int _keptSets(_ExerciseWithSets exerciseData) => keptSetCount(
+    exerciseData.templates.length,
+    _deload?.volumePercent ?? 100,
+  );
+
+  /// Whether the set on screen is past what this week's deload keeps.
+  bool _isOptionalThisWeek(_ExerciseWithSets exerciseData) =>
+      _deload != null && _currentSetIndex >= _keptSets(exerciseData);
+
+  /// Resolves the deload for the session's own date from the active plan.
+  ///
+  /// Uses `scheduledDate`, not "today": a session opened late, or reviewed
+  /// afterwards, belongs to the week it was scheduled in. Reading the clock
+  /// here would relabel a session as soon as the week rolled over.
+  Future<void> _loadDeload() async {
+    try {
+      final db = context.read<AppDatabase>();
+      final active = await db.workoutPlanDao.getActivePlans();
+      if (active.isEmpty) return;
+      final plan = await db.workoutPlanDao.getCompletePlanById(active.first.id);
+      if (!mounted || plan == null) return;
+      setState(
+        () => _deload = plan.deloadFor(widget.scheduledWorkout.scheduled.scheduledDate),
+      );
+    } catch (e) {
+      // A deload marker is decoration on a session that has to work anyway.
+      AppLogger.i('Could not resolve deload for this session: $e');
     }
   }
 
@@ -1080,6 +1120,28 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                 valueColor: AlwaysStoppedAnimation(theme.colorScheme.primary),
               ),
 
+              if (_deload case final deload?)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: Row(
+                    children: [
+                      DeloadChip(volumePercent: deload.volumePercent),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          // Both halves of the prescription: the volume the
+                          // chip carries, and the effort this line does.
+                          // Never a claim that deloading improves results.
+                          'Reduced volume this week — stay 3–4 reps short.',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
               Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Row(
@@ -1487,6 +1549,42 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
               ),
             ),
           ),
+
+          // Volume is the lever a deload actually pulls, so this is the
+          // feature's real effect on a session. It is a *marker*, not a
+          // barrier: the set below stays fully loggable, because this is
+          // guidance and a trainee who does the set has simply done the set.
+          if (_isOptionalThisWeek(exerciseData)) ...[
+            const SizedBox(height: 12),
+            Center(
+              child: Semantics(
+                label:
+                    'Optional this week. Your deload keeps '
+                    '${_keptSets(exerciseData)} of '
+                    '${exerciseData.templates.length} sets.',
+                excludeSemantics: true,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: DeloadChip.backgroundFor(theme.brightness),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    'Optional this week — deload keeps '
+                    '${_keptSets(exerciseData)} of '
+                    '${exerciseData.templates.length} sets',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: DeloadChip.foregroundFor(theme.brightness),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 24),
 
           if (previousSet != null)
