@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import '../../../feature/workout_planning/data/models/workout.dart';
 import '../../../feature/workout_planning/data/models/workout_plan.dart';
+import '../../../feature/workout_planning/domain/deload_schedule.dart';
 import '../../app_database.dart';
 
 part 'workout_plan_dao.g.dart';
@@ -57,7 +58,24 @@ class WorkoutPlanDao extends DatabaseAccessor<AppDatabase>
       workouts: workouts,
       isActive: planData.isActive,
       isFreeChoice: planData.isFreeChoice,
+      durationDays: planData.durationDays,
+      deloadWeeks: DeloadSchedule.decode(planData.deloadWeeksJson),
+      assignedByTrainer: planData.assignedByTrainer,
     );
+  }
+
+  /// Replaces a plan's deload weeks and marks it for the next push.
+  ///
+  /// A targeted update, deliberately not routed through [saveWorkoutPlan]:
+  /// that method writes five columns with `InsertMode.insertOrReplace`, which
+  /// is a delete-and-reinsert, so every column it does not name — including
+  /// this one, `cyclePatternJson`, `durationDays` and `serverId` — would go
+  /// back to its default. See `docs/deload-weeks.md` §5d.
+  Future<void> setDeloadWeeks(int planId, DeloadSchedule schedule) async {
+    await (update(workoutPlanTable)..where((t) => t.id.equals(planId))).write(
+      WorkoutPlanTableCompanion(deloadWeeksJson: Value(schedule.encode())),
+    );
+    await markPlanPendingUpdate(planId);
   }
 
   // Save a workout plan with its workouts

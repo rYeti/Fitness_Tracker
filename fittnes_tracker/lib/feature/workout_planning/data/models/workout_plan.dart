@@ -1,3 +1,4 @@
+import '../../domain/deload_schedule.dart';
 import 'workout.dart';
 
 /// Represents a workout schedule/plan that can span multiple days/weeks
@@ -11,6 +12,17 @@ class WorkoutPlan {
   final bool isActive; // Whether this plan is currently active
   final bool isFreeChoice; // Whether the user picks workouts manually each day
 
+  /// Length of the plan in days, or null for a free-choice plan (which has no
+  /// fixed end) and for legacy plans created before the column existed.
+  final int? durationDays;
+
+  /// The plan's deload weeks. See `docs/deload-weeks.md`.
+  final DeloadSchedule deloadWeeks;
+
+  /// Whether a trainer assigned this plan. Decides both who may edit
+  /// [deloadWeeks] and whether a non-entitled client still sees them.
+  final bool assignedByTrainer;
+
   WorkoutPlan({
     this.id,
     required this.name,
@@ -20,7 +32,22 @@ class WorkoutPlan {
     this.workouts = const [],
     this.isActive = true,
     this.isFreeChoice = false,
+    this.durationDays,
+    this.deloadWeeks = DeloadSchedule.empty,
+    this.assignedByTrainer = false,
   });
+
+  /// The plan's length in whole weeks, or null when it has no fixed length.
+  int? get durationWeeks =>
+      durationDays == null ? null : PlanWeek.weeksIn(durationDays!);
+
+  /// The 1-based programme week [date] falls in, or null outside the plan.
+  int? weekNumberFor(DateTime date) =>
+      PlanWeek.weekNumberFor(startDate, date, durationDays: durationDays);
+
+  /// The deload declared for the week containing [date], if any.
+  DeloadWeek? deloadFor(DateTime date) =>
+      deloadWeeks.forWeek(weekNumberFor(date));
 
   // Helper to check if a date is within the plan period
   bool isDateInPlan(DateTime date) {
@@ -102,6 +129,9 @@ class WorkoutPlan {
     List<Workout>? workouts,
     bool? isActive,
     bool? isFreeChoice,
+    int? durationDays,
+    DeloadSchedule? deloadWeeks,
+    bool? assignedByTrainer,
   }) {
     return WorkoutPlan(
       id: id ?? this.id,
@@ -112,6 +142,9 @@ class WorkoutPlan {
       workouts: workouts ?? this.workouts,
       isActive: isActive ?? this.isActive,
       isFreeChoice: isFreeChoice ?? this.isFreeChoice,
+      durationDays: durationDays ?? this.durationDays,
+      deloadWeeks: deloadWeeks ?? this.deloadWeeks,
+      assignedByTrainer: assignedByTrainer ?? this.assignedByTrainer,
     );
   }
 }

@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/design_tokens.dart';
+import 'package:ForgeForm/core/widgets/deload_chip.dart';
 import 'package:ForgeForm/core/providers/theme_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/status_badge.dart';
 
@@ -89,6 +90,26 @@ void main() {
         ForgeColors.statusInfo,
       ]) {
         expectContrast(tone, ForgeColors.cardDark, atLeast: 3.0);
+      }
+    });
+
+    test('the deload chip reads on its own tint in both themes', () {
+      // The chip paints statusInfoFor(brightness) on a statusInfo tint over
+      // the surface, not on the raw surface — so neither test above covers the
+      // pair a user actually sees. This is the same gap that let StatusBadge's
+      // `bad` tone ship at 4.34:1: the tokens were fine, the composite was not.
+      //
+      // 11px bold label is body text, so the bar is 4.5:1, not 3:1.
+      for (final (brightness, surface) in [
+        (Brightness.light, ForgeColors.surfaceLight),
+        (Brightness.dark, ForgeColors.cardDark),
+      ]) {
+        expectContrast(
+          DeloadChip.foregroundFor(brightness),
+          Color.alphaBlend(DeloadChip.backgroundFor(brightness), surface),
+          atLeast: 4.5,
+          because: 'DeloadChip label on its own background, $brightness',
+        );
       }
     });
 

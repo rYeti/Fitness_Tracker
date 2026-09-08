@@ -4,11 +4,13 @@ import 'package:ForgeForm/core/di/service_locator.dart';
 import 'package:ForgeForm/core/utils/app_logger.dart';
 import 'package:ForgeForm/feature/gym_tracking/presentation/view/workouts/edit_single_view.dart';
 import 'package:ForgeForm/feature/gym_tracking/presentation/view/workouts/workouts_list_view.dart';
+import 'package:ForgeForm/feature/gym_tracking/presentation/widgets/deload_week_strip.dart';
 import 'package:ForgeForm/feature/gym_tracking/presentation/widgets/exercise_selection_modal.dart';
 import 'package:ForgeForm/feature/workout_planning/data/models/workout.dart';
 import 'package:ForgeForm/feature/workout_planning/data/models/workout_exercise.dart';
 import 'package:ForgeForm/feature/workout_planning/data/models/workout_plan.dart';
 import 'package:ForgeForm/feature/workout_planning/data/models/workout_set.dart';
+import 'package:ForgeForm/feature/workout_planning/domain/deload_schedule.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:flutter/material.dart';
@@ -362,15 +364,22 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
       ),
     );
 
+    final deloadSection = _buildDeloadSection(plan);
+
     if (plan.workouts.isEmpty) {
       return Column(
-        children: [modeHeader, Expanded(child: _buildEmptyPlanView(plan))],
+        children: [
+          modeHeader,
+          if (deloadSection != null) deloadSection,
+          Expanded(child: _buildEmptyPlanView(plan)),
+        ],
       );
     }
 
     return Column(
       children: [
         modeHeader,
+        if (deloadSection != null) deloadSection,
         Expanded(
           child: ListView.builder(
             padding: const EdgeInsets.all(16),
@@ -383,6 +392,49 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
         ),
       ],
     );
+  }
+
+  /// The deload week strip, or null when this plan has no weeks to mark.
+  ///
+  /// A free-choice plan has no `durationDays`, so there is no bounded strip to
+  /// draw — it gets nothing here rather than an unbounded one. (The "this week
+  /// / next week" control the design calls for on free-choice plans is not
+  /// built yet; showing an empty strip would be worse than showing none.)
+  Widget? _buildDeloadSection(WorkoutPlan plan) {
+    final durationWeeks = plan.durationWeeks;
+    if (plan.isFreeChoice || durationWeeks == null || durationWeeks < 1) {
+      return null;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: DeloadWeekStrip(
+        schedule: plan.deloadWeeks,
+        durationWeeks: durationWeeks,
+        currentWeek: plan.weekNumberFor(DateTime.now()),
+        assignedByTrainer: plan.assignedByTrainer,
+        onChanged: (next) => _saveDeloadWeeks(plan, next),
+      ),
+    );
+  }
+
+  /// Persists a deload change and refreshes the screen.
+  ///
+  /// Goes through the DAO's targeted update rather than `saveWorkoutPlan`,
+  /// which would delete-and-reinsert the row and drop every column it doesn't
+  /// name — see `docs/deload-weeks.md` §5d.
+  Future<void> _saveDeloadWeeks(WorkoutPlan plan, DeloadSchedule next) async {
+    final planId = plan.id;
+    if (planId == null) return;
+    try {
+      await sl<AppDatabase>().workoutPlanDao.setDeloadWeeks(planId, next);
+      await _loadPlans();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not save deload weeks: $e')));
+    }
   }
 
   Future<void> _toggleFreeChoice(bool value) async {
