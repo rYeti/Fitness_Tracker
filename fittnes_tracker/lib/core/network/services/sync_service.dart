@@ -2890,6 +2890,9 @@ class SyncService {
             ScheduledWorkoutTableCompanion(
               isCompleted: Value(sw['isCompleted'] as bool),
               isSkipped: Value(sw['isSkipped'] as bool),
+              // Server-stamped; the device never computes it. Absent on an
+              // older payload, which is null — "not settled", not "no".
+              wasDeload: Value(sw['wasDeload'] as bool?),
               notes: Value(sw['notes'] as String?),
             ),
           );
@@ -2928,11 +2931,17 @@ class SyncService {
                     syncStatus: const Value(1),
                     isCompleted: Value(sw['isCompleted'] as bool),
                     isSkipped: Value(sw['isSkipped'] as bool),
+                    // Server-stamped; the device never computes it. Absent on an
+                    // older payload, which is null — "not settled", not "no".
+                    wasDeload: Value(sw['wasDeload'] as bool?),
                     notes: Value(sw['notes'] as String?),
                   )
                   : ScheduledWorkoutTableCompanion(
                     isCompleted: Value(sw['isCompleted'] as bool),
                     isSkipped: Value(sw['isSkipped'] as bool),
+                    // Server-stamped; the device never computes it. Absent on an
+                    // older payload, which is null — "not settled", not "no".
+                    wasDeload: Value(sw['wasDeload'] as bool?),
                     notes: Value(sw['notes'] as String?),
                   );
           await (_db.update(_db.scheduledWorkoutTable)
@@ -2960,6 +2969,9 @@ class SyncService {
               notes: Value(sw['notes'] as String?),
               isCompleted: Value(sw['isCompleted'] as bool),
               isSkipped: Value(sw['isSkipped'] as bool),
+              // Server-stamped; the device never computes it. Absent on an
+              // older payload, which is null — "not settled", not "no".
+              wasDeload: Value(sw['wasDeload'] as bool?),
               workoutPlanId: Value(localPlanId),
               templateWorkoutId: Value(localTemplateId),
               serverId: Value(swServerId),

@@ -30,6 +30,20 @@ public class ScheduledWorkout
     /// <summary>Whether the user has skipped this scheduled workout.</summary>
     public bool IsSkipped { get; set; }
 
+    /// <summary>Whether this session was performed in a deload week — stamped once, when
+    /// it is first completed. Null for a session nobody has done yet.</summary>
+    /// <remarks>
+    /// <para>A stamp rather than something derived on read, because the plan records what
+    /// is true <em>now</em> and cannot answer what was true when a session was performed.
+    /// Re-deriving would rewrite history every time a trainer edited the deload set,
+    /// finished the plan, or let a subscription lapse — see <c>docs/deload-weeks.md</c> §9
+    /// and the rule <c>docs/trainer-session-review.md</c> leaves behind.</para>
+    /// <para>Null is not "no": it means the question has not been settled yet, and readers
+    /// fall back to deriving from the current plan, which is correct for a session that
+    /// has not happened.</para>
+    /// </remarks>
+    public bool? WasDeload { get; set; }
+
     /// <summary>Navigation property to the base workout.</summary>
     public Workout Workout { get; set; } = null!;
 

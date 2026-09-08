@@ -170,6 +170,7 @@ public class ScheduledWorkoutService : IScheduledWorkoutService
         Notes = sw.Notes,
         IsCompleted = sw.IsCompleted,
         IsSkipped = sw.IsSkipped,
+        WasDeload = sw.WasDeload,
         Exercises = [.. sw.Exercises.Select(ToExerciseDto)],
     };
 

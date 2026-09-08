@@ -275,11 +275,45 @@ public class ScheduledWorkoutRepository : IScheduledWorkoutRepository
         sw.WorkoutPlanId = dto.WorkoutPlanId;
         sw.ScheduledDate = dto.ScheduledDate;
         sw.Notes = dto.Notes;
+        var wasCompleted = sw.IsCompleted;
         sw.IsCompleted = dto.IsCompleted;
         sw.IsSkipped = dto.IsSkipped;
 
+        if (!wasCompleted && sw.IsCompleted) await StampDeloadAsync(sw);
+
         await _context.SaveChangesAsync();
         return sw;
+    }
+
+    /// <summary>Records whether a session was performed in a deload week, at the moment it
+    /// is first completed.</summary>
+    /// <remarks>
+    /// <para>Server-side rather than client-side on purpose. Everything needed is already
+    /// here — the session's own date, and its plan's start date and deload set — and a
+    /// stamp written by the device would be missing from anything an older client saved,
+    /// leaving history that silently disagrees with itself depending on which build logged
+    /// it.</para>
+    /// <para>Only on the transition <em>into</em> completed, and only when nothing has been
+    /// stamped yet. Re-saving a completed session must never restamp it: the deload set can
+    /// change afterwards, and the answer this records is what the trainee actually did, not
+    /// what the plan now says they should have.</para>
+    /// <para>The edge this deliberately leaves: mark a week as a deload on Thursday and
+    /// Monday's already-finished session stays unstamped. It was not performed as a
+    /// deload, and saying otherwise would be a lie a trainer then reads on Session
+    /// Review.</para>
+    /// </remarks>
+    private async Task StampDeloadAsync(ScheduledWorkout sw)
+    {
+        if (sw.WasDeload != null || sw.WorkoutPlanId == null) return;
+
+        var plan = await _context.WorkoutPlans
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == sw.WorkoutPlanId);
+        if (plan == null) return;
+
+        var week = PlanWeeks.WeekNumberFor(plan.StartDate, sw.ScheduledDate, plan.DurationDays);
+        sw.WasDeload = week != null
+            && DeloadSchedule.Parse(plan.DeloadWeeksJson).Any(d => d.Week == week);
     }
 
     /// <inheritdoc/>
@@ -388,7 +422,10 @@ public class ScheduledWorkoutRepository : IScheduledWorkoutRepository
             .FirstOrDefaultAsync(s => s.Id == scheduledWorkoutId && s.Workout.UserId == userId);
         if (sw == null) return false;
 
+        var wasCompleted = sw.IsCompleted;
         sw.IsCompleted = true;
+        if (!wasCompleted) await StampDeloadAsync(sw);
+
         await _context.SaveChangesAsync();
         return true;
     }

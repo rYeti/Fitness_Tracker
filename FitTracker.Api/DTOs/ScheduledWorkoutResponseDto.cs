@@ -30,6 +30,12 @@ public class ScheduledWorkoutResponseDto
     /// <summary>Whether the user has skipped this scheduled workout.</summary>
     public bool IsSkipped { get; set; }
 
+    /// <summary>Whether this session was performed in a deload week, stamped at completion.
+    /// Null when it hasn't been completed — readers fall back to deriving from the plan,
+    /// which is correct for a session that hasn't happened. See
+    /// <c>docs/deload-weeks.md</c> §9.</summary>
+    public bool? WasDeload { get; set; }
+
     /// <summary>The scheduled exercise entries within this scheduled workout.</summary>
     public List<ScheduledWorkoutExerciseResponseDto> Exercises { get; set; } = new();
 }

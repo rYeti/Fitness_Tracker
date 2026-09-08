@@ -511,3 +511,89 @@ public class TrainerDeloadWeekTests : IDisposable
         Assert.Equal("[]", _fx.Db.WorkoutPlans.Single(p => p.Id == plan.Id).DeloadWeeksJson);
     }
 }
+
+/// <summary>Stamping a completed session with the week it was performed in.</summary>
+public class WasDeloadStampTests : IDisposable
+{
+    private readonly DbFixture _fx = new();
+
+    public void Dispose() => _fx.Dispose();
+
+    private ScheduledWorkoutRepository Repo() => new(_fx.Db);
+
+    /// <summary>A client on a 12-week plan starting Wed 2 Sep 2026, deloading in week 5.</summary>
+    private async Task<(Guid userId, WorkoutPlan plan, Workout workout)> SeedDeloadingPlan()
+    {
+        var user = _fx.AddUser();
+        var plan = _fx.AddPlan(user.Id, "Block A", isActive: true);
+        plan.StartDate = new DateTime(2026, 9, 2);
+        plan.DurationDays = 84;
+        plan.DeloadWeeksJson = DeloadSchedule.Serialise(
+            [new DeloadWeek { Week = 5, VolumePercent = 50 }]);
+        await _fx.Db.SaveChangesAsync();
+        return (user.Id, plan, _fx.AddWorkout(user.Id));
+    }
+
+    [Fact]
+    public async Task ASessionCompletedInADeloadWeekIsStampedTrue()
+    {
+        var (userId, plan, workout) = await SeedDeloadingPlan();
+        // Day 28 — the first day of week 5.
+        var session = _fx.AddSession(workout.Id, new DateTime(2026, 9, 30), planId: plan.Id);
+
+        Assert.True(await Repo().CompleteWorkoutAsync(session.Id, userId));
+
+        Assert.True(_fx.Db.ScheduledWorkouts.Single(s => s.Id == session.Id).WasDeload);
+    }
+
+    [Fact]
+    public async Task ASessionCompletedInANormalWeekIsStampedFalse()
+    {
+        // False, not null. Null means "not settled"; this one is settled and the answer
+        // is no, which is what stops a reader falling back to the plan for it later.
+        var (userId, plan, workout) = await SeedDeloadingPlan();
+        var session = _fx.AddSession(workout.Id, new DateTime(2026, 9, 29), planId: plan.Id);
+
+        await Repo().CompleteWorkoutAsync(session.Id, userId);
+
+        Assert.False(_fx.Db.ScheduledWorkouts.Single(s => s.Id == session.Id).WasDeload);
+    }
+
+    [Fact]
+    public async Task AnUncompletedSessionIsNotStamped()
+    {
+        var (_, plan, workout) = await SeedDeloadingPlan();
+        var session = _fx.AddSession(workout.Id, new DateTime(2026, 9, 30), planId: plan.Id);
+
+        Assert.Null(_fx.Db.ScheduledWorkouts.Single(s => s.Id == session.Id).WasDeload);
+    }
+
+    [Fact]
+    public async Task ReCompletingASessionDoesNotRestampIt()
+    {
+        // The rule that makes this history rather than a cache. A trainer clearing the
+        // deload set afterwards must not relabel what the client already did.
+        var (userId, plan, workout) = await SeedDeloadingPlan();
+        var session = _fx.AddSession(workout.Id, new DateTime(2026, 9, 30), planId: plan.Id);
+        await Repo().CompleteWorkoutAsync(session.Id, userId);
+
+        plan.DeloadWeeksJson = "[]";
+        await _fx.Db.SaveChangesAsync();
+        await Repo().CompleteWorkoutAsync(session.Id, userId);
+
+        Assert.True(_fx.Db.ScheduledWorkouts.Single(s => s.Id == session.Id).WasDeload);
+    }
+
+    [Fact]
+    public async Task ASessionWithNoPlanIsLeftUnstamped()
+    {
+        // A hand-scheduled session belongs to no programme, so there is no week to be in.
+        var user = _fx.AddUser();
+        var workout = _fx.AddWorkout(user.Id);
+        var session = _fx.AddSession(workout.Id, new DateTime(2026, 9, 30));
+
+        await Repo().CompleteWorkoutAsync(session.Id, user.Id);
+
+        Assert.Null(_fx.Db.ScheduledWorkouts.Single(s => s.Id == session.Id).WasDeload);
+    }
+}

@@ -209,6 +209,15 @@ class ScheduledWorkoutTable extends Table {
   BoolColumn get isCompleted => boolean().withDefault(const Constant(false))();
   BoolColumn get isSkipped => boolean().withDefault(const Constant(false))();
 
+  /// Whether this session was performed in a deload week, stamped by the
+  /// server when it was first completed. Null until then.
+  ///
+  /// Nullable on purpose: null is "not settled yet", not "no". A reader falls
+  /// back to deriving from the current plan only while this is null, which is
+  /// correct for a session that hasn't happened and wrong for one that has —
+  /// see `docs/deload-weeks.md` §9.
+  BoolColumn get wasDeload => boolean().nullable()();
+
   TextColumn get serverId => text().nullable()();
   IntColumn get syncStatus => integer().withDefault(const Constant(0))();
 }

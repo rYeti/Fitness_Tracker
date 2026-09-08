@@ -426,6 +426,10 @@ public class TrainerConsoleService(
                 IsPr = sessionHasPr,
                 TotalVolume = totalVolume,
                 AvgRpe = rpes.Count > 0 ? (double?)rpes.Average() : null,
+                // Read from the stamp, never recomputed from the client's current plan —
+                // a trainer editing this week's deloads must not relabel what happened in
+                // June. See docs/deload-weeks.md §9.
+                WasDeload = workout.WasDeload,
                 ClientNote = workout.Notes,
                 Exercises = exerciseLogs,
             });

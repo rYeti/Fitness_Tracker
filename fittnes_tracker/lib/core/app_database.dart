@@ -172,8 +172,16 @@ class AppDatabase extends _$AppDatabase {
   /// Both are `NOT NULL` with a default, so an existing plan reads as "no
   /// deloads, not trainer-assigned", which is exactly what every plan created
   /// before this version was.
+  ///
+  /// 41 adds `scheduled_workout_table.was_deload`, the stamp recording whether
+  /// a completed session was performed in a deload week. Deliberately
+  /// **nullable** rather than defaulted: null means "nobody has settled this
+  /// yet", which is exactly right for every session that existed before the
+  /// column did, and a `NOT NULL DEFAULT 0` would have asserted that all of
+  /// them were normal weeks — a claim nothing checked and the server would
+  /// then disagree with.
   @override
-  int get schemaVersion => 40;
+  int get schemaVersion => 41;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -438,6 +446,17 @@ class AppDatabase extends _$AppDatabase {
             await customStatement(stmt);
           } catch (_) {}
         }
+      }
+
+      if (from < 41) {
+        // Nullable with no default — see the schemaVersion comment. Every row
+        // that already exists reads as "not settled", which is the truthful
+        // answer for a session completed before anything was stamping.
+        try {
+          await customStatement(
+            'ALTER TABLE scheduled_workout_table ADD COLUMN was_deload INTEGER',
+          );
+        } catch (_) {}
       }
     },
   );

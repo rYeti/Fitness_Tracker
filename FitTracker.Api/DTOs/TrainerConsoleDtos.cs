@@ -317,6 +317,14 @@ public class ClientSessionSummaryDto
     /// <summary>Mean RPE over completed sets that recorded one, or null if none did.</summary>
     public double? AvgRpe { get; set; }
 
+    /// <summary>Whether this session was performed in a deload week, as stamped when it was
+    /// completed. Null for a session that predates the stamp or was never completed —
+    /// which reads as "not known", never as "no".</summary>
+    /// <remarks>Read from <c>ScheduledWorkout.WasDeload</c> and never re-derived from the
+    /// plan: the plan says what is true now, and a past session's volume was whatever it
+    /// was on the day. See <c>docs/deload-weeks.md</c> §9.</remarks>
+    public bool? WasDeload { get; set; }
+
     /// <summary>The client's own note on the session (<c>ScheduledWorkout.Notes</c>).</summary>
     public string? ClientNote { get; set; }
 
