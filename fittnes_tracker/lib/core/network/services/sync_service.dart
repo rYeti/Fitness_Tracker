@@ -1,6 +1,8 @@
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/dao/meal_template_dao.dart';
 import 'package:ForgeForm/core/network/api_client.dart';
+import 'package:ForgeForm/feature/workout_planning/domain/deload_schedule.dart';
+import 'package:dio/dio.dart';
 import 'package:drift/drift.dart';
 import 'package:logger/logger.dart';
 
@@ -418,6 +420,7 @@ class SyncService {
         'durationDays': durationDays,
       },
     );
+    await _pushDeloadWeeks(p);
     await _db.workoutPlanDao.markPlanSynced(p.id, p.serverId!);
 
     final links = await _db.workoutPlanDao.getPlanWorkoutsForPlan(p.id);
@@ -426,6 +429,37 @@ class SyncService {
       p.serverId!,
     );
     _logger.i('Updated plan ${p.id} on server ${p.serverId}');
+  }
+
+  /// Pushes a plan's deload weeks to their own endpoint.
+  ///
+  /// Separate from the plan-document PUT above on purpose: `deloadWeeksJson`
+  /// is deliberately absent from `WorkoutPlanRequestDto`, so a device that
+  /// hasn't yet pulled a trainer's change cannot push a stale empty set over
+  /// it. That protection only holds if this stays a separate call.
+  ///
+  /// A 403 is **terminal, not retryable**. The server refuses when the plan is
+  /// the trainer's to manage, or when this user's entitlement has lapsed —
+  /// neither of which the device can resolve by trying again. Rethrowing would
+  /// leave the plan `pendingUpdate` and re-attempt on every sync forever,
+  /// blocking nothing but generating noise; the next pull reconciles the
+  /// authoritative value instead.
+  Future<void> _pushDeloadWeeks(WorkoutPlanTableData p) async {
+    try {
+      await _apiClient.put(
+        'api/WorkoutPlan/${p.serverId}/deload-weeks',
+        data: DeloadSchedule.decode(p.deloadWeeksJson).toJson(),
+      );
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 403) {
+        _logger.i(
+          'Deload weeks for plan ${p.id} refused by the server '
+          '(${e.response?.data}); leaving the server copy authoritative.',
+        );
+        return;
+      }
+      rethrow;
+    }
   }
 
   Future<void> _syncDeletePlan(WorkoutPlanTableData p) async {
@@ -2660,6 +2694,22 @@ class SyncService {
         // reconcile a workout *out* of the plan here would have nothing to
         // undo the schedule it already generated on the device.
         await _addMissingPlanWorkoutLinks(existingPlan.id, p);
+
+        // Everything above this line is about plan *membership*. The plan's
+        // own columns used to be skipped outright, which meant no column on a
+        // plan was ever updatable after the first pull — not the name, not
+        // `durationDays`, and not the deload weeks. A trainer marking week 5
+        // as a deload would save it, see it in the console, and the client's
+        // phone would never show it. Same defect and same fix as
+        // `_pullWorkouts` above (`_reconcileWorkoutFromServer`).
+        //
+        // Only a clean copy is safe to overwrite. A dirty one is this
+        // device's own unsent edit — the server hasn't seen it yet, so
+        // refreshing from the server here would throw it away instead of
+        // pushing it.
+        if (SyncStatus.values[existingPlan.syncStatus] == SyncStatus.synced) {
+          await _reconcilePlanFromServer(existingPlan, p);
+        }
         continue;
       }
       final localPlanId = await _db
@@ -2673,6 +2723,12 @@ class SyncService {
               isActive: Value(p['isActive'] as bool),
               cyclePatternJson: Value(p['cyclePatternJson'] as String),
               isFreeChoice: Value(p['isFreeChoice'] as bool),
+              assignedByTrainer: Value(p['assignedByTrainer'] as bool? ?? false),
+              // Absent means the server withheld it (the reader isn't
+              // entitled), which on a first pull is indistinguishable from
+              // "none" anyway — there is no local value to preserve yet. The
+              // reconcile path is where the distinction bites.
+              deloadWeeksJson: Value(_encodeDeloadWeeks(p) ?? '[]'),
               serverId: Value(planServerId),
               syncStatus: const Value(1),
             ),
@@ -2700,6 +2756,78 @@ class SyncService {
             );
       }
       _logger.i('Pulled plan $planServerId');
+    }
+  }
+
+  /// Serialises the `deloadWeeks` field of a plan payload for storage, or
+  /// returns null when the server didn't send the field at all.
+  ///
+  /// **Null means "not provided", never "clear it".** The server omits deload
+  /// weeks entirely when the reader isn't entitled to see them (a lapsed
+  /// subscription, on a plan they own). A caller that reads that absence as an
+  /// empty set deletes the user's deload weeks on the first sync after their
+  /// subscription lapses — and re-subscribing never brings them back, because
+  /// the device has already told the server they are gone.
+  ///
+  /// This is why the check is `containsKey` and not `p['deloadWeeks'] ?? []`.
+  /// A present-but-empty list is a real value and does mean "there are none".
+  String? _encodeDeloadWeeks(Map<String, dynamic> p) {
+    if (!p.containsKey('deloadWeeks')) return null;
+    final raw = p['deloadWeeks'];
+    if (raw is! List) return null;
+    return DeloadSchedule([
+      for (final entry in raw)
+        if (DeloadWeek.tryFromJson(entry) case final week?) week,
+    ]).encode();
+  }
+
+  /// Refreshes a plan this device already holds from the server's copy.
+  ///
+  /// Only ever called for a plan whose local row is clean — see the call site
+  /// in [_pullWorkoutPlans]. Membership is deliberately not touched here; it
+  /// is handled additively by `_addMissingPlanWorkoutLinks` for the reasons
+  /// recorded there.
+  Future<void> _reconcilePlanFromServer(
+    WorkoutPlanTableData existing,
+    Map<String, dynamic> p,
+  ) async {
+    final deloadWeeksJson = _encodeDeloadWeeks(p);
+
+    await (_db.update(_db.workoutPlanTable)
+      ..where((t) => t.id.equals(existing.id))).write(
+      WorkoutPlanTableCompanion(
+        name: Value(p['name'] as String),
+        description: Value(p['description'] as String?),
+        // `isActive` is deliberately NOT reconciled. The server sets it true
+        // at create and never updates it (`WorkoutPlanService.CreatePlanAsync`
+        // hardcodes `IsActive = true`; `UpdatePlanAsync` doesn't touch it, and
+        // the trainee's push never sends it), so every plan the server holds
+        // reads as active forever. Which plan is current is a purely local
+        // decision — `create_view` deactivates the others without marking them
+        // dirty — so copying the server's answer back would reactivate every
+        // plan the user has ever built.
+        cyclePatternJson: Value(p['cyclePatternJson'] as String),
+        isFreeChoice: Value(p['isFreeChoice'] as bool),
+        assignedByTrainer: Value(p['assignedByTrainer'] as bool? ?? false),
+        // `Value.absent()` rather than `Value(null)`: absent leaves the column
+        // alone, null would write SQL NULL into a non-nullable column. The
+        // whole point of the distinction is that a withheld field changes
+        // nothing locally.
+        deloadWeeksJson: deloadWeeksJson == null
+            ? const Value.absent()
+            : Value(deloadWeeksJson),
+      ),
+    );
+
+    // `durationDays` is not on the generated companion for this table in the
+    // same shape the rest are read — it is written by raw statement elsewhere
+    // in this file for the same reason, so it is kept consistent here.
+    final serverDurationDays = p['durationDays'] as int?;
+    if (serverDurationDays != null) {
+      await _db.customStatement(
+        'UPDATE workout_plan_table SET duration_days = ? WHERE id = ?',
+        [serverDurationDays, existing.id],
+      );
     }
   }
 

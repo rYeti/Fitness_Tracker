@@ -4,6 +4,7 @@ import 'package:ForgeForm/core/network/services/sync_service.dart';
 import 'package:ForgeForm/feature/workout_planning/data/models/workout.dart';
 import 'package:ForgeForm/feature/workout_planning/data/models/workout_exercise.dart';
 import 'package:ForgeForm/feature/workout_planning/data/models/workout_set.dart';
+import 'package:ForgeForm/feature/workout_planning/domain/deload_schedule.dart';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -560,6 +561,233 @@ void main() {
 
       await db.workoutDao.markWorkoutSynced(id, 'server-w1');
       expect(await db.countUnsyncedChanges(), 0);
+    });
+  });
+
+  group('reconciling a plan the trainer edited server-side', () {
+    // The plan-shaped mirror of the workout group above, and the reason deload
+    // weeks can reach a second device at all. `_pullWorkoutPlans` used to
+    // `continue` the moment it recognised a plan's serverId, so *no* column on
+    // a plan was updatable after the first pull.
+
+    /// A plan payload as `api/WorkoutPlan` returns it.
+    Map<String, dynamic> serverPlan({
+      String id = 'server-p1',
+      String name = 'Block A',
+      bool isActive = true,
+      bool assignedByTrainer = false,
+      List<Map<String, dynamic>>? deloadWeeks,
+      bool includeDeloadWeeks = true,
+    }) => {
+      'id': id,
+      'name': name,
+      'description': null,
+      'startDate': '2026-09-02T00:00:00Z',
+      'createdAt': '2026-09-01T00:00:00Z',
+      'isActive': isActive,
+      'cyclePatternJson': '[]',
+      'isFreeChoice': false,
+      'durationDays': 84,
+      'assignedByTrainer': assignedByTrainer,
+      if (includeDeloadWeeks) 'deloadWeeks': deloadWeeks ?? const [],
+      'workoutIds': const <String>[],
+    };
+
+    Future<int> insertSyncedPlan({
+      String serverId = 'server-p1',
+      String name = 'Block A',
+      String deloadWeeksJson = '[]',
+      int syncStatus = 1,
+    }) => db
+        .into(db.workoutPlanTable)
+        .insert(
+          WorkoutPlanTableCompanion.insert(
+            name: name,
+            cyclePatternJson: '[]',
+            startDate: DateTime(2026, 9, 2),
+            deloadWeeksJson: Value(deloadWeeksJson),
+            serverId: Value(serverId),
+            syncStatus: Value(syncStatus),
+          ),
+        );
+
+    Future<WorkoutPlanTableData> readPlan(int id) =>
+        (db.select(db.workoutPlanTable)..where((t) => t.id.equals(id)))
+            .getSingle();
+
+    test("a trainer's deload edit reaches a device that already has the plan",
+        () async {
+      final localId = await insertSyncedPlan();
+
+      api.stubEmptyPull();
+      api.getResponses['api/WorkoutPlan'] = [
+        serverPlan(
+          assignedByTrainer: true,
+          deloadWeeks: [
+            {'week': 5, 'volumePercent': 40},
+          ],
+        ),
+      ];
+      await sync.pullAll();
+
+      final plan = await readPlan(localId);
+      final schedule = DeloadSchedule.decode(plan.deloadWeeksJson);
+      expect(schedule.weeks.single.week, 5);
+      expect(schedule.weeks.single.volumePercent, 40);
+      expect(plan.assignedByTrainer, isTrue);
+    });
+
+    test('a locally dirty plan is left for the push, not overwritten', () async {
+      // The user set a deload offline. The server hasn't seen it, so a
+      // reconcile here would silently discard it instead of pushing it.
+      final localId = await insertSyncedPlan(
+        deloadWeeksJson: '[{"week":3,"volumePercent":60}]',
+        syncStatus: 2, // pendingUpdate
+      );
+
+      api.stubEmptyPull();
+      api.getResponses['api/WorkoutPlan'] = [
+        serverPlan(name: 'Renamed by server', deloadWeeks: const []),
+      ];
+      await sync.pullAll();
+
+      final plan = await readPlan(localId);
+      expect(DeloadSchedule.decode(plan.deloadWeeksJson).weeks.single.week, 3);
+      expect(plan.name, 'Block A');
+    });
+
+    test('reconcile never reactivates a plan the user switched away from',
+        () async {
+      // The server hardcodes IsActive = true at create and never updates it,
+      // and the trainee's push never sends it — so every plan the server holds
+      // reads as active forever. Which plan is current is a local decision
+      // (`create_view` deactivates the others without marking them dirty), so
+      // copying the server's answer back would resurrect every old plan.
+      final localId = await insertSyncedPlan();
+      await (db.update(db.workoutPlanTable)
+            ..where((t) => t.id.equals(localId)))
+          .write(const WorkoutPlanTableCompanion(isActive: Value(false)));
+
+      api.stubEmptyPull();
+      api.getResponses['api/WorkoutPlan'] = [serverPlan(isActive: true)];
+      await sync.pullAll();
+
+      expect((await readPlan(localId)).isActive, isFalse);
+    });
+
+    test('an absent deloadWeeks key leaves the local set alone', () async {
+      // The load-bearing case. The server omits the field entirely when the
+      // reader is not entitled to see it — a lapsed subscription on a plan
+      // they own. Reading that absence as an empty set deletes the user's
+      // deload weeks on the first sync after lapsing, and re-subscribing never
+      // brings them back because the device has already reported them gone.
+      final localId = await insertSyncedPlan(
+        deloadWeeksJson: '[{"week":5,"volumePercent":50}]',
+      );
+
+      api.stubEmptyPull();
+      api.getResponses['api/WorkoutPlan'] = [
+        serverPlan(includeDeloadWeeks: false),
+      ];
+      await sync.pullAll();
+
+      final plan = await readPlan(localId);
+      expect(DeloadSchedule.decode(plan.deloadWeeksJson).weeks.single.week, 5);
+    });
+
+    test('a present-but-empty deloadWeeks list does clear the local set', () async {
+      // The other half of the distinction: empty is a real value and means
+      // "there are none". Only *absence* is ambiguous.
+      final localId = await insertSyncedPlan(
+        deloadWeeksJson: '[{"week":5,"volumePercent":50}]',
+      );
+
+      api.stubEmptyPull();
+      api.getResponses['api/WorkoutPlan'] = [serverPlan(deloadWeeks: const [])];
+      await sync.pullAll();
+
+      expect(
+        DeloadSchedule.decode((await readPlan(localId)).deloadWeeksJson).isEmpty,
+        isTrue,
+      );
+    });
+
+    test('a plan new to this device carries its deload weeks in', () async {
+      api.stubEmptyPull();
+      api.getResponses['api/WorkoutPlan'] = [
+        serverPlan(
+          deloadWeeks: [
+            {'week': 4, 'volumePercent': 70},
+          ],
+        ),
+      ];
+      await sync.pullAll();
+
+      final plan = await (db.select(
+        db.workoutPlanTable,
+      )..where((t) => t.serverId.equals('server-p1'))).getSingle();
+      expect(
+        DeloadSchedule.decode(plan.deloadWeeksJson).weeks.single.volumePercent,
+        70,
+      );
+    });
+  });
+
+  group('pushing deload weeks', () {
+    test('a plan update pushes the set to its own endpoint', () async {
+      // Its own endpoint, not a field on the plan document — that separation
+      // is what stops a stale device clobbering a trainer's edit.
+      final localId = await db
+          .into(db.workoutPlanTable)
+          .insert(
+            WorkoutPlanTableCompanion.insert(
+              name: 'Block A',
+              cyclePatternJson: '[]',
+              startDate: DateTime(2026, 9, 2),
+              deloadWeeksJson: const Value('[{"week":6,"volumePercent":40}]'),
+              serverId: const Value('server-p1'),
+              syncStatus: const Value(2), // pendingUpdate
+            ),
+          );
+
+      await sync.syncWorkoutPlans();
+
+      final push = api.puts.firstWhere(
+        (p) => p.path == 'api/WorkoutPlan/server-p1/deload-weeks',
+      );
+      expect(push.data, [
+        {'week': 6, 'volumePercent': 40},
+      ]);
+      expect((await (db.select(db.workoutPlanTable)
+            ..where((t) => t.id.equals(localId)))
+          .getSingle()).syncStatus, 1);
+    });
+
+    test('a 403 is absorbed rather than retried forever', () async {
+      // The server refuses when the plan is the trainer's to manage, or when
+      // entitlement has lapsed. Neither is fixable by trying again, and
+      // rethrowing would leave the plan pendingUpdate and re-attempt on every
+      // sync for the life of the install.
+      final localId = await db
+          .into(db.workoutPlanTable)
+          .insert(
+            WorkoutPlanTableCompanion.insert(
+              name: 'Coached block',
+              cyclePatternJson: '[]',
+              startDate: DateTime(2026, 9, 2),
+              deloadWeeksJson: const Value('[{"week":6,"volumePercent":40}]'),
+              serverId: const Value('server-p1'),
+              syncStatus: const Value(2),
+            ),
+          );
+      api.putErrors['api/WorkoutPlan/server-p1/deload-weeks'] = 403;
+
+      await sync.syncWorkoutPlans();
+
+      final plan = await (db.select(db.workoutPlanTable)
+            ..where((t) => t.id.equals(localId)))
+          .getSingle();
+      expect(plan.syncStatus, 1, reason: 'the plan still synced');
     });
   });
 }

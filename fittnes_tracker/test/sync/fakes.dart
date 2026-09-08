@@ -16,6 +16,11 @@ class FakeApiClient extends ApiClient {
   /// Response bodies for POSTs, keyed by path. Missing entries return `{}`.
   final Map<String, dynamic> postResponses = {};
 
+  /// Status codes to fail a PUT with, keyed by path. Lets a test exercise a
+  /// refusal the client is expected to absorb rather than retry — a 403 on the
+  /// deload-weeks endpoint, for one.
+  final Map<String, int> putErrors = {};
+
   final List<String> gets = [];
   final List<({String path, dynamic data})> posts = [];
   final List<({String path, dynamic data})> puts = [];
@@ -79,6 +84,17 @@ class FakeApiClient extends ApiClient {
     Options? options,
   }) async {
     puts.add((path: path, data: data));
+    final status = putErrors[path];
+    if (status != null) {
+      throw DioException(
+        requestOptions: RequestOptions(path: path),
+        response: Response<dynamic>(
+          requestOptions: RequestOptions(path: path),
+          statusCode: status,
+          data: {'error': 'not_entitled'},
+        ),
+      );
+    }
     return _ok(path, <String, dynamic>{});
   }
 
