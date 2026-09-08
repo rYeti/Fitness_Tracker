@@ -227,10 +227,18 @@ programme") rather than an outcome.
   5.6 ± 2.3. Offer 4, 5, 6.
 - **Duration: one week, always.** 6.4 ± 1.7 days is a week, which is why the
   whole model in §4 is week-shaped and there is no "deload for N days".
-- **Volume reduction: the moderate band (~50%)**, expressed as marking roughly
-  half of each exercise's prescribed sets optional (§8). The three bands are
-  recorded here because they are the natural shape of a future per-week tier;
-  they are deliberately not stored yet (§4).
+- **Volume reduction: set per deload, not fixed.** Whoever owns the plan
+  dictates it — a trainer prescribing 40% for a beaten-up client and 70% for a
+  fresh one is the normal case, not an edge case, and a single global constant
+  cannot express it. Stored as `volumePercent`: the share of normal volume to
+  **perform**, so 50 means "do half your sets", a 50% reduction. Default 50
+  (the middle of the moderate band). The evidence bands become, in retained
+  terms: 55–75% (low recovery need), 40–60% (moderate), 10–40% (high).
+- **Range 10–90, and the ends are excluded deliberately.** 100% retained is not
+  a deload, and 0% is total cessation — which is a *different intervention*
+  with its own evidence (§3b: the one trial that studied cessation found it
+  slightly worse than training through). The app should not let a slider
+  quietly turn a deload into the thing the research says didn't work.
 - **Frequency: untouched.** A deload week keeps every session and every rest day
   the cycle pattern laid out. This costs nothing to honour, because the sessions
   already exist — but it does mean "deload" must never be implemented as
@@ -259,12 +267,22 @@ add/remove pair is two operations that can interleave, and
 `docs/trainer-console-duplicate-rows.md` is entirely about what happens when a
 write path's idempotency is assumed rather than built.
 
-**No recovery-need tier is stored.** §3a gives three volume bands, and a
-per-week tier is the obvious next step — but it is not this step. The guidance
-text is fixed at the moderate band, and if a tier is wanted later the column
-widens from `[5, 10]` to `[{"week":5,"tier":"moderate"}]` behind a parser that
-accepts both shapes. That shim is about five lines and needs no migration, which
-is cheaper than carrying a structure nothing reads today.
+**Each entry carries its own volume**, because §3c makes that the prescription
+rather than a constant:
+
+```json
+[{"week": 5, "volumePercent": 50}, {"week": 10, "volumePercent": 40}]
+```
+
+Sorted by `week`, one entry per week, `[]` for none. `volumePercent` is the
+share of normal volume to **perform** — not the reduction. That distinction is
+worth a name and a doc comment on every declaration of it, because "50% deload"
+is used in the wild to mean both, and the two readings differ by the entire
+point of the feature.
+
+Nothing has shipped with the bare-integer form this document originally
+proposed (`[5, 10]`), so there is no legacy payload to parse and no compat shim
+to write — the object form is simply the shape, from the first migration.
 
 ### 4a. What was rejected, and what it would have cost
 
@@ -292,11 +310,25 @@ retroactively rewrites which past weeks were deloads, and a single-week override
 then needs *both* a rule and an exception list — two sources of truth for one
 answer.
 
-Keep the generator in the UI instead. "Repeat every N weeks" is a button that
-**expands** to explicit week numbers at save time and stores the expansion; the
-rule is authoring convenience, the set is the truth. Two details it needs:
+**A single one-off deload is the primary interaction.** Marking one week —
+because this client is beaten up *now* — is the common case, and it must be one
+tap that touches nothing else. "Repeat every N weeks" is a convenience for
+people who want a cadence, never a default, never pre-filled, and never
+something a one-off toggle silently opts you into. A user who taps week 7 gets
+a deload in week 7 and nowhere else.
 
-- Offer N ∈ {4, 5, 6} and default to **5** (§3c).
+The generator, when someone does reach for it, is a button that **expands** to
+explicit entries at save time and stores the expansion; the rule is authoring
+convenience, the set is the truth. Applying it into a set that already holds
+one-off entries merges rather than replaces — an existing week keeps the volume
+it was given, and the generator only fills weeks that had none, so reaching for
+a cadence never silently rewrites a prescription already made. Three details it
+needs:
+
+- Offer N ∈ {4, 5, 6} and default to **5** (§3c). Generated entries take the
+  default `volumePercent`; the user can then retune any individual week.
+- It is opt-in and reversible in one action. A generator that cannot be undone
+  in one tap is a generator people are right to distrust.
 - `generate(N, durationWeeks) = [N, 2N, 3N, …]` filtered to `< durationWeeks`,
   **strictly**. A block that ends on its easiest week is a bug, not a taper.
   Without that filter "every 4 weeks" on a 12-week plan yields `[4, 8, 12]` and
@@ -409,6 +441,31 @@ prerequisite for the **gate**: the entitlement rule turns on whether a plan is
 the trainee's own or their trainer's, so without this column a free user's own
 deload weeks and their trainer's are indistinguishable and the gate cannot be
 implemented at all.
+
+### 5d. `saveWorkoutPlan` silently drops most of the plan
+
+Found while implementing, and the worst of the four.
+`workout_plan_dao.dart:64-78` writes a `WorkoutPlanTableCompanion` with exactly
+five columns — `id`, `name`, `description`, `startDate`, `isActive` — and
+inserts it with `InsertMode.insertOrReplace`.
+
+`insertOrReplace` on an existing primary key is a **delete and re-insert**, not
+an update. Every column absent from the companion goes back to its default. So
+any call to `saveWorkoutPlan` on a plan that already exists silently discards
+`cyclePatternJson`, `isFreeChoice`, `durationDays`, `serverId` and `syncStatus`
+— today, before deload weeks exist. A plan round-tripped through this method
+loses its cycle, its duration, and its link to the server copy.
+
+This is pre-existing and out of scope to fix properly here, but it dictates one
+rule for this feature:
+
+> Deload weeks are never written through `saveWorkoutPlan`. The toggle issues a
+> targeted `update(workoutPlanTable)` against the one column, the way
+> `_toggleFreeChoice` (`edit_view.dart:388-440`) already does for its own.
+
+Worth noting *why* nothing has caught this: the plan screen only ever calls
+`saveWorkoutPlan` for a **new** plan, where insert and replace are the same
+thing. The bug is latent, waiting for the first caller that saves an edit.
 
 ---
 
@@ -586,22 +643,36 @@ saved"), and a deload that permanently deletes a working set from someone's
 programme because the restore didn't run is a bad trade for a feature whose
 whole point is to be temporary.
 
-**Marking the surplus sets optional at render time** — recommended. In a deload
-week, the back half of each exercise's set rows render de-emphasised and labelled
-optional:
+**Marking the surplus sets optional at render time** — recommended, with a
+correction to how it renders. The first draft of this section assumed the active
+workout screen shows a *list* of set rows to dim. It does not:
+`active_workout_view.dart:1415` (`_buildSetFocusedView`) shows **one set at a
+time**, indexed by `_currentSetIndex` out of `exerciseData.templates`. There is
+no column of rows to grey out.
+
+So the effect is expressed on the one set in front of the user, plus the
+progress line that already says where they are:
 
 ```
-  Set 1    8-12     ▸ log
-  Set 2    8-12     ▸ log
-  Set 3    8-12     optional this week      (dimmed)
-  Set 4    8-12     optional this week      (dimmed)
+   Set 4 of 5                       ← existing progress text
+   ┌───────────────────────────┐
+   │  4    Optional — deload    │   ← the set circle, plus the marker
+   │       week (50% volume)    │
+   └───────────────────────────┘
+   Previous   100 kg × 8            ← existing hint, unchanged
 ```
 
-Roughly 50% of prescribed sets, the moderate band from §3a. Derived from
-`weekNumberFor(today)` at build time — nothing is written, nothing needs
-restoring, and a trainee who logs all four sets has simply logged all four sets.
-The rows stay tappable: this is guidance, not enforcement, and greying a row out
-while still accepting a log is the honest version of both.
+The kept-set count is `max(1, (templates.length * volumePercent / 100).round())`
+— from *this deload's own* `volumePercent` (§4), not a constant. Sets at index
+`>= keptCount` carry the marker. The `max(1, …)` matters: at 10% volume on a
+two-set exercise the arithmetic rounds to zero, and an exercise where every set
+is optional is an exercise the UI has quietly told you to skip — which is
+cessation again (§3c), reached by rounding rather than by choice.
+
+Derived at build time from `weekNumberFor(today)` — nothing is written, nothing
+needs restoring, and a trainee who logs all five sets has simply logged all five.
+The set stays fully loggable: this is guidance, not enforcement, and marking a
+set optional while still accepting the log is the honest version of both.
 
 **Frequency is untouched.** The deload week keeps every scheduled session and
 every rest day exactly as the cycle pattern laid them out (§3c). Auto-skipping
@@ -690,15 +761,15 @@ the word "Deload" and an icon, and the icon alone is never used.
 |---|---|
 | `scheduled_workouts_view.dart` day cards | Chip on each day in a deload week |
 | The calendar grid (`_weekdays`, ~line 877) | A subtle band behind the deload week's row — with the chip in the day card as the non-colour signal |
-| `active_workout_view.dart` header | Chip + the effort line ("Reduced volume this week — stay 3–4 reps short") |
-| Per-set rows (~line 1492) | Surplus sets de-emphasised and labelled optional (§8) |
-| Plan screen | The week strip — see below |
+| `active_workout_view.dart` header (between :1081 and :1083) | Chip + the effort line ("Reduced volume this week — stay 3–4 reps short") |
+| The current set (`_buildSetFocusedView`, :1415) | Sets past the kept count marked optional for this week (§8) — one set at a time, not a dimmed list |
+| Plan screen | The week strip, same widget and same volume control as the trainer's — see below |
 
 **Trainer surfaces**
 
 | Where | What |
 |---|---|
-| Workout Builder plan section | The week strip, `1..durationWeeks`, tap to toggle |
+| Workout Builder plan section | The week strip, `1..durationWeeks`. Tap toggles one week on/off; a long-press or the week's own row opens the volume control for that week |
 | Client Detail | "This week is a deload" chip in the header |
 | Session Review | Chip on past sessions, from `WasDeload` (§9) |
 | Dashboard roster | Optional: chip per client currently in a deload week |
@@ -716,12 +787,17 @@ widget:
 
 ```
  1   2   3   4   5●  6   7   8   9   10●  11  12
-                 ▲ deload                ▲ deload
+                 │                       │
+                 └ deload · 50% volume    └ deload · 40% volume
 ```
 
-One-tap toggle on a week; "repeat every N weeks" as a secondary action that
-expands into explicit toggles (§4a) so the user can immediately see and override
-what it did. Its copy carries the evidence rather than a bare number: *"Most
+One-tap toggle on a week, and that is the whole interaction for the common case
+— a single week, marked because this athlete needs it now (§4a). The volume for
+that week is set on the same strip (a stepper or a short row of presets keyed to
+the §3a bands), defaulting to 50% and adjustable per week, so a trainer can
+prescribe 40% in one block and 70% in another. "Repeat every N weeks" sits
+behind a secondary action that expands into explicit entries (§4a) so the user
+immediately sees and can override what it did; it is never pre-selected. Its copy carries the evidence rather than a bare number: *"Most
 lifters deload every 4–6 weeks. Newer lifters can usually go longer."* Weeks
 before the current one are shown but not editable — editing the past is the
 retroactive-rewrite problem from §9 wearing a friendlier hat.
