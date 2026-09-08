@@ -20,7 +20,22 @@ npm test
 to leave running in another terminal. `npm run test:headed` watches it happen,
 `npm run report` opens the HTML report after a failure.
 
-No backend is needed. Nothing here signs in.
+**The default run needs no backend and signs nobody in.** The specs that *do*
+sign in are all gated behind `AUDIT=1` (see below), so a plain `npm test`
+stays a bundle-only smoke run.
+
+**If Chromium is preinstalled rather than downloaded by Playwright** — a
+container image, typically — `npx playwright install` may be unavailable or
+redundant, and Playwright refuses to launch anything but the exact build its
+version pins. `playwright.config.ts` reads `PLAYWRIGHT_CHROMIUM_PATH` for this;
+point it at the binary:
+
+```bash
+PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome npm test
+```
+
+The version-suffixed directory is the one to use. `chromium` and
+`chromium_headless_shell` sit beside it and are not the same path.
 
 ## The two things worth knowing before writing a test
 
@@ -58,11 +73,22 @@ curl -X POST http://127.0.0.1:5080/api/revenuecat/webhook \
 This grant lives only in the API's database, not in this suite's fixtures —
 re-run it after reseeding against a fresh database.
 
+`tests/deload-weeks.spec.ts` uses the same account and the same grant, for the
+same reason: deload weeks are Premium, and `lena.fischer` is the seeded trainee
+who is on nobody's roster — which matters more here than for pins, because
+deload authority keys on the *plan* and a trainer-assigned one is read-only to
+its owner however entitled they are.
+
+```bash
+# with the API running and seeded, and the grant above applied
+AUDIT=1 npx playwright test deload-weeks
+```
+
 ## Layout
 
 | Path | What it is |
 | --- | --- |
-| `playwright.config.ts` | Two projects: `chromium-desktop` (1440px) and `chromium-mobile` (390px). |
+| `playwright.config.ts` | Three projects: `chromium-desktop` (1440px), `chromium-tablet` (800px — the 600–1024 band that gets the phone layout) and `chromium-mobile` (390px). |
 | `fixtures/flutter.ts` | The `appPage` fixture — boots the app and enables semantics. |
 | `tests/` | Specs. |
 | `tests/seed.spec.ts` | Empty template the Playwright generator agent copies. Never runs. |
