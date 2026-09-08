@@ -35,6 +35,14 @@ public interface IWorkoutPlanRepository
     /// <returns>The updated workout plan, or <c>null</c> if not found.</returns>
     Task<WorkoutPlan?> UpdatePlanAsync(Guid id, Guid userId, WorkoutPlanRequestDto dto);
 
+    /// <summary>Replaces a plan's deload weeks and nothing else.</summary>
+    /// <param name="id">The plan to write to.</param>
+    /// <param name="userId">The plan's owner. A plan belonging to anyone else is not found.</param>
+    /// <param name="deloadWeeksJson">The serialised replacement set — always the whole set,
+    /// never an add or a remove, so the write is idempotent by construction.</param>
+    /// <returns>The updated plan, or <c>null</c> if the user has no such plan.</returns>
+    Task<WorkoutPlan?> SetDeloadWeeksAsync(Guid id, Guid userId, string deloadWeeksJson);
+
     /// <summary>Deletes a workout plan owned by the specified user. Its days are left in
     /// place — see <c>WorkoutPlanRepository.DeletePlanAsync</c>.</summary>
     /// <param name="id">The ID of the plan to delete.</param>

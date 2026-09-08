@@ -99,6 +99,49 @@ public class WorkoutPlanController : ControllerBase
         };
     }
 
+    /// <summary>Replaces the deload weeks on a plan the authenticated user owns.</summary>
+    /// <param name="planId">The plan to write to.</param>
+    /// <param name="weeks">The whole replacement set. Never an add or a remove — a replace is
+    /// idempotent by construction, which an add/remove pair is not.</param>
+    /// <returns>200 with the saved set, 404 if no such plan, 400 for an out-of-range week,
+    /// or 403 when the plan is the trainer's to manage or the caller isn't entitled.</returns>
+    /// <remarks>
+    /// Its own endpoint rather than a field on <c>PUT api/WorkoutPlan/{id}</c>, deliberately:
+    /// the trainee's plan sync is a full-document PUT, and a device that hadn't yet pulled a
+    /// trainer's change would push a stale empty set over it. See <c>docs/deload-weeks.md</c> §5b.
+    /// </remarks>
+    [HttpPut("{planId}/deload-weeks")]
+    public async Task<IActionResult> SetDeloadWeeks(
+        [FromRoute] Guid planId,
+        [FromBody] List<DeloadWeek> weeks)
+    {
+        var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
+        if (userId == Guid.Empty) return NotFound("User not found");
+
+        var result = await _planService.SetDeloadWeeksAsync(planId, userId, weeks);
+        return result.Status switch
+        {
+            SetDeloadWeeksStatus.Ok => Ok(result),
+            SetDeloadWeeksStatus.PlanNotFound => NotFound("Plan not found"),
+            SetDeloadWeeksStatus.InvalidWeek => BadRequest(
+                "A deload week must be within the plan, at 10-90% volume."),
+            // Two different refusals, kept apart on purpose: "your coach manages this" and
+            // "you need Premium" point the user at completely different next steps, and one
+            // of them is not solved by buying anything.
+            SetDeloadWeeksStatus.AssignedByTrainer => StatusCode(StatusCodes.Status403Forbidden, new
+            {
+                error = "assigned_by_trainer",
+                message = "Your trainer sets the deload weeks for this plan.",
+            }),
+            SetDeloadWeeksStatus.NotEntitled => StatusCode(StatusCodes.Status403Forbidden, new
+            {
+                error = "not_entitled",
+                message = "Setting deload weeks requires Premium.",
+            }),
+            _ => StatusCode(StatusCodes.Status403Forbidden),
+        };
+    }
+
     /// <summary>Adds a workout to a plan.</summary>
     /// <param name="planId">The ID of the plan.</param>
     /// <param name="workoutId">The ID of the workout to add.</param>

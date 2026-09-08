@@ -38,6 +38,20 @@ public class WorkoutPlanResponseDto
     /// <c>WorkoutPlan.AssignedByTrainerId</c>.</summary>
     public bool AssignedByTrainer { get; set; }
 
+    /// <summary>The plan's deload weeks, sorted by week. Empty for a plan with none.</summary>
+    /// <remarks>
+    /// Absent from the payload entirely — rather than empty — when the reader isn't entitled
+    /// to see them and the plan is their own (see <c>docs/deload-weeks.md</c> §7a). A reader
+    /// must therefore treat a missing value as "not provided", never as "clear it": a
+    /// reconcile that reads absence as empty deletes a lapsed subscriber's deload weeks, and
+    /// re-subscribing never brings them back.
+    /// <para>A deload set by a trainer is always sent, whatever the client's own
+    /// entitlement. A lapsed licence must never hide a programme's own recovery week.</para>
+    /// </remarks>
+    [System.Text.Json.Serialization.JsonIgnore(
+        Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public List<Models.DeloadWeek>? DeloadWeeks { get; set; }
+
     /// <summary>The list of workout IDs that are part of this plan.</summary>
     public List<Guid> WorkoutIds { get; set; } = new();
 }

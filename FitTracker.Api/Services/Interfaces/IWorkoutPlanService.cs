@@ -36,6 +36,17 @@ public interface IWorkoutPlanService
     /// <returns>The updated plan DTO, or <c>null</c> if not found.</returns>
     Task<WorkoutPlanResponseDto?> UpdatePlanAsync(Guid id, Guid userId, WorkoutPlanRequestDto dto);
 
+    /// <summary>Replaces a plan's deload weeks — the whole set, never an add or a remove.</summary>
+    /// <param name="planId">The plan to write to.</param>
+    /// <param name="userId">The plan's owner.</param>
+    /// <param name="weeks">The replacement set. Rejected as a whole if any entry is invalid,
+    /// rather than normalised, so a save never silently stores something else.</param>
+    /// <param name="actingAsTrainer">Set only when the assigning trainer is writing via the
+    /// Trainer Console, which bypasses the trainee's ownership and entitlement checks — the
+    /// trainer's own licence is the gate there. See <c>docs/deload-weeks.md</c> §6a.</param>
+    Task<SetDeloadWeeksResult> SetDeloadWeeksAsync(
+        Guid planId, Guid userId, IEnumerable<DeloadWeek> weeks, bool actingAsTrainer = false);
+
     /// <summary>Deletes a workout plan owned by the specified user. Its days are left in
     /// place — only the plan grouping goes away.</summary>
     /// <param name="id">The ID of the plan to delete.</param>

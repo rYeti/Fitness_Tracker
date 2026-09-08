@@ -157,6 +157,14 @@ public class AppDbContext : DbContext
                   .WithMany()
                   .HasForeignKey(p => p.UserId)
                   .OnDelete(DeleteBehavior.Cascade);
+            // Defaulted in the database as well as on the entity, so a plan
+            // inserted by anything that doesn't go through the model — a raw
+            // insert, a restored backup — still reads as "no deloads" rather
+            // than null. `DeloadSchedule.Parse` treats null as empty anyway;
+            // this keeps the column's own contract honest.
+            entity.Property(p => p.DeloadWeeksJson)
+                  .IsRequired()
+                  .HasDefaultValue("[]");
         });
 
         modelBuilder.Entity<WorkoutPlanWorkout>(entity =>

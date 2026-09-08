@@ -38,6 +38,21 @@ public class WorkoutPlan
     /// Set only by <c>TrainerConsoleService</c>; a client cannot delete a plan this is set on.</summary>
     public Guid? AssignedByTrainerId { get; set; }
 
+    /// <summary>The plan's deload weeks, as JSON: <c>[{"week":5,"volumePercent":50}]</c>.
+    /// Empty array for a plan with none. See <c>docs/deload-weeks.md</c> and
+    /// <see cref="DeloadSchedule"/>.</summary>
+    /// <remarks>
+    /// <para><c>volumePercent</c> is the share of normal volume to <em>perform</em>, not the
+    /// reduction — 50 means "do half your sets". The two readings differ by the entire point
+    /// of the feature, so the distinction is restated wherever this is declared.</para>
+    /// <para>Deliberately <em>not</em> part of <see cref="DTOs.WorkoutPlanRequestDto"/>. The
+    /// trainee's own plan sync is a full-document PUT, so carrying this field there would let
+    /// a device that hasn't yet pulled a trainer's change push a stale empty set over it —
+    /// last writer wins, and the loser is the trainer. It has its own endpoint instead, and
+    /// <c>WorkoutPlanRepository.UpdatePlanAsync</c> structurally cannot touch it.</para>
+    /// </remarks>
+    public string DeloadWeeksJson { get; set; } = "[]";
+
     /// <summary>Navigation property to the user who owns this plan.</summary>
     public User User { get; set; } = null!;
 

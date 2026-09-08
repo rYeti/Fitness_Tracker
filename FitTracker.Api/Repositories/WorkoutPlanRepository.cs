@@ -83,6 +83,22 @@ public class WorkoutPlanRepository : IWorkoutPlanRepository
     }
 
     /// <inheritdoc/>
+    public async Task<WorkoutPlan?> SetDeloadWeeksAsync(Guid id, Guid userId, string deloadWeeksJson)
+    {
+        var plan = await _context.WorkoutPlans.FirstOrDefaultAsync(p => p.Id == id && p.UserId == userId);
+        if (plan == null) return null;
+
+        // Writes exactly this column and nothing else. Deliberately not folded into
+        // UpdatePlanAsync: that one applies a whole request DTO, and the entire reason
+        // deload weeks are absent from WorkoutPlanRequestDto is so a full-document plan PUT
+        // cannot carry — and therefore cannot clobber — them. See docs/deload-weeks.md §5b.
+        plan.DeloadWeeksJson = deloadWeeksJson;
+
+        await _context.SaveChangesAsync();
+        return plan;
+    }
+
+    /// <inheritdoc/>
     public async Task<PlanDeleteResult> DeletePlanAsync(Guid id, Guid userId, bool actingAsTrainer = false)
     {
         var plan = await _context.WorkoutPlans.FirstOrDefaultAsync(p => p.Id == id && p.UserId == userId);
