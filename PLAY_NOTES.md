@@ -22,6 +22,14 @@ Markdown links, headings or emphasis, none of which Play renders.
 
 See `docs/android-release.md`.
 
+## Unreleased
+
+Deload weeks (Premium)
+
+Mark any week of your plan as a recovery week and choose how much volume it keeps. Set one week on its own, or repeat one every few weeks - whichever suits your training.
+
+Deload weeks show on your schedule and while you train, where sets beyond that week's volume are marked optional. Your training days and rest days stay exactly as planned.
+
 ## 1.0.2+23
 
 If you don't have a trainer and have Premium, you can now choose which nutrients you track yourself — previously only a trainer could set this for you. If a change can't be saved, the app now tells you why instead of quietly undoing it.

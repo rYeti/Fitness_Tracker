@@ -48,13 +48,18 @@ class DeloadWeekStrip extends StatelessWidget {
   /// it with a reason tells them where to ask.
   final bool assignedByTrainer;
 
+  /// Entitlement as read from an event handler.
+  ///
+  /// `read`, not `watch`: `watch` may only be called during `build`, and
+  /// provider throws if a tap handler reaches for it. [build] does its own
+  /// `watch` below so the strip still repaints when entitlement changes.
   bool _isLocked(BuildContext context) =>
-      !context.watch<AccessProvider>().hasPremiumAccess;
+      !context.read<AccessProvider>().hasPremiumAccess;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final locked = _isLocked(context);
+    final locked = !context.watch<AccessProvider>().hasPremiumAccess;
     final readOnly = locked || assignedByTrainer;
 
     return Card(
