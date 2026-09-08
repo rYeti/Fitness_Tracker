@@ -166,8 +166,14 @@ class AppDatabase extends _$AppDatabase {
   /// `try/catch`, not just one around the block — the 37 comment above
   /// explains the same `createAll()`-then-`ALTER` interaction that makes it
   /// necessary here too.
+  ///
+  /// 40 adds `workout_plan_table.deload_weeks_json` and
+  /// `.assigned_by_trainer`, for deload weeks — see `docs/deload-weeks.md`.
+  /// Both are `NOT NULL` with a default, so an existing plan reads as "no
+  /// deloads, not trainer-assigned", which is exactly what every plan created
+  /// before this version was.
   @override
-  int get schemaVersion => 39;
+  int get schemaVersion => 40;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -402,6 +408,31 @@ class AppDatabase extends _$AppDatabase {
           'ALTER TABLE chat_out_box_table ADD COLUMN attachment_manifest TEXT',
           'ALTER TABLE chat_out_box_table ADD COLUMN attachment_local_path TEXT',
           'ALTER TABLE chat_out_box_table ADD COLUMN upload_status INTEGER NOT NULL DEFAULT 0',
+        ]) {
+          try {
+            await customStatement(stmt);
+          } catch (_) {}
+        }
+      }
+
+      if (from < 40) {
+        // Deload weeks. Both columns are NOT NULL with a default so every
+        // existing plan reads as "no deloads, not trainer-assigned" — which is
+        // what it actually was, rather than a null anyone downstream has to
+        // decide the meaning of.
+        //
+        // Per-statement try/catch for the same reason as the 39 block above:
+        // a device upgrading from before this table existed already got both
+        // columns from `createAll()`, and the ALTER then fails on a duplicate
+        // column — a failure this branch has to survive, not abort on.
+        //
+        // `deload_weeks_json` defaults to the JSON empty array, not to an
+        // empty string: `DeloadSchedule.decode` treats both as "no deloads",
+        // but a column that always holds valid JSON is one that anything
+        // reading it directly can parse without a special case.
+        for (final stmt in [
+          "ALTER TABLE workout_plan_table ADD COLUMN deload_weeks_json TEXT NOT NULL DEFAULT '[]'",
+          'ALTER TABLE workout_plan_table ADD COLUMN assigned_by_trainer INTEGER NOT NULL DEFAULT 0',
         ]) {
           try {
             await customStatement(stmt);

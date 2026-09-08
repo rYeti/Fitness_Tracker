@@ -143,6 +143,30 @@ class WorkoutPlanTable extends Table {
   TextColumn get cyclePatternJson => text()();
   BoolColumn get isFreeChoice => boolean().withDefault(const Constant(false))();
   IntColumn get durationDays => integer().nullable()();
+
+  /// Deload weeks, as JSON: `[{"week":5,"volumePercent":50}]`. See
+  /// `DeloadSchedule` (`feature/workout_planning/domain/deload_schedule.dart`)
+  /// for the shape and `docs/deload-weeks.md` for why it lives here rather
+  /// than as a flag on each `ScheduledWorkoutTable` row.
+  ///
+  /// `volumePercent` is the share of normal volume to *perform*, not the
+  /// reduction. Written only through a targeted `update`, never through
+  /// `WorkoutPlanDao.saveWorkoutPlan` — that method inserts five columns with
+  /// `InsertMode.insertOrReplace` and would drop this one (see §5d).
+  TextColumn get deloadWeeksJson =>
+      text().withDefault(const Constant('[]'))();
+
+  /// Whether a trainer assigned this plan, mirroring
+  /// `WorkoutPlanResponseDto.AssignedByTrainer`. Pulled from the server; the
+  /// device never sets it itself.
+  ///
+  /// The client discarded this field entirely until deload weeks needed it
+  /// (§5c): it decides both who may edit the deload schedule and whether a
+  /// non-entitled client still sees one, so without it a free user's own
+  /// deloads and their trainer's are indistinguishable.
+  BoolColumn get assignedByTrainer =>
+      boolean().withDefault(const Constant(false))();
+
   TextColumn get serverId => text().nullable()();
   IntColumn get syncStatus => integer().withDefault(const Constant(0))();
 }

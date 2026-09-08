@@ -310,20 +310,26 @@ retroactively rewrites which past weeks were deloads, and a single-week override
 then needs *both* a rule and an exception list — two sources of truth for one
 answer.
 
-**A single one-off deload is the primary interaction.** Marking one week —
-because this client is beaten up *now* — is the common case, and it must be one
-tap that touches nothing else. "Repeat every N weeks" is a convenience for
-people who want a cadence, never a default, never pre-filled, and never
-something a one-off toggle silently opts you into. A user who taps week 7 gets
-a deload in week 7 and nowhere else.
+**One-off or a repeating cadence is the user's choice, and both are
+first-class.** Some people want a single week marked because this athlete is
+beaten up *now*; others run 3-on-1-off and want the whole block laid out at
+once. Neither is the "real" way to use the feature, so the UI offers both and
+picks neither by default:
 
-The generator, when someone does reach for it, is a button that **expands** to
-explicit entries at save time and stores the expansion; the rule is authoring
-convenience, the set is the truth. Applying it into a set that already holds
-one-off entries merges rather than replaces — an existing week keeps the volume
-it was given, and the generator only fills weeks that had none, so reaching for
-a cadence never silently rewrites a prescription already made. Three details it
-needs:
+- **Just this week** — one tap on a week, and nothing else in the plan changes.
+- **Repeat every N weeks** — expands the cadence across the plan in one action.
+
+The one rule that constrains the choice: a one-off tap must never silently opt
+someone into a cadence, and applying a cadence must never silently overwrite
+weeks already set by hand. Choosing is the user's; inferring is not the app's.
+
+The generator **expands** to explicit entries at save time and stores the
+expansion — the cadence is an authoring action, the resulting set is the truth,
+which is why changing your mind about N later cannot retroactively rewrite
+weeks already trained (the rejected `deloadEveryNWeeks` rule above). Applying it
+into a set that already holds entries **merges**: an existing week keeps the
+volume it was given, and the generator only fills weeks that had none. Three
+details it needs:
 
 - Offer N ∈ {4, 5, 6} and default to **5** (§3c). Generated entries take the
   default `volumePercent`; the user can then retune any individual week.
@@ -791,13 +797,18 @@ widget:
                  └ deload · 50% volume    └ deload · 40% volume
 ```
 
-One-tap toggle on a week, and that is the whole interaction for the common case
-— a single week, marked because this athlete needs it now (§4a). The volume for
-that week is set on the same strip (a stepper or a short row of presets keyed to
-the §3a bands), defaulting to 50% and adjustable per week, so a trainer can
-prescribe 40% in one block and 70% in another. "Repeat every N weeks" sits
-behind a secondary action that expands into explicit entries (§4a) so the user
-immediately sees and can override what it did; it is never pre-selected. Its copy carries the evidence rather than a bare number: *"Most
+Tapping a week marks it. Two things are then the user's to choose, and the
+strip has to make both reachable without making either the default:
+
+- **How much volume**, per week — a stepper or a short row of presets keyed to
+  the §3a bands, defaulting to 50% and adjustable week by week, so a trainer
+  can prescribe 40% in one block and 70% in another. Reached from the marked
+  week itself (its row, or a long-press), so the common one-tap path never has
+  to walk through it.
+- **One week or a cadence** — "just this week" is the tap; "repeat every N
+  weeks" is an equally visible action beside the strip that expands into
+  explicit entries (§4a), so the user immediately sees what it did and can
+  retune or clear any individual week afterwards. Neither is pre-selected. Its copy carries the evidence rather than a bare number: *"Most
 lifters deload every 4–6 weeks. Newer lifters can usually go longer."* Weeks
 before the current one are shown but not editable — editing the past is the
 retroactive-rewrite problem from §9 wearing a friendlier hat.
