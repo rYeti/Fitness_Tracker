@@ -267,6 +267,100 @@ void main() {
     );
   });
 
+  test(
+    'two different legacy-only peers encrypted from the same session do not '
+    'share a derived secret',
+    () async {
+      // Reproduces the exact cross-contamination
+      // docs/chat-multi-device-keys.md's legacy-sentinel note describes: one
+      // `WebCryptoChatCrypto` instance (as `trainer_console_home.dart` builds
+      // for a whole roster) sending v1 to two unrelated legacy-only peers.
+      // `ChatKeyStore.legacyDeviceId` is the same fixed sentinel for both, so
+      // a cache keyed on device id alone would derive against the first
+      // peer's public key and then silently hand that same secret back for
+      // the second — the second peer would fail to decrypt with no error
+      // anywhere, since a wrong AES key still "succeeds" until the GCM tag
+      // check runs.
+      const carol = '33333333-3333-3333-3333-333333333333';
+
+      final aliceVault = InMemoryChatKeyVault();
+      final aliceKeys = ChatKeyStore(vault: aliceVault, api: FakeChatKeyApi(userId: alice));
+      await aliceKeys.ensureRegistered();
+
+      final bobVault = InMemoryChatKeyVault();
+      final bobKeys = ChatKeyStore(vault: bobVault, api: FakeChatKeyApi(userId: bob));
+      await bobKeys.ensureRegistered();
+
+      final carolVault = InMemoryChatKeyVault();
+      final carolKeys = ChatKeyStore(vault: carolVault, api: FakeChatKeyApi(userId: carol));
+      await carolKeys.ensureRegistered();
+
+      // Both peers are legacy-only from alice's side — the same sentinel id
+      // for each, but different real public keys underneath.
+      seedPeerDevice(
+        aliceVault,
+        bob,
+        ChatKeyStore.legacyDeviceId,
+        bobVault.entries[ChatKeyStore.identityPublicEntry]!,
+      );
+      seedPeerDevice(
+        aliceVault,
+        carol,
+        ChatKeyStore.legacyDeviceId,
+        carolVault.entries[ChatKeyStore.identityPublicEntry]!,
+      );
+
+      final aliceCrypto = WebCryptoChatCrypto(keys: aliceKeys);
+
+      final toBob = await aliceCrypto.encrypt(
+        otherPartyId: bob,
+        plaintext: 'for bob only',
+      );
+      final toCarol = await aliceCrypto.encrypt(
+        otherPartyId: carol,
+        plaintext: 'for carol only',
+      );
+
+      expect(toBob.version, ChatEncryption.ecdhP256AesGcm);
+      expect(toCarol.version, ChatEncryption.ecdhP256AesGcm);
+
+      seedPeerDevice(
+        bobVault,
+        alice,
+        aliceVault.entries[ChatKeyStore.identityDeviceEntry]!,
+        aliceVault.entries[ChatKeyStore.identityPublicEntry]!,
+      );
+      seedPeerDevice(
+        carolVault,
+        alice,
+        aliceVault.entries[ChatKeyStore.identityDeviceEntry]!,
+        aliceVault.entries[ChatKeyStore.identityPublicEntry]!,
+      );
+
+      final bobCrypto = WebCryptoChatCrypto(keys: bobKeys);
+      final carolCrypto = WebCryptoChatCrypto(keys: carolKeys);
+
+      expect(
+        await bobCrypto.decrypt(
+          otherPartyId: alice,
+          ciphertext: toBob.ciphertext,
+          iv: toBob.iv,
+          version: toBob.version,
+        ),
+        'for bob only',
+      );
+      expect(
+        await carolCrypto.decrypt(
+          otherPartyId: alice,
+          ciphertext: toCarol.ciphertext,
+          iv: toCarol.iv,
+          version: toCarol.version,
+        ),
+        'for carol only',
+      );
+    },
+  );
+
   group('multi-device', () {
     /// Three key stores: two devices of one account (phone, laptop) and one
     /// peer, all mutually aware of each other the way they would be after

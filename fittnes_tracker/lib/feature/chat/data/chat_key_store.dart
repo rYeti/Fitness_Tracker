@@ -142,7 +142,23 @@ class ChatKeyStore {
         await api.publish(storedPublic, deviceId: deviceId);
         await _vault.write(identityOwnerEntry, userId);
       }
-      await _cacheOwnDevices(me.devices);
+      // [me] was fetched before the publish above, so by definition it does
+      // not yet carry this device's own row when one was just written (the
+      // `mine == null || ...` branch above). Caching it as-is would mean
+      // this device is never among its own wrap targets, so every message it
+      // sends becomes unreadable on the very device that sent it, on the
+      // next `loadThread` — the self-wrap bug `_encryptV2`'s own doc comment
+      // describes, reached from this method rather than from there. Splice
+      // this device's own current row in explicitly instead of trusting
+      // [me] to already have it; this also self-corrects the "present but
+      // stale key" case, since the stale entry is filtered out by id before
+      // the fresh one is added.
+      final devicesToCache = [
+        for (final d in me.devices)
+          if (d.deviceId != deviceId) d,
+        ChatKeyDevice(deviceId: deviceId, publicKeyJwk: storedPublic),
+      ];
+      await _cacheOwnDevices(devicesToCache);
       return;
     }
 

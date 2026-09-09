@@ -333,6 +333,61 @@ its own message.
 > §5 already spent a section on for the ack's ciphertext; it cost a second
 > reminder here because the two call sites don't look alike.
 
+**A second instance of the same mistake shipped alongside the fix above, in a
+different method, and survived one review pass before a second one caught
+it.** `ChatKeyStore.ensureRegistered`'s republish branch — the one that fires
+when this device's own row is missing or stale on the server, exactly the
+case this whole feature exists to repair — fetched `me` (this account's
+device list) *before* publishing this device's row, then cached that same
+pre-publish `me` as "every device I own":
+
+```dart
+final mine = me.devices.where((d) => d.deviceId == deviceId).firstOrNull;
+if (mine == null || mine.publicKeyJwk != storedPublic) {
+  await api.publish(storedPublic, deviceId: deviceId);
+  await _vault.write(identityOwnerEntry, userId);
+}
+await _cacheOwnDevices(me.devices);   // me predates the publish above
+```
+
+`me.devices` cannot contain this device's own row by construction — it was
+fetched at a point in time before that row existed. Caching it anyway means
+this device's own current id is never among the "my other devices" wrap
+targets `_encryptV2` reads, for the rest of that session: the exact self-wrap
+failure this section already describes, reached through the one code path
+most likely to run *because* something about this device's registration was
+already wrong (a five-device eviction, a fresh install after the server
+already had four other devices, an upgrade from a build with no device id at
+all). The `_generate` path a few lines below — first run, no stored key at
+all — gets this right, with a comment explaining why: it refetches `me`
+*after* publishing, paying a second round trip specifically to see its own
+just-written row. The republish branch had the same shape and needed the
+same fix, and didn't get it, because a reviewer (and the author) checking
+"does this branch publish correctly" is a different question from "does this
+branch's *cache* end up correct" — the publish succeeds either way; only the
+read side is wrong.
+
+The fix costs no second round trip: splice this device's own row into `me`'s
+list before caching, replacing any stale entry for the same id by filtering
+it out first.
+
+```dart
+final devicesToCache = [
+  for (final d in me.devices) if (d.deviceId != deviceId) d,
+  ChatKeyDevice(deviceId: deviceId, publicKeyJwk: storedPublic),
+];
+await _cacheOwnDevices(devicesToCache);
+```
+
+The test this shipped without: the original coverage for this branch
+(`'republishes when the server has lost every device but this one has not'`)
+asserted the publish itself — call count, that the same key and device id
+were sent again — and never once called `ownDeviceKeys()` afterward to check
+what got cached. A branch can publish exactly right and cache exactly wrong,
+and a test that only watches the write side of that branch cannot tell the
+difference. Watching the read side (`ownDeviceKeys()`, the value the crypto
+layer actually consumes) is what closed the gap.
+
 ## 9. Two hypotheses where there used to be one
 
 `ChatRepository._decrypt`'s one-shot recovery used to have exactly one thing
@@ -396,19 +451,80 @@ real but genuinely partial: five real devices with a documented, self-healing
 eviction cost is a truer sentence than infinite devices with no cap and an
 unbounded table.
 
+## 11. The one id that isn't really a device id
+
+`WebCryptoChatCrypto._shared` caches a derived AES-GCM secret by device id,
+on the invariant §5 states plainly: a device's key pair doesn't change for
+the life of its id, so the secret derived against it never goes stale. That
+invariant holds for every id `_ensureDeviceId` mints — a fresh UUID, unique
+to one install, forever. It does not hold for
+`ChatKeyStore.legacyDeviceId`, the fixed all-zero sentinel every
+pre-migration row of *every* account publishes under, because a build old
+enough to have no device id concept has no id to be unique with. Treating
+that sentinel as if it named one specific device was the same category of
+mistake §7 describes for `_decryptV1`'s lookup direction — a value that looks
+like an ordinary device id everywhere it's read, until the one place that
+assumes uniqueness.
+
+The failure needs two legacy parties in the same `WebCryptoChatCrypto`
+instance to show up — routine for the Trainer Console, where one instance
+serves a trainer's entire roster (`trainer_console_home.dart` builds one
+`ChatRepository`, and therefore one crypto instance, for every client, not
+one per open thread). Encrypting v1 to client A, whose only published device
+is the legacy row, derives a secret against A's legacy public key and caches
+it under `legacyDeviceId`. Encrypting v1 to client B — a different person,
+also legacy-only — looks up the same cache key, finds A's secret still
+there, and reuses it instead of deriving against B's actual public key. The
+message to B is sealed with a key B cannot produce on their end; their
+decrypt fails the GCM tag check and returns null, silently, the same shape
+every other unreadable-message case in this document takes. The same
+collision reaches a trainer's own account, too, if one of their own devices
+is still on the legacy row: their own-device wrap for that row and a v1 send
+to an unrelated legacy peer fight over the same cache entry depending on
+which happened first in that session.
+
+`forget(peer)`, the recovery this whole design leans on for a rotated key,
+does not help here — by design, it only refreshes the peer's *device list*,
+correct for every real device id, and never touches `_shared` at all,
+because a real device's derived secret is never the thing that goes stale.
+The legacy sentinel breaks that assumption in the other direction: it isn't
+one device rotating, it's many unrelated devices sharing one name.
+
+The fix does not try to make the sentinel behave like a real id. It excludes
+it from the optimization instead: `_sharedKeyFor` never reads from or writes
+to `_shared` when the device id in hand is `legacyDeviceId`, deriving fresh
+every time regardless of which peer or which of this account's own devices
+is on the other end. Real device ids are unaffected — the cache still holds
+for the traffic it was built for. Legacy traffic pays one extra ECDH
+derivation per message instead of reusing a cached key, which costs nothing
+worth optimizing away: it is inherently transitional, shrinking as clients
+upgrade, and gone entirely once no build old enough to lack a device id is
+still signing in.
+
+> **A cache keyed on "id" is only as safe as the promise that the id names
+> one thing.** Every real device id in this system keeps that promise by
+> construction; the one sentinel that predates device ids does not, and nothing
+> about its type signature — it's a `String`, like every other device id —
+> said so.
+
 ---
 
 ## What all of this has in common
 
-Four separate mistakes in this document — the single-slot schema, the
+Six separate mistakes in this document — the single-slot schema, the
 missing displacement check, the self-wrap omission, the legacy-lookup
-direction — share one shape. Each one is code that is correct for every case
-its author was actually holding in mind while writing it, and silently wrong
-for a case that looks, from the outside, like a minor variation: a second
-device instead of a reinstall, a later reload instead of the moment of
-sending, a message *to* a legacy peer instead of history *from* one. None of
-the four is a logic error a type system or a unit test written against the
-case in mind would ever have caught, because each test would have been
-written against exactly the case the author was thinking about, and passed.
+direction, the republish path's stale own-device cache, and the legacy
+sentinel's cache collision — share one shape. Each one is code that is
+correct for every case its author was actually holding in mind while writing
+it, and silently wrong for a case that looks, from the outside, like a minor
+variation: a second device instead of a reinstall, a later reload instead of
+the moment of sending, a message *to* a legacy peer instead of history *from*
+one, a republish instead of a first registration, two legacy peers instead
+of one. None of the six is a logic error a type system or a unit test
+written against the case in mind would ever have caught, because each test
+would have been written against exactly the case the author was thinking
+about, and passed — including, twice now, a test that watched the write half
+of a branch and never checked what the branch actually left behind to be
+read later.
 
 > **The device is never the one you're testing against.**

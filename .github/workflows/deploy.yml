@@ -120,6 +120,15 @@ jobs:
             env_vars="$env_vars,Attachments__Provider=r2,Attachments__R2__AccountId=$R2_ACCOUNT_ID,Attachments__R2__Bucket=$R2_BUCKET,Attachments__R2__AccessKeyId=$R2_ACCESS_KEY_ID,Attachments__R2__SecretAccessKey=$R2_SECRET_ACCESS_KEY"
             if [ -n "${R2_EU_JURISDICTION:-}" ]; then
               env_vars="$env_vars,Attachments__R2__EuJurisdiction=$R2_EU_JURISDICTION"
+            else
+              # Silently inheriting the code default (false — Cloudflare's own
+              # default for a normally-created bucket) is fine if that's what
+              # the bucket actually is, and silently wrong if it isn't, with
+              # no error anywhere in this API's logs either way — presigning
+              # never makes a request, so a wrong host only shows up as every
+              # client PUT/GET failing. Worth an explicit decision rather than
+              # an inherited one now that R2 is actually configured.
+              echo "::warning::R2 is configured but R2_EU_JURISDICTION is not set — defaulting to false (non-EU). If this bucket was created with EU jurisdiction, presigned URLs will sign the wrong host and every upload/download will fail. See docs/chat-attachments.md §A.7."
             fi
           else
             echo "::warning::R2 attachment storage is not fully configured — chat works, but the attach affordance stays disabled on every client. See docs/chat-attachments.md."

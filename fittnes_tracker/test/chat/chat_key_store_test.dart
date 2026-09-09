@@ -67,9 +67,11 @@ void main() {
   test('republishes when the server has lost every device but this one has not', () async {
     await build().ensureRegistered();
     final storedKey = vault.entries[ChatKeyStore.identityKeyEntry];
+    final deviceId = vault.entries[ChatKeyStore.identityDeviceEntry];
 
     api.published.remove(me);
-    await build().ensureRegistered();
+    final republished = build();
+    await republished.ensureRegistered();
 
     // Republished, not regenerated. This device still holds the only private
     // half that can read its existing conversations.
@@ -77,6 +79,17 @@ void main() {
     expect(api.publishes, hasLength(2));
     expect(api.publishes.last.publicKeyJwk, api.publishes.first.publicKeyJwk);
     expect(api.publishes.last.deviceId, api.publishes.first.deviceId);
+
+    // The server's device list fetched *before* the publish above by
+    // definition does not carry this device's own just-written row. If that
+    // pre-publish list were cached as-is, this device would never wrap a
+    // content key for itself again, and every message it sends from here on
+    // would be unreadable to itself on the next load — the self-wrap bug the
+    // ordinary "first run" path (`_generate`) already avoids by refetching.
+    // The republish path must reach the same result without a second round
+    // trip: splice its own row in explicitly.
+    final ownDevices = await republished.ownDeviceKeys();
+    expect(ownDevices.keys, contains(deviceId));
   });
 
   test('regenerates when a different account signs in on this device', () async {

@@ -43,6 +43,18 @@ class WebCryptoChatCrypto implements ChatCrypto {
   /// per-user cache did: rotation is handled entirely by
   /// `ChatKeyStore.forgetPeer` refreshing *which* devices exist, not by
   /// anything in this map needing to be invalidated.
+  ///
+  /// The one id that invariant does not hold for is
+  /// `ChatKeyStore.legacyDeviceId` — the fixed all-zero sentinel every
+  /// pre-migration row of *every* account shares, rather than a value that
+  /// identifies one real device. `_sharedKeyFor` never reads or writes this
+  /// cache for that id: a single `WebCryptoChatCrypto` instance serves a
+  /// whole trainer console session across the entire roster, so caching
+  /// under the shared sentinel would let one legacy peer's (or this
+  /// account's own un-updated device's) derived secret get reused for an
+  /// unrelated legacy peer encrypted or decrypted later in the same
+  /// session — silently, since a wrong AES key still "succeeds" until the
+  /// GCM tag check fails.
   final Map<String, AesGcmSecretKey> _shared = {};
 
   WebCryptoChatCrypto({required ChatKeyStore keys}) : _keys = keys;
@@ -293,12 +305,28 @@ class WebCryptoChatCrypto implements ChatCrypto {
   }
 
   @override
+  // Only the peer's device list needs refreshing on a rotation — a real
+  // device id's derived secret never goes stale, so `_shared` itself is
+  // never touched here. `ChatKeyStore.legacyDeviceId` is the one id that
+  // isn't a stable per-device identity, and `_sharedKeyFor` already refuses
+  // to cache it at all, so there is nothing to invalidate for it either.
   Future<void> forget(String otherPartyId) => _keys.forgetPeer(otherPartyId);
 
   Future<AesGcmSecretKey> _sharedKeyFor(
     String deviceId,
     EcdhPublicKey devicePublicKey,
   ) async {
+    // The legacy sentinel is shared by every pre-migration row of every
+    // account, so it is not a safe cache key — see the field's own doc
+    // comment. Derive fresh every time rather than risk one legacy party's
+    // secret being reused for another's. Legacy traffic is inherently
+    // transitional and rare, so this costs nothing worth optimising for.
+    if (deviceId == ChatKeyStore.legacyDeviceId) {
+      final mine = await _keys.identityKey();
+      final bits = await mine.deriveBits(256, devicePublicKey);
+      return AesGcmSecretKey.importRawKey(bits);
+    }
+
     final cached = _shared[deviceId];
     if (cached != null) return cached;
 
