@@ -267,100 +267,6 @@ void main() {
     );
   });
 
-  test(
-    'two different legacy-only peers encrypted from the same session do not '
-    'share a derived secret',
-    () async {
-      // Reproduces the exact cross-contamination
-      // docs/chat-multi-device-keys.md's legacy-sentinel note describes: one
-      // `WebCryptoChatCrypto` instance (as `trainer_console_home.dart` builds
-      // for a whole roster) sending v1 to two unrelated legacy-only peers.
-      // `ChatKeyStore.legacyDeviceId` is the same fixed sentinel for both, so
-      // a cache keyed on device id alone would derive against the first
-      // peer's public key and then silently hand that same secret back for
-      // the second — the second peer would fail to decrypt with no error
-      // anywhere, since a wrong AES key still "succeeds" until the GCM tag
-      // check runs.
-      const carol = '33333333-3333-3333-3333-333333333333';
-
-      final aliceVault = InMemoryChatKeyVault();
-      final aliceKeys = ChatKeyStore(vault: aliceVault, api: FakeChatKeyApi(userId: alice));
-      await aliceKeys.ensureRegistered();
-
-      final bobVault = InMemoryChatKeyVault();
-      final bobKeys = ChatKeyStore(vault: bobVault, api: FakeChatKeyApi(userId: bob));
-      await bobKeys.ensureRegistered();
-
-      final carolVault = InMemoryChatKeyVault();
-      final carolKeys = ChatKeyStore(vault: carolVault, api: FakeChatKeyApi(userId: carol));
-      await carolKeys.ensureRegistered();
-
-      // Both peers are legacy-only from alice's side — the same sentinel id
-      // for each, but different real public keys underneath.
-      seedPeerDevice(
-        aliceVault,
-        bob,
-        ChatKeyStore.legacyDeviceId,
-        bobVault.entries[ChatKeyStore.identityPublicEntry]!,
-      );
-      seedPeerDevice(
-        aliceVault,
-        carol,
-        ChatKeyStore.legacyDeviceId,
-        carolVault.entries[ChatKeyStore.identityPublicEntry]!,
-      );
-
-      final aliceCrypto = WebCryptoChatCrypto(keys: aliceKeys);
-
-      final toBob = await aliceCrypto.encrypt(
-        otherPartyId: bob,
-        plaintext: 'for bob only',
-      );
-      final toCarol = await aliceCrypto.encrypt(
-        otherPartyId: carol,
-        plaintext: 'for carol only',
-      );
-
-      expect(toBob.version, ChatEncryption.ecdhP256AesGcm);
-      expect(toCarol.version, ChatEncryption.ecdhP256AesGcm);
-
-      seedPeerDevice(
-        bobVault,
-        alice,
-        aliceVault.entries[ChatKeyStore.identityDeviceEntry]!,
-        aliceVault.entries[ChatKeyStore.identityPublicEntry]!,
-      );
-      seedPeerDevice(
-        carolVault,
-        alice,
-        aliceVault.entries[ChatKeyStore.identityDeviceEntry]!,
-        aliceVault.entries[ChatKeyStore.identityPublicEntry]!,
-      );
-
-      final bobCrypto = WebCryptoChatCrypto(keys: bobKeys);
-      final carolCrypto = WebCryptoChatCrypto(keys: carolKeys);
-
-      expect(
-        await bobCrypto.decrypt(
-          otherPartyId: alice,
-          ciphertext: toBob.ciphertext,
-          iv: toBob.iv,
-          version: toBob.version,
-        ),
-        'for bob only',
-      );
-      expect(
-        await carolCrypto.decrypt(
-          otherPartyId: alice,
-          ciphertext: toCarol.ciphertext,
-          iv: toCarol.iv,
-          version: toCarol.version,
-        ),
-        'for carol only',
-      );
-    },
-  );
-
   group('multi-device', () {
     /// Three key stores: two devices of one account (phone, laptop) and one
     /// peer, all mutually aware of each other the way they would be after
@@ -628,5 +534,227 @@ void main() {
         'bob updated, so this is v2',
       );
     });
+  });
+
+  /// Regressions from the review of this branch. Each pins a failure that is
+  /// silent from the sender's side — the message seals, sends and renders as
+  /// delivered, and only the reader discovers there is nothing there.
+  group('shared-secret cache', () {
+    const carol = '33333333-3333-3333-3333-333333333333';
+
+    /// A registered store plus the vault behind it, which every test here
+    /// needs to reach into for the device id and exported public key.
+    Future<(ChatKeyStore, InMemoryChatKeyVault)> registered(
+      String userId, {
+      Map<String, Map<String, String>>? published,
+    }) async {
+      final vault = InMemoryChatKeyVault();
+      final store = ChatKeyStore(
+        vault: vault,
+        api: FakeChatKeyApi(userId: userId, published: published),
+      );
+      await store.ensureRegistered();
+      return (store, vault);
+    }
+
+    test(
+      'a device whose row was evicted can still read back what it sent after '
+      'republishing',
+      () async {
+        // `ensureRegistered` caches this account's device list from the `me`
+        // it fetched *before* republishing, which cannot contain the row the
+        // republish is about to write. `_encryptV2` wraps only for the
+        // devices in that cache, so the sending device gets no wrap of its
+        // own — and a thread reload calls `decrypt` on the stored ciphertext
+        // with no plaintext left to fall back on.
+        final aliceDevices = <String, Map<String, String>>{};
+        final (_, phoneVault) = await registered(
+          alice,
+          published: aliceDevices,
+        );
+        await registered(alice, published: aliceDevices); // alice's laptop
+        final (_, peerVault) = await registered(bob);
+
+        final phoneDeviceId =
+            phoneVault.entries[ChatKeyStore.identityDeviceEntry]!;
+
+        // The per-user cap evicted the phone while it was away. The laptop's
+        // row remains, so what the phone caches next is populated but wrong.
+        aliceDevices[alice]!.remove(phoneDeviceId);
+
+        final rejoinedKeys = ChatKeyStore(
+          vault: phoneVault,
+          api: FakeChatKeyApi(userId: alice, published: aliceDevices),
+        );
+        await rejoinedKeys.ensureRegistered();
+
+        seedPeerDevice(
+          phoneVault,
+          bob,
+          peerVault.entries[ChatKeyStore.identityDeviceEntry]!,
+          peerVault.entries[ChatKeyStore.identityPublicEntry]!,
+        );
+
+        final phone = WebCryptoChatCrypto(keys: rejoinedKeys);
+        final sealed = await phone.encrypt(
+          otherPartyId: bob,
+          plaintext: 'back after an eviction',
+        );
+
+        expect(
+          await phone.decrypt(
+            otherPartyId: bob,
+            ciphertext: sealed.ciphertext,
+            iv: sealed.iv,
+            version: sealed.version,
+          ),
+          'back after an eviction',
+          reason:
+              'the content key was wrapped for every device this account had '
+              'except the one that sent the message',
+        );
+      },
+    );
+
+    test('two legacy-only peers do not share one derived secret', () async {
+      // The legacy device id is a sentinel every pre-upgrade install shares,
+      // not an identity — so a derived-secret cache keyed on the device id
+      // alone collides across peers. One `WebCryptoChatCrypto` serves the
+      // whole trainer console (`TrainerConsoleHome` builds a single
+      // `ChatRepository` for the entire roster), so a trainer with two
+      // clients still on an old build is the ordinary case, not a corner.
+      final (aliceKeys, aliceVault) = await registered(alice);
+      final (bobKeys, bobVault) = await registered(bob);
+      final (carolKeys, carolVault) = await registered(carol);
+
+      // Both peers look like pre-upgrade installs from alice's side: one
+      // device apiece, filed under the legacy sentinel.
+      seedPeerDevice(
+        aliceVault,
+        bob,
+        ChatKeyStore.legacyDeviceId,
+        bobVault.entries[ChatKeyStore.identityPublicEntry]!,
+      );
+      seedPeerDevice(
+        aliceVault,
+        carol,
+        ChatKeyStore.legacyDeviceId,
+        carolVault.entries[ChatKeyStore.identityPublicEntry]!,
+      );
+
+      // One crypto instance, two threads — the console's actual shape.
+      final console = WebCryptoChatCrypto(keys: aliceKeys);
+      final toBob = await console.encrypt(
+        otherPartyId: bob,
+        plaintext: 'bob only',
+      );
+      final toCarol = await console.encrypt(
+        otherPartyId: carol,
+        plaintext: 'carol only',
+      );
+
+      // Each peer caches alice's one real device, as a fetch would leave it.
+      for (final peerVault in [bobVault, carolVault]) {
+        seedPeerDevice(
+          peerVault,
+          alice,
+          aliceVault.entries[ChatKeyStore.identityDeviceEntry]!,
+          aliceVault.entries[ChatKeyStore.identityPublicEntry]!,
+        );
+      }
+
+      expect(
+        await WebCryptoChatCrypto(keys: bobKeys).decrypt(
+          otherPartyId: alice,
+          ciphertext: toBob.ciphertext,
+          iv: toBob.iv,
+          version: toBob.version,
+        ),
+        'bob only',
+      );
+      expect(
+        await WebCryptoChatCrypto(keys: carolKeys).decrypt(
+          otherPartyId: alice,
+          ciphertext: toCarol.ciphertext,
+          iv: toCarol.iv,
+          version: toCarol.version,
+        ),
+        'carol only',
+        reason:
+            'the second send reused the secret cached under the legacy '
+            'sentinel by the first, so it is sealed to the wrong peer',
+      );
+    });
+
+    test(
+      "an account's own legacy row does not poison a later send to a legacy "
+      'peer',
+      () async {
+        // After the migration every pre-existing account keeps a legacy row
+        // of its own, holding that account's own key. `_encryptV2` wraps for
+        // its own devices too, so the first v2 send files a *self*-derived
+        // secret under the legacy sentinel — which the next v1 send to a
+        // genuinely legacy peer then reuses in place of the peer's.
+        final aliceDevices = <String, Map<String, String>>{};
+        final (aliceKeys, aliceVault) = await registered(
+          alice,
+          published: aliceDevices,
+        );
+
+        // The row the migration left behind: this account's own key, filed
+        // under the sentinel, alongside the real device id it just published.
+        aliceDevices[alice]![ChatKeyStore.legacyDeviceId] =
+            aliceVault.entries[ChatKeyStore.identityPublicEntry]!;
+        // Re-register so the own-device cache picks that legacy row up.
+        await aliceKeys.ensureRegistered();
+
+        final (bobKeys, bobVault) = await registered(bob);
+        final (_, carolVault) = await registered(carol);
+
+        // carol has upgraded — a real device id, so she gets v2.
+        seedPeerDevice(
+          aliceVault,
+          carol,
+          carolVault.entries[ChatKeyStore.identityDeviceEntry]!,
+          carolVault.entries[ChatKeyStore.identityPublicEntry]!,
+        );
+        // bob has not — legacy only, so he gets v1.
+        seedPeerDevice(
+          aliceVault,
+          bob,
+          ChatKeyStore.legacyDeviceId,
+          bobVault.entries[ChatKeyStore.identityPublicEntry]!,
+        );
+
+        final console = WebCryptoChatCrypto(keys: aliceKeys);
+        // v2 first: this is what caches a self-derived secret under the
+        // legacy sentinel, by wrapping for alice's own legacy row.
+        await console.encrypt(otherPartyId: carol, plaintext: 'hello carol');
+        final toBob = await console.encrypt(
+          otherPartyId: bob,
+          plaintext: 'hello bob',
+        );
+
+        seedPeerDevice(
+          bobVault,
+          alice,
+          aliceVault.entries[ChatKeyStore.identityDeviceEntry]!,
+          aliceVault.entries[ChatKeyStore.identityPublicEntry]!,
+        );
+
+        expect(
+          await WebCryptoChatCrypto(keys: bobKeys).decrypt(
+            otherPartyId: alice,
+            ciphertext: toBob.ciphertext,
+            iv: toBob.iv,
+            version: toBob.version,
+          ),
+          'hello bob',
+          reason:
+              'the v1 send reused the secret alice derived against her own '
+              'legacy row, not the one against bob',
+        );
+      },
+    );
   });
 }
