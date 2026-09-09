@@ -264,6 +264,66 @@ void main() {
         expect(phoneOwnDevices.keys, containsAll([phoneDeviceId, laptopDeviceId]));
       },
     );
+
+    test(
+      'a device that had to republish is in its own device cache afterwards',
+      () async {
+        // The three cases this whole table redesign exists for — a row
+        // evicted by the per-user cap, a row displaced by another device,
+        // and the first run after upgrading from a build with no device id —
+        // all reach `ensureRegistered` with this device's row *absent* from
+        // the server, so it republishes.
+        //
+        // The device list cached after that republish has to contain the row
+        // it just wrote. `WebCryptoChatCrypto._encryptV2` wraps a message's
+        // content key for exactly the devices in this cache, so a cache
+        // missing this device produces a message this device can send once
+        // and never read again — the same self-wrap failure
+        // docs/chat-multi-device-keys.md §8 describes, reached down a
+        // different path.
+        final phoneVault = InMemoryChatKeyVault();
+        final laptopVault = InMemoryChatKeyVault();
+        final shared = <String, Map<String, String>>{};
+
+        final phone = ChatKeyStore(
+          vault: phoneVault,
+          api: FakeChatKeyApi(userId: me, published: shared),
+        );
+        final laptop = ChatKeyStore(
+          vault: laptopVault,
+          api: FakeChatKeyApi(userId: me, published: shared),
+        );
+
+        await phone.ensureRegistered();
+        await laptop.ensureRegistered();
+
+        final phoneDeviceId =
+            phoneVault.entries[ChatKeyStore.identityDeviceEntry]!;
+
+        // The per-user device cap evicted this phone while it was away. The
+        // laptop's row stays, so the cache this test checks is populated but
+        // wrong, rather than merely empty.
+        shared[me]!.remove(phoneDeviceId);
+
+        // Coming back: a fresh store on the same vault, as a relaunch builds.
+        final rejoined = ChatKeyStore(
+          vault: phoneVault,
+          api: FakeChatKeyApi(userId: me, published: shared),
+        );
+        await rejoined.ensureRegistered();
+
+        // It noticed and republished, so the server has it back...
+        expect(shared[me], contains(phoneDeviceId));
+        // ...and its own cache has to agree, or it will not wrap for itself.
+        expect(
+          (await rejoined.ownDeviceKeys()).keys,
+          contains(phoneDeviceId),
+          reason:
+              'the device list is cached from the `me` fetched *before* the '
+              'republish, which by definition cannot contain this device',
+        );
+      },
+    );
   });
 
   group('cache-only', () {
