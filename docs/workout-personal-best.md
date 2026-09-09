@@ -164,7 +164,134 @@ existed. `paywallFeaturePersonalBest` closes that: one line
 the feature a free user's workout screen now says nothing about is still
 something they were told they'd get.
 
-## 6. The lesson
+## 6. The query was in the wrong layer, and the layer was hiding an N+1
+
+Review comment on the first version of this feature, against
+`active_workout_view.dart`:
+
+> why is here a db.select and not a repository or dio like the other access to
+> the database
+
+Worth being precise about what was actually wrong, because the surrounding
+code looks like a defence. Views in `gym_tracking` query the database
+inline constantly — roughly 32 `db.select(...)`/`db.into(...)` sites across
+that view directory against ~18 `db.someDao.method()` calls, five of them in
+`active_workout_view` alone. By volume, an inline query in a view *is* the
+house style, and there is no repository layer in `gym_tracking` at all
+(`grep -rn "Repository" lib/feature/gym_tracking/` returns nothing) — the
+"repository or dio" of the review is, concretely, a drift DAO.
+
+The distinction that makes the comment right is not inline-vs-DAO, it is
+typed-vs-raw. A `db.select(db.workoutSetTable)..where(...)` in a view is a
+query the analyser type-checks against the schema: rename a column and it
+goes red. A `customSelect` with a SQL string is a second, untyped copy of
+the schema that no build step reads, and there were exactly **three** of
+those in all of `lib/` outside the data layer. Two of them are gone in this
+change and the third was deleted outright (§6b).
+
+### 6a. What the move actually bought
+
+`WorkoutDao.getAllTimeBestSets({List<int>? exerciseIds})` replaced
+`_loadAllTimeBestSet(db, exerciseId)`. Three things changed that a
+straight cut-and-paste into the DAO would not have:
+
+**One definition of "best" for two screens.** The dashboard needed the same
+number (§7). Had the query stayed in the workout view, the dashboard would
+have grown its own — and "heaviest non-warmup set from a completed session"
+is a definition with four independent ways to drift. There is now one place
+where warmups are excluded and one place where the tie-break lives.
+
+**The N+1 disappeared.** The old method took a single `exerciseId` and was
+called *inside* the per-exercise loop of `_loadWorkoutData`, so a six-exercise
+workout ran six round trips before the first set could be typed. The batch
+method is called once, before the loop, and the loop reads
+`allTimeBests[exerciseId]` out of a map. Nothing about the review comment was
+about performance, and fixing the layering is what made the N+1 visible: a
+per-exercise query buried in a view reads as ordinary, and the same query in a
+DAO signature asks to be given all the ids at once.
+
+**`SetType.warmup.index` instead of `1`.** The dashboard's copy of this filter
+was written `AND ws.set_type != 1  -- exclude warmup sets`, a magic number with
+an apology attached. `workout_dao.dart` already imports the enum, so both
+queries now bind `SetType.warmup.index` as a variable and the comment is
+unnecessary.
+
+The tie-break needed one deliberate choice. Picking the best row per exercise
+in SQL wants `ROW_NUMBER() OVER (PARTITION BY ...)`, and window functions
+require SQLite 3.25+ — which not every Android system library ships. Instead
+the query orders by `we.exercise_id, ws.weight DESC, ws.reps DESC` and Dart
+keeps the first row it sees per id. Same semantics, no version floor. It reads
+more rows than it returns, which is the actual cost, and is bounded by the
+handful of exercises a caller asks about.
+
+### 6b. The third raw query was not a query
+
+`edit_view.dart` held this, inside a `try` that swallowed everything:
+
+```dart
+final links = await db.customSelect(
+  'SELECT * FROM workout_plan_workout_table WHERE plan_id = ?', …).get();
+```
+
+`links` was never read. It was a diagnostic dump — "if the plan has no
+workouts, dump the junction table to help diagnose missing/stale links" — from
+some earlier debugging session, still running on every load of a plan with no
+workouts and still discarding its result. The fix for a query nobody reads is
+not to relocate it into a DAO; it is to delete it, which is what happened.
+Worth noticing that the analyser never said a word: the variable *is* assigned,
+and the lint that would have caught it (`unused_local_variable`) fires only for
+variables that are never used at all — which this one technically is, but the
+warning had been sitting in a file with two other unused declarations for long
+enough to blend in.
+
+## 7. The same PB, on the progress dashboard
+
+The second half of this change puts the all-time PB on each exercise card in
+`progress_dashboard_view.dart`. The interesting part is what was already
+there and why it could not be reused.
+
+That screen already renders a **"Max weight"** stat under every chart, which
+looks exactly like the feature being asked for and is not:
+
+| | Max weight (existing) | All-time PB (new) |
+| --- | --- | --- |
+| Scope | the selected time range | every completed session, ever |
+| Reps | none | the reps of that set |
+| Free? | yes | premium |
+
+The range is the point. It is premium-clamped (`rangeStart(..., hasPremium:)`),
+so a free user's "Max weight" is the heaviest lift *of the last few weeks*.
+Presenting that as a personal best would have been wrong for the user who set
+their PB in January, and it would have made the paywall's promise false.
+
+Reps were the other blocker, and this one is a trap worth writing down.
+`ExerciseSessionData` carries a `reps` field, so `(maxWeight, reps)` looks
+like a set. It isn't: the SQL populates `reps` from `first_set_reps` — the
+reps of that day's *first* set, used to label chart points — while `maxWeight`
+is a `MAX()` across the day. On any day whose first set was a lighter one,
+pairing them describes a set that never happened, and both fields are
+`double`/`int` so nothing anywhere would object. `getAllTimeBestSets` returns
+a real set instead; `getExerciseProgressRows` now says so in a doc comment.
+
+Two smaller decisions:
+
+- **`ExerciseProgressData` gained an `exerciseId`.** It carried only
+  `exerciseName`, because nothing had needed to join it to anything before —
+  the id existed as a map key during loading and was dropped on the way out.
+  Keying PBs by name would have worked right up until two exercises shared one.
+- **The PB sits in the `ExpansionTile` subtitle**, not above the chart inside
+  the expanded body. Each exercise is a collapsed tile, so the body version is
+  invisible until you tap — and "the overall PB for each exercise" is a thing
+  you want to read down a list, not open one at a time. In the header it is
+  above the diagram anyway, which is where it was asked for.
+
+Premium gating follows §5 exactly: `hasPremiumAccess` is read once per build
+of the gym tab (not once per card) and passed down, and a free user gets the
+card they have always had, with no lock, no placeholder, and no layout shift.
+`PremiumGate` is deliberately not used here — it paints a tappable lock over
+its child, which is the behaviour §5a rejected.
+
+## 8. The lessons
 
 A feature described as "show X" that turns out to have two legitimate
 readings of X is a scoping decision, not a display decision — and the two
@@ -174,3 +301,11 @@ check what happens when they *disagree* before deciding whether one query
 can serve both; if the disagreement is the interesting case, it needs to
 survive as two code paths, not get collapsed by whichever one was easier to
 wire up first.
+
+The second lesson is about where a query lives. A method signature is a
+statement about how often it is meant to run, and moving a query one layer
+down forces you to write that statement: `_loadAllTimeBestSet(db, exerciseId)`
+sitting in a view among other per-exercise work looked fine and ran six times;
+the same logic behind `getAllTimeBestSets({exerciseIds})` could only be
+written once. Neither the compiler nor a test can see the difference between
+one query and six — they can only see the shape you gave the caller.

@@ -22,6 +22,14 @@ Markdown links, headings or emphasis, none of which Play renders.
 
 See `docs/android-release.md`.
 
+## Unreleased
+
+Premium: personal bests. Every exercise now shows the heaviest set you have
+ever completed for it while you train, alongside your best set of the current
+session, and on each exercise card in Progress. Warmups and unfinished
+sessions never count, and your best follows the exercise, so it survives your
+plan being rebuilt around it.
+
 ## 1.0.2+23
 
 If you don't have a trainer and have Premium, you can now choose which nutrients you track yourself — previously only a trainer could set this for you. If a change can't be saved, the app now tells you why instead of quietly undoing it.
