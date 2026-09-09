@@ -291,7 +291,65 @@ card they have always had, with no lock, no placeholder, and no layout shift.
 `PremiumGate` is deliberately not used here — it paints a tappable lock over
 its child, which is the behaviour §5a rejected.
 
-## 8. The lessons
+## 8. Four defects a code review found, and why nothing else would have
+
+All four survived a green suite and a clean `flutter analyze`, and three of
+them were introduced by the very change that centralised this logic. They are
+worth recording as a set, because they share a shape: each one is a place where
+two pieces of code answered the same question differently and nothing forced
+them to agree.
+
+**The decimal comma.** `_saveCurrentExercise` parses a weight as
+`double.tryParse(text.replaceAll(',', '.'))`. `_currentWorkoutBestSet` parsed
+it as `double.tryParse(text)`. On a German keyboard `102,5` therefore *saved*
+correctly and was silently skipped by the session-best card — the app agreed
+with itself about what you lifted and disagreed about whether it was your best
+set. Both paths read the same `TextEditingController`; only one of them knew
+the app ships in a locale that types commas.
+
+**Two clocks on the exercise identity.** `_loadWorkoutData` renders
+`resolvedExercise` — which is the *override* when the trainee swapped the
+exercise for that day — but looked the PB up under
+`workoutExercise.exerciseId`, the exercise the plan originally named. Swap
+Bench Press for Dumbbell Press and the card offered you the bench PB while you
+were doing dumbbells. The fix is `_attachAllTimeBests`, which keys off
+`exercise.id` (what is on screen) and, being a post-loop pass, is the only
+point where those ids are known.
+
+**The same split in SQL.** `getAllTimeBestSets` attributed sets by
+`we.exercise_id`, so the swapped day's sets counted toward the exercise that
+was *replaced* — 40 kg dumbbell presses landing in the bench press's history
+forever, not just for the session. Both queries now attribute through
+`_performedExerciseId` (`COALESCE(swe.override_exercise_id, we.exercise_id)`),
+so a set counts toward the lift that was actually done. This also corrected
+`getExerciseProgressRows`, which had inherited the same assumption from the
+original dashboard SQL.
+
+**The PB that vanished.** `_replaceCurrentExercise` and the superset-partner
+picker both rebuild `_ExerciseWithSets` from scratch. Neither passed
+`allTimeBest`, so it defaulted to null and the card disappeared for the rest of
+the session — indistinguishable, on screen, from an exercise that has no PB at
+all. This is the failure mode of adding a field to a class with more than one
+construction site: the analyser is perfectly happy, because the parameter is
+optional and null is a legal value that already means something else. Making
+the field mutable and assigning it through one method removes the chance to
+forget, and the constructor parameter was deleted so there is nothing left to
+pass inconsistently.
+
+A fifth, smaller one: reps defaulted to `0` when the field was empty, so typing
+a weight before its reps promoted "100 kg × 0 reps" to the best of the session
+for as long as it took to type the next number. A PB now requires both a weight
+and a rep count, in the widget *and* in SQL — `AND ws.reps IS NOT NULL AND
+ws.reps > 0` — because a stored weight-only row would otherwise render the same
+sentence permanently.
+
+What connects them: a green test suite proves the code does what its tests say,
+and every one of these is a disagreement *between* two pieces of code that were
+never tested against each other. The DAO tests were right about the DAO. The
+save path was right about commas. Nothing owned the question "do these two
+agree", which is exactly the question a reviewer asks first.
+
+## 9. The lessons
 
 A feature described as "show X" that turns out to have two legitimate
 readings of X is a scoping decision, not a display decision — and the two

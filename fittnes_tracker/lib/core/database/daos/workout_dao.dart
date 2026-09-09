@@ -673,6 +673,16 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
     return allSets;
   }
 
+  /// The exercise a set was actually performed as.
+  ///
+  /// A scheduled exercise can be swapped for the day
+  /// (`ScheduledWorkoutExerciseTable.overrideExerciseId`) without touching the
+  /// workout it came from, so `workout_exercise_table.exercise_id` names what
+  /// was *planned*. Crediting a swap's sets to the exercise it replaced puts
+  /// dumbbell presses in the bench press's history.
+  static const _performedExerciseId =
+      'COALESCE(swe.override_exercise_id, we.exercise_id)';
+
   /// The all-time heaviest completed, non-warmup set logged for each exercise,
   /// keyed by exercise id. An exercise never logged with a weight is absent
   /// from the map rather than present as a zero — "no PB yet" and "a PB of
@@ -681,9 +691,14 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
   /// Scoped by exercise rather than by workout: the same lift trained under
   /// two different workouts — which is what any trainer edit produces, see
   /// `docs/trainer-workout-builder.md` — shares one personal best, because
-  /// that is what all-time means to the person lifting. Ties on weight go to
-  /// the higher rep count, so a PB is always one set that actually happened
-  /// rather than a best weight welded to a best rep count from another day.
+  /// that is what all-time means to the person lifting. Which exercise a set
+  /// counts toward is [_performedExerciseId], so a day's swap credits the
+  /// exercise actually performed. Ties on weight go to the higher rep count,
+  /// so a PB is always one set that actually happened rather than a best
+  /// weight welded to a best rep count from another day.
+  ///
+  /// A set needs both a weight and a rep count to be a PB: "100 kg × 0 reps"
+  /// is a half-filled row mid-entry, not a lift.
   ///
   /// Pass [exerciseIds] whenever the caller already knows which exercises it
   /// is about to render, so this stays a single round trip instead of one per
@@ -697,12 +712,12 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
     final idFilter =
         ids == null
             ? ''
-            : 'AND we.exercise_id IN (${List.filled(ids.length, '?').join(',')})';
+            : 'AND $_performedExerciseId IN (${List.filled(ids.length, '?').join(',')})';
 
     final rows =
         await customSelect(
           '''
-      SELECT we.exercise_id AS exercise_id, ws.weight AS weight, ws.reps AS reps
+      SELECT $_performedExerciseId AS exercise_id, ws.weight AS weight, ws.reps AS reps
       FROM workout_set_table ws
       JOIN scheduled_workout_exercise_table swe ON swe.id = ws.scheduled_workout_exercise_id
       JOIN scheduled_workout_table sw ON sw.id = swe.scheduled_workout_id
@@ -710,8 +725,10 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
       WHERE sw.is_completed = 1
         AND ws.set_type != ?
         AND ws.weight IS NOT NULL
+        AND ws.reps IS NOT NULL
+        AND ws.reps > 0
         $idFilter
-      ORDER BY we.exercise_id, ws.weight DESC, ws.reps DESC
+      ORDER BY exercise_id, ws.weight DESC, ws.reps DESC
       ''',
           variables: [
             Variable<int>(SetType.warmup.index),
@@ -730,7 +747,7 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
       if (best.containsKey(exerciseId)) continue;
       best[exerciseId] = (
         weight: row.read<double>('weight'),
-        reps: row.readNullable<int>('reps') ?? 0,
+        reps: row.read<int>('reps'),
       );
     }
 
@@ -753,7 +770,7 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
         await customSelect(
           '''
       SELECT
-        we.exercise_id,
+        $_performedExerciseId AS exercise_id,
         e.name            AS exercise_name,
         sw.scheduled_date,
         COALESCE(SUM(COALESCE(ws.weight, 0.0) * COALESCE(ws.reps, 0)), 0.0) AS total_volume,
@@ -766,14 +783,14 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
       FROM scheduled_workout_table sw
       JOIN scheduled_workout_exercise_table swe ON swe.scheduled_workout_id = sw.id
       JOIN workout_exercise_table           we  ON we.id  = swe.workout_exercise_id
-      JOIN exercise_table                   e   ON e.id   = we.exercise_id
+      JOIN exercise_table                   e   ON e.id   = $_performedExerciseId
       JOIN workout_set_table                ws  ON ws.scheduled_workout_exercise_id = swe.id
       WHERE sw.is_completed = 1
         AND (ws.reps IS NOT NULL OR ws.weight IS NOT NULL)
         AND ws.set_type != ?
         AND sw.scheduled_date >= ?
         AND sw.scheduled_date <= ?
-      GROUP BY we.exercise_id, sw.scheduled_date
+      GROUP BY exercise_id, sw.scheduled_date
       ORDER BY e.name ASC, sw.scheduled_date ASC
       ''',
           variables: [

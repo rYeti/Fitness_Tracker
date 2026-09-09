@@ -40,6 +40,7 @@ void main() {
     required int exerciseId,
     required DateTime date,
     bool completed = true,
+    int? swappedFor,
     required List<({double? weight, int? reps, SetType type})> sets,
   }) async {
     final workoutExerciseId = await db
@@ -66,6 +67,8 @@ void main() {
           ScheduledWorkoutExerciseTableCompanion.insert(
             scheduledWorkoutId: scheduledId,
             workoutExerciseId: workoutExerciseId,
+            // The plan said [exerciseId]; on the day it was swapped for this.
+            overrideExerciseId: Value(swappedFor),
           ),
         );
     for (var i = 0; i < sets.length; i++) {
@@ -170,6 +173,39 @@ void main() {
     expect((await db.workoutDao.getAllTimeBestSets())[row], (
       weight: 70.0,
       reps: 12,
+    ));
+  });
+
+  test('a swapped-out exercise credits the one actually performed', () async {
+    final bench = await addExercise('Bench Press');
+    final dumbbell = await addExercise('Dumbbell Press');
+    await logSession(
+      exerciseId: bench,
+      date: DateTime(2026, 8, 1),
+      swappedFor: dumbbell,
+      sets: [set(40, 8)],
+    );
+
+    // The plan said Bench Press; the trainee did Dumbbell Press. 40 kg is not
+    // a bench PB, and Bench must not inherit it.
+    final bests = await db.workoutDao.getAllTimeBestSets();
+    expect(bests[dumbbell], (weight: 40.0, reps: 8));
+    expect(bests.containsKey(bench), isFalse);
+  });
+
+  test('a set logged without reps is not a personal best', () async {
+    final squat = await addExercise('Back Squat');
+    await logSession(
+      exerciseId: squat,
+      date: DateTime(2026, 8, 1),
+      sets: [set(180, null), set(120, 5)],
+    );
+
+    // 180 kg for an unrecorded number of reps is a half-filled row, not a
+    // lift — otherwise it renders as "180 kg × 0 reps".
+    expect((await db.workoutDao.getAllTimeBestSets())[squat], (
+      weight: 120.0,
+      reps: 5,
     ));
   });
 
