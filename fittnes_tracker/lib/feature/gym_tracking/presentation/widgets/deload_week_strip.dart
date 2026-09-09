@@ -224,7 +224,13 @@ class _WeekChip extends StatelessWidget {
     final accent = DeloadChip.foregroundFor(theme.brightness);
 
     return Semantics(
-      button: !readOnly,
+      // Always a button, even read-only. A locked chip still *does* something —
+      // it opens the paywall — and `button: false` with excludeSemantics makes
+      // it unreachable by role for a screen reader and for any test querying
+      // the accessibility tree, which on Flutter web is the only surface there
+      // is. `enabled` is what carries "you can't change this right now".
+      button: true,
+      enabled: !readOnly,
       selected: isDeload,
       label: isDeload
           ? l10n.deloadWeekSemanticWithVolume(week, deload!.volumePercent)

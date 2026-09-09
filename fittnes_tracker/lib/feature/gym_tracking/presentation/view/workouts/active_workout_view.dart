@@ -43,10 +43,17 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
   int _currentExerciseIndex = 0;
   int _currentSetIndex = 0;
 
-  /// The deload this session falls in, or null for a normal week. Resolved
-  /// once from the active plan when the screen loads — the answer cannot
-  /// change while a single session is open.
+  /// The deload declared for this session's week by *its own* plan, or null.
+  /// Carries the volume; may be null even when [_stampedDeload] is true, if the
+  /// plan's deload set has changed since the session was performed.
   DeloadWeek? _deload;
+
+  /// The server's stamp for this session, or null if it has never been
+  /// completed. Wins over [_deload] where it exists — `docs/deload-weeks.md` §9.
+  bool? _stampedDeload;
+
+  /// Whether to treat this session as a deload at all.
+  bool get _isDeloadSession => _stampedDeload ?? (_deload != null);
 
   bool _isLoading = true;
   bool _isSaving = false;
@@ -94,24 +101,48 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
   );
 
   /// Whether the set on screen is past what this week's deload keeps.
+  ///
+  /// Gated on [_deload] rather than [_isDeloadSession]: marking sets optional
+  /// needs a volume, and a stamped session whose plan no longer declares the
+  /// week has none. Better to show the chip and mark nothing than to mark sets
+  /// against a percentage nobody set.
   bool _isOptionalThisWeek(_ExerciseWithSets exerciseData) =>
       _deload != null && _currentSetIndex >= _keptSets(exerciseData);
 
-  /// Resolves the deload for the session's own date from the active plan.
+  /// Resolves whether this session is a deload, from its own plan and its own
+  /// stamp.
   ///
-  /// Uses `scheduledDate`, not "today": a session opened late, or reviewed
-  /// afterwards, belongs to the week it was scheduled in. Reading the clock
-  /// here would relabel a session as soon as the week rolled over.
+  /// Two things this deliberately does not do:
+  ///
+  /// - It does not read the *active* plan. A session belongs to the plan that
+  ///   generated it (`workoutPlanId`), and reviewing an old session while a new
+  ///   plan is active would otherwise measure it against a programme it was
+  ///   never part of — the "reading history as fact" mistake
+  ///   `docs/trainer-session-review.md` is about.
+  /// - It does not read the clock. `scheduledDate` is the session's week; using
+  ///   `DateTime.now()` would relabel a session the moment the week rolled over.
+  ///
+  /// The stamp wins where it exists (§9): a completed session records what it
+  /// *was*, and the plan's current deload set cannot overrule that. The derived
+  /// value is read alongside it because the stamp is only a boolean and the
+  /// volume has to come from somewhere.
   Future<void> _loadDeload() async {
+    final scheduled = widget.scheduledWorkout.scheduled;
     try {
+      final planId = scheduled.workoutPlanId;
+      // A hand-scheduled session belongs to no programme, so it is in no week.
+      if (planId == null) {
+        if (mounted) setState(() => _stampedDeload = scheduled.wasDeload);
+        return;
+      }
+
       final db = context.read<AppDatabase>();
-      final active = await db.workoutPlanDao.getActivePlans();
-      if (active.isEmpty) return;
-      final plan = await db.workoutPlanDao.getCompletePlanById(active.first.id);
-      if (!mounted || plan == null) return;
-      setState(
-        () => _deload = plan.deloadFor(widget.scheduledWorkout.scheduled.scheduledDate),
-      );
+      final plan = await db.workoutPlanDao.getCompletePlanById(planId);
+      if (!mounted) return;
+      setState(() {
+        _deload = plan?.deloadFor(scheduled.scheduledDate);
+        _stampedDeload = scheduled.wasDeload;
+      });
     } catch (e) {
       // A deload marker is decoration on a session that has to work anyway.
       AppLogger.i('Could not resolve deload for this session: $e');
@@ -1120,12 +1151,15 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                 valueColor: AlwaysStoppedAnimation(theme.colorScheme.primary),
               ),
 
-              if (_deload case final deload?)
+              if (_isDeloadSession)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                   child: Row(
                     children: [
-                      DeloadChip(volumePercent: deload.volumePercent),
+                      // Volume may be unknown for a stamped session whose plan
+                      // has since changed; the chip renders bare rather than
+                      // inventing a number.
+                      DeloadChip(volumePercent: _deload?.volumePercent),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(

@@ -392,6 +392,17 @@ class SyncService {
       },
     );
     final serverId = response.data['id'] as String;
+
+    // Before markPlanSynced, and on the *new*-plan path as well as the update
+    // one. `POST api/WorkoutPlan` cannot carry deload weeks — they are
+    // deliberately absent from WorkoutPlanRequestDto (§5b) — so without this a
+    // plan created with deloads already set pushes everything except them, and
+    // the next pull's reconcile then overwrites the local set with the server's
+    // empty one. Silent, and unrecoverable once it has happened.
+    //
+    // _syncUpdatePlan delegates here whenever serverId is null, so this is also
+    // the path an offline-created plan takes on its first successful sync.
+    await _pushDeloadWeeks(p.copyWith(serverId: drift.Value(serverId)));
     await _db.workoutPlanDao.markPlanSynced(p.id, serverId);
 
     // Link workouts to the plan (batch).
@@ -451,14 +462,18 @@ class SyncService {
         data: DeloadSchedule.decode(p.deloadWeeksJson).toJson(),
       );
     } on DioException catch (e) {
-      if (e.response?.statusCode == 403) {
-        _logger.i(
-          'Deload weeks for plan ${p.id} refused by the server '
-          '(${e.response?.data}); leaving the server copy authoritative.',
-        );
-        return;
-      }
-      rethrow;
+      // Nothing here rethrows. This call is a *rider* on the plan push: it runs
+      // before markPlanSynced and before the plan-workout link batch, so an
+      // exception escaping it would leave the plan pendingUpdate and its
+      // membership unsynced — permanently, and for a field that is not what
+      // the caller was pushing. A 403 is terminal by design (the plan is the
+      // trainer's, or entitlement lapsed); anything else is logged and left
+      // for the next pull to reconcile, which is the same outcome and does not
+      // take plan membership down with it.
+      _logger.i(
+        'Deload weeks for plan ${p.id} not accepted '
+        '(${e.response?.statusCode}); leaving the server copy authoritative.',
+      );
     }
   }
 
@@ -2798,16 +2813,28 @@ class SyncService {
       WorkoutPlanTableCompanion(
         name: Value(p['name'] as String),
         description: Value(p['description'] as String?),
-        // `isActive` is deliberately NOT reconciled. The server sets it true
-        // at create and never updates it (`WorkoutPlanService.CreatePlanAsync`
-        // hardcodes `IsActive = true`; `UpdatePlanAsync` doesn't touch it, and
-        // the trainee's push never sends it), so every plan the server holds
-        // reads as active forever. Which plan is current is a purely local
-        // decision — `create_view` deactivates the others without marking them
-        // dirty — so copying the server's answer back would reactivate every
-        // plan the user has ever built.
+        // `isActive` and `isFreeChoice` are deliberately NOT reconciled, for
+        // the same reason: both are changed locally by a path that does not
+        // mark the plan dirty, so the row still looks clean and this reconcile
+        // would hand the server's stale answer straight back.
+        //
+        //   isActive     — the server hardcodes `IsActive = true` at create and
+        //                  never updates it, and the trainee's push never sends
+        //                  it, so every plan it holds reads as active forever.
+        //                  `create_view` deactivates the others without marking
+        //                  them dirty; copying the server back would reactivate
+        //                  every plan the user has ever built.
+        //   isFreeChoice — `edit_view._toggleFreeChoice` writes the column and
+        //                  deletes the plan's generated schedule, but leaves
+        //                  syncStatus alone. Reverting the flag here would leave
+        //                  a cycle-mode plan whose sessions have already been
+        //                  deleted — worse than either state on its own.
+        //
+        // Both want the same real fix: the local writers should mark the plan
+        // pendingUpdate and the server should accept the field. Until then,
+        // leaving them out is the honest option — a reconcile can only carry
+        // fields the push actually sends.
         cyclePatternJson: Value(p['cyclePatternJson'] as String),
-        isFreeChoice: Value(p['isFreeChoice'] as bool),
         assignedByTrainer: Value(p['assignedByTrainer'] as bool? ?? false),
         // `Value.absent()` rather than `Value(null)`: absent leaves the column
         // alone, null would write SQL NULL into a non-nullable column. The

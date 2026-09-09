@@ -542,6 +542,13 @@ public class TrainerConsoleService(
                     // session: the flag lives on whichever row the device was holding.
                     IsCompleted = sameSession.Any(sw => sw.IsCompleted),
                     IsSkipped = sameSession.Any(sw => sw.IsSkipped) && !sameSession.Any(sw => sw.IsCompleted),
+                    // Same rule as IsCompleted: the stamp lives on whichever twin the
+                    // device was holding when it finished the session, so take the one
+                    // that has an answer rather than the survivor's, which may be null.
+                    // This fold rebuilds the DTO field by field, so a field left out here
+                    // is silently dropped for exactly the duplicated sessions
+                    // docs/trainer-console-duplicate-rows.md says still exist.
+                    WasDeload = sameSession.Select(sw => sw.WasDeload).FirstOrDefault(w => w != null),
                     Exercises = [.. sameSession.SelectMany(sw => sw.Exercises)],
                 };
             })
