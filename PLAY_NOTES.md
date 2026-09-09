@@ -22,6 +22,10 @@ Markdown links, headings or emphasis, none of which Play renders.
 
 See `docs/android-release.md`.
 
+## Unreleased
+
+Fixed chat attachments (photos, voice notes, files) failing to upload with an error that could not be retried. Fixed messages becoming unreadable, or never reaching the other person, when you use ForgeForm on more than one device signed into the same account — chat now works correctly across all your devices.
+
 ## 1.0.2+23
 
 If you don't have a trainer and have Premium, you can now choose which nutrients you track yourself — previously only a trainer could set this for you. If a change can't be saved, the app now tells you why instead of quietly undoing it.

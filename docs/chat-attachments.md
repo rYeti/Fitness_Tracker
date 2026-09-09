@@ -619,3 +619,150 @@ rather than for a `<uses-feature>` it declares itself, is worth checking
 against Android's own list of permissions that imply a feature
 requirement, and declaring the override up front rather than after Play
 reports the drop.
+
+---
+
+## 16. The capabilities contract that was written down once and enforced nowhere
+
+`DisabledChatAttachmentStore`'s own remarks, written when §1's provider
+switch shipped, already state the deal plainly: "the one caller of this
+interface always checks `IsConfigured` first via the capabilities endpoint
+and never reaches these when it is false." `ChatAttachmentController` is
+that one caller, and it never did the check either — it went straight to
+`_attachmentService.MintUploadAsync`, which went straight to
+`_store.CreateUploadUrl`, which is exactly the method the disabled store
+throws from.
+
+That half of the contract turned out to be the easy half, and this document
+already had a section for it. The half nobody wrote down as a job at all was
+the *client's*: `GET api/chat/attachments/capabilities` had existed since
+this feature's first commit, `ChatAttachmentApi.fetchCapabilities` was a
+real, working method — and had exactly zero callers anywhere in `lib/`.
+`ChatComposer.attachmentsEnabled` defaulted to `true`, no call site ever
+passed it a different value, and the attach button was offered on every
+build regardless of what the server had to say about it.
+
+Two independently-correct pieces, a real capabilities endpoint on one side
+and a documented assumption about it on the other, and the wire between
+them was simply never run. Deployed with no R2 secrets configured — which
+is to say, deployed exactly as this project's own Cloud Run revision was —
+this was the whole failure: attach button shown, mint throws, 500,
+"upload failed, double tap to retry," and a retry that mints the identical
+request and gets the identical 500, forever. Nothing in either test suite
+caught it, because nothing exercised the capabilities response at all:
+`FakeChatAttachmentSender` in the Dart tests replaces the entire
+mint→PUT triangle below where a capabilities check would sit, and every
+`FitTracker.Api.Tests` fixture wires up `InMemoryChatAttachmentStore`,
+which reports `IsConfigured => true` unconditionally — there was no test
+configuration in which the disabled path was ever the one running.
+
+> **Writing "the caller is expected to check first" into a doc comment is not
+> the same claim as a test that fails when nobody does.** Every fixture in
+> both suites made the assumption true by construction, which is exactly the
+> condition under which a missing check produces no failure anywhere until
+> a real deployment is missing something a fixture never bothers to omit.
+
+The fix closes the loop on both ends rather than trusting either alone.
+`ChatProvider` fetches capabilities once, alongside `ChatRepository.prepareKeys()`,
+and refreshes on every reconnect; it starts and falls back to
+`ChatAttachmentCapabilities.disabled` — fail-closed, not fail-open — so a
+transient failure to ask hides the button rather than reproducing the
+original bug in a new disguise. `ChatAttachmentService.MintUploadAsync`/
+`MintDownloadAsync` now check `_store.IsConfigured` themselves, before
+calling anything that assumes it, and return a `Disabled` outcome the
+controller maps to `503 { error: "attachments_disabled" }`. Belt and
+braces: a client that correctly hides the button never sends the request,
+and a server that correctly checks itself never throws if one somehow gets
+sent anyway — a stale cached capabilities value, an older build, a race
+between the check and a mid-session config change. Neither guard was
+built as a substitute for the other; the whole point of the original gap
+is that "one side is supposed to handle it" is exactly the sentence that
+stopped being true unnoticed.
+
+While closing this, two adjacent mismatches in the same neighborhood
+turned out to share a root cause with it — a client-side number and a
+server-side number that were each individually correct and jointly wrong:
+
+- **The byte caps were being compared in different units on each side.**
+  The client checked a file's *plaintext* size against the cap
+  (`ImageDownscale`, the composer's own picker checks); the server checks
+  the *ciphertext* length the client declares at mint time
+  (`ChatAttachmentService`), which is sixteen bytes larger — AES-GCM's
+  authentication tag. A file within that sixteen-byte margin of a cap
+  passed the client's check, sealed, wrote its outbox row, and only then
+  came back `attachment_too_large` — indistinguishable, from the user's
+  seat, from any other "upload failed." `ChatAttachmentCapabilities.plaintextCapFor`
+  now does the subtraction in exactly one place, and both the image
+  downscaler and every picker compare against it rather than against the
+  server's own raw number.
+- **Voice notes had no client-side size check at all** — the one picker
+  path with nothing guarding it, sized against the *image* cap
+  server-side because a voice note shares the smaller ceiling with every
+  kind but video. At the recorder's 64 kbps that ceiling arrives at
+  roughly seventeen minutes, past which `retryMessage`'s "double tap to
+  retry" re-mints the identical declared length and fails identically —
+  a bubble with a retry affordance on it that could not, structurally,
+  ever succeed. Recording now stops itself at a fifteen-minute ceiling,
+  with the byte check behind it as the belt to that suspender's braces,
+  the same two-layer shape as the capabilities fix above: a limit
+  enforced where the mistake would otherwise be made, backed by a check
+  where it would otherwise be discovered too late to matter.
+
+### The R2 configuration checklist this incident makes worth writing down
+
+None of the following is new policy — every piece is already documented
+somewhere in this file or in `deploy.yml`'s own comments. What was missing
+was gathering it into one list a person actually configuring the bucket
+can work through:
+
+1. **The four `R2_*` repository secrets** (`R2_ACCOUNT_ID`, `R2_BUCKET`,
+   `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`) — §A.7. All four together, or
+   `Attachments__Provider` never becomes `r2` at all.
+2. **`R2_EU_JURISDICTION`**, set to match how the bucket was *actually*
+   created — see below. Left unset, it now defaults to `false` (a normal
+   bucket), which was the wrong default the other way for three years of
+   this feature's life before this incident.
+3. **A CORS policy on the bucket** — PUT/GET, the console's web origin,
+   `content-type` allowed, `etag` exposed. Missing this fails a browser
+   upload at the preflight, with nothing in the application's own logs to
+   say why — it looks like a plain network failure from the browser's own
+   network tab, not a bucket configuration gap.
+4. **A lifecycle rule** expiring objects under `chat/` older than
+   `Attachments__RetentionDays` — §A.8. This is what makes the retention
+   story true at all; the reaper's reconciliation pass only cleans up
+   *after* this rule has already removed the object, it does not enforce
+   the window itself.
+
+Skipping any one of these degrades the feature rather than failing the
+deploy — by design, the same posture `IPushSender`'s disabled state
+already established — which is exactly why a checklist earns its place
+here: a silent degradation has no failure to point back at this list from.
+
+### The jurisdiction default that would have reproduced this bug a second time
+
+`Attachments:R2:EuJurisdiction` governs which of two possible hosts a
+presigned URL is signed against —
+`<accountId>.r2.cloudflarestorage.com` or the `eu.` variant — and it
+defaulted to `true`. Cloudflare's own default, for a bucket created without
+explicitly choosing the EU jurisdiction, is the non-EU host. Had the four
+`R2_*` secrets been added for an ordinarily-created bucket without also
+setting this variable, every presigned URL would have been signed for a
+host that bucket doesn't answer to.
+
+The failure mode is the same shape as the missing capabilities check, and
+worth naming as the same shape rather than a coincidence: **presigning is
+an entirely offline computation** — `R2ChatAttachmentStore.CreateUploadUrl`
+never makes a network call, it computes a SigV4 signature locally
+(§6) — so the mint endpoint returns `200 Ok` with a confidently
+wrong URL, and the API's own logs show nothing amiss. The failure surfaces
+only on the client's subsequent PUT or GET, as a bare connection or auth
+failure with no server-side log entry to correlate it against. The default
+is now `false`, matching Cloudflare's own default for an ordinarily-created
+bucket, with `R2_EU_JURISDICTION` available in `deploy.yml` for the bucket
+that genuinely was created in the EU jurisdiction.
+
+> **A value that is only ever wrong via a request that never leaves the
+> process is a value no server-side log will ever implicate.** Presigning's
+> whole appeal — no round trip before the ack, no R2 dependency on the hot
+> path — is also what makes a wrong configuration invisible exactly where
+> people look first.

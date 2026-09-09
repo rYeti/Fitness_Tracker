@@ -133,8 +133,16 @@ what the plan for this work originally said:
 chat_identity_key       the private JWK          ← the background isolate reads this
 chat_identity_owner     which account it belongs to
 chat_identity_public    the matching public JWK
-chat_peer_key:<id>      one cached peer public key per conversation
+chat_identity_device    this install's own device id (survives an account switch — see below)
+chat_own_keys           this account's other devices, cached from the server's `me.devices`
+chat_peer_keys:<id>     every currently-known device of one peer, as a JSON list
 ```
+
+(`chat_identity_device` and `chat_own_keys` postdate this document's original
+text — see docs/chat-multi-device-keys.md for why a *user* id was never
+enough here either, once a user could be signed in on more than one device
+at once. `chat_peer_keys` was `chat_peer_key`, singular, for the same
+reason.)
 
 The private key is stored under a **fixed** name, not a per-user one, with the
 owner recorded beside it. `ChatKeyStore.ensureRegistered` compares that owner
@@ -144,6 +152,13 @@ only became visible when the push work landed: the background isolate has to
 find the private key with no network and no way to ask who is signed in. A
 storage key that depends on an answer only the server has is a storage key that
 isolate cannot compute.
+
+`chat_identity_device` is stored under the same kind of fixed name for the
+identical reason, but it survives what `chat_identity_key` does not: an
+account switch on this device. The private key belongs to whoever is signed
+in; the device id belongs to the physical install, and regenerating it every
+time someone signs out and back in would make the server unable to tell a
+returning device from a new one.
 
 > **When a lookup key depends on a value you have to fetch, you have made the
 > cache useless to anyone who cannot fetch.**
@@ -440,6 +455,27 @@ Also, explicitly, still true after this change:
   themselves are opaque. See `docs/chat-attachments.md` §10 for the full
   accounting and why this is accepted on the same grounds as the metadata
   point above.
+- **A user's device count and how recently each was seen are now visible.**
+  `UserChatKeys` records one row per device with a `LastSeenAt`, since
+  docs/chat-multi-device-keys.md. A coarser version of the same timing
+  disclosure the metadata point above already accepts, on the identical
+  grounds: the realistic adversary is a database dump, not an operator
+  fingerprinting how many phones someone owns.
+- **A device evicted from the five-device cap gets no notice.** It finds out
+  the same way a peer whose key rotated does — a failed decrypt, recovered
+  automatically the next time it opens chat. There is no push path to a
+  device the server no longer holds a key for. See
+  docs/chat-multi-device-keys.md §10.
+
+**One thing this section used to leave off the list, silently rather than
+deliberately: multi-device.** The design above was written, and this list
+was written, for a user signed into chat on exactly one device at a time.
+That was never stated as a boundary of the threat model — it simply wasn't
+a case anyone had in mind, which is a different thing from a case
+considered and accepted. docs/chat-multi-device-keys.md is the account of
+what broke because of that gap and the one-row-per-*device* redesign that
+closes it; §3 above and the storage-layout table in it now reflect the
+result.
 
 ---
 

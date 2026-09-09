@@ -37,9 +37,18 @@ public class ChatAttachmentController(IChatAttachmentService attachmentService, 
         return result.Outcome switch
         {
             MintUploadOutcome.Ok => Ok(result.Response),
-            MintUploadOutcome.NotAuthorized => Unauthorized(),
+            // 403, not 401. The caller's session is fine — it is the *pair*
+            // that isn't. ApiClient treats any non-auth 401 as "refresh the
+            // token and retry", so a lapsed trainer-client relationship used to
+            // make the app rotate its refresh token and then fail anyway.
+            MintUploadOutcome.NotAuthorized => Forbid(),
             MintUploadOutcome.TooLarge => BadRequest(new { error = "attachment_too_large" }),
             MintUploadOutcome.IdBelongsElsewhere => Conflict(new { error = "attachment_id_in_use" }),
+            // 503 rather than 500: nothing is broken, the feature is simply not
+            // configured on this deployment, and the client's own capabilities
+            // check should already have stopped it asking. See
+            // docs/chat-attachments.md.
+            MintUploadOutcome.Disabled => StatusCode(503, new { error = "attachments_disabled" }),
             _ => StatusCode(500),
         };
     }
@@ -55,9 +64,10 @@ public class ChatAttachmentController(IChatAttachmentService attachmentService, 
         return result.Outcome switch
         {
             MintDownloadOutcome.Ok => Ok(result.Response),
-            MintDownloadOutcome.NotAuthorized => Unauthorized(),
+            MintDownloadOutcome.NotAuthorized => Forbid(),
             MintDownloadOutcome.Missing => NotFound(new { error = "attachment_missing" }),
             MintDownloadOutcome.Rejected => StatusCode(410, new { error = "attachment_rejected" }),
+            MintDownloadOutcome.Disabled => StatusCode(503, new { error = "attachments_disabled" }),
             _ => StatusCode(500),
         };
     }

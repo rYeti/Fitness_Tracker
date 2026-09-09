@@ -268,7 +268,9 @@ else
 // reports itself disabled and the client never shows the attach affordance in
 // the first place, rather than the endpoint failing on first use. See
 // docs/chat-attachments.md.
-var attachmentsProvider = builder.Configuration["Attachments:Provider"];
+// Case-insensitive: "R2" silently fell through to the disabled store, which
+// looks from the client exactly like never having set the secrets at all.
+var attachmentsProvider = builder.Configuration["Attachments:Provider"]?.Trim().ToLowerInvariant();
 switch (attachmentsProvider)
 {
     case "r2":
@@ -281,7 +283,15 @@ switch (attachmentsProvider)
             // once at creation and unable to change afterward — this flag exists
             // so the endpoint we sign against matches whichever bucket was
             // actually created, not so anyone can flip it later.
-            euJurisdiction: builder.Configuration.GetValue("Attachments:R2:EuJurisdiction", true)));
+            //
+            // Defaults to false because that is what Cloudflare defaults to: a
+            // bucket is only EU-jurisdiction if it was explicitly created that
+            // way. Defaulting to true meant every presigned URL was signed for
+            // a host that does not serve an ordinary bucket — and because
+            // presigning is an offline computation, the mint succeeds and this
+            // API sees nothing wrong. The failure lands on the client, as an
+            // unexplained PUT/GET error, with nothing in the API's logs.
+            euJurisdiction: builder.Configuration.GetValue("Attachments:R2:EuJurisdiction", false)));
         break;
 
     case "local":
@@ -370,6 +380,30 @@ if (string.IsNullOrWhiteSpace(builder.Configuration["RevenueCat:WebhookAuthHeade
         "be rejected, so a user's own app-store purchase can never be recognised server-side. " +
         "A user with no trainer stays on the default tracked nutrients with no way to choose " +
         "their own, even if they're actually a paying subscriber.");
+}
+
+// Chat attachment storage — which store actually got registered above, not
+// just whether the setting was present. The deploy warning at mint-config
+// time only ever said the four R2 values were missing; it never said what
+// the API decided to boot with, and an unrecognised Attachments:Provider
+// value (a typo, wrong case before this became case-insensitive, a stray
+// space) silently fell back to disabled with nothing anywhere to say so.
+switch (attachmentsProvider)
+{
+    case "r2":
+        app.Logger.LogInformation("Chat attachments: R2 store configured (bucket {Bucket}).",
+            builder.Configuration["Attachments:R2:Bucket"]);
+        break;
+    case "local":
+        app.Logger.LogInformation(
+            "Chat attachments: local disk store configured — dev/E2E only, never production.");
+        break;
+    default:
+        app.Logger.LogWarning(
+            "Chat attachments: no store configured (Attachments:Provider={Provider}) — chat works, " +
+            "and the capabilities endpoint correctly reports the attach affordance disabled. " +
+            "See docs/chat-attachments.md.", attachmentsProvider ?? "(unset)");
+        break;
 }
 
 // ── Middleware pipeline ──────────────────────────────────────

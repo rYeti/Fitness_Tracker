@@ -63,6 +63,16 @@ jobs:
           R2_BUCKET: ${{ secrets.R2_BUCKET }}
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          # Whether the bucket was created with jurisdiction = European Union —
+          # a property fixed at bucket creation, not something this workflow can
+          # detect. A variable, not a secret: it's a plain "true"/"false", and
+          # the code default (false, matching Cloudflare's own default for a
+          # normally-created bucket) only applies if this is left unset. Get
+          # this wrong and presigned URLs sign against the wrong R2 host —
+          # every upload/download fails with no error in this API's own logs,
+          # because presigning never makes a request. See
+          # docs/chat-attachments.md §A.7.
+          R2_EU_JURISDICTION: ${{ vars.R2_EU_JURISDICTION }}
           # Must match the R2 bucket's own lifecycle rule (a manual dashboard
           # step, not something this workflow provisions — see
           # docs/chat-attachments.md §A.8). A variable, not a secret: it's a
@@ -108,6 +118,9 @@ jobs:
           # partially-configured bucket can't half-boot into a broken state.
           if [ -n "${R2_ACCOUNT_ID:-}" ] && [ -n "${R2_BUCKET:-}" ] && [ -n "${R2_ACCESS_KEY_ID:-}" ] && [ -n "${R2_SECRET_ACCESS_KEY:-}" ]; then
             env_vars="$env_vars,Attachments__Provider=r2,Attachments__R2__AccountId=$R2_ACCOUNT_ID,Attachments__R2__Bucket=$R2_BUCKET,Attachments__R2__AccessKeyId=$R2_ACCESS_KEY_ID,Attachments__R2__SecretAccessKey=$R2_SECRET_ACCESS_KEY"
+            if [ -n "${R2_EU_JURISDICTION:-}" ]; then
+              env_vars="$env_vars,Attachments__R2__EuJurisdiction=$R2_EU_JURISDICTION"
+            fi
           else
             echo "::warning::R2 attachment storage is not fully configured — chat works, but the attach affordance stays disabled on every client. See docs/chat-attachments.md."
           fi

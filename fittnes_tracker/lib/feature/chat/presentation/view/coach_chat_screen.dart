@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 
 import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/core/providers/access_provider.dart';
-import 'package:ForgeForm/feature/chat/presentation/providers/chat_attachment_provider.dart';
 import 'package:ForgeForm/feature/chat/presentation/providers/chat_provider.dart';
 import 'package:ForgeForm/feature/chat/presentation/widgets/chat_composer.dart';
 import 'package:ForgeForm/feature/chat/presentation/widgets/chat_connection_banner.dart';
@@ -60,35 +59,35 @@ class _CoachChatScreenState extends State<CoachChatScreen> {
                   title: l10n.coachChatNoCoach,
                   message: l10n.coachChatNoCoachBody,
                 )
-                : ChangeNotifierProvider(
-                  create: (_) => ChatAttachmentProvider(),
-                  child: Consumer<ChatProvider>(
-                    builder:
-                        (context, chat, _) => Column(
-                          children: [
-                            ChatConnectionBanner(status: chat.connectionStatus),
-                            Expanded(
-                              child: ChatThreadList(
-                                chat: chat,
-                                emptyMessage: l10n.coachChatEmptyBody,
-                                onRetry: () => chat.openThread(trainerId),
-                              ),
+                // ChatAttachmentProvider lives on CoachChatEntry, alongside
+                // ChatProvider, not here — see that file's field comment.
+                : Consumer<ChatProvider>(
+                  builder:
+                      (context, chat, _) => Column(
+                        children: [
+                          ChatConnectionBanner(status: chat.connectionStatus),
+                          Expanded(
+                            child: ChatThreadList(
+                              chat: chat,
+                              emptyMessage: l10n.coachChatEmptyBody,
+                              onRetry: () => chat.openThread(trainerId),
                             ),
-                            ChatSendErrorStrip(
-                              error: chat.sendError,
-                              onDismiss: chat.clearSendError,
-                            ),
-                            ChatComposer(
-                              onSend:
-                                  (draft) => chat.sendMessage(
-                                    trainerId,
-                                    draft.caption,
-                                    attachment: draft.attachment,
-                                  ),
-                            ),
-                          ],
-                        ),
-                  ),
+                          ),
+                          ChatSendErrorStrip(
+                            error: chat.sendError,
+                            onDismiss: chat.clearSendError,
+                          ),
+                          ChatComposer(
+                            capabilities: chat.attachmentCapabilities,
+                            onSend:
+                                (draft) => chat.sendMessage(
+                                  trainerId,
+                                  draft.caption,
+                                  attachment: draft.attachment,
+                                ),
+                          ),
+                        ],
+                      ),
                 ),
       ),
     );
