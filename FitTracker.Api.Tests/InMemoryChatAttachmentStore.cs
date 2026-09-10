@@ -13,7 +13,14 @@ public class InMemoryChatAttachmentStore : IChatAttachmentStore
     public readonly List<string> DeletedKeys = [];
     public int PutCount { get; private set; }
 
-    public bool IsConfigured => true;
+    /// <summary>
+    /// Settable rather than fixed `true` — a test exercising
+    /// <c>MintUploadOutcome.Disabled</c>/<c>MintDownloadOutcome.Disabled</c>
+    /// needs a store that reports itself unconfigured without actually being
+    /// the production <c>DisabledChatAttachmentStore</c>, whose every method
+    /// throws.
+    /// </summary>
+    public bool IsConfigured { get; set; } = true;
 
     public Uri CreateUploadUrl(string objectKey, TimeSpan ttl)
     {

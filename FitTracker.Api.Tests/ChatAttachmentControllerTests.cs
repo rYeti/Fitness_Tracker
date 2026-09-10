@@ -87,6 +87,40 @@ public class ChatAttachmentControllerTests
     }
 
     [Fact]
+    public async Task An_unconfigured_store_refuses_a_mint_with_503_rather_than_throwing()
+    {
+        // Pins the fix for the actual production incident: with no R2 secrets
+        // set, the API registered DisabledChatAttachmentStore, whose every
+        // method throws — CreateUploadUrl included — turning every mint into
+        // an unhandled 500 that the client could only report as "upload
+        // failed, double tap to retry" forever. MintUploadAsync now checks
+        // IsConfigured before it ever reaches the store.
+        using var ctx = new ChatScenario();
+        var (controller, store) = NewController(ctx, ctx.TrainerId);
+        store.IsConfigured = false;
+
+        var result = await controller.MintUpload(
+            ctx.ClientId, new MintUploadRequestDto(Guid.NewGuid(), 1024, Media.Picture));
+
+        var statusResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(503, statusResult.StatusCode);
+    }
+
+    [Fact]
+    public async Task An_unconfigured_store_refuses_a_download_mint_with_503()
+    {
+        using var ctx = new ChatScenario();
+        var attachment = ctx.AddAttachment(ctx.Relationship.Id, ctx.TrainerId);
+        var (controller, store) = NewController(ctx, ctx.TrainerId);
+        store.IsConfigured = false;
+
+        var result = await controller.MintDownload(attachment.Id);
+
+        var statusResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(503, statusResult.StatusCode);
+    }
+
+    [Fact]
     public async Task A_stranger_is_refused_a_mint()
     {
         using var ctx = new ChatScenario();
@@ -96,7 +130,10 @@ public class ChatAttachmentControllerTests
         var result = await controller.MintUpload(
             ctx.ClientId, new MintUploadRequestDto(Guid.NewGuid(), 1024, Media.Picture));
 
-        Assert.IsType<UnauthorizedResult>(result);
+        // 403, not 401: the caller's own session is fine, it's the pair that
+        // isn't. A 401 here made ApiClient burn a refresh token and retry —
+        // this is not an authentication failure.
+        Assert.IsType<ForbidResult>(result);
     }
 
     [Fact]
@@ -110,7 +147,7 @@ public class ChatAttachmentControllerTests
         var result = await controller.MintUpload(
             lapsedClient.Id, new MintUploadRequestDto(Guid.NewGuid(), 1024, Media.Picture));
 
-        Assert.IsType<UnauthorizedResult>(result);
+        Assert.IsType<ForbidResult>(result);
     }
 
     [Fact]
@@ -208,7 +245,7 @@ public class ChatAttachmentControllerTests
 
         var result = await controller.MintDownload(attachment.Id);
 
-        Assert.IsType<UnauthorizedResult>(result);
+        Assert.IsType<ForbidResult>(result);
     }
 
     [Fact]

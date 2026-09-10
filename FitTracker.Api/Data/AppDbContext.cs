@@ -326,14 +326,16 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<UserChatKey>(entity =>
         {
-            // The user id is the key, not a surrogate: a user has exactly one
-            // current chat key, and a table that allowed two would need a rule
-            // for which of them a sender should encrypt to.
-            entity.HasKey(k => k.UserId);
+            entity.HasKey(k => k.Id);
             entity.HasOne(k => k.User)
                   .WithMany()
                   .HasForeignKey(k => k.UserId)
                   .OnDelete(DeleteBehavior.Cascade);
+            // One row per device, not per user — the whole point of this
+            // table's redesign. See docs/chat-multi-device-keys.md.
+            entity.HasIndex(k => new { k.UserId, k.DeviceId }).IsUnique();
+            // The cap's eviction query: this user's devices, oldest-seen first.
+            entity.HasIndex(k => new { k.UserId, k.LastSeenAt });
         });
 
         modelBuilder.Entity<PasswordResetToken>(entity =>

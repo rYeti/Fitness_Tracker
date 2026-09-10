@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:crypto/crypto.dart' as crypto;
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
@@ -80,6 +81,21 @@ class ChatAttachmentProvider extends ChangeNotifier {
 
   final Map<String, AttachmentState> _states = {};
 
+  /// Attachment ids whose in-flight fetch turned out to be expired (a 404/410
+  /// from the download mint), rather than merely failed.
+  ///
+  /// A field rather than a local captured by the fetch closure: `inFlight`
+  /// de-duplicates concurrent callers behind one shared `Future` (`??=`
+  /// below), but a plain local variable is only ever written by whichever
+  /// caller happened to *create* that future. A second caller arriving while
+  /// the first fetch is still running shares the same future and therefore
+  /// the same outcome, but never sees the first caller's local — so it
+  /// rendered `downloadFailed` (with a retry that can never succeed) where it
+  /// should have rendered `expired`. Every caller checks this set once the
+  /// shared future resolves, so the outcome no longer depends on who asked
+  /// first.
+  final Set<String> _expiredAttachmentIds = {};
+
   /// The state to render for [message]'s attachment right now. Never issues
   /// a fetch by itself — callers pair this with [ensureAutoFetched] or a
   /// tap-triggered [fetch].
@@ -145,10 +161,30 @@ class ChatAttachmentProvider extends ChangeNotifier {
     _states[ref.id] = const AttachmentState(AttachmentPhase.downloading);
     notifyListeners();
 
-    var expiredOnFailure = false;
+    // A fresh attempt (nothing already in flight for this id) starts with a
+    // clean slate: a previous attempt may have marked this id expired, and if
+    // this attempt fails for a different reason, that stale marking must not
+    // leak into this attempt's outcome below.
+    final isFreshAttempt = !_cache.inFlight.containsKey(ref.id);
+    if (isFreshAttempt) _expiredAttachmentIds.remove(ref.id);
+
     final pending =
         _cache.inFlight[ref.id] ??= () async {
-          final fromStore = await _store.read(ref.id);
+          // Guarded like every other step below it: this class's own doc
+          // comment on `AttachmentStore.read` already says a miss (this
+          // device never stored it, or this is web) returns null rather than
+          // throwing — but a *failed* read (corrupt platform state, an I/O
+          // error) previously wasn't caught at all, and sat outside every
+          // other guard in this closure. Unlike a network failure, it would
+          // have crashed this future before `_cache.inFlight.remove` or the
+          // state update below ever ran, poisoning the id exactly the way
+          // the unguarded `DioException`-only catch used to.
+          Uint8List? fromStore;
+          try {
+            fromStore = await _store.read(ref.id);
+          } catch (_) {
+            fromStore = null;
+          }
           if (fromStore != null) {
             _cache.put(ref.id, fromStore);
             return fromStore;
@@ -160,6 +196,17 @@ class ChatAttachmentProvider extends ChangeNotifier {
             final mint = await _api.mintDownload(ref.id);
             final url = Uri.parse(mint['downloadUrl'] as String);
             final ciphertext = await _transfer.download(url);
+
+            // Detects a swapped or truncated object before spending time
+            // decrypting it — the check the manifest's `sha256` field exists
+            // for and, until now, was never actually run. A mismatch is
+            // treated the same as any other download failure: recoverable,
+            // one retry away, not a security event worth a distinct state —
+            // the realistic cause is a partial transfer, and a genuinely
+            // tampered object fails the GCM tag check moments later anyway.
+            final actualDigest = crypto.sha256.convert(ciphertext).toString();
+            if (actualDigest != ref.sha256) return null;
+
             final plaintext = await _crypto.open(
               ciphertext,
               key: base64Decode(ref.key),
@@ -180,7 +227,20 @@ class ChatAttachmentProvider extends ChangeNotifier {
             return plaintext;
           } on DioException catch (e) {
             final code = e.response?.statusCode;
-            if (code == 404 || code == 410) expiredOnFailure = true;
+            if (code == 404 || code == 410) {
+              _expiredAttachmentIds.add(ref.id);
+            }
+            return null;
+          } catch (_) {
+            // Anything else — a malformed `key`/`iv` from `base64Decode`, a
+            // non-string `downloadUrl` from the mint response, a store I/O
+            // error. Left uncaught, any of these escaped this closure
+            // entirely: `_cache.inFlight.remove` and the state update below
+            // never ran, so the bubble stuck at `downloading` forever and the
+            // same rejected future was rethrown to every later caller for
+            // this id. One bad attachment must cost one failed fetch, not a
+            // permanently poisoned id — the same principle
+            // `ChatCrypto.decrypt` already applies to a single message.
             return null;
           }
         }();
@@ -189,12 +249,20 @@ class ChatAttachmentProvider extends ChangeNotifier {
     final bytes = await pending;
     _cache.inFlight.remove(ref.id);
 
+    // Checked here, after the shared future resolves, rather than via a local
+    // the closure above captured — a second caller arriving while the first
+    // fetch is still in flight shares that same future via `inFlight`'s
+    // `??=`, but never saw the first caller's local variable. `contains`
+    // rather than `remove`: every caller sharing this future must see the
+    // same answer, and removing on the first read would make the second
+    // reader miss it. The entry is cleared instead at the start of the next
+    // fresh attempt, above.
+    final expired = _expiredAttachmentIds.contains(ref.id);
+
     _states[ref.id] =
         bytes == null
             ? AttachmentState(
-              expiredOnFailure
-                  ? AttachmentPhase.expired
-                  : AttachmentPhase.downloadFailed,
+              expired ? AttachmentPhase.expired : AttachmentPhase.downloadFailed,
             )
             : AttachmentState(AttachmentPhase.stored, bytes: bytes);
     notifyListeners();

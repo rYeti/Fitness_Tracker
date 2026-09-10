@@ -25,10 +25,13 @@ See `docs/android-release.md`.
 ## Unreleased
 
 Premium: personal bests. Every exercise now shows the heaviest set you have
-ever completed for it while you train, alongside your best set of the current
+ever completed for it while you train, plus your best set of the current
 session, and on each exercise card in Progress. Warmups and unfinished
-sessions never count, and your best follows the exercise, so it survives your
-plan being rebuilt around it.
+sessions never count, and your best follows the exercise, not the plan.
+
+Fixed chat attachments (photos, voice notes, files) failing to upload with an
+error you could not retry, and messages becoming unreadable or never arriving
+when you use ForgeForm on more than one device.
 
 ## 1.0.2+23
 

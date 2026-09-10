@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ForgeForm/core/app_database.dart';
+import 'package:ForgeForm/core/providers/enums.dart';
 import 'package:ForgeForm/feature/chat/data/chat_repository.dart';
 import 'package:ForgeForm/feature/chat/domain/models/thread_message.dart';
 
@@ -794,5 +796,48 @@ void main() {
       expect(only.lastMessagePreview, isNull);
       expect(only.lastMessageAt, isNotNull);
     });
+  });
+
+  group('attachments', () {
+    test(
+      'an upload failure (what a 503 from a disabled store looks like from '
+      'here) marks the row failed rather than leaving it stuck uploading',
+      () async {
+        final sender = FakeChatAttachmentSender()
+          ..throwOnUpload = Exception('attachments_disabled');
+        final repository = build(attachmentSender: sender);
+
+        final sealed = await sender.seal(
+          plaintext: Uint8List.fromList([1, 2, 3]),
+          kind: MediaType.picture,
+          mime: 'image/jpeg',
+          name: 'photo.jpg',
+        );
+
+        final result = await repository.sendMessage(
+          otherPartyId: otherParty,
+          body: '',
+          attachment: sealed,
+        );
+
+        // Never reached the wire at all: SendMessageV2's commit step needs
+        // the attachment to already exist server-side, so a mint failure
+        // stops this message before any send attempt, matching
+        // ChatRepository.sendMessage's own documented ordering.
+        expect(result.uploadStatus, AttachmentUploadStatus.failed);
+        expect(result.status, ChatMessageStatus.pending);
+        expect(signalR.sent, isEmpty);
+
+        // The manual retry path a "double tap" reaches for -- confirms the
+        // row survives in a state retryMessage can actually act on, not one
+        // that requires reconstructing the send from scratch.
+        sender.throwOnUpload = null;
+        final retried = await repository.retryMessage(result.messageId);
+
+        expect(retried, isNotNull);
+        expect(retried!.uploadStatus, AttachmentUploadStatus.uploaded);
+        expect(retried.status, ChatMessageStatus.sent);
+      },
+    );
   });
 }

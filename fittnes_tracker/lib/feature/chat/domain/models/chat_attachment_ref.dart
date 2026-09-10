@@ -15,9 +15,15 @@ class ChatAttachmentThumbRef {
   /// Base64 of the 12-byte IV.
   final String iv;
 
-  /// Base64 SHA-256 of the *ciphertext* — lets the client detect a swapped or
+  /// Hex SHA-256 of the *ciphertext* — lets the client detect a swapped or
   /// truncated object before spending time decrypting it, and doubles as the
   /// device media store's cache key.
+  ///
+  /// Hex, not base64: `ChatAttachmentSender.seal` produces it via
+  /// `crypto.sha256.convert(...).toString()`, and `package:crypto`'s
+  /// `Digest.toString()` is hex. This field was documented as base64 for as
+  /// long as it existed and nothing ever compared it to anything, so the
+  /// mismatch had no way to surface — see `ChatAttachmentProvider.fetch`.
   final String sha256;
 
   const ChatAttachmentThumbRef({
@@ -78,7 +84,9 @@ class ChatAttachmentRef {
   /// Base64 of the 12-byte IV.
   final String iv;
 
-  /// Base64 SHA-256 of the ciphertext.
+  /// Hex SHA-256 of the ciphertext — see [ChatAttachmentThumbRef.sha256] for
+  /// why hex rather than the base64 this was long documented (and never
+  /// checked) as.
   final String sha256;
 
   /// Pixel dimensions, images and video only — lets the bubble reserve the

@@ -14,10 +14,26 @@ import 'package:ForgeForm/core/providers/enums.dart';
 /// those calls go through a bare `Dio`, not this class or the shared
 /// `ApiClient`. See `ChatAttachmentTransfer`'s own doc comment for why.
 class ChatAttachmentApi {
-  final ApiClient _client;
+  final ApiClient? _injected;
 
-  ChatAttachmentApi({ApiClient? client})
-    : _client = client ?? sl<ApiClient>(instanceName: backendApiClient);
+  ChatAttachmentApi({ApiClient? client}) : _injected = client;
+
+  /// Resolved on use rather than in the constructor — the same seam
+  /// `ChatKeyApi` already carries, for the same reason.
+  ///
+  /// `ChatAttachmentProvider` and `ChatAttachmentSender` both build one of
+  /// these eagerly, and both are themselves built while a widget tree is
+  /// coming up (`TrainerConsoleHome.initState`, `ChatRepository`'s factory).
+  /// Reaching for the service locator here made merely *constructing* the
+  /// console depend on a registered `ApiClient`, so a test that injects its
+  /// own chat repository — and therefore needs no network at all — threw
+  /// `Bad state: GetIt: ... ApiClient is not registered` before the first
+  /// frame. Every call site already tolerates the lookup failing at call
+  /// time: `ChatAttachmentSender.capabilities` collapses it to
+  /// `ChatAttachmentCapabilities.disabled`, and `ChatAttachmentProvider.fetch`
+  /// to a failed fetch.
+  ApiClient get _client =>
+      _injected ?? sl<ApiClient>(instanceName: backendApiClient);
 
   Future<Map<String, dynamic>> fetchCapabilities() async {
     final response = await _client.get('api/chat/attachments/capabilities');

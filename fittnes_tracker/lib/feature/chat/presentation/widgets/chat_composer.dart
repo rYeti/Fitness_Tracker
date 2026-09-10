@@ -13,6 +13,7 @@ import 'package:ForgeForm/feature/chat/data/chat_attachment_file.dart';
 import 'package:ForgeForm/feature/chat/data/chat_attachment_sender.dart';
 import 'package:ForgeForm/feature/chat/data/image_downscale.dart';
 import 'package:ForgeForm/feature/chat/data/voice_recorder.dart';
+import 'package:ForgeForm/feature/chat/domain/models/chat_attachment_capabilities.dart';
 import 'package:ForgeForm/feature/chat/domain/models/chat_draft.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 
@@ -25,10 +26,18 @@ enum _AttachChoice { gallery, camera, document, audio, voiceNote, video }
 class ChatComposer extends StatefulWidget {
   final ValueChanged<ChatDraft> onSend;
 
-  /// Whether the server has attachment storage configured. Kept disabled
-  /// with its existing tooltip, rather than removed, when false — so the
-  /// layout doesn't shift the moment it starts working.
-  final bool attachmentsEnabled;
+  /// What the server will actually accept — whether it has a blob store at
+  /// all, and the byte caps it enforces.
+  ///
+  /// Defaults to [ChatAttachmentCapabilities.disabled], which is the important
+  /// half: this used to be a plain `bool` defaulting to `true` that no caller
+  /// ever passed, so the attach affordance was offered on every deployment
+  /// including ones with no store configured, where every upload failed. See
+  /// docs/chat-attachments.md.
+  ///
+  /// The affordance is disabled with its existing tooltip rather than removed,
+  /// so the layout doesn't shift the moment it starts working.
+  final ChatAttachmentCapabilities capabilities;
 
   /// Injection seam for tests — never touches the network or the file
   /// system unless a test supplies bytes through it.
@@ -41,7 +50,7 @@ class ChatComposer extends StatefulWidget {
   const ChatComposer({
     super.key,
     required this.onSend,
-    this.attachmentsEnabled = true,
+    this.capabilities = ChatAttachmentCapabilities.disabled,
     this.attachmentSender,
     this.voiceRecorder,
   });
@@ -136,12 +145,37 @@ class _ChatComposerState extends State<ChatComposer> {
     }
   }
 
+  /// The largest plaintext this device may hand to [_sendAttachment] for a
+  /// given kind.
+  ///
+  /// The server's caps, minus AES-GCM's tag. Every check below has to be
+  /// against *this* and not against the server's number directly: what
+  /// `ChatAttachmentSender.upload` declares at mint time is the ciphertext
+  /// length, so a file within 16 bytes of the cap passes a naive client check,
+  /// gets sealed, gets an outbox row, and only then comes back
+  /// `attachment_too_large` — as a bare "upload failed" whose retry re-declares
+  /// the identical length and fails identically, for ever.
+  int _plaintextCap({required bool isVideo}) =>
+      widget.capabilities.plaintextCapFor(isVideo: isVideo);
+
+  /// True when [length] fits; shows the "too large" snackbar and returns false
+  /// when it doesn't, so every picker is one `if` rather than four copies of
+  /// the same three lines.
+  bool _withinCap(int length, {bool isVideo = false}) {
+    if (length <= _plaintextCap(isVideo: isVideo)) return true;
+    _showTooLarge();
+    return false;
+  }
+
   Future<void> _pickPhoto({required ImageSource source}) async {
     final file = await ImagePicker().pickImage(source: source);
     if (file == null) return;
     final original = await file.readAsBytes();
 
-    final downscaled = await ImageDownscale.forChat(original);
+    final downscaled = await ImageDownscale.forChat(
+      original,
+      maxPlaintextBytes: _plaintextCap(isVideo: false),
+    );
     if (downscaled == null) {
       _showTooLarge();
       return;
@@ -157,20 +191,13 @@ class _ChatComposerState extends State<ChatComposer> {
     );
   }
 
-  /// The cap this feature enforces for a video attachment — twice the image
-  /// cap, and enforced client-side only, same as every other kind (see
-  /// docs/chat-attachments.md §0.2). There is no re-encode step for video:
-  /// a file over this size is refused, not compressed.
-  static const _maxVideoBytes = 16 * 1024 * 1024;
-
   Future<void> _pickVideo() async {
     final file = await ImagePicker().pickVideo(source: ImageSource.gallery);
     if (file == null) return;
     final bytes = await file.readAsBytes();
-    if (bytes.length > _maxVideoBytes) {
-      _showTooLarge();
-      return;
-    }
+    // There is no re-encode step for video: a file over the cap is refused,
+    // not compressed (docs/chat-attachments.md §0.2).
+    if (!_withinCap(bytes.length, isVideo: true)) return;
     await _sendAttachment(
       bytes,
       kind: MediaType.video,
@@ -183,10 +210,7 @@ class _ChatComposerState extends State<ChatComposer> {
     final result = await FilePicker.platform.pickFiles(withData: true);
     final file = result?.files.single;
     if (file == null || file.bytes == null) return;
-    if (file.size > ImageDownscale.maxDocumentBytes) {
-      _showTooLarge();
-      return;
-    }
+    if (!_withinCap(file.bytes!.length)) return;
     await _sendAttachment(
       file.bytes!,
       kind: MediaType.document,
@@ -202,10 +226,7 @@ class _ChatComposerState extends State<ChatComposer> {
     );
     final file = result?.files.single;
     if (file == null || file.bytes == null) return;
-    if (file.size > ImageDownscale.maxDocumentBytes) {
-      _showTooLarge();
-      return;
-    }
+    if (!_withinCap(file.bytes!.length)) return;
     await _sendAttachment(
       file.bytes!,
       kind: MediaType.audio,
@@ -230,9 +251,36 @@ class _ChatComposerState extends State<ChatComposer> {
       _recordedSeconds = 0;
     });
     _recordingTicker = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() => _recordedSeconds = _recorder.elapsedSeconds);
+      if (!mounted) return;
+      setState(() => _recordedSeconds = _recorder.elapsedSeconds);
+      // Stopped at the ceiling rather than left to run and refused
+      // afterwards. A recording that overruns the byte cap can only be
+      // discarded — there is no re-encode step — so the honest place to stop
+      // is while the user can still see the counter, not after they have
+      // finished talking.
+      if (_recordedSeconds >= _maxRecordingSeconds) {
+        unawaited(_stopRecordingAndSend());
+      }
     });
   }
+
+  /// The longest voice note this device will record.
+  ///
+  /// This is a real cap, not a nicety. A voice note is sized against the
+  /// *image* cap server-side (`ChatAttachmentService` gives video the only
+  /// larger one), and at the recorder's 64 kbps that cap is reached at roughly
+  /// seventeen minutes. Before this existed, `_stopRecordingAndSend` was the
+  /// one attachment path with no size check at all: a longer recording sealed
+  /// fine, wrote its outbox row, and was refused at mint with
+  /// `attachment_too_large` — surfaced as "upload failed, double tap to
+  /// retry", where the retry re-mints the identical byte length and is refused
+  /// identically. A permanently stuck bubble with a button on it that could
+  /// never work.
+  ///
+  /// Fifteen minutes leaves headroom under the cap without needing to know the
+  /// encoder's exact overhead; anything longer than this is a file to attach,
+  /// not a voice note.
+  static const _maxRecordingSeconds = 15 * 60;
 
   Future<void> _stopRecordingAndSend() async {
     _recordingTicker?.cancel();
@@ -244,6 +292,12 @@ class _ChatComposerState extends State<ChatComposer> {
 
     final bytes = await readAttachmentBytes(result.path);
     if (bytes == null) return;
+    // The belt to _maxRecordingSeconds' braces: the time cap is derived from
+    // an assumed bitrate, and this is the byte count that actually has to fit.
+    if (!_withinCap(bytes.length)) {
+      unawaited(deleteAttachmentFile(result.path));
+      return;
+    }
     await _sendAttachment(
       bytes,
       kind: MediaType.voiceNote,
@@ -271,8 +325,14 @@ class _ChatComposerState extends State<ChatComposer> {
       (defaultTargetPlatform == TargetPlatform.android ||
           defaultTargetPlatform == TargetPlatform.iOS);
 
+  /// A voice note *is* an attachment, so the mic needs the server's capability
+  /// as well as the platform's. Without this the mic stayed offered on a
+  /// deployment with no blob store, and a recording the user had already made
+  /// was the thing that discovered it.
   bool get _micAvailable =>
-      !kIsWeb && defaultTargetPlatform != TargetPlatform.linux;
+      !kIsWeb &&
+      defaultTargetPlatform != TargetPlatform.linux &&
+      widget.capabilities.enabled;
 
   List<({_AttachChoice choice, IconData icon, String label})> _choices(
     AppLocalizations l10n,
@@ -383,7 +443,7 @@ class _ChatComposerState extends State<ChatComposer> {
     final colors = Theme.of(context).colorScheme;
     final l10n = AppLocalizations.of(context)!;
     final attachEnabled =
-        widget.attachmentsEnabled && !_preparing && !_recording;
+        widget.capabilities.enabled && !_preparing && !_recording;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
@@ -459,8 +519,7 @@ class _ChatComposerState extends State<ChatComposer> {
               showMic:
                   !_recording &&
                   _controller.text.trim().isEmpty &&
-                  _micAvailable &&
-                  widget.attachmentsEnabled,
+                  _micAvailable,
               onSend: _send,
               onStartRecording: _startRecording,
               onStopRecording: _stopRecordingAndSend,

@@ -20,7 +20,29 @@ class ChatEncryption {
   static const int none = 0;
 
   /// ECDH P-256 shared secret, AES-256-GCM, fresh IV per message.
+  ///
+  /// One recipient device only — see [ecdhP256AesGcmWrapped] for why that
+  /// stopped being enough. Still sent, deliberately, to a peer whose only
+  /// published device is `ChatKeyStore.legacyDeviceId`: a build old enough to
+  /// have no device id of its own cannot parse a wrapped envelope either, so
+  /// this is what keeps a conversation with one readable for as long as at
+  /// least one side hasn't updated.
   static const int ecdhP256AesGcm = 1;
+
+  /// A random 256-bit content key, wrapped once per recipient *device* rather
+  /// than one shared secret per recipient *user*.
+  ///
+  /// [ecdhP256AesGcm] derives a single secret from this device's private key
+  /// and the peer's — which assumed, silently, that "the peer" had exactly
+  /// one key. Once a user could have more than one signed-in device, that
+  /// assumption is what let a second device's sign-in overwrite the first's
+  /// published key and orphan it: see docs/chat-multi-device-keys.md for the
+  /// account of what that actually broke. Sealing the body once under a
+  /// content key and wrapping *that* key for every device of both parties —
+  /// this account's other devices included — is what makes a message sent
+  /// from a phone readable on a laptop, without re-encrypting the whole body
+  /// per device.
+  static const int ecdhP256AesGcmWrapped = 2;
 }
 
 /// One encrypted body, split the way the wire carries it.

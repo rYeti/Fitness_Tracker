@@ -9,6 +9,7 @@ import 'package:ForgeForm/core/di/service_locator.dart';
 import 'package:ForgeForm/core/widgets/lazy_indexed_stack.dart';
 import 'package:ForgeForm/feature/chat/data/chat_repository.dart';
 import 'package:ForgeForm/feature/chat/data/signalr_hub_chat_client.dart';
+import 'package:ForgeForm/feature/chat/presentation/providers/chat_attachment_provider.dart';
 import 'package:ForgeForm/feature/chat/presentation/providers/chat_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/data/trainer_console_repository.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/active_client_provider.dart';
@@ -94,6 +95,15 @@ class _TrainerConsoleHomeState extends State<TrainerConsoleHome> {
   /// in the console still works, so this is a missing tab, not a broken screen.
   ChatProvider? _chat;
 
+  /// Built alongside [_chat], never per screen. Its own doc comment says why:
+  /// switching the active client must not restart another thread's in-flight
+  /// downloads. `MessagesScreen` used to build one of these itself, which
+  /// contradicted that invariant even though Provider's element reuse
+  /// happened to mask it in the common case — this is the shell CLAUDE.md's
+  /// shared-state rule and the provider's own doc comment both say it
+  /// belongs at.
+  ChatAttachmentProvider? _attachments;
+
   /// Only set when this widget built the transport itself, so an injected one
   /// is never closed out from under its owner.
   SignalRHubChatClient? _signalR;
@@ -115,18 +125,13 @@ class _TrainerConsoleHomeState extends State<TrainerConsoleHome> {
     final injected = widget.chatRepository;
     if (injected != null) {
       _chat = ChatProvider(repository: injected);
+      _attachments = ChatAttachmentProvider();
     } else if (sl.isRegistered<AppDatabase>()) {
       final signalR = SignalRHubChatClient();
       _signalR = signalR;
       final repository = ChatRepository(db: sl<AppDatabase>(), signalR: signalR);
       _chat = ChatProvider(repository: repository);
-
-      // Started next to the connect, and for the same reason: it is a network
-      // round trip that must not block the console's first paint. A failure
-      // leaves this device with no published key, which shows up as messages
-      // the other side cannot read -- so it is retried on the next visit rather
-      // than swallowed forever.
-      unawaited(repository.prepareKeys().catchError((Object _) {}));
+      _attachments = ChatAttachmentProvider();
 
       // Not awaited: the console renders its roster and KPIs fine while the
       // socket is still opening, and the connection banner covers the gap.
@@ -138,6 +143,16 @@ class _TrainerConsoleHomeState extends State<TrainerConsoleHome> {
     // Otherwise chat stays null. The outbox needs the local database, and
     // reaching for it unguarded meant a console that could not open *at all*
     // when it was missing — four of five sections have nothing to do with chat.
+
+    // Started next to the connect, and for the same reason: these are network
+    // round trips that must not block the console's first paint. A failure
+    // leaves this device with no published key, which shows up as messages the
+    // other side cannot read -- so it is retried on the next visit rather than
+    // swallowed forever. See ChatProvider.prepareSession for what else rides
+    // along with it and why the three are ordered rather than fired off
+    // independently. Outside the branch above so an injected repository takes
+    // the same path a real one does; nothing in it is a socket call.
+    unawaited(_chat?.prepareSession() ?? Future<void>.value());
 
     // Conversations are loaded here rather than by MessagesScreen, for the same reason the
     // socket is: the sidebar's unread badge is folded from them, and loading them is what
@@ -152,6 +167,7 @@ class _TrainerConsoleHomeState extends State<TrainerConsoleHome> {
   void dispose() {
     _activeClient.dispose();
     _chat?.dispose();
+    _attachments?.dispose();
     unawaited(_signalR?.dispose() ?? Future<void>.value());
     if (_ownsLicenceProvider) _licence.dispose();
     super.dispose();
@@ -193,11 +209,14 @@ class _TrainerConsoleHomeState extends State<TrainerConsoleHome> {
   @override
   Widget build(BuildContext context) {
     final chat = _chat;
+    final attachments = _attachments;
     return MultiProvider(
       providers: [
         ChangeNotifierProvider<ActiveClientProvider>.value(value: _activeClient),
         if (chat != null)
           ChangeNotifierProvider<ChatProvider>.value(value: chat),
+        if (attachments != null)
+          ChangeNotifierProvider<ChatAttachmentProvider>.value(value: attachments),
       ],
       child: TrainerConsoleShell(
         currentRoute: _route,

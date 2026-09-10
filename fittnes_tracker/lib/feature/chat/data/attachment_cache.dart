@@ -28,7 +28,19 @@ class AttachmentCache {
   }
 
   void put(String id, Uint8List bytes) {
-    _entries.remove(id);
+    // The removed entry's own length has to come off the total before the new
+    // one is added back on. Without this, overwriting the same id twice (the
+    // ordinary shape of a `fetch`: once from `AttachmentStore.read`, again
+    // from a later network round trip — see `ChatAttachmentProvider.fetch`)
+    // counted the old bytes twice: once when they went in, again because
+    // removing them here never subtracted. `_totalBytes` then drifted upward
+    // on every overwrite until it permanently exceeded `_budgetBytes`, at
+    // which point every `put` evicted the *entire* cache — including entries
+    // that had nothing to do with the one just added — turning this from an
+    // LRU cache into one that never actually cached anything.
+    final replaced = _entries.remove(id);
+    if (replaced != null) _totalBytes -= replaced.length;
+
     _entries[id] = bytes;
     _totalBytes += bytes.length;
     while (_totalBytes > _budgetBytes && _entries.isNotEmpty) {

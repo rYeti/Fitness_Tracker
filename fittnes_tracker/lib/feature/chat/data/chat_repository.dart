@@ -11,6 +11,7 @@ import 'package:ForgeForm/feature/chat/data/chat_signalr_client.dart';
 import 'package:ForgeForm/feature/chat/data/webcrypto_chat_crypto.dart';
 import 'package:ForgeForm/feature/chat/domain/chat_body_codec.dart';
 import 'package:ForgeForm/feature/chat/domain/chat_crypto.dart';
+import 'package:ForgeForm/feature/chat/domain/models/chat_attachment_capabilities.dart';
 import 'package:ForgeForm/feature/chat/domain/models/chat_attachment_ref.dart';
 import 'package:ForgeForm/feature/chat/domain/models/chat_message.dart';
 import 'package:ForgeForm/feature/chat/domain/models/conversation_summary.dart';
@@ -66,9 +67,15 @@ class ChatRepository {
   /// second [watchConversations] doesn't re-join a group needlessly.
   final Set<String> _watchedThreads = {};
 
-  /// Peers whose public key has already been re-fetched once after a decryption
-  /// failure. See [_decrypt].
+  /// Peers whose device list has already been re-fetched once after a
+  /// decryption failure. See [_decrypt].
   final Set<String> _refetchedPeers = {};
+
+  /// Peers for which this device has already re-run [ChatKeyStore.ensureRegistered]
+  /// once after a decryption failure — the second recovery hypothesis
+  /// [_decrypt] tries. See its own comment for why this exists alongside
+  /// [_refetchedPeers] rather than instead of it.
+  final Set<String> _refetchedOwnDevicesFor = {};
 
   /// Resend attempts per message id, for the bounded retry in [replayPending].
   ///
@@ -171,6 +178,16 @@ class ChatRepository {
   /// own account id the key store cannot tell its identity key from the one
   /// belonging to whoever used this device last.
   Future<void> prepareKeys() => _keys.ensureRegistered();
+
+  /// What the server will accept as an attachment, or
+  /// [ChatAttachmentCapabilities.disabled] if it cannot be asked.
+  ///
+  /// Called alongside [prepareKeys] and again on reconnect, for the same reason
+  /// [resumeAttachmentUploads] is: a capability that was unavailable at launch
+  /// can become available later, and a client that only ever asked once would
+  /// stay wrong until it was restarted.
+  Future<ChatAttachmentCapabilities> attachmentCapabilities() =>
+      _attachmentSender.capabilities();
 
   /// Re-uploads every attachment this device left at `uploading` — an app
   /// kill between the file landing on disk and the PUT finishing. Same
@@ -891,24 +908,41 @@ class ChatRepository {
 
     var plaintext = await attempt();
 
-    // One retry against a freshly fetched peer key, and only one, the first time
-    // this thread sees a failure.
+    // Two independent hypotheses for a decryption failure, each retried at
+    // most once per peer per session, then a single re-attempt if either
+    // fired.
     //
-    // This is the recovery path for a peer who reinstalled: they published a new
-    // public key, this device is still holding the one it cached, and *every*
-    // message they send from now on fails against it. Without this the thread
-    // never recovers on its own — the cache is only wrong, never stale, so
-    // nothing else would ever go and look.
+    // The first is the original recovery path, built for a peer who
+    // reinstalled: they published a new device, this device is still holding
+    // whatever it cached, and *every* message they send from now on fails
+    // against it. [ChatCrypto.forget] refetches their current device list.
     //
-    // Bounded by [_refetchedPeers] because the far more common cause of a
-    // failure is a message genuinely encrypted to a key that no longer exists
-    // anywhere. Retrying per message would turn scrolling through old history
-    // into one key fetch per bubble.
-    if (plaintext == null &&
-        message.body != null &&
-        _refetchedPeers.add(peer)) {
-      await _crypto.forget(peer);
-      plaintext = await attempt();
+    // The second exists because of what a second *device of this account's
+    // own* can now do: a v2 message may be sent from any device this account
+    // has, wrapped for every other one it knew about at send time — and this
+    // device's own picture of "every device I own" (`ChatKeyStore`'s
+    // `chat_own_keys` cache) only refreshes on `ensureRegistered`. A message
+    // from a device that account added after this device's cache was last
+    // filled fails to decrypt for a reason `forget` cannot fix, because
+    // nothing about the *peer's* keys is wrong. Re-registering is what
+    // refreshes that cache.
+    //
+    // Bounded per peer, not globally, to keep both hypotheses' bookkeeping
+    // the same shape — the far more common cause of a failure is a message
+    // genuinely encrypted to a key that no longer exists anywhere, and
+    // retrying per message would turn scrolling through old history into a
+    // network round trip per bubble.
+    if (plaintext == null && message.body != null) {
+      var retried = false;
+      if (_refetchedPeers.add(peer)) {
+        await _crypto.forget(peer);
+        retried = true;
+      }
+      if (_refetchedOwnDevicesFor.add(peer)) {
+        await _keys.ensureRegistered().catchError((Object _) {});
+        retried = true;
+      }
+      if (retried) plaintext = await attempt();
     }
 
     return message.decrypted(plaintext);

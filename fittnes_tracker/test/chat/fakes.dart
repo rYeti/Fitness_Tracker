@@ -13,6 +13,7 @@ import 'package:ForgeForm/feature/chat/data/chat_signalr_client.dart';
 import 'package:ForgeForm/feature/chat/data/voice_recorder.dart';
 import 'package:ForgeForm/feature/chat/domain/attachment_crypto.dart';
 import 'package:ForgeForm/feature/chat/domain/chat_crypto.dart';
+import 'package:ForgeForm/feature/chat/domain/models/chat_attachment_capabilities.dart';
 import 'package:ForgeForm/feature/chat/domain/models/chat_attachment_ref.dart';
 import 'package:ForgeForm/feature/chat/domain/models/chat_message.dart';
 
@@ -433,6 +434,25 @@ class FakeChatAttachmentSender implements ChatAttachmentSender {
   /// When set, the next [upload] call throws this instead of succeeding.
   Object? throwOnUpload;
 
+  /// What [capabilities] reports. Enabled by default so the existing send
+  /// tests keep exercising the attachment path — a test that wants the
+  /// disabled case sets this to [ChatAttachmentCapabilities.disabled].
+  ChatAttachmentCapabilities reportedCapabilities =
+      const ChatAttachmentCapabilities(
+        enabled: true,
+        maxImageBytes: 8 * 1024 * 1024,
+        maxVideoBytes: 16 * 1024 * 1024,
+        retentionDays: 45,
+      );
+
+  int capabilitiesCount = 0;
+
+  @override
+  Future<ChatAttachmentCapabilities> capabilities() async {
+    capabilitiesCount++;
+    return reportedCapabilities;
+  }
+
   static const _xorByte = 0x5A;
   static Uint8List _xor(Uint8List bytes) =>
       Uint8List.fromList([for (final b in bytes) b ^ _xorByte]);
@@ -522,43 +542,71 @@ class InMemoryChatKeyVault implements ChatKeyVault {
 
 /// Stands in for `api/chat/keys`.
 ///
-/// Holds one directory of published keys, so two [ChatKeyStore]s sharing an
-/// instance behave like two devices talking to the same server.
+/// Holds one directory of published keys shaped exactly like the real
+/// per-device table — userId -> deviceId -> publicKeyJwk — so two
+/// [ChatKeyStore]s sharing an instance behave like two devices talking to the
+/// same server, and so does a *third* store sharing it under the same userId,
+/// which is what makes two devices of one account visible to each other.
 class FakeChatKeyApi implements ChatKeyApi {
   /// Who this store's owner is, as the real `GET keys/me` would report.
   final String userId;
 
-  /// Published public keys, by user id. Shared between instances when a test
-  /// passes the same map, which is how one device sees another's key.
-  final Map<String, String> published;
+  /// The shared "server". Pass the same map to two instances to have them
+  /// see each other's publishes, whether those publishes are under the same
+  /// userId (two devices of one account) or different ones (two accounts).
+  final Map<String, Map<String, String>> published;
 
-  /// Every `publish` in call order, so a test can assert a key was replaced
-  /// rather than merely written locally.
-  final List<String> publishes = [];
+  /// Every publish in call order, as (deviceId, publicKeyJwk) — so a test can
+  /// assert a specific device's key was replaced rather than merely that
+  /// *something* was written.
+  final List<({String deviceId, String publicKeyJwk})> publishes = [];
 
   int fetchMeCalls = 0;
   int fetchPeerCalls = 0;
 
-  FakeChatKeyApi({required this.userId, Map<String, String>? published})
-    : published = published ?? {};
+  FakeChatKeyApi({
+    required this.userId,
+    Map<String, Map<String, String>>? published,
+  }) : published = published ?? {};
 
   @override
-  Future<Map<String, dynamic>> fetchMe() async {
+  Future<ChatKeyResponse> fetchMe() async {
     fetchMeCalls++;
-    return {'userId': userId, 'publicKeyJwk': published[userId]};
+    return _responseFor(userId);
   }
 
   @override
-  Future<String> publish(String publicKeyJwk) async {
-    publishes.add(publicKeyJwk);
-    published[userId] = publicKeyJwk;
+  Future<String> publish(String publicKeyJwk, {required String deviceId}) async {
+    publishes.add((deviceId: deviceId, publicKeyJwk: publicKeyJwk));
+    final devices = published.putIfAbsent(userId, () => {});
+    // Removed then re-inserted so it lands at the end — a plain overwrite
+    // would leave it wherever it was first inserted, and "the last entry is
+    // the most-recently-seen device" (what `_responseFor` reports as
+    // `publicKeyJwk`, mirroring the real repository's `LastSeenAt` ordering)
+    // depends on that.
+    devices.remove(deviceId);
+    devices[deviceId] = publicKeyJwk;
     return userId;
   }
 
   @override
-  Future<String?> fetchPeer(String otherPartyId) async {
+  Future<ChatKeyResponse?> fetchPeer(String otherPartyId) async {
     fetchPeerCalls++;
-    return published[otherPartyId];
+    final devices = published[otherPartyId];
+    if (devices == null || devices.isEmpty) return null;
+    return _responseFor(otherPartyId);
+  }
+
+  ChatKeyResponse _responseFor(String user) {
+    final devices = published[user] ?? const {};
+    return ChatKeyResponse(
+      userId: user,
+      publicKeyJwk: devices.isEmpty ? null : devices.values.last,
+      devices: [
+        for (final entry in devices.entries)
+          ChatKeyDevice(deviceId: entry.key, publicKeyJwk: entry.value),
+      ],
+    );
   }
 }
 
