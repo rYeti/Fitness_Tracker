@@ -1076,6 +1076,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get lastTime => 'Last Time';
 
   @override
+  String get workoutBest => 'This Workout\'s Best';
+
+  @override
+  String get allTimeBest => 'All-Time Best';
+
+  @override
   String get actual => 'Actual';
 
   @override
@@ -2221,6 +2227,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get paywallFeatureProgress => 'All-time history & custom date ranges';
+
+  @override
+  String get paywallFeaturePersonalBest =>
+      'Personal bests — all-time and per-workout, for every exercise';
 
   @override
   String get paywallFeaturePlans => 'Unlimited workout plans';

@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/core/app_database.dart';
+import 'package:ForgeForm/core/providers/access_provider.dart';
 import 'package:ForgeForm/core/utils/app_logger.dart';
 import 'package:ForgeForm/feature/workout_planning/data/models/workout_set.dart'
     show SetType, SetSide;
+import 'package:ForgeForm/core/widgets/personal_best_card.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
@@ -258,7 +260,6 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
         final existingSetsMap = {
           for (var set in existingSets) set.setNumber: set,
         };
-
         exercises.add(
           _ExerciseWithSets(
             exercise: resolvedExercise,
@@ -272,6 +273,14 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
           ),
         );
       }
+
+      // One query for the whole workout rather than one per exercise, and
+      // deliberately after the loop: the PB belongs to the exercise being
+      // *shown*, which for a swapped-out day is the override rather than
+      // `workoutExercise.exerciseId`. Those ids are only known once the loop
+      // has resolved them.
+      await _attachAllTimeBests(db, exercises);
+
       // Pre-populate set controllers from DB data for every exercise.
       // Without this, after process death the user resumes mid-workout and
       // the summary only shows data for the exercise that was active on
@@ -521,6 +530,75 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
       AppLogger.i('Error loading previous sets: $e\n$st');
       return (<WorkoutSetTableData>[], null);
     }
+  }
+
+  /// Fills in [_ExerciseWithSets.allTimeBest] for every entry in [exercises]
+  /// with one query.
+  ///
+  /// Keyed on `exercise.id` — the exercise as rendered — rather than on
+  /// `workoutExercise.exerciseId`, so a day where the trainee swapped the
+  /// planned lift for another shows the PB of the one they are actually
+  /// doing. Call it again after anything that changes which exercise a slot
+  /// holds; a card whose PB was never re-fetched is indistinguishable from an
+  /// exercise that has no PB.
+  Future<void> _attachAllTimeBests(
+    AppDatabase db,
+    List<_ExerciseWithSets> exercises,
+  ) async {
+    if (exercises.isEmpty) return;
+    final bests = await db.workoutDao.getAllTimeBestSets(
+      exerciseIds: exercises.map((e) => e.exercise.id).toList(),
+    );
+    for (final exercise in exercises) {
+      exercise.allTimeBest = bests[exercise.exercise.id];
+    }
+  }
+
+  /// The heaviest non-warmup set typed into this exercise's fields so far in
+  /// *this* workout — read live from the text controllers rather than the
+  /// database, so it updates as the user logs sets without waiting on the
+  /// debounced save. Returns null once nothing with a weight has been
+  /// entered for any of the exercise's sets yet.
+  PersonalBestSet? _currentWorkoutBestSet(_ExerciseWithSets exerciseData) {
+    PersonalBestSet? best;
+    for (final template in exerciseData.templates) {
+      final typeKey = _getSetControllerKey(
+        exerciseData.workoutExercise.id,
+        template.setNumber,
+        'setType',
+      );
+      if ((_setTypes[typeKey] ?? SetType.normal) == SetType.warmup) continue;
+
+      // Same comma handling as the save path: a German keyboard types 102,5
+      // and the set is stored, so it has to count here too or the card
+      // disagrees with the workout it is describing.
+      final weight = double.tryParse(
+        _getController(
+          exerciseData.workoutExercise.id,
+          template.setNumber,
+          'weight',
+        ).text.replaceAll(',', '.'),
+      );
+      if (weight == null) continue;
+      final reps = int.tryParse(
+        _getController(
+          exerciseData.workoutExercise.id,
+          template.setNumber,
+          'reps',
+        ).text,
+      );
+      // A weight with no reps yet is a row halfway through being typed, not a
+      // set — without this the card announces "100 kg × 0 reps" as the best of
+      // the session between the two keystrokes.
+      if (reps == null || reps <= 0) continue;
+
+      if (best == null ||
+          weight > best.weight ||
+          (weight == best.weight && reps > best.reps)) {
+        best = (weight: weight, reps: reps);
+      }
+    }
+    return best;
   }
 
   TextEditingController _getController(
@@ -931,15 +1009,22 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
       );
     }
 
+    final replacement = _ExerciseWithSets(
+      exercise: exerciseData,
+      workoutExercise: current.workoutExercise,
+      templates: newTemplates,
+      previousSets: const {},
+      existingSets: const {},
+      scheduledExerciseId: scheduledExerciseId,
+    );
+    // The slot now holds a different exercise, so it holds a different PB —
+    // and leaving it unset would read as "no PB yet" for the rest of the
+    // session rather than as the swap it is.
+    await _attachAllTimeBests(db, [replacement]);
+    if (!mounted) return;
+
     setState(() {
-      _exercises[_currentExerciseIndex] = _ExerciseWithSets(
-        exercise: exerciseData,
-        workoutExercise: current.workoutExercise,
-        templates: newTemplates,
-        previousSets: const {},
-        existingSets: const {},
-        scheduledExerciseId: scheduledExerciseId,
-      );
+      _exercises[_currentExerciseIndex] = replacement;
       _currentSetIndex = 0;
     });
   }
@@ -1414,6 +1499,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
 
   Widget _buildSetFocusedView(_ExerciseWithSets exerciseData, ThemeData theme) {
     final l10n = AppLocalizations.of(context)!;
+    final hasPremiumAccess = context.watch<AccessProvider>().hasPremiumAccess;
     final currentTemplate = exerciseData.templates[_currentSetIndex];
     final previousSet = exerciseData.previousSets[currentTemplate.setNumber];
     final exerciseNoteKey = _getExerciseNoteKey(
@@ -1467,6 +1553,17 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
               ),
             ),
           ),
+
+          if (hasPremiumAccess && exerciseData.allTimeBest != null) ...[
+            const SizedBox(height: 16),
+            PersonalBestCard(
+              best: exerciseData.allTimeBest!,
+              icon: Icons.emoji_events,
+              label: l10n.allTimeBest,
+              background: theme.colorScheme.secondaryContainer,
+              foreground: theme.colorScheme.onSecondaryContainer,
+            ),
+          ],
           const SizedBox(height: 24),
 
           Center(
@@ -1488,6 +1585,19 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
             ),
           ),
           const SizedBox(height: 24),
+
+          if (_currentWorkoutBestSet(exerciseData) case final currentBest?
+              when hasPremiumAccess) ...[
+            PersonalBestCard(
+              best: currentBest,
+              icon: Icons.emoji_events_outlined,
+              label: l10n.workoutBest,
+              style: PersonalBestStyle.hero,
+              background: theme.colorScheme.tertiaryContainer,
+              foreground: theme.colorScheme.onTertiaryContainer,
+            ),
+            const SizedBox(height: 16),
+          ],
 
           if (previousSet != null)
             Card(
@@ -1590,7 +1700,13 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                       hintText: '0.0',
                       border: OutlineInputBorder(),
                     ),
-                    onChanged: (_) => _scheduleSave(),
+                    // setState (not just the debounced save) so the "this
+                    // workout's best" card above reflects the new value
+                    // immediately instead of waiting on the save timer.
+                    onChanged: (_) {
+                      setState(() {});
+                      _scheduleSave();
+                    },
                   ),
                 ],
               ),
@@ -1622,7 +1738,10 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                       hintText: '0',
                       border: OutlineInputBorder(),
                     ),
-                    onChanged: (_) => _scheduleSave(),
+                    onChanged: (_) {
+                      setState(() {});
+                      _scheduleSave();
+                    },
                   ),
                 ],
               ),
@@ -2141,6 +2260,8 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                                 previousSets: const {},
                                 existingSets: const {},
                               );
+                              await _attachAllTimeBests(db, [newExercise]);
+                              if (!mounted) return;
                               setState(() => _exercises.add(newExercise));
                               setSheetState(() {});
                             },
@@ -2831,6 +2952,11 @@ class _ExerciseWithSets {
   final String? previousExerciseNote;
   int? scheduledExerciseId;
   int? supersetGroupId;
+  // The all-time PB for the exercise in [exercise], from every completed
+  // session (including ones under other workouts). Null if it has never been
+  // logged with a weight — and mutable because swapping the exercise in this
+  // slot changes whose PB this is. See `_attachAllTimeBests`.
+  PersonalBestSet? allTimeBest;
   _ExerciseWithSets({
     required this.exercise,
     required this.workoutExercise,

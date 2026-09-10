@@ -17,6 +17,7 @@ import 'package:ForgeForm/feature/premium/premium_gate.dart';
 import 'package:ForgeForm/core/widgets/forge_app_bar.dart';
 import 'package:ForgeForm/core/widgets/app_widgets.dart';
 import 'package:ForgeForm/core/widgets/content_pane.dart';
+import 'package:ForgeForm/core/widgets/personal_best_card.dart';
 
 final globalProgressKey = GlobalKey<_ProgressScreenState>();
 
@@ -48,6 +49,11 @@ class _ProgressScreenState extends State<ProgressScreen>
   // Gym data
   List<ExerciseProgressData> _exerciseProgress = [];
   WorkoutFrequencyData? _frequencyData;
+
+  /// All-time personal bests keyed by exercise id, deliberately *not* bounded
+  /// by the selected time range the way [_exerciseProgress] is: a PB set two
+  /// years ago is still the PB when the chart is showing this month.
+  Map<int, PersonalBestSet> _allTimeBests = {};
 
   // Nutrition data
   List<DailyNutritionData> _dailyData = [];
@@ -103,10 +109,15 @@ class _ProgressScreenState extends State<ProgressScreen>
       final endDate = _gymCustomEnd ?? DateTime.now();
       final exerciseProgress = await _loadExerciseProgress(db, startDate, endDate);
       final frequency = await _loadWorkoutFrequency(db, startDate, endDate);
+      // One query for every exercise on the tab, not one per card.
+      final allTimeBests = await db.workoutDao.getAllTimeBestSets(
+        exerciseIds: exerciseProgress.map((e) => e.exerciseId).toList(),
+      );
       if (mounted) {
         setState(() {
           _exerciseProgress = exerciseProgress;
           _frequencyData = frequency;
+          _allTimeBests = allTimeBests;
           _gymLoading = false;
         });
       }
@@ -162,64 +173,29 @@ class _ProgressScreenState extends State<ProgressScreen>
     DateTime startDate,
     DateTime endDate,
   ) async {
-    final rows = await db.customSelect(
-      '''
-    SELECT
-      we.exercise_id,
-      e.name            AS exercise_name,
-      sw.scheduled_date,
-      COALESCE(SUM(COALESCE(ws.weight, 0.0) * COALESCE(ws.reps, 0)), 0.0) AS total_volume,
-      COALESCE(MAX(COALESCE(ws.weight, 0.0)), 0.0)  AS max_weight,
-      COALESCE(SUM(COALESCE(ws.reps, 0)), 0)        AS total_reps,
-      COUNT(ws.id)                                   AS set_count,
-      COALESCE((SELECT ws2.reps FROM workout_set_table ws2
-                WHERE ws2.scheduled_workout_exercise_id = swe.id
-                ORDER BY ws2.set_number ASC LIMIT 1), 0) AS first_set_reps
-    FROM scheduled_workout_table sw
-    JOIN scheduled_workout_exercise_table swe ON swe.scheduled_workout_id = sw.id
-    JOIN workout_exercise_table           we  ON we.id  = swe.workout_exercise_id
-    JOIN exercise_table                   e   ON e.id   = we.exercise_id
-    JOIN workout_set_table                ws  ON ws.scheduled_workout_exercise_id = swe.id
-    WHERE sw.is_completed = 1
-      AND (ws.reps IS NOT NULL OR ws.weight IS NOT NULL)
-      AND ws.set_type != 1  -- exclude warmup sets from volume/PR stats
-      AND sw.scheduled_date >= ?
-      AND sw.scheduled_date <= ?
-    GROUP BY we.exercise_id, sw.scheduled_date
-    ORDER BY e.name ASC, sw.scheduled_date ASC
-    ''',
-      variables: [
-        Variable<DateTime>(startDate),
-        Variable<DateTime>(endDate),
-      ],
-    ).get();
+    final rows = await db.workoutDao.getExerciseProgressRows(
+      start: startDate,
+      end: endDate,
+    );
 
     final Map<int, List<ExerciseSessionData>> exerciseMap = {};
     final Map<int, String> exerciseNames = {};
 
     for (final row in rows) {
-      final exerciseId   = row.read<int>('exercise_id');
-      final exerciseName = row.read<String>('exercise_name');
-      final date         = row.read<DateTime>('scheduled_date');
-      final totalVolume  = row.readNullable<double>('total_volume') ?? 0.0;
-      final maxWeight    = row.readNullable<double>('max_weight')   ?? 0.0;
-      final totalReps    = row.readNullable<int>('total_reps')      ?? 0;
-      final setCount     = row.read<int>('set_count');
-      final firstSetReps = row.readNullable<int>('first_set_reps')  ?? 0;
-
-      exerciseNames[exerciseId] = exerciseName;
-      exerciseMap.putIfAbsent(exerciseId, () => []).add(ExerciseSessionData(
-        date: date,
-        totalVolume: totalVolume,
-        maxWeight: maxWeight,
-        totalReps: totalReps,
-        setCount: setCount,
-        reps: firstSetReps,
+      exerciseNames[row.exerciseId] = row.exerciseName;
+      exerciseMap.putIfAbsent(row.exerciseId, () => []).add(ExerciseSessionData(
+        date: row.date,
+        totalVolume: row.totalVolume,
+        maxWeight: row.maxWeight,
+        totalReps: row.totalReps,
+        setCount: row.setCount,
+        reps: row.firstSetReps,
       ));
     }
 
     final progressList = exerciseMap.entries.map((entry) {
       return ExerciseProgressData(
+        exerciseId: entry.key,
         exerciseName: exerciseNames[entry.key]!,
         sessions: entry.value,
       );
@@ -338,6 +314,7 @@ class _ProgressScreenState extends State<ProgressScreen>
         onRetry: _loadProgressData,
       );
     }
+    final hasPremium = context.watch<AccessProvider>().hasPremiumAccess;
     return RefreshIndicator(
       onRefresh: _loadGymData,
       child: SingleChildScrollView(
@@ -383,11 +360,16 @@ class _ProgressScreenState extends State<ProgressScreen>
                 AppLocalizations.of(context)!.completeWorkoutsProgress,
               )
             else
-              // Basic exercise graphs are free — only correlation analytics
-              // and extended time ranges stay premium (depth, not access).
+              // Basic exercise graphs are free — only correlation analytics,
+              // extended time ranges and the all-time PB line on each card
+              // stay premium (depth, not access). Read once for the whole
+              // list rather than per card.
               Column(
                 children: _exerciseProgress
-                    .map((data) => _buildExerciseCard(data, theme))
+                    .map(
+                      (data) =>
+                          _buildExerciseCard(data, theme, hasPremium: hasPremium),
+                    )
                     .toList(),
               ),
           ],
@@ -472,7 +454,11 @@ class _ProgressScreenState extends State<ProgressScreen>
     );
   }
 
-  Widget _buildExerciseCard(ExerciseProgressData data, ThemeData theme) {
+  Widget _buildExerciseCard(
+    ExerciseProgressData data,
+    ThemeData theme, {
+    required bool hasPremium,
+  }) {
     // Scale ranges for normalising the weight line onto the reps Y-axis.
     final minReps = data.sessions.map((s) => s.reps.toDouble()).reduce(min);
     final maxReps = data.sessions.map((s) => s.reps.toDouble()).reduce(max);
@@ -481,6 +467,13 @@ class _ProgressScreenState extends State<ProgressScreen>
     final repsRange = maxReps - minReps;
     final weightRange = maxWeight - minWeight;
 
+    // The all-time PB, which is premium and — unlike everything else on this
+    // card — is not clipped to the selected time range. Absent for a free
+    // user and for an exercise never logged with a weight; in the header
+    // rather than in the expanded body so the whole list reads as PBs at a
+    // glance without opening every exercise in turn.
+    final allTimeBest = hasPremium ? _allTimeBests[data.exerciseId] : null;
+
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       child: ExpansionTile(
@@ -488,6 +481,19 @@ class _ProgressScreenState extends State<ProgressScreen>
           data.exerciseName,
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
+        subtitle:
+            allTimeBest == null
+                ? null
+                : Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: PersonalBestCard(
+                    best: allTimeBest,
+                    icon: Icons.emoji_events,
+                    label: AppLocalizations.of(context)!.allTimeBest,
+                    style: PersonalBestStyle.inline,
+                    foreground: theme.colorScheme.primary,
+                  ),
+                ),
         children: [
           Padding(
             padding: const EdgeInsets.all(16),
@@ -1473,10 +1479,18 @@ class _ProgressScreenState extends State<ProgressScreen>
 // === DATA MODELS ===
 
 class ExerciseProgressData {
+  /// Carried so a row can be matched against data keyed by exercise — the
+  /// all-time personal bests — rather than by name, which is neither unique
+  /// nor stable across a rename.
+  final int exerciseId;
   final String exerciseName;
   final List<ExerciseSessionData> sessions;
 
-  ExerciseProgressData({required this.exerciseName, required this.sessions});
+  ExerciseProgressData({
+    required this.exerciseId,
+    required this.exerciseName,
+    required this.sessions,
+  });
 }
 
 class ExerciseSessionData {
