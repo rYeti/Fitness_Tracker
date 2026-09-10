@@ -1,7 +1,3 @@
-// `debugDefaultTargetPlatformOverride` lives here, not in material.dart —
-// which re-exports `TargetPlatform` but not the override itself, so the two
-// halves of the platform forcing below come from different libraries.
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -20,16 +16,20 @@ void main() {
   // The mic affordance also gates on the platform (hidden on Linux and web —
   // see ChatComposer._micAvailable), and `flutter test` reports whatever the
   // host actually is with no override applied by the test binding. Forcing
-  // it here is what makes these tests assert the *capabilities* gate
+  // Android is what makes these tests assert the *capabilities* gate
   // specifically, rather than accidentally depending on which OS happens to
   // run this suite.
-  setUp(() {
-    debugDefaultTargetPlatformOverride = TargetPlatform.android;
-  });
-
-  tearDown(() {
-    debugDefaultTargetPlatformOverride = null;
-  });
+  //
+  // Via `variant:` rather than a setUp/tearDown pair assigning
+  // `debugDefaultTargetPlatformOverride` by hand. `testWidgets` runs
+  // `debugAssertAllFoundationVarsUnset` at the end of the *test body*, which
+  // is before `tearDown` gets to reset anything — so the hand-rolled version
+  // failed every one of these tests with "The value of a foundation debug
+  // variable was changed by the test", never reaching a single assertion
+  // below. `TargetPlatformVariant` sets and restores the same variable inside
+  // the harness, on the right side of that check.
+  // `final`, not `const`: `TargetPlatformVariant.only` is a factory.
+  final android = TargetPlatformVariant.only(TargetPlatform.android);
 
   Future<void> pump(
     WidgetTester tester, {
@@ -62,7 +62,7 @@ void main() {
 
     expect(button.onPressed, isNull);
     expect(button.tooltip, l10n.chatAttachmentsUnavailable);
-  });
+  }, variant: android);
 
   testWidgets('the attach button is enabled once capabilities report enabled', (tester) async {
     await pump(
@@ -82,7 +82,7 @@ void main() {
 
     expect(button.onPressed, isNotNull);
     expect(button.tooltip, l10n.chatOpenAttachMenu);
-  });
+  }, variant: android);
 
   testWidgets('the mic stays hidden when capabilities report disabled, even though the platform allows it', (
     tester,
@@ -97,7 +97,7 @@ void main() {
     // The trailing button falls back to send with nothing typed, rather than
     // disappearing outright.
     expect(find.byIcon(Icons.send_rounded), findsOneWidget);
-  });
+  }, variant: android);
 
   testWidgets('the mic appears once capabilities report enabled', (tester) async {
     await pump(
@@ -111,5 +111,5 @@ void main() {
     );
 
     expect(find.byIcon(Icons.mic_none_rounded), findsOneWidget);
-  });
+  }, variant: android);
 }
