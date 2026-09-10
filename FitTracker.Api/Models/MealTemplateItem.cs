@@ -33,6 +33,17 @@ public class MealTemplateItem
     /// <summary>Fat contributed by this item (g).</summary>
     public double Fat { get; set; }
 
+    /// <summary>
+    /// The item's micronutrients, as an opaque JSON blob written by the
+    /// client. The server never parses it: every value inside is in grams by
+    /// the client's own convention, and a second, independently-maintained
+    /// copy of that table here is exactly how the two sides drift apart.
+    /// Null when the food carried none — never an empty object, which would
+    /// read as "measured, all zero". See
+    /// docs/trainer-console-micronutrients.md.
+    /// </summary>
+    public string? ExtendedNutrientsJson { get; set; }
+
     /// <summary>Navigation property to the parent template.</summary>
     public MealTemplate Template { get; set; } = null!;
 }

@@ -71,6 +71,7 @@ public class MealTemplateService(IMealTemplateRepository repository) : IMealTemp
         Protein = i.Protein,
         Carbs = i.Carbs,
         Fat = i.Fat,
+        ExtendedNutrientsJson = i.ExtendedNutrientsJson,
     };
 
     private static MealTemplateResponseDto ToDto(MealTemplate t) => new()
@@ -92,6 +93,7 @@ public class MealTemplateService(IMealTemplateRepository repository) : IMealTemp
             Protein = i.Protein,
             Carbs = i.Carbs,
             Fat = i.Fat,
+            ExtendedNutrientsJson = i.ExtendedNutrientsJson,
         }).ToList(),
     };
 }

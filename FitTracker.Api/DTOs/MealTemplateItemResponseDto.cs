@@ -13,4 +13,5 @@ public class MealTemplateItemResponseDto
     public double Protein { get; set; }
     public double Carbs { get; set; }
     public double Fat { get; set; }
+    public string? ExtendedNutrientsJson { get; set; }
 }

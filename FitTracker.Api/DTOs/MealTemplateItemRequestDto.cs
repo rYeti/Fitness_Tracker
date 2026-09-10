@@ -35,4 +35,12 @@ public class MealTemplateItemRequestDto
     /// <summary>Fat contributed by this item (g).</summary>
     [Range(0, 5000)]
     public double Fat { get; set; }
+
+    /// <summary>
+    /// Opaque micronutrient JSON, stored and returned verbatim. Bounded so a
+    /// client cannot use it as unmetered storage; the 21-nutrient object it
+    /// carries is well under 1 KB.
+    /// </summary>
+    [MaxLength(4000)]
+    public string? ExtendedNutrientsJson { get; set; }
 }

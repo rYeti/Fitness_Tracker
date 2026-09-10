@@ -433,6 +433,19 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
     final base = item.gramm > 0 ? item.gramm : 100;
     final ratio = newGramm / base;
 
+    // The stored blob represents `base` grams of this food — the same basis
+    // the macros beside it are scaled from, never a hardcoded 100. Both exits
+    // below need it: the template branch hands it to a `MealTemplateItem`,
+    // and the logging branch writes it on the row the day's micronutrient
+    // fold reads. See `docs/trainer-console-micronutrients.md`.
+    final existingNutrients = item.extendedNutrientsJson == null
+        ? null
+        : ExtendedNutrients.fromJsonString(item.extendedNutrientsJson!);
+    final rescaledNutrients = existingNutrients?.rescale(
+      fromGrams: base.toDouble(),
+      toGrams: newGramm.toDouble(),
+    );
+
     if (widget.isTemplate) {
       final food = FoodItemModel(
         id: item.id,
@@ -442,6 +455,8 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
         carbs: (item.carbs * ratio).round(),
         fat: (item.fat * ratio).round(),
         gramm: newGramm,
+        extendedNutrients: rescaledNutrients,
+        openFoodFactsId: item.openFoodFactsId,
       );
       if (mounted) Navigator.pop(context, food);
       return;
@@ -455,6 +470,7 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
         carbs: (item.carbs * ratio).round(),
         fat: (item.fat * ratio).round(),
         gramm: Value(newGramm),
+        extendedNutrientsJson: Value(rescaledNutrients?.toJsonString()),
         openFoodFactsId: Value(item.openFoodFactsId),
       ),
     );
@@ -1368,15 +1384,16 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
           MaterialPageRoute(
             builder:
                 (context) => FoodDetailsScreen(
-                  foodItem: FoodItemModel(
-                    id: item.id,
-                    name: item.name,
-                    calories: item.calories,
-                    protein: item.protein,
-                    carbs: item.carbs,
-                    fat: item.fat,
-                    gramm: item.gramm,
-                  ),
+                  // `FoodItemModel.fromData`, never a field-by-field copy:
+                  // the hand-written one listed the four macros and stopped,
+                  // so a food re-logged from this tile lost its
+                  // micronutrients twice over — the detail screen had no
+                  // blob to render a Detailed Nutrition card from, and the
+                  // row it went on to insert carried none for the day's
+                  // "Tracked nutrients" fold to find. It dropped
+                  // `openFoodFactsId` for the same reason. See
+                  // `docs/trainer-console-micronutrients.md`.
+                  foodItem: FoodItemModel.fromData(item),
                   category: widget.category,
                   isTemplate: widget.isTemplate,
                   date: widget.date,

@@ -24,14 +24,13 @@ See `docs/android-release.md`.
 
 ## Unreleased
 
-Premium: personal bests. Every exercise now shows the heaviest set you have
-ever completed for it while you train, plus your best set of the current
-session, and on each exercise card in Progress. Warmups and unfinished
-sessions never count, and your best follows the exercise, not the plan.
+Premium: personal bests. Each exercise now shows the heaviest set you have ever done for it, plus your best set of the session, and on every card in Progress. Warmups and unfinished sessions never count.
 
-Fixed chat attachments (photos, voice notes, files) failing to upload with an
-error you could not retry, and messages becoming unreadable or never arriving
-when you use ForgeForm on more than one device.
+Fixed chat attachments failing to upload, and messages becoming unreadable on a second device.
+
+Vitamins and minerals no longer go missing from foods re-added from Recently Added or in meal templates.
+
+Premium now also unlocks for subscribers whose purchase was not being matched.
 
 ## 1.0.2+23
 
