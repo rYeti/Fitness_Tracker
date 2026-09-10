@@ -24,7 +24,14 @@ See `docs/android-release.md`.
 
 ## Unreleased
 
-Fixed chat attachments (photos, voice notes, files) failing to upload with an error that could not be retried. Fixed messages becoming unreadable, or never reaching the other person, when you use ForgeForm on more than one device signed into the same account — chat now works correctly across all your devices.
+Premium: personal bests. Every exercise now shows the heaviest set you have
+ever completed for it while you train, plus your best set of the current
+session, and on each exercise card in Progress. Warmups and unfinished
+sessions never count, and your best follows the exercise, not the plan.
+
+Fixed chat attachments (photos, voice notes, files) failing to upload with an
+error you could not retry, and messages becoming unreadable or never arriving
+when you use ForgeForm on more than one device.
 
 ## 1.0.2+23
 

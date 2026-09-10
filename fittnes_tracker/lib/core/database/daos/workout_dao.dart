@@ -8,6 +8,26 @@ import '../../app_database.dart';
 
 part 'workout_dao.g.dart';
 
+/// The heaviest set logged for one exercise, with the reps it was performed
+/// at. One set that actually happened, never a best weight paired with a best
+/// rep count from a different day — see [WorkoutDao.getAllTimeBestSets].
+typedef PersonalBestSet = ({double weight, int reps});
+
+/// One exercise's aggregates for one completed day, as the progress dashboard
+/// charts them. See [WorkoutDao.getExerciseProgressRows] for what
+/// [ExerciseProgressRow.firstSetReps] is and is not.
+typedef ExerciseProgressRow =
+    ({
+      int exerciseId,
+      String exerciseName,
+      DateTime date,
+      double totalVolume,
+      double maxWeight,
+      int totalReps,
+      int setCount,
+      int firstSetReps,
+    });
+
 class FitNotesImportResult {
   final int sessions;
   final int setsImported;
@@ -651,6 +671,149 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
     }
 
     return allSets;
+  }
+
+  /// The exercise a set was actually performed as.
+  ///
+  /// A scheduled exercise can be swapped for the day
+  /// (`ScheduledWorkoutExerciseTable.overrideExerciseId`) without touching the
+  /// workout it came from, so `workout_exercise_table.exercise_id` names what
+  /// was *planned*. Crediting a swap's sets to the exercise it replaced puts
+  /// dumbbell presses in the bench press's history.
+  static const _performedExerciseId =
+      'COALESCE(swe.override_exercise_id, we.exercise_id)';
+
+  /// The all-time heaviest completed, non-warmup set logged for each exercise,
+  /// keyed by exercise id. An exercise never logged with a weight is absent
+  /// from the map rather than present as a zero — "no PB yet" and "a PB of
+  /// 0 kg" are different things and only one of them should be rendered.
+  ///
+  /// Scoped by exercise rather than by workout: the same lift trained under
+  /// two different workouts — which is what any trainer edit produces, see
+  /// `docs/trainer-workout-builder.md` — shares one personal best, because
+  /// that is what all-time means to the person lifting. Which exercise a set
+  /// counts toward is [_performedExerciseId], so a day's swap credits the
+  /// exercise actually performed. Ties on weight go to the higher rep count,
+  /// so a PB is always one set that actually happened rather than a best
+  /// weight welded to a best rep count from another day.
+  ///
+  /// A set needs both a weight and a rep count to be a PB: "100 kg × 0 reps"
+  /// is a half-filled row mid-entry, not a lift.
+  ///
+  /// Pass [exerciseIds] whenever the caller already knows which exercises it
+  /// is about to render, so this stays a single round trip instead of one per
+  /// exercise.
+  Future<Map<int, PersonalBestSet>> getAllTimeBestSets({
+    List<int>? exerciseIds,
+  }) async {
+    final ids = exerciseIds?.toSet().toList();
+    if (ids != null && ids.isEmpty) return {};
+
+    final idFilter =
+        ids == null
+            ? ''
+            : 'AND $_performedExerciseId IN (${List.filled(ids.length, '?').join(',')})';
+
+    final rows =
+        await customSelect(
+          '''
+      SELECT $_performedExerciseId AS exercise_id, ws.weight AS weight, ws.reps AS reps
+      FROM workout_set_table ws
+      JOIN scheduled_workout_exercise_table swe ON swe.id = ws.scheduled_workout_exercise_id
+      JOIN scheduled_workout_table sw ON sw.id = swe.scheduled_workout_id
+      JOIN workout_exercise_table we ON we.id = swe.workout_exercise_id
+      WHERE sw.is_completed = 1
+        AND ws.set_type != ?
+        AND ws.weight IS NOT NULL
+        AND ws.reps IS NOT NULL
+        AND ws.reps > 0
+        $idFilter
+      ORDER BY exercise_id, ws.weight DESC, ws.reps DESC
+      ''',
+          variables: [
+            Variable<int>(SetType.warmup.index),
+            if (ids != null) ...ids.map((id) => Variable<int>(id)),
+          ],
+        ).get();
+
+    // The ORDER BY already puts each exercise's best set first, so the first
+    // row seen for an id wins. Folded here rather than by a window function:
+    // those need a newer SQLite than some Android builds ship with, and the
+    // result set is one row per logged set for the handful of exercises a
+    // caller asks about.
+    final best = <int, PersonalBestSet>{};
+    for (final row in rows) {
+      final exerciseId = row.read<int>('exercise_id');
+      if (best.containsKey(exerciseId)) continue;
+      best[exerciseId] = (
+        weight: row.read<double>('weight'),
+        reps: row.read<int>('reps'),
+      );
+    }
+
+    return best;
+  }
+
+  /// One row per exercise per completed day: the volume, heaviest set and rep
+  /// totals the progress dashboard charts. Warmups are excluded so they can't
+  /// drag a day's numbers around, and only completed sessions count.
+  ///
+  /// `firstSetReps` is the reps of that day's *first* set, not the reps at
+  /// [ExerciseProgressRow.maxWeight] — the dashboard labels points with it and
+  /// nothing here should be mistaken for a personal best. Use
+  /// [getAllTimeBestSets] for that.
+  Future<List<ExerciseProgressRow>> getExerciseProgressRows({
+    required DateTime start,
+    required DateTime end,
+  }) async {
+    final rows =
+        await customSelect(
+          '''
+      SELECT
+        $_performedExerciseId AS exercise_id,
+        e.name            AS exercise_name,
+        sw.scheduled_date,
+        COALESCE(SUM(COALESCE(ws.weight, 0.0) * COALESCE(ws.reps, 0)), 0.0) AS total_volume,
+        COALESCE(MAX(COALESCE(ws.weight, 0.0)), 0.0)  AS max_weight,
+        COALESCE(SUM(COALESCE(ws.reps, 0)), 0)        AS total_reps,
+        COUNT(ws.id)                                   AS set_count,
+        COALESCE((SELECT ws2.reps FROM workout_set_table ws2
+                  WHERE ws2.scheduled_workout_exercise_id = swe.id
+                  ORDER BY ws2.set_number ASC LIMIT 1), 0) AS first_set_reps
+      FROM scheduled_workout_table sw
+      JOIN scheduled_workout_exercise_table swe ON swe.scheduled_workout_id = sw.id
+      JOIN workout_exercise_table           we  ON we.id  = swe.workout_exercise_id
+      JOIN exercise_table                   e   ON e.id   = $_performedExerciseId
+      JOIN workout_set_table                ws  ON ws.scheduled_workout_exercise_id = swe.id
+      WHERE sw.is_completed = 1
+        AND (ws.reps IS NOT NULL OR ws.weight IS NOT NULL)
+        AND ws.set_type != ?
+        AND sw.scheduled_date >= ?
+        AND sw.scheduled_date <= ?
+      GROUP BY exercise_id, sw.scheduled_date
+      ORDER BY e.name ASC, sw.scheduled_date ASC
+      ''',
+          variables: [
+            Variable<int>(SetType.warmup.index),
+            Variable<DateTime>(start),
+            Variable<DateTime>(end),
+          ],
+        ).get();
+
+    return rows
+        .map(
+          (row) => (
+            exerciseId: row.read<int>('exercise_id'),
+            exerciseName: row.read<String>('exercise_name'),
+            date: row.read<DateTime>('scheduled_date'),
+            totalVolume: row.readNullable<double>('total_volume') ?? 0.0,
+            maxWeight: row.readNullable<double>('max_weight') ?? 0.0,
+            totalReps: row.readNullable<int>('total_reps') ?? 0,
+            setCount: row.read<int>('set_count'),
+            firstSetReps: row.readNullable<int>('first_set_reps') ?? 0,
+          ),
+        )
+        .toList();
   }
 
   Future<int?> importCsvWorkouts(
