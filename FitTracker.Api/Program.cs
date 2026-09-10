@@ -284,14 +284,17 @@ switch (attachmentsProvider)
             // so the endpoint we sign against matches whichever bucket was
             // actually created, not so anyone can flip it later.
             //
-            // Defaults to false because that is what Cloudflare defaults to: a
-            // bucket is only EU-jurisdiction if it was explicitly created that
-            // way. Defaulting to true meant every presigned URL was signed for
-            // a host that does not serve an ordinary bucket — and because
-            // presigning is an offline computation, the mint succeeds and this
-            // API sees nothing wrong. The failure lands on the client, as an
+            // Defaults to true because this deployment's actual R2 bucket was
+            // created with EU jurisdiction — Cloudflare's own platform default
+            // (non-EU) is not what applies here. This is a fallback for the
+            // case `R2_EU_JURISDICTION` is left unset, not a guess: a bucket
+            // created without explicitly choosing EU jurisdiction would need
+            // it set to `false` instead, since a wrong value here has no
+            // server-side symptom. Presigning is an entirely offline
+            // computation, so the mint still succeeds and this API sees
+            // nothing wrong — the failure lands on the client, as an
             // unexplained PUT/GET error, with nothing in the API's logs.
-            euJurisdiction: builder.Configuration.GetValue("Attachments:R2:EuJurisdiction", false)));
+            euJurisdiction: builder.Configuration.GetValue("Attachments:R2:EuJurisdiction", true)));
         break;
 
     case "local":

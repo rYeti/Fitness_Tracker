@@ -719,9 +719,10 @@ can work through:
    `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`) — §A.7. All four together, or
    `Attachments__Provider` never becomes `r2` at all.
 2. **`R2_EU_JURISDICTION`**, set to match how the bucket was *actually*
-   created — see below. Left unset, it now defaults to `false` (a normal
-   bucket), which was the wrong default the other way for three years of
-   this feature's life before this incident.
+   created — see below. Left unset, it now defaults to `true`, matching this
+   deployment's actual bucket; a future bucket created without explicitly
+   choosing EU jurisdiction needs this set to `false` explicitly, since the
+   default is a fact about *this* deployment, not a platform-wide one.
 3. **A CORS policy on the bucket** — PUT/GET, the console's web origin,
    `content-type` allowed, `etag` exposed. Missing this fails a browser
    upload at the preflight, with nothing in the application's own logs to
@@ -742,12 +743,17 @@ here: a silent degradation has no failure to point back at this list from.
 
 `Attachments:R2:EuJurisdiction` governs which of two possible hosts a
 presigned URL is signed against —
-`<accountId>.r2.cloudflarestorage.com` or the `eu.` variant — and it
-defaulted to `true`. Cloudflare's own default, for a bucket created without
-explicitly choosing the EU jurisdiction, is the non-EU host. Had the four
-`R2_*` secrets been added for an ordinarily-created bucket without also
-setting this variable, every presigned URL would have been signed for a
-host that bucket doesn't answer to.
+`<accountId>.r2.cloudflarestorage.com` or the `eu.` variant. It originally
+defaulted to `true` with no bucket yet in production to check that against;
+Cloudflare's own platform default, for a bucket created without explicitly
+choosing the EU jurisdiction, is the non-EU host, so that first default was
+wrong for an *ordinary* bucket. Once the bucket for this deployment was
+actually created, it turned out to genuinely be EU-jurisdiction — so the
+default was set back to `true`, but now as a fact about this specific
+deployment's bucket rather than an assumption about Cloudflare's platform
+default. A future bucket created the ordinary way still needs
+`R2_EU_JURISDICTION` set to `false` explicitly; the code default only ever
+describes *this* deployment, never the platform's.
 
 The failure mode is the same shape as the missing capabilities check, and
 worth naming as the same shape rather than a coincidence: **presigning is
@@ -756,10 +762,10 @@ never makes a network call, it computes a SigV4 signature locally
 (§6) — so the mint endpoint returns `200 Ok` with a confidently
 wrong URL, and the API's own logs show nothing amiss. The failure surfaces
 only on the client's subsequent PUT or GET, as a bare connection or auth
-failure with no server-side log entry to correlate it against. The default
-is now `false`, matching Cloudflare's own default for an ordinarily-created
-bucket, with `R2_EU_JURISDICTION` available in `deploy.yml` for the bucket
-that genuinely was created in the EU jurisdiction.
+failure with no server-side log entry to correlate it against. `deploy.yml`
+now also warns at deploy time if `Attachments__Provider` is about to become
+`r2` while `R2_EU_JURISDICTION` is left unset, so this default is inherited
+by an explicit decision rather than silently, whichever way it's set.
 
 > **A value that is only ever wrong via a request that never leaves the
 > process is a value no server-side log will ever implicate.** Presigning's
