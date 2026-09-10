@@ -24,9 +24,11 @@ See `docs/android-release.md`.
 
 ## Unreleased
 
-Premium is now recognised correctly for subscribers whose purchase wasn't being matched to their account.
+Premium: personal bests. Every exercise now shows the heaviest set you have ever completed for it while you train, alongside your best set of the current session, and on each exercise card in Progress. Warmups and unfinished sessions never count.
 
-Vitamins and minerals no longer go missing. A food re-added from Recently Added now shows its full breakdown and counts towards the day's tracked nutrients, quick-add included, and saved meal templates keep them too — so logging one records its full nutrition, not just calories and macros.
+Vitamins and minerals no longer go missing: a food re-added from Recently Added, and saved meal templates, now keep their full nutrition.
+
+Premium is also recognised correctly for subscribers whose purchase wasn't being matched to their account.
 
 ## 1.0.2+23
 

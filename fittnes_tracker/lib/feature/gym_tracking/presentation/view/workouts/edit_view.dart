@@ -154,24 +154,6 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
       // Load only the specific plan
       final plan = await dao.getCompletePlanById(widget.planId!);
       if (plan != null) {
-        // If the plan has no workouts, dump the junction table and
-        // referenced workout rows to help diagnose missing/stale links.
-        if (plan.workouts.isEmpty) {
-          try {
-            final db = sl<AppDatabase>();
-            final links =
-                await db
-                    .customSelect(
-                      'SELECT * FROM workout_plan_workout_table WHERE plan_id = ?',
-                      variables: [drift.Variable.withInt(plan.id!)],
-                    )
-                    .get();
-          } catch (e) {
-            AppLogger.i('Debug(Edit): failed to inspect junction: $e');
-          }
-        }
-      }
-      if (plan != null) {
         setState(() {
           _plans = [plan];
           _loading = false;

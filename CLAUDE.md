@@ -131,6 +131,7 @@ Trainers hold a `TrainerLicence`: a tier, a seat limit, and a Stripe subscriptio
 - Auth stack (JWT/OAuth/RBAC) already exists — reuse it for SignalR hub auth (token passed as `?access_token=` query param for the hub path, since WebSocket transport can't set headers).
 - Tie SignalR group membership and any trainer-facing data access to `TrainerTraineeRelationship.Status == Active`, not role membership alone.
 - Follow YAGNI principles — build for the current requirement, not speculative future needs; no unused abstractions, config hooks, or generalized layers "just in case."
+- **Every new premium-gated feature must be added to `PaywallScreen._features()`** (`lib/feature/premium/paywall_screen.dart`). A feature that's invisible to free users and unlisted on the paywall has no path back to itself — nothing tells a non-premium user it exists, let alone that buying premium gets them it. Add one line to `_features()` (and the matching `paywallFeature*` string in both `intl_en.arb`/`intl_de.arb`) in the same change that adds the gate.
 
 ### Explain the implementation after every planning phase
 Every planning phase ends with a **detailed written explanation of the implementation, written to teach** — the owner reads these to learn the codebase, not to review a changelog. It is part of the deliverable, not a follow-up.

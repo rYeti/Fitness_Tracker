@@ -290,6 +290,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
   // so they are deliberately absent from this list.
   List<String> _features(AppLocalizations l10n) => [
     l10n.paywallFeatureProgress,
+    l10n.paywallFeaturePersonalBest,
     l10n.paywallFeaturePlans,
     l10n.paywallFeatureTemplates,
     l10n.paywallFeatureCorrelation,
