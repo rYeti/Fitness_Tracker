@@ -210,6 +210,9 @@ class _CreateMealTemplateScreenState extends State<CreateMealTemplateScreen> {
             protein: result.protein.toDouble(),
             carbs: result.carbs.toDouble(),
             fat: result.fat.toDouble(),
+            // Already scaled to `result.gramm` by whichever screen popped it,
+            // the same basis as the macros beside it.
+            extendedNutrients: result.extendedNutrients,
           ),
         );
       });

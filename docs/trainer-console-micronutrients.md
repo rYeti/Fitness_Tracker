@@ -540,34 +540,72 @@ handler and `food_tracking_screen.dart`'s inline portion editor, and the
 reason all three read identically is that `scaleTo` was deleted in §1b
 specifically so that no fourth one could be written any other way.
 
-### 8e. What was deliberately not fixed
+### 8e. Meal templates: the part that was deferred, then wasn't
 
-Two other paths still write `FoodItem` rows with no micronutrients. Both are
-real gaps; neither is this bug, and folding them in would have widened a
-two-line fix into a feature.
+This section first said meal templates were deliberately left alone, on the
+grounds that `MealTemplateItem` had no micronutrient field and giving it one
+"means a column, a migration and a sync change on both sides of the API." A
+review of the PR asked for them anyway — and the first half of that sentence
+turned out to be wrong in a way worth recording, because the wrongness came
+from guessing at a storage layer instead of opening it.
 
-- **Meal templates.** `MealTemplateItem` has no micronutrient field at all —
-  not a dropped one, an absent one — so `applyTemplateToMeal` and
-  `applyTemplatePortion` have nothing to carry. Giving templates
-  micronutrients means a column, a migration and a sync change on both sides
-  of the API, and it is a feature decision rather than a defect. Two call
-  sites therefore look like this section's bug and are not it, because their
-  only consumer reads four macros and a weight:
-  `food_detail_view.dart`'s `_buildAddToTemplateButton`, which builds a model
-  by hand directly above the `_buildAddToLogButton` that does rescale and
-  persist, and the `widget.isTemplate` branch of `_quickAddFromRecent`. Both
-  are macro-only *projections* rather than conversions, and both say so in a
-  comment — an unexplained hand-written constructor there would read as the
-  rule in §8c being violated in the very file that establishes it. When
-  `MealTemplateItem` does grow the column, those two comments are the list of
-  places to revisit.
-- **`food_search_screen.dart`**, the OpenFoodFacts picker used while
-  *building* a template, inserts library rows from raw nutriment keys without
-  ever calling `ExtendedNutrients.fromNutriments`. A food first added to the
-  library through that door is permanently micronutrient-free, including when
-  it later shows up under Recently Added. That one is a genuine three-line
-  omission of the same family as this section, recorded here so the next
-  person to open that file knows it is known.
+**Locally there is no database.** `MealTemplateDao` keeps every template as a
+JSON blob in `SharedPreferences`, not in a Drift table. Adding a key to that
+blob costs nothing: there is no schema to migrate, and a template written
+before the change simply lacks the key, which reads back as `null` — already
+the correct "nobody reported this" value under §2's rule. The migration cost
+I had asserted applied only to the *server*, and I had folded the two storage
+layers into one sentence without checking either.
+
+> An estimate of what a change costs is a claim about code, and it decays like
+> any other. This one was written into a document as a reason not to do the
+> work, which is the most durable place to put a thing that was never checked.
+
+**The chain, end to end.** Micronutrients now travel:
+
+| Step | Where |
+|---|---|
+| food → model | `food_detail_view.dart`'s Add-to-Template button and `food_add_screen.dart`'s quick-add, both `rescale`d from the food's own serving |
+| model → item | `Create`/`EditMealTemplateScreen._addFood` |
+| item → storage | `MealTemplateRepository`, as `extendedNutrientsJson` in the SharedPreferences blob |
+| storage → diary | `applyTemplateToMeal` (straight through — the item's blob is already scaled to its own quantity) and `applyTemplatePortion` (scaled by the same `ratio` its macros use) |
+| device → server → device | `SyncService._syncNewMealTemplate` and `_pullMealTemplates`, against a new `MealTemplateItems.ExtendedNutrientsJson` column |
+
+Two details in that table are load-bearing. The two apply paths scale
+*differently* and both are right: an item stores its micronutrients on the
+same basis as its macros, so `applyTemplateToMeal` must not rescale, while
+`applyTemplatePortion` logs the whole template as one entry and scales
+everything by one ratio. And `applyTemplatePortion` writes `null` rather than
+`"{}"` when the total is empty — `ExtendedNutrients.toJson` omits nulls, so an
+all-null total encodes to an empty object, and a non-null column holding `{}`
+is precisely the "measured, all zero" lie §2 exists to prevent.
+
+**The server stores the blob and never reads it.** `ExtendedNutrientsJson` on
+the API side is an opaque `text` column, copied through the DTOs unparsed.
+That is deliberate: every value inside it is in grams by the client's
+convention, and a second C# copy of that convention is how the two sides
+silently disagree — the same reasoning §2 gives for one conversion table, and
+the reason `ExtendedNutrients.cs` exists only where a fold actually happens
+(the Trainer Console's aggregate), not everywhere the bytes pass through. The
+request DTO caps the string at 4000 characters so the field cannot be used as
+unmetered storage; the 21-nutrient object is well under 1 KB.
+
+**The migration was written by hand**, because the container doing the work
+had no `dotnet` to run `dotnet ef migrations add`. It is a single nullable
+`AddColumn`, and its `.Designer.cs` was derived mechanically from the updated
+`AppDbContextModelSnapshot.cs` rather than typed — the Designer's
+`BuildTargetModel` *is* the post-migration model, so the two must agree
+exactly or the next generated migration will diff against the wrong baseline.
+Anyone with the tooling should confirm that `dotnet ef migrations add` on a
+clean tree produces no further diff; that check has not been run.
+
+**Still not covered:** `food_search_screen.dart`, the OpenFoodFacts picker
+used while *building* a template, inserts library rows from raw nutriment keys
+without ever calling `ExtendedNutrients.fromNutriments`. A food first added to
+the library through that door is permanently micronutrient-free, including
+when it later appears under Recently Added. That one is a genuine three-line
+omission of the same family as this section, recorded here so the next person
+to open that file knows it is known.
 
 ### 8f. What is pinned
 
@@ -583,6 +621,14 @@ It deliberately asserts on the database row rather than on the day card. The
 card is one more screen away, and a test that stopped at the card would pass
 just as happily if the fold were fixed to paper over an empty row. The row is
 where the data has to be.
+
+`test/nutrition/meal_template_micronutrients_test.dart` pins the template
+chain of §8e on the same principle: it saves a template through the real
+`SharedPreferences` round trip, reads it back, and then asserts on the
+`FoodItem` row that applying it writes — both apply paths, plus the case where
+a template of micronutrient-free foods must leave the column `null` rather
+than `"{}"`. A template that carries its blob perfectly and still logs nothing
+is the failure this is watching for, and only the row can tell them apart.
 
 ---
 

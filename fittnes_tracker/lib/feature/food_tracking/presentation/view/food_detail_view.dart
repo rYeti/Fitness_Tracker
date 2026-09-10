@@ -579,13 +579,9 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
         final grams = _actualGrams;
         final base =
             widget.foodItem.gramm > 0 ? widget.foodItem.gramm.toDouble() : 100.0;
-        // Deliberately a macro-only projection, not a carry-through of the
-        // whole food: this model is popped to the meal-template screens,
-        // which read the weight and the four macros to build a
-        // `MealTemplateItem` — a type with no micronutrient and no barcode
-        // field. Contrast `_buildAddToLogButton` directly below, which
-        // rescales and persists both because its row *is* read back. See
-        // `docs/trainer-console-micronutrients.md` §8e.
+        // Rescaled from `base`, exactly as `_buildAddToLogButton` below does
+        // it — a template item stores its micronutrients on the same basis as
+        // its macros. See `docs/trainer-console-micronutrients.md`.
         final updatedFoodItem = FoodItemModel(
           id: widget.foodItem.id,
           name: widget.foodItem.name,
@@ -594,6 +590,11 @@ class _FoodDetailsScreenState extends State<FoodDetailsScreen> {
           carbs: (widget.foodItem.carbs * grams / base).round(),
           fat: (widget.foodItem.fat * grams / base).round(),
           gramm: grams.round(),
+          extendedNutrients: widget.foodItem.extendedNutrients?.rescale(
+            fromGrams: base,
+            toGrams: grams,
+          ),
+          openFoodFactsId: widget.foodItem.openFoodFactsId,
         );
         Navigator.pop(context, updatedFoodItem);
       },

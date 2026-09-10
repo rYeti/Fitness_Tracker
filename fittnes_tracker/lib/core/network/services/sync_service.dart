@@ -1893,6 +1893,13 @@ class SyncService {
                     'protein': (i['protein'] as num?)?.toDouble() ?? 0.0,
                     'carbs': (i['carbs'] as num?)?.toDouble() ?? 0.0,
                     'fat': (i['fat'] as num?)?.toDouble() ?? 0.0,
+                    // Opaque to the server, which stores and returns the
+                    // string without parsing it — the gram-based meaning
+                    // lives in `ExtendedNutrients` on this side. Without
+                    // this the blob survived only until a reinstall.
+                    'extendedNutrientsJson':
+                        i['extendedNutrientsJson'] ??
+                        i['extended_nutrients_json'],
                   },
                 )
                 .toList(),
@@ -3138,6 +3145,7 @@ class SyncService {
                   'protein': (i['protein'] as num?)?.toDouble() ?? 0.0,
                   'carbs': (i['carbs'] as num?)?.toDouble() ?? 0.0,
                   'fat': (i['fat'] as num?)?.toDouble() ?? 0.0,
+                  'extendedNutrientsJson': i['extendedNutrientsJson'],
                 },
               )
               .toList();

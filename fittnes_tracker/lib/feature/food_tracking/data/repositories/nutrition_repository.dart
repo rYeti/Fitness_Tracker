@@ -343,6 +343,14 @@ class NutritionRepository {
               carbs: item.carbs.toInt(),
               fat: item.fat.toInt(),
               gramm: Value(item.quantity.toInt()),
+              // The item's blob is already scaled to `item.quantity`, the
+              // same basis as the macros above, so it is written straight
+              // through with no rescale. This is the row the day's
+              // micronutrient fold reads — see
+              // `docs/trainer-console-micronutrients.md`.
+              extendedNutrientsJson: Value(
+                item.extendedNutrients?.toJsonString(),
+              ),
             ),
           );
 
@@ -388,6 +396,14 @@ class NutritionRepository {
     final scaledProtein = (template.totalProtein * ratio).round();
     final scaledCarbs = (template.totalCarbs * ratio).round();
     final scaledFat = (template.totalFat * ratio).round();
+    // The same `ratio` the macros use, applied to the same null-preserving
+    // total — `rescale` by a ratio expressed as 1 → ratio, because the
+    // template's own total is the basis here, not a gram weight. A template
+    // whose items carry nothing totals to all-null and stays that way.
+    final scaledNutrients = template.totalMicronutrients.rescale(
+      fromGrams: 1,
+      toGrams: ratio,
+    );
     final grammValue =
         portionGrams?.toInt() ?? total?.toInt() ?? scaledCalories;
 
@@ -404,6 +420,12 @@ class NutritionRepository {
         carbs: scaledCarbs,
         fat: scaledFat,
         gramm: Value(grammValue),
+        // `toJson` omits nulls, so an all-null total encodes to "{}" — a
+        // non-null column that means "no data". Keep the column null instead,
+        // matching every other writer.
+        extendedNutrientsJson: Value(
+          scaledNutrients.hasAnyData ? scaledNutrients.toJsonString() : null,
+        ),
       ),
     );
 

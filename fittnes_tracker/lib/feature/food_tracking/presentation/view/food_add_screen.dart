@@ -433,14 +433,20 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
     final base = item.gramm > 0 ? item.gramm : 100;
     final ratio = newGramm / base;
 
+    // The stored blob represents `base` grams of this food — the same basis
+    // the macros beside it are scaled from, never a hardcoded 100. Both exits
+    // below need it: the template branch hands it to a `MealTemplateItem`,
+    // and the logging branch writes it on the row the day's micronutrient
+    // fold reads. See `docs/trainer-console-micronutrients.md`.
+    final existingNutrients = item.extendedNutrientsJson == null
+        ? null
+        : ExtendedNutrients.fromJsonString(item.extendedNutrientsJson!);
+    final rescaledNutrients = existingNutrients?.rescale(
+      fromGrams: base.toDouble(),
+      toGrams: newGramm.toDouble(),
+    );
+
     if (widget.isTemplate) {
-      // Deliberately a macro-only projection, not a `FoodItemModel.fromData`
-      // conversion: this model exists only to be popped to
-      // `CreateMealTemplateScreen._addFood`, which reads the id, the name,
-      // the weight and the four macros to build a `MealTemplateItem` — a type
-      // with no micronutrient and no barcode field to receive them (see
-      // `docs/trainer-console-micronutrients.md` §8e). Passing them here
-      // would be plumbing to nowhere, not carry-through.
       final food = FoodItemModel(
         id: item.id,
         name: item.name,
@@ -449,24 +455,12 @@ class _FoodAddScreenState extends State<FoodAddScreen> {
         carbs: (item.carbs * ratio).round(),
         fat: (item.fat * ratio).round(),
         gramm: newGramm,
+        extendedNutrients: rescaledNutrients,
+        openFoodFactsId: item.openFoodFactsId,
       );
       if (mounted) Navigator.pop(context, food);
       return;
     }
-
-    // The stored blob represents `base` grams of this food — the same basis
-    // the macros below are scaled from, never a hardcoded 100. Quick-add
-    // writes a new `FoodItem` row exactly like the detail screen's "Add to
-    // log" does, so it owes the day's micronutrient fold the same rescaled
-    // blob; leaving it off made every quick-added food invisible to
-    // "Tracked nutrients". See `docs/trainer-console-micronutrients.md`.
-    final existingNutrients = item.extendedNutrientsJson == null
-        ? null
-        : ExtendedNutrients.fromJsonString(item.extendedNutrientsJson!);
-    final rescaledNutrients = existingNutrients?.rescale(
-      fromGrams: base.toDouble(),
-      toGrams: newGramm.toDouble(),
-    );
 
     final newFoodId = await db.foodItemDao.insertFoodItem(
       FoodItemCompanion.insert(

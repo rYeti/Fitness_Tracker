@@ -37,6 +37,7 @@ class MealTemplateRepository {
         'protein': item.protein,
         'carbs': item.carbs,
         'fat': item.fat,
+        'extendedNutrientsJson': item.extendedNutrients?.toJsonString(),
       };
 
       await _mealTemplateDao.insertTemplateItem(itemMap);
@@ -75,6 +76,7 @@ class MealTemplateRepository {
             protein: map['protein'],
             carbs: map['carbs'],
             fat: map['fat'],
+            extendedNutrients: parseTemplateItemNutrients(map),
           ),
         )
         .toList();
@@ -103,6 +105,9 @@ class MealTemplateRepository {
                   protein: (item['protein'] as num?)?.toDouble() ?? 0.0,
                   carbs: (item['carbs'] as num?)?.toDouble() ?? 0.0,
                   fat: (item['fat'] as num?)?.toDouble() ?? 0.0,
+                  extendedNutrients: parseTemplateItemNutrients(
+                    Map<String, dynamic>.from(item as Map),
+                  ),
                 ),
               )
               .toList();
@@ -157,6 +162,7 @@ class MealTemplateRepository {
           'protein': item.protein,
           'carbs': item.carbs,
           'fat': item.fat,
+          'extendedNutrientsJson': item.extendedNutrients?.toJsonString(),
         };
 
         await _mealTemplateDao.insertTemplateItem(itemMap);
