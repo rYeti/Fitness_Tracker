@@ -9,7 +9,12 @@ stored in grams everywhere, why the day total folds the way it does, why a
 pin write replaces a set instead of editing it, and where the premium gate
 actually lives.
 
-Line references are to the commit that introduced this document.
+§8 was added later and records a fourth defect of the same family, found the
+way the first three were: by a user noticing two numbers on one screen that
+should have agreed and didn't.
+
+Line references are to the commit that introduced this document, except in
+§8, which points at the commit that added it.
 
 ---
 
@@ -377,6 +382,197 @@ read boundary. This would have meant a migration touching every client's food
 library, for a conversion that costs nothing extra to do once, at display
 time, in one table (`NutrientDef.gramsToDisplay`) both platforms already read
 from.
+
+---
+
+## 8. The fourth defect: a call site that listed the fields it knew about
+
+§1 collected three defects that were already sitting in the trainee's
+micronutrient feature before the Trainer Console work touched it. This is the
+fourth, found the same way — by a user comparing two numbers that should have
+agreed — and it is the cheapest of the four to write and the hardest of the
+four to see.
+
+Open the food search from Breakfast, tap a food under **Recently Added**, and
+the Food Details screen showed *no* Detailed Nutrition card at all. Add it,
+and the day's **Tracked nutrients** card still read "No data logged today" for
+every pinned nutrient — while the macro ring directly above it had just gone
+from 0 g to 35 g of protein off the very same tap. One screen, one action, two
+numbers, and only one of them moved.
+
+### 8a. One omission, two symptoms
+
+`FoodAddScreen` reaches the detail screen by two different doors, and they
+were built at different times by different hands:
+
+| Door | Builds the model with | Micronutrients |
+|---|---|---|
+| a search result (`_selectFoodItem`) | a product map carrying `_extended_nutrients_json` | carried |
+| a Recently Added tile (`_recentFoodTile`) | `FoodItemModel(id:, name:, calories:, protein:, carbs:, fat:, gramm:)` | **dropped** |
+
+That second constructor call is the whole bug. It is not wrong about
+anything it says: every field it passes is the right field with the right
+value. It simply stops after the four macros and the weight, because when it
+was written those were all the fields there were. `extendedNutrients` and
+`openFoodFactsId` were added to `FoodItemModel` later, as optional named
+parameters — and an optional named parameter is, precisely, a field that
+every existing call site is allowed to keep not mentioning.
+
+Everything downstream then behaved correctly, which is what made it look
+like two unrelated bugs:
+
+- `food_detail_view.dart` gates its card on
+  `if (widget.foodItem.extendedNutrients != null)`. Null in, no card. The
+  screen didn't fail to render the data; it correctly rendered the absence of
+  data it had been handed.
+- "Add to log" inserts a **new** `FoodItem` row for the amount logged — the
+  library entry is a recipe, the logged row is the meal — and writes
+  `extendedNutrientsJson: Value(rescaledNutrients?.toJsonString())`. With
+  `extendedNutrients` null, `rescaledNutrients` is null, and the row is
+  written with an explicit null blob. `FoodTrackingScreen._dayMicronutrients`
+  then folds over exactly that column and, per §2's null-preserving rule,
+  correctly reports "no data" — because there genuinely was none in the row
+  it read.
+
+The second symptom is the first symptom, one table further on. There was
+never a bug in the fold, in the gate, or in the insert: the data died at the
+constructor and every screen after it was honest about what it had been
+given.
+
+### 8b. Why nothing caught it
+
+The compiler had nothing to say and could not have had. `FoodItemModel` with
+seven of its nine fields filled in is a `FoodItemModel`. There is no type
+that means "a model built from a row, with nothing left behind" — the field
+is `ExtendedNutrients?`, and `null` is a member of that type, so the omission
+type-checks as the *value* null rather than registering as an absence of
+code.
+
+Worse, `null` is also load-bearing here in a way that hid the omission from
+review. §2's central rule is that a nutrient nobody reported must stay null
+through every fold rather than becoming a reported zero. That rule makes null
+a legitimate, common, expected value on this field — most custom foods
+genuinely have no micronutrients. So a null blob arriving at the detail screen
+is not anomalous, is not loggable, and cannot be asserted against: the screen
+cannot distinguish "this food has no micronutrient data" from "this food's
+micronutrient data was dropped two frames ago by a caller that didn't know
+the field existed." Both are null. Both are supposed to be null sometimes.
+
+> The tests were no better placed. `test/food/food_detail_actions_test.dart`
+> pumps `FoodDetailsScreen` with a hand-written `FoodItemModel` that has no
+> micronutrients — because it is testing which action button renders, and
+> micronutrients are irrelevant to that. It therefore reproduced the exact
+> shape of the bug inside the test fixture and passed, as it should have.
+> `test/nutrition/food_tracking_tracked_nutrients_test.dart` drives the
+> tracked-nutrients card straight from an `AccessProvider`, deliberately
+> avoiding the database, so it never sees a row at all. Every test in the
+> area was correct, was passing, and was looking somewhere else.
+
+This is the same shape as §1c — `updateFoodItem` missing an
+`extendedNutrientsJson` parameter — and it is worth naming as a pattern
+rather than as two incidents, because the two are *not* the same code and the
+fix for one did nothing for the other:
+
+> A nullable field added to an existing type does not fail; it defaults. Every
+> call site written before the field existed keeps compiling, keeps passing,
+> and quietly starts asserting "this thing has no such data" — an assertion
+> nobody wrote and nobody can grep for.
+
+### 8c. The fix, and why it is a factory rather than one more argument
+
+The obvious repair is to add `extendedNutrients: …` to the constructor call
+in `_recentFoodTile`. That fixes today's bug and leaves tomorrow's in place:
+the next field added to `FoodItemModel` gets dropped by the same call site
+for the same reason.
+
+So the tile now calls `FoodItemModel.fromData(item)` — the factory that
+already existed, one file over, that reads every column of a `FoodItemData`
+including the two the hand-written copy forgot. The tile had a
+`FoodItemData` in hand the entire time; it was destructuring it by hand
+instead of converting it.
+
+```dart
+// before — compiles, runs, silently asserts "no micronutrients, no barcode"
+foodItem: FoodItemModel(
+  id: item.id, name: item.name,
+  calories: item.calories, protein: item.protein,
+  carbs: item.carbs, fat: item.fat, gramm: item.gramm,
+),
+
+// after
+foodItem: FoodItemModel.fromData(item),
+```
+
+The rule this leaves behind: **a row-to-model conversion is a named factory,
+never a constructor call spelled out at the call site.** A factory can be
+under-filled in exactly one place, where it is reviewed once against the
+table; a spelled-out constructor can be under-filled at every call site, and
+each one looks complete on its own screen. `openFoodFactsId` came back for
+free with the same change — a food re-logged from Recently Added had been
+losing its barcode too, which is why editing such an entry could never
+re-fetch its portion sizes from OpenFoodFacts.
+
+### 8d. The `+` button was the same bug wearing different clothes
+
+The Recently Added tile has a second action: `_quickAddFromRecent`, the `+`
+that asks for a weight and logs the food without opening the detail screen at
+all. It builds its own `FoodItemCompanion.insert(…)` and it, too, listed the
+macros and stopped.
+
+It needed one thing the tile fix didn't, and the difference is worth
+understanding because it is §1b restated. The tile hands a model to a screen
+that will do its own scaling later; `_quickAddFromRecent` writes the row
+itself, at a weight the user just typed, so it owes that row a blob scaled to
+that weight:
+
+```dart
+final base = item.gramm > 0 ? item.gramm : 100;
+final rescaledNutrients = existingNutrients?.rescale(
+  fromGrams: base.toDouble(),
+  toGrams: newGramm.toDouble(),
+);
+```
+
+`fromGrams: base`, never a hardcoded 100 — the same `base` the four macro
+lines beside it are already dividing by. This is the third call site in the
+codebase to pass exactly that pair, alongside `food_detail_view.dart`'s save
+handler and `food_tracking_screen.dart`'s inline portion editor, and the
+reason all three read identically is that `scaleTo` was deleted in §1b
+specifically so that no fourth one could be written any other way.
+
+### 8e. What was deliberately not fixed
+
+Two other paths still write `FoodItem` rows with no micronutrients. Both are
+real gaps; neither is this bug, and folding them in would have widened a
+two-line fix into a feature.
+
+- **Meal templates.** `MealTemplateItem` has no micronutrient field at all —
+  not a dropped one, an absent one — so `applyTemplateToMeal` and
+  `applyTemplatePortion` have nothing to carry. Giving templates
+  micronutrients means a column, a migration and a sync change on both sides
+  of the API, and it is a feature decision rather than a defect.
+- **`food_search_screen.dart`**, the OpenFoodFacts picker used while
+  *building* a template, inserts library rows from raw nutriment keys without
+  ever calling `ExtendedNutrients.fromNutriments`. A food first added to the
+  library through that door is permanently micronutrient-free, including when
+  it later shows up under Recently Added. That one is a genuine three-line
+  omission of the same family as this section, recorded here so the next
+  person to open that file knows it is known.
+
+### 8f. What is pinned
+
+`test/food/recent_food_micronutrients_test.dart` drives both real screens
+against an in-memory database: it seeds one food with a micronutrient blob,
+taps its Recently Added tile, asserts the Detailed Nutrition card renders
+both a gram-unit nutrient (fibre) and a converted one (iron, stored in grams,
+shown in mg), then taps "Add to log" and asserts the **newly inserted row** —
+the one the day fold actually reads — carries the blob, with the unreported
+nutrients still null rather than zero.
+
+It deliberately asserts on the database row rather than on the day card. The
+card is one more screen away, and a test that stopped at the card would pass
+just as happily if the fold were fixed to paper over an empty row. The row is
+where the data has to be.
 
 ---
 

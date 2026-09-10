@@ -22,6 +22,10 @@ Markdown links, headings or emphasis, none of which Play renders.
 
 See `docs/android-release.md`.
 
+## Unreleased
+
+Fixed vitamins and minerals going missing when you re-add a food from Recently Added. The food details screen showed no vitamin or mineral breakdown for it, and logging it left your tracked nutrients for the day reading "No data logged today" even though the calories and macros updated. Both now show the food's full nutrition, including when you use the quick-add button.
+
 ## 1.0.2+23
 
 If you don't have a trainer and have Premium, you can now choose which nutrients you track yourself — previously only a trainer could set this for you. If a change can't be saved, the app now tells you why instead of quietly undoing it.
