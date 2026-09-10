@@ -1,3 +1,7 @@
+// `debugDefaultTargetPlatformOverride` lives here, not in material.dart —
+// which re-exports `TargetPlatform` but not the override itself, so the two
+// halves of the platform forcing below come from different libraries.
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
