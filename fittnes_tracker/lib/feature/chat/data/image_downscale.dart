@@ -37,20 +37,31 @@ class ImageDownscale {
   static const targetWidth = 1600;
   static const jpegQuality = 82;
 
-  /// The cap this feature enforces for a picture attachment. A presigned PUT
-  /// cannot enforce this on its own — see docs/chat-attachments.md §0.2 — so
-  /// this is a client-side refusal, not the only guard.
-  static const maxImageBytes = 8 * 1024 * 1024;
-
-  /// Same cap, for a document picked as-is (no re-encode possible).
-  static const maxDocumentBytes = 8 * 1024 * 1024;
-
-  /// Null when the result is still over [maxImageBytes] after downscaling —
+  /// Null when the result is still over [maxPlaintextBytes] after downscaling —
   /// the caller shows "file too large" naming the cap rather than sending it.
-  static Future<DownscaledImage?> forChat(Uint8List original) async {
+  ///
+  /// [maxPlaintextBytes] is the *plaintext* cap, which is the server's
+  /// ciphertext cap minus AES-GCM's 16-byte tag — see
+  /// `ChatAttachmentCapabilities.plaintextCapFor`. It is a parameter rather
+  /// than a constant because the server reports its own caps and is the only
+  /// thing that actually enforces them; a second copy of the number here is a
+  /// second thing to keep in step.
+  static Future<DownscaledImage?> forChat(
+    Uint8List original, {
+    required int maxPlaintextBytes,
+  }) async {
+    // Never upscale. `instantiateImageCodec` with a targetWidth larger than
+    // the source resamples *up*, and re-encoding a 600px screenshot at 1600px
+    // JPEG q82 produces a file several times larger than the original — for a
+    // picture with no more detail in it, and one that much closer to the cap.
+    final probe = await ui.instantiateImageCodec(original);
+    final probeFrame = await probe.getNextFrame();
+    final sourceWidth = probeFrame.image.width;
+    probeFrame.image.dispose();
+
     final codec = await ui.instantiateImageCodec(
       original,
-      targetWidth: targetWidth,
+      targetWidth: sourceWidth > targetWidth ? targetWidth : null,
     );
     final frame = await codec.getNextFrame();
     final image = frame.image;
@@ -71,7 +82,7 @@ class ImageDownscale {
       final encoded = Uint8List.fromList(
         img.encodeJpg(decoded, quality: jpegQuality),
       );
-      if (encoded.length > maxImageBytes) return null;
+      if (encoded.length > maxPlaintextBytes) return null;
 
       return DownscaledImage(
         bytes: encoded,

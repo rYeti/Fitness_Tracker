@@ -114,21 +114,51 @@ class ThreadMessage {
 
   /// Projects an outbox row. Always mine — the outbox only ever holds messages
   /// this device tried to send.
+  ///
+  /// Both enum columns are read with a bounds check rather than a bare
+  /// `.values[...]` index. These are local, Drift-written columns rather than
+  /// something arriving over the wire, so the ordinary risk `MediaType.values`
+  /// guards against elsewhere (a *newer* value a build predates) mostly
+  /// doesn't apply here — but an out-of-range int is still reachable (a
+  /// schema downgrade, a hand-edited database during debugging, corruption),
+  /// and an unguarded index throws a `RangeError` from inside
+  /// `ChatRepository.loadThread`'s outbox merge, which fails the *entire*
+  /// thread over one row — the exact failure mode
+  /// `ChatAttachmentRef.tryFromJson`'s own bounds check exists to prevent.
   factory ThreadMessage.fromOutbox(ChatOutBoxTableData row) {
     return ThreadMessage(
       messageId: row.messageId,
       body: row.body,
       timestamp: ChatTimestamps.sanitize(row.createdAt),
       isMine: true,
-      status: ChatMessageStatus.values[row.chatMessageStatus],
+      // Falls back to `pending` — the conservative middle ground: neither
+      // `sent` (this device has no evidence it reached the server) nor
+      // `failed` (nothing said it definitely didn't either), and `pending`
+      // is exactly the state that leaves the message queued for the next
+      // reconnect's replay pass to actually resolve.
+      status: _statusOrDefault(row.chatMessageStatus),
       // The outbox stores the attachment's own JSON object directly (the
       // same shape ChatAttachmentRef.toJson produces), not the full
       // note/ff/caption envelope — so this decodes it straight rather than
       // through ChatBodyCodec, which expects the wrapped form.
       attachment: ChatAttachmentRef.tryFromJsonString(row.attachmentManifest),
-      uploadStatus: AttachmentUploadStatus.values[row.uploadStatus],
+      // Falls back to `failed` rather than `none`: an attachment manifest may
+      // already be sitting on this row, and `none` would claim it isn't
+      // there at all. `failed` is honest about "something is wrong here" and
+      // gives the user the same manual-retry path a real upload failure does.
+      uploadStatus: _uploadStatusOrDefault(row.uploadStatus),
     );
   }
+
+  static ChatMessageStatus _statusOrDefault(int value) =>
+      (value >= 0 && value < ChatMessageStatus.values.length)
+          ? ChatMessageStatus.values[value]
+          : ChatMessageStatus.pending;
+
+  static AttachmentUploadStatus _uploadStatusOrDefault(int value) =>
+      (value >= 0 && value < AttachmentUploadStatus.values.length)
+          ? AttachmentUploadStatus.values[value]
+          : AttachmentUploadStatus.failed;
 
   ThreadMessage copyWith({
     String? body,

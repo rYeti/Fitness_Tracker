@@ -7,6 +7,7 @@ import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/di/service_locator.dart';
 import 'package:ForgeForm/feature/chat/data/chat_repository.dart';
 import 'package:ForgeForm/feature/chat/data/signalr_hub_chat_client.dart';
+import 'package:ForgeForm/feature/chat/presentation/providers/chat_attachment_provider.dart';
 import 'package:ForgeForm/feature/chat/presentation/providers/chat_provider.dart';
 import 'package:ForgeForm/feature/chat/presentation/view/coach_chat_screen.dart';
 import 'package:ForgeForm/core/widgets/app_widgets.dart';
@@ -34,6 +35,11 @@ class _CoachChatEntryState extends State<CoachChatEntry> {
   /// console's: the local outbox needs the database, and a missing one should
   /// produce an explanation rather than a crash on push.
   ChatProvider? _chat;
+
+  /// Built alongside [_chat] — see `TrainerConsoleHome`'s matching field for
+  /// why this belongs beside the repository rather than inside
+  /// `CoachChatScreen`, which used to build one itself.
+  ChatAttachmentProvider? _attachments;
   SignalRHubChatClient? _signalR;
 
   @override
@@ -42,6 +48,7 @@ class _CoachChatEntryState extends State<CoachChatEntry> {
     final injected = widget.repository;
     if (injected != null) {
       _chat = ChatProvider(repository: injected);
+      _attachments = ChatAttachmentProvider();
     } else if (sl.isRegistered<AppDatabase>()) {
       final signalR = SignalRHubChatClient();
       _signalR = signalR;
@@ -50,20 +57,25 @@ class _CoachChatEntryState extends State<CoachChatEntry> {
         signalR: signalR,
       );
       _chat = ChatProvider(repository: repository);
-
-      // Publishing this device's chat key, alongside the connect and for the
-      // same reason: a network round trip that must not hold up the screen.
-      unawaited(repository.prepareKeys().catchError((Object _) {}));
+      _attachments = ChatAttachmentProvider();
 
       // Errors dropped rather than left unhandled: the failure reaches the user
       // through the connection banner, and the next joinGroup/send retries it.
       unawaited(signalR.connect().catchError((Object _) {}));
     }
+
+    // Publishing this device's chat key, asking what the server will accept as
+    // an attachment, and resuming anything left mid-upload -- alongside the
+    // connect and for the same reason: network round trips that must not hold
+    // up the screen. Outside the branch above so an injected repository takes
+    // the same path a real one does. See ChatProvider.prepareSession.
+    unawaited(_chat?.prepareSession() ?? Future<void>.value());
   }
 
   @override
   void dispose() {
     _chat?.dispose();
+    _attachments?.dispose();
     unawaited(_signalR?.dispose() ?? Future<void>.value());
     super.dispose();
   }
@@ -84,8 +96,15 @@ class _CoachChatEntryState extends State<CoachChatEntry> {
         ),
       );
     }
-    return ChangeNotifierProvider<ChatProvider>.value(
-      value: chat,
+    final attachments = _attachments;
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider<ChatProvider>.value(value: chat),
+        if (attachments != null)
+          ChangeNotifierProvider<ChatAttachmentProvider>.value(
+            value: attachments,
+          ),
+      ],
       child: const CoachChatScreen(),
     );
   }

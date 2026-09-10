@@ -3,11 +3,19 @@ using FitTracker.Api.Enums;
 
 namespace FitTracker.Api.Services.Interfaces;
 
-public enum MintUploadOutcome { Ok, NotAuthorized, TooLarge, IdBelongsElsewhere }
+/// <param name="Disabled">
+/// No blob store is configured, so there is no URL to hand back. A distinct
+/// outcome rather than an exception because it is an ordinary, expected
+/// deployment state — <see cref="DisabledChatAttachmentStore"/> is what the
+/// API registers when the R2 settings are absent — and because a caller that
+/// reaches this needs to be told to stop asking, not handed a 500 that looks
+/// like a transient fault worth retrying.
+/// </param>
+public enum MintUploadOutcome { Ok, NotAuthorized, TooLarge, IdBelongsElsewhere, Disabled }
 
 public record MintUploadResult(MintUploadOutcome Outcome, MintUploadResponseDto? Response);
 
-public enum MintDownloadOutcome { Ok, NotAuthorized, Missing, Rejected }
+public enum MintDownloadOutcome { Ok, NotAuthorized, Missing, Rejected, Disabled }
 
 public record MintDownloadResult(MintDownloadOutcome Outcome, MintDownloadResponseDto? Response);
 

@@ -45,14 +45,30 @@ public class ChatAttachmentService(
     /// <inheritdoc/>
     public async Task<MintUploadResult> MintUploadAsync(Guid callerId, Guid otherPartyId, Guid attachmentId, long byteLength, Media kind)
     {
+        // First, and before anything is written. DisabledChatAttachmentStore's
+        // own remarks say every method of it throws "on the assumption that the
+        // one caller of this interface always checks IsConfigured first via the
+        // capabilities endpoint". That assumption was never enforced anywhere,
+        // and no client ever checked: on a deployment with no R2 settings the
+        // attach affordance was offered anyway, this method reached
+        // CreateUploadUrl below, and the throw surfaced as a bare 500 that the
+        // client could only report as "upload failed, double tap to retry" —
+        // with a retry that did the identical thing forever. Now the caller is
+        // told, in a way it can act on. See docs/chat-attachments.md.
+        if (!_store.IsConfigured) return new MintUploadResult(MintUploadOutcome.Disabled, null);
+
         var (trainerId, clientId, ok) = await _trainerClientService.ResolvePairAsync(callerId, otherPartyId);
         if (!ok) return new MintUploadResult(MintUploadOutcome.NotAuthorized, null);
 
         var cap = kind == Media.Video ? MaxVideoBytes : MaxImageBytes;
         if (byteLength > cap) return new MintUploadResult(MintUploadOutcome.TooLarge, null);
 
-        var relationship = await _trainerClientService.GetActiveRelationshipAsync(trainerId, clientId)
-            ?? throw new InvalidOperationException("No active trainer-client relationship exists for this pair.");
+        // A pair that resolves but has no *Active* relationship is an ordinary
+        // authorization outcome, not an exception: ResolvePairAsync only says
+        // which of the two is the trainer, and a relationship can lapse between
+        // the two calls. Throwing here made that a 500.
+        var relationship = await _trainerClientService.GetActiveRelationshipAsync(trainerId, clientId);
+        if (relationship == null) return new MintUploadResult(MintUploadOutcome.NotAuthorized, null);
 
         var objectKey = $"chat/{relationship.Id:N}/{attachmentId:N}";
 
@@ -82,6 +98,10 @@ public class ChatAttachmentService(
     /// <inheritdoc/>
     public async Task<MintDownloadResult> MintDownloadAsync(Guid callerId, Guid attachmentId)
     {
+        // Same reason as MintUploadAsync: GetObjectLengthAsync and
+        // CreateDownloadUrl both throw on the disabled store.
+        if (!_store.IsConfigured) return new MintDownloadResult(MintDownloadOutcome.Disabled, null);
+
         var attachment = await _repo.FindAsync(attachmentId);
         if (attachment == null) return new MintDownloadResult(MintDownloadOutcome.Missing, null);
 

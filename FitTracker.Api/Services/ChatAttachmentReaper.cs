@@ -50,7 +50,34 @@ public class ChatAttachmentReaper(
     /// meaningful cost. See docs/chat-attachments.md §A.9.</summary>
     private const int ReconciliationEveryTicks = 24 * 7;
 
-    private int OrphanGraceHours => _configuration.GetValue("Attachments:OrphanGraceHours", 24);
+    /// <summary>
+    /// How long an uncommitted attachment survives before the orphan sweep
+    /// deletes it.
+    /// </summary>
+    /// <remarks>
+    /// A message's outbox row is always written on the client *before* its
+    /// attachment is minted — see <c>ChatRepository.sendMessage</c> — so an
+    /// uncommitted <c>ChatAttachment</c> almost never means "nobody intends to
+    /// send this." Far more often it means the wire send itself hasn't
+    /// happened yet: the device uploaded the file, then lost connectivity (or
+    /// was closed) before <c>SendMessageV2</c> ever ran, and is waiting for a
+    /// reconnect to replay it. The original 24-hour default treated that
+    /// ordinary case as abandoned: a device offline for a day lost its
+    /// attachment out from under a message its owner still meant to send, and
+    /// found out only when the recipient's download 404'd on an envelope that
+    /// still named it.
+    ///
+    /// Seven days is a real fix for the common case (an overnight-and-then-some
+    /// outage, a phone left off over a weekend), not a complete one — a device
+    /// offline longer than this still loses the blob, because the server has
+    /// no way to distinguish "still trying" from "gave up" without the client
+    /// declaring which message an upload belongs to before it commits, which
+    /// nothing today does. Raising this further is cheap: deletes and storage
+    /// both cost very little (docs/chat-attachments.md §A.9), so the honest
+    /// tradeoff favours a long grace period over a short one wherever real
+    /// message loss is the alternative.
+    /// </remarks>
+    private int OrphanGraceHours => _configuration.GetValue("Attachments:OrphanGraceHours", 24 * 7);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {

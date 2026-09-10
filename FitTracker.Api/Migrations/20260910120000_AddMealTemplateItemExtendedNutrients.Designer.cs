@@ -684,10 +684,18 @@ namespace FitTracker.Api.Migrations
 
             modelBuilder.Entity("FitTracker.Api.Models.UserChatKey", b =>
                 {
-                    b.Property<Guid>("UserId")
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeviceId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("LastSeenAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("PublicKeyJwk")
@@ -697,7 +705,15 @@ namespace FitTracker.Api.Migrations
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.HasKey("UserId");
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "DeviceId")
+                        .IsUnique();
+
+                    b.HasIndex("UserId", "LastSeenAt");
 
                     b.ToTable("UserChatKeys");
                 });

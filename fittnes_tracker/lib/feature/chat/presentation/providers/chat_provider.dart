@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:ForgeForm/feature/chat/data/chat_attachment_sender.dart';
 import 'package:ForgeForm/feature/chat/data/chat_repository.dart';
 import 'package:ForgeForm/feature/chat/data/chat_signalr_client.dart';
+import 'package:ForgeForm/feature/chat/domain/models/chat_attachment_capabilities.dart';
 import 'package:ForgeForm/feature/chat/domain/models/chat_message.dart';
 import 'package:ForgeForm/feature/chat/domain/models/conversation_summary.dart';
 import 'package:ForgeForm/feature/chat/domain/models/thread_message.dart';
@@ -23,8 +24,16 @@ class ChatProvider extends ChangeNotifier {
   ChatProvider({required ChatRepository repository})
     : _repository = repository {
     _statusSubscription = _repository.connectionStatus.listen((status) {
+      final reconnected =
+          status == ChatConnectionStatus.connected &&
+          _connectionStatus != ChatConnectionStatus.connected;
       _connectionStatus = status;
       notifyListeners();
+      // A capability that was unavailable at launch can become available
+      // later — the API redeployed with a blob store configured, or the first
+      // request simply failed. Asking again on every reconnect is what makes
+      // the fail-closed default self-healing rather than sticky until restart.
+      if (reconnected) unawaited(refreshAttachmentCapabilities());
     });
 
     // Subscribed for the provider's whole life, not per thread: the point of it
@@ -58,6 +67,19 @@ class ChatProvider extends ChangeNotifier {
   String? get sendError => _sendError;
   String? get activeThreadId => _repository.activeThreadId;
 
+  /// What the server will accept as an attachment.
+  ///
+  /// Starts [ChatAttachmentCapabilities.disabled] and stays there until the
+  /// server says otherwise. That default is the whole point: the previous
+  /// behaviour was to assume attachments worked, which meant an API with no
+  /// blob store configured showed an attach button whose every use failed with
+  /// "upload failed, double tap to retry" and a retry that could never succeed.
+  /// See docs/chat-attachments.md.
+  ChatAttachmentCapabilities get attachmentCapabilities =>
+      _attachmentCapabilities;
+  ChatAttachmentCapabilities _attachmentCapabilities =
+      ChatAttachmentCapabilities.disabled;
+
   /// Unread across every conversation — what the console's Messages tab badges.
   ///
   /// Derived rather than stored: a second counter kept in step by hand would
@@ -65,6 +87,52 @@ class ChatProvider extends ChangeNotifier {
   /// (a live message, opening a thread, a reload) forgot to update it.
   int get totalUnread =>
       _conversations.fold(0, (sum, c) => sum + c.unreadCount);
+
+  /// Everything a chat surface has to do once, at the moment it comes up.
+  ///
+  /// One method rather than three `unawaited(...)` calls at each shell, because
+  /// the three have an ordering constraint that is invisible when they are
+  /// written out separately: [ChatRepository.resumeAttachmentUploads] finishes
+  /// by attempting a send, and a send needs this device's key pair to already
+  /// be published.
+  ///
+  /// [ChatRepository.resumeAttachmentUploads] belongs here at all because its
+  /// own documentation says it is "called alongside `prepareKeys`" and it never
+  /// was — its only caller was the `onReconnected` listener, which does not
+  /// fire on an initial connect. An app killed mid-PUT therefore left a row at
+  /// `uploading` that nothing resumed, rendering a spinner that
+  /// `ChatBubble` deliberately makes untappable, until a SignalR drop happened
+  /// to occur.
+  ///
+  /// Never throws. Each part reports its own failure the way it already did:
+  /// an unpublished key surfaces as messages the other side cannot read and is
+  /// retried on the next visit, capabilities fall back to disabled, and a
+  /// resume that fails leaves the row exactly as it found it.
+  Future<void> prepareSession() async {
+    unawaited(refreshAttachmentCapabilities());
+    try {
+      await _repository.prepareKeys();
+      await _repository.resumeAttachmentUploads();
+    } catch (_) {
+      // Deliberately swallowed — see above.
+    }
+  }
+
+  /// Asks the server what it will accept as an attachment.
+  ///
+  /// Never throws — [ChatRepository.attachmentCapabilities] already collapses
+  /// every failure to `disabled`, so there is no error state to render here and
+  /// nothing for a caller to catch.
+  Future<void> refreshAttachmentCapabilities() async {
+    final next = await _repository.attachmentCapabilities();
+    if (next.enabled == _attachmentCapabilities.enabled &&
+        next.maxImageBytes == _attachmentCapabilities.maxImageBytes &&
+        next.maxVideoBytes == _attachmentCapabilities.maxVideoBytes) {
+      return;
+    }
+    _attachmentCapabilities = next;
+    notifyListeners();
+  }
 
   /// Loads the conversation list for the list pane.
   Future<void> loadConversations() async {

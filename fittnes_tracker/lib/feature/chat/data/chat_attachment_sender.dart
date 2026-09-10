@@ -12,6 +12,7 @@ import 'package:ForgeForm/feature/chat/data/chat_attachment_file.dart';
 import 'package:ForgeForm/feature/chat/data/chat_attachment_transfer.dart';
 import 'package:ForgeForm/feature/chat/data/webcrypto_attachment_crypto.dart';
 import 'package:ForgeForm/feature/chat/domain/attachment_crypto.dart';
+import 'package:ForgeForm/feature/chat/domain/models/chat_attachment_capabilities.dart';
 import 'package:ForgeForm/feature/chat/domain/models/chat_attachment_ref.dart';
 
 /// What sealing one attachment produces: the manifest entry, and — native
@@ -53,6 +54,23 @@ class ChatAttachmentSender {
        _api = api ?? ChatAttachmentApi(),
        _transfer = transfer ?? ChatAttachmentTransfer();
 
+  /// What the server will accept, or [ChatAttachmentCapabilities.disabled] if
+  /// it cannot be asked.
+  ///
+  /// Swallowing the failure here rather than at the call site is deliberate:
+  /// there is exactly one sensible thing to do with any error this can raise —
+  /// an unreachable API, a 401 mid-refresh, a malformed body — and it is the
+  /// same thing, so a caller given the choice would only ever get it wrong in
+  /// the direction that reproduces the original bug (assume enabled). See
+  /// `ChatAttachmentCapabilities`.
+  Future<ChatAttachmentCapabilities> capabilities() async {
+    try {
+      return ChatAttachmentCapabilities.fromJson(await _api.fetchCapabilities());
+    } catch (_) {
+      return ChatAttachmentCapabilities.disabled;
+    }
+  }
+
   /// Encrypts [plaintext] under a fresh random key, hashes the ciphertext,
   /// and — on every platform but web — writes it to a temp file so it
   /// survives an app restart before the upload finishes.
@@ -69,6 +87,10 @@ class ChatAttachmentSender {
   }) async {
     final id = _uuid.v4();
     final sealed = await _crypto.seal(plaintext);
+    // Hex — `Digest.toString()` is hex, not base64. See
+    // `ChatAttachmentRef.sha256`'s own doc comment: this was documented as
+    // base64 for as long as the field existed, and because nothing ever
+    // verified it against a downloaded object, the mismatch never surfaced.
     final digest = crypto.sha256.convert(sealed.ciphertext).toString();
 
     final ref = ChatAttachmentRef(
