@@ -24,7 +24,9 @@ See `docs/android-release.md`.
 
 ## Unreleased
 
-Fixed vitamins and minerals going missing when you re-add a food from Recently Added. The food details screen showed no vitamin or mineral breakdown for it, and logging it left your tracked nutrients for the day reading "No data logged today" even though the calories and macros updated. Both now show the food's full nutrition, including when you use the quick-add button.
+Premium is now recognised correctly for subscribers whose purchase was not being matched to their account, so entitlements unlock as they should.
+
+Fixed vitamins and minerals going missing when you re-add a food from Recently Added: the food details screen showed no breakdown for it, and logging it left the day's tracked nutrients reading "No data logged today" even though calories and macros updated. Both now show the food's full nutrition, quick-add included.
 
 ## 1.0.2+23
 

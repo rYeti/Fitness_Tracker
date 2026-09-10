@@ -550,7 +550,17 @@ two-line fix into a feature.
   not a dropped one, an absent one — so `applyTemplateToMeal` and
   `applyTemplatePortion` have nothing to carry. Giving templates
   micronutrients means a column, a migration and a sync change on both sides
-  of the API, and it is a feature decision rather than a defect.
+  of the API, and it is a feature decision rather than a defect. Two call
+  sites therefore look like this section's bug and are not it, because their
+  only consumer reads four macros and a weight:
+  `food_detail_view.dart`'s `_buildAddToTemplateButton`, which builds a model
+  by hand directly above the `_buildAddToLogButton` that does rescale and
+  persist, and the `widget.isTemplate` branch of `_quickAddFromRecent`. Both
+  are macro-only *projections* rather than conversions, and both say so in a
+  comment — an unexplained hand-written constructor there would read as the
+  rule in §8c being violated in the very file that establishes it. When
+  `MealTemplateItem` does grow the column, those two comments are the list of
+  places to revisit.
 - **`food_search_screen.dart`**, the OpenFoodFacts picker used while
   *building* a template, inserts library rows from raw nutriment keys without
   ever calling `ExtendedNutrients.fromNutriments`. A food first added to the
