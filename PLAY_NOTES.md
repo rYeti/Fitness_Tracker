@@ -22,6 +22,10 @@ Markdown links, headings or emphasis, none of which Play renders.
 
 See `docs/android-release.md`.
 
+## Unreleased
+
+Fixed chat opening a thread scrolled to the wrong spot instead of showing your newest messages.
+
 ## 1.0.2+24
 
 Premium: personal bests. Each exercise now shows the heaviest set you have ever done for it, plus your best set of the session, and on every card in Progress. Warmups and unfinished sessions never count.
