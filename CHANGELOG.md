@@ -10,7 +10,7 @@ heading to the version it went out as, so a `## <version>` section is history:
 it is what those users have, and nothing new belongs in it. See
 `docs/android-release.md`.
 
-## Unreleased
+## 1.0.2+26
 
 - No code changes. Re-published the 1.0.2+25 build to closed testing after an empty release (created via Play Console's "Promote release" into a track with no prior release) rejected rollout with "This release does not add or remove any app bundles."
 
