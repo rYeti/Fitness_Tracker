@@ -10,6 +10,10 @@ heading to the version it went out as, so a `## <version>` section is history:
 it is what those users have, and nothing new belongs in it. See
 `docs/android-release.md`.
 
+## Unreleased
+
+- No code changes. Re-published the 1.0.2+25 build to closed testing after an empty release (created via Play Console's "Promote release" into a track with no prior release) rejected rollout with "This release does not add or remove any app bundles."
+
 ## 1.0.2+25
 
 - Fixed opening a chat thread (Coach Chat and the Trainer Console alike) scrolling partway down and stopping short of the newest message, instead of landing on it. The list scrolled to `maxScrollExtent`, which on a lazy `ListView.builder` is only an estimate extrapolated from the children it has laid out so far — accurate for uniform rows, badly wrong for chat bubbles whose heights vary by an order of magnitude. The list is now built `reverse: true` so the newest message sits at the always-exact offset `0`; a thread opens there with no scroll call needed at all, and switching the active client in the console no longer inherits the previous thread's scroll position. See `docs/chat-architecture.md` §25.

@@ -22,6 +22,10 @@ Markdown links, headings or emphasis, none of which Play renders.
 
 See `docs/android-release.md`.
 
+## Unreleased
+
+No changes since the last release. Internal maintenance re-publish.
+
 ## 1.0.2+25
 
 Fixed chat opening a thread scrolled to the wrong spot instead of showing your newest messages.
