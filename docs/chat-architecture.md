@@ -1133,3 +1133,63 @@ and for most clients they already aren't.
 > behind the feature that needed the refusal in the first place meant the
 > refusal could never resolve itself — the fix was never going to be in the
 > refusal, because the refusal was never the bug.
+
+---
+
+## 25. The scroll that moved, then stopped short
+
+§15 gave `ChatThreadList` a `ScrollController` and a rule: when the thread
+grows, animate to `position.maxScrollExtent` after the frame that lays the new
+message out. That fixed the reported bug — a sent message landing below the
+fold — but it left a second one behind, reported later as "opening a chat
+scrolls partway down and stops" rather than landing on the newest message.
+
+The rule's mistake is in what `maxScrollExtent` *is* on a `ListView.builder`.
+A lazy list does not lay out every child up front; it only builds the ones near
+the viewport and estimates the rest of the scroll extent from the average
+extent of what it has built so far. That estimate is a reasonable guess when
+every child is close to the same height. It is not a reasonable guess for chat
+bubbles — a one-word reply, a wrapped paragraph, a date divider, an image or
+video attachment can differ in height by a factor of ten within the same
+screen. `animateTo(maxScrollExtent)` moved to wherever the estimate said the
+bottom was, not to the actual bottom, and the single `addPostFrameCallback` that
+issued the call never ran again to correct for the error once better estimates
+came in — including the specific case of an image attachment that hadn't
+finished decoding yet and grew the list again after the animation had already
+settled. The scroll wasn't failing; it was accurately reaching the wrong target,
+which is why it looked like it moved and then simply stopped.
+
+There is no patch for this that keeps computing a distance. Any fixed offset
+computed from an estimate is wrong by construction the moment the list is long
+enough that not everything is laid out — a bigger post-frame callback delay, a
+second corrective scroll, a `WidgetsBinding.endOfFrame` loop, all just narrow
+the window without closing it. The fix instead removes the destination from the
+problem: `ListView.builder(reverse: true, ...)`, reading the (still
+forward-built) item list from the end, puts the newest message at scroll offset
+`0`. Zero is never an estimate — it's exact regardless of how many children have
+been laid out — so "at the bottom" stops being a distance to travel and becomes
+where the list already is. A thread opens on the newest message with no scroll
+call at all, and the one case that still needs one — the user has scrolled up
+into history and a message arrives at the other end — targets
+`position.minScrollExtent`, the same always-exact zero, instead of the estimate
+that caused the bug.
+
+A second, unrelated bug rode along with the first and only showed up on the
+Trainer Console, where switching the active client reuses the same
+`ChatThreadList` `State` rather than rebuilding it. The growth check
+(`count <= _lastCount`) compared the new thread's length against the *previous*
+thread's, with no notion that the thread itself had changed. Switching to a
+longer thread happened to still scroll, for the wrong reason; switching to a
+shorter one read as no growth at all and silently kept the old thread's scroll
+offset. The fix tracks `activeThreadId` alongside the count, so a thread switch
+resets the baseline instead of being compared against it, and gives the
+`ListView` itself a `ValueKey(activeThreadId)` so Flutter discards the old
+`Scrollable`'s position rather than carrying it into a differently-sized list.
+
+None of this was reachable from a test that only asserts a scroll call fires —
+it did fire, with a real (well-typed, non-null) target every time. What made it
+wrong was a property of `ListView.builder` that only surfaces past whatever
+length the harness happens to test at: the difference between a scroll
+destination that is *exact* and one that is *asymptotically close*. Reversing
+the list didn't make the estimate more accurate; it made the destination one
+that was never an estimate to begin with.
