@@ -374,25 +374,35 @@ void main() {
     uploadStatus: AttachmentUploadStatus.uploaded,
   );
 
+  // Every test below sets `debugDefaultTargetPlatformOverride` and must put it
+  // back before its own body returns — `try`/`finally`, not `addTearDown` or a
+  // file-level `tearDown`. `addTearDown`'s callback runs after the whole
+  // `testWidgets` body function returns, but `TestWidgetsFlutterBinding`
+  // checks `debugAssertAllFoundationVarsUnset` *inside* that same body
+  // function, right after the caller's `await`s finish — so anything
+  // deferred through `addTearDown` is still too late and trips "The value of
+  // a foundation debug variable was changed by the test" on every one of
+  // these tests, even though the override genuinely does get reset, just one
+  // beat later than the check wants it. `finally` runs synchronously as the
+  // body function unwinds, before it returns control — the only reset that's
+  // actually early enough here.
+
   testWidgets(
     'on a pointer platform, a single click on a stored photo does not open the viewer',
     (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
-      // Reset inside the test itself, not via a file-level `tearDown`:
-      // Flutter's own `_verifyInvariants` check runs at the end of *this*
-      // test's body, before a `tearDown` registered in `main()` ever gets a
-      // chance to fire, and asserts every foundation debug variable
-      // (`debugDefaultTargetPlatformOverride` among them) is back to null by
-      // then.
-      addTearDown(() => debugDefaultTargetPlatformOverride = null);
-      final msg = storedMessage(pictureRef(width: 800, height: 600));
-      await pumpStoredBubble(tester, msg, bytes: onePixelPng);
-      await tester.pump();
+      try {
+        final msg = storedMessage(pictureRef(width: 800, height: 600));
+        await pumpStoredBubble(tester, msg, bytes: onePixelPng);
+        await tester.pump();
 
-      await tester.tap(find.byType(Image));
-      await tester.pumpAndSettle();
+        await tester.tap(find.byType(Image));
+        await tester.pumpAndSettle();
 
-      expect(find.byType(ChatImageViewer), findsNothing);
+        expect(find.byType(ChatImageViewer), findsNothing);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
     },
   );
 
@@ -400,22 +410,25 @@ void main() {
     'on a pointer platform, a double click on a stored photo opens the viewer',
     (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
-      addTearDown(() => debugDefaultTargetPlatformOverride = null);
-      final msg = storedMessage(pictureRef(width: 800, height: 600));
-      await pumpStoredBubble(tester, msg, bytes: onePixelPng);
-      await tester.pump();
+      try {
+        final msg = storedMessage(pictureRef(width: 800, height: 600));
+        await pumpStoredBubble(tester, msg, bytes: onePixelPng);
+        await tester.pump();
 
-      // The gap between the two taps has to sit between kDoubleTapMinTime
-      // (40ms) and kDoubleTapTimeout (300ms) — outside that window this
-      // would pass for the wrong reason (two unrelated single taps, neither
-      // of which does anything here) rather than because a double tap was
-      // actually recognised.
-      await tester.tap(find.byType(Image));
-      await tester.pump(const Duration(milliseconds: 50));
-      await tester.tap(find.byType(Image));
-      await tester.pumpAndSettle();
+        // The gap between the two taps has to sit between kDoubleTapMinTime
+        // (40ms) and kDoubleTapTimeout (300ms) — outside that window this
+        // would pass for the wrong reason (two unrelated single taps, neither
+        // of which does anything here) rather than because a double tap was
+        // actually recognised.
+        await tester.tap(find.byType(Image));
+        await tester.pump(const Duration(milliseconds: 50));
+        await tester.tap(find.byType(Image));
+        await tester.pumpAndSettle();
 
-      expect(find.byType(ChatImageViewer), findsOneWidget);
+        expect(find.byType(ChatImageViewer), findsOneWidget);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
     },
   );
 
@@ -423,33 +436,39 @@ void main() {
     'on a touch platform, a single tap on a stored photo opens the viewer',
     (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.android;
-      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      try {
+        final msg = storedMessage(pictureRef(width: 800, height: 600));
+        await pumpStoredBubble(tester, msg, bytes: onePixelPng);
+        await tester.pump();
+
+        await tester.tap(find.byType(Image));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(ChatImageViewer), findsOneWidget);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    },
+  );
+
+  testWidgets('the viewer closes on Escape', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    try {
       final msg = storedMessage(pictureRef(width: 800, height: 600));
       await pumpStoredBubble(tester, msg, bytes: onePixelPng);
       await tester.pump();
 
       await tester.tap(find.byType(Image));
       await tester.pumpAndSettle();
-
       expect(find.byType(ChatImageViewer), findsOneWidget);
-    },
-  );
 
-  testWidgets('the viewer closes on Escape', (tester) async {
-    debugDefaultTargetPlatformOverride = TargetPlatform.android;
-    addTearDown(() => debugDefaultTargetPlatformOverride = null);
-    final msg = storedMessage(pictureRef(width: 800, height: 600));
-    await pumpStoredBubble(tester, msg, bytes: onePixelPng);
-    await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.byType(Image));
-    await tester.pumpAndSettle();
-    expect(find.byType(ChatImageViewer), findsOneWidget);
-
-    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-    await tester.pumpAndSettle();
-
-    expect(find.byType(ChatImageViewer), findsNothing);
+      expect(find.byType(ChatImageViewer), findsNothing);
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
   });
 
   testWidgets(
@@ -457,23 +476,26 @@ void main() {
     'even though a single click does nothing there',
     (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
-      addTearDown(() => debugDefaultTargetPlatformOverride = null);
-      final msg = storedMessage(pictureRef(width: 800, height: 600));
-      await pumpStoredBubble(tester, msg, bytes: onePixelPng);
-      await tester.pump();
+      try {
+        final msg = storedMessage(pictureRef(width: 800, height: 600));
+        await pumpStoredBubble(tester, msg, bytes: onePixelPng);
+        await tester.pump();
 
-      // `excludeSemantics: true` on the bubble's outer `Semantics` node drops
-      // every descendant semantics node — this is the one node whose action
-      // can ever reach an assistive technology, so it has to carry the
-      // activation a screen reader's "double tap to activate" gesture (a
-      // semantics action, not a raw click) triggers.
-      final bubbleSemantics = tester
-          .widgetList<Semantics>(find.byType(Semantics))
-          .firstWhere((s) => s.properties.onTap != null);
-      bubbleSemantics.properties.onTap!();
-      await tester.pumpAndSettle();
+        // `excludeSemantics: true` on the bubble's outer `Semantics` node
+        // drops every descendant semantics node — this is the one node
+        // whose action can ever reach an assistive technology, so it has to
+        // carry the activation a screen reader's "double tap to activate"
+        // gesture (a semantics action, not a raw click) triggers.
+        final bubbleSemantics = tester
+            .widgetList<Semantics>(find.byType(Semantics))
+            .firstWhere((s) => s.properties.onTap != null);
+        bubbleSemantics.properties.onTap!();
+        await tester.pumpAndSettle();
 
-      expect(find.byType(ChatImageViewer), findsOneWidget);
+        expect(find.byType(ChatImageViewer), findsOneWidget);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
     },
   );
 
@@ -482,50 +504,55 @@ void main() {
     'instead of playing or expanding',
     (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.android;
-      addTearDown(() => debugDefaultTargetPlatformOverride = null);
-      final ref = videoRef(durationSeconds: 42);
-      final msg = ThreadMessage(
-        messageId: 'm1',
-        body: null,
-        timestamp: DateTime(2026, 8, 26, 9, 7),
-        isMine: false,
-        status: ChatMessageStatus.sent,
-        attachment: ref,
-        uploadStatus: AttachmentUploadStatus.uploaded,
-      );
-      final provider = ChatAttachmentProvider(
-        api: ChatAttachmentApi(client: ApiClient(baseUrl: 'http://localhost')),
-        store: FakeAttachmentStore({ref.id: onePixelPng}),
-      );
-      await tester.pumpWidget(
-        MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: ChangeNotifierProvider<ChatAttachmentProvider>.value(
-            value: provider,
-            child: Scaffold(
-              body: ChatBubble(message: msg, threadId: 'thread-1'),
+      try {
+        final ref = videoRef(durationSeconds: 42);
+        final msg = ThreadMessage(
+          messageId: 'm1',
+          body: null,
+          timestamp: DateTime(2026, 8, 26, 9, 7),
+          isMine: false,
+          status: ChatMessageStatus.sent,
+          attachment: ref,
+          uploadStatus: AttachmentUploadStatus.uploaded,
+        );
+        final provider = ChatAttachmentProvider(
+          api: ChatAttachmentApi(
+            client: ApiClient(baseUrl: 'http://localhost'),
+          ),
+          store: FakeAttachmentStore({ref.id: onePixelPng}),
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: ChangeNotifierProvider<ChatAttachmentProvider>.value(
+              value: provider,
+              child: Scaffold(
+                body: ChatBubble(message: msg, threadId: 'thread-1'),
+              ),
             ),
           ),
-        ),
-      );
-      await tester.pump();
-      expect(
-        findBubbleSemantics(tester).properties.value,
-        contains('tap to download'),
-      );
+        );
+        await tester.pump();
+        expect(
+          findBubbleSemantics(tester).properties.value,
+          contains('tap to download'),
+        );
 
-      await tester.tap(find.byType(ChatAttachmentContent));
-      await tester.pumpAndSettle();
+        await tester.tap(find.byType(ChatAttachmentContent));
+        await tester.pumpAndSettle();
 
-      // The bytes came back from the fake store, so the tile is no longer
-      // waiting to be downloaded — but nothing auto-starts playback, which
-      // is the proof this single tap meant "fetch," not "expand."
-      expect(
-        findBubbleSemantics(tester).properties.value,
-        isNot(contains('tap to download')),
-      );
-      expect(find.byIcon(Icons.play_circle_fill_rounded), findsOneWidget);
+        // The bytes came back from the fake store, so the tile is no longer
+        // waiting to be downloaded — but nothing auto-starts playback, which
+        // is the proof this single tap meant "fetch," not "expand."
+        expect(
+          findBubbleSemantics(tester).properties.value,
+          isNot(contains('tap to download')),
+        );
+        expect(find.byIcon(Icons.play_circle_fill_rounded), findsOneWidget);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
     },
   );
 
