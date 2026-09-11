@@ -10,7 +10,7 @@ heading to the version it went out as, so a `## <version>` section is history:
 it is what those users have, and nothing new belongs in it. See
 `docs/android-release.md`.
 
-## Unreleased
+## 1.0.2+25
 
 - Fixed opening a chat thread (Coach Chat and the Trainer Console alike) scrolling partway down and stopping short of the newest message, instead of landing on it. The list scrolled to `maxScrollExtent`, which on a lazy `ListView.builder` is only an estimate extrapolated from the children it has laid out so far — accurate for uniform rows, badly wrong for chat bubbles whose heights vary by an order of magnitude. The list is now built `reverse: true` so the newest message sits at the always-exact offset `0`; a thread opens there with no scroll call needed at all, and switching the active client in the console no longer inherits the previous thread's scroll position. See `docs/chat-architecture.md` §25.
 - Chat attachments now go somewhere. Double-click a photo or video on web/desktop, or tap one on Android/iOS, to open it full screen with pinch/scroll zoom and pan — Escape, the back gesture, or a close button all dismiss it. Tapping a document (or clicking it on web/desktop) now actually opens it in whichever app the device has for that file type, instead of a tile that said "Open" and did nothing; a device with no matching app now says so plainly instead of the tap appearing to fail silently. A stored photo and document are also reachable by a screen reader on every platform, which — along with every other attachment's fetch/retry action — was not true before this change either. See `docs/chat-attachments.md` §17.
