@@ -772,3 +772,299 @@ by an explicit decision rather than silently, whichever way it's set.
 > whole appeal — no round trip before the ack, no R2 dependency on the hot
 > path — is also what makes a wrong configuration invisible exactly where
 > people look first.
+
+---
+
+## 17. A callback that is `null` and a label that says "Open" type-check identically
+
+Three chat attachment affordances were promises with nothing behind them.
+A stored photo's tile had a `GestureDetector` with a real `onTap` slot and
+nothing ever passed into it. A stored video played inline and had no way
+to go further. A stored document's subtitle read `l10n.chatAttachmentOpen`
+— the literal word "Open" — while the tile's `onTap` was the same `null`
+the photo's was:
+
+```dart
+case AttachmentPhase.uploading:
+case AttachmentPhase.downloading:
+case AttachmentPhase.stored:
+case AttachmentPhase.expired:
+  attachmentTap = null;
+```
+
+Nothing here is a type error. `VoidCallback?` being `null` is exactly as
+valid a value as a working closure, and a `Text('Open')` widget doesn't
+know or care whether anything happens when its ancestor is tapped. The
+document tile had, in effect, a passing test already: it rendered the
+right word. **A state whose only affordance is a string a human reads is a
+state nothing but a human reading it can catch.** The failure mode this
+section is about — a compiler and a green suite with nothing to say about
+a genuinely broken feature — is exactly the shape `docs/chat-encryption.md`
+and `docs/sync-account-switch-duplication.md` warn about elsewhere in this
+codebase, applied to UI rather than to data.
+
+### Why the gesture is a platform split, not a live one
+
+The feature request was "double-click a picture or video to expand it,
+tap a file to open it." Read literally on a touchscreen, a double-tap is
+not a gesture anyone reaches for by habit — it competes with the OS's own
+double-tap-to-zoom on some platforms and simply isn't how a phone user
+expects a photo to open. So the rule actually shipped is a *platform*
+split: web and desktop (mouse-driven, where a click and a double-click are
+two unambiguous, habitual gestures) use a double-click to expand and leave
+a single click doing whatever it already did; Android and iOS, which have
+no competing single-tap action left once an attachment is downloaded, use
+a single tap.
+
+```dart
+AttachmentGestureMode attachmentGestureMode() =>
+    kIsWeb ||
+            defaultTargetPlatform == TargetPlatform.windows ||
+            defaultTargetPlatform == TargetPlatform.macOS ||
+            defaultTargetPlatform == TargetPlatform.linux
+        ? AttachmentGestureMode.pointer
+        : AttachmentGestureMode.touch;
+```
+
+This is deliberately a **platform** predicate, the same shape as
+`ChatComposer._cameraAvailable`/`_micAvailable`, not a *live input device*
+one. Sniffing `PointerDeviceKind` from a `Listener` so a tablet with a
+mouse plugged in switches mid-session was rejected: it would change what a
+tap does without anything on screen announcing the change, and — the
+sharper problem — there would be no way to spell "this device's current
+input mode" into a screen-reader semantics value the way a fixed platform
+predicate can be (see below). The honest cost, stated rather than hidden:
+`kIsWeb` alone puts a phone's mobile browser in *pointer* mode, matching
+the feature request's literal wording ("on web a double-click expands")
+over trying to also detect touch-on-web, which Flutter has no reliable
+static signal for.
+
+### The gesture arena, as a mechanism rather than a warning
+
+Wiring both `onTap` and `onDoubleTap` on the same `GestureDetector` is not
+"a slightly slower single tap." `DoubleTapGestureRecognizer` calls
+`GestureArenaManager.hold()` the moment the first pointer-down arrives,
+which blocks the arena's *sweep* — the mechanism that would otherwise let
+`TapGestureRecognizer` win on pointer-up — until `kDoubleTapTimeout`
+(300ms) elapses with no second tap, or a second tap actually arrives and
+the double-tap recognizer wins outright. A single tap in that
+configuration is not delayed by "some overhead"; it is structurally
+withheld from firing at all until the arena resolves one way or the other.
+
+The reason this feature can accept that cost at all is that the matrix of
+gesture/phase/kind combinations has exactly **one** cell where both
+gestures are actually live at once. A photo's single-tap action
+(fetch/retry) exists only *outside* `stored`, and its expand action exists
+only *inside* `stored` — the two are never both wired on the same tile at
+the same time, so `onDoubleTap` is `null` whenever `onTap` matters and vice
+versa. A document never gets a double-tap branch at all — it has no
+competing single-tap action to protect once stored. That leaves **a stored
+video on a pointer platform**: single click plays inline (preserving the
+feature's pre-existing behaviour), double click plays and jumps straight
+to fullscreen. There, `onTapDown`/`onTapUp`/`onTapCancel` — which fire
+before the arena resolves, unlike `onTap` — drive an immediate 8% scale
+press effect, so the 300ms the arena is genuinely withholding `onTap` for
+reads as "the app responded," not as "nothing happened."
+
+### `excludeSemantics: true` is a trapdoor under any semantics node added below it
+
+`ChatBubble`'s outer `Semantics` node — the one carrying the whole spoken
+value ("Photo, double tap to open, sent 9:07 AM") — is built with
+`excludeSemantics: true`. That flag drops *every descendant semantics
+node* from the accessibility tree it builds. Before this change that was
+invisible, because nothing below it ever tried to declare its own
+semantics action. The moment a tile gains a real tap action worth
+announcing, `excludeSemantics: true` becomes exactly the kind of trap a
+type system has no way to flag: a `Semantics(onTap: ...)` added three
+widgets down inside `_PhotoTile` would compile, would render, and would be
+silently discarded by its own ancestor.
+
+The fix is not to relax `excludeSemantics` — the whole point of that flag
+is that the *value* string already says everything ("uploading," "tap to
+download," now "double tap to open"), so a screen reader hearing both the
+value *and* a pile of child widget descriptions would be hearing the same
+thing twice. The fix is that the one node whose action can ever reach an
+assistive technology gets the action:
+
+```dart
+Semantics(
+  value: semanticsValue,
+  onTap: attachmentOpen ?? attachmentTap,
+  excludeSemantics: true,
+  child: ...
+)
+```
+
+This has a side effect worth stating rather than treating as incidental:
+before this change, **no chat attachment's fetch or retry action was
+reachable by a screen reader either**, on any platform, in any phase. A
+screen reader's "activate" gesture sends a `SemanticsAction.tap` to the
+currently focused node — it does not synthesize a raw touch at a screen
+coordinate the way a sighted user's tap does — and with no `onTap` on the
+one node that mattered, there was no action to receive it. Wiring
+`attachmentOpen ?? attachmentTap` here fixes that as a byproduct, not just
+the new expand/open affordance.
+
+The fix has a stated limit rather than a silent one: a **stored video's**
+fullscreen entry is not reachable this way. It lives entirely inside
+`_VideoTileState`, which owns the `Player`, the `GlobalKey<VideoState>`,
+and the decision of whether playback has already started — none of which
+`ChatBubble` has a handle on. Threading that trigger up would mean a
+command object (`ChangeNotifier`-shaped, the same idea as a
+`ScrollController`) passed down through `ChatAttachmentContent` for
+exactly one tile's exactly one gesture. That was judged not worth building
+for this pass — YAGNI, per this repo's own working conventions — and is
+recorded here as a real, known gap rather than quietly left unfixed: a
+screen reader on a pointer platform can reach a stored video's inline play
+(inherited from the same `attachmentTap`-was-never-reachable gap above,
+now also fixed) but not its fullscreen entry specifically.
+
+### `ref.name` crossed from *rendered text* to *filesystem path*, and the compiler had nothing to say about that either
+
+`ChatAttachmentRef.name` and `.id` are both client-generated by whoever
+*sent* the message — see `ChatAttachmentRef`'s own doc comment. Before this
+change, `name` was only ever drawn as a `Text` widget and `id` was only
+ever used as a lookup key into in-memory maps. Nothing needed to distrust
+either, because nothing downstream could turn a hostile value into
+anything worse than an ugly label.
+
+Opening a document changes that: the decrypted bytes have to land
+somewhere on disk with a real name before the OS can be asked to open
+them, and *that* is where a peer choosing `../../../etc/whatever` as an
+attachment's display name stops being cosmetic. `safeAttachmentFileName`
+takes the *last path segment only* (defeating any number of `../` or
+`..\` prefixes in one step, on either separator), strips control
+characters and the characters Windows forbids outright, rejects Windows
+reserved device names (`CON`, `NUL`, `COM1`, …) with or without an
+extension, strips trailing dots and spaces (which Windows silently drops,
+so `report.pdf.` is not the file that would have been validated), and
+falls back to an id-derived name — itself sanitised the same way, since a
+fallback built from an unfiltered `ref.id` would just relocate the same
+bug — when nothing survives.
+
+Auditing "does this function accept peer-controlled input" turned up three
+call sites that were *already* interpolating `ref.id` directly into a
+path, and had been since the video and audio tiles first shipped:
+
+```dart
+// before, in three places:
+'${dir.path}/chat_video_${widget.ref.id}.bin'
+'${dir.path}/chat_audio_${widget.ref.id}.bin'
+'$base/$id.bin'   // AttachmentStore._filePath — permanent, not temp, storage
+```
+
+None of these were exploitable in the way a document's real name is — a
+`.bin` extension forces a fixed suffix, and the id format in practice is a
+UUID — but "in practice" is exactly the kind of guarantee that holds until
+the day a client (this one, or a future compatible one) stops guaranteeing
+it, and the *store* one writes into permanent, not temporary, app-private
+storage. All three now route through the same `safeAttachmentIdSegment`
+the document opener uses, at no behavioural cost to an ordinary UUID id
+(which is already made entirely of characters the sanitiser keeps).
+
+> **A field's trust level is a property of what reads it, not of where it
+> came from.** `ref.name` and `ref.id` did not change when they crossed
+> from "rendered as text" to "used as a path" — only the cost of ignoring
+> where they came from did. The general check worth applying elsewhere in
+> this codebase: any peer-supplied string that starts appearing inside a
+> path, a shell argument, or a query needs the same audit, regardless of
+> how innocuous its use looked when it was only ever printed.
+
+### Why the desktop open path doesn't use the plugin added for Android/iOS
+
+`open_filex` is the dependency this feature adds, and it is scoped to
+Android and iOS only — never called, and on web never even imported (see
+below), on the other four targets. Its own desktop implementation matters
+here specifically because of *how* it opens a file there:
+
+```dart
+// open_filex's own platform.dart, roughly:
+if (Platform.isWindows) {
+  final process = await Process.start('cmd', ['/c', 'start', '', filePath]);
+}
+```
+
+`filePath` is built from a name the *peer* chose. `Process.start` with an
+argument list (as opposed to a shell string it parses itself) is normally
+safe from injection regardless of the argument's content — but routing
+through `cmd /c start` puts a real shell in the path anyway, and this repo
+already sanitises the name before it gets there for the reason above, not
+because this one call site needed a second reason. Rather than lean on
+that sanitising alone, the desktop path in `attachment_opener_io.dart`
+uses `url_launcher`'s `launchUrl(Uri.file(path))` instead — which resolves
+through `ShellExecuteW` / `NSWorkspace.open` / `g_app_info_launch_default_for_uri`,
+none of which interpret the path through a shell at all. Belt and braces:
+the sanitiser guards the name, and the launch mechanism on the platform
+most exposed to the risk guards the mechanism too.
+
+### Why video fullscreen reuses the player instead of opening a second one
+
+A route-owned second `media_kit.Player` for a stored video would mean
+decoding the same up-to-16MB file twice and holding two copies of it in
+memory at once, for no benefit — the inline player already has the file
+open and mid-playback. `media_kit_video`'s own `VideoState` exposes
+`enterFullscreen()`, which pushes its own zero-duration-transition route
+around the *same* `Player`/`VideoController` this tile already created:
+
+```dart
+final _videoKey = GlobalKey<mk_video.VideoState>();
+// ...
+mk_video.Video(key: _videoKey, controller: controller, ...)
+// ...
+await _videoKey.currentState?.enterFullscreen();
+```
+
+The trap here is timing, not API surface: `GlobalKey.currentState` is
+`null` until the `Video` widget carrying that key has actually been built
+with it — and `setState()` only *schedules* that build for the next frame,
+it doesn't perform it inline. Calling `enterFullscreen()` immediately
+after the `setState()` that first creates the player reaches a `null`
+state and does nothing, silently — a failure that looks exactly like
+"fullscreen isn't supported on this platform" rather than what it actually
+is, a one-frame race. The fix is a `WidgetsBinding.addPostFrameCallback`
+between the `setState` and the fullscreen call, so the callback runs after
+the frame that actually mounts the keyed widget.
+
+### The manifest permissions §14 didn't already cover
+
+`docs/chat-attachments.md` §14 (above) is about `RECORD_AUDIO` and camera
+permissions this app **needs**, arriving with an Android
+`<uses-feature required="true">` side effect nobody asked for — the fix
+there was to soften that requirement, not to remove the permission, which
+is still requested and still used.
+
+`open_filex` contributes a different shape of problem: `READ_EXTERNAL_STORAGE`,
+`READ_MEDIA_IMAGES`, `READ_MEDIA_VIDEO` and `READ_MEDIA_AUDIO`, merged into
+this app's manifest at build time the same way §14's permissions were —
+but this app never needs any of them. Every path ever handed to
+`OpenFilex.open` here is `getTemporaryDirectory()`-rooted, i.e.
+app-private, and `open_filex`'s own Android implementation
+(`pathRequiresPermission()` in `OpenFilePlugin.java`) only asks for one of
+these permissions when the path sits *outside* the app's own sandbox —
+which never happens here. Left merged in, they would sit on the Play
+listing unused and pull the app into Play's photo-and-video permissions
+declaration policy for a capability the app doesn't actually exercise.
+The fix this time is `tools:node="remove"` on each — not a softened
+requirement, an outright removal, because unlike §14's case there's no
+legitimate use to preserve:
+
+```xml
+<uses-permission android:name="android.permission.READ_MEDIA_IMAGES" tools:node="remove" />
+```
+
+Same underlying lesson as §14 — a merged manifest is a build-time surface
+neither this app's code nor its tests can see — with the opposite fix,
+worth keeping distinct: §14 is "needed, but Android's default policy for
+it was wrong"; this is "not needed at all." Conflating the two would have
+meant either loosening a real requirement that still exists, or leaving
+four unused permissions sitting on the store listing because "that's what
+§14 already handled."
+
+> **The general lesson.** A capability that has an obvious "it either
+> works or it visibly doesn't" failure mode (fullscreen video, the
+> gesture split) earns a comment explaining the mechanism once it's
+> understood. A capability whose only failure mode is a promise with
+> nothing behind it — a null callback under a label that says "Open," a
+> `Semantics` action a descendant can never actually register — earns
+> nothing from the compiler or the test suite unless a person writes the
+> test that says the word and the action must agree.

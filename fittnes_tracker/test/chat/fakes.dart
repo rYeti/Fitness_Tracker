@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/providers/enums.dart';
+import 'package:ForgeForm/feature/chat/data/attachment_store.dart';
 import 'package:ForgeForm/feature/chat/data/chat_api.dart';
 import 'package:ForgeForm/feature/chat/data/chat_attachment_sender.dart';
 import 'package:ForgeForm/feature/chat/data/chat_key_api.dart';
@@ -657,4 +659,47 @@ class FakeVoiceRecorder implements VoiceRecorder {
 
   @override
   Future<void> dispose() async {}
+}
+
+/// A [AttachmentStore] backed by an in-memory map instead of real files —
+/// the seam that lets a test drive `ChatAttachmentProvider.fetch` straight
+/// to `AttachmentPhase.stored` with real bytes and zero network, by having
+/// `read` hit "already stored on this device" on the very first call. See
+/// docs/chat-attachments.md §17.
+class FakeAttachmentStore implements AttachmentStore {
+  final Map<String, Uint8List> _bytes;
+
+  FakeAttachmentStore(Map<String, Uint8List> bytes)
+    : _bytes = Map.of(bytes);
+
+  @override
+  Future<Uint8List?> read(String id) async => _bytes[id];
+
+  @override
+  Future<void> write({
+    required String id,
+    required String messageId,
+    required String threadId,
+    required MediaType kind,
+    required Uint8List bytes,
+  }) async {
+    _bytes[id] = bytes;
+  }
+
+  @override
+  Future<List<StoredAttachmentInfo>> listForThread(String threadId) async =>
+      const [];
+
+  @override
+  Future<List<StoredAttachmentInfo>> listAll() async => const [];
+
+  @override
+  Future<void> remove(String id) async {
+    _bytes.remove(id);
+  }
+
+  @override
+  Future<void> clearAll() async {
+    _bytes.clear();
+  }
 }

@@ -1,4 +1,5 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <application
         android:label="ForgeForm"
         android:name="${applicationName}"
@@ -76,4 +77,21 @@
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
+
+    <!-- open_filex (docs/chat-attachments.md §17 — opening a stored chat
+         document) contributes these four permissions in its own manifest,
+         merged in at build time the same way record/image_picker's did (see
+         the block above). Unlike those two, none of these are needed: every
+         path this app ever hands to open_filex is app-private
+         (getTemporaryDirectory()), and its own plugin only requests them for
+         a path *outside* the app sandbox — pathRequiresPermission() in
+         OpenFilePlugin.java returns false for anything under dataDir. Left
+         merged in, they would still appear on the Play listing and pull the
+         app into Play's photo-and-video permissions declaration policy for
+         a capability this app never actually uses. Removed at merge time
+         rather than granted and unused. -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" tools:node="remove" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" tools:node="remove" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" tools:node="remove" />
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" tools:node="remove" />
 </manifest>

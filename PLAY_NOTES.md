@@ -26,6 +26,8 @@ See `docs/android-release.md`.
 
 Fixed chat opening a thread scrolled to the wrong spot instead of showing your newest messages.
 
+Tap a photo or video in chat to open it full screen, with zoom and pan. Tap a file to open it in whichever app you use for that kind of file — or, if none, you'll now be told instead of nothing happening.
+
 ## 1.0.2+24
 
 Premium: personal bests. Each exercise now shows the heaviest set you have ever done for it, plus your best set of the session, and on every card in Progress. Warmups and unfinished sessions never count.
