@@ -137,8 +137,17 @@ class _ChatThreadListState extends State<ChatThreadList> {
       itemBuilder: (context, index) {
         final item = items[index];
         if (item is DateTime) return ChatDateDivider(date: item);
+        final message = item as ThreadMessage;
         return ChatBubble(
-          message: item as ThreadMessage,
+          // Without this, `ListView.builder` matches elements by index, not
+          // identity — a day divider spliced in when older history loads
+          // shifts every later index by one, and a video bubble's
+          // `_VideoTileState` (a live `Player`, an open fullscreen route, a
+          // temp file) gets silently reassociated with a different message.
+          // Invisible before this feature (inline playback was short-lived);
+          // a fullscreen route makes it a real, user-visible bug.
+          key: ValueKey(message.messageId),
+          message: message,
           threadId: chat.activeThreadId,
           onRetry: chat.retryMessage,
         );

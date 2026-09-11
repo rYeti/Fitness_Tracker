@@ -1,21 +1,38 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, debugDefaultTargetPlatformOverride;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/network/api_client.dart';
 import 'package:ForgeForm/core/providers/enums.dart';
+import 'package:ForgeForm/feature/chat/data/attachment_opener.dart';
 import 'package:ForgeForm/feature/chat/data/chat_attachment_api.dart';
+import 'package:ForgeForm/feature/chat/domain/attachment_open_outcome.dart';
 import 'package:ForgeForm/feature/chat/domain/models/chat_attachment_ref.dart';
 import 'package:ForgeForm/feature/chat/domain/models/thread_message.dart';
 import 'package:ForgeForm/feature/chat/presentation/providers/chat_attachment_provider.dart';
+import 'package:ForgeForm/feature/chat/presentation/view/chat_image_viewer.dart';
+import 'package:ForgeForm/feature/chat/presentation/widgets/chat_attachment_content.dart';
 import 'package:ForgeForm/feature/chat/presentation/widgets/chat_bubble.dart';
 import 'package:ForgeForm/feature/chat/presentation/widgets/chat_date_divider.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 
+import 'fakes.dart';
+
 /// Local DateTimes throughout: the widgets format in the reader's timezone, so a
 /// UTC fixture would make these assertions depend on where the test runs.
 void main() {
+  // A leaked override here silently changes every later test in this file —
+  // several of the new tests below set it to drive the pointer/touch
+  // gesture split.
+  tearDown(() => debugDefaultTargetPlatformOverride = null);
+
   Future<void> pumpBubble(WidgetTester tester, ThreadMessage message) {
     return tester.pumpWidget(
       MaterialApp(
@@ -171,6 +188,53 @@ void main() {
         .firstWhere((s) => s.properties.value != null);
   }
 
+  // A real, tiny (1x1, transparent) PNG — not arbitrary bytes. `Image.memory`
+  // genuinely decodes in a widget test (the flutter tester binary carries
+  // Skia), so garbage bytes would fail the decode asynchronously rather than
+  // exercising the `stored` path these tests are for.
+  final onePixelPng = base64Decode(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY'
+    '42YAAAAASUVORK5CYII=',
+  );
+
+  // No test before this one exercised `AttachmentPhase.stored` with real
+  // bytes — every earlier attachment test deliberately stayed at a phase
+  // that never reaches the network. This drives `fetch` straight to `stored`
+  // through the same seams `ChatAttachmentProvider`'s constructor already
+  // exposes (`store`), so nothing here touches a real file or a real
+  // network call either.
+  Future<ChatAttachmentProvider> pumpStoredBubble(
+    WidgetTester tester,
+    ThreadMessage message, {
+    required Uint8List bytes,
+    String threadId = 'thread-1',
+    OpenAttachmentExternally? openOverride,
+  }) async {
+    final provider = ChatAttachmentProvider(
+      api: ChatAttachmentApi(client: ApiClient(baseUrl: 'http://localhost')),
+      store: FakeAttachmentStore({message.attachment!.id: bytes}),
+    );
+    await provider.fetch(message, threadId: threadId);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: ChangeNotifierProvider<ChatAttachmentProvider>.value(
+          value: provider,
+          child: Scaffold(
+            body: ChatBubble(
+              message: message,
+              threadId: threadId,
+              openAttachmentExternallyOverride: openOverride,
+            ),
+          ),
+        ),
+      ),
+    );
+    return provider;
+  }
+
   testWidgets('an uploading photo is spelled out for a screen reader', (
     tester,
   ) async {
@@ -302,4 +366,222 @@ void main() {
     expect(value, contains('great session today'));
     expect(find.text('great session today'), findsOneWidget);
   });
+
+  // ── Expand / open (double click a picture or video, tap a file) ────────
+
+  ThreadMessage storedMessage(ChatAttachmentRef attachment) => ThreadMessage(
+    messageId: 'm1',
+    body: null,
+    timestamp: DateTime(2026, 8, 26, 9, 7),
+    isMine: false,
+    status: ChatMessageStatus.sent,
+    attachment: attachment,
+    uploadStatus: AttachmentUploadStatus.uploaded,
+  );
+
+  testWidgets(
+    'on a pointer platform, a single click on a stored photo does not open the viewer',
+    (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      final msg = storedMessage(pictureRef(width: 800, height: 600));
+      await pumpStoredBubble(tester, msg, bytes: onePixelPng);
+      await tester.pump();
+
+      await tester.tap(find.byType(Image));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ChatImageViewer), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'on a pointer platform, a double click on a stored photo opens the viewer',
+    (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      final msg = storedMessage(pictureRef(width: 800, height: 600));
+      await pumpStoredBubble(tester, msg, bytes: onePixelPng);
+      await tester.pump();
+
+      // The gap between the two taps has to sit between kDoubleTapMinTime
+      // (40ms) and kDoubleTapTimeout (300ms) — outside that window this
+      // would pass for the wrong reason (two unrelated single taps, neither
+      // of which does anything here) rather than because a double tap was
+      // actually recognised.
+      await tester.tap(find.byType(Image));
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tap(find.byType(Image));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ChatImageViewer), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'on a touch platform, a single tap on a stored photo opens the viewer',
+    (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      final msg = storedMessage(pictureRef(width: 800, height: 600));
+      await pumpStoredBubble(tester, msg, bytes: onePixelPng);
+      await tester.pump();
+
+      await tester.tap(find.byType(Image));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ChatImageViewer), findsOneWidget);
+    },
+  );
+
+  testWidgets('the viewer closes on Escape', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    final msg = storedMessage(pictureRef(width: 800, height: 600));
+    await pumpStoredBubble(tester, msg, bytes: onePixelPng);
+    await tester.pump();
+
+    await tester.tap(find.byType(Image));
+    await tester.pumpAndSettle();
+    expect(find.byType(ChatImageViewer), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ChatImageViewer), findsNothing);
+  });
+
+  testWidgets(
+    'a stored photo is reachable by a screen reader on a pointer platform, '
+    'even though a single click does nothing there',
+    (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      final msg = storedMessage(pictureRef(width: 800, height: 600));
+      await pumpStoredBubble(tester, msg, bytes: onePixelPng);
+      await tester.pump();
+
+      // `excludeSemantics: true` on the bubble's outer `Semantics` node drops
+      // every descendant semantics node — this is the one node whose action
+      // can ever reach an assistive technology, so it has to carry the
+      // activation a screen reader's "double tap to activate" gesture (a
+      // semantics action, not a raw click) triggers.
+      final bubbleSemantics = tester
+          .widgetList<Semantics>(find.byType(Semantics))
+          .firstWhere((s) => s.properties.onTap != null);
+      bubbleSemantics.properties.onTap!();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ChatImageViewer), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'on touch, a single tap on a not-yet-downloaded video downloads it '
+    'instead of playing or expanding',
+    (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      final ref = videoRef(durationSeconds: 42);
+      final msg = ThreadMessage(
+        messageId: 'm1',
+        body: null,
+        timestamp: DateTime(2026, 8, 26, 9, 7),
+        isMine: false,
+        status: ChatMessageStatus.sent,
+        attachment: ref,
+        uploadStatus: AttachmentUploadStatus.uploaded,
+      );
+      final provider = ChatAttachmentProvider(
+        api: ChatAttachmentApi(client: ApiClient(baseUrl: 'http://localhost')),
+        store: FakeAttachmentStore({ref.id: onePixelPng}),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: ChangeNotifierProvider<ChatAttachmentProvider>.value(
+            value: provider,
+            child: Scaffold(
+              body: ChatBubble(message: msg, threadId: 'thread-1'),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(
+        findBubbleSemantics(tester).properties.value,
+        contains('tap to download'),
+      );
+
+      await tester.tap(find.byType(ChatAttachmentContent));
+      await tester.pumpAndSettle();
+
+      // The bytes came back from the fake store, so the tile is no longer
+      // waiting to be downloaded — but nothing auto-starts playback, which
+      // is the proof this single tap meant "fetch," not "expand."
+      expect(
+        findBubbleSemantics(tester).properties.value,
+        isNot(contains('tap to download')),
+      );
+      expect(find.byIcon(Icons.play_circle_fill_rounded), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'a stored document hands its own name, mime and id to the opener '
+    '(sanitising happens inside the real openAttachmentExternally, not here — '
+    'see attachment_filename_test.dart)',
+    (tester) async {
+      Map<String, Object?>? captured;
+      Future<AttachmentOpenOutcome> fakeOpen({
+        required Uint8List bytes,
+        required String name,
+        required String mime,
+        required String id,
+      }) async {
+        captured = {'name': name, 'mime': mime, 'id': id};
+        return AttachmentOpenOutcome.opened;
+      }
+
+      final msg = storedMessage(documentRef());
+      await pumpStoredBubble(
+        tester,
+        msg,
+        bytes: onePixelPng,
+        openOverride: fakeOpen,
+      );
+      await tester.pump();
+
+      await tester.tap(find.byType(ChatAttachmentContent));
+      await tester.pumpAndSettle();
+
+      expect(captured, isNotNull);
+      expect(captured!['name'], 'plan-week-3.pdf');
+      expect(find.byType(SnackBar), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'a document with no app to open it shows an inline message, not a silent tap',
+    (tester) async {
+      Future<AttachmentOpenOutcome> fakeOpen({
+        required Uint8List bytes,
+        required String name,
+        required String mime,
+        required String id,
+      }) async => AttachmentOpenOutcome.noHandler;
+
+      final msg = storedMessage(documentRef());
+      await pumpStoredBubble(
+        tester,
+        msg,
+        bytes: onePixelPng,
+        openOverride: fakeOpen,
+      );
+      await tester.pump();
+
+      await tester.tap(find.byType(ChatAttachmentContent));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('No app on this device can open this file'),
+        findsOneWidget,
+      );
+    },
+  );
 }

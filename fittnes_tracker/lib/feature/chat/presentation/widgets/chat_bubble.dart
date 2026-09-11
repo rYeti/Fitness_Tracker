@@ -1,11 +1,18 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/design_tokens.dart';
+import 'package:ForgeForm/core/providers/enums.dart';
+import 'package:ForgeForm/feature/chat/data/attachment_opener.dart';
+import 'package:ForgeForm/feature/chat/domain/attachment_open_outcome.dart';
 import 'package:ForgeForm/feature/chat/domain/chat_timestamps.dart';
+import 'package:ForgeForm/feature/chat/domain/models/chat_attachment_ref.dart';
 import 'package:ForgeForm/feature/chat/domain/models/thread_message.dart';
 import 'package:ForgeForm/feature/chat/presentation/providers/chat_attachment_provider.dart';
+import 'package:ForgeForm/feature/chat/presentation/view/chat_image_viewer.dart';
 import 'package:ForgeForm/feature/chat/presentation/widgets/chat_attachment_content.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 
@@ -26,11 +33,19 @@ class ChatBubble extends StatelessWidget {
   /// Invoked when the user taps a failed message to send it again.
   final ValueChanged<String>? onRetry;
 
+  /// Overrides [openAttachmentExternally] for a stored document. Null in
+  /// every production call site, which uses the real, platform-specific
+  /// implementation; a test supplies a fake here rather than letting a
+  /// stored-document tap reach a real platform channel
+  /// (`open_filex`/`url_launcher`) or the real filesystem.
+  final OpenAttachmentExternally? openAttachmentExternallyOverride;
+
   const ChatBubble({
     super.key,
     required this.message,
     this.threadId,
     this.onRetry,
+    this.openAttachmentExternallyOverride,
   });
 
   static const _mineRadius = BorderRadius.only(
@@ -137,6 +152,43 @@ class ChatBubble extends StatelessWidget {
       }
     }
 
+    // The action a *stored* attachment offers, once there is nothing left to
+    // fetch: expanding a photo full screen, or handing a document to the OS.
+    // Never set for video — `_VideoTile` owns the player its own fullscreen
+    // entry needs, so it decides that action internally rather than through
+    // a callback threaded down from here. Kind-specific rather than a single
+    // "open" concept because "open" means something different for each: a
+    // photo has nothing to open, only to view larger.
+    VoidCallback? attachmentOpen;
+    if (ref != null &&
+        attachmentState!.phase == AttachmentPhase.stored &&
+        attachmentState.bytes != null) {
+      final bytes = attachmentState.bytes!;
+      switch (ref.kind) {
+        case MediaType.picture:
+          attachmentOpen =
+              () => showChatImageViewer(
+                context,
+                bytes: bytes,
+                ref: ref,
+                caption: message.body,
+              );
+        case MediaType.document:
+          attachmentOpen =
+              () => _openStoredDocument(
+                context,
+                l10n,
+                ref,
+                bytes,
+                openAttachmentExternallyOverride ?? openAttachmentExternally,
+              );
+        case MediaType.video:
+        case MediaType.audio:
+        case MediaType.voiceNote:
+          attachmentOpen = null;
+      }
+    }
+
     final Widget content;
     if (unreadable) {
       content = _UndecryptableContent(
@@ -156,6 +208,7 @@ class ChatBubble extends StatelessWidget {
             bytes: attachmentState.bytes,
             textColor: textColor,
             onTap: attachmentTap,
+            onOpen: attachmentOpen,
           ),
           if (caption != null && caption.isNotEmpty) ...[
             const SizedBox(height: 6),
@@ -193,6 +246,20 @@ class ChatBubble extends StatelessWidget {
             // visual-only: a progress ring or a broken-image glyph is exactly
             // as invisible to a screen reader as colour would be.
             value: semanticsValue,
+            // `excludeSemantics: true` below drops every descendant semantics
+            // node, which means a `Semantics`/`onTap` added on a tile inside
+            // `ChatAttachmentContent` would compile, render and do nothing —
+            // this is the one node whose action can ever reach an assistive
+            // technology. Wiring it also means a screen reader's "activate"
+            // gesture (which sends a semantics action, not a raw touch at a
+            // screen location) now reaches fetch/retry — which it could not
+            // reach before this action existed either, on any platform or
+            // phase, gesture split or not. `attachmentOpen` takes priority:
+            // stored is the phase with something to open. Not wired for a
+            // stored video — its fullscreen entry lives entirely inside
+            // `_VideoTileState`, which this level has no handle on; see
+            // docs/chat-attachments.md §17.
+            onTap: attachmentOpen ?? attachmentTap,
             excludeSemantics: true,
             child: Opacity(
               // Dimmed rather than hidden: the message is real and the user
@@ -218,6 +285,41 @@ class ChatBubble extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Hands a stored document to [open] (the real [openAttachmentExternally] in
+/// production, a fake in a test — see `ChatBubble.openAttachmentExternallyOverride`)
+/// and surfaces anything other than success — a phone with no PDF reader and
+/// a genuinely failed write are different problems with different next steps
+/// for the user, so [AttachmentOpenOutcome.noHandler] gets its own sentence
+/// rather than folding into a generic error. Never a silent failure, per
+/// CLAUDE.md.
+Future<void> _openStoredDocument(
+  BuildContext context,
+  AppLocalizations l10n,
+  ChatAttachmentRef ref,
+  Uint8List bytes,
+  OpenAttachmentExternally open,
+) async {
+  final outcome = await open(
+    bytes: bytes,
+    name: ref.name,
+    mime: ref.mime,
+    id: ref.id,
+  );
+  // The bubble that started this can be gone by the time the write/launch
+  // finishes — an incoming message can rebuild the thread mid-open.
+  if (!context.mounted) return;
+
+  final message = switch (outcome) {
+    AttachmentOpenOutcome.opened => null,
+    AttachmentOpenOutcome.noHandler => l10n.chatAttachmentNoAppToOpen,
+    AttachmentOpenOutcome.failed => l10n.chatAttachmentOpenFailed,
+  };
+  if (message == null) return;
+  ScaffoldMessenger.of(
+    context,
+  ).showSnackBar(SnackBar(content: Text(message)));
 }
 
 /// Plain message text — the common case, split out from [ChatBubble] now

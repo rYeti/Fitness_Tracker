@@ -2579,6 +2579,20 @@ class AppLocalizationsDe extends AppLocalizations {
   String get chatAttachmentOpen => 'Öffnen';
 
   @override
+  String get chatAttachmentCloseViewer => 'Schließen';
+
+  @override
+  String get chatAttachmentExpandHint => 'zum Öffnen doppelt tippen';
+
+  @override
+  String get chatAttachmentNoAppToOpen =>
+      'Keine App auf diesem Gerät kann diese Datei öffnen';
+
+  @override
+  String get chatAttachmentOpenFailed =>
+      'Diese Datei konnte nicht geöffnet werden';
+
+  @override
   String get chatVoiceNoteLabel => 'Sprachnachricht';
 
   @override

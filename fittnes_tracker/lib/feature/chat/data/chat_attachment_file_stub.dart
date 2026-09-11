@@ -8,3 +8,5 @@ Future<void> writeAttachmentBytes(String path, Uint8List bytes) async {}
 Future<Uint8List?> readAttachmentBytes(String path) async => null;
 
 Future<void> deleteAttachmentFile(String path) async {}
+
+Future<void> deleteAttachmentDirectory(String path) async {}

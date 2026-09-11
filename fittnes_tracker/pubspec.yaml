@@ -57,6 +57,13 @@ dependencies:
   shared_preferences: ^2.5.3
   flutter_secure_storage: ^9.2.4
   file_picker: ^10.3.7
+  # Opens a stored chat document in the user's default app (docs/chat-attachments.md
+  # §17). Android/iOS only, by design: `attachment_opener_io.dart` never calls
+  # this on Windows/macOS/Linux, which go through url_launcher's `Uri.file`
+  # instead, and `attachment_opener_web.dart` never imports this package at
+  # all — its own web implementation wraps legacy `dart:html`, and would be a
+  # no-op there regardless.
+  open_filex: ^4.7.0
   # Camera/gallery capture for chat attachments (phase 4). Pure-Dart JPEG
   # re-encoder — see ImageDownscale for why dart:ui's own encoder (PNG-only)
   # isn't enough on its own.

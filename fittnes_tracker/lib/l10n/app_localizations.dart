@@ -4681,6 +4681,30 @@ abstract class AppLocalizations {
   /// **'Open'**
   String get chatAttachmentOpen;
 
+  /// No description provided for @chatAttachmentCloseViewer.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get chatAttachmentCloseViewer;
+
+  /// No description provided for @chatAttachmentExpandHint.
+  ///
+  /// In en, this message translates to:
+  /// **'double tap to open'**
+  String get chatAttachmentExpandHint;
+
+  /// No description provided for @chatAttachmentNoAppToOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'No app on this device can open this file'**
+  String get chatAttachmentNoAppToOpen;
+
+  /// No description provided for @chatAttachmentOpenFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn't open this file'**
+  String get chatAttachmentOpenFailed;
+
   /// No description provided for @chatVoiceNoteLabel.
   ///
   /// In en, this message translates to:
