@@ -28,11 +28,6 @@ import 'fakes.dart';
 /// Local DateTimes throughout: the widgets format in the reader's timezone, so a
 /// UTC fixture would make these assertions depend on where the test runs.
 void main() {
-  // A leaked override here silently changes every later test in this file —
-  // several of the new tests below set it to drive the pointer/touch
-  // gesture split.
-  tearDown(() => debugDefaultTargetPlatformOverride = null);
-
   Future<void> pumpBubble(WidgetTester tester, ThreadMessage message) {
     return tester.pumpWidget(
       MaterialApp(
@@ -383,6 +378,13 @@ void main() {
     'on a pointer platform, a single click on a stored photo does not open the viewer',
     (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      // Reset inside the test itself, not via a file-level `tearDown`:
+      // Flutter's own `_verifyInvariants` check runs at the end of *this*
+      // test's body, before a `tearDown` registered in `main()` ever gets a
+      // chance to fire, and asserts every foundation debug variable
+      // (`debugDefaultTargetPlatformOverride` among them) is back to null by
+      // then.
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
       final msg = storedMessage(pictureRef(width: 800, height: 600));
       await pumpStoredBubble(tester, msg, bytes: onePixelPng);
       await tester.pump();
@@ -398,6 +400,7 @@ void main() {
     'on a pointer platform, a double click on a stored photo opens the viewer',
     (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
       final msg = storedMessage(pictureRef(width: 800, height: 600));
       await pumpStoredBubble(tester, msg, bytes: onePixelPng);
       await tester.pump();
@@ -420,6 +423,7 @@ void main() {
     'on a touch platform, a single tap on a stored photo opens the viewer',
     (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
       final msg = storedMessage(pictureRef(width: 800, height: 600));
       await pumpStoredBubble(tester, msg, bytes: onePixelPng);
       await tester.pump();
@@ -433,6 +437,7 @@ void main() {
 
   testWidgets('the viewer closes on Escape', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
     final msg = storedMessage(pictureRef(width: 800, height: 600));
     await pumpStoredBubble(tester, msg, bytes: onePixelPng);
     await tester.pump();
@@ -452,6 +457,7 @@ void main() {
     'even though a single click does nothing there',
     (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
       final msg = storedMessage(pictureRef(width: 800, height: 600));
       await pumpStoredBubble(tester, msg, bytes: onePixelPng);
       await tester.pump();
@@ -476,6 +482,7 @@ void main() {
     'instead of playing or expanding',
     (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
       final ref = videoRef(durationSeconds: 42);
       final msg = ThreadMessage(
         messageId: 'm1',
