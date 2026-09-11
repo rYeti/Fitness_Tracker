@@ -24,6 +24,8 @@ See `docs/android-release.md`.
 
 ## Unreleased
 
+Fixed chat opening a thread scrolled to the wrong spot instead of showing your newest messages.
+
 Tap a photo or video in chat to open it full screen, with zoom and pan. Tap a file to open it in whichever app you use for that kind of file — or, if none, you'll now be told instead of nothing happening.
 
 ## 1.0.2+24

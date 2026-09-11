@@ -44,14 +44,10 @@ class _ChatThreadListState extends State<ChatThreadList> {
   /// rebuild that changed nothing about where the bottom is.
   int _lastCount = 0;
 
-  @override
-  void initState() {
-    super.initState();
-    // Opening a thread should land on the newest message, not the oldest. The
-    // list is forward-ordered, so without this a thread with any history opens
-    // scrolled to the top — reading as "nothing recent here".
-    _scrollToBottomIfGrown();
-  }
+  /// The thread [_lastCount] was counted in. Switching clients in the console
+  /// reuses this State, so without this a shorter thread looks like a thread
+  /// that shrank — and shrinking is the one thing that never needs a scroll.
+  String? _lastThreadId;
 
   @override
   void dispose() {
@@ -67,24 +63,33 @@ class _ChatThreadListState extends State<ChatThreadList> {
 
   /// Puts a newly arrived message on screen.
   ///
-  /// Messages are appended to the end of a forward-ordered list, so without this
-  /// anything sent into a thread longer than the viewport lands below the fold —
-  /// indistinguishable, from the user's side, from a message that was never sent
-  /// at all.
+  /// The list is reversed, so the newest message sits at offset 0 and a thread
+  /// opens at the bottom without any scrolling at all. This only covers the one
+  /// case the framework can't: the user has scrolled up into history and a
+  /// message — usually their own — arrives at the other end.
   void _scrollToBottomIfGrown() {
+    final threadId = widget.chat.activeThreadId;
     final count = widget.chat.thread.length;
+    if (threadId != _lastThreadId) {
+      // A different thread's list starts life at offset 0, which is already the
+      // bottom. Adopt its length so its first message doesn't read as growth.
+      _lastThreadId = threadId;
+      _lastCount = count;
+      return;
+    }
     if (count <= _lastCount) {
       _lastCount = count;
       return;
     }
     _lastCount = count;
 
-    // After the frame that lays the new item out, or maxScrollExtent is still
-    // the old bottom.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_controller.hasClients) return;
 
-      final bottom = _controller.position.maxScrollExtent;
+      // minScrollExtent, not maxScrollExtent: in a lazy list the far end is an
+      // estimate extrapolated from the children built so far, so scrolling to
+      // it lands somewhere arbitrary. The near end is always exactly 0.
+      final bottom = _controller.position.minScrollExtent;
       // Reduced motion is an accessibility setting, not a preference to weigh:
       // jump instead of animating, but still make the move.
       if (MediaQuery.maybeDisableAnimationsOf(context) ?? false) {
@@ -131,11 +136,17 @@ class _ChatThreadListState extends State<ChatThreadList> {
     final items = _withDateDividers(chat.thread);
 
     return ListView.builder(
+      // A fresh scroll position per thread — otherwise switching clients in
+      // the console keeps the previous thread's offset into the new one.
+      key: ValueKey(chat.activeThreadId),
       controller: _controller,
+      reverse: true,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       itemCount: items.length,
       itemBuilder: (context, index) {
-        final item = items[index];
+        // items is forward-ordered (dividers precede the day's first message);
+        // reverse: true paints index 0 at the bottom, so read from the end.
+        final item = items[items.length - 1 - index];
         if (item is DateTime) return ChatDateDivider(date: item);
         final message = item as ThreadMessage;
         return ChatBubble(
