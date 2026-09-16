@@ -1,4 +1,7 @@
-import 'package:drift/drift.dart';
+// `show Value` rather than the whole library: drift exports an `isNull` of
+// its own (the SQL expression builder's), which collides with the matcher
+// of the same name from flutter_test and is an error, not a warning.
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
