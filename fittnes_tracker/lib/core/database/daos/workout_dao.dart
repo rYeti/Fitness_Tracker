@@ -13,6 +13,27 @@ part 'workout_dao.g.dart';
 /// rep count from a different day — see [WorkoutDao.getAllTimeBestSets].
 typedef PersonalBestSet = ({double weight, int reps});
 
+/// Whether [candidate] beats [incumbent] as a personal best: heavier wins, and
+/// reps only break a tie on equal weight — never the other way round, because
+/// "best" here means heaviest, not highest-volume.
+///
+/// The same ordering is spelled a second time as the `ORDER BY ws.weight DESC,
+/// ws.reps DESC` of the queries below, which no compiler can check against
+/// this. It exists in Dart because two of the three places that need it never
+/// touch SQL at all: the live, unsaved sets a trainee is typing, and the fold
+/// that merges those with what the database already holds.
+bool beatsPersonalBest(PersonalBestSet candidate, PersonalBestSet incumbent) =>
+    candidate.weight > incumbent.weight ||
+    (candidate.weight == incumbent.weight && candidate.reps > incumbent.reps);
+
+/// The better of two personal bests, either of which may be absent. Returns
+/// null only when both are.
+PersonalBestSet? bestOf(PersonalBestSet? a, PersonalBestSet? b) {
+  if (a == null) return b;
+  if (b == null) return a;
+  return beatsPersonalBest(b, a) ? b : a;
+}
+
 /// One exercise's aggregates for one completed day, as the progress dashboard
 /// charts them. See [WorkoutDao.getExerciseProgressRows] for what
 /// [ExerciseProgressRow.firstSetReps] is and is not.
@@ -705,6 +726,58 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
   /// exercise.
   Future<Map<int, PersonalBestSet>> getAllTimeBestSets({
     List<int>? exerciseIds,
+  }) => _bestSets(exerciseIds: exerciseIds);
+
+  /// The heaviest completed, non-warmup set for each exercise **within one
+  /// training plan** — the collection of workouts a trainee is currently
+  /// working through (Upper A, Upper B, …), not one day of it and not all of
+  /// history.
+  ///
+  /// This is the scope a trainee means by "my best on this programme". It sits
+  /// between the other two numbers the active-workout screen shows and is
+  /// bounded by both: it can never exceed [getAllTimeBestSets] for the same
+  /// exercise, and it can never be beaten by the session in progress without
+  /// the session's own set becoming the new plan best.
+  ///
+  /// Scoped by `scheduled_workout_table.workout_plan_id` — the plan a *session*
+  /// was scheduled under — rather than by the plan's list of workouts. Those
+  /// two differ after any trainer edit, which leaves the plan pointing at a
+  /// reshaped workout (see `docs/trainer-workout-builder.md`); the sessions
+  /// already logged keep their plan id either way, so the trainee's history on
+  /// the programme survives an edit that the workout list would have dropped.
+  ///
+  /// [planId] is nullable because a scheduled session need not belong to a plan
+  /// — one pulled from a server whose plan didn't resolve locally, or one whose
+  /// plan was deleted (`SyncService` nulls the column rather than orphaning the
+  /// row). With no plan there is no collection of workouts to span, so the
+  /// scope degenerates to the sessions of [workoutId] alone, which is the only
+  /// collection left. Callers must label the result for the scope they got.
+  Future<Map<int, PersonalBestSet>> getPlanBestSets({
+    required int? planId,
+    required int workoutId,
+    List<int>? exerciseIds,
+  }) => _bestSets(
+    exerciseIds: exerciseIds,
+    scopeFilter:
+        planId != null
+            ? 'AND sw.workout_plan_id = ?'
+            : 'AND sw.workout_id = ?',
+    scopeVariables: [Variable<int>(planId ?? workoutId)],
+  );
+
+  /// Shared body of [getAllTimeBestSets] and [getPlanBestSets]: the two differ
+  /// only in which completed sessions they look at, and every other rule about
+  /// what counts as a personal best — warmups excluded, a weight and a rep
+  /// count both required, the set credited to [_performedExerciseId] — has to
+  /// stay identical or the two numbers on screen stop being comparable.
+  ///
+  /// [scopeFilter] is appended verbatim to the `WHERE` clause and its
+  /// placeholders are bound from [scopeVariables], in that order, between the
+  /// warmup variable and the exercise-id list.
+  Future<Map<int, PersonalBestSet>> _bestSets({
+    required List<int>? exerciseIds,
+    String scopeFilter = '',
+    List<Variable> scopeVariables = const [],
   }) async {
     final ids = exerciseIds?.toSet().toList();
     if (ids != null && ids.isEmpty) return {};
@@ -727,11 +800,13 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
         AND ws.weight IS NOT NULL
         AND ws.reps IS NOT NULL
         AND ws.reps > 0
+        $scopeFilter
         $idFilter
       ORDER BY exercise_id, ws.weight DESC, ws.reps DESC
       ''',
           variables: [
             Variable<int>(SetType.warmup.index),
+            ...scopeVariables,
             if (ids != null) ...ids.map((id) => Variable<int>(id)),
           ],
         ).get();
