@@ -367,3 +367,283 @@ sitting in a view among other per-exercise work looked fine and ran six times;
 the same logic behind `getAllTimeBestSets({exerciseIds})` could only be
 written once. Neither the compiler nor a test can see the difference between
 one query and six — they can only see the shape you gave the caller.
+
+---
+
+# 10. The second number was the wrong "best" — one session, not one programme
+
+Line references in this section are to the commit that introduces it.
+
+The feature shipped in §1–§9 put two cards on the active-workout screen: an
+all-time PB for the exercise, and a second card labelled "This Workout's Best."
+The second one was wrong, and it was wrong in a way that no test, type or
+review caught, because it was *exactly what the original request asked for*
+under a reading nobody noticed was a reading.
+
+## 10.1 What "this workout" meant to the code, and what it meant to the user
+
+`workout` is used for two different things in this codebase, one line apart:
+
+| The word | What it denotes | Where |
+| --- | --- | --- |
+| a workout | a template — "Upper A" — a named list of exercises | `WorkoutTable` |
+| a scheduled workout | one performance of a template on one date | `ScheduledWorkoutTable` |
+| the active workout | the *screen* the trainee is standing in | `ActiveWorkoutScreen` |
+
+`_currentWorkoutBestSet` picked the third. It read the text controllers of the
+session on screen and returned the heaviest set typed into them so far, so the
+card answered: **of the sets you have logged in the last forty minutes, which
+was heaviest?**
+
+A trainee training a plan — Upper A, Upper B, Lower A, rotating — reads "this
+workout" as the fourth thing the word can mean, which the table above does not
+even contain: *the programme*. The collection of workouts they are currently
+working through. Their question is **on this block, how heavy have I gone on
+this lift?**, and it is a genuinely useful question, because it is the one the
+all-time PB cannot answer. An all-time best can be four years old and set at a
+bodyweight they no longer have; a programme best is the thing they are actually
+trying to beat this month.
+
+The session-scoped number is, by contrast, almost content-free. Sets within a
+session are usually a ramp followed by working sets at one weight, so "the best
+of this session" is the top of the ramp — a number the trainee chose before
+starting and can see two inches away in the field they just typed it into. It
+is a restatement of the screen, presented as a statistic.
+
+Nothing about that is visible from the code. The method was named for what it
+computed, the tests asserted what it computed, and the doc in §1 defended the
+distinction between the two cards at length — correctly, as far as it went. The
+question it never asked was whether *the smaller of the two scopes was worth a
+card at all*. "These two numbers must not be merged" and "one of these two
+numbers is the wrong number" are compatible statements, and only the first one
+had been argued.
+
+## 10.2 The scope that replaced it
+
+The card now shows the best set for the exercise across **every completed
+session scheduled under the same plan as the session on screen**, plus whatever
+the trainee has typed into the session in progress.
+
+```
+all-time      ⊇      this plan      ⊇      this session
+(every         (Upper A + Upper B +      (what is on
+ session ever)  Lower A + … of the        screen right
+                current block)            now)
+```
+
+The middle scope is new; the innermost one did not survive as a card, but it
+did survive as an input, which §10.4 is about.
+
+`WorkoutDao.getPlanBestSets` (workout_dao.dart) is the query. It shares its
+body with `getAllTimeBestSets` through a private `_bestSets`, which takes the
+scope as an extra `WHERE` fragment plus its bound variables and is otherwise
+identical. That sharing is not tidiness: the two numbers are stacked on the
+same screen and the user will subtract one from the other, so every rule about
+what counts as a personal best — warmups excluded, both a weight and a rep
+count required, the set credited to `_performedExerciseId` rather than to the
+exercise the plan named — has to be the same rule, not the same rule typed
+twice. §8 of this document is an inventory of what happens when two pieces of
+code answer the same question separately; a copy-pasted second query with a
+different `WHERE` would have been the next entry in it.
+
+## 10.3 Scoping by the session's plan id, not by the plan's workouts
+
+There are two defensible ways to express "the sets belonging to this plan," and
+they are not equivalent:
+
+```sql
+-- what this change does
+AND sw.workout_plan_id = ?
+
+-- the other candidate
+AND sw.workout_id IN (SELECT workout_id FROM workout_plan_workout_table WHERE plan_id = ?)
+```
+
+The first asks which plan a session *was scheduled under* — a fact recorded on
+the session row at the moment it was created, and never revised. The second
+asks which workouts the plan contains *right now*, and then finds sessions of
+those.
+
+They diverge whenever the plan's shape changes underneath a history that
+already exists, which is not an exotic case: it is what a trainer edit does
+(`docs/trainer-workout-builder.md`), and it is what any workout removed from a
+plan, renamed into a new row, or rebuilt after a sync reconciliation does. Under
+the second predicate, the trainee's programme best silently resets when their
+coach reorganises the block — the sets are still in the database, still
+attributed to the right exercise, and simply stop being counted because the
+workout they were performed under is no longer in the plan's list. §3 of this
+document rejected workout-scoped PBs for this exact failure mode; scoping by
+the plan id on the session is the same argument applied one level up.
+
+The cost of the choice is that a session can carry a plan id for a plan that
+has since been deleted — `SyncService` nulls the column rather than orphaning
+the row (sync_service.dart), so those sessions fall out of the scope rather
+than poisoning it. That is the right trade: a plan that no longer exists has no
+programme best to report.
+
+### The null-plan case is a scope, not an error
+
+`workout_plan_id` is nullable and genuinely null in the field: a session pulled
+from the server whose plan did not resolve locally, a session whose plan was
+deleted, anything predating plans. Three things could happen there, and two of
+them are bugs:
+
+- **Bind null and let SQL compare.** `sw.workout_plan_id = NULL` is never true
+  in SQLite, so the card would vanish for those trainees with no explanation.
+- **Drop the filter.** The scope silently widens to all-time, and the screen
+  shows the same number twice under two different labels — the §1 failure mode,
+  reintroduced through a null check that looked like defensive coding.
+- **Fall back to the workout.** With no plan there is no collection of workouts
+  to span, so the collection degenerates to the sessions of *this* workout —
+  every Upper A ever performed. Still a real, useful scope; still not the
+  session.
+
+`getPlanBestSets` takes `planId` **and** `workoutId` for this reason, and swaps
+the `WHERE` fragment rather than the binding, so the placeholder count never
+depends on the data. The screen labels the result for the scope it actually
+got: `_hasPlan ? l10n.planBest : l10n.workoutBest` (active_workout_view.dart) —
+"Best in This Plan" or "Best in This Workout". A card whose number and whose
+noun are chosen in two different places will eventually disagree; here they are
+chosen off the same nullable field, one line apart.
+
+## 10.4 Why the live text controllers are still read
+
+The query only sees `sw.is_completed = 1`. The session the trainee is standing
+in is, by definition, not completed — and beyond that, §2 of this document
+explains why it could not be read from the database even if it were: the save
+path deletes and reinserts every set row for the exercise on each debounced
+flush, so a query would lag the keyboard by up to 800ms and flicker between the
+old value and the new one.
+
+So the programme best is **two sources folded together**:
+
+```dart
+PersonalBestSet? _planBestSet(_ExerciseWithSets exerciseData) {
+  var best = bestOf(exerciseData.planBest, _currentSessionBestSet(exerciseData));
+  for (final slot in _exercises) { … }
+  return best;
+}
+```
+
+`planBest` is the plan's completed history, fetched once when the screen loads.
+`_currentSessionBestSet` — the old `_currentWorkoutBestSet`, renamed to say what
+it actually computes — covers the gap live from the text fields.
+
+The fold is the whole feature. The moment a trainee's working set passes what
+they have done all block is the moment this card exists for, and it happens
+between two keystrokes, in a session that will not be marked complete for
+another half hour. Without the live half, the card would announce the new
+programme best some time after the trainee had left the gym.
+
+That is also why the session number survived as an input after being rejected
+as a display: it was never useless, it was mis-framed. As a card it answered a
+question nobody asked. As one of two terms in a fold it is the only thing that
+makes the card current.
+
+## 10.5 One comparison, three places, previously zero of them shared
+
+Merging two `PersonalBestSet?`s needs the same ordering the query's `ORDER BY
+ws.weight DESC, ws.reps DESC` encodes and the same ordering
+`_currentWorkoutBestSet` had open-coded as
+`weight > best.weight || (weight == best.weight && reps > best.reps)`. That is
+three statements of one rule, and by §8's standard, two of them were already a
+latent disagreement waiting for someone to edit one and not the other.
+
+`beatsPersonalBest` and `bestOf` (workout_dao.dart, beside the `PersonalBestSet`
+typedef) are now the single Dart statement of it, used by the per-set scan and
+by the fold. The SQL still spells it a fourth time, and no compiler can check
+that against the Dart — so the Dart version carries a comment saying where its
+twin lives, and the tests assert the two boundary cases the rule turns on
+(heavier always wins however few the reps; reps break a tie on weight and
+nothing else).
+
+`bestOf` returning null only when *both* sides are null matters more than it
+looks. The natural one-liner —
+`a != null && b != null ? (better one) : (a ?? b)` — is correct, but the
+equally natural `if (a == null || b == null) return null;` is a shape that
+compiles, reads as a null guard, and quietly deletes the programme best for
+every exercise the trainee has not yet typed a set for. Null here means "no such
+set," not "unknown," and the two behave differently under a fold.
+
+## 10.6 The same exercise, twice in one session
+
+`_currentSessionBestSet` reads the controllers of **one slot** — one
+`WorkoutExercise` row. A workout can hold the same lift twice: the overview
+sheet's "add exercise" will happily add one already in the session, and a swap
+can land on an exercise that is already elsewhere in the day.
+
+Scoped to a session, reading one slot was defensible. Scoped to a plan it is
+not: the card would claim a programme best the trainee had already beaten,
+sixty seconds ago, two exercises further down the same screen. `_planBestSet`
+therefore folds every slot in `_exercises` whose `exercise.id` matches, not just
+the one being rendered. The `identical(slot, exerciseData)` skip is only there
+to avoid scanning the same controllers twice; the result would be the same
+without it.
+
+This is the widening a scope change tends to bring with it and which is easy to
+miss: the *implementation* of the inner term did not change, but the claim the
+card makes about that term did, and a narrower implementation that was true
+under the old claim is false under the new one.
+
+## 10.7 What the labels had to change into
+
+`workoutBest` read "This Workout's Best" / "Bestleistung dieses Trainings" —
+which was ambiguous in exactly the way §10.1 describes, and is the phrasing that
+let the wrong reading ship. Both locales are now explicit about which collection
+they mean:
+
+| key | en | de | shown when |
+| --- | --- | --- | --- |
+| `planBest` | Best in This Plan | Bestleistung in diesem Plan | the session has a plan |
+| `workoutBest` | Best in This Workout | Bestleistung in diesem Training | it does not |
+
+`workoutBest` was repurposed rather than deleted, and its meaning shifted from
+"this session" to "this workout across all its sessions" — the degenerate scope
+of §10.3. Repurposing a translation key is normally a way to ship a wrong
+string in the locale nobody on the team reads; it is safe here only because
+both locales are hand-updated in the same change, and it is recorded here so
+that a future translator pass knows the English changed meaning rather than
+merely wording.
+
+`paywallFeaturePersonalBest` changed too — it promised "all-time and
+per-workout", and per CLAUDE.md the paywall bullet is the only route a free
+user has back to a feature they cannot see. A bullet that describes a scope the
+app no longer has is the same defect as no bullet at all, one step later.
+
+## 10.8 Both cards still render when they agree
+
+For a trainee whose all-time PB on a lift was set during the current block, the
+two cards show the same set under two labels. That is deliberate, and it is a
+change from the old behaviour, where the session card simply did not exist until
+the trainee typed something.
+
+Suppressing the duplicate was considered and rejected on layout grounds: the
+plan card is the hero-styled one directly above the set being entered, so a rule
+like "hide it when it equals the all-time best" makes the card appear and
+disappear *mid-set*, exactly as the trainee beats it — a layout jump at the one
+moment the screen has something to say. Two cards reading the same number is not
+misinformation; it is the true statement "your best ever on this lift is from
+this block", rendered twice.
+
+## 10.9 The lesson
+
+§9 ended on: when a feature description has two readings of "X", the difference
+between them can be invisible in every manual test until the case the feature
+exists for. This change is the sequel, and its lesson is narrower and less
+comfortable.
+
+Both readings had been identified. §1 of this document names them, defends
+keeping them apart, and ships them as two cards. What was never asked is whether
+each scope was *worth showing* — whether a user would ever act on it. A scope
+is not justified by being computable, nor by being distinct from the scope next
+to it, and "these are two different numbers" is not an argument that both are
+answers to a question somebody has. The session-scoped best passed every test
+of internal consistency and failed the only external one: a trainee glancing at
+it learned nothing they could not read off the field under their thumb.
+
+The tell, in hindsight, was that the card's value was almost always a number the
+user had typed themselves, minutes earlier, on the same screen. A statistic
+whose input is entirely within the user's current field of view is a restatement,
+not a statistic. That is a question worth asking of any derived number before
+giving it a card: *where does this come from that the user cannot already see,
+and what would they do differently on learning it?*

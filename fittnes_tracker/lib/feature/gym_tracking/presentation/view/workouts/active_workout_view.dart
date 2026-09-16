@@ -279,7 +279,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
       // *shown*, which for a swapped-out day is the override rather than
       // `workoutExercise.exerciseId`. Those ids are only known once the loop
       // has resolved them.
-      await _attachAllTimeBests(db, exercises);
+      await _attachBests(db, exercises);
 
       // Pre-populate set controllers from DB data for every exercise.
       // Without this, after process death the user resumes mid-workout and
@@ -532,8 +532,15 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     }
   }
 
-  /// Fills in [_ExerciseWithSets.allTimeBest] for every entry in [exercises]
-  /// with one query.
+  /// True when this session was scheduled as part of a training plan. Decides
+  /// which of the two scopes [_planBestSet] is showing, and therefore which
+  /// label goes on the card — the number and the word for it must not be
+  /// chosen in two different places.
+  bool get _hasPlan => widget.scheduledWorkout.scheduled.workoutPlanId != null;
+
+  /// Fills in [_ExerciseWithSets.allTimeBest] and [_ExerciseWithSets.planBest]
+  /// for every entry in [exercises], with one query each rather than one per
+  /// exercise.
   ///
   /// Keyed on `exercise.id` — the exercise as rendered — rather than on
   /// `workoutExercise.exerciseId`, so a day where the trainee swapped the
@@ -541,25 +548,62 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
   /// doing. Call it again after anything that changes which exercise a slot
   /// holds; a card whose PB was never re-fetched is indistinguishable from an
   /// exercise that has no PB.
-  Future<void> _attachAllTimeBests(
+  Future<void> _attachBests(
     AppDatabase db,
     List<_ExerciseWithSets> exercises,
   ) async {
     if (exercises.isEmpty) return;
-    final bests = await db.workoutDao.getAllTimeBestSets(
-      exerciseIds: exercises.map((e) => e.exercise.id).toList(),
+    final exerciseIds = exercises.map((e) => e.exercise.id).toList();
+    final allTime = await db.workoutDao.getAllTimeBestSets(
+      exerciseIds: exerciseIds,
+    );
+    final inPlan = await db.workoutDao.getPlanBestSets(
+      planId: widget.scheduledWorkout.scheduled.workoutPlanId,
+      workoutId: widget.scheduledWorkout.scheduled.workoutId,
+      exerciseIds: exerciseIds,
     );
     for (final exercise in exercises) {
-      exercise.allTimeBest = bests[exercise.exercise.id];
+      exercise.allTimeBest = allTime[exercise.exercise.id];
+      exercise.planBest = inPlan[exercise.exercise.id];
     }
   }
 
+  /// The best set for this exercise anywhere in the plan this session belongs
+  /// to — every Upper A, Upper B and Legs already logged under it, plus what
+  /// the trainee is typing right now.
+  ///
+  /// Two sources, because neither alone is the answer.
+  /// [_ExerciseWithSets.planBest] covers the plan's *completed* sessions and is
+  /// read once when the screen loads; the session in progress is by definition
+  /// not completed, so nothing in it is in that number yet, and the moment a
+  /// trainee beats their programme best is the moment the card exists for.
+  /// [_currentSessionBestSet] covers exactly that gap, live from the text
+  /// fields. Merged with [bestOf] so the same "heavier wins, reps break ties"
+  /// rule decides between them as decides within each.
+  ///
+  /// Every slot in the session holding this exercise is folded in, not just
+  /// the one on screen. A workout can carry the same lift twice — the overview
+  /// sheet will happily add one that is already in it — and they are still one
+  /// exercise as far as a personal best is concerned.
+  PersonalBestSet? _planBestSet(_ExerciseWithSets exerciseData) {
+    var best = bestOf(
+      exerciseData.planBest,
+      _currentSessionBestSet(exerciseData),
+    );
+    for (final slot in _exercises) {
+      if (identical(slot, exerciseData)) continue;
+      if (slot.exercise.id != exerciseData.exercise.id) continue;
+      best = bestOf(best, _currentSessionBestSet(slot));
+    }
+    return best;
+  }
+
   /// The heaviest non-warmup set typed into this exercise's fields so far in
-  /// *this* workout — read live from the text controllers rather than the
+  /// *this* session — read live from the text controllers rather than the
   /// database, so it updates as the user logs sets without waiting on the
   /// debounced save. Returns null once nothing with a weight has been
   /// entered for any of the exercise's sets yet.
-  PersonalBestSet? _currentWorkoutBestSet(_ExerciseWithSets exerciseData) {
+  PersonalBestSet? _currentSessionBestSet(_ExerciseWithSets exerciseData) {
     PersonalBestSet? best;
     for (final template in exerciseData.templates) {
       final typeKey = _getSetControllerKey(
@@ -592,10 +636,9 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
       // the session between the two keystrokes.
       if (reps == null || reps <= 0) continue;
 
-      if (best == null ||
-          weight > best.weight ||
-          (weight == best.weight && reps > best.reps)) {
-        best = (weight: weight, reps: reps);
+      final candidate = (weight: weight, reps: reps);
+      if (best == null || beatsPersonalBest(candidate, best)) {
+        best = candidate;
       }
     }
     return best;
@@ -1020,7 +1063,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     // The slot now holds a different exercise, so it holds a different PB —
     // and leaving it unset would read as "no PB yet" for the rest of the
     // session rather than as the swap it is.
-    await _attachAllTimeBests(db, [replacement]);
+    await _attachBests(db, [replacement]);
     if (!mounted) return;
 
     setState(() {
@@ -1586,12 +1629,12 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
           ),
           const SizedBox(height: 24),
 
-          if (_currentWorkoutBestSet(exerciseData) case final currentBest?
+          if (_planBestSet(exerciseData) case final planBest?
               when hasPremiumAccess) ...[
             PersonalBestCard(
-              best: currentBest,
+              best: planBest,
               icon: Icons.emoji_events_outlined,
-              label: l10n.workoutBest,
+              label: _hasPlan ? l10n.planBest : l10n.workoutBest,
               style: PersonalBestStyle.hero,
               background: theme.colorScheme.tertiaryContainer,
               foreground: theme.colorScheme.onTertiaryContainer,
@@ -1700,9 +1743,9 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                       hintText: '0.0',
                       border: OutlineInputBorder(),
                     ),
-                    // setState (not just the debounced save) so the "this
-                    // workout's best" card above reflects the new value
-                    // immediately instead of waiting on the save timer.
+                    // setState (not just the debounced save) so the plan-best
+                    // card above reflects the new value immediately instead of
+                    // waiting on the save timer.
                     onChanged: (_) {
                       setState(() {});
                       _scheduleSave();
@@ -2260,7 +2303,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                                 previousSets: const {},
                                 existingSets: const {},
                               );
-                              await _attachAllTimeBests(db, [newExercise]);
+                              await _attachBests(db, [newExercise]);
                               if (!mounted) return;
                               setState(() => _exercises.add(newExercise));
                               setSheetState(() {});
@@ -2955,8 +2998,13 @@ class _ExerciseWithSets {
   // The all-time PB for the exercise in [exercise], from every completed
   // session (including ones under other workouts). Null if it has never been
   // logged with a weight — and mutable because swapping the exercise in this
-  // slot changes whose PB this is. See `_attachAllTimeBests`.
+  // slot changes whose PB this is. See `_attachBests`.
   PersonalBestSet? allTimeBest;
+  // The best set for [exercise] across the *completed* sessions of the plan
+  // this workout was scheduled under — or, for a session with no plan, of this
+  // workout. Excludes the session in progress, which `_planBestSet` folds back
+  // in from the text fields. Mutable for the same reason [allTimeBest] is.
+  PersonalBestSet? planBest;
   _ExerciseWithSets({
     required this.exercise,
     required this.workoutExercise,

@@ -1079,7 +1079,10 @@ class AppLocalizationsDe extends AppLocalizations {
   String get lastTime => 'Letztes Mal';
 
   @override
-  String get workoutBest => 'Bestleistung dieses Trainings';
+  String get planBest => 'Bestleistung in diesem Plan';
+
+  @override
+  String get workoutBest => 'Bestleistung in diesem Training';
 
   @override
   String get allTimeBest => 'Bestleistung';
@@ -2243,7 +2246,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get paywallFeaturePersonalBest =>
-      'Bestleistungen — gesamt und pro Training, für jede Übung';
+      'Bestleistungen — gesamt und pro Trainingsplan, für jede Übung';
 
   @override
   String get paywallFeaturePlans => 'Unbegrenzte Trainingspläne';

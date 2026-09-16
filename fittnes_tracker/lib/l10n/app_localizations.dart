@@ -2060,10 +2060,16 @@ abstract class AppLocalizations {
   /// **'Last Time'**
   String get lastTime;
 
+  /// No description provided for @planBest.
+  ///
+  /// In en, this message translates to:
+  /// **'Best in This Plan'**
+  String get planBest;
+
   /// No description provided for @workoutBest.
   ///
   /// In en, this message translates to:
-  /// **'This Workout\'s Best'**
+  /// **'Best in This Workout'**
   String get workoutBest;
 
   /// No description provided for @allTimeBest.
@@ -4102,7 +4108,7 @@ abstract class AppLocalizations {
   /// No description provided for @paywallFeaturePersonalBest.
   ///
   /// In en, this message translates to:
-  /// **'Personal bests — all-time and per-workout, for every exercise'**
+  /// **'Personal bests — all-time and per training plan, for every exercise'**
   String get paywallFeaturePersonalBest;
 
   /// No description provided for @paywallFeaturePlans.
