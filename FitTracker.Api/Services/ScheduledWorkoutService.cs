@@ -118,13 +118,29 @@ public class ScheduledWorkoutService : IScheduledWorkoutService
     /// <inheritdoc/>
     public async Task<List<WorkoutSetResponseDto>> AddSetsBatchAsync(Guid scheduledWorkoutExerciseId, Guid userId, List<WorkoutSetRequestDto> dtos)
     {
-        var results = new List<WorkoutSetResponseDto>();
-        foreach (var dto in dtos)
+        // The batch is the exercise's whole log, not an addition to it — the same
+        // correction AddSetTemplatesBatchAsync needed one table over. The client's active
+        // workout rewrites an exercise's sets on every save, as fresh rows with no server
+        // id, and the sync pushes those. Appending meant every save that followed a push
+        // added another copy of the exercise: a session reviewed in the Trainer Console
+        // listed "set 1" eight times. See docs/sync-concurrent-runs.md.
+        if (dtos.Count == 0) return [];
+
+        var sets = dtos.Select(dto => new WorkoutSet
         {
-            var created = await AddSetAsync(scheduledWorkoutExerciseId, userId, dto);
-            if (created != null) results.Add(created);
-        }
-        return results;
+            Id = Guid.NewGuid(),
+            ScheduledWorkoutExerciseId = scheduledWorkoutExerciseId,
+            SetNumber = dto.SetNumber,
+            Reps = dto.Reps,
+            Weight = dto.Weight,
+            WeightUnit = dto.WeightUnit,
+            DurationSeconds = dto.DurationSeconds,
+            Notes = dto.Notes,
+            IsCompleted = dto.IsCompleted,
+        }).ToList();
+
+        var replaced = await _scheduledRepository.ReplaceSetsAsync(scheduledWorkoutExerciseId, userId, sets);
+        return replaced == null ? [] : [.. replaced.Select(ToSetDto)];
     }
 
     /// <inheritdoc/>

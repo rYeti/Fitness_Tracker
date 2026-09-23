@@ -224,11 +224,12 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
       final exerciseModel = db.exerciseDao.entityToModel(exerciseRow);
 
       // 🔹 Load sets for this exercise instance
-      final setRows =
-          await (select(workoutSetTemplateTable)
-                ..where((s) => s.workoutExerciseId.equals(exerciseInstance.id))
-                ..orderBy([(s) => OrderingTerm(expression: s.setNumber)]))
-              .get();
+      final setRows = _oneTemplatePerSetNumber(
+        await (select(workoutSetTemplateTable)
+              ..where((s) => s.workoutExerciseId.equals(exerciseInstance.id))
+              ..orderBy([(s) => OrderingTerm(expression: s.setNumber)]))
+            .get(),
+      );
 
       final workoutSets =
           setRows.map((set) {
@@ -303,11 +304,12 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
             (e) => e.id.equals(workoutExercise.exerciseId),
           )).getSingleOrNull();
 
-      final templates =
-          await (select(workoutSetTemplateTable)
-                ..where((t) => t.workoutExerciseId.equals(workoutExercise.id))
-                ..orderBy([(t) => OrderingTerm.asc(t.setNumber)]))
-              .get();
+      final templates = _oneTemplatePerSetNumber(
+        await (select(workoutSetTemplateTable)
+              ..where((t) => t.workoutExerciseId.equals(workoutExercise.id))
+              ..orderBy([(t) => OrderingTerm.asc(t.setNumber)]))
+            .get(),
+      );
 
       if (exercise != null) {
         results.add((exercise, templates, workoutExercise));
@@ -315,6 +317,24 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
     }
 
     return results;
+  }
+
+  /// Keeps the first template for each set number.
+  ///
+  /// Set numbers are ordinals within an exercise, so two rows numbered 1 are
+  /// the same set. A device can still be holding twins left by two pulls that
+  /// overlapped (docs/sync-concurrent-runs.md) until the next sync folds them
+  /// at rest, and the sync is throttled to once every six hours. Read
+  /// unfolded, the active workout lists every set twice with both inputs on
+  /// one controller, and the builder saves the twins straight back as pending.
+  List<WorkoutSetTemplateData> _oneTemplatePerSetNumber(
+    List<WorkoutSetTemplateData> templates,
+  ) {
+    final seen = <int>{};
+    return [
+      for (final t in templates)
+        if (seen.add(t.setNumber)) t,
+    ];
   }
 
   // Save a complete workout with exercises and sets

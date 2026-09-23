@@ -64,7 +64,9 @@ public interface IScheduledWorkoutService
     /// <summary>Adds a performed set to a scheduled workout exercise owned by the specified user.</summary>
     Task<WorkoutSetResponseDto?> AddSetAsync(Guid scheduledWorkoutExerciseId, Guid userId, WorkoutSetRequestDto dto);
 
-    /// <summary>Adds multiple performed sets to a scheduled workout exercise owned by the specified user in one call.</summary>
+    /// <summary>Replaces the performed sets of a scheduled workout exercise owned by the specified
+    /// user with <paramref name="dtos"/>, which is the exercise's whole log. An empty batch
+    /// changes nothing.</summary>
     Task<List<WorkoutSetResponseDto>> AddSetsBatchAsync(Guid scheduledWorkoutExerciseId, Guid userId, List<WorkoutSetRequestDto> dtos);
 
     /// <summary>Updates an existing performed set owned by the specified user.</summary>

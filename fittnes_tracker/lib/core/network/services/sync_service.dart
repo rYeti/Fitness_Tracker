@@ -20,10 +20,25 @@ class SyncService {
 
   // ── Entry points ─────────────────────────────────────────────────────────
 
+  // The run already in progress, if any. Static because no caller holds on to
+  // a SyncService — main.dart, Settings and sign-out each build a fresh one —
+  // so an instance field would guard nothing. See
+  // docs/sync-concurrent-runs.md: `_runInitialSync` fires on launch *and* on
+  // every resume, and two pulls interleaving their delete-then-insert of the
+  // same set templates is what left users with every set listed twice.
+  static Future<void>? _syncInFlight;
+  static Future<void>? _pullInFlight;
+
   /// Runs all sync operations in dependency order:
   /// exercises → workout templates → workout plans → scheduled workouts →
   /// food items → meals → meal templates → user settings → weight logs.
-  Future<void> syncAll() async {
+  ///
+  /// A call made while a push is already running joins that run rather than
+  /// starting a second one alongside it.
+  Future<void> syncAll() =>
+      _syncInFlight ??= _syncAll().whenComplete(() => _syncInFlight = null);
+
+  Future<void> _syncAll() async {
     // Phase 0: remove any duplicate rows caused by previous sync bugs.
     await _deduplicateAll();
 
@@ -655,19 +670,30 @@ class SyncService {
       }
       final sets = await _db.workoutDao.getSetsForScheduledExercise(localEx.id);
 
-      // Batch new sets.
-      final newSets =
-          sets.where((s) => s.syncStatus == 0 && s.serverId == null).toList();
-      if (newSets.isNotEmpty) {
+      // Any new set means push the whole log. The endpoint replaces what the
+      // exercise has, because the active workout rewrites an exercise's sets
+      // as fresh rows on every save: appending them, as it used to, added a
+      // full copy of the exercise to the server for every save that followed
+      // a push. A partial list would now delete the sets that did make it
+      // across — the same rule `_syncNewSetTemplatesBatch` documents.
+      if (sets.any((s) => s.syncStatus == 0 && s.serverId == null)) {
         try {
           await _syncNewWorkoutSetsBatch(
-            newSets,
+            sets.where((s) => s.syncStatus != 3).toList(),
             swServerId,
             localEx.serverId!,
           );
+          // The replace already removed anything this device meant to delete.
+          await (_db.delete(_db.workoutSetTable)..where(
+                (t) =>
+                    t.scheduledWorkoutExerciseId.equals(localEx.id) &
+                    t.syncStatus.equals(3),
+              ))
+              .go();
         } catch (e) {
           _logger.w('Batch set sync failed for exercise ${localEx.id}: $e');
         }
+        continue;
       }
 
       // Handle updates and deletes individually.
@@ -1039,6 +1065,132 @@ class SyncService {
 
   /// Whether a scheduled workout has anything the user actually logged against
   /// it. Used to decide which of two duplicate sessions is the real one.
+  /// Folds set templates that share `(workoutExerciseId, setNumber)` into one.
+  ///
+  /// Set numbers are ordinals within an exercise, so two templates numbered 1
+  /// are the same set — the rule `_collapseDuplicateSetTemplates` applies to
+  /// the server's list, applied here to what is already on the device. Two
+  /// pulls overlapping used to leave every set twice (see
+  /// `_replaceLocalSetTemplates`), and nothing on the device ever folded them
+  /// back: the builder read the twins, saved them as pending, and the push
+  /// then sent both copies to the server.
+  ///
+  /// The survivor is the row linked to the server, else the oldest. When an
+  /// exercise loses a row its remaining templates are unlinked, so
+  /// `_syncMissingWorkoutExercises` pushes the clean list — the endpoint
+  /// replaces the prescription, which also clears any twins the server was
+  /// sent. Logged sets are keyed on the scheduled exercise and the set number,
+  /// never on a template's id, so no history is touched.
+  Future<void> _deduplicateSetTemplates() async {
+    try {
+      final rows =
+          await (_db.select(_db.workoutSetTemplateTable)
+                ..orderBy([(t) => OrderingTerm.asc(t.id)]))
+              .get();
+      final survivors = <(int, int), WorkoutSetTemplateData>{};
+      final losers = <WorkoutSetTemplateData>[];
+      for (final row in rows) {
+        final key = (row.workoutExerciseId, row.setNumber);
+        final kept = survivors[key];
+        if (kept == null) {
+          survivors[key] = row;
+        } else if (kept.serverId == null && row.serverId != null) {
+          losers.add(kept);
+          survivors[key] = row;
+        } else {
+          losers.add(row);
+        }
+      }
+      if (losers.isEmpty) return;
+
+      final affected = losers.map((r) => r.workoutExerciseId).toSet();
+      await _db.transaction(() async {
+        await (_db.delete(_db.workoutSetTemplateTable)
+              ..where((t) => t.id.isIn(losers.map((r) => r.id))))
+            .go();
+
+        // A pendingDelete or retired exercise is never pushed a prescription
+        // again, so there is nothing to re-send for it.
+        final live =
+            await (_db.select(_db.workoutExerciseTable)..where(
+                  (we) =>
+                      we.id.isIn(affected) &
+                      we.syncStatus.isNotValue(3) &
+                      we.syncStatus.isNotValue(4),
+                ))
+                .get();
+        await (_db.update(_db.workoutSetTemplateTable)..where(
+              (t) => t.workoutExerciseId.isIn(live.map((we) => we.id)),
+            ))
+            .write(
+              const WorkoutSetTemplateTableCompanion(
+                serverId: Value(null),
+                syncStatus: Value(0),
+              ),
+            );
+      });
+      _logger.i(
+        'Dedup: removed ${losers.length} duplicate set template(s) across '
+        '${affected.length} exercise(s)',
+      );
+    } catch (e) {
+      _logger.w('_deduplicateSetTemplates failed: $e');
+    }
+  }
+
+  /// Folds logged sets that share `(scheduledWorkoutExerciseId, setNumber)`.
+  ///
+  /// Two sources put them there: a save made while the exercise had twin set
+  /// templates wrote each set twice, and the pull used to copy every stale
+  /// server copy onto the device (see `_reconcileLoggedSets`). The survivor is
+  /// the lowest id. A save deletes and rewrites the whole exercise, so any
+  /// pulled copy was inserted after the rows the device wrote itself; the
+  /// oldest row is this device's own record.
+  ///
+  /// As with set templates, an exercise that lost a row is re-queued whole,
+  /// and the replace push clears the same copies from the server.
+  Future<void> _deduplicateLoggedSets() async {
+    try {
+      final rows =
+          await (_db.select(_db.workoutSetTable)
+                ..where((t) => t.syncStatus.isNotValue(3))
+                ..orderBy([(t) => OrderingTerm.asc(t.id)]))
+              .get();
+      final seen = <(int, int)>{};
+      final losers = <int>[];
+      final affected = <int>{};
+      for (final row in rows) {
+        if (seen.add((row.scheduledWorkoutExerciseId, row.setNumber))) continue;
+        losers.add(row.id);
+        affected.add(row.scheduledWorkoutExerciseId);
+      }
+      if (losers.isEmpty) return;
+
+      await _db.transaction(() async {
+        await (_db.delete(_db.workoutSetTable)
+              ..where((t) => t.id.isIn(losers)))
+            .go();
+        await (_db.update(_db.workoutSetTable)..where(
+              (t) =>
+                  t.scheduledWorkoutExerciseId.isIn(affected) &
+                  t.syncStatus.isNotValue(3),
+            ))
+            .write(
+              const WorkoutSetTableCompanion(
+                serverId: Value(null),
+                syncStatus: Value(0),
+              ),
+            );
+      });
+      _logger.i(
+        'Dedup: removed ${losers.length} duplicate logged set(s) across '
+        '${affected.length} exercise(s)',
+      );
+    } catch (e) {
+      _logger.w('_deduplicateLoggedSets failed: $e');
+    }
+  }
+
   Future<bool> _hasLoggedSets(int scheduledWorkoutId) async {
     final exercises = await _db.scheduledWorkoutExerciseDao
         .getAllForScheduledWorkout(scheduledWorkoutId);
@@ -1098,6 +1250,9 @@ class SyncService {
     // caused by concurrent debounce saves both inserting before either updates
     // the in-memory scheduledExerciseId.
     await _deduplicateScheduledExercisesByContent();
+
+    await _deduplicateSetTemplates();
+    await _deduplicateLoggedSets();
 
     await _deduplicateTable<ScheduledWorkoutTableData>(
       query:
@@ -2019,7 +2174,14 @@ class SyncService {
 
   /// Downloads all server data and inserts any records not yet present locally.
   /// Safe to run on a fresh install or after switching devices.
-  Future<void> pullAll() async {
+  ///
+  /// A call made while a pull is already running joins that run: a second
+  /// pull straight after the first would fetch the same data, and running the
+  /// two side by side is how set templates came to be duplicated.
+  Future<void> pullAll() =>
+      _pullInFlight ??= _pullAll().whenComplete(() => _pullInFlight = null);
+
+  Future<void> _pullAll() async {
     await _syncSystemExerciseIds(); // must run first so workout exercise lookups work
     await _pullUserSettings();
     await _pullCustomExercises();
@@ -2612,10 +2774,18 @@ class SyncService {
   /// same "device's own unsent edit" rule as everywhere else in reconcile,
   /// applied one level further down since a set template can be edited
   /// without its parent exercise row changing at all.
+  ///
+  /// The check, the delete and the inserts are one transaction. Outside one,
+  /// two pulls running at once each delete, then each insert, and the
+  /// exercise ends up with every set twice — `1, 2, 1, 2`, which the active
+  /// workout lists as "set 1, set 1, set 2, set 2" with the twin inputs
+  /// sharing one controller. `pullAll` no longer overlaps itself, but the
+  /// background WorkManager isolate has its own SyncService and its own
+  /// connection, which only the database's own locking can see.
   Future<void> _replaceLocalSetTemplates(
     int localWeId,
     Map<String, dynamic> ex,
-  ) async {
+  ) => _db.transaction(() async {
     final localSets =
         await (_db.select(_db.workoutSetTemplateTable)
               ..where((t) => t.workoutExerciseId.equals(localWeId)))
@@ -2646,7 +2816,7 @@ class SyncService {
             ),
           );
     }
-  }
+  });
 
   Future<void> _pullWorkoutPlans() async {
     final response = await _apiClient.get('api/WorkoutPlan');
@@ -2915,61 +3085,98 @@ class SyncService {
           }
         }
 
-        for (final s in (se['sets'] as List).cast<Map<String, dynamic>>()) {
-          final setServerId = s['id'] as String;
-          final existingSet =
-              await (_db.select(_db.workoutSetTable)
-                    ..where((t) => t.serverId.equals(setServerId))
-                    ..limit(1))
-                  .getSingleOrNull();
-          if (existingSet != null) continue;
-
-          // If a local set for the same exercise+setNumber exists without a
-          // serverId, stamp it rather than inserting a duplicate row. This
-          // prevents double rows when _saveCurrentExercise re-inserts sets
-          // after losing their serverIds.
-          final unlinkedSet =
-              await (_db.select(_db.workoutSetTable)
-                    ..where(
-                      (t) =>
-                          t.scheduledWorkoutExerciseId.equals(localSeId) &
-                          t.setNumber.equals(s['setNumber'] as int) &
-                          t.serverId.isNull(),
-                    )
-                    ..limit(1))
-                  .getSingleOrNull();
-          if (unlinkedSet != null) {
-            await (_db.update(_db.workoutSetTable)
-              ..where((t) => t.id.equals(unlinkedSet.id))).write(
-              WorkoutSetTableCompanion(
-                serverId: Value(setServerId),
-                syncStatus: const Value(1),
-              ),
-            );
-            continue;
-          }
-
-          await _db
-              .into(_db.workoutSetTable)
-              .insert(
-                WorkoutSetTableCompanion(
-                  scheduledWorkoutExerciseId: Value(localSeId),
-                  setNumber: Value(s['setNumber'] as int),
-                  reps: Value(s['reps'] as int?),
-                  weight: Value((s['weight'] as num?)?.toDouble()),
-                  weightUnit: Value(s['weightUnit'] as String?),
-                  durationSeconds: Value(s['durationSeconds'] as int?),
-                  isCompleted: Value(s['isCompleted'] as bool),
-                  notes: Value(s['notes'] as String?),
-                  serverId: Value(setServerId),
-                  syncStatus: const Value(1),
-                ),
-              );
-        }
+        await _reconcileLoggedSets(
+          localSeId,
+          (se['sets'] as List).cast<Map<String, dynamic>>(),
+        );
       }
       _logger.i('Pulled scheduled workout $swServerId');
     }
   }
+
+  /// Brings one scheduled exercise's logged sets in line with the server's.
+  ///
+  /// Decided per exercise, not per set. This used to insert every server set
+  /// whose id the device didn't know — and the server held many it didn't: the
+  /// sets batch appended, and the active workout rewrites an exercise's sets
+  /// as fresh rows on every save, so each save that followed a push left
+  /// another copy of the exercise on the server. The pull then carried every
+  /// stale copy back onto the device beside the real rows. See
+  /// docs/sync-concurrent-runs.md.
+  ///
+  /// | Local log                              | Action                         |
+  /// |----------------------------------------|--------------------------------|
+  /// | holds an unpushed set                  | leave it — the push replaces   |
+  /// | empty                                  | insert the server's            |
+  /// | every id still on the server, + extras | re-queue it to overwrite them  |
+  /// | an id the server no longer has         | take the server's              |
+  ///
+  /// The third row is the server holding stale copies next to what this
+  /// device pushed last. The device's rows are the ones it wrote, so they are
+  /// re-queued and the replace push clears the copies — which is what fixes a
+  /// session the Trainer Console shows twice over. The fourth is another
+  /// device having replaced the log since; a replace always mints fresh ids.
+  ///
+  /// Server sets are folded to one per set number on the way in: set numbers
+  /// are ordinals, and the active workout keys every input on them.
+  Future<void> _reconcileLoggedSets(
+    int localSeId,
+    List<Map<String, dynamic>> serverSets,
+  ) => _db.transaction(() async {
+    final local =
+        await (_db.select(_db.workoutSetTable)..where(
+              (t) => t.scheduledWorkoutExerciseId.equals(localSeId),
+            ))
+            .get();
+    if (local.any((s) => s.syncStatus != 1)) return;
+
+    final serverIds = {for (final s in serverSets) s['id'] as String};
+    if (local.isNotEmpty) {
+      if (local.every((s) => serverIds.contains(s.serverId))) {
+        if (serverIds.length > local.length) {
+          await (_db.update(_db.workoutSetTable)..where(
+                (t) => t.scheduledWorkoutExerciseId.equals(localSeId),
+              ))
+              .write(
+                const WorkoutSetTableCompanion(
+                  serverId: Value(null),
+                  syncStatus: Value(0),
+                ),
+              );
+          _logger.i(
+            'Pull: server holds ${serverIds.length - local.length} stale '
+            'set(s) for scheduled exercise $localSeId — re-queued the local log',
+          );
+        }
+        return;
+      }
+      await (_db.delete(_db.workoutSetTable)..where(
+            (t) => t.scheduledWorkoutExerciseId.equals(localSeId),
+          ))
+          .go();
+    }
+
+    final seen = <int>{};
+    for (final s in serverSets) {
+      if (!seen.add(s['setNumber'] as int)) continue;
+      await _db
+          .into(_db.workoutSetTable)
+          .insert(
+            WorkoutSetTableCompanion(
+              scheduledWorkoutExerciseId: Value(localSeId),
+              setNumber: Value(s['setNumber'] as int),
+              reps: Value(s['reps'] as int?),
+              weight: Value((s['weight'] as num?)?.toDouble()),
+              weightUnit: Value(s['weightUnit'] as String?),
+              durationSeconds: Value(s['durationSeconds'] as int?),
+              isCompleted: Value(s['isCompleted'] as bool),
+              notes: Value(s['notes'] as String?),
+              serverId: Value(s['id'] as String),
+              syncStatus: const Value(1),
+            ),
+          );
+    }
+  });
 
   Future<void> _pullWeightLogs() async {
     final response = await _apiClient.get('api/WeightTracking/TrackWeight');
