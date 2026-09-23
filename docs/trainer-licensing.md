@@ -21,102 +21,115 @@ without a deploy or a migration.
 
 ## Pricing
 
-| Tier | Seats | Monthly (net of VAT) | Yearly (net of VAT) | Per seat, full roster |
+| Tier | Seats | Monthly (net of VAT) | Yearly (net of VAT) | Per seat, full roster, incl. VAT |
 |---|---|---|---|---|
 | Free | 3 | €0 | — | — |
-| Solo | 10 | **€59** | €590 | €5.90 |
-| Pro | 30 | **€139** | €1,390 | €4.63 |
-| Studio | 100 | **€349** | €3,490 | €3.49 |
+| Solo | 10 | **€44** | €440 | €5.24 |
+| Pro | 30 | **€89** | €890 | €3.53 |
+| Studio | 100 | **€179** | €1,790 | €2.13 |
 
 These are the figures to enter in Stripe. They live there and nowhere else, so
-this table is the record of intent, not a source of truth — if the two ever
-disagree, Stripe is what trainers are actually charged. Prices are quoted net of
-VAT because a trainer is buying a business tool: EU trainers outside Germany with
-a VAT ID are reverse-charged, and German trainers reclaim it. Yearly is two
-months free.
+this table records what was intended, not what is charged — if the two ever
+disagree, Stripe wins. Prices are quoted net of VAT because a trainer is buying
+a business tool: EU trainers outside Germany with a VAT ID are reverse-charged,
+and German trainers reclaim it. Yearly is two months free.
 
 ### How the numbers were reached
 
-A paid licence sells two different things at once, and the first draft of this
-table priced only one of them.
+This ladder is the third one proposed, and each earlier draft failed in a way
+worth recording, because neither failure shows up in a spreadsheet of costs.
 
-**What a seat costs ForgeForm.** Every client on a paid licence gets Pro, and a
-client who gets Pro from their trainer is a client who doesn't buy it. Consumer
-Pro is €4.89 including 19% VAT, which is €4.11 net, and the store keeps 15% of
-that, leaving about **€3.49** a month. That forgone revenue is the real marginal
-cost of a seat. Infrastructure is noise beside it: a client's share of Postgres
-and Cloud Run is roughly €0.05–0.15 a month, and chat attachments on Cloudflare
-R2 — free egress, about $0.015 per GB stored, a 45-day retention window and
-8/16 MB upload caps — stay under €0.02 even for a heavy user. The costs that
-matter on the infrastructure side are fixed rather than per client: the Postgres
-instance, and Cloud Run keeping an instance alive for as long as any SignalR
-socket is open, since it bills an open WebSocket as a request in flight. Together
-that is on the order of €50–100 a month for the whole service, which three Solo
-licences pay for.
+**Draft one priced the pass-through and gave away the product.** Every client on
+a paid licence gets Pro. Consumer Pro is €4.89 including 19% VAT — €4.11 net,
+about **€3.49** after the store's 15% — so the first draft treated €3.49 as the
+cost of a seat and priced each tier just above seats × €3.49. The books balanced,
+which is exactly why it looked finished. But that covered only the Pro handed to
+clients, and charged almost nothing for the console itself — roster, chat, the
+workout builder, nutrition monitoring — which is the thing a trainer is actually
+buying.
 
-**What the licence is worth to a trainer.** The first draft stopped there: it
-set the per-seat rate just above €3.49 and called it done. That covered the Pro
-being handed to clients and charged almost nothing for the console itself — the
-roster, chat, the workout builder, nutrition monitoring — which is the thing the
-trainer is actually buying, and the thing competing coaching tools charge for on
-its own without giving clients anything. Cost-plus pricing on the seat gave the
-product away.
+**Draft two fixed that by adding a platform fee on top** (€59 / €139 / €349),
+and was then checked against what trainers can buy instead. It lost badly at the
+top: a 100-client Studio at €349 was twice the market. The competitor check also
+exposed that draft one's cost floor was wrong in the first place.
 
-So each tier is built from two parts:
+**€3.49 is the worst case, not the cost of a seat.** It is revenue forgone *if*
+that client would otherwise have bought Pro, and most wouldn't — consumer apps
+convert a few percent of users to paid, and a trainer's clients signed up
+because their trainer asked them to, not because they went looking for a
+premium tracker. What giving a client Pro actually costs is their share of the
+infrastructure plus the handful who would have paid:
 
-| Tier | Platform fee | Seat component | Price |
+| Cost | Per client per month |
+|---|---|
+| Postgres and Cloud Run | ~€0.05–0.15 |
+| Chat attachments on Cloudflare R2 (free egress, ~$0.015/GB stored, 45-day retention, 8/16 MB caps) | < €0.02 |
+| Forgone consumer Pro | €3.49 × the share who would have bought it |
+
+The costs that matter on the infrastructure side are fixed rather than per
+client: the Postgres instance, and Cloud Run keeping an instance alive for as
+long as any SignalR socket is open, since it bills an open WebSocket as a
+request in flight. Together that is on the order of €50–100 a month for the
+whole service. Even a full Studio roster where one client in ten would have
+bought Pro costs about €15 in infrastructure and €35 in forgone revenue against
+€179 of licence.
+
+**So the price is set by the market, and the floor is only there to stop
+pooling.** What trainers could buy instead, in 2026, per month:
+
+| Clients | Trainerize | TrueCoach | Everfit |
 |---|---|---|---|
-| Solo | ~€25 | 10 × €3.50 | €59 |
-| Pro | ~€40 | 30 × €3.30 | €139 |
-| Studio | ~€60 | 100 × €2.90 | €349 |
+| ~5 | $23 | $20 | free |
+| 15–20 | $50 (15) | $53 (20) | — |
+| 30–50 | $79 (30) | $107 (50) | ~$75–95 |
+| 100 | — | — | ~$140 |
+| Nutrition add-on | +$20–45 | — | +$33–39 |
 
-The **platform fee** is the console and the trainer's own Pro. Neither scales
-with roster size, which is why it exists as a separate component at all, and it
-is priced on value rather than cost. The **seat component** passes through the
-Pro each client receives, tapering slightly with volume but staying close to the
-€3.49 it replaces.
-
-The sanity check is the trainer's own revenue. Online coaching commonly runs
-around €100 per client per month, so a full Solo roster turns over about €1,000
-and €59 is roughly 6% of it; Pro is about 5% and Studio about 3.5%. Business
-tools are routinely priced at 3–10% of the revenue they support, and a licence
-that saves a trainer one lost client or a few hours of admin a month has paid
-for itself.
+Trainerize and Everfit sell nutrition separately; ForgeForm includes it. None
+of them give clients a premium app. Like for like — nutrition included — the
+market sits around $70 for 15 clients, $110–125 for 30 and $175 for 100. Solo
+and Pro come in below that, and Studio level with it while still giving every
+client Pro. Competitor prices move; re-check them before retuning.
 
 ### What the prices must keep doing
 
 Two constraints outlive these particular numbers, and any retune in Stripe has
 to respect both:
 
-1. **The per-seat price on a small tier must not undercut consumer Pro.** This is
-   what closes bulk-discount pooling (below). At €59, a full Solo roster costs
-   €7.02 per seat including VAT — more than buying Pro directly, so ten people
-   splitting a "trainer" licence to get Pro cheaply would each pay more, not
-   less. Studio's per-seat rate does sit below consumer Pro, deliberately: a
-   hundred strangers pooling one account, each handing their food and training
-   logs to whoever pays, is not a realistic attack.
+1. **Small tiers must not undercut consumer Pro per seat.** This is what closes
+   bulk-discount pooling (below) — not cost recovery. At €44 net, a full Solo
+   roster costs €5.24 per seat including VAT, above the €4.89 of buying Pro
+   directly, so ten people splitting a "trainer" licence to get Pro cheaply
+   would each pay more. Pro and Studio deliberately sit below that line: thirty
+   or a hundred strangers pooling one account, each handing their food and
+   training logs to whoever pays, is not a realistic attack. A `€44 including
+   VAT` Solo (€36.97 net, €4.40 a seat) was considered and rejected for exactly
+   this reason — it made pooling pay by 10%.
 2. **There is a base component.** A trainer with six clients on Solo still pays
-   €59, because the console and their own Pro cost the same whether the roster
-   is full or not. Pricing purely per seat would make a half-empty roster nearly
-   free and charge nothing for the product.
+   €44, because the console and their own Pro cost the same whether the roster
+   is full or not. Pricing purely per seat would make a half-empty roster
+   nearly free and charge nothing for the product.
 
-The general lesson is the one the first draft got wrong: **when a plan bundles a
-cost you pass through with a product you sell, price them separately.** Covering
-the pass-through looks like a finished price because nothing is lost on it — the
-books balance — but everything the product is worth has been given away, and no
-spreadsheet of costs will show that, because the missing number is value, not
-cost.
+The general lesson is the one both earlier drafts got wrong from opposite
+directions: **a price has a floor, a ceiling and a value, and each comes from a
+different place.** The floor comes from cost and abuse — here, pooling. The
+ceiling comes from what the buyer can get elsewhere. The value sits in between.
+Draft one found only the floor and mistook it for the price; draft two added
+value and never looked at the ceiling. None of the three shows up by looking at
+your own costs harder.
 
 ### Not built yet
 
-A console-only tier (roughly €25–29, no Pro for clients) would suit trainers
-whose clients don't need premium features. It would mean a tier for which
-`TrainerLicence.GrantsPro` is false despite being paid, which changes the rule
-that every paid tier grants Pro. Leave it until trainers ask for it.
+A console-only tier (no Pro for clients) would suit trainers whose clients don't
+need premium features. It would mean a tier for which `TrainerLicence.GrantsPro`
+is false despite being paid, which changes the rule that every paid tier grants
+Pro. Leave it until trainers ask for it.
 
 The plan screen should say plainly that clients get ForgeForm Pro included
-(worth €4.89 a month each) — it is the main thing that sets the licence apart
-from other coaching tools, and it is easy to miss.
+(worth €4.89 a month each) and that nutrition is included rather than an
+add-on — those, plus the German localisation and end-to-end encrypted chat, are
+what set the licence apart from the tools in the table above, and they are easy
+to miss.
 
 ## The two loopholes this closes
 
