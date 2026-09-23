@@ -162,6 +162,131 @@ replaying an event is a no-op. `TrainerLicence.LastStripeEventAt` guards against
 out-of-order delivery — a late "payment failed" must not undo the "payment
 succeeded" that already resolved it.
 
+## Setting it up
+
+Everything above was already in the code, and none of it did anything in
+production. The API reads four `Stripe:*` settings, and `deploy.yml`, the only
+thing that ever configures the production API, passed none of them. So Cloud Run
+booted with no key, logged "trainer licences will stay on the free tier", and
+kept serving. Every test passed because the tests put the configuration in
+themselves. The compiler couldn't see it either: `IConfiguration` is a string
+lookup, and a missing key is just `null`. The warning at boot was the only
+signal, and it's easy to miss among the other boot-time warnings.
+
+You might think the quick fix is to type the variables into the Cloud Run
+console. It isn't. `gcloud run deploy --set-env-vars` *replaces* the service's
+whole environment, so the next push to `main` would quietly wipe them, and
+trainers would drop back to "can't upgrade" with no code change to blame. A
+setting has to come through the workflow, or it only lasts until the next
+deploy.
+
+### Two failure modes that look like something else
+
+**API version mismatch shows up as a signature failure.** Stripe.net 52.3.0 pins
+API version **`2026-07-29.dahlia`**. `EventUtility.ConstructEvent` refuses an
+event serialised under a different version, and it throws the same
+`StripeException` as a bad signature. `StripeWebhookController` catches it,
+logs "Rejected a Stripe webhook with an invalid signature" and returns 400.
+You'd end up checking a signing secret that was fine all along. Create the
+webhook endpoint with its API version set to the SDK's version. When
+you upgrade Stripe.net, check the pinned version
+(`Stripe.StripeConfiguration.ApiVersion`) and update the endpoint to match
+*before* deploying.
+
+**A payment with no webhook just looks like a normal Free trainer.** Checkout only
+needs the secret key, so a trainer can pay successfully. The licence changes
+only when the webhook arrives. If the webhook secret is missing or wrong, Stripe
+takes the money and the trainer stays on Free. That's why `deploy.yml` warns
+specifically when the key is set but the webhook secret isn't.
+
+### Steps
+
+Do all of this in **test mode** first. Live mode has its own products, prices,
+webhook endpoints, signing secrets and portal configuration. None of it carries
+over, so going live means repeating these steps and swapping the secrets.
+
+1. **Products and prices.** Create three products (Solo, Pro, Studio), each with
+   one *recurring* price. Keep the per-seat constraint in "Tiers" above in mind.
+   Copy each `price_…` id. Don't create a Free product: Free isn't bought.
+
+2. **API key.** A restricted key (`rk_…`) is enough and safer than the full
+   secret key. It needs write access to *Customers*, *Checkout Sessions*
+   and *Customer portal*, and read access to *Subscriptions*. That's everything
+   `TrainerLicenceService` calls.
+
+3. **Webhook endpoint.** Developers → Webhooks → Add endpoint:
+
+   | Field | Value |
+   |---|---|
+   | URL | `https://<cloud-run-host>/api/stripe/webhook` |
+   | API version | `2026-07-29.dahlia` (must match Stripe.net, see above) |
+   | Events | `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed` |
+
+   Copy its signing secret (`whsec_…`). Send only these events. Anything else
+   is ignored, but every extra event is one more request on the webhook's
+   rate-limit budget.
+
+4. **Customer portal.** Settings → Billing → Customer portal. Allow payment-method
+   updates, cancellation, and subscription *switching* between the three paid
+   products only. This step enforces the "Free is never a downgrade target"
+   rule, and nothing in the code backs it up. Cancel at period end rather than
+   immediately, so a trainer keeps what they paid for up to the date they paid
+   for it, and only then goes into grace.
+
+5. **GitHub.** Settings → Secrets and variables → Actions:
+
+   | Kind | Name | Value |
+   |---|---|---|
+   | Secret | `STRIPE_SECRET_KEY` | the `rk_…`/`sk_…` key |
+   | Secret | `STRIPE_WEBHOOK_SECRET` | the `whsec_…` secret |
+   | Variable | `STRIPE_PRICE_SOLO` / `_PRO` / `_STUDIO` | the three `price_…` ids |
+
+   `WEB_ORIGIN` must also be set. Checkout's success and cancel URLs and the
+   portal's return URL are built from it, and without it Stripe sends the
+   trainer back to `http://localhost:5000`.
+
+6. **Deploy** by running the *Deploy to Cloud Run* workflow manually
+   (`workflow_dispatch`); nothing needs to land on `main`. Neither Stripe
+   warning should appear in the job summary, and the API's boot log should
+   have no `Stripe:` warnings.
+
+7. **Test the whole flow.** Sign in as a trainer, open the plan screen, upgrade,
+   and pay with `4242 4242 4242 4242`. Then check, in this order:
+   - In the Stripe dashboard, the endpoint's event log shows 200 responses.
+   - The plan screen shows the new tier and seat count.
+   - A client of that trainer shows Pro.
+   Then use the portal to switch plans and to cancel, and confirm each change
+   reaches the plan screen. For a failed renewal, test clocks (Billing → Test
+   clocks) with card `4000 0000 0000 0341` push a subscription into
+   `past_due` without waiting a month.
+
+### Running it locally
+
+Put the same keys in user secrets (the API project already has a
+`UserSecretsId`), using test-mode values:
+
+```
+dotnet user-secrets set "Stripe:SecretKey" "sk_test_…"   --project FitTracker.Api
+dotnet user-secrets set "Stripe:Prices:Solo" "price_…"   --project FitTracker.Api
+```
+
+For webhooks, `stripe listen --forward-to localhost:5033/api/stripe/webhook`
+prints a `whsec_…` of its own. Put that one in `Stripe:WebhookSecret`, not the
+dashboard endpoint's secret. `stripe trigger customer.subscription.created`
+won't do much here: it creates a customer that matches no licence, so all you
+get is the "matched no licence" warning. Go through a real checkout instead.
+
+### What the redirect back does, and doesn't do
+
+Checkout sends the trainer back to `/#/trainer/licence?checkout=success`. The
+web app uses path URLs (`usePathUrlStrategy`), so that fragment isn't a route.
+The page reloads at `/`, `PostAuthHome` puts the trainer in the console, and
+nothing reads `checkout=`. The plan screen loads fresh the next time it's
+opened, so the upgrade does show up. But the webhook usually arrives a second
+or two *after* the redirect, so a trainer who opens the plan screen straight
+away can still see Free. A confirmation banner and a short re-poll on return
+would fix that. This change doesn't add them.
+
 ## Rollout
 
 The `AddTrainerLicence` migration backfills a Free licence for every user who

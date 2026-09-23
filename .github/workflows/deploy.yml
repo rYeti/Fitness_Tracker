@@ -78,6 +78,18 @@ jobs:
           # docs/chat-attachments.md §A.8). A variable, not a secret: it's a
           # plain number with a sane default in code (45) if unset.
           ATTACHMENT_RETENTION_DAYS: ${{ vars.ATTACHMENT_RETENTION_DAYS }}
+          # Stripe — trainer licence checkout and its webhook. The API key and
+          # webhook signing secret are secrets (either one lets a caller act as
+          # this Stripe account or forge a licence change). The price ids are
+          # variables: not sensitive, and retuning the ladder means swapping one
+          # without rotating anything. None of them can contain a comma
+          # (sk_/rk_/whsec_/price_ ids are all alphanumeric plus underscores).
+          # See docs/trainer-licensing.md, "Setting it up".
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          STRIPE_PRICE_SOLO: ${{ vars.STRIPE_PRICE_SOLO }}
+          STRIPE_PRICE_PRO: ${{ vars.STRIPE_PRICE_PRO }}
+          STRIPE_PRICE_STUDIO: ${{ vars.STRIPE_PRICE_STUDIO }}
         run: |
           set -euo pipefail
 
@@ -137,6 +149,31 @@ jobs:
 
           if [ -n "${ATTACHMENT_RETENTION_DAYS:-}" ]; then
             env_vars="$env_vars,Attachments__RetentionDays=$ATTACHMENT_RETENTION_DAYS"
+          fi
+
+          # Trainer licensing. Each key is passed only when set, so an unset one
+          # reaches the API as absent rather than blank and trips its own boot
+          # warning (Program.cs) instead of a confusing Stripe error later.
+          if [ -n "${STRIPE_SECRET_KEY:-}" ]; then
+            env_vars="$env_vars,Stripe__SecretKey=$STRIPE_SECRET_KEY"
+          fi
+          if [ -n "${STRIPE_WEBHOOK_SECRET:-}" ]; then
+            env_vars="$env_vars,Stripe__WebhookSecret=$STRIPE_WEBHOOK_SECRET"
+          fi
+          if [ -n "${STRIPE_PRICE_SOLO:-}" ]; then
+            env_vars="$env_vars,Stripe__Prices__Solo=$STRIPE_PRICE_SOLO"
+          fi
+          if [ -n "${STRIPE_PRICE_PRO:-}" ]; then
+            env_vars="$env_vars,Stripe__Prices__Pro=$STRIPE_PRICE_PRO"
+          fi
+          if [ -n "${STRIPE_PRICE_STUDIO:-}" ]; then
+            env_vars="$env_vars,Stripe__Prices__Studio=$STRIPE_PRICE_STUDIO"
+          fi
+
+          if [ -z "${STRIPE_SECRET_KEY:-}" ]; then
+            echo "::warning::STRIPE_SECRET_KEY is not set — every trainer stays on the Free plan and upgrade checkout fails. See docs/trainer-licensing.md."
+          elif [ -z "${STRIPE_WEBHOOK_SECRET:-}" ]; then
+            echo "::warning::STRIPE_SECRET_KEY is set but STRIPE_WEBHOOK_SECRET is not — trainers can pay at checkout but the payment never reaches their licence. See docs/trainer-licensing.md."
           fi
 
           gcloud run deploy ${{ env.SERVICE }} \
