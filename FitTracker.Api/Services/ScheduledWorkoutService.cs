@@ -141,6 +141,12 @@ public class ScheduledWorkoutService : IScheduledWorkoutService
     }
 
     /// <inheritdoc/>
+    public async Task<bool> UpdateExerciseNotesAsync(Guid scheduledExerciseId, Guid userId, string? notes)
+    {
+        return await _scheduledRepository.UpdateExerciseNotesAsync(scheduledExerciseId, userId, notes);
+    }
+
+    /// <inheritdoc/>
     public async Task<bool> CompleteExerciseAsync(Guid scheduledExerciseId, Guid userId)
     {
         return await _scheduledRepository.CompleteExerciseAsync(scheduledExerciseId, userId);

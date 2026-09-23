@@ -526,6 +526,10 @@ class SessionExerciseLog {
   final PrescribedSets? prescribed;
   final bool skipped;
   final bool isPr;
+
+  /// The client's own note on this exercise, typed under it during the
+  /// session. Null when they wrote none.
+  final String? clientNote;
   final List<SessionSetLog> sets;
 
   const SessionExerciseLog({
@@ -534,6 +538,7 @@ class SessionExerciseLog {
     this.prescribed,
     required this.skipped,
     required this.isPr,
+    this.clientNote,
     required this.sets,
   });
 
@@ -545,6 +550,7 @@ class SessionExerciseLog {
       prescribed: prescribed == null ? null : PrescribedSets.fromJson(prescribed),
       skipped: json['skipped'] as bool? ?? false,
       isPr: json['isPr'] as bool? ?? false,
+      clientNote: json['clientNote'] as String?,
       sets: ((json['sets'] as List?) ?? const [])
           .map((s) => SessionSetLog.fromJson(s as Map<String, dynamic>))
           .toList(),

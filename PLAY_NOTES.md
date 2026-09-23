@@ -22,6 +22,10 @@ Markdown links, headings or emphasis, none of which Play renders.
 
 See `docs/android-release.md`.
 
+## Unreleased
+
+If you train with a coach, the notes you write under an exercise during a workout now reach them - they see each note beside that exercise's sets when reviewing your session. Notes you wrote before this update are sent the next time the app syncs.
+
 ## 1.0.2+27
 
 The personal best shown while you train now covers your whole training plan instead of just the session in front of you. Standing in Upper A, you see the heaviest set you have hit on that exercise anywhere in the block - Upper B and Lower A included - and it still updates live as you type, so you can watch yourself beat it. Workouts that are not part of a plan show your best across every time you have done that workout.

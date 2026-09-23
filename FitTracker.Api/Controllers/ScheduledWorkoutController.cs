@@ -168,6 +168,24 @@ public class ScheduledWorkoutController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>Replaces the client's own note on one exercise of a session — the note
+    /// typed under an exercise during an active workout, which the client's trainer reads
+    /// in Session Review.</summary>
+    /// <param name="scheduledExerciseId">The ID of the scheduled exercise to annotate.</param>
+    /// <param name="dto">The note; null or blank clears it.</param>
+    /// <returns>204 No Content on success, or 404 if not found.</returns>
+    [HttpPut("exercises/{scheduledExerciseId}/notes")]
+    public async Task<IActionResult> UpdateExerciseNotes([FromRoute] Guid scheduledExerciseId, [FromBody] ScheduledExerciseNotesRequestDto dto)
+    {
+        var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
+        if (userId == Guid.Empty) return NotFound("User not found");
+
+        var result = await _scheduledService.UpdateExerciseNotesAsync(scheduledExerciseId, userId, dto.Notes);
+        if (!result) return NotFound("Scheduled exercise not found");
+
+        return NoContent();
+    }
+
     /// <summary>Marks a scheduled exercise as completed.</summary>
     /// <param name="scheduledExerciseId">The ID of the scheduled exercise to complete.</param>
     /// <returns>200 OK on success, or 404 if not found.</returns>

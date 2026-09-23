@@ -545,6 +545,175 @@ void main() {
     });
   });
 
+  group('a client\'s note on an exercise of a session', () {
+    /// A synced workout holding one synced exercise, and a session of it with
+    /// one entry carrying [note] — the shape the active workout leaves behind.
+    Future<({int swId, int seId})> seedSession({
+      required String? note,
+      String? swServerId,
+      String? seServerId,
+      int seSyncStatus = 0,
+    }) async {
+      final exerciseId = await insertSyncedExercise(serverId: 'server-e1');
+      final workoutId = await db.workoutDao.saveCompleteWorkout(
+        Workout(
+          name: 'Push Day',
+          difficulty: WorkoutDifficulty.beginner,
+          exercises: [
+            WorkoutExercise(
+              workoutId: 0,
+              exerciseId: exerciseId,
+              orderPosition: 0,
+              sets: [WorkoutSet(exerciseInstanceId: 0, setNumber: 1)],
+            ),
+          ],
+        ),
+      );
+      await db.workoutDao.markWorkoutSynced(workoutId, 'server-w1');
+      final we =
+          await (db.select(db.workoutExerciseTable)
+            ..where((t) => t.workoutId.equals(workoutId))).getSingle();
+      await db.workoutDao.markWorkoutExerciseSynced(we.id, 'server-we1');
+
+      final swId = await db
+          .into(db.scheduledWorkoutTable)
+          .insert(
+            ScheduledWorkoutTableCompanion.insert(
+              workoutId: workoutId,
+              scheduledDate: DateTime(2026, 1, 5),
+              isCompleted: const Value(true),
+              serverId: Value(swServerId),
+              syncStatus: Value(swServerId == null ? 0 : 2),
+            ),
+          );
+      final seId = await db
+          .into(db.scheduledWorkoutExerciseTable)
+          .insert(
+            ScheduledWorkoutExerciseTableCompanion.insert(
+              scheduledWorkoutId: swId,
+              workoutExerciseId: we.id,
+              notes: Value(note),
+              serverId: Value(seServerId),
+              syncStatus: Value(seSyncStatus),
+            ),
+          );
+      return (swId: swId, seId: seId);
+    }
+
+    test(
+      'written before the session ever synced, is pushed once it links',
+      () async {
+        final ids = await seedSession(note: 'Left knee caved on rep 8');
+        // The server creates its own entries when the session is POSTed, with
+        // no note. Linking to one is not the same as having pushed ours.
+        api.postResponses['api/ScheduledWorkout'] = {
+          'id': 'server-sw1',
+          'exercises': [
+            {
+              'id': 'server-se1',
+              'workoutExerciseId': 'server-we1',
+              'notes': null,
+              'sets': <dynamic>[],
+            },
+          ],
+        };
+
+        await sync.syncScheduledWorkouts();
+
+        final put = api.puts.singleWhere(
+          (p) => p.path == 'api/ScheduledWorkout/exercises/server-se1/notes',
+        );
+        expect(put.data, {'notes': 'Left knee caved on rep 8'});
+        final row =
+            await (db.select(db.scheduledWorkoutExerciseTable)
+              ..where((t) => t.id.equals(ids.seId))).getSingle();
+        expect(row.serverId, 'server-se1');
+        expect(row.syncStatus, 1);
+      },
+    );
+
+    test('already on the server is not pushed again', () async {
+      await seedSession(
+        note: 'Felt strong',
+        swServerId: 'server-sw1',
+        seServerId: 'server-se1',
+        seSyncStatus: 1,
+      );
+
+      await sync.syncScheduledWorkouts();
+
+      expect(
+        api.puts.where((p) => p.path.endsWith('/notes')),
+        isEmpty,
+        reason: 'a note push per exercise per sync would be pure noise',
+      );
+    });
+
+    test(
+      'held from before notes were pushed is queued by the pull, not erased',
+      () async {
+        final ids = await seedSession(
+          note: 'Spotter needed on the last set',
+          swServerId: 'server-sw1',
+          seServerId: 'server-se1',
+          seSyncStatus: 1,
+        );
+        api.stubEmptyPull();
+        api.getResponses['api/Workout'] = [
+          serverWorkout(
+            id: 'server-w1',
+            name: 'Push Day',
+            exercises: [
+              serverWorkoutExercise(
+                id: 'server-we1',
+                exerciseId: 'server-e1',
+                orderPosition: 0,
+              ),
+            ],
+          ),
+        ];
+        // The server never heard of the note: it was stamped synced by a link
+        // back when nothing pushed notes at all.
+        api.getResponses['api/ScheduledWorkout'] = [
+          serverScheduledWorkout(
+            id: 'server-sw1',
+            workoutId: 'server-w1',
+            exercises: [
+              serverScheduledExercise(
+                id: 'server-se1',
+                workoutExerciseId: 'server-we1',
+              ),
+            ],
+          ),
+        ];
+
+        await sync.pullAll();
+
+        final row =
+            await (db.select(db.scheduledWorkoutExerciseTable)
+              ..where((t) => t.id.equals(ids.seId))).getSingle();
+        expect(row.notes, 'Spotter needed on the last set');
+        expect(row.syncStatus, 2, reason: 'queued for the next push');
+      },
+    );
+
+    test('edited on a linked entry is pushed', () async {
+      await seedSession(
+        note: 'Grip went before legs',
+        swServerId: 'server-sw1',
+        seServerId: 'server-se1',
+        seSyncStatus: 2,
+      );
+
+      await sync.syncScheduledWorkouts();
+
+      expect(
+        api.puts.map((p) => p.path),
+        contains('api/ScheduledWorkout/exercises/server-se1/notes'),
+      );
+    });
+  });
+
   group('countUnsyncedChanges', () {
     test('counts pending work and ignores synced rows', () async {
       expect(await db.countUnsyncedChanges(), 0);
