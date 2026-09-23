@@ -1312,6 +1312,25 @@
       }
     }
   },
+  "paywallStartTrial": "Try Premium free for {duration}",
+  "@paywallStartTrial": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "paywallTrialThen": "After the trial: {price} ({plan}). Cancel before it ends and you won't be charged.",
+  "@paywallTrialThen": {
+    "placeholders": {
+      "price": {
+        "type": "String"
+      },
+      "plan": {
+        "type": "String"
+      }
+    }
+  },
   "paywallPeriodDay": "day",
   "paywallPeriodDays": "days",
   "paywallPeriodWeek": "week",

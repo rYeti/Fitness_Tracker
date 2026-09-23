@@ -22,6 +22,10 @@ Markdown links, headings or emphasis, none of which Play renders.
 
 See `docs/android-release.md`.
 
+## Unreleased
+
+The Premium screen now leads with the free trial: the button reads "Try Premium free for 2 weeks" and tells you what the plan costs once the trial ends.
+
 ## 1.0.2+27
 
 The personal best shown while you train now covers your whole training plan instead of just the session in front of you. Standing in Upper A, you see the heaviest set you have hit on that exercise anywhere in the block - Upper B and Lower A included - and it still updates live as you type, so you can watch yourself beat it. Workouts that are not part of a plan show your best across every time you have done that workout.

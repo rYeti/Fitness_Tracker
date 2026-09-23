@@ -4051,6 +4051,18 @@ abstract class AppLocalizations {
   /// **'{price} for {duration}'**
   String paywallIntroPrice(String price, String duration);
 
+  /// No description provided for @paywallStartTrial.
+  ///
+  /// In en, this message translates to:
+  /// **'Try Premium free for {duration}'**
+  String paywallStartTrial(String duration);
+
+  /// No description provided for @paywallTrialThen.
+  ///
+  /// In en, this message translates to:
+  /// **'After the trial: {price} ({plan}). Cancel before it ends and you won\'t be charged.'**
+  String paywallTrialThen(String price, String plan);
+
   /// No description provided for @paywallPeriodDay.
   ///
   /// In en, this message translates to:
@@ -4708,7 +4720,7 @@ abstract class AppLocalizations {
   /// No description provided for @chatAttachmentOpenFailed.
   ///
   /// In en, this message translates to:
-  /// **'Couldn't open this file'**
+  /// **'Couldn\'t open this file'**
   String get chatAttachmentOpenFailed;
 
   /// No description provided for @chatVoiceNoteLabel.

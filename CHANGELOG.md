@@ -10,6 +10,10 @@ heading to the version it went out as, so a `## <version>` section is history:
 it is what those users have, and nothing new belongs in it. See
 `docs/android-release.md`.
 
+## Unreleased
+
+- The Premium screen leads with the free trial again. Since the hosted RevenueCat paywall was replaced (1.0.2+8), a store trial only ever appeared as a small line under one plan card, and on Android it read "14 days free trial" because RevenueCat's bridge reports a two-week Play offer as 14 days. The screen now pre-selects a plan that carries a free trial, the button reads "Try Premium free for 2 weeks", and a line under it says what the plan costs once the trial ends. On iOS/macOS the trial is only advertised when RevenueCat confirms the user is still eligible for it, since the App Store reports an intro offer to people who have already used theirs. See `docs/paywall-free-trial.md`.
+
 ## 1.0.2+27
 
 - The per-workout personal best on the active-workout screen now reports the best set of your whole training plan, not of the session you are standing in. "This Workout's Best" only ever looked at the sets you had typed into the screen in front of you — almost always a number you had chosen yourself minutes earlier — where what a trainee training Upper A / Upper B / Lower A means by "this workout" is the block, not the day. The card is now "Best in This Plan": the heaviest set for that exercise across every completed session scheduled under the same plan, folded live with whatever you are typing right now, so beating your programme best still lights up between two keystrokes rather than after the session is saved. A session that belongs to no plan (one whose plan was deleted, or that predates plans) falls back to every session of that workout and is labelled "Best in This Workout" accordingly — never silently widened to all-time, which would have shown the same number twice under two labels. Scoped by the plan a session was *scheduled under* rather than by the plan's current list of workouts, so a trainer reorganising the block does not reset the trainee's programme best. See `docs/workout-personal-best.md` §10.
