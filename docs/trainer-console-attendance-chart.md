@@ -18,7 +18,16 @@ steps in it that meant nothing.
 The card draws twelve weeks. Each one got an `Expanded` column in a `Row`, and
 each column was a `Column` holding the bar in an `Expanded` with the date label
 below it. On a 390px-wide phone, after page and card padding, that leaves about
-20px per column. The label was a plain `Text` with default wrapping.
+21px of room for each label. The label was a plain `Text` with default
+wrapping, at 8px.
+
+At normal text size an 8px "20/7" in Exo 2 is about 18px wide and just fits.
+What tipped it over was **the phone's own font-size setting**. Android's
+larger font sizes multiply every `Text` in the app, so at 1.3× the same label
+is about 23px wide. It is the width and the text scale together that decide
+whether a label wraps, and nobody testing on a laptop at normal size ever sees
+it. The browser test in §"Checking it in a real browser" below failed against
+the old build only once it enlarged the text.
 
 A `Text` that doesn't fit its width wraps at the next break it can use, and in
 `d/M` that break is the slash. So whether a label wrapped depended on how long
@@ -71,6 +80,42 @@ room. The gap between bar and label and the bars' side padding moved onto the
 4px grid (8, and 2 or 1) from 6 and 3. Hovering or reading with a screen reader
 still gives the full date and the sessions done out of planned for **every**
 week, labelled or not, because `Semantics` stays on each column.
+
+## Checking it in a real browser
+
+`e2e/tests/client-detail-attendance.spec.ts` signs in as the seeded trainer,
+opens Robert Meyer's Client Detail, and checks the chart in the built web
+bundle at 1440, 800 and 390px, each at 1.0× and 1.3× text. Like the other
+signed-in specs it needs a seeded local API and only runs with `AUDIT=1`; see
+`docs/e2e-playwright.md`.
+
+It checks two things:
+
+- **The accessibility tree.** All twelve weeks are there with their full
+  "Week of 20 Jul: 2 of 3 sessions" description. The labelled weeks are evenly
+  spaced and end on the current week, and on desktop every week is labelled.
+- **The pixels.** The tree reports a column's box, not where its bar ends, and
+  this bug was purely visual. So the test screenshots the chart and decodes it
+  in the page. It finds each bar's bottom row and checks that all twelve
+  match. It checks that everything below the bars is one band, one line tall.
+  And it checks that the band holds one separate cluster of ink per label, so
+  no two labels touch.
+
+Flutter web takes its text scale from the root element's font size
+(`findBrowserTextScaleFactor` in the engine divides it by 16), which is the
+setting a browser's own "font size" option changes. The test sets
+`document.documentElement.style.fontSize` to scale the text.
+
+Against the old build, five of the six cases **passed**. Only 390px at 1.3×
+failed, with bar bottoms at `92, 77, 77, 77, 92, 77, 77, 77, 77, 92, 77, 77`.
+The three 92s are `6/7`, `3/8` and `7/9`, the only labels short enough to stay
+on one line, which is the pattern in the original report. The widget test
+never saw this: the test font draws every character as a full square, which
+makes labels wider than the real font does, so every label wrapped at 1.0×
+and the problem looked the same everywhere. In other words, the fake font
+made more wrapping than the real one, and the real one needed the phone's
+text setting before it wrapped at all. A layout check that doesn't test a
+larger text size hasn't tested what users with that setting see.
 
 ## Alternatives that were rejected
 
