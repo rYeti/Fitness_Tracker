@@ -92,6 +92,13 @@ gets its second entry created. `LoggedMealDto.Foods` already documents that
 repeats inside one meal are real; a fix that collapsed them would silently
 under-report what somebody ate, which is worse than showing an extra row.
 
+*Since then:* every food entry carries an id the device minted, and a meal's
+foods are sent as the whole list (`PUT api/Meal/{id}/foods`), so matching by
+food item is gone. The lesson of this section still decides what replaced it:
+when a meal create answers with an existing meal, the device merges that
+meal's foods into its own before sending the list, rather than replacing
+them. See `docs/sync-architecture.md` §17–§18.
+
 ### The read side still needed its own fix, twice
 
 Idempotent writes stop new duplicates. They do nothing for the ones already

@@ -5,12 +5,13 @@ starts with why the same kinds of bug kept coming back after seven separate
 post-mortems had each fixed one, then goes through what changed, the decisions
 behind it that aren't obvious from the diff, and the rules to keep.
 
-This is part one of a staged rework. Part one changes only the app. Later parts
-change the API as well: the device mints every row's id, the pull fetches only
-what changed, and each side is told when the other changes something. Those
-parts will be added here as they land.
+The rework is staged. Part one (§1–§13) changes only the app. Part two
+(§14–§22) changes the API as well: the device mints every row's id, and a
+create can tell a repeat from a new request. Later parts make the pull fetch
+only what changed and tell each side when the other changes something; they
+will be added here as they land.
 
-Line references are to the commit that introduces this document.
+Line references are to the commit that introduces each part.
 
 ---
 
@@ -574,14 +575,454 @@ extension doesn't see its target type's statics unqualified.
 
 ---
 
+# Part two: the phone mints every id
+
+Part one made the device honest about what it had changed. It left one thing
+exactly as it was: who decides what a new row is called. The server did, and
+the device found out from the response to its POST. Part two moves that
+decision to the device, where the row is created, and changes the API so a
+create can be told apart from a repeat of one.
+
+It is the one part of the rework that changes both sides at once, so it is
+built to be deployed in the order CI deploys it: the API goes out on merge,
+ahead of any app release, and every change to it keeps shipped apps working.
+
+---
+
+## 14. Why a retry made a second row
+
+### The shape of the problem
+
+A push that creates a row is a POST. Under server-minted ids, the row's
+identity is born on the server, travels back in the response, and only then
+reaches the device, which writes it into `server_id`. Until that last step the
+device has no way to refer to the row, and no way to ask about it.
+
+Now lose the response. Nothing exotic is needed: the client gives up after 15
+seconds (`receiveTimeout` in `api_client.dart`), and a Cloud Run instance
+starting cold can take longer than that while it still finishes the request.
+Or the phone goes into a tunnel. Either way:
+
+| What actually happened | What the device observes |
+|---|---|
+| The server never got the POST | the call throws; `server_id` stays null |
+| The server stored the row; the answer was lost | the call throws; `server_id` stays null |
+
+This is `docs/chat-architecture.md` §2 in a different costume: the two cases
+look identical from the device, and guessing is wrong in both directions.
+Chat solved it by generating the message id on the client, so a retry carries
+the same identity as the original. Sync never did. Its retry was a brand-new
+POST with no identity at all, and the server, which had no way to tell a
+repeat from a new request, stored a second row. Two sync runs at once (part
+one §8) did the same thing without any network fault.
+
+### Why nothing caught it
+
+- **The compiler couldn't.** `serverId` was a `String?`, and "null means the
+  server doesn't have it" was a convention written in doc comments
+  ("UUID assigned by the remote API after first successful sync"). Nothing
+  ties a nullable column to the state of another machine. The one fact the
+  code needed — did the server store it? — was not representable in the
+  device's types at all, because the device genuinely didn't know.
+- **The tests couldn't.** The fake API answered every POST. No test ever lost
+  a response, because a lost response is not a return value you stub; it is
+  the absence of one. On the server, every create test called the create once.
+  A duplicate needs two requests carrying one intention, and each test carried
+  one request.
+- **The users mostly couldn't see it.** The trainee app folds on read: one
+  meal per category, one session per workout per day. It rendered a server
+  holding three copies of a lunch as one lunch. The Trainer Console did not
+  fold, and listed every copy. `docs/trainer-console-duplicate-rows.md` and
+  `docs/trainer-nutrition-duplicate-meals.md` are the reports that followed.
+
+### What grew around it
+
+Because the device could not name the row it had just created, it guessed.
+Each guess was reasonable in isolation, and each was eventually wrong somewhere:
+
+| Compensation | What it guessed |
+|---|---|
+| `_stampWorkoutExercisesFromServer` | before creating a workout's exercises, GET the workout and link any local row to a server row with the same exercise at the same position |
+| `_stampMealFoodEntriesFromServer` | after a meal create, link local foods to server foods by food item |
+| `_syncMissingScheduledExerciseSets` | GET every session whose exercises had no id, and link them by workout exercise |
+| `_relinkMissingScheduledExercises` | the same, again, in the pull |
+| the pull's "unlinked row" fallbacks | a local meal with no id for the same day and category *is* the server's meal; the same for a session on the same day |
+| the batch answers | the *n*th row of the response is the *n*th row of the request |
+| server-side content checks | a create for an occupied slot returns the row in it (4 of the 14 creates had one) |
+| eleven dedup folds | whatever the guesses above got wrong, fold it afterwards |
+
+Part one removed the two guesses that did real damage. Part two removes the
+ones that stood in for an id. The content checks stay, on both sides, for a
+reason §17 gives, and the folds stay until the data they heal is gone (§19).
+
+---
+
+## 15. The id is minted where the row is made
+
+Every synced table's `server_id` now has a client default
+(`clientDefault(newSyncId)`, `lib/core/database/tables/sync_tables.dart`): a
+random version-4 UUID, generated in Dart when the row is inserted. A row has
+its global identity before its first push. Every create sends it, every retry
+sends the same one, and a row pulled from the server still takes the server's.
+
+Two tables are deliberate exceptions:
+
+- **Built-in exercises.** They are the server's rows, not the device's. The
+  seeder inserts them with `server_id` explicitly null, and
+  `_syncSystemExerciseIds` links each one to the server's id by name, as
+  before. A seeded exercise with a random id would be a reference to nothing.
+- **Plan links.** The server never names a link; a link is one plan and one
+  workout. Older builds stored the *plan's* server id in the column, which is
+  the clearest sign it was never an identity.
+
+### "Not pushed yet" is a status now
+
+The id stopped meaning "the server has this". That fact moved to
+`sync_status = 0` (`pending`), which it had always half-duplicated. The change
+is one sentence, and it touched every place that had asked the question the
+old way: the push sweeps, the pull's fallbacks for unpushed local rows, the
+delete trigger, the dedup folds' preference for "the row the server knows",
+three DAO call sites and the meal-template store.
+
+It is worth being precise about why this was the risky part of the change.
+Every one of those checks read `serverId == null`, and after this change every
+one of them still compiles — it is simply false for every row, forever.
+Nothing fails. A fallback that adopted an unpushed local meal quietly stops
+adopting it, and the pull inserts a second meal beside it. The pull's
+"session links" step, which GETs a session whenever one of its exercises has
+no id, becomes a step that never GETs anything; that one was harmless only
+because nothing needed it any more (§19), so it was deleted rather than
+converted. The list above came from searching for every null test of a server
+id, not from the compiler, and the rules whose failure would be silent are
+pinned by tests that were run with the old null test put back (§21).
+
+### The delete trigger
+
+Part one's delete trigger recorded a server DELETE for any deleted row with a
+`server_id`. Every row has one now, so the condition became
+`OLD.sync_status != 0` (`_deletionCondition`, `sync_triggers.dart`). A row that
+never reached the server has nothing to tell it. The cost of this rule is one
+narrow case: a row whose create *did* land, but whose response was lost, and
+which the user then deleted before the next push. The server keeps it, and the
+next pull brings it back. The push runs ten seconds after an edit, so the
+window is ten seconds wide and needs a lost response inside it; recording a
+DELETE for every never-pushed row instead would have spent a request on every
+placeholder session a plan regeneration throws away.
+
+### Existing installs
+
+Schema 42 (`if (from < 42)`, `app_database.dart`) gives every existing row
+without an id one, in SQL rather than a Dart loop over rows: a
+`randomblob`-based expression shaped like a v4 UUID, evaluated per row, one
+statement per table. Before that it does two things the new rules need:
+
+1. A row with no id that is marked `pendingUpdate` was never created on the
+   server — the old push caught that by the null id and POSTed it — so it
+   becomes `pending`, which is what now POSTs it.
+2. A meal or plan whose list holds a food or workout that never reached the
+   server is marked changed. §18 explains why: its whole list is what gets
+   sent now, and a clean one takes the server's list on the next pull.
+
+---
+
+## 16. What the server does with an id
+
+Every create DTO and every batch item gained an optional `Id`. One helper
+resolves it for all of them (`ClientIds.CreateOrResolveAsync`,
+`FitTracker.Api/Services/ClientIds.cs`):
+
+| The id… | The create… |
+|---|---|
+| names one of the caller's rows | applies the sent fields to it, and returns it |
+| names someone else's row | throws `ClientIdConflictException`, which a global filter answers with 409 |
+| is new | inserts the row under it |
+| was not sent | mints one, as before — every shipped app sends none |
+
+### Why a repeat applies the fields
+
+The obvious rule is "a repeat returns the row it already made". It loses an
+edit:
+
+| Time | Device | Server |
+|---|---|---|
+| t0 | workout pending; POST id=X, "Push Day" | stores X, "Push Day"; the answer is lost |
+| t1 | user renames it "Push Day A" (still pending, `local_rev` 1) | X, "Push Day" |
+| t2 | retry: POST id=X, "Push Day A" | *return-only:* answers X, "Push Day" |
+| t3 | `_markSent` sees `local_rev` unchanged since t2's read → `synced` | X, "Push Day" |
+| t4 | the next pull reconciles a clean row → "Push Day" is back | |
+
+A retry is the device's latest word on the row, so the server applies it. That
+makes a create with an id a total operation — "make the server hold this row
+as I hold it" — and it paid for itself elsewhere. Part one's
+`_keepWorkoutForHistory` had to decide whether a workout it was reviving was on
+the server (`pendingUpdate`) or not (`pending`), from a null id that no longer
+exists. It now always says `pending`: the create goes out under the workout's
+id, and the server answers with its row updated, or makes one.
+
+### Two requests, one new id
+
+The lease (part one §8) stops two runs on one device, but not one request
+arriving twice: a client that timed out and retried while the server was still
+working on the first attempt. Both find the id free and both insert; the second
+fails on the primary key. The helper catches that once and resolves the id
+again, which now finds the first request's row.
+
+One detail there is easy to get wrong. After the failed save, Entity Framework
+still tracks the row it failed to insert. A tracking query for that key returns
+the tracked instance, not the stored one — identity resolution — so the second
+look would have been answered by the row that never landed, and the next save
+in the request would have tried to insert it again. The repositories' inserts
+go through `SaveNewAsync` (`DbContextExtensions.cs`), which stops tracking
+whatever a failed save was inserting before the exception goes on.
+
+### 409, and what the device does with it
+
+A v4 UUID colliding with another account's is not something that happens by
+chance. The 409 exists so that a guessed or replayed id can neither read nor
+overwrite another user's row. The device's answer is to mint a fresh id for the
+refused row and leave it pending (`_mintNewIds`, `sync_service.dart`), which
+costs nothing: nothing on the server refers to an id it never accepted. This is
+also why the push never sends a *reference* to a row the server doesn't have
+yet (`_serverIdIfPushed`) — a workout exercise naming a custom exercise that
+hasn't been created. Held back until the exercise is created, the reference can
+never point at an id that later gets replaced.
+
+### A guard that was dead became a hole
+
+`ScheduledWorkoutRepository.CreateScheduledWorkoutAsync` opened by looking the
+session up by id — with no owner in the condition. While the server minted
+every id this could never match; `docs/trainer-console-duplicate-rows.md` §5
+records it as "a guard keyed on an identity the caller never supplies guards
+nothing". The moment the app started supplying one, the same line would have
+answered anyone who named an id with that session, sets and all. The lookup is
+gone; the helper's, which checks the owner, replaces it. The general point is
+the reverse of the one that doc made: code that is harmless *because* an input
+never arrives stops being harmless the day it does, and nothing marks it.
+
+---
+
+## 17. Why the server still de-duplicates by content
+
+Client ids make one intention idempotent: however many times a device sends
+"create meal X", there is one meal X. They say nothing about two intentions.
+Two devices logging lunch on the same day mint two ids for what the product
+says is one meal. So do a phone before and after a reinstall. Only content can
+see that those are the same row:
+
+| Create | Content key the server keeps |
+|---|---|
+| meal | user, day, category (`docs/trainer-nutrition-duplicate-meals.md`) |
+| session | workout, UTC day (`docs/trainer-console-duplicate-rows.md` §3) |
+| workout exercise | workout, exercise, position |
+| session exercise | session, workout exercise |
+
+So a create can still answer with a different id from the one it was sent.
+**The device keeps whichever id comes back** — `_markSent` stores it — and
+that is a rule, not a detail: a device that kept its own would push updates to
+a row the server doesn't have.
+
+It also means the part of the create that *follows* has to be written for an
+answer that names an existing row. That was the lesson of
+`docs/trainer-console-duplicate-rows.md` §2 — an idempotent outer call does
+not make its side effects idempotent — and it applies with more force here,
+because the foods are now sent as a whole list (§18). Sent as a whole list to
+a meal another device already filled, this device's foods would *replace*
+that device's. `_mergeIntoServerMeal` takes the other meal's foods into the
+local one first (or, if the device already holds that meal as another row,
+moves its foods there), and only then sends the combined list. The pull does
+the same when it adopts an unpushed local meal.
+
+The rejected alternative was to have the server refuse a content duplicate
+with 409. That is simpler on the server and strands the second device: it
+holds a meal with foods in it and no way to learn which meal to put them in.
+
+---
+
+## 18. Lists are sent whole
+
+Part one sent two owned lists one member at a time: a meal's foods were added
+with a batch and removed with `DELETE api/Meal/{m}/foods/{food}`, and a plan's
+workouts likewise. Each removal needed a row in the deletion outbox carrying
+the ids of both ends. The food DELETE was addressed by meal *and food item*,
+so it could not say which of two portions of the same food to remove.
+
+With every member carrying its own id, both lists now go the way set templates
+and logged sets already did: the owner is what is dirty (its owned-list
+triggers marked it for an addition already, and now do for a removal too), and
+its push sends the whole list —
+`PUT api/Meal/{id}/foods` with `{id, foodItemId}` per entry, and
+`PUT api/WorkoutPlan/{id}/workouts` with workout ids. An empty list empties
+it. The server keeps each entry's id. The two outbox kinds are no longer
+recorded, and entries an older build queued are still sent.
+
+Sending a list whole has a consequence the append-only version never had.
+Suppose another device takes oats out of a meal. This device still holds the
+oats entry, and its copy of the meal is clean. Under the old push that was
+harmless: only new entries were ever sent. Under the new one, the next edit to
+this meal sends its whole list — oats included — and puts them back. So the
+pull now makes a **clean** meal's or plan's list match the server's, removing
+what the server no longer lists (`_applyServerMeal`, `_mirrorPlanWorkoutLinks`),
+and leaves a **dirty** one alone, because a dirty list is this device's unsent
+change. The rule is the same one part one gave the pull for rows: a clean copy
+is the server's to set.
+
+And a rule for the sync engine's own writes follows from it. A dedup fold that
+moves a meal's foods onto the meal it keeps writes under `untracked`, which the
+triggers ignore, so the kept meal would look clean with foods the server has
+never seen — and the next pull would remove them. `_dirtyIfClean` marks it.
+
+The trade-off is last-writer-wins for the list. A trainer adding a workout to a
+client's plan while the client's phone holds an unsent change to that plan
+loses to the phone's list. The window is the push debounce, ten seconds, and
+part three keeps last-writer-wins at the level of the whole aggregate for the
+same reason: anything finer needs a version on every row.
+
+### The replace endpoints keep ids
+
+`ReplaceSetsAsync` and `ReplaceSetTemplatesAsync` used to mint fresh ids on
+every replace, and the device paired the answer with its request by position.
+So after every push, the ids the device held named rows the server had just
+deleted, correct only for as long as nobody looked. Both now store each row
+under the id it was sent with, and the device marks what comes back by id. An
+id already stored under another of the caller's parents is moved (the device's
+dedup folds move sets between twin session exercises, ids and all); one stored
+under someone else's is refused with 409. The template replace is now a
+transaction, as the set replace always was.
+
+---
+
+## 19. What went, and what stayed
+
+| Removed | Why it was there | Why it can go |
+|---|---|---|
+| `_stampWorkoutExercisesFromServer` | GET the workout before creating its exercises, in case a lost response had already created them | the create is idempotent on the id; posting again *is* the question |
+| `_stampMealFoodEntriesFromServer` | link local foods to the returned meal's foods by food item | the meal's list is sent whole, merged first |
+| the GET in the session-exercise sweep | find the entries the server made when the session was created | the session create and the exercise batch both answer with them |
+| the pull's "session links" step | the same, in the pull | its null test would never have been true again |
+| pairing batch answers by index | — | answers are matched by id; the workout-exercise batch falls back to the server's own slot key, the only case in which it answers with a different id |
+| `markMealSynced`, `markPlanWorkoutSynced` | callers above | no callers |
+
+The dedup folds all stayed. It is tempting to call them dead now, and for data
+written from here on, they are: no retry makes a second row, and pulls no longer
+overlap. But every device that ran an earlier build still holds what those
+builds left, and the server still holds the twins they created, which a full
+pull on a new phone brings straight down. The folds are what heal that. What
+changed is their job description: `_deduplicateAll` now says in its doc comment
+that nothing new should be added to them, and they can go when the data they
+heal is gone.
+
+---
+
+## 20. What was rejected
+
+- **An `Idempotency-Key` header.** The standard answer for payment APIs. The
+  server stores key → response for some hours and replays the response to a
+  repeat. It would have fixed retries, and nothing else: the device still
+  wouldn't know a row's id until an answer arrived, so it still couldn't refer
+  to a row it had just made, and the key would be a second identity living
+  beside the row's, in a table of its own, expiring on a timer — a retry after
+  the timer is a duplicate again. With the id minted on the device, the key
+  *is* the row's primary key: it never expires, and it is the same id the pull
+  and every later update use.
+- **Better matching on the device.** That is what the table in §14 is. Every
+  heuristic identified rows by something that is not an identity — a name, a
+  position, a day — and each one had a case where two different rows share it
+  (two workouts called "Upper A"; a superset that repeats an exercise; two
+  portions of oats).
+- **A separate client-reference column** on each server table, keeping the
+  server's own primary key. It avoids trusting a client-chosen key, at the price
+  of two ids per row, and every reference on both sides choosing one of them.
+  The server's keys were already GUIDs, the owner check makes a chosen key
+  harmless, and a v4 collision is not a real risk.
+- **Refusing content duplicates with 409.** See §17.
+- **Integer or sequential ids from the device.** Two devices would mint the
+  same ones.
+
+---
+
+## 21. What the tests pin
+
+In `test/sync/client_ids_test.dart` unless noted. Each was run against the
+code before the change, or — for the four marked \* — with just the one rule
+it pins put back to its old form, and failed there.
+
+| Test | Pins |
+|---|---|
+| *has its global id from the moment it is inserted* | §15 |
+| *is created under that id, and a retry after a lost response sends the same one* | §14: the fake stores the POST and loses the answer |
+| *whose id the server refuses (409) gets a fresh one* | §16 |
+| *is not referred to by id until the server has it* \* | §16: `_serverIdIfPushed` |
+| *the server never had records no DELETE for it* \* | §15: the trigger gates on status |
+| *two portions of one food are told apart by their ids* | §18 |
+| *a new meal the server already had for that day keeps the foods on both* | §17 |
+| *a food not on the server yet leaves the meal to go again* | §18 |
+| *a clean meal takes the server's list on pull, a dirty one keeps its own* | §18 |
+| *a meal this device hasn't pushed is adopted by the pull* \* | §15: the fallback tests status |
+| *a removed one goes as the list without it, not as a DELETE* (plans) | §18 |
+| *a clean plan takes the server's list on pull* | §18 |
+| *a meal template is created under the id minted when it was made* | §15, for SharedPreferences |
+| *deleted before it was pushed tells the server nothing* \* (templates) | §15 |
+| *an install upgraded from schema 41* | §15: ids backfilled and distinct, built-ins left alone, statuses moved, owners dirtied |
+| `FitTracker.Api.Tests/ClientIdCreateTests.cs` (23 tests) | §16–18: a repeat returns and updates the same row with no second; every create the app sends; no id still mints one; the PK race; foreign ids refused, including a system exercise's and another user's session; the 409 filter; content de-duplication still answering with its own row; replaces keeping and moving ids; both new PUTs, including empty lists; every batch answering 404 for someone else's parent; both shapes of the session-exercise batch; `TotalWeightGrams` |
+
+The server tests were mutation-checked the same way: with ids ignored, with the
+set replace minting ids, with a batch's ownership check removed, with the plan
+batch's duplicate check removed, with a repeat that returns without applying,
+and with the template's weight left unsaved.
+
+Existing tests changed where they had encoded the old contract. The fake API
+now answers an unstubbed POST the way the API does for a create it accepts —
+with what it was sent — and can fail one with a status or lose its answer.
+Tests that stubbed a server-minted id for a batch now expect the ids the
+device sent. The tests for a food removed from a meal, a food added to one,
+and a workout exercise the server already has now expect the list PUT and the
+slot answer instead of a DELETE, a batch append and a GET, and a workout kept
+for its history now comes back `pending` rather than `pendingUpdate` (§16).
+
+---
+
+## 22. The rules part two leaves behind
+
+- **A row is born with its id.** Never write `server_id` null to "re-queue" a
+  row. The server mints an id for one sent without, the device marks what
+  comes back by id, and so it never recognises the answer: the row is sent
+  again on every push. Re-queue with the status.
+- **"The server has it" is `sync_status != 0`.** Never test `serverId` for
+  null. The test still compiles and is simply never true again.
+- **Send a reference only once its target is on the server**
+  (`_serverIdIfPushed`).
+- **Keep the id a create answers with.** It can differ — the server still
+  de-duplicates by content — and what follows the create must be written for
+  an answer that names a row that already exists: merge into it, don't replace
+  it.
+- **A create with an id is the row's whole current state.** The server applies
+  a repeat; that is what makes it safe to re-send one whose answer was lost.
+- **A list the server replaces is sent whole, under its members' ids, and it is
+  the owner that is dirty.** A clean owner takes the server's list on pull; the
+  sync engine's own write that changes one marks it (`_dirtyIfClean`).
+- **A new create endpoint** takes an optional `Id`, resolves it through
+  `ClientIds.CreateOrResolveAsync` with an owner lookup, and inserts with
+  `SaveNewAsync`. **A batch against a parent that isn't the caller's answers
+  404**, never `200 []`, which the device can't tell from "created nothing".
+- **The deletion outbox is for rows, not list members.** A member leaving a
+  list is a change to its owner.
+
+Names in part one that this part changed: `_syncMissingScheduledExerciseSets`
+is now `_syncSessionExercises`, and `_addMissingPlanWorkoutLinks` is now
+`_mirrorPlanWorkoutLinks`.
+
+---
+
 ## What is deliberately not here yet
 
-- **Client-minted ids and idempotent creates** (part two). Until then the
-  server-side matching fallbacks (`_stampWorkoutExercisesFromServer`,
-  `_stampMealFoodEntriesFromServer`, the unlinked-row stamps in the pull) stay.
-  They are guesses, but guesses that prevent duplicates rather than cause them.
 - **An incremental pull with tombstones** (part three). The pull still
-  downloads everything, which is why it keeps its throttle.
+  downloads everything, which is why it keeps its throttle, and it still infers
+  a deletion from a row's absence from a full list (§5).
 - **Live updates to the Trainer Console and to the trainee's phone** (part
   four).
+- **Anything finer than last-writer-wins.** A meal's foods and a plan's
+  workouts are replaced as a whole (§18), and part three keeps the same rule for
+  whole aggregates. Merging concurrent edits needs a version on every row.
+- **Removing the dedup folds.** They heal what earlier builds left on devices
+  and on the server (§19), and go when that data does.
 - **Foreign-key enforcement** — see §6 for why not.
