@@ -12,6 +12,7 @@ it is what those users have, and nothing new belongs in it. See
 
 ## Unreleased
 
+- The API deploy now passes Stripe configuration to Cloud Run (`STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` secrets, `STRIPE_PRICE_SOLO`/`_PRO`/`_STUDIO` variables). Before this, production had no Stripe key at all, so every trainer licence stayed on Free. A key added by hand in the Cloud Run console would not have fixed that, because `--set-env-vars` replaces the service's environment on every deploy. `docs/trainer-licensing.md` has a new "Going live" section with the dashboard checklist and the webhook API version (`2026-07-29.dahlia`) the SDK requires.
 - Fixed the Trainer Console's Attendance by week chart looking broken on a phone. Twelve weeks share the card's width, which on a phone with a larger system font size leaves less room per column than a label like "20/7" needs. Those labels wrapped onto two lines and took the height out of their own bar, so only some bars rose off the baseline. The chart now measures its widest label once, labels every Nth week counting back from the current one, and gives every week the same single-line label area, so the bars always share a baseline. Labels also grew from 8px to 10px. Every week keeps its full date and sessions done out of planned for screen readers. See `docs/trainer-console-attendance-chart.md`.
 
 ## 1.0.2+28

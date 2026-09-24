@@ -162,6 +162,131 @@ replaying an event is a no-op. `TrainerLicence.LastStripeEventAt` guards against
 out-of-order delivery — a late "payment failed" must not undo the "payment
 succeeded" that already resolved it.
 
+## Going live
+
+Everything above describes what the code does once Stripe is configured. This
+section covers getting it configured in production, and why production had been
+running without it.
+
+### What was missing, and why nothing complained
+
+`deploy.yml` builds the API's whole environment into one `--set-env-vars` string,
+and until this section was written that string had no Stripe key in it. The
+production API therefore booted with no `Stripe:SecretKey`, logged the warning
+from `Program.cs`, and kept every trainer on Free. Nothing failed. That is by
+design: the API is supposed to *degrade* rather than refuse to start when an
+optional integration is missing, the same way it treats FCM and R2. The cost of
+that design is that nobody notices a missing setting until they go looking for
+the feature.
+
+The compiler has no view of this, because configuration is a string lookup
+resolved at runtime, and the test suite doesn't either, because every Stripe
+test supplies its own configuration. There was also an obvious-looking fix that
+would not have worked: typing the key into the Cloud Run console by hand.
+`--set-env-vars` *replaces* the service's environment rather than merging into
+it, so the next push to `main` would silently delete a key added that way. The
+workflow is the only place a production setting can live.
+
+The workflow now passes five values, following the same secrets-versus-variables
+split it already uses for R2:
+
+| GitHub setting | Kind | Becomes | Value |
+|---|---|---|---|
+| `STRIPE_SECRET_KEY` | secret | `Stripe__SecretKey` | `sk_live_…` or, better, a restricted `rk_live_…` key (see below) |
+| `STRIPE_WEBHOOK_SECRET` | secret | `Stripe__WebhookSecret` | `whsec_…` from the live webhook endpoint |
+| `STRIPE_PRICE_SOLO` | variable | `Stripe__Prices__Solo` | `price_…` |
+| `STRIPE_PRICE_PRO` | variable | `Stripe__Prices__Pro` | `price_…` |
+| `STRIPE_PRICE_STUDIO` | variable | `Stripe__Prices__Studio` | `price_…` |
+
+Price ids are variables because they aren't sensitive and retuning one shouldn't
+mean rotating a secret. None of the five can contain a comma, which is what
+makes it safe to append them to the comma-joined string without base64. The FCM
+JSON needed base64 because it does contain commas.
+
+The workflow warns when the key is missing. It warns more pointedly when the key
+is present and the webhook secret is not, because that is the worse
+half-configuration: Checkout works, trainers pay, and every event that should
+upgrade their licence is rejected.
+
+### Test mode and live mode are separate worlds
+
+Stripe keeps products, prices, customers, webhook endpoints and portal
+configuration separately for each mode. A price id created in test mode doesn't
+exist in live mode. A live key paired with test price ids fails every checkout
+with "No such price". A `whsec_` secret from the test-mode endpoint rejects
+every live event as a bad signature. The five values in the table must all come
+from live mode. The test-mode set belongs in local user-secrets, never in the
+workflow.
+
+### The webhook's API version must match the SDK
+
+`EventUtility.ConstructEvent` checks the event's `api_version` against the
+version the installed Stripe.net was built for. Stripe.net 52.3.0 is built for
+**`2026-07-29.dahlia`**. If they differ, the method throws a `StripeException`,
+and the controller treats every `StripeException` as a bad signature. So a
+mismatched endpoint shows up in the logs as "invalid signature" for every event,
+which points at the secret when the version is the real cause.
+
+Create the live endpoint with its API version set to the SDK's. When Stripe.net
+is upgraded, check whether its pinned version moved and update the endpoint in
+the same change.
+
+### Dashboard checklist (live mode)
+
+1. **Activate the account.** Add business details, a bank account for payouts,
+   and a public business name and statement descriptor. Checkout shows these to
+   the trainer.
+2. **Products and prices.** Create one product per purchasable tier (Solo, Pro,
+   Studio), each with a recurring price. Free gets no product. "Copy to live
+   mode" on a test product works, but copying gives the price a new id. The
+   ids go in the three variables.
+3. **Customer portal** (Settings → Billing → Customer portal). Allow payment
+   method updates, invoice history and cancellation. Allow subscription updates
+   only between the three prices above. There is no Free price for a trainer to
+   switch to, which is how "Free is never a downgrade target" is enforced (see
+   above). Set cancellation to happen at the end of the billing period, so a
+   trainer keeps what they paid for.
+4. **Webhook endpoint** (Developers → Webhooks). URL
+   `https://<cloud-run-host>/api/stripe/webhook`, API version
+   `2026-07-29.dahlia`, events `checkout.session.completed`,
+   `customer.subscription.created`, `customer.subscription.updated`,
+   `customer.subscription.deleted`, `invoice.payment_failed`. Copy its signing
+   secret into `STRIPE_WEBHOOK_SECRET`.
+5. **Failed payments** (Settings → Billing → Subscriptions and emails). Turn on
+   Smart Retries and the failed-payment and trial-ending emails. Whatever the
+   retries end in, the licence lands in grace and then read-only, because the
+   state machine acts on the subscription's status rather than on how Stripe
+   reached it.
+6. **API key.** Prefer a restricted key with write access to Customers,
+   Checkout Sessions and Customer portal sessions, and read access to
+   Subscriptions. Those are the only calls `TrainerLicenceService` makes. If the
+   key leaks, it can't issue refunds or read payouts.
+7. **Tax.** If you charge VAT, turn on Stripe Tax before launch. Checkout only
+   collects it when the session asks for it, so enabling it is a code change,
+   not only a dashboard setting.
+
+### Checking it end to end
+
+Set `WEB_ORIGIN` first. Checkout's success and cancel URLs and the portal's
+return URL are built from `Cors:AllowedOrigins[0]`, and without it they fall
+back to `http://localhost:5000`. After the deploy:
+
+- The Cloud Run logs should contain neither Stripe warning from `Program.cs`.
+- Send a test event from the dashboard's webhook page. It should get a 200, and
+  the log should say "Ignoring unhandled Stripe event" (a test event matches no
+  licence). A 400 means the secret or API version is wrong.
+- Upgrade a real trainer account with a real card, confirm the tier and seat
+  count change on the plan screen, then cancel from the portal and refund the
+  charge.
+
+### The general lesson
+
+An integration that degrades gracefully when it is unconfigured looks exactly
+like one that works, until someone uses the feature. Two habits prevent that.
+Adding a configuration key to the code and adding it to the deploy pipeline
+belong in the same change. And a boot warning only helps if someone reads the
+logs after the first deploy, so read them.
+
 ## Rollout
 
 The `AddTrainerLicence` migration backfills a Free licence for every user who
