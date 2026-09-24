@@ -683,29 +683,24 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
       );
       final noteController = _exerciseNoteControllers[exerciseNoteKey];
 
+      final note =
+          noteController?.text.isEmpty ?? true ? null : noteController!.text;
       int scheduledExerciseId;
+      var insertedWithNote = false;
 
-      if (exerciseData.scheduledExerciseId != null) {
-        scheduledExerciseId = exerciseData.scheduledExerciseId!;
-        final note =
-            noteController?.text.isEmpty ?? true ? null : noteController!.text;
+      // The remembered row can be gone: sync de-duplication merges a twin
+      // this screen inserted into the copy the pull wrote. Writing to the old
+      // id would then save nothing at all, so look the row up again instead.
+      final rememberedId = exerciseData.scheduledExerciseId;
+      final rememberedStillExists =
+          rememberedId != null &&
+          await (db.select(db.scheduledWorkoutExerciseTable)
+                ..where((t) => t.id.equals(rememberedId)))
+                  .getSingleOrNull() !=
+              null;
 
-        // Flagged for sync only when the note actually changed: this runs on
-        // every debounced set edit, and the note is what a client's trainer
-        // reads in Session Review — an unflagged write never leaves the device.
-        final stored =
-            await (db.select(db.scheduledWorkoutExerciseTable)..where(
-              (t) => t.id.equals(scheduledExerciseId),
-            )).getSingleOrNull();
-        if (stored != null && stored.notes != note) {
-          await (db.update(db.scheduledWorkoutExerciseTable)
-            ..where((t) => t.id.equals(scheduledExerciseId))).write(
-            ScheduledWorkoutExerciseTableCompanion(
-              notes: Value(note),
-              syncStatus: const Value(2),
-            ),
-          );
-        }
+      if (rememberedStillExists) {
+        scheduledExerciseId = rememberedId;
       } else {
         // Guard against concurrent saves both seeing scheduledExerciseId==null
         // and each inserting a duplicate row.
@@ -732,15 +727,34 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                 ScheduledWorkoutExerciseTableCompanion.insert(
                   scheduledWorkoutId: widget.scheduledWorkout.scheduled.id,
                   workoutExerciseId: exerciseData.workoutExercise.id,
-                  notes: Value(
-                    noteController?.text.isEmpty ?? true
-                        ? null
-                        : noteController!.text,
-                  ),
+                  notes: Value(note),
                 ),
               );
+          insertedWithNote = true;
         }
         exerciseData.scheduledExerciseId = scheduledExerciseId;
+      }
+
+      // Every path but a fresh insert lands on a row that already exists —
+      // including the one the sign-in pull created after this screen loaded,
+      // which the branch above picks up by id and used to leave without the
+      // note. Flagged for sync only when the note actually changed: this runs
+      // on every debounced set edit, and the note is what a client's trainer
+      // reads in Session Review — an unflagged write never leaves the device.
+      if (!insertedWithNote) {
+        final stored =
+            await (db.select(db.scheduledWorkoutExerciseTable)..where(
+              (t) => t.id.equals(scheduledExerciseId),
+            )).getSingleOrNull();
+        if (stored != null && stored.notes != note) {
+          await (db.update(db.scheduledWorkoutExerciseTable)
+            ..where((t) => t.id.equals(scheduledExerciseId))).write(
+            ScheduledWorkoutExerciseTableCompanion(
+              notes: Value(note),
+              syncStatus: const Value(2),
+            ),
+          );
+        }
       }
 
       await (db.delete(db.workoutSetTable)..where(

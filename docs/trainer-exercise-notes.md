@@ -212,3 +212,87 @@ Two narrower rules fall out of it:
 | › *held from before notes were pushed is queued by the pull, not erased* | the backfill rule in §3e |
 | › *edited on a linked entry is pushed* | the ordinary edit path |
 | `session_review_screen_test` › *the client's note on an exercise is shown under it* | the console renders it, and only where there is one |
+| `sync_service_test` › *on a twin the sync de-duplicates away is moved onto the survivor* | §6b |
+| `e2e/tests/trainer-exercise-notes.spec.ts` | the whole path in two real browsers — §6 |
+
+## 6. Driving it in a browser, and what that found
+
+Every test in §5 checks one side of the API boundary. The defect in §2 lived
+*between* the sides, so the last check is a Playwright spec that runs the whole
+path in two real browsers against a seeded local API:
+
+```
+trainee browser   Gym → Start Workout → type weight, reps and a note
+                  → Next Set until "Workout completed!" → Done
+                  → Profile → Sync now → "Sync complete"
+API               GET api/ScheduledWorkout: the note is on the session's entry
+trainer browser   Session Review → the note is on screen, under CLIENT NOTE
+```
+
+The API check in the middle is deliberate: when the spec fails, it says which
+half broke. A missing note there is the push; a missing note at the end is the
+console.
+
+It runs only with `E2E_API=1`, like `chat-attachments.spec.ts`, and only in
+the desktop project. The API allows five auth requests a minute per IP and the
+spec makes three, and it also resets the one seeded session scheduled for
+today, which three projects would race over. It signs in inside the test, not
+through the `traineePage` fixture, because a fixture signs in *before* the
+project check can skip it, and the skipped projects would still spend two logins.
+
+### 6a. The first failures were the test, and the fixture's readback hid it
+
+The spec failed intermittently at the API check: the session and its sets
+reached the server, but no note request was ever made. Temporary `print`
+statements in a release build (the app's logger is silent outside debug) showed
+the client doing exactly what §3d says, given what it had been handed: the
+save compared the stored note with the field's controller and found them
+equal, because the controller still held the *old* note, or none.
+
+The typed text had reached the browser's `<input>` and never reached Flutter.
+On the active workout screen, clicking a field's semantics node moves the
+*browser's* focus onto that node's element but not Flutter's: after the first
+field, every click left Flutter focused on Weight. `typeReliably` reads the
+value back from the element it clicked, so it reported success on a field the
+framework was not listening to. Tab moves both foci together. The spec now
+clicks only the first field, reaches every later one by tabbing until it is
+`document.activeElement`, and for the note waits for the one signal that comes
+from the framework itself: once the controller holds text, the hint leaves the
+field's accessible name ("Exercise Notes How did it feel?" becomes
+"Exercise Notes").
+
+This is the same shape as the rest of this document, in the test instead of
+the app: a readback from the layer you typed into is not evidence that the
+layer you care about received it. `docs/e2e-playwright.md` has the general form.
+
+### 6b. Two real gaps the investigation turned up on the way
+
+Chasing that failure meant reading every path by which a note could be lost
+between the field and the push, and two of them were real. Neither is what
+caused the flaky runs above, and neither was reproduced in a browser, so
+the second is covered only by reading the code and the first by a unit test:
+
+- **Sync de-duplication deleted a twin's note.** `_deduplicateScheduledExercisesByContent`
+  merges two local entries for the same (session, workout exercise), keeping
+  the one linked to the server. Its own comment says how twins arise: two saves
+  racing to insert. The screen's save can also race the sign-in pull, which
+  runs in the background. Either way the unlinked twin is the one holding what the user
+  just typed, and the merge moved its logged sets onto the survivor but not its
+  note. It now carries an unpushed note across and flags the survivor pending,
+  unless the survivor has an unpushed edit of its own.
+- **The screen kept saving to a row the merge had deleted.** The active
+  workout remembers each entry's row id; after a merge that id points at
+  nothing, and every later save wrote to it and changed nothing. The save now
+  checks the remembered row still exists and looks it up again if not. The
+  path that finds an existing row by (session, workout exercise) also now
+  writes and flags the note: it used to take the row's id and leave the note behind.
+
+### 6c. Something it showed that this change does not fix
+
+Repeated runs against one database left Session Review listing Bench Press
+with a new "set 1" row for every run. The active workout saves a set by
+deleting the exercise's local sets and inserting fresh ones; the fresh rows
+have no server id, so they are pushed as new sets, and the server's copies of
+the deleted ones are never deleted. Any session saved twice accumulates
+duplicate sets on the server. That predates this change and is not about
+notes, so it is recorded here rather than fixed in passing.

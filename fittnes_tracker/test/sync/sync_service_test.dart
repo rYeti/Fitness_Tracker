@@ -817,6 +817,76 @@ void main() {
       },
     );
 
+    test(
+      'on a twin the sync de-duplicates away is moved onto the survivor',
+      () async {
+        // The race the E2E suite caught: the active workout saved before the
+        // sign-in pull had written its copy of the entry, so the device ended
+        // up with the pull's linked row (the server's older note) and its own
+        // unlinked twin (what the user just typed).
+        final ids = await seedSession(
+          note: 'Felt strong',
+          swServerId: 'server-sw1',
+          seServerId: 'server-se1',
+          seSyncStatus: 1,
+        );
+        await (db.update(db.scheduledWorkoutTable)
+          ..where((t) => t.id.equals(ids.swId))).write(
+          const ScheduledWorkoutTableCompanion(syncStatus: Value(1)),
+        );
+        final linked =
+            await (db.select(db.scheduledWorkoutExerciseTable)
+              ..where((t) => t.id.equals(ids.seId))).getSingle();
+        await db
+            .into(db.scheduledWorkoutExerciseTable)
+            .insert(
+              ScheduledWorkoutExerciseTableCompanion.insert(
+                scheduledWorkoutId: ids.swId,
+                workoutExerciseId: linked.workoutExerciseId,
+                notes: const Value('Left elbow ached at lockout'),
+              ),
+            );
+
+        api.stubEmptyPull();
+        final workout = serverWorkout(
+          id: 'server-w1',
+          name: 'Push Day',
+          exercises: [
+            serverWorkoutExercise(
+              id: 'server-we1',
+              exerciseId: 'server-e1',
+              orderPosition: 0,
+            ),
+          ],
+        );
+        api.getResponses['api/Workout'] = [workout];
+        api.getResponses['api/Workout/server-w1'] = workout;
+        api.getResponses['api/ScheduledWorkout'] = [
+          serverScheduledWorkout(
+            id: 'server-sw1',
+            workoutId: 'server-w1',
+            exercises: [
+              serverScheduledExercise(
+                id: 'server-se1',
+                workoutExerciseId: 'server-we1',
+              ),
+            ],
+          ),
+        ];
+
+        await sync.syncAll();
+
+        final rows = await db.select(db.scheduledWorkoutExerciseTable).get();
+        expect(rows, hasLength(1), reason: 'the twin is merged away');
+        expect(rows.single.serverId, 'server-se1');
+        expect(rows.single.notes, 'Left elbow ached at lockout');
+        final put = api.puts.singleWhere(
+          (p) => p.path == 'api/ScheduledWorkout/exercises/server-se1/notes',
+        );
+        expect(put.data, {'notes': 'Left elbow ached at lockout'});
+      },
+    );
+
     test('edited on a linked entry is pushed', () async {
       await seedSession(
         note: 'Grip went before legs',

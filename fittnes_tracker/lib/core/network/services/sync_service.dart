@@ -1049,6 +1049,32 @@ class SyncService {
           (e) => e.serverId != null,
           orElse: () => group.first,
         );
+        // The note moves with the sets. A twin is born when the active workout
+        // saves before the sign-in pull has written its copy, so the unlinked
+        // loser holds what the user just typed and the linked winner holds the
+        // server's older note. Keeping the winner's alone deleted the edit and
+        // left nothing pending to push it. A winner with an unpushed edit of
+        // its own keeps it.
+        final carriedNote =
+            group
+                .where(
+                  (e) =>
+                      e.id != winner.id &&
+                      e.serverId == null &&
+                      (e.notes?.trim().isNotEmpty ?? false) &&
+                      e.notes != winner.notes,
+                )
+                .map((e) => e.notes)
+                .lastOrNull;
+        if (carriedNote != null && winner.syncStatus != 2) {
+          await (_db.update(_db.scheduledWorkoutExerciseTable)
+            ..where((t) => t.id.equals(winner.id))).write(
+            ScheduledWorkoutExerciseTableCompanion(
+              notes: Value(carriedNote),
+              syncStatus: const Value(2),
+            ),
+          );
+        }
         for (final loser in group.where((e) => e.id != winner.id)) {
           await _moveLoggedSets(from: loser.id, to: winner.id);
           await (_db.delete(_db.scheduledWorkoutExerciseTable)

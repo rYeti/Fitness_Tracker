@@ -66,6 +66,7 @@ re-run it after reseeding against a fresh database.
 | `fixtures/flutter.ts` | The `appPage` fixture — boots the app and enables semantics. |
 | `tests/` | Specs. |
 | `tests/seed.spec.ts` | Empty template the Playwright generator agent copies. Never runs. |
+| `tests/trainer-exercise-notes.spec.ts` | A trainee's exercise note, typed in an active workout, reaching Session Review. Needs `E2E_API=1` and a seeded API; desktop project only. |
 | `tools/serve-web.mjs` | Static server with the SPA rewrite production hosting also has to implement. |
 
 ## Agents

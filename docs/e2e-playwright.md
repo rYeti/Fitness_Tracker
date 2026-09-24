@@ -294,7 +294,7 @@ three and lands you on screens that are empty for the wrong reason.
 `tools/seed-review-data.mjs` writes its data through the app's own endpoints
 rather than as SQL, so it cannot drift from the schema.
 
-### Four things this needed that were not obvious
+### Five things this needed that were not obvious
 
 **Typing drops characters.** Flutter routes keys through a hidden input it
 repositions and re-creates as focus moves. In a password field this is not
@@ -307,6 +307,19 @@ nothing.** The first fixture waited for the login button to disappear and
 "succeeded" in 200ms without ever signing in. Every screenshot underneath was
 of the login screen, and the suite was green. It now asserts the button exists
 *before* waiting for it to go, and confirms a nav afterwards.
+
+**A field that reads back your value may not be the field Flutter is
+listening to.** Clicking a text field's semantics node moves the browser's
+focus onto that node's `<input>`, and on a screen with several fields it does
+not always move Flutter's. The keys land, the readback matches, and the
+framework's controller never sees them. `typeReliably` can't tell the
+difference, because it reads the value back from the element it clicked. Where a
+screen has several fields, reach the later ones with Tab, which moves both
+foci, and confirm the framework has the value by something the framework
+produces: a hint leaving the field's accessible name, or the value arriving
+wherever the app sends it. `tests/trainer-exercise-notes.spec.ts` has the
+worked version and `docs/trainer-exercise-notes.md` §6a the failure that
+found it.
 
 **Profile setup is part of the sign-in path.** Completion is stored per account
 in local prefs, so a fresh browser profile always sees the questionnaire
