@@ -10,7 +10,7 @@ heading to the version it went out as, so a `## <version>` section is history:
 it is what those users have, and nothing new belongs in it. See
 `docs/android-release.md`.
 
-## Unreleased
+## 1.0.2+28
 
 - Fixed sets appearing twice (set 1, set 1, set 2, set 2) in an active workout, where typing into one "set 1" also filled the other. The app syncs on launch and again on every resume, and a resume during the first sync started a second one alongside it; the two interleaved the pull's delete-then-insert of each exercise's set templates and left every set twice. `syncAll`/`pullAll` now join a run already in progress instead of starting another, the template refresh is one transaction (the background sync runs in another isolate, which only the database's own locking can see), and templates already duplicated on a device are folded on read and at rest, then re-pushed clean.
 - Fixed the Trainer Console's Session Review listing the same logged set many times over (e.g. "set 1" eight times). The active workout rewrites an exercise's sets as fresh rows on every save, and the logged-sets batch endpoint appended, so every save that followed a sync push added another full copy on the server, and the pull then copied those stale copies back onto the trainee's device. `POST api/ScheduledWorkout/{id}/exercises/{id}/sets/batch` now replaces the exercise's log, the client always sends the whole log, and the pull reconciles per exercise: where the server holds stale copies beside what the device last pushed, the device's log is re-queued and overwrites them, so existing sessions heal with the trainee's real numbers the next time their phone syncs. See the new `docs/sync-concurrent-runs.md`.

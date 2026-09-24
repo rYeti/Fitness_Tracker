@@ -22,7 +22,7 @@ Markdown links, headings or emphasis, none of which Play renders.
 
 See `docs/android-release.md`.
 
-## Unreleased
+## 1.0.2+28
 
 Your workout's exercise order now syncs and stays put instead of snapping back to the old one next time the app opens.
 
