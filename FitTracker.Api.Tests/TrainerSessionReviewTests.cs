@@ -216,6 +216,31 @@ public class TrainerSessionReviewTests : IDisposable
     }
 
     [Fact]
+    public async Task PushingALoggedExerciseReplacesTheOldLog()
+    {
+        var workout = AddWorkout("Upper B");
+        var exercise = AddWorkoutExercise(workout, sets: 2);
+        var session = AddSession(workout, plan: null, DaysAgo(1), isCompleted: true);
+        LogSets(session, exercise, reps: 3, weight: 30, count: 2);
+        var entry = _fx.Db.ScheduledWorkoutExercises.Single(e => e.ScheduledWorkoutId == session.Id);
+
+        var scheduled = new ScheduledWorkoutService(new ScheduledWorkoutRepository(_fx.Db));
+        await scheduled.AddSetsBatchAsync(entry.Id, _client.Id,
+        [
+            new WorkoutSetRequestDto { SetNumber = 1, Reps = 5, Weight = 35, WeightUnit = "kg", IsCompleted = true },
+            new WorkoutSetRequestDto { SetNumber = 2, Reps = 8, Weight = 35, WeightUnit = "kg", IsCompleted = true },
+        ]);
+
+        // The active workout rewrites an exercise's sets as fresh rows on every save and
+        // the sync pushes the lot. Appending them left every earlier push in place, and the
+        // session review listed "set 1" once per save.
+        var history = await LoadHistory();
+        var sets = history.Single().Exercises.Single().Sets;
+        Assert.Equal([1, 2], sets.Select(s => s.SetNumber));
+        Assert.Equal([5, 8], sets.Select(s => s.Reps));
+    }
+
+    [Fact]
     public async Task RemovingAnExerciseClearsTheSessionsThatNeverLoggedIt()
     {
         var workout = AddWorkout("Lower A");
