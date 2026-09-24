@@ -297,6 +297,101 @@ void main() {
     });
   });
 
+  group('deleting a plan', () {
+    test(
+      'keeps every session that was trained, and removes the rest',
+      () async {
+        final w = await insertSyncedWorkout('Push', 'server-w1');
+        final ids = await db.untracked(() async {
+          final plan = await db
+              .into(db.workoutPlanTable)
+              .insert(
+                WorkoutPlanTableCompanion.insert(
+                  name: 'Block 1',
+                  startDate: DateTime(2026, 1, 1),
+                  cyclePatternJson: '[]',
+                  serverId: const Value('server-p1'),
+                  syncStatus: const Value(1),
+                ),
+              );
+          Future<(int, int)> session(
+            String serverId,
+            int day, {
+            bool completed = false,
+          }) async {
+            final sw = await db
+                .into(db.scheduledWorkoutTable)
+                .insert(
+                  ScheduledWorkoutTableCompanion.insert(
+                    workoutId: w,
+                    workoutPlanId: Value(plan),
+                    scheduledDate: DateTime(2026, 1, day),
+                    isCompleted: Value(completed),
+                    serverId: Value(serverId),
+                    syncStatus: const Value(1),
+                  ),
+                );
+            final se = await db
+                .into(db.scheduledWorkoutExerciseTable)
+                .insert(
+                  ScheduledWorkoutExerciseTableCompanion.insert(
+                    scheduledWorkoutId: sw,
+                    workoutExerciseId: 1,
+                    serverId: Value('$serverId-se'),
+                    syncStatus: const Value(1),
+                  ),
+                );
+            return (sw, se);
+          }
+
+          final completed = await session('server-done', 5, completed: true);
+          final logged = await session('server-logged', 6);
+          await db
+              .into(db.workoutSetTable)
+              .insert(
+                WorkoutSetTableCompanion.insert(
+                  scheduledWorkoutExerciseId: logged.$2,
+                  setNumber: 1,
+                  reps: const Value(5),
+                  serverId: const Value('server-set1'),
+                  syncStatus: const Value(1),
+                ),
+              );
+          final future = await session('server-future', 20);
+          return (
+            plan: plan,
+            completed: completed.$1,
+            logged: logged.$1,
+            future: future.$1,
+          );
+        });
+
+        await db.workoutPlanDao.deletePlanKeepingHistory(ids.plan);
+
+        final remaining = await db.select(db.scheduledWorkoutTable).get();
+        expect(remaining.map((s) => s.id).toSet(), {ids.completed, ids.logged});
+        expect(await db.select(db.workoutSetTable).get(), hasLength(1));
+        expect(
+          await statusOf(db.workoutPlanTable, ids.plan),
+          SyncStatus.pendingDelete.index,
+        );
+
+        await sync.syncAll();
+
+        expect(api.deletes.toSet(), {
+          'api/ScheduledWorkout/server-future',
+          'api/WorkoutPlan/server-p1',
+        }, reason: 'nothing that was trained is deleted on the server');
+        final kept = await db.select(db.scheduledWorkoutTable).get();
+        expect(kept.map((s) => s.workoutPlanId), [
+          null,
+          null,
+        ], reason: 'detached from the deleted plan, as the server does');
+        expect(await db.select(db.workoutPlanTable).get(), isEmpty);
+      },
+    );
+  });
+
   group('removing an exercise that has logged history', () {
     test('retires it instead of deleting it, so the history stays', () async {
       final exerciseId = await insertSyncedExercise(serverId: 'server-e1');

@@ -445,6 +445,7 @@ there.
 | *the database marks a synced row changed* (9 tests) | §3: a real change dirties; an unchanged write, an engine write and a pending delete don't; plan rename, `hideFromRecent`, custom vs built-in exercise; a meal's new food and a plan's new workout dirty the owner, and are pushed |
 | *an edit made while its push is in flight* | §4 |
 | *a meal template the server has* | §4: an edit is a PUT, not a copy; a delete is sent and not undone by a pull first |
+| *deleting a plan* | §12: trained sessions and their sets stay, placeholders go, nothing trained is deleted on the server, kept sessions end up detached |
 | *a session's exercises created on the server* | §7: linked by exercise, not position |
 | *the sync lease* (2 tests) | §8: excludes a second run; an expired one is taken over |
 | *the push scheduler* (2 tests) | §9: pushes after an edit; a no-op when nothing's pending |
@@ -486,7 +487,38 @@ created, and both cases are pinned.
 
 ---
 
-## 12. Where the code lives
+## 12. Deleting a plan keeps what was trained
+
+The workouts list deleted a plan by marking *every* session it had scheduled
+`pendingDelete` — trained ones included. The push then sent each DELETE, and
+the server removed the sessions and their logged sets for good. The plan
+editor had the opposite problem: it marked only the plan and left every
+session behind, including future ones nobody would ever train, on the
+calendar under a plan that no longer existed. The Trainer Console's plan
+delete was a third rule, keeping all of a plan's days.
+
+Asked which one is right, the owner's answer was that deleting a plan keeps
+the history of the workouts trained under it. Both screens now call
+`WorkoutPlanDao.deletePlanKeepingHistory`:
+
+| A session of the plan that… | Is |
+|---|---|
+| has any logged set, or was marked complete | kept |
+| was never trained (a future or missed placeholder) | deleted — off the calendar at once; the database records its server DELETE |
+
+The plan is marked `pendingDelete`, and once the server has deleted it,
+`deleteWorkoutPlan` detaches the kept sessions (`workout_plan_id = NULL`) — the
+local half of the server's `ON DELETE SET NULL`, which nothing else would do
+here with foreign keys off. A session's workout is untouched, so its history
+still shows under Progress and Session Review.
+
+This is the first place the deletion outbox (§3) paid for itself outside a
+bug fix: deleting the placeholders is a plain delete, and reaching the server
+takes no code of its own.
+
+---
+
+## 13. Where the code lives
 
 `SyncService` was one 3,500-line file. It is now one library in `lib/core/sync/`,
 split by what it syncs. The split was a separate commit that moves code and
@@ -524,7 +556,3 @@ extension doesn't see its target type's statics unqualified.
 - **Live updates to the Trainer Console and to the trainee's phone** (part
   four).
 - **Foreign-key enforcement** — see §6 for why not.
-- Deleting a plan from the workouts list marks *every* session of it
-  `pendingDelete`, including ones with logged sets, which the server then
-  hard-deletes. The trainer console's plan delete keeps history. That is a
-  product decision, not a sync defect, and it is left for the owner.

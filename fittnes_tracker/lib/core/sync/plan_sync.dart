@@ -139,20 +139,11 @@ extension PlanSync on SyncService {
             ..where((t) => t.serverId.isNotNull())).get(),
       serverIdOf: (r) => r.serverId!,
       syncStatusOf: (r) => r.syncStatus,
-      delete: (r) async {
-        // Deleting a plan never touches its days server-side (only the
-        // grouping goes away — see TrainerConsoleService.DeleteClientWorkoutPlanAsync),
-        // so nothing here needs to protect logged history. It does need to
-        // clear the link a `ScheduledWorkout` may still hold, mirroring the
-        // server's ON DELETE SET NULL: that column has no local FK action
-        // of its own, so a bare plan delete would otherwise leave it
-        // pointing at a plan id that no longer exists.
-        await (_db.update(_db.scheduledWorkoutTable)
-          ..where((sw) => sw.workoutPlanId.equals(r.id))).write(
-          const ScheduledWorkoutTableCompanion(workoutPlanId: Value(null)),
-        );
-        return _db.workoutPlanDao.deleteWorkoutPlan(r.id);
-      },
+      // Deleting a plan never touches its days server-side (only the
+      // grouping goes away — see TrainerConsoleService.DeleteClientWorkoutPlanAsync),
+      // so nothing here needs to protect logged history; deleteWorkoutPlan
+      // detaches the sessions that pointed at it.
+      delete: (r) => _db.workoutPlanDao.deleteWorkoutPlan(r.id),
     );
   }
 
