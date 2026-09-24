@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -427,6 +429,16 @@ class _AttendanceCard extends StatelessWidget {
     final ordered = [...weeks]
       ..sort((a, b) => a.weekStart.compareTo(b.weekStart));
 
+    final labelStyle = TextStyle(
+      fontFamily: 'Exo 2',
+      fontSize: 10,
+      color: colors.onSurface.withValues(alpha: 0.6),
+    );
+    final labels = [
+      for (final week in ordered)
+        DateFormat('d/M', locale).format(week.weekStart),
+    ];
+
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -434,64 +446,122 @@ class _AttendanceCard extends StatelessWidget {
           SectionTitle(title: l10n.attendanceByWeek),
           SizedBox(
             height: 110,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                for (final week in ordered)
-                  Expanded(
-                    child: Semantics(
-                      label: l10n.attendanceWeekSemantics(
-                        DateFormat('d MMM', locale).format(week.weekStart),
-                        week.completedSessions,
-                        week.plannedSessions,
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 3),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            Expanded(
-                              child: LayoutBuilder(
-                                builder: (context, constraints) => Align(
-                                  alignment: Alignment.bottomCenter,
-                                  child: Container(
-                                    height: week.plannedSessions == 0
-                                        ? 2
-                                        : (constraints.maxHeight * week.ratio)
-                                              .clamp(2.0, constraints.maxHeight),
-                                    decoration: BoxDecoration(
-                                      color: week.plannedSessions == 0
-                                          ? colors.onSurface.withValues(
-                                              alpha: 0.12,
-                                            )
-                                          : ForgeColors.forgeOrange.withValues(
-                                              alpha: 0.35 + week.ratio * 0.65,
-                                            ),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                // Twelve weeks share the card's width, so on a phone a column
+                // is narrower than a label like "20/7". Letting each label
+                // wrap on its own pushed only those bars up off the baseline;
+                // instead, measure the widest label once and label every
+                // `stride`-th week, counting back from the newest so the
+                // current week is always named.
+                final textScaler = MediaQuery.textScalerOf(context);
+                double widthOf(String text) =>
+                    (TextPainter(
+                      text: TextSpan(text: text, style: labelStyle),
+                      textDirection: Directionality.of(context),
+                      textScaler: textScaler,
+                      maxLines: 1,
+                    )..layout()).width;
+                final widest = labels.map(widthOf).reduce(math.max);
+                final slot = constraints.maxWidth / ordered.length;
+                final stride = ((widest + 8) / slot).ceil().clamp(
+                  1,
+                  ordered.length,
+                );
+                final labelHeight =
+                    textScaler.scale(labelStyle.fontSize!) * 1.4;
+
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    for (var i = 0; i < ordered.length; i++)
+                      Expanded(
+                        child: Semantics(
+                          label: l10n.attendanceWeekSemantics(
+                            DateFormat(
+                              'd MMM',
+                              locale,
+                            ).format(ordered[i].weekStart),
+                            ordered[i].completedSessions,
+                            ordered[i].plannedSessions,
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              Expanded(
+                                child: Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: slot < 16 ? 1 : 2,
                                   ),
+                                  child: _AttendanceBar(week: ordered[i]),
                                 ),
                               ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              DateFormat('d/M', locale).format(week.weekStart),
-                              style: TextStyle(
-                                fontFamily: 'Exo 2',
-                                fontSize: 8,
-                                color: colors.onSurface.withValues(alpha: 0.5),
+                              const SizedBox(height: 8),
+                              // A shown label may be wider than its own
+                              // column; the stride guarantees its neighbours
+                              // are blank, so let it overflow into them,
+                              // centred under its bar.
+                              SizedBox(
+                                height: labelHeight,
+                                child:
+                                    (ordered.length - 1 - i) % stride == 0
+                                        ? OverflowBox(
+                                          maxWidth: double.infinity,
+                                          child: Text(
+                                            labels[i],
+                                            maxLines: 1,
+                                            softWrap: false,
+                                            style: labelStyle,
+                                          ),
+                                        )
+                                        : null,
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-              ],
+                  ],
+                );
+              },
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _AttendanceBar extends StatelessWidget {
+  final AttendanceWeek week;
+
+  const _AttendanceBar({required this.week});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return LayoutBuilder(
+      builder:
+          (context, constraints) => Align(
+            alignment: Alignment.bottomCenter,
+            child: Container(
+              height:
+                  week.plannedSessions == 0
+                      ? 2
+                      : (constraints.maxHeight * week.ratio).clamp(
+                        2.0,
+                        constraints.maxHeight,
+                      ),
+              decoration: BoxDecoration(
+                color:
+                    week.plannedSessions == 0
+                        ? colors.onSurface.withValues(alpha: 0.12)
+                        : ForgeColors.forgeOrange.withValues(
+                          alpha: 0.35 + week.ratio * 0.65,
+                        ),
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+          ),
     );
   }
 }
