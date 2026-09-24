@@ -272,12 +272,21 @@ return URL are built from `Cors:AllowedOrigins[0]`, and without it they fall
 back to `http://localhost:5000`. After the deploy:
 
 - The Cloud Run logs should contain neither Stripe warning from `Program.cs`.
-- Send a test event from the dashboard's webhook page. It should get a 200, and
-  the log should say "Ignoring unhandled Stripe event" (a test event matches no
-  licence). A 400 means the secret or API version is wrong.
-- Upgrade a real trainer account with a real card, confirm the tier and seat
-  count change on the plan screen, then cancel from the portal and refund the
-  charge.
+- Stripe usually only lets you send test events to a test-mode endpoint, so
+  the live endpoint is proven by a real checkout. The trial makes that free.
+  Register a throwaway *trainer* account (not your own: each customer gets the
+  trial once), buy Solo with a real card, and confirm the plan screen shows
+  Solo, 10 seats, trialing. Every delivery on the endpoint's Event deliveries
+  page should be a 200. Then cancel from the portal, and the trial ends without
+  a charge.
+
+| Symptom | Cause |
+|---|---|
+| Checkout won't open, log names a permission | The restricted key lacks it. Add it; no redeploy needed |
+| "No such price" | A price id is mistyped or comes from test mode |
+| Webhook deliveries return 400 | Wrong `whsec_`, or the endpoint's API version isn't the SDK's |
+| Webhook deliveries return 500 | `Stripe:WebhookSecret` never reached Cloud Run |
+| Wrong seat count after checkout | Two price variables are swapped |
 
 ### The general lesson
 
