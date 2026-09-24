@@ -413,14 +413,14 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
             workout.exercises.map((e) => e.id).whereType<int>().toSet();
 
         // Remove only the exercises that are no longer in the workout.
-        // If the exercise was already pushed to the server (has a serverId),
-        // don't hard-delete it yet — mark it pendingDelete so SyncService can
-        // issue the DELETE call first. Hard-deleting here would drop the
-        // serverId before sync ever runs, so the exercise would never be
-        // removed server-side and would reappear on the next pull/reconcile.
+        // If the exercise was already pushed to the server (anything but
+        // pending — every row has a serverId from insert, so that no longer
+        // says), don't hard-delete it yet — mark it pendingDelete so
+        // SyncService can issue the DELETE call first, and retire the row
+        // instead if sessions logged sets against it.
         for (final ex in existingExercises) {
           if (!keptIds.contains(ex.id)) {
-            if (ex.serverId != null) {
+            if (SyncStatus.fromDb(ex.syncStatus) != SyncStatus.pending) {
               await (update(workoutExerciseTable)
                 ..where((we) => we.id.equals(ex.id))).write(
                 const WorkoutExerciseTableCompanion(

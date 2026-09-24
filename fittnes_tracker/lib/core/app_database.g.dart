@@ -141,6 +141,7 @@ class $FoodItemTable extends FoodItem
     true,
     type: DriftSqlType.string,
     requiredDuringInsert: false,
+    clientDefault: newSyncId,
   );
   static const VerificationMeta _openFoodFactsIdMeta = const VerificationMeta(
     'openFoodFactsId',
@@ -376,7 +377,8 @@ class FoodItemData extends DataClass implements Insertable<FoodItemData> {
   /// `lib/core/sync/sync_triggers.dart`.
   final int localRev;
 
-  /// UUID assigned by the remote API after first successful sync.
+  /// The row's global id, minted on insert ([newSyncId]) or taken from the
+  /// server on pull. Whether the server has it yet is [syncStatus]'s to say.
   final String? serverId;
 
   /// OpenFoodFacts product code (barcode) — stored when a food is added from
@@ -2107,6 +2109,7 @@ class $MealTableTable extends MealTable
     true,
     type: DriftSqlType.string,
     requiredDuringInsert: false,
+    clientDefault: newSyncId,
   );
   @override
   List<GeneratedColumn> get $columns => [
@@ -2243,7 +2246,8 @@ class MealTableData extends DataClass implements Insertable<MealTableData> {
   /// `lib/core/sync/sync_triggers.dart`.
   final int localRev;
 
-  /// UUID assigned by the remote API after first successful sync.
+  /// The row's global id, minted on insert ([newSyncId]) or taken from the
+  /// server on pull. Whether the server has it yet is [syncStatus]'s to say.
   final String? serverId;
   const MealTableData({
     required this.id,
@@ -2546,6 +2550,7 @@ class $MealFoodTableTable extends MealFoodTable
     true,
     type: DriftSqlType.string,
     requiredDuringInsert: false,
+    clientDefault: newSyncId,
   );
   @override
   List<GeneratedColumn> get $columns => [id, mealId, foodEntryId, serverId];
@@ -2632,7 +2637,10 @@ class MealFoodTableData extends DataClass
   final int mealId;
   final int foodEntryId;
 
-  /// UUID of the MealFoodEntry on the server, used to delete specific entries.
+  /// The entry's global id, minted on insert ([newSyncId]) or taken from the
+  /// server on pull. The meal's push sends its whole list of foods under these
+  /// ids (`PUT api/Meal/{id}/foods`), which is what tells two portions of the
+  /// same food apart.
   final String? serverId;
   const MealFoodTableData({
     required this.id,
@@ -3148,6 +3156,7 @@ class $WeightRecordTable extends WeightRecord
     true,
     type: DriftSqlType.string,
     requiredDuringInsert: false,
+    clientDefault: newSyncId,
   );
   @override
   List<GeneratedColumn> get $columns => [
@@ -3279,8 +3288,8 @@ class WeightRecordData extends DataClass
   /// `lib/core/sync/sync_triggers.dart`.
   final int localRev;
 
-  /// The UUID assigned by the remote API after the first successful sync.
-  /// Null until the record has been synced at least once.
+  /// The row's global id, minted on insert ([newSyncId]) or taken from the
+  /// server on pull. Whether the server has it yet is [syncStatus]'s to say.
   final String? serverId;
   const WeightRecordData({
     required this.id,
@@ -3636,6 +3645,7 @@ class $ExerciseTableTable extends ExerciseTable
     true,
     type: DriftSqlType.string,
     requiredDuringInsert: false,
+    clientDefault: newSyncId,
   );
   static const VerificationMeta _syncStatusMeta = const VerificationMeta(
     'syncStatus',
@@ -4366,6 +4376,7 @@ class $WorkoutTableTable extends WorkoutTable
     true,
     type: DriftSqlType.string,
     requiredDuringInsert: false,
+    clientDefault: newSyncId,
   );
   static const VerificationMeta _syncStatusMeta = const VerificationMeta(
     'syncStatus',
@@ -5112,6 +5123,7 @@ class $WorkoutPlanTableTable extends WorkoutPlanTable
     true,
     type: DriftSqlType.string,
     requiredDuringInsert: false,
+    clientDefault: newSyncId,
   );
   static const VerificationMeta _syncStatusMeta = const VerificationMeta(
     'syncStatus',
@@ -5806,6 +5818,7 @@ class $WorkoutExerciseTableTable extends WorkoutExerciseTable
     true,
     type: DriftSqlType.string,
     requiredDuringInsert: false,
+    clientDefault: newSyncId,
   );
   static const VerificationMeta _syncStatusMeta = const VerificationMeta(
     'syncStatus',
@@ -6437,6 +6450,7 @@ class $ScheduledWorkoutTableTable extends ScheduledWorkoutTable
     true,
     type: DriftSqlType.string,
     requiredDuringInsert: false,
+    clientDefault: newSyncId,
   );
   static const VerificationMeta _syncStatusMeta = const VerificationMeta(
     'syncStatus',
@@ -7153,6 +7167,7 @@ class $ScheduledWorkoutExerciseTableTable extends ScheduledWorkoutExerciseTable
     true,
     type: DriftSqlType.string,
     requiredDuringInsert: false,
+    clientDefault: newSyncId,
   );
   static const VerificationMeta _syncStatusMeta = const VerificationMeta(
     'syncStatus',
@@ -7782,6 +7797,7 @@ class $WorkoutSetTableTable extends WorkoutSetTable
     true,
     type: DriftSqlType.string,
     requiredDuringInsert: false,
+    clientDefault: newSyncId,
   );
   static const VerificationMeta _syncStatusMeta = const VerificationMeta(
     'syncStatus',
@@ -8659,6 +8675,10 @@ class WorkoutPlanWorkoutTableData extends DataClass
   final int id;
   final int planId;
   final int workoutId;
+
+  /// Not an id of its own: the server never names a link, which is one plan
+  /// and one workout (`PUT api/WorkoutPlan/{id}/workouts` takes the plan's
+  /// whole list). Older builds stored the plan's server id here.
   final String? serverId;
   final int syncStatus;
   const WorkoutPlanWorkoutTableData({
@@ -8934,6 +8954,7 @@ class $WorkoutSetTemplateTableTable extends WorkoutSetTemplateTable
     true,
     type: DriftSqlType.string,
     requiredDuringInsert: false,
+    clientDefault: newSyncId,
   );
   static const VerificationMeta _syncStatusMeta = const VerificationMeta(
     'syncStatus',

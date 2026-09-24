@@ -161,13 +161,6 @@ class MealDao extends DatabaseAccessor<AppDatabase> with _$MealDaoMixin {
   Future<List<MealTableData>> getUnsyncedMeals() =>
       (select(mealTable)..where((t) => t.syncStatus.isNotValue(1))).get();
 
-  Future<void> markMealSynced({
-    required int localId,
-    required String serverId,
-  }) => (update(mealTable)..where((t) => t.id.equals(localId))).write(
-    MealTableCompanion(syncStatus: const Value(1), serverId: Value(serverId)),
-  );
-
   Future<void> markMealPendingUpdate(int id) => (update(mealTable)..where(
     (t) => t.id.equals(id),
   )).write(const MealTableCompanion(syncStatus: Value(2)));
@@ -214,7 +207,10 @@ class MealDao extends DatabaseAccessor<AppDatabase> with _$MealDaoMixin {
           .getSingleOrNull();
 
   /// Removes duplicate meal rows for the same date+category, keeping the one
-  /// with a serverId (or lowest id). Re-parents food entries before deleting.
+  /// the server has (or the lowest id). Re-parents food entries before
+  /// deleting, and marks the kept meal changed when it gains any: its push
+  /// sends its whole list of foods, and a clean meal's list is otherwise
+  /// replaced by the server's on the next pull.
   ///
   /// Runs as the sync engine (`AppDatabase.untracked`): folding a local
   /// duplicate is not the user deleting a meal, and must not reach the server
@@ -238,7 +234,7 @@ class MealDao extends DatabaseAccessor<AppDatabase> with _$MealDaoMixin {
     for (final group in groups.values) {
       if (group.length <= 1) continue;
       final keeper = group.firstWhere(
-        (m) => m.serverId != null,
+        (m) => SyncStatus.fromDb(m.syncStatus) != SyncStatus.pending,
         orElse: () => group.first,
       );
       for (final dupe in group) {
@@ -246,13 +242,27 @@ class MealDao extends DatabaseAccessor<AppDatabase> with _$MealDaoMixin {
         final dupeEntries = await getFoodItemsForMeal(dupe.id);
         final keeperEntries = await getFoodItemsForMeal(keeper.id);
         final keeperFoodIds = keeperEntries.map((e) => e.foodEntryId).toSet();
+        var moved = false;
         for (final entry in dupeEntries) {
           if (!keeperFoodIds.contains(entry.foodEntryId)) {
             await (update(mealFoodTable)..where(
               (t) => t.id.equals(entry.id),
             )).write(MealFoodTableCompanion(mealId: Value(keeper.id)));
             keeperFoodIds.add(entry.foodEntryId);
+            moved = true;
           }
+        }
+        if (moved) {
+          await (update(mealTable)..where(
+                (t) =>
+                    t.id.equals(keeper.id) &
+                    t.syncStatus.equals(SyncStatus.synced.index),
+              ))
+              .write(
+                MealTableCompanion(
+                  syncStatus: Value(SyncStatus.pendingUpdate.index),
+                ),
+              );
         }
         // What wasn't moved repeats a food the keeper already has; left in
         // place it would point at the meal deleted below.

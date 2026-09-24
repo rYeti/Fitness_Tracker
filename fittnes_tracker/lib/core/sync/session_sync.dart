@@ -25,19 +25,35 @@ extension SessionSync on SyncService {
     }
   }
 
-  Future<void> _syncNewScheduledWorkout(ScheduledWorkoutTableData sw) async {
-    // Resolve server IDs for the referenced workout and plan.
+  /// What a session's create and update send, or null while the workout it
+  /// is a session of isn't on the server yet — a session can't be stored
+  /// without its workout (a foreign key), and workouts push first.
+  Future<Map<String, dynamic>?> _scheduledWorkoutBody(
+    ScheduledWorkoutTableData sw,
+  ) async {
     final workoutRow =
         await ((_db.select(_db.workoutTable))
           ..where((w) => w.id.equals(sw.workoutId))).getSingleOrNull();
-    if (workoutRow?.serverId == null) return; // workout not synced yet
+    final workoutServerId =
+        workoutRow == null
+            ? null
+            : SyncService._serverIdIfPushed(
+              workoutRow.serverId,
+              workoutRow.syncStatus,
+            );
+    if (workoutServerId == null) return null;
 
     String? planServerId;
     if (sw.workoutPlanId != null) {
       final planRow =
           await ((_db.select(_db.workoutPlanTable))
             ..where((p) => p.id.equals(sw.workoutPlanId!))).getSingleOrNull();
-      planServerId = planRow?.serverId;
+      if (planRow != null) {
+        planServerId = SyncService._serverIdIfPushed(
+          planRow.serverId,
+          planRow.syncStatus,
+        );
+      }
     }
 
     String? templateWorkoutServerId;
@@ -46,32 +62,51 @@ extension SessionSync on SyncService {
           await ((_db.select(_db.workoutTable))..where(
             (w) => w.id.equals(sw.templateWorkoutId!),
           )).getSingleOrNull();
-      templateWorkoutServerId = templateRow?.serverId;
+      if (templateRow != null) {
+        templateWorkoutServerId = SyncService._serverIdIfPushed(
+          templateRow.serverId,
+          templateRow.syncStatus,
+        );
+      }
     }
 
-    final response = await _apiClient.post(
+    return {
+      'workoutId': workoutServerId,
+      'workoutPlanId': planServerId,
+      'templateWorkoutId': templateWorkoutServerId,
+      'scheduledDate': sw.scheduledDate.toUtc().toIso8601String(),
+      'notes': sw.notes,
+      'isCompleted': sw.isCompleted,
+      'isSkipped': sw.isSkipped,
+    };
+  }
+
+  Future<void> _syncNewScheduledWorkout(ScheduledWorkoutTableData sw) async {
+    final body = await _scheduledWorkoutBody(sw);
+    if (body == null) return; // workout not synced yet
+
+    final response = await _create(
       'api/ScheduledWorkout',
-      data: {
-        'workoutId': workoutRow!.serverId,
-        'workoutPlanId': planServerId,
-        'templateWorkoutId': templateWorkoutServerId,
-        'scheduledDate': sw.scheduledDate.toUtc().toIso8601String(),
-        'notes': sw.notes,
-        'isCompleted': sw.isCompleted,
-        'isSkipped': sw.isSkipped,
-      },
+      {'id': sw.serverId, ...body},
+      _db.scheduledWorkoutTable,
+      [sw.id],
     );
+    if (response == null) return;
+    // Usually the id sent. A session the server already holds for the same
+    // workout on the same day — another device's — comes back under its own
+    // id, and this row becomes that session.
     final swServerId = response.data['id'] as String;
     await _markSent(_db.scheduledWorkoutTable, sw.id, swServerId, sw.localRev);
 
-    // The API returns the scheduled workout exercises in the response.
-    // Store their server IDs so we can push sets against them.
+    // The server creates a session's exercises itself, one per exercise of
+    // the workout, and returns them: link this device's to them by the
+    // workout exercise each performs. Any left over are created by
+    // _syncSessionExercises, which also pushes the sets.
     final serverExercises =
         (response.data['exercises'] as List<dynamic>? ?? [])
             .cast<Map<String, dynamic>>();
     await _storeScheduledExerciseServerIds(sw.id, swServerId, serverExercises);
 
-    // Push unsynced workout sets.
     await _syncSetsForScheduledWorkout(sw.id, swServerId);
     _logger.i('Synced new scheduled workout ${sw.id} → server $swServerId');
   }
@@ -82,45 +117,15 @@ extension SessionSync on SyncService {
       return;
     }
 
-    final workoutRow =
-        await ((_db.select(_db.workoutTable))
-          ..where((w) => w.id.equals(sw.workoutId))).getSingleOrNull();
-    if (workoutRow?.serverId == null) {
+    final body = await _scheduledWorkoutBody(sw);
+    if (body == null) {
       _logger.w(
-        '_syncUpdateScheduledWorkout: SW ${sw.id} skipped — workout ${sw.workoutId} has no serverId (workout not yet synced)',
+        '_syncUpdateScheduledWorkout: SW ${sw.id} skipped — workout ${sw.workoutId} not yet synced',
       );
       return;
     }
 
-    String? planServerId;
-    if (sw.workoutPlanId != null) {
-      final planRow =
-          await ((_db.select(_db.workoutPlanTable))
-            ..where((p) => p.id.equals(sw.workoutPlanId!))).getSingleOrNull();
-      planServerId = planRow?.serverId;
-    }
-
-    String? templateWorkoutServerId;
-    if (sw.templateWorkoutId != null) {
-      final templateRow =
-          await ((_db.select(_db.workoutTable))..where(
-            (w) => w.id.equals(sw.templateWorkoutId!),
-          )).getSingleOrNull();
-      templateWorkoutServerId = templateRow?.serverId;
-    }
-
-    await _apiClient.put(
-      'api/ScheduledWorkout/${sw.serverId}',
-      data: {
-        'workoutId': workoutRow!.serverId,
-        'workoutPlanId': planServerId,
-        'templateWorkoutId': templateWorkoutServerId,
-        'scheduledDate': sw.scheduledDate.toUtc().toIso8601String(),
-        'notes': sw.notes,
-        'isCompleted': sw.isCompleted,
-        'isSkipped': sw.isSkipped,
-      },
-    );
+    await _apiClient.put('api/ScheduledWorkout/${sw.serverId}', data: body);
     await _markSent(
       _db.scheduledWorkoutTable,
       sw.id,
@@ -158,9 +163,10 @@ extension SessionSync on SyncService {
       ..where((t) => t.id.equals(swId))).go();
   }
 
-  /// Matches server exercise IDs back to the local [ScheduledWorkoutExerciseTable]
-  /// rows of one session that have none yet, by the workout exercise each one
-  /// performs.
+  /// Links the local [ScheduledWorkoutExerciseTable] rows of one session that
+  /// the server doesn't have yet to the server's, by the workout exercise each
+  /// one performs — one entry per workout exercise per session is the key the
+  /// server's session create and its exercise batch are both idempotent on.
   ///
   /// Already-linked rows are left alone: relinking one reset its status from
   /// a notes comparison, which quietly marked an exercise with unsent sets as
@@ -172,19 +178,17 @@ extension SessionSync on SyncService {
   ) async {
     final localExercises = (await _db.scheduledWorkoutExerciseDao
             .getAllForScheduledWorkout(localSwId))
-        .where((e) => e.serverId == null);
+        .where((e) => SyncStatus.fromDb(e.syncStatus) == SyncStatus.pending);
 
     for (final localEx in localExercises) {
-      // Look up the server UUID of this exercise's workout exercise template.
-      final weRow =
-          await ((_db.select(_db.workoutExerciseTable))..where(
-            (we) => we.id.equals(localEx.workoutExerciseId),
-          )).getSingleOrNull();
-      if (weRow?.serverId == null) continue;
+      final weServerId = await _workoutExerciseServerId(
+        localEx.workoutExerciseId,
+      );
+      if (weServerId == null) continue;
 
       // Find the matching server exercise by its workoutExerciseId.
       final serverEx = serverExercises.cast<Map<String, dynamic>>().firstWhere(
-        (s) => s['workoutExerciseId'] == weRow!.serverId,
+        (s) => s['workoutExerciseId'] == weServerId,
         orElse: () => {},
       );
       if (serverEx.isEmpty) continue;
@@ -221,9 +225,9 @@ extension SessionSync on SyncService {
         .getAllForScheduledWorkout(localSwId);
 
     for (final localEx in localExercises) {
-      if (localEx.serverId == null) {
+      if (SyncStatus.fromDb(localEx.syncStatus) == SyncStatus.pending) {
         _logger.w(
-          '_syncSetsForScheduledWorkout: skipping exercise ${localEx.id} (workoutExerciseId=${localEx.workoutExerciseId}) — no serverId',
+          '_syncSetsForScheduledWorkout: skipping exercise ${localEx.id} (workoutExerciseId=${localEx.workoutExerciseId}) — not on the server yet',
         );
         continue;
       }
@@ -272,57 +276,94 @@ extension SessionSync on SyncService {
     }
   }
 
+  /// Sends an exercise's whole log, which the server makes its log. Each set
+  /// goes under the id this device minted for it, which the server keeps, so
+  /// what comes back is marked by id.
+  ///
+  /// The server used to mint fresh ids for every set on every replace, and
+  /// the answer was paired with the request by position. Both are gone: the
+  /// ids this device holds are the ids the server stores.
   Future<void> _syncNewWorkoutSetsBatch(
     List<WorkoutSetTableData> sets,
     String swServerId,
     String scheduledExerciseServerId,
   ) async {
-    final response = await _apiClient.post(
-      'api/ScheduledWorkout/$swServerId/exercises/$scheduledExerciseServerId/sets/batch',
-      data:
-          sets
-              .map(
-                (s) => {
-                  'setNumber': s.setNumber,
-                  'reps': s.reps,
-                  'weight': s.weight,
-                  'weightUnit': s.weightUnit,
-                  'durationSeconds': s.durationSeconds,
-                  'rpe': s.rpe,
-                  'setType': s.setType,
-                  'side': s.side,
-                  'isCompleted': s.isCompleted,
-                  'notes': s.notes,
-                },
-              )
-              .toList(),
-    );
-    final serverList = (response.data as List).cast<Map<String, dynamic>>();
-    for (var i = 0; i < sets.length && i < serverList.length; i++) {
-      await _db.workoutDao.markWorkoutSetSynced(
-        sets[i].id,
-        serverList[i]['id'] as String,
+    final Response response;
+    try {
+      response = await _apiClient.post(
+        'api/ScheduledWorkout/$swServerId/exercises/$scheduledExerciseServerId/sets/batch',
+        data:
+            sets
+                .map(
+                  (s) => {
+                    'id': s.serverId,
+                    'setNumber': s.setNumber,
+                    'reps': s.reps,
+                    'weight': s.weight,
+                    'weightUnit': s.weightUnit,
+                    'durationSeconds': s.durationSeconds,
+                    'rpe': s.rpe,
+                    'setType': s.setType,
+                    'side': s.side,
+                    'isCompleted': s.isCompleted,
+                    'notes': s.notes,
+                  },
+                )
+                .toList(),
       );
+    } catch (e) {
+      if (SyncService._isIdConflict(e)) {
+        await _mintNewIds(_db.workoutSetTable, sets.map((s) => s.id));
+      }
+      rethrow;
+    }
+    final stored = {
+      for (final s in (response.data as List).cast<Map<String, dynamic>>())
+        s['id'] as String,
+    };
+    for (final s in sets) {
+      if (stored.contains(s.serverId)) {
+        await _db.workoutDao.markWorkoutSetSynced(s.id, s.serverId!);
+      }
     }
     _logger.i(
-      '_syncNewWorkoutSetsBatch: pushed ${serverList.length} sets to SW $swServerId / exercise $scheduledExerciseServerId',
+      '_syncNewWorkoutSetsBatch: pushed ${sets.length} sets to SW $swServerId / exercise $scheduledExerciseServerId',
     );
   }
 
-  /// For every synced scheduled workout, ensures local scheduled exercise
-  /// serverIds are stamped (by fetching the SW from the server), then pushes
-  /// any pending sets.  Never creates duplicate exercises: exercises are
-  /// auto-created server-side when the SW is POSTed, so we only need to store
-  /// their IDs — not create new ones.
-  Future<void> _syncMissingScheduledExerciseSets() async {
+  /// The server id of a workout exercise, if the server has it.
+  Future<String?> _workoutExerciseServerId(int localWorkoutExerciseId) async {
+    final we =
+        await ((_db.select(_db.workoutExerciseTable))
+          ..where((t) => t.id.equals(localWorkoutExerciseId))).getSingleOrNull();
+    return we == null
+        ? null
+        : SyncService._serverIdIfPushed(we.serverId, we.syncStatus);
+  }
+
+  /// For every session the server has, creates the exercises of it the server
+  /// doesn't have yet, then pushes whatever changed in each exercise's log.
+  ///
+  /// An exercise not on the server yet is sent to the session's exercise batch
+  /// under the id this device minted for it. The server answers with every
+  /// exercise the session now holds, and this device's are linked to them by
+  /// the workout exercise each performs: the session may already have had one
+  /// for it — the server makes one per workout exercise when the session is
+  /// created — and then that one is this one.
+  ///
+  /// This used to start with a GET of every such session, to find out which of
+  /// the device's exercises the server had made while a lost response kept the
+  /// device from hearing about it. The batch answers that now, in the same
+  /// request that creates what's missing.
+  Future<void> _syncSessionExercises() async {
     // Only the sessions with something to send — see _syncWorkoutExercises.
     final ids =
         (await _db.customSelect('''
       SELECT DISTINCT sw.id FROM scheduled_workout_table sw
       JOIN scheduled_workout_exercise_table se ON se.scheduled_workout_id = sw.id
       LEFT JOIN workout_set_table s ON s.scheduled_workout_exercise_id = se.id
-      WHERE sw.server_id IS NOT NULL AND (
-        se.server_id IS NULL OR se.sync_status = 2 OR s.sync_status IN (0, 2, 3)
+      WHERE sw.sync_status NOT IN (0, 3) AND (
+        se.sync_status IN (0, 2) OR s.sync_status IN (0, 2, 3)
       )
     ''').get()).map((r) => r.read<int>('id')).toList();
     if (ids.isEmpty) return;
@@ -330,117 +371,47 @@ extension SessionSync on SyncService {
         await (_db.select(_db.scheduledWorkoutTable)
           ..where((sw) => sw.id.isIn(ids))).get();
 
-    _logger.i(
-      '_syncMissingScheduledExerciseSets: checking ${syncedSws.length} synced SWs',
-    );
     for (final sw in syncedSws) {
       // Outside the try: a lease lost mid-push must stop the push, not be
       // logged as one item's failure.
       await SyncLease.current?.renew();
       try {
-        final localExercises = await _db.scheduledWorkoutExerciseDao
-            .getAllForScheduledWorkout(sw.id);
-        final missingServerId =
-            localExercises.where((e) => e.serverId == null).toList();
-        if (missingServerId.isNotEmpty) {
-          _logger.w(
-            '_syncMissingScheduledExerciseSets: SW ${sw.id} has ${missingServerId.length} exercises with no serverId — fetching from server',
+        final unpushed =
+            (await _db.scheduledWorkoutExerciseDao.getAllForScheduledWorkout(
+              sw.id,
+            )).where((e) => SyncStatus.fromDb(e.syncStatus) == SyncStatus.pending);
+        final items = <Map<String, dynamic>>[];
+        final sent = <int>[];
+        for (final localEx in unpushed) {
+          final weServerId = await _workoutExerciseServerId(
+            localEx.workoutExerciseId,
           );
-          // Fetch the existing scheduled workout from the server to get the
-          // server-assigned exercise IDs.  The server auto-creates exercises
-          // when the SW is POSTed, so they should already exist — we must NOT
-          // POST again or we will create duplicates.
-          final swResponse = await _apiClient.get(
-            'api/ScheduledWorkout/${sw.serverId}',
+          if (weServerId == null) continue;
+          items.add({'id': localEx.serverId, 'workoutExerciseId': weServerId});
+          sent.add(localEx.id);
+        }
+        if (items.isNotEmpty) {
+          final response = await _create(
+            'api/ScheduledWorkout/${sw.serverId}/exercises/batch',
+            items,
+            _db.scheduledWorkoutExerciseTable,
+            sent,
           );
-          final serverExercises =
-              (swResponse.data['exercises'] as List? ?? [])
-                  .cast<Map<String, dynamic>>();
-
-          await _storeScheduledExerciseServerIds(
-            sw.id,
-            sw.serverId!,
-            serverExercises,
-          );
-
-          // After stamping from the server, check if any are genuinely absent
-          // (e.g. workout template changed after SW was created on server).
-          final stillMissing =
-              (await _db.scheduledWorkoutExerciseDao.getAllForScheduledWorkout(
-                sw.id,
-              )).where((e) => e.serverId == null).toList();
-
-          if (stillMissing.isNotEmpty) {
-            final weServerIds = <String>[];
-            final valid = <ScheduledWorkoutExerciseTableData>[];
-            for (final localEx in stillMissing) {
-              final weRow =
-                  await (_db.select(_db.workoutExerciseTable)..where(
-                    (we) => we.id.equals(localEx.workoutExerciseId),
-                  )).getSingleOrNull();
-              if (weRow?.serverId == null) continue;
-              weServerIds.add(weRow!.serverId!);
-              valid.add(localEx);
-            }
-            if (weServerIds.isNotEmpty) {
-              final response = await _apiClient.post(
-                'api/ScheduledWorkout/${sw.serverId}/exercises/batch',
-                data: weServerIds,
-              );
-              // Matched on the workout exercise each entry performs, not on
-              // position: the endpoint answers with *every* entry the session
-              // now has, in no promised order, so pairing by index linked
-              // entries to the wrong exercise and their sets were then pushed
-              // under it.
-              await _storeScheduledExerciseServerIds(
-                sw.id,
-                sw.serverId!,
-                (response.data as List).cast<Map<String, dynamic>>(),
-              );
-            }
+          if (response != null) {
+            // Matched on the workout exercise each entry performs, not on
+            // position: the endpoint answers with *every* entry the session
+            // now has, in no promised order.
+            await _storeScheduledExerciseServerIds(
+              sw.id,
+              sw.serverId!,
+              (response.data as List).cast<Map<String, dynamic>>(),
+            );
           }
         }
 
-        // Push any sets that still have no serverId.
         await _syncSetsForScheduledWorkout(sw.id, sw.serverId!);
       } catch (e) {
-        _logger.w(
-          '_syncMissingScheduledExerciseSets failed for sw ${sw.id}: $e',
-        );
-      }
-    }
-  }
-
-  /// Re-fetches each synced scheduled workout from the server and stores
-  /// exercise serverIds for any local scheduled exercise that still has none.
-  /// This fixes the case where `_pullWorkouts` skipped some workout exercises
-  /// (missing exercise serverId), so `_pullScheduledWorkouts` couldn't link them.
-  Future<void> _relinkMissingScheduledExercises() async {
-    final syncedSws =
-        await (_db.select(_db.scheduledWorkoutTable)
-          ..where((sw) => sw.serverId.isNotNull())).get();
-
-    for (final sw in syncedSws) {
-      try {
-        final exercises = await _db.scheduledWorkoutExerciseDao
-            .getAllForScheduledWorkout(sw.id);
-        if (exercises.any((e) => e.serverId == null)) {
-          final response = await _apiClient.get(
-            'api/ScheduledWorkout/${sw.serverId}',
-          );
-          final serverExercises =
-              (response.data['exercises'] as List? ?? [])
-                  .cast<Map<String, dynamic>>();
-          await _storeScheduledExerciseServerIds(
-            sw.id,
-            sw.serverId!,
-            serverExercises,
-          );
-        }
-      } catch (e) {
-        _logger.w(
-          '_relinkMissingScheduledExercises failed for sw ${sw.id}: $e',
-        );
+        _logger.w('_syncSessionExercises failed for sw ${sw.id}: $e');
       }
     }
   }
@@ -454,8 +425,12 @@ extension SessionSync on SyncService {
       what: 'sessions',
       serverIds: {for (final sw in list) sw['id'] as String},
       locals:
-          await (_db.select(_db.scheduledWorkoutTable)
-            ..where((t) => t.serverId.isNotNull())).get(),
+          await (_db.select(_db.scheduledWorkoutTable)..where(
+                (t) =>
+                    t.serverId.isNotNull() &
+                    t.syncStatus.isNotValue(SyncStatus.pending.index),
+              ))
+              .get(),
       serverIdOf: (r) => r.serverId!,
       syncStatusOf: (r) => r.syncStatus,
       // Sessions are only ever deleted on purpose — a user removing one on
@@ -525,28 +500,25 @@ extension SessionSync on SyncService {
               .getSingleOrNull();
 
       if (existingByContent != null) {
-        // If it already has a different serverId, this is a server-side duplicate — skip entirely.
-        if (existingByContent.serverId != null &&
-            existingByContent.serverId != swServerId) {
+        // A session this device made for the same workout and day, not yet
+        // pushed, is this one: the server keeps one per workout per day, and
+        // would answer its create with this session anyway. One the server
+        // already has under another id is a server-side duplicate — skip it.
+        if (SyncStatus.fromDb(existingByContent.syncStatus) !=
+            SyncStatus.pending) {
           return;
         }
         localSwId = existingByContent.id;
-        final companion =
-            existingByContent.serverId == null
-                ? ScheduledWorkoutTableCompanion(
-                  serverId: Value(swServerId),
-                  syncStatus: const Value(1),
-                  isCompleted: Value(sw['isCompleted'] as bool),
-                  isSkipped: Value(sw['isSkipped'] as bool),
-                  notes: Value(sw['notes'] as String?),
-                )
-                : ScheduledWorkoutTableCompanion(
-                  isCompleted: Value(sw['isCompleted'] as bool),
-                  isSkipped: Value(sw['isSkipped'] as bool),
-                  notes: Value(sw['notes'] as String?),
-                );
         await (_db.update(_db.scheduledWorkoutTable)
-          ..where((t) => t.id.equals(existingByContent.id))).write(companion);
+          ..where((t) => t.id.equals(existingByContent.id))).write(
+          ScheduledWorkoutTableCompanion(
+            serverId: Value(swServerId),
+            syncStatus: const Value(1),
+            isCompleted: Value(sw['isCompleted'] as bool),
+            isSkipped: Value(sw['isSkipped'] as bool),
+            notes: Value(sw['notes'] as String?),
+          ),
+        );
       } else {
         int? localPlanId;
         if (sw['workoutPlanId'] != null) {
@@ -627,9 +599,9 @@ extension SessionSync on SyncService {
           continue;
         }
 
-        // If a local entry for this session and this workout exercise already
-        // exists without a serverId, stamp it rather than inserting a second
-        // one. The scheduled workout above and the sets below both have this
+        // If a local entry for this session and this workout exercise exists
+        // that the server doesn't have yet, stamp it rather than inserting a
+        // second one. The scheduled workout above and the sets below both have this
         // fallback; without it here, every locally-created-but-unstamped
         // entry got a twin on pull — and the content de-duplication pass then
         // kept the *older* of the two, dropping the row that had just been
@@ -640,7 +612,7 @@ extension SessionSync on SyncService {
                     (t) =>
                         t.scheduledWorkoutId.equals(localSwId) &
                         t.workoutExerciseId.equals(localWe.id) &
-                        t.serverId.isNull(),
+                        t.syncStatus.equals(SyncStatus.pending.index),
                   )
                   ..limit(1))
                 .getSingleOrNull();
@@ -744,7 +716,7 @@ extension SessionSync on SyncService {
   /// device pushed last. The device's rows are the ones it wrote, so they are
   /// re-queued and the replace push clears the copies — which is what fixes a
   /// session the Trainer Console shows twice over. The fourth is another
-  /// device having replaced the log since; a replace always mints fresh ids.
+  /// device having replaced the log since, with rows under its own ids.
   ///
   /// Server sets are folded to one per set number on the way in: set numbers
   /// are ordinals, and the active workout keys every input on them.
@@ -772,15 +744,11 @@ extension SessionSync on SyncService {
     if (local.isNotEmpty) {
       if (local.every((s) => serverIds.contains(s.serverId))) {
         if (serverIds.length > local.length) {
+          // Under the ids they have: the replace keeps them.
           await (_db.update(_db.workoutSetTable)..where(
                 (t) => t.scheduledWorkoutExerciseId.equals(localSeId),
               ))
-              .write(
-                const WorkoutSetTableCompanion(
-                  serverId: Value(null),
-                  syncStatus: Value(0),
-                ),
-              );
+              .write(const WorkoutSetTableCompanion(syncStatus: Value(0)));
           _logger.i(
             'Pull: server holds ${serverIds.length - local.length} stale '
             'set(s) for scheduled exercise $localSeId — re-queued the local log',

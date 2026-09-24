@@ -25,23 +25,28 @@ extension ExerciseSync on SyncService {
   }
 
   Future<void> _syncNewExercise(ExerciseTableData e) async {
-    final response = await _apiClient.post(
+    final response = await _create(
       'api/Exercise/UserExercise',
-      data: {
-        'name': e.name,
-        'description': e.description ?? '',
-        'type': e.type,
-        'targetMuscleGroups': e.targetMuscleGroups,
-        'imageUrl': e.imageUrl ?? '',
-        'isCustom': true,
-        'nameDe': e.nameDe ?? '',
-        'descriptionDe': e.descriptionDe ?? '',
-      },
+      {'id': e.serverId, ..._exerciseBody(e)},
+      _db.exerciseTable,
+      [e.id],
     );
+    if (response == null) return;
     final serverId = response.data['id'] as String;
     await _markSent(_db.exerciseTable, e.id, serverId, e.localRev);
     _logger.i('Synced new exercise ${e.id} → server $serverId');
   }
+
+  Map<String, dynamic> _exerciseBody(ExerciseTableData e) => {
+    'name': e.name,
+    'description': e.description ?? '',
+    'type': e.type,
+    'targetMuscleGroups': e.targetMuscleGroups,
+    'imageUrl': e.imageUrl ?? '',
+    'isCustom': true,
+    'nameDe': e.nameDe ?? '',
+    'descriptionDe': e.descriptionDe ?? '',
+  };
 
   Future<void> _syncUpdateExercise(ExerciseTableData e) async {
     if (e.serverId == null) {
@@ -50,24 +55,22 @@ extension ExerciseSync on SyncService {
     }
     await _apiClient.put(
       'api/Exercise/UserExercise/${e.serverId}',
-      data: {
-        'name': e.name,
-        'description': e.description ?? '',
-        'type': e.type,
-        'targetMuscleGroups': e.targetMuscleGroups,
-        'imageUrl': e.imageUrl ?? '',
-        'isCustom': true,
-        'nameDe': e.nameDe ?? '',
-        'descriptionDe': e.descriptionDe ?? '',
-      },
+      data: _exerciseBody(e),
     );
     await _markSent(_db.exerciseTable, e.id, e.serverId!, e.localRev);
     _logger.i('Updated exercise ${e.id} on server ${e.serverId}');
   }
 
   Future<void> _syncDeleteExercise(ExerciseTableData e) async {
+    // Sent even if this exercise never reached the server: a pending delete no
+    // longer says whether it did (every row has an id), and a 404 is the
+    // answer that it didn't.
     if (e.serverId != null) {
-      await _apiClient.delete('api/Exercise/UserExercise/${e.serverId}');
+      try {
+        await _apiClient.delete('api/Exercise/UserExercise/${e.serverId}');
+      } on DioException catch (err) {
+        if (err.response?.statusCode != 404) rethrow;
+      }
     }
     await _db.untracked(() => _db.exerciseDao.deleteExercise(e.id));
     if (e.serverId == null) return;
@@ -172,7 +175,10 @@ extension ExerciseSync on SyncService {
       serverIds: {for (final e in list) e['id'] as String},
       locals:
           await (_db.select(_db.exerciseTable)..where(
-                (t) => t.serverId.isNotNull() & t.isCustom.equals(true),
+                (t) =>
+                    t.serverId.isNotNull() &
+                    t.isCustom.equals(true) &
+                    t.syncStatus.isNotValue(SyncStatus.pending.index),
               ))
               .get(),
       serverIdOf: (r) => r.serverId!,

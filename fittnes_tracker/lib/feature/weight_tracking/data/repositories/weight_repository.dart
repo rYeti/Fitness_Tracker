@@ -64,7 +64,9 @@ class WeightRepository {
     final existing = await db.weightRecordDao.getWeightRecordById(id);
     if (existing == null) return;
 
-    if (existing.serverId != null) {
+    // Every record has a server id from the moment it is made, so it is the
+    // status that says whether the server has it.
+    if (SyncStatus.fromDb(existing.syncStatus) != SyncStatus.pending) {
       // Already synced — mark for deletion so the sync pass can issue
       // DELETE on the API before removing the local row.
       await db.weightRecordDao.markPendingDelete(id);

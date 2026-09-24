@@ -18,7 +18,7 @@ import 'package:drift/drift.dart';
 /// |--------------------------|--------------------------------------|-----------------------------------------|
 /// | `sync_<t>_update`        | a pushed column of an entity changes | `local_rev + 1`, `synced → pendingUpdate` |
 /// | `sync_<t>_owner_*`       | a row of an owned list changes       | the same, applied to its owner          |
-/// | `sync_<t>_delete`        | a row with a server id is deleted    | an entry in `sync_deletion_table`       |
+/// | `sync_<t>_delete`        | a row the server has is deleted      | an entry in `sync_deletion_table`       |
 ///
 /// None of them fires inside `AppDatabase.untracked`, which is how the sync
 /// engine writes what the server sent without it looking like a local edit.
@@ -46,49 +46,40 @@ class _Entity {
 }
 
 /// Rows the push sends as part of their owner — a workout exercise's set
-/// templates, a session exercise's logged sets. The server replaces the whole
-/// list, so any change to one of them is a change to the owner.
+/// templates, a session exercise's logged sets, a meal's foods, a plan's
+/// workouts. The server replaces the whole list, so any change to one of them
+/// — including removing it, which leaves no row behind to find — is a change
+/// to the owner.
 class _OwnedList {
   const _OwnedList(
     this.table, {
     required this.owner,
     required this.foreignKey,
     required this.pushed,
-    this.deletion,
   });
 
   final String table;
   final String owner;
   final String foreignKey;
   final List<String> pushed;
-
-  /// For a list the server can only append to, removing a row needs its own
-  /// DELETE rather than a dirty owner.
-  final _Deletion? deletion;
 }
 
 class _Deletion {
-  const _Deletion(
-    this.kind, {
-    this.serverId = 'OLD.server_id',
-    this.parent,
-    this.extra,
-    this.onlyWhen,
-  });
+  const _Deletion(this.kind, {this.onlyWhen});
 
   /// A [SyncDeletionKind] name.
   final String kind;
 
-  /// SQL over `OLD` for each id the DELETE route needs.
-  final String serverId;
-  final String? parent;
-  final String? extra;
-
-  /// Replaces the default "has a server id" condition.
+  /// A further condition on the deleted row, on top of the server having it.
   final String? onlyWhen;
 }
 
 /// Where a `sync_deletion_table` entry's DELETE goes.
+///
+/// [planWorkout] and [mealFood] are no longer recorded: a plan's workouts and a
+/// meal's foods are now sent as the whole list (`PUT api/WorkoutPlan/{id}/workouts`,
+/// `PUT api/Meal/{id}/foods`), so removing one only has to dirty the owner. They
+/// stay here so entries an older build queued are still sent.
 enum SyncDeletionKind {
   exercise,
   workout,
@@ -197,36 +188,21 @@ const _ownedLists = [
       'side',
     ],
   ),
-  // The server can add a food to a meal but not replace the list, so taking
-  // one out is its own DELETE — addressed by meal and food item, which is what
-  // `DELETE api/Meal/{mealId}/foods/{foodItemId}` takes.
+  // A meal's foods and a plan's workouts are sent as the whole list, like the
+  // two above, so taking one out dirties the owner. They used to be removed
+  // one DELETE at a time, which needed a deletion entry per removal — and a
+  // food addressed by meal and food item couldn't tell two portions apart.
   _OwnedList(
     'meal_food_table',
     owner: 'meal_table',
     foreignKey: 'meal_id',
     pushed: ['food_entry_id'],
-    deletion: _Deletion(
-      'mealFood',
-      parent: '(SELECT server_id FROM meal_table WHERE id = OLD.meal_id)',
-      extra: '(SELECT server_id FROM food_item WHERE id = OLD.food_entry_id)',
-    ),
   ),
-  // A plan link's `server_id` holds the *plan's* server id (the server has no
-  // id of its own for a link), so "known to the server" is its status, and the
-  // DELETE is addressed by plan and workout.
   _OwnedList(
     'workout_plan_workout_table',
     owner: 'workout_plan_table',
     foreignKey: 'plan_id',
     pushed: ['workout_id'],
-    deletion: _Deletion(
-      'planWorkout',
-      serverId:
-          '(SELECT server_id FROM workout_table WHERE id = OLD.workout_id)',
-      parent:
-          '(SELECT server_id FROM workout_plan_table WHERE id = OLD.plan_id)',
-      onlyWhen: 'OLD.sync_status = 1',
-    ),
   ),
 ];
 
@@ -243,24 +219,20 @@ String _dirty(String table, String where) =>
 String _changed(List<String> columns) =>
     '(${columns.map((c) => 'NEW.$c IS NOT OLD.$c').join(' OR ')})';
 
-String _recordDeletion(_Deletion d) {
-  final values = [
-    "'${d.kind}'",
-    d.serverId,
-    d.parent ?? 'NULL',
-    d.extra ?? 'NULL',
-  ];
-  return 'INSERT INTO sync_deletion_table '
-      '(kind, server_id, parent_server_id, extra_server_id) '
-      'VALUES (${values.join(', ')});';
-}
+String _recordDeletion(_Deletion d) =>
+    'INSERT INTO sync_deletion_table (kind, server_id) '
+    "VALUES ('${d.kind}', OLD.server_id);";
 
+/// Whether the server has the deleted row, and so needs telling.
+///
+/// Every row now has a `server_id` from the moment it is inserted (the device
+/// mints it), so having one no longer says the server does. Its status does:
+/// a row still `pending` (0) never reached the server, and deleting it here is
+/// the end of it.
 String _deletionCondition(_Deletion d) {
   final parts = [
-    d.onlyWhen ?? 'OLD.server_id IS NOT NULL',
-    if (d.serverId != 'OLD.server_id') '${d.serverId} IS NOT NULL',
-    if (d.parent != null) '${d.parent} IS NOT NULL',
-    if (d.extra != null) '${d.extra} IS NOT NULL',
+    'OLD.sync_status != 0 AND OLD.server_id IS NOT NULL',
+    if (d.onlyWhen != null) d.onlyWhen!,
   ];
   return parts.join(' AND ');
 }
@@ -302,20 +274,11 @@ Map<String, String> syncTriggerDdl() {
         'WHEN $_notInsideSync AND ${_changed([fk, ...l.pushed])} '
         'BEGIN ${_dirty(l.owner, 'id IN (NEW.$fk, OLD.$fk)')} END';
 
-    final d = l.deletion;
-    if (d == null) {
-      ddl['sync_${t}_owner_delete'] =
-          'CREATE TRIGGER sync_${t}_owner_delete '
-          'AFTER DELETE ON $t '
-          'WHEN $_notInsideSync '
-          'BEGIN ${_dirty(l.owner, 'id = OLD.$fk')} END';
-    } else {
-      ddl['sync_${t}_delete'] =
-          'CREATE TRIGGER sync_${t}_delete '
-          'AFTER DELETE ON $t '
-          'WHEN $_notInsideSync AND ${_deletionCondition(d)} '
-          'BEGIN ${_recordDeletion(d)} END';
-    }
+    ddl['sync_${t}_owner_delete'] =
+        'CREATE TRIGGER sync_${t}_owner_delete '
+        'AFTER DELETE ON $t '
+        'WHEN $_notInsideSync '
+        'BEGIN ${_dirty(l.owner, 'id = OLD.$fk')} END';
   }
 
   return ddl;

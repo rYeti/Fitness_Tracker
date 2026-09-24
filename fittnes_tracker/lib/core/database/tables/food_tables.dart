@@ -1,5 +1,7 @@
 import 'package:drift/drift.dart';
 
+import 'sync_tables.dart';
+
 class FoodItem extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get name => text()();
@@ -22,8 +24,9 @@ class FoodItem extends Table {
   /// `lib/core/sync/sync_triggers.dart`.
   IntColumn get localRev => integer().withDefault(const Constant(0))();
 
-  /// UUID assigned by the remote API after first successful sync.
-  TextColumn get serverId => text().nullable()();
+  /// The row's global id, minted on insert ([newSyncId]) or taken from the
+  /// server on pull. Whether the server has it yet is [syncStatus]'s to say.
+  TextColumn get serverId => text().nullable().clientDefault(newSyncId)();
 
   /// OpenFoodFacts product code (barcode) — stored when a food is added from
   /// the online database so serving sizes can be re-fetched on edit.
@@ -60,8 +63,9 @@ class MealTable extends Table {
   /// `lib/core/sync/sync_triggers.dart`.
   IntColumn get localRev => integer().withDefault(const Constant(0))();
 
-  /// UUID assigned by the remote API after first successful sync.
-  TextColumn get serverId => text().nullable()();
+  /// The row's global id, minted on insert ([newSyncId]) or taken from the
+  /// server on pull. Whether the server has it yet is [syncStatus]'s to say.
+  TextColumn get serverId => text().nullable().clientDefault(newSyncId)();
 }
 
 class MealFoodTable extends Table {
@@ -69,8 +73,11 @@ class MealFoodTable extends Table {
   IntColumn get mealId => integer().references(MealTable, #id)();
   IntColumn get foodEntryId => integer().references(FoodItem, #id)();
 
-  /// UUID of the MealFoodEntry on the server, used to delete specific entries.
-  TextColumn get serverId => text().nullable()();
+  /// The entry's global id, minted on insert ([newSyncId]) or taken from the
+  /// server on pull. The meal's push sends its whole list of foods under these
+  /// ids (`PUT api/Meal/{id}/foods`), which is what tells two portions of the
+  /// same food apart.
+  TextColumn get serverId => text().nullable().clientDefault(newSyncId)();
 }
 
 /// Curated verified foods (per-100g values) shown above crowdsourced search

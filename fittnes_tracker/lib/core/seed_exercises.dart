@@ -59,11 +59,18 @@ Future<void> _insertMissing(AppDatabase db, Set<String> existingNames) {
 
 /// One batch rather than a write per exercise — 873 individual inserts each
 /// took their own implicit transaction.
+///
+/// Built-in exercises are the server's rows, not this device's: each one's id
+/// is the server's, stamped when `SyncService` matches it by name. So they are
+/// inserted without one, where every other row gets a fresh id of its own.
 Future<void> _insert(AppDatabase db, List<Exercise> exercises) {
   return db.batch((batch) {
     batch.insertAll(
       db.exerciseTable,
-      exercises.map(db.exerciseDao.modelToEntity).toList(),
+      [
+        for (final e in exercises)
+          db.exerciseDao.modelToEntity(e).copyWith(serverId: const Value(null)),
+      ],
       mode: InsertMode.insertOrReplace,
     );
   });

@@ -228,15 +228,6 @@ class WorkoutPlanDao extends DatabaseAccessor<AppDatabase>
       (select(workoutPlanWorkoutTable)
         ..where((pw) => pw.syncStatus.isNotValue(1))).get();
 
-  Future<void> markPlanWorkoutSynced(int localId, String serverId) =>
-      (update(workoutPlanWorkoutTable)
-        ..where((pw) => pw.id.equals(localId))).write(
-        WorkoutPlanWorkoutTableCompanion(
-          syncStatus: const Value(1),
-          serverId: Value(serverId),
-        ),
-      );
-
   Future<WorkoutPlanTableData?> getPlanByServerId(String serverId) =>
       (select(workoutPlanTable)
             ..where((p) => p.serverId.equals(serverId))

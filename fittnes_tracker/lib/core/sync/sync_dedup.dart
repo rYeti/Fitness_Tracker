@@ -39,7 +39,7 @@ extension _SyncDedup on SyncService {
           (sw) => logged[sw.id] == true,
           orElse:
               () => group.firstWhere(
-                (sw) => sw.serverId != null,
+                (sw) => _onServer(sw.syncStatus),
                 orElse: () => group.first,
               ),
         );
@@ -97,7 +97,7 @@ extension _SyncDedup on SyncService {
       for (final group in groups.values) {
         if (group.length < 2) continue;
         final winner = group.firstWhere(
-          (e) => e.serverId != null,
+          (e) => _onServer(e.syncStatus),
           orElse: () => group.first,
         );
         for (final loser in group.where((e) => e.id != winner.id)) {
@@ -127,8 +127,8 @@ extension _SyncDedup on SyncService {
   /// back: the builder read the twins, saved them as pending, and the push
   /// then sent both copies to the server.
   ///
-  /// The survivor is the row linked to the server, else the oldest. When an
-  /// exercise loses a row its remaining templates are unlinked, so
+  /// The survivor is the row the server has, else the oldest. When an
+  /// exercise loses a row its remaining templates are re-queued, so
   /// `_syncWorkoutExercises` pushes the clean list — the endpoint
   /// replaces the prescription, which also clears any twins the server was
   /// sent. Logged sets are keyed on the scheduled exercise and the set number,
@@ -146,7 +146,7 @@ extension _SyncDedup on SyncService {
         final kept = survivors[key];
         if (kept == null) {
           survivors[key] = row;
-        } else if (kept.serverId == null && row.serverId != null) {
+        } else if (!_onServer(kept.syncStatus) && _onServer(row.syncStatus)) {
           losers.add(kept);
           survivors[key] = row;
         } else {
@@ -174,12 +174,7 @@ extension _SyncDedup on SyncService {
         await (_db.update(_db.workoutSetTemplateTable)..where(
               (t) => t.workoutExerciseId.isIn(live.map((we) => we.id)),
             ))
-            .write(
-              const WorkoutSetTemplateTableCompanion(
-                serverId: Value(null),
-                syncStatus: Value(0),
-              ),
-            );
+            .write(const WorkoutSetTemplateTableCompanion(syncStatus: Value(0)));
       });
       _logger.i(
         'Dedup: removed ${losers.length} duplicate set template(s) across '
@@ -227,12 +222,7 @@ extension _SyncDedup on SyncService {
                   t.scheduledWorkoutExerciseId.isIn(affected) &
                   t.syncStatus.isNotValue(3),
             ))
-            .write(
-              const WorkoutSetTableCompanion(
-                serverId: Value(null),
-                syncStatus: Value(0),
-              ),
-            );
+            .write(const WorkoutSetTableCompanion(syncStatus: Value(0)));
       });
       _logger.i(
         'Dedup: removed ${losers.length} duplicate logged set(s) across '
@@ -242,6 +232,11 @@ extension _SyncDedup on SyncService {
       _logger.w('_deduplicateLoggedSets failed: $e');
     }
   }
+
+  /// Whether the server has a row: every row has a server id from the moment
+  /// it is inserted, so it is the status that says so.
+  static bool _onServer(int syncStatus) =>
+      SyncStatus.fromDb(syncStatus) != SyncStatus.pending;
 
   Future<bool> _hasLoggedSets(int scheduledWorkoutId) async {
     final exercises = await _db.scheduledWorkoutExerciseDao
@@ -302,6 +297,15 @@ extension _SyncDedup on SyncService {
   /// workouts that happened to share one — a trainer's "Upper A" and the
   /// client's own — deleting one of them on this device only, for the next
   /// pull to bring back. It is gone: a name is not an identity.
+  ///
+  /// Since this device mints every row's id (`newSyncId`), none of these
+  /// folds is how new data stays single any more: a retried create is
+  /// answered with the row it already made, and pulls no longer overlap.
+  /// What they fold is what earlier builds left behind — on this device, and
+  /// on the server, where a full pull on a new device still finds the twins
+  /// those builds created. Two also guard local races that have nothing to do
+  /// with sync (a session's exercise inserted twice by overlapping saves).
+  /// They stay until that data is gone; nothing here should be added to them.
   Future<void> _deduplicateAll() => _db.untracked(() async {
     // Content-based dedup for scheduled workouts: two rows for the same
     // workout+date are always duplicates regardless of their serverIds.
@@ -405,11 +409,13 @@ extension _SyncDedup on SyncService {
       serverIdOf: (r) => r.serverId!,
       idOf: (r) => r.id,
       merge: (keep, drop) async {
-        await (_db.update(_db.mealFoodTable)
+        final moved = await (_db.update(_db.mealFoodTable)
           ..where((t) => t.mealId.equals(drop))).write(
           MealFoodTableCompanion(mealId: Value(keep)),
         );
         await (_db.delete(_db.mealTable)..where((t) => t.id.equals(drop))).go();
+        // The kept meal's list is sent whole now; it has changed.
+        if (moved > 0) await _dirtyIfClean(_db.mealTable, keep);
       },
     );
     await _deduplicateByServerId<WeightRecordData>(

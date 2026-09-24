@@ -54,14 +54,18 @@ extension BodySync on SyncService {
   }
 
   Future<void> _syncNewWeight(WeightRecordData record) async {
-    final response = await _apiClient.post(
+    final response = await _create(
       'api/WeightTracking/TrackWeight',
-      data: {
+      {
+        'id': record.serverId,
         'date': record.date.toIso8601String(),
         'weight': record.weight,
         'note': record.note,
       },
+      _db.weightRecord,
+      [record.id],
     );
+    if (response == null) return;
     final serverId = response.data['id'] as String;
     await _markSent(_db.weightRecord, record.id, serverId, record.localRev);
     _logger.i('Synced new weight record ${record.id} → server $serverId');
@@ -159,8 +163,12 @@ extension BodySync on SyncService {
       what: 'weights',
       serverIds: {for (final w in list) w['id'] as String},
       locals:
-          await (_db.select(_db.weightRecord)
-            ..where((t) => t.serverId.isNotNull())).get(),
+          await (_db.select(_db.weightRecord)..where(
+                (t) =>
+                    t.serverId.isNotNull() &
+                    t.syncStatus.isNotValue(SyncStatus.pending.index),
+              ))
+              .get(),
       serverIdOf: (r) => r.serverId!,
       syncStatusOf: (r) => r.syncStatus,
       delete: (r) async {

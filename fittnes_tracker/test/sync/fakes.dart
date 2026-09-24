@@ -13,8 +13,23 @@ class FakeApiClient extends ApiClient {
   /// 404 would, so a test that forgets to stub something fails loudly.
   final Map<String, dynamic> getResponses = {};
 
-  /// Response bodies for POSTs, keyed by path. Missing entries return `{}`.
+  /// Response bodies for POSTs, keyed by path. A missing entry answers the
+  /// way the API does for a create it accepts: with what it was sent — so a
+  /// create comes back under the id the app minted, and a batch comes back as
+  /// the rows it was given.
   final Map<String, dynamic> postResponses = {};
+
+  /// Status codes POSTs fail with, keyed by path — a 409 for an id the server
+  /// refuses, say. A missing entry is a success.
+  final Map<String, int> postStatuses = {};
+
+  /// Status codes PUTs fail with, keyed by path. A missing entry is a success.
+  final Map<String, int> putStatuses = {};
+
+  /// Paths whose next POST reaches the server but whose response never comes
+  /// back: the request is recorded, then the call fails as a dropped
+  /// connection does, with no response at all. Each path loses one response.
+  final Set<String> postsLosingResponse = {};
 
   /// Status codes DELETEs answer with, keyed by path. A missing entry is a
   /// success.
@@ -76,7 +91,32 @@ class FakeApiClient extends ApiClient {
     Options? options,
   }) async {
     posts.add((path: path, data: data));
-    return _ok(path, postResponses[path] ?? <String, dynamic>{});
+    if (postsLosingResponse.remove(path)) {
+      throw DioException(
+        requestOptions: RequestOptions(path: path),
+        type: DioExceptionType.connectionError,
+        message: 'FakeApiClient: response to POST $path lost',
+      );
+    }
+    _failIfStubbed(path, postStatuses[path]);
+    return _ok(path, postResponses[path] ?? _echo(data));
+  }
+
+  static dynamic _echo(dynamic data) => switch (data) {
+    final Map m => Map<String, dynamic>.from(m),
+    final List l => [
+      for (final e in l) e is Map ? Map<String, dynamic>.from(e) : e,
+    ],
+    _ => <String, dynamic>{},
+  };
+
+  void _failIfStubbed(String path, int? status) {
+    if (status == null) return;
+    final options = RequestOptions(path: path);
+    throw DioException(
+      requestOptions: options,
+      response: Response<dynamic>(requestOptions: options, statusCode: status),
+    );
   }
 
   @override
@@ -88,6 +128,7 @@ class FakeApiClient extends ApiClient {
   }) async {
     puts.add((path: path, data: data));
     await duringPut?.call(path);
+    _failIfStubbed(path, putStatuses[path]);
     return _ok(path, <String, dynamic>{});
   }
 

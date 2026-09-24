@@ -173,7 +173,9 @@ void main() {
 
       final rows = await db.select(db.workoutTable).get();
       expect(rows, hasLength(2));
-      expect(rows.where((w) => w.serverId == null), hasLength(1));
+      // The local one keeps its own id, and is still the push's to create.
+      final local = rows.singleWhere((w) => w.serverId != 'server-trainers');
+      expect(local.syncStatus, SyncStatus.pending.index);
     });
   });
 
@@ -790,7 +792,15 @@ void main() {
       await db.mealDao.deleteFoodFromMeal(meal.food, meal.meal);
       await sync.syncAll();
 
-      expect(api.deletes, ['api/Meal/server-m1/foods/server-f1']);
+      // By sending the meal's whole list, now without it — not a DELETE, and
+      // nothing recorded for one.
+      expect(api.deletes, isEmpty);
+      expect(await db.select(db.syncDeletionTable).get(), isEmpty);
+      expect(
+        api.puts.singleWhere((p) => p.path == 'api/Meal/server-m1/foods').data,
+        isEmpty,
+      );
+      expect(await statusOf(db.mealTable, meal.meal), SyncStatus.synced.index);
     });
 
     test('signing out is not a deletion', () async {
@@ -1006,10 +1016,6 @@ void main() {
             );
         return (meal: meal, food: food);
       });
-      api.postResponses['api/Meal/server-m1/foods/batch'] = [
-        {'id': 'server-entry1'},
-      ];
-
       await db.mealDao.addFoodToMeal(ids.food, ids.meal, null);
       expect(
         await statusOf(db.mealTable, ids.meal),
@@ -1017,9 +1023,12 @@ void main() {
       );
 
       await sync.syncAll();
+      final entry = (await db.mealDao.getAllFoodEntriesForMeal(ids.meal)).single;
       expect(
-        api.posts.map((p) => p.path),
-        contains('api/Meal/server-m1/foods/batch'),
+        api.puts.singleWhere((p) => p.path == 'api/Meal/server-m1/foods').data,
+        [
+          {'id': entry.serverId, 'foodItemId': 'server-f1'},
+        ],
       );
       expect(await statusOf(db.mealTable, ids.meal), SyncStatus.synced.index);
     });
@@ -1145,10 +1154,6 @@ void main() {
             );
         return (se1: se1, se2: se2);
       });
-      api.getResponses['api/ScheduledWorkout/server-sw1'] = {
-        'id': 'server-sw1',
-        'exercises': <dynamic>[],
-      };
       // Every entry the session now has, in no particular order.
       api.postResponses['api/ScheduledWorkout/server-sw1/exercises/batch'] = [
         {'id': 'server-se2', 'workoutExerciseId': 'server-we2', 'notes': null},
@@ -1165,6 +1170,16 @@ void main() {
             ..where((t) => t.id.equals(ids.se2))).getSingle();
       expect(se1.serverId, 'server-se1');
       expect(se2.serverId, 'server-se2');
+      // Sent under their own ids, and without first asking the server what
+      // the session holds: the batch's answer says that.
+      expect(api.gets, isNot(contains('api/ScheduledWorkout/server-sw1')));
+      final batch = api.posts.singleWhere(
+        (p) => p.path == 'api/ScheduledWorkout/server-sw1/exercises/batch',
+      );
+      expect(
+        (batch.data as List).map((e) => (e as Map)['id']),
+        everyElement(isA<String>()),
+      );
     });
   });
 
@@ -1230,13 +1245,18 @@ void main() {
       await sync.syncAll();
 
       expect(api.deletes, isNot(contains('api/Workout/server-w1')));
-      expect(
-        await statusOf(db.workoutTable, w),
-        SyncStatus.pendingUpdate.index,
-      );
+      // Pending, whether or not the server has it: its create goes out under
+      // the id it already has, and the server answers a repeat with its row.
+      expect(await statusOf(db.workoutTable, w), SyncStatus.pending.index);
 
       await sync.syncAll();
       expect(await statusOf(db.workoutTable, w), SyncStatus.synced.index);
+      expect(
+        api.posts
+            .where((p) => p.path == 'api/Workout')
+            .map((p) => (p.data as Map)['id']),
+        ['server-w1'],
+      );
       expect(api.deletes, isEmpty);
     });
 
