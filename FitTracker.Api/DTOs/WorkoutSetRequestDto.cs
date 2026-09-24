@@ -29,6 +29,19 @@ public class WorkoutSetRequestDto
     [Range(1, 10)]
     public int? Rpe { get; set; }
 
+    /// <summary>
+    /// Set type ordinal (0 normal, 1 warm-up, 2 drop set, 3 failure). Null means the
+    /// caller didn't send one — an app older than this field — not "normal": a create
+    /// stores 0, but an update leaves the stored value alone, so an older device
+    /// editing a set can't wipe the warm-up tag a newer one pushed.
+    /// </summary>
+    [Range(0, 3)]
+    public int? SetType { get; set; }
+
+    /// <summary>Side ordinal (0 both, 1 left, 2 right). Null means "not sent", as for <see cref="SetType"/>.</summary>
+    [Range(0, 2)]
+    public int? Side { get; set; }
+
     /// <summary>Whether this set has been marked as completed by the user.</summary>
     public bool IsCompleted { get; set; }
 

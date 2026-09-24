@@ -102,6 +102,14 @@ public interface IScheduledWorkoutRepository
     /// <returns>The newly created workout set, or <c>null</c> if the scheduled workout exercise isn't found/owned.</returns>
     Task<WorkoutSet?> AddSetAsync(WorkoutSet set, Guid userId);
 
+    /// <summary>Replaces every performed set logged against a scheduled workout exercise
+    /// with <paramref name="sets"/>, in one transaction.</summary>
+    /// <param name="scheduledWorkoutExerciseId">The scheduled workout exercise whose log is replaced.</param>
+    /// <param name="userId">The ID of the user who must own the parent scheduled workout.</param>
+    /// <param name="sets">The exercise's complete log.</param>
+    /// <returns>The stored sets, or <c>null</c> if the scheduled workout exercise isn't found/owned.</returns>
+    Task<List<WorkoutSet>?> ReplaceSetsAsync(Guid scheduledWorkoutExerciseId, Guid userId, List<WorkoutSet> sets);
+
     /// <summary>Updates an existing performed set owned by the specified user.</summary>
     /// <param name="setId">The ID of the set to update.</param>
     /// <param name="userId">The ID of the user who must own the parent scheduled workout.</param>
@@ -114,6 +122,14 @@ public interface IScheduledWorkoutRepository
     /// <param name="userId">The ID of the user who must own the parent scheduled workout.</param>
     /// <returns><c>true</c> if deleted; <c>false</c> if not found or not owned.</returns>
     Task<bool> DeleteSetAsync(Guid setId, Guid userId);
+
+    /// <summary>Replaces the client's own note on one exercise of a session, if the
+    /// parent scheduled workout is owned by the specified user.</summary>
+    /// <param name="scheduledExerciseId">The ID of the scheduled exercise to annotate.</param>
+    /// <param name="userId">The ID of the user who must own the parent scheduled workout.</param>
+    /// <param name="notes">The note, or null/blank to clear it.</param>
+    /// <returns><c>true</c> if updated; <c>false</c> if not found or not owned.</returns>
+    Task<bool> UpdateExerciseNotesAsync(Guid scheduledExerciseId, Guid userId, string? notes);
 
     /// <summary>Marks a scheduled exercise as completed, if owned by the specified user.</summary>
     /// <param name="scheduledExerciseId">The ID of the scheduled exercise to complete.</param>

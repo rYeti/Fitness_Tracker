@@ -107,6 +107,9 @@ public class ScheduledWorkoutService : IScheduledWorkoutService
             Weight = dto.Weight,
             WeightUnit = dto.WeightUnit,
             DurationSeconds = dto.DurationSeconds,
+            Rpe = dto.Rpe,
+            SetType = dto.SetType ?? 0,
+            Side = dto.Side ?? 0,
             Notes = dto.Notes,
             IsCompleted = dto.IsCompleted,
         };
@@ -118,13 +121,32 @@ public class ScheduledWorkoutService : IScheduledWorkoutService
     /// <inheritdoc/>
     public async Task<List<WorkoutSetResponseDto>> AddSetsBatchAsync(Guid scheduledWorkoutExerciseId, Guid userId, List<WorkoutSetRequestDto> dtos)
     {
-        var results = new List<WorkoutSetResponseDto>();
-        foreach (var dto in dtos)
+        // The batch is the exercise's whole log, not an addition to it — the same
+        // correction AddSetTemplatesBatchAsync needed one table over. The client's active
+        // workout rewrites an exercise's sets on every save, as fresh rows with no server
+        // id, and the sync pushes those. Appending meant every save that followed a push
+        // added another copy of the exercise: a session reviewed in the Trainer Console
+        // listed "set 1" eight times. See docs/sync-concurrent-runs.md.
+        if (dtos.Count == 0) return [];
+
+        var sets = dtos.Select(dto => new WorkoutSet
         {
-            var created = await AddSetAsync(scheduledWorkoutExerciseId, userId, dto);
-            if (created != null) results.Add(created);
-        }
-        return results;
+            Id = Guid.NewGuid(),
+            ScheduledWorkoutExerciseId = scheduledWorkoutExerciseId,
+            SetNumber = dto.SetNumber,
+            Reps = dto.Reps,
+            Weight = dto.Weight,
+            WeightUnit = dto.WeightUnit,
+            DurationSeconds = dto.DurationSeconds,
+            Rpe = dto.Rpe,
+            SetType = dto.SetType ?? 0,
+            Side = dto.Side ?? 0,
+            Notes = dto.Notes,
+            IsCompleted = dto.IsCompleted,
+        }).ToList();
+
+        var replaced = await _scheduledRepository.ReplaceSetsAsync(scheduledWorkoutExerciseId, userId, sets);
+        return replaced == null ? [] : [.. replaced.Select(ToSetDto)];
     }
 
     /// <inheritdoc/>
@@ -138,6 +160,12 @@ public class ScheduledWorkoutService : IScheduledWorkoutService
     public async Task<bool> DeleteSetAsync(Guid setId, Guid userId)
     {
         return await _scheduledRepository.DeleteSetAsync(setId, userId);
+    }
+
+    /// <inheritdoc/>
+    public async Task<bool> UpdateExerciseNotesAsync(Guid scheduledExerciseId, Guid userId, string? notes)
+    {
+        return await _scheduledRepository.UpdateExerciseNotesAsync(scheduledExerciseId, userId, notes);
     }
 
     /// <inheritdoc/>
@@ -193,6 +221,9 @@ public class ScheduledWorkoutService : IScheduledWorkoutService
         Weight = s.Weight,
         WeightUnit = s.WeightUnit,
         DurationSeconds = s.DurationSeconds,
+        Rpe = s.Rpe,
+        SetType = s.SetType,
+        Side = s.Side,
         IsCompleted = s.IsCompleted,
         Notes = s.Notes,
     };

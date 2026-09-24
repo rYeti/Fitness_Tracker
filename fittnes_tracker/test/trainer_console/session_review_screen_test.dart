@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_console_models.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/active_client_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/view/session_review_screen.dart';
+import 'package:ForgeForm/feature/workout_planning/data/models/workout_set.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 
 import 'fakes.dart';
@@ -201,6 +202,139 @@ void main() {
       find.bySemanticsLabel('Set 1, 8 reps, 80 kg, RPE 7'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('the client\'s note on an exercise is shown under it', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      FakeTrainerConsoleRepository(
+        rosterWithStats: [fakeRosterEntry()],
+        sessions: [
+          fakeSession(
+            exercises: const [
+              SessionExerciseLog(
+                workoutExerciseId: 'we-1',
+                exerciseName: 'Bench Press',
+                skipped: false,
+                isPr: false,
+                clientNote: 'Left shoulder pinched on the last rep',
+                sets: [
+                  SessionSetLog(
+                    setNumber: 1,
+                    reps: 8,
+                    weight: 80,
+                    rpe: 8,
+                    hitTarget: true,
+                  ),
+                ],
+              ),
+              SessionExerciseLog(
+                workoutExerciseId: 'we-2',
+                exerciseName: 'Incline Press',
+                skipped: false,
+                isPr: false,
+                sets: [
+                  SessionSetLog(
+                    setNumber: 1,
+                    reps: 10,
+                    weight: 60,
+                    rpe: 7,
+                    hitTarget: true,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Left shoulder pinched on the last rep'), findsOneWidget);
+    // One note card: the exercise that has a note. The session has none, and
+    // an exercise without one draws nothing.
+    expect(find.text('CLIENT NOTE'), findsOneWidget);
+  });
+
+  testWidgets('a warm-up or one-sided set is tagged, and says so out loud', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      FakeTrainerConsoleRepository(
+        rosterWithStats: [fakeRosterEntry()],
+        sessions: [
+          fakeSession(
+            exercises: const [
+              SessionExerciseLog(
+                workoutExerciseId: 'we-1',
+                exerciseName: 'Bulgarian Split Squat',
+                skipped: false,
+                isPr: false,
+                sets: [
+                  SessionSetLog(
+                    setNumber: 1,
+                    reps: 12,
+                    weight: 10,
+                    setType: SetType.warmup,
+                    hitTarget: true,
+                  ),
+                  SessionSetLog(
+                    setNumber: 2,
+                    reps: 8,
+                    weight: 20,
+                    rpe: 8,
+                    side: SetSide.left,
+                    hitTarget: true,
+                  ),
+                  SessionSetLog(
+                    setNumber: 3,
+                    reps: 8,
+                    weight: 20,
+                    rpe: 8,
+                    hitTarget: true,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Warm-up'), findsOneWidget);
+    expect(find.text('Left'), findsOneWidget);
+    // The tag is in the row's one semantics node, so a screen reader hears
+    // it with the set it belongs to. A normal, two-sided set gets no tag.
+    expect(
+      find.bySemanticsLabel('Set 1, 12 reps, 10 kg, Warm-up'),
+      findsOneWidget,
+    );
+    expect(
+      find.bySemanticsLabel('Set 2, 8 reps, 20 kg, RPE 8, Left'),
+      findsOneWidget,
+    );
+    expect(
+      find.bySemanticsLabel('Set 3, 8 reps, 20 kg, RPE 8'),
+      findsOneWidget,
+    );
+  });
+
+  test('a set type or side this build does not know reads as normal', () {
+    final set = SessionSetLog.fromJson({
+      'setNumber': 1,
+      'reps': 8,
+      'rpe': 8,
+      'setType': 9,
+      'side': -1,
+      'hitTarget': true,
+    });
+
+    expect(set.setType, SetType.normal);
+    expect(set.side, SetSide.both);
   });
 
   testWidgets('mobile layout uses session tabs instead of the list pane', (

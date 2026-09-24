@@ -49,7 +49,7 @@ void main() {
           // makes them required raw values rather than Value<T> wrappers.
           name: name,
           type: 0,
-          targetMuscleGroups: 'chest',
+          targetMuscleGroups: '0', // MuscleGroup indices, as entityToModel parses them
           isCustom: const Value(false),
           serverId: Value(serverId),
           syncStatus: const Value(1),
@@ -158,6 +158,126 @@ void main() {
           await (db.select(db.workoutExerciseTable)
             ..where((t) => t.workoutId.equals(workoutId))).get();
       expect(remaining, isEmpty);
+    });
+  });
+
+  group('reordering the exercises of a synced workout', () {
+    Future<WorkoutExerciseTableData> exerciseRow(String serverId) =>
+        (db.select(db.workoutExerciseTable)
+          ..where((t) => t.serverId.equals(serverId))).getSingle();
+
+    WorkoutExercise asModel(
+      WorkoutExerciseTableData row, {
+      required int orderPosition,
+    }) => WorkoutExercise(
+      id: row.id,
+      workoutId: row.workoutId,
+      exerciseId: row.exerciseId,
+      orderPosition: orderPosition,
+      sets: const [],
+    );
+
+    // The reorder used to be written locally with each exercise row left at
+    // synced. The push only sends pendingUpdate exercises, so the server never
+    // heard about it, and the next pull's reconcile — which trusts a clean
+    // row to match the server — wrote the old positions back. From the gym
+    // floor that looked like the order changing on its own.
+    // See docs/workout-exercise-order.md.
+    test('pushes the new positions instead of leaving them local', () async {
+      await insertSyncedExercise(name: 'Bench Press', serverId: 'server-e1');
+      await insertSyncedExercise(name: 'Lat Pulldown', serverId: 'server-e2');
+
+      api.stubEmptyPull();
+      api.getResponses['api/Workout'] = [
+        serverWorkout(
+          id: 'server-w1',
+          name: 'Upper A',
+          exercises: [
+            serverWorkoutExercise(
+              id: 'server-we1',
+              exerciseId: 'server-e1',
+              orderPosition: 1,
+            ),
+            serverWorkoutExercise(
+              id: 'server-we2',
+              exerciseId: 'server-e2',
+              orderPosition: 2,
+            ),
+          ],
+        ),
+      ];
+      await sync.pullAll();
+
+      final local = await db.workoutDao.getWorkoutByServerId('server-w1');
+      final we1 = await exerciseRow('server-we1');
+      final we2 = await exerciseRow('server-we2');
+      // Swap them, the way the edit screen's drag handle does: same row ids,
+      // new positions, renumbered from the list order.
+      await db.workoutDao.saveCompleteWorkout(
+        Workout(
+          id: local!.id,
+          name: 'Upper A',
+          difficulty: WorkoutDifficulty.beginner,
+          exercises: [
+            asModel(we2, orderPosition: 1),
+            asModel(we1, orderPosition: 2),
+          ],
+        ),
+      );
+
+      final rows = await (db.select(db.workoutExerciseTable)
+            ..where((t) => t.workoutId.equals(local.id)))
+          .get();
+      // 2 == pendingUpdate: the only status the push sends for an exercise.
+      expect(rows.map((r) => r.syncStatus).toSet(), {2});
+
+      await sync.syncAll();
+
+      final pushed = {
+        for (final p in api.puts)
+          if (p.path.startsWith('api/Workout/exercises/'))
+            p.path: (p.data as Map)['orderPosition'],
+      };
+      expect(pushed, {
+        'api/Workout/exercises/server-we1': 2,
+        'api/Workout/exercises/server-we2': 1,
+      });
+    });
+
+    test('an untouched exercise stays synced', () async {
+      await insertSyncedExercise(serverId: 'server-e1');
+
+      api.stubEmptyPull();
+      api.getResponses['api/Workout'] = [
+        serverWorkout(
+          id: 'server-w1',
+          name: 'Upper A',
+          exercises: [
+            serverWorkoutExercise(
+              id: 'server-we1',
+              exerciseId: 'server-e1',
+              orderPosition: 0,
+            ),
+          ],
+        ),
+      ];
+      await sync.pullAll();
+
+      final local = await db.workoutDao.getWorkoutByServerId('server-w1');
+      final we1 = await exerciseRow('server-we1');
+      await db.workoutDao.saveCompleteWorkout(
+        Workout(
+          id: local!.id,
+          name: 'Upper A (renamed)',
+          difficulty: WorkoutDifficulty.beginner,
+          exercises: [asModel(we1, orderPosition: we1.orderPosition)],
+        ),
+      );
+
+      final row = await (db.select(db.workoutExerciseTable)
+            ..where((t) => t.serverId.equals('server-we1')))
+          .getSingle();
+      expect(row.syncStatus, 1);
     });
   });
 
@@ -543,6 +663,707 @@ void main() {
         contains('api/Workout/server-w1/exercises/batch'),
       );
     });
+  });
+
+  group('two syncs running at once', () {
+    // `_runInitialSync` fires on launch and again on every resume, and each
+    // call builds its own SyncService. Before the in-flight guard, a resume
+    // during the first pull started a second one alongside it, and the two
+    // interleaved `_replaceLocalSetTemplates`' delete-then-insert: both
+    // deleted, both inserted, and every exercise came back with each set
+    // twice. See docs/sync-concurrent-runs.md.
+    test('leave one set template per set number', () async {
+      await insertSyncedExercise(serverId: 'server-e1');
+      api.stubEmptyPull();
+      api.getResponses['api/Workout'] = [
+        serverWorkout(
+          id: 'server-w1',
+          name: 'Push Day',
+          exercises: [
+            serverWorkoutExercise(
+              id: 'server-we1',
+              exerciseId: 'server-e1',
+              orderPosition: 0,
+              setTemplates: [
+                serverSetTemplate(id: 'st1', setNumber: 1),
+                serverSetTemplate(id: 'st2', setNumber: 2),
+              ],
+            ),
+          ],
+        ),
+      ];
+      // The first pull inserts the workout; only the reconcile path that
+      // every later pull takes replaces set templates.
+      await sync.pullAll();
+
+      final second = SyncService(
+        db: db,
+        apiClient: api,
+        mealTemplateDao: MealTemplateDao(db),
+      );
+      await Future.wait([sync.pullAll(), second.pullAll()]);
+
+      final we =
+          await (db.select(db.workoutExerciseTable)
+            ..where((t) => t.serverId.equals('server-we1'))).getSingle();
+      final templates =
+          await (db.select(db.workoutSetTemplateTable)
+            ..where((t) => t.workoutExerciseId.equals(we.id))).get();
+      expect(templates.map((t) => t.setNumber).toList()..sort(), [1, 2]);
+    });
+  });
+
+  group('set templates a device already holds twice', () {
+    Future<int> seedTwins() async {
+      final exerciseId = await insertSyncedExercise(serverId: 'server-e1');
+      final workoutId = await db
+          .into(db.workoutTable)
+          .insert(
+            WorkoutTableCompanion.insert(
+              name: 'Push Day',
+              difficulty: 0,
+              serverId: const Value('server-w1'),
+              syncStatus: const Value(1),
+            ),
+          );
+      final weId = await db
+          .into(db.workoutExerciseTable)
+          .insert(
+            WorkoutExerciseTableCompanion.insert(
+              workoutId: workoutId,
+              exerciseId: exerciseId,
+              orderPosition: 0,
+              serverId: const Value('server-we1'),
+              syncStatus: const Value(1),
+            ),
+          );
+      // What two overlapping pulls left behind: 1, 2, 1, 2.
+      for (final (setNumber, serverId) in [
+        (1, 'st1'),
+        (2, 'st2'),
+        (1, 'st1b'),
+        (2, 'st2b'),
+      ]) {
+        await db
+            .into(db.workoutSetTemplateTable)
+            .insert(
+              WorkoutSetTemplateTableCompanion.insert(
+                workoutExerciseId: weId,
+                setNumber: setNumber,
+                targetReps: '8-12',
+                orderPosition: setNumber,
+                serverId: Value(serverId),
+                syncStatus: const Value(1),
+              ),
+            );
+      }
+      return workoutId;
+    }
+
+    test('are read back once per set number', () async {
+      final workoutId = await seedTwins();
+
+      final rows = await db.workoutDao.getWorkoutExercisesWithTemplates(
+        workoutId,
+      );
+      expect(rows.single.$2.map((t) => t.setNumber).toList(), [1, 2]);
+
+      final workout = await db.workoutDao.getCompleteWorkoutById(workoutId);
+      expect(
+        workout!.exercises.single.sets.map((s) => s.setNumber).toList(),
+        [1, 2],
+      );
+    });
+
+    test('are folded at rest and the clean prescription re-pushed', () async {
+      await seedTwins();
+      api.stubEmptyPull();
+      api.getResponses['api/Workout'] = [
+        serverWorkout(id: 'server-w1', name: 'Push Day'),
+      ];
+      api.postResponses['api/Workout/exercises/server-we1/sets/batch'] = [
+        {'id': 'st-new1'},
+        {'id': 'st-new2'},
+      ];
+
+      await sync.syncAll();
+
+      final templates = await db.select(db.workoutSetTemplateTable).get();
+      expect(templates.map((t) => t.setNumber).toList()..sort(), [1, 2]);
+      expect(templates.every((t) => t.syncStatus == 1), isTrue);
+
+      // The server was sent the twins too, so it gets the clean list, and
+      // the endpoint replaces rather than appends.
+      final push = api.posts.singleWhere(
+        (p) => p.path == 'api/Workout/exercises/server-we1/sets/batch',
+      );
+      expect((push.data as List).length, 2);
+    });
+  });
+
+  group('logged sets', () {
+    // The Trainer Console listed one exercise's "set 1" eight times. The
+    // active workout rewrites an exercise's sets as fresh rows on every save;
+    // the push appended them, so every save after a push left another copy on
+    // the server — and the pull then copied each stale copy back onto the
+    // device. See docs/sync-concurrent-runs.md.
+    const batchPath =
+        'api/ScheduledWorkout/server-sw1/exercises/server-se1/sets/batch';
+
+    void stubSession(List<Map<String, dynamic>> sets) {
+      api.getResponses['api/Workout'] = [
+        serverWorkout(
+          id: 'server-w1',
+          name: 'Push Day',
+          exercises: [
+            serverWorkoutExercise(
+              id: 'server-we1',
+              exerciseId: 'server-e1',
+              orderPosition: 0,
+            ),
+          ],
+        ),
+      ];
+      api.getResponses['api/ScheduledWorkout'] = [
+        serverScheduledWorkout(
+          id: 'server-sw1',
+          workoutId: 'server-w1',
+          exercises: [
+            serverScheduledExercise(
+              id: 'server-se1',
+              workoutExerciseId: 'server-we1',
+              sets: sets,
+            ),
+          ],
+        ),
+      ];
+    }
+
+    Future<List<WorkoutSetTableData>> localSets() =>
+        (db.select(db.workoutSetTable)
+              ..orderBy([(t) => OrderingTerm.asc(t.setNumber)]))
+            .get();
+
+    setUp(() async {
+      await insertSyncedExercise(serverId: 'server-e1');
+      api.stubEmptyPull();
+    });
+
+    test('pull onto an empty device keeps one per set number', () async {
+      stubSession([
+        serverSet(id: 'a', setNumber: 1, reps: 5, weight: 35),
+        serverSet(id: 'a2', setNumber: 1, reps: 5, weight: 35),
+        serverSet(id: 'b', setNumber: 2, reps: 8, weight: 35),
+      ]);
+
+      await sync.pullAll();
+
+      expect((await localSets()).map((s) => s.setNumber), [1, 2]);
+    });
+
+    test(
+      'stale server copies are overwritten by the device, not pulled onto it',
+      () async {
+        stubSession([
+          serverSet(id: 'a', setNumber: 1, reps: 5, weight: 35),
+          serverSet(id: 'b', setNumber: 2, reps: 8, weight: 35),
+        ]);
+        await sync.pullAll();
+
+        // What an earlier save-after-push left on the server.
+        stubSession([
+          serverSet(id: 'a', setNumber: 1, reps: 5, weight: 35),
+          serverSet(id: 'b', setNumber: 2, reps: 8, weight: 35),
+          serverSet(id: 'old1', setNumber: 1, reps: 3, weight: 30),
+          serverSet(id: 'old2', setNumber: 2, reps: 3, weight: 30),
+        ]);
+        await sync.pullAll();
+
+        final sets = await localSets();
+        expect(sets.map((s) => s.reps), [5, 8]);
+        expect(sets.every((s) => s.syncStatus == 0), isTrue,
+            reason: 're-queued so the replace push clears the copies');
+
+        api.postResponses[batchPath] = [
+          {'id': 'n1'},
+          {'id': 'n2'},
+        ];
+        await sync.syncAll();
+
+        final push = api.posts.singleWhere((p) => p.path == batchPath);
+        expect(
+          (push.data as List).map((s) => (s as Map)['reps']).toList(),
+          [5, 8],
+        );
+      },
+    );
+
+    test('a new set pushes the whole log, which the server replaces', () async {
+      stubSession([
+        serverSet(id: 'a', setNumber: 1, reps: 5, weight: 35),
+        serverSet(id: 'b', setNumber: 2, reps: 8, weight: 35),
+      ]);
+      await sync.pullAll();
+      final seId = (await localSets()).first.scheduledWorkoutExerciseId;
+      await db
+          .into(db.workoutSetTable)
+          .insert(
+            WorkoutSetTableCompanion.insert(
+              scheduledWorkoutExerciseId: seId,
+              setNumber: 3,
+              reps: const Value(6),
+            ),
+          );
+
+      api.postResponses[batchPath] = [
+        {'id': 'n1'},
+        {'id': 'n2'},
+        {'id': 'n3'},
+      ];
+      await sync.syncAll();
+
+      final push = api.posts.singleWhere((p) => p.path == batchPath);
+      expect((push.data as List).length, 3);
+      expect(
+        (await localSets()).map((s) => s.serverId),
+        ['n1', 'n2', 'n3'],
+      );
+    });
+
+    test('duplicates already on the device are folded before a push', () async {
+      stubSession([
+        serverSet(id: 'a', setNumber: 1, reps: 5, weight: 35),
+        serverSet(id: 'b', setNumber: 2, reps: 8, weight: 35),
+      ]);
+      await sync.pullAll();
+      final seId = (await localSets()).first.scheduledWorkoutExerciseId;
+      // A stale copy an older build pulled in beside the device's own row.
+      await db
+          .into(db.workoutSetTable)
+          .insert(
+            WorkoutSetTableCompanion.insert(
+              scheduledWorkoutExerciseId: seId,
+              setNumber: 1,
+              reps: const Value(3),
+              serverId: const Value('old1'),
+              syncStatus: const Value(1),
+            ),
+          );
+
+      api.postResponses[batchPath] = [
+        {'id': 'n1'},
+        {'id': 'n2'},
+      ];
+      await sync.syncAll();
+
+      expect((await localSets()).map((s) => s.reps), [5, 8]);
+      final push = api.posts.singleWhere((p) => p.path == batchPath);
+      expect((push.data as List).length, 2);
+    });
+  });
+
+  group('a client\'s note on an exercise of a session', () {
+    /// A synced workout holding one synced exercise, and a session of it with
+    /// one entry carrying [note] — the shape the active workout leaves behind.
+    Future<({int swId, int seId})> seedSession({
+      required String? note,
+      String? swServerId,
+      String? seServerId,
+      int seSyncStatus = 0,
+    }) async {
+      final exerciseId = await insertSyncedExercise(serverId: 'server-e1');
+      final workoutId = await db.workoutDao.saveCompleteWorkout(
+        Workout(
+          name: 'Push Day',
+          difficulty: WorkoutDifficulty.beginner,
+          exercises: [
+            WorkoutExercise(
+              workoutId: 0,
+              exerciseId: exerciseId,
+              orderPosition: 0,
+              sets: [WorkoutSet(exerciseInstanceId: 0, setNumber: 1)],
+            ),
+          ],
+        ),
+      );
+      await db.workoutDao.markWorkoutSynced(workoutId, 'server-w1');
+      final we =
+          await (db.select(db.workoutExerciseTable)
+            ..where((t) => t.workoutId.equals(workoutId))).getSingle();
+      await db.workoutDao.markWorkoutExerciseSynced(we.id, 'server-we1');
+
+      final swId = await db
+          .into(db.scheduledWorkoutTable)
+          .insert(
+            ScheduledWorkoutTableCompanion.insert(
+              workoutId: workoutId,
+              scheduledDate: DateTime(2026, 1, 5),
+              isCompleted: const Value(true),
+              serverId: Value(swServerId),
+              syncStatus: Value(swServerId == null ? 0 : 2),
+            ),
+          );
+      final seId = await db
+          .into(db.scheduledWorkoutExerciseTable)
+          .insert(
+            ScheduledWorkoutExerciseTableCompanion.insert(
+              scheduledWorkoutId: swId,
+              workoutExerciseId: we.id,
+              notes: Value(note),
+              serverId: Value(seServerId),
+              syncStatus: Value(seSyncStatus),
+            ),
+          );
+      return (swId: swId, seId: seId);
+    }
+
+    test(
+      'written before the session ever synced, is pushed once it links',
+      () async {
+        final ids = await seedSession(note: 'Left knee caved on rep 8');
+        // The server creates its own entries when the session is POSTed, with
+        // no note. Linking to one is not the same as having pushed ours.
+        api.postResponses['api/ScheduledWorkout'] = {
+          'id': 'server-sw1',
+          'exercises': [
+            {
+              'id': 'server-se1',
+              'workoutExerciseId': 'server-we1',
+              'notes': null,
+              'sets': <dynamic>[],
+            },
+          ],
+        };
+
+        await sync.syncScheduledWorkouts();
+
+        final put = api.puts.singleWhere(
+          (p) => p.path == 'api/ScheduledWorkout/exercises/server-se1/notes',
+        );
+        expect(put.data, {'notes': 'Left knee caved on rep 8'});
+        final row =
+            await (db.select(db.scheduledWorkoutExerciseTable)
+              ..where((t) => t.id.equals(ids.seId))).getSingle();
+        expect(row.serverId, 'server-se1');
+        expect(row.syncStatus, 1);
+      },
+    );
+
+    test('already on the server is not pushed again', () async {
+      await seedSession(
+        note: 'Felt strong',
+        swServerId: 'server-sw1',
+        seServerId: 'server-se1',
+        seSyncStatus: 1,
+      );
+
+      await sync.syncScheduledWorkouts();
+
+      expect(
+        api.puts.where((p) => p.path.endsWith('/notes')),
+        isEmpty,
+        reason: 'a note push per exercise per sync would be pure noise',
+      );
+    });
+
+    test(
+      'held from before notes were pushed is queued by the pull, not erased',
+      () async {
+        final ids = await seedSession(
+          note: 'Spotter needed on the last set',
+          swServerId: 'server-sw1',
+          seServerId: 'server-se1',
+          seSyncStatus: 1,
+        );
+        api.stubEmptyPull();
+        api.getResponses['api/Workout'] = [
+          serverWorkout(
+            id: 'server-w1',
+            name: 'Push Day',
+            exercises: [
+              serverWorkoutExercise(
+                id: 'server-we1',
+                exerciseId: 'server-e1',
+                orderPosition: 0,
+              ),
+            ],
+          ),
+        ];
+        // The server never heard of the note: it was stamped synced by a link
+        // back when nothing pushed notes at all.
+        api.getResponses['api/ScheduledWorkout'] = [
+          serverScheduledWorkout(
+            id: 'server-sw1',
+            workoutId: 'server-w1',
+            exercises: [
+              serverScheduledExercise(
+                id: 'server-se1',
+                workoutExerciseId: 'server-we1',
+              ),
+            ],
+          ),
+        ];
+
+        await sync.pullAll();
+
+        final row =
+            await (db.select(db.scheduledWorkoutExerciseTable)
+              ..where((t) => t.id.equals(ids.seId))).getSingle();
+        expect(row.notes, 'Spotter needed on the last set');
+        expect(row.syncStatus, 2, reason: 'queued for the next push');
+      },
+    );
+
+    test('edited on a linked entry is pushed', () async {
+      await seedSession(
+        note: 'Grip went before legs',
+        swServerId: 'server-sw1',
+        seServerId: 'server-se1',
+        seSyncStatus: 2,
+      );
+
+      await sync.syncScheduledWorkouts();
+
+      expect(
+        api.puts.map((p) => p.path),
+        contains('api/ScheduledWorkout/exercises/server-se1/notes'),
+      );
+    });
+  });
+
+  group('RPE, set type and side on a logged set', () {
+    /// A synced workout with one synced exercise, a session of it, and one
+    /// logged set on that session — warm-up, left side, RPE 8 unless told
+    /// otherwise. Server ids left null are rows that never synced.
+    Future<({int setId})> seedLoggedSet({
+      String? swServerId,
+      String? seServerId,
+      String? setServerId,
+      int setSyncStatus = 0,
+      int? rpe = 8,
+      SetType setType = SetType.warmup,
+      SetSide side = SetSide.left,
+    }) async {
+      final exerciseId = await insertSyncedExercise(serverId: 'server-e1');
+      final workoutId = await db.workoutDao.saveCompleteWorkout(
+        Workout(
+          name: 'Push Day',
+          difficulty: WorkoutDifficulty.beginner,
+          exercises: [
+            WorkoutExercise(
+              workoutId: 0,
+              exerciseId: exerciseId,
+              orderPosition: 0,
+              sets: [WorkoutSet(exerciseInstanceId: 0, setNumber: 1)],
+            ),
+          ],
+        ),
+      );
+      await db.workoutDao.markWorkoutSynced(workoutId, 'server-w1');
+      final we =
+          await (db.select(db.workoutExerciseTable)
+            ..where((t) => t.workoutId.equals(workoutId))).getSingle();
+      await db.workoutDao.markWorkoutExerciseSynced(we.id, 'server-we1');
+
+      final swId = await db
+          .into(db.scheduledWorkoutTable)
+          .insert(
+            ScheduledWorkoutTableCompanion.insert(
+              workoutId: workoutId,
+              scheduledDate: DateTime(2026, 1, 5),
+              isCompleted: const Value(true),
+              serverId: Value(swServerId),
+              syncStatus: Value(swServerId == null ? 0 : 1),
+            ),
+          );
+      final seId = await db
+          .into(db.scheduledWorkoutExerciseTable)
+          .insert(
+            ScheduledWorkoutExerciseTableCompanion.insert(
+              scheduledWorkoutId: swId,
+              workoutExerciseId: we.id,
+              serverId: Value(seServerId),
+              syncStatus: Value(seServerId == null ? 0 : 1),
+            ),
+          );
+      final setId = await db
+          .into(db.workoutSetTable)
+          .insert(
+            WorkoutSetTableCompanion.insert(
+              scheduledWorkoutExerciseId: seId,
+              setNumber: 1,
+              reps: const Value(8),
+              weight: const Value(100),
+              rpe: Value(rpe),
+              setType: Value(setType.index),
+              side: Value(side.index),
+              isCompleted: const Value(true),
+              serverId: Value(setServerId),
+              syncStatus: Value(setSyncStatus),
+            ),
+          );
+      return (setId: setId);
+    }
+
+    /// Stubs a pull in which the server holds the session seeded above, with
+    /// [sets] on its one exercise.
+    void stubServerSession(List<Map<String, dynamic>> sets) {
+      api.stubEmptyPull();
+      api.getResponses['api/Workout'] = [
+        serverWorkout(
+          id: 'server-w1',
+          name: 'Push Day',
+          exercises: [
+            serverWorkoutExercise(
+              id: 'server-we1',
+              exerciseId: 'server-e1',
+              orderPosition: 0,
+            ),
+          ],
+        ),
+      ];
+      api.getResponses['api/ScheduledWorkout'] = [
+        serverScheduledWorkout(
+          id: 'server-sw1',
+          workoutId: 'server-w1',
+          exercises: [
+            serverScheduledExercise(
+              id: 'server-se1',
+              workoutExerciseId: 'server-we1',
+              sets: sets,
+            ),
+          ],
+        ),
+      ];
+    }
+
+    Future<WorkoutSetTableData> setRow(int id) =>
+        (db.select(db.workoutSetTable)
+          ..where((t) => t.id.equals(id))).getSingle();
+
+    test('are sent when a new set is pushed', () async {
+      await seedLoggedSet();
+      api.postResponses['api/ScheduledWorkout'] = {
+        'id': 'server-sw1',
+        'exercises': [
+          {
+            'id': 'server-se1',
+            'workoutExerciseId': 'server-we1',
+            'notes': null,
+            'sets': <dynamic>[],
+          },
+        ],
+      };
+      const batchPath =
+          'api/ScheduledWorkout/server-sw1/exercises/server-se1/sets/batch';
+      api.postResponses[batchPath] = [
+        {'id': 'server-set1'},
+      ];
+
+      await sync.syncScheduledWorkouts();
+
+      final body =
+          (api.posts.singleWhere((p) => p.path == batchPath).data as List)
+                  .single
+              as Map;
+      expect(body['rpe'], 8);
+      expect(body['setType'], SetType.warmup.index);
+      expect(body['side'], SetSide.left.index);
+    });
+
+    test('are sent when a synced set is edited', () async {
+      await seedLoggedSet(
+        swServerId: 'server-sw1',
+        seServerId: 'server-se1',
+        setServerId: 'server-set1',
+        setSyncStatus: 2,
+        rpe: 9,
+        setType: SetType.failure,
+        side: SetSide.right,
+      );
+      // The server still has the set as it was before the edit.
+      stubServerSession([
+        serverSet(id: 'server-set1', setNumber: 1, reps: 8, weight: 100),
+      ]);
+
+      await sync.syncAll();
+
+      final put = api.puts.singleWhere(
+        (p) => p.path == 'api/ScheduledWorkout/exercises/sets/server-set1',
+      );
+      final body = put.data as Map;
+      expect(body['rpe'], 9);
+      expect(body['setType'], SetType.failure.index);
+      expect(body['side'], SetSide.right.index);
+    });
+
+    test('arrive on pull, and an ordinal this build does not know reads as '
+        'normal rather than crashing', () async {
+      stubServerSession([
+        {
+          ...serverSet(id: 'server-set1', setNumber: 1, reps: 8, weight: 100),
+          'rpe': 7,
+          'setType': SetType.dropset.index,
+          'side': SetSide.right.index,
+        },
+        {
+          ...serverSet(id: 'server-set2', setNumber: 2, reps: 8, weight: 100),
+          // A value a later server or app might add.
+          'setType': 9,
+          'side': 7,
+        },
+      ]);
+      await insertSyncedExercise(serverId: 'server-e1');
+
+      await sync.pullAll();
+
+      final sets =
+          await (db.select(db.workoutSetTable)
+            ..orderBy([(t) => OrderingTerm(expression: t.setNumber)])).get();
+      expect(sets.map((s) => s.rpe), [7, null]);
+      expect(sets.map((s) => s.setType), [SetType.dropset.index, 0]);
+      expect(sets.map((s) => s.side), [SetSide.right.index, 0]);
+    });
+
+    test(
+      'a set re-queued by the backfill is not overwritten by the server copy '
+      'that lacks them, and is then pushed',
+      () async {
+        // The state the schema-40 backfill leaves: synced before these fields
+        // were pushed, so the server's copy is bare, then flagged for update.
+        final ids = await seedLoggedSet(
+          swServerId: 'server-sw1',
+          seServerId: 'server-se1',
+          setServerId: 'server-set1',
+          setSyncStatus: 2,
+        );
+        stubServerSession([
+          serverSet(id: 'server-set1', setNumber: 1, reps: 8, weight: 100),
+        ]);
+
+        await sync.pullAll();
+
+        final row = await setRow(ids.setId);
+        expect(row.rpe, 8, reason: 'taking the server copy would erase it');
+        expect(row.setType, SetType.warmup.index);
+        expect(row.syncStatus, 2);
+
+        await sync.syncAll();
+
+        final body =
+            api.puts
+                    .singleWhere(
+                      (p) =>
+                          p.path ==
+                          'api/ScheduledWorkout/exercises/sets/server-set1',
+                    )
+                    .data
+                as Map;
+        expect(body['rpe'], 8);
+        expect(body['setType'], SetType.warmup.index);
+        expect(body['side'], SetSide.left.index);
+      },
+    );
   });
 
   group('countUnsyncedChanges', () {

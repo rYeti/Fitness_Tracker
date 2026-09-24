@@ -157,6 +157,8 @@ public class ScheduledWorkoutRepository : IScheduledWorkoutRepository
         var best = await _context.WorkoutSets
             .AsNoTracking()
             .Where(s => s.IsCompleted && s.Weight > 0)
+            // A warm-up is never a PR, so it can't be the baseline one is measured against.
+            .Where(s => s.SetType != WorkoutSet.WarmUpSetType)
             .Where(s => s.ScheduledWorkoutExercise.ScheduledWorkout.Workout.UserId == userId)
             .Where(s => s.ScheduledWorkoutExercise.ScheduledWorkout.ScheduledDate < before)
             .GroupBy(s => s.ScheduledWorkoutExercise.OverrideExerciseId
@@ -339,6 +341,38 @@ public class ScheduledWorkoutRepository : IScheduledWorkoutRepository
     }
 
     /// <inheritdoc/>
+    public async Task<List<WorkoutSet>?> ReplaceSetsAsync(Guid scheduledWorkoutExerciseId, Guid userId, List<WorkoutSet> sets)
+    {
+        var ownsExercise = await _context.ScheduledWorkoutExercises
+            .AnyAsync(e => e.Id == scheduledWorkoutExerciseId && e.ScheduledWorkout.Workout.UserId == userId);
+        if (!ownsExercise) return null;
+
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+
+        await _context.WorkoutSets
+            .Where(s => s.ScheduledWorkoutExerciseId == scheduledWorkoutExerciseId)
+            .ExecuteDeleteAsync();
+
+        // The bulk delete bypasses the change tracker, so drop its copies of the deleted
+        // rows — and empty an already-loaded Sets navigation, which fixup never prunes
+        // (see WorkoutRepository.ReplaceSetTemplatesAsync for the full story).
+        foreach (var entry in _context.ChangeTracker.Entries<WorkoutSet>()
+                     .Where(e => e.Entity.ScheduledWorkoutExerciseId == scheduledWorkoutExerciseId)
+                     .ToList())
+        {
+            entry.State = EntityState.Detached;
+        }
+        _context.ChangeTracker.Entries<ScheduledWorkoutExercise>()
+            .FirstOrDefault(e => e.Entity.Id == scheduledWorkoutExerciseId)
+            ?.Entity.Sets.Clear();
+
+        _context.WorkoutSets.AddRange(sets);
+        await _context.SaveChangesAsync();
+        await transaction.CommitAsync();
+        return sets;
+    }
+
+    /// <inheritdoc/>
     public async Task<WorkoutSet?> UpdateSetAsync(Guid setId, Guid userId, WorkoutSetRequestDto dto)
     {
         var set = await _context.WorkoutSets
@@ -350,6 +384,11 @@ public class ScheduledWorkoutRepository : IScheduledWorkoutRepository
         set.Weight = dto.Weight;
         set.WeightUnit = dto.WeightUnit;
         set.DurationSeconds = dto.DurationSeconds;
+        // RPE is assigned outright: null is a real value ("not logged"), so it can't
+        // double as "not sent". Set type and side can, and an older app sends neither.
+        set.Rpe = dto.Rpe;
+        if (dto.SetType is int setType) set.SetType = setType;
+        if (dto.Side is int side) set.Side = side;
         set.IsCompleted = dto.IsCompleted;
         set.Notes = dto.Notes;
 
@@ -365,6 +404,20 @@ public class ScheduledWorkoutRepository : IScheduledWorkoutRepository
         if (set == null) return false;
 
         _context.WorkoutSets.Remove(set);
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    /// <inheritdoc/>
+    public async Task<bool> UpdateExerciseNotesAsync(Guid scheduledExerciseId, Guid userId, string? notes)
+    {
+        var exercise = await _context.ScheduledWorkoutExercises
+            .FirstOrDefaultAsync(e => e.Id == scheduledExerciseId && e.ScheduledWorkout.Workout.UserId == userId);
+        if (exercise == null) return false;
+
+        // Blank and absent are the same note; storing "" would make the console
+        // render an empty note card.
+        exercise.Notes = string.IsNullOrWhiteSpace(notes) ? null : notes;
         await _context.SaveChangesAsync();
         return true;
     }

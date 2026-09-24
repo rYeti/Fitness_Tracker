@@ -64,7 +64,9 @@ public interface IScheduledWorkoutService
     /// <summary>Adds a performed set to a scheduled workout exercise owned by the specified user.</summary>
     Task<WorkoutSetResponseDto?> AddSetAsync(Guid scheduledWorkoutExerciseId, Guid userId, WorkoutSetRequestDto dto);
 
-    /// <summary>Adds multiple performed sets to a scheduled workout exercise owned by the specified user in one call.</summary>
+    /// <summary>Replaces the performed sets of a scheduled workout exercise owned by the specified
+    /// user with <paramref name="dtos"/>, which is the exercise's whole log. An empty batch
+    /// changes nothing.</summary>
     Task<List<WorkoutSetResponseDto>> AddSetsBatchAsync(Guid scheduledWorkoutExerciseId, Guid userId, List<WorkoutSetRequestDto> dtos);
 
     /// <summary>Updates an existing performed set owned by the specified user.</summary>
@@ -79,6 +81,14 @@ public interface IScheduledWorkoutService
     /// <param name="userId">The ID of the user who must own the parent scheduled workout.</param>
     /// <returns><c>true</c> if deleted; <c>false</c> if not found or not owned.</returns>
     Task<bool> DeleteSetAsync(Guid setId, Guid userId);
+
+    /// <summary>Replaces the client's own note on one exercise of a session, if the
+    /// parent scheduled workout is owned by the specified user.</summary>
+    /// <param name="scheduledExerciseId">The ID of the scheduled exercise to annotate.</param>
+    /// <param name="userId">The ID of the user who must own the parent scheduled workout.</param>
+    /// <param name="notes">The note, or null/blank to clear it.</param>
+    /// <returns><c>true</c> if updated; <c>false</c> if not found or not owned.</returns>
+    Task<bool> UpdateExerciseNotesAsync(Guid scheduledExerciseId, Guid userId, string? notes);
 
     /// <summary>Marks a scheduled exercise as completed, if owned by the specified user.</summary>
     /// <param name="scheduledExerciseId">The ID of the scheduled exercise to complete.</param>

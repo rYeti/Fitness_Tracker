@@ -270,6 +270,13 @@ public class SessionSetLogDto
     public string? WeightUnit { get; set; }
     public int? Rpe { get; set; }
 
+    /// <summary>Set type ordinal as the app logged it (0 normal, 1 warm-up, 2 drop set,
+    /// 3 failure). Shown as a tag; a warm-up is left out of the session's volume, Avg RPE and PRs.</summary>
+    public int SetType { get; set; }
+
+    /// <summary>Side ordinal (0 both, 1 left, 2 right).</summary>
+    public int Side { get; set; }
+
     /// <summary>Whether <see cref="Reps"/> met the low end of the prescribed target.
     /// Defaults to <c>true</c> when there's no parseable target, so an unprogrammed
     /// exercise doesn't render as a miss.</summary>
@@ -290,6 +297,12 @@ public class SessionExerciseLogDto
     /// <summary>A set here beat this client's best-ever weight on this exercise, counting
     /// only strictly-earlier sessions.</summary>
     public bool IsPr { get; set; }
+
+    /// <summary>The client's own note on this exercise, typed under it during the
+    /// session (<c>ScheduledWorkoutExercise.Notes</c>). Distinct from the trainer's
+    /// guidance on the exercise (<c>WorkoutExercise.Notes</c>), which the trainer
+    /// wrote and doesn't need read back to them.</summary>
+    public string? ClientNote { get; set; }
 
     public List<SessionSetLogDto> Sets { get; set; } = [];
 }

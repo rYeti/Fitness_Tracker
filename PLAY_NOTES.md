@@ -26,6 +26,16 @@ See `docs/android-release.md`.
 
 Trainer Console: the Attendance by week chart now lines up on phones. Week labels no longer wrap onto two lines or push their bar out of line.
 
+## 1.0.2+28
+
+Your workout's exercise order now syncs and stays put instead of snapping back to the old one next time the app opens.
+
+If you train with a coach, your exercise notes now reach them, as do the RPE, warm-up and left/right side you log per set. Older ones are sent on the next sync.
+
+The Premium screen offers the free trial up front again and shows what the plan costs once it ends.
+
+Fixed sets showing up twice in a workout, and logged sets reaching your coach several times over.
+
 ## 1.0.2+27
 
 The personal best shown while you train now covers your whole training plan instead of just the session in front of you. Standing in Upper A, you see the heaviest set you have hit on that exercise anywhere in the block - Upper B and Lower A included - and it still updates live as you type, so you can watch yourself beat it. Workouts that are not part of a plan show your best across every time you have done that workout.

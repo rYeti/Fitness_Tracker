@@ -24,11 +24,27 @@ public class WorkoutSet
     /// <summary>The duration of this set in seconds, or null if not a timed set.</summary>
     public int? DurationSeconds { get; set; }
 
-    // TODO: Rate of Perceived Exertion (1-10), or null if not recorded — needed by the
-    // Trainer Console's Workout Builder SET/REPS/WEIGHT/RPE table. Also needs an EF
-    // migration (`dotnet ef migrations add`) and wiring into wherever WorkoutSet <->
-    // WorkoutSetRequestDto/WorkoutSetResponseDto mapping happens (ScheduledWorkoutService).
+    /// <summary>Rate of Perceived Exertion (1-10), or null if not recorded.</summary>
     public int? Rpe { get; set; }
+
+    /// <summary>
+    /// What kind of set this was, as the app's <c>SetType</c> ordinal:
+    /// 0 normal, 1 warm-up, 2 drop set, 3 failure. Stored as the ordinal because
+    /// that is what the device stores; a shipped app indexes its enum by it, so
+    /// the range is fixed by <see cref="DTOs.WorkoutSetRequestDto.SetType"/>.
+    /// </summary>
+    public int SetType { get; set; }
+
+    /// <summary>The <see cref="SetType"/> ordinal of a warm-up set. Warm-ups are shown
+    /// but never counted toward volume, average RPE or personal records — the same
+    /// rule the app applies to its own stats.</summary>
+    public const int WarmUpSetType = 1;
+
+    /// <summary>
+    /// Which side a unilateral set was performed with, as the app's <c>SetSide</c>
+    /// ordinal: 0 both, 1 left, 2 right.
+    /// </summary>
+    public int Side { get; set; }
 
     /// <summary>Whether this set has been marked as completed by the user.</summary>
     public bool IsCompleted { get; set; }

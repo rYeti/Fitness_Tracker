@@ -334,7 +334,13 @@ public class TrainerConsoleService(
                 // skipped exercise blamed the client for missing work that was not in
                 // their workout. Where sets *were* logged it is real history and stays,
                 // without a prescription, since there is no longer one to compare against.
-                if (!stillProgrammed && loggedSets.Count == 0) continue;
+                // A note is something that happened too: "skipped, shoulder flared up" on
+                // an exercise since dropped from the workout is exactly what a trainer
+                // needs to see.
+                var clientNote = string.IsNullOrWhiteSpace(scheduledExercise.Notes)
+                    ? null
+                    : scheduledExercise.Notes;
+                if (!stillProgrammed && loggedSets.Count == 0 && clientNote is null) continue;
 
                 // A substituted exercise reports under what the client actually did,
                 // not what was originally programmed.
@@ -379,12 +385,17 @@ public class TrainerConsoleService(
                         Weight = set.Weight,
                         WeightUnit = set.WeightUnit,
                         Rpe = set.Rpe,
+                        SetType = set.SetType,
+                        Side = set.Side,
                         // No target, or an unparseable one, counts as hit — don't
                         // flag an unprogrammed exercise as a miss.
                         HitTarget = targetReps is null || set.Reps is null || set.Reps >= targetReps,
                     });
 
-                    if (!set.IsCompleted) continue;
+                    // A warm-up is listed with its tag but counts toward nothing: an
+                    // easy 10 kg set would drag Avg RPE down and pad the volume, and
+                    // the app's own volume and personal bests already skip them.
+                    if (!set.IsCompleted || set.SetType == WorkoutSet.WarmUpSetType) continue;
 
                     totalVolume += (set.Reps ?? 0) * (set.Weight ?? 0);
                     if (set.Rpe is int rpe) rpes.Add(rpe);
@@ -413,6 +424,7 @@ public class TrainerConsoleService(
                     Prescribed = prescribed,
                     Skipped = loggedSets.Count == 0,
                     IsPr = exerciseHasPr,
+                    ClientNote = clientNote,
                     Sets = setLogs,
                 });
             }
@@ -582,13 +594,29 @@ public class TrainerConsoleService(
         foreach (var slot in entries.GroupBy(SlotOf))
         {
             var logged = slot.Where(e => e.Sets.Count > 0).ToList();
+            List<ScheduledWorkoutExerciseResponseDto> kept;
             if (logged.Count > 0)
             {
-                foreach (var e in logged) keep.Add(e.Id);
+                kept = logged;
             }
             else
             {
-                keep.Add(slot.OrderBy(e => e.Id).First().Id);
+                // Among empty twins, the one the client wrote a note on is the one
+                // they used.
+                kept = [slot
+                    .OrderByDescending(e => !string.IsNullOrWhiteSpace(e.Notes))
+                    .ThenBy(e => e.Id)
+                    .First()];
+            }
+            foreach (var e in kept) keep.Add(e.Id);
+
+            // The note lives on whichever local row the device had linked when it was
+            // pushed, which need not be the twin the sets went to. Folding the twin
+            // away must not fold the note away with it.
+            if (kept.All(e => string.IsNullOrWhiteSpace(e.Notes)))
+            {
+                var strayNote = slot.Select(e => e.Notes).FirstOrDefault(n => !string.IsNullOrWhiteSpace(n));
+                if (strayNote is not null) kept[0].Notes = strayNote;
             }
         }
 

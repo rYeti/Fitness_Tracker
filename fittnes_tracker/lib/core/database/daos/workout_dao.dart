@@ -207,7 +207,13 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
                     we.syncStatus.isNotValue(3) &
                     we.syncStatus.isNotValue(4),
               )
-              ..orderBy([(we) => OrderingTerm(expression: we.orderPosition)]))
+              // id breaks ties so two rows sharing a position (possible in data
+              // written before positions were kept contiguous) can't swap
+              // places between one load and the next.
+              ..orderBy([
+                (we) => OrderingTerm(expression: we.orderPosition),
+                (we) => OrderingTerm.asc(we.id),
+              ]))
             .get();
 
     final workoutExercises = <WorkoutExercise>[];
@@ -224,11 +230,12 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
       final exerciseModel = db.exerciseDao.entityToModel(exerciseRow);
 
       // 🔹 Load sets for this exercise instance
-      final setRows =
-          await (select(workoutSetTemplateTable)
-                ..where((s) => s.workoutExerciseId.equals(exerciseInstance.id))
-                ..orderBy([(s) => OrderingTerm(expression: s.setNumber)]))
-              .get();
+      final setRows = _oneTemplatePerSetNumber(
+        await (select(workoutSetTemplateTable)
+              ..where((s) => s.workoutExerciseId.equals(exerciseInstance.id))
+              ..orderBy([(s) => OrderingTerm(expression: s.setNumber)]))
+            .get(),
+      );
 
       final workoutSets =
           setRows.map((set) {
@@ -286,7 +293,10 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
                     we.syncStatus.isNotValue(3) &
                     we.syncStatus.isNotValue(4),
               )
-              ..orderBy([(we) => OrderingTerm.asc(we.orderPosition)]))
+              ..orderBy([
+                (we) => OrderingTerm.asc(we.orderPosition),
+                (we) => OrderingTerm.asc(we.id),
+              ]))
             .get();
     final results =
         <
@@ -303,11 +313,12 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
             (e) => e.id.equals(workoutExercise.exerciseId),
           )).getSingleOrNull();
 
-      final templates =
-          await (select(workoutSetTemplateTable)
-                ..where((t) => t.workoutExerciseId.equals(workoutExercise.id))
-                ..orderBy([(t) => OrderingTerm.asc(t.setNumber)]))
-              .get();
+      final templates = _oneTemplatePerSetNumber(
+        await (select(workoutSetTemplateTable)
+              ..where((t) => t.workoutExerciseId.equals(workoutExercise.id))
+              ..orderBy([(t) => OrderingTerm.asc(t.setNumber)]))
+            .get(),
+      );
 
       if (exercise != null) {
         results.add((exercise, templates, workoutExercise));
@@ -315,6 +326,24 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
     }
 
     return results;
+  }
+
+  /// Keeps the first template for each set number.
+  ///
+  /// Set numbers are ordinals within an exercise, so two rows numbered 1 are
+  /// the same set. A device can still be holding twins left by two pulls that
+  /// overlapped (docs/sync-concurrent-runs.md) until the next sync folds them
+  /// at rest, and the sync is throttled to once every six hours. Read
+  /// unfolded, the active workout lists every set twice with both inputs on
+  /// one controller, and the builder saves the twins straight back as pending.
+  List<WorkoutSetTemplateData> _oneTemplatePerSetNumber(
+    List<WorkoutSetTemplateData> templates,
+  ) {
+    final seen = <int>{};
+    return [
+      for (final t in templates)
+        if (seen.add(t.setNumber)) t,
+    ];
   }
 
   // Save a complete workout with exercises and sets
@@ -428,12 +457,27 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
         if (existing != null) {
           // Update in-place — preserve the ID so historical data stays linked.
           exerciseInstanceId = existing.id;
+          // Same promotion as the workout row above, one level down. The push
+          // only sends an exercise whose own syncStatus is pendingUpdate, so a
+          // reorder written here while the row stayed synced never reached the
+          // server — and the next pull's reconcile, which trusts a clean row to
+          // match the server, put the old positions straight back. That is the
+          // "exercise order randomly changed" bug: see
+          // docs/workout-exercise-order.md.
+          final changed =
+              existing.orderPosition != exercise.orderPosition ||
+              existing.notes != exercise.notes ||
+              existing.supersetGroupId != exercise.supersetGroupId;
           await (update(workoutExerciseTable)
             ..where((we) => we.id.equals(exerciseInstanceId))).write(
             WorkoutExerciseTableCompanion(
               orderPosition: Value(exercise.orderPosition),
               notes: Value(exercise.notes),
               supersetGroupId: Value(exercise.supersetGroupId),
+              syncStatus:
+                  changed && existing.syncStatus == 1
+                      ? const Value(2) // pendingUpdate
+                      : const Value.absent(),
             ),
           );
         } else {
