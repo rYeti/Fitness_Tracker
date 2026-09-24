@@ -1,6 +1,7 @@
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/dao/meal_template_dao.dart';
 import 'package:ForgeForm/core/network/api_client.dart';
+import 'package:ForgeForm/feature/workout_planning/data/models/workout_set.dart';
 import 'package:drift/drift.dart';
 import 'package:logger/logger.dart';
 
@@ -730,6 +731,9 @@ class SyncService {
                   'weight': s.weight,
                   'weightUnit': s.weightUnit,
                   'durationSeconds': s.durationSeconds,
+                  'rpe': s.rpe,
+                  'setType': s.setType,
+                  'side': s.side,
                   'isCompleted': s.isCompleted,
                   'notes': s.notes,
                 },
@@ -758,6 +762,9 @@ class SyncService {
         'weight': s.weight,
         'weightUnit': s.weightUnit,
         'durationSeconds': s.durationSeconds,
+        'rpe': s.rpe,
+        'setType': s.setType,
+        'side': s.side,
         'isCompleted': s.isCompleted,
         'notes': s.notes,
       },
@@ -2988,11 +2995,19 @@ class SyncService {
                     ..limit(1))
                   .getSingleOrNull();
           if (unlinkedSet != null) {
+            // A link records which server row this is, not that the two agree
+            // (docs/trainer-exercise-notes.md). A set logged before RPE, set
+            // type and side were pushed reached the server without them, so
+            // stamping it synced here would mark them sent without sending.
+            final agrees =
+                unlinkedSet.rpe == s['rpe'] as int? &&
+                unlinkedSet.setType == _setTypeOrdinal(s['setType']) &&
+                unlinkedSet.side == _setSideOrdinal(s['side']);
             await (_db.update(_db.workoutSetTable)
               ..where((t) => t.id.equals(unlinkedSet.id))).write(
               WorkoutSetTableCompanion(
                 serverId: Value(setServerId),
-                syncStatus: const Value(1),
+                syncStatus: Value(agrees ? 1 : 2),
               ),
             );
             continue;
@@ -3008,6 +3023,9 @@ class SyncService {
                   weight: Value((s['weight'] as num?)?.toDouble()),
                   weightUnit: Value(s['weightUnit'] as String?),
                   durationSeconds: Value(s['durationSeconds'] as int?),
+                  rpe: Value(s['rpe'] as int?),
+                  setType: Value(_setTypeOrdinal(s['setType'])),
+                  side: Value(_setSideOrdinal(s['side'])),
                   isCompleted: Value(s['isCompleted'] as bool),
                   notes: Value(s['notes'] as String?),
                   serverId: Value(setServerId),
@@ -3019,6 +3037,18 @@ class SyncService {
       _logger.i('Pulled scheduled workout $swServerId');
     }
   }
+
+  /// A set type ordinal from the server, clamped to one this build knows.
+  /// The stored ordinal is later read as `SetType.values[i]`, which throws on
+  /// a value a newer server or app added — so an unknown one reads as normal
+  /// rather than crashing every screen that lists the set.
+  static int _setTypeOrdinal(Object? raw) =>
+      raw is int && raw >= 0 && raw < SetType.values.length ? raw : 0;
+
+  /// A side ordinal from the server; unknown reads as both. See
+  /// [_setTypeOrdinal].
+  static int _setSideOrdinal(Object? raw) =>
+      raw is int && raw >= 0 && raw < SetSide.values.length ? raw : 0;
 
   Future<void> _pullWeightLogs() async {
     final response = await _apiClient.get('api/WeightTracking/TrackWeight');

@@ -166,8 +166,12 @@ class AppDatabase extends _$AppDatabase {
   /// `try/catch`, not just one around the block — the 37 comment above
   /// explains the same `createAll()`-then-`ALTER` interaction that makes it
   /// necessary here too.
+  ///
+  /// 40 changes no table. It re-queues every synced logged set that carries an
+  /// RPE, a set type or a side, because none of the three was ever pushed
+  /// before this version — see `if (from < 40)` and `docs/logged-set-sync.md`.
   @override
-  int get schemaVersion => 39;
+  int get schemaVersion => 40;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -407,6 +411,21 @@ class AppDatabase extends _$AppDatabase {
             await customStatement(stmt);
           } catch (_) {}
         }
+      }
+
+      if (from < 40) {
+        // RPE, set type and side have been stored on logged sets since 35 but
+        // were never sent, so every synced set carrying one holds a value the
+        // server has never seen. The sync pull skips a set it already has and
+        // can't notice, so the device has to volunteer them: flag the rows as
+        // edited and the ordinary pending-update push sends them. No try/catch:
+        // the columns exist by now on every path through this method, and a
+        // failure here should surface, not leave the values stranded silently.
+        await customStatement(
+          'UPDATE workout_set_table SET sync_status = 2 '
+          'WHERE sync_status = 1 AND server_id IS NOT NULL '
+          'AND (rpe IS NOT NULL OR set_type != 0 OR side != 0)',
+        );
       }
     },
   );

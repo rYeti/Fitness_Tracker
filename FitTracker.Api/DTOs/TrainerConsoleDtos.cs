@@ -270,6 +270,13 @@ public class SessionSetLogDto
     public string? WeightUnit { get; set; }
     public int? Rpe { get; set; }
 
+    /// <summary>Set type ordinal as the app logged it (0 normal, 1 warm-up, 2 drop set,
+    /// 3 failure). Shown as a tag; it doesn't change volume, RPE or PR maths.</summary>
+    public int SetType { get; set; }
+
+    /// <summary>Side ordinal (0 both, 1 left, 2 right).</summary>
+    public int Side { get; set; }
+
     /// <summary>Whether <see cref="Reps"/> met the low end of the prescribed target.
     /// Defaults to <c>true</c> when there's no parseable target, so an unprogrammed
     /// exercise doesn't render as a miss.</summary>

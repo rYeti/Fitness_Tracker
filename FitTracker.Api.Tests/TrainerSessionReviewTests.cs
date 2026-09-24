@@ -536,6 +536,87 @@ public class TrainerSessionReviewTests : IDisposable
         Assert.Equal("Grip gave out before legs", logged.ClientNote);
     }
 
+    // ── RPE, set type and side on a logged set ──────────────────────────────
+
+    [Fact]
+    public async Task WhatTheClientLoggedOnASetReachesTheirTrainer()
+    {
+        var workout = AddWorkout("Lower A");
+        var exercise = AddWorkoutExercise(workout, sets: 1);
+        var plan = AddPlan("Spring Block", isActive: true);
+        var session = AddSession(workout, plan, DaysAgo(1), isCompleted: true);
+        var entry = AddScheduledEntry(session, exercise);
+
+        // Pushed the way the sync client pushes a new set: the batch endpoint. Every
+        // one of these fields existed on both sides of the API while the service that
+        // builds the row quietly dropped all three.
+        await new ScheduledWorkoutService(new ScheduledWorkoutRepository(_fx.Db))
+            .AddSetsBatchAsync(entry.Id, _client.Id,
+            [
+                new WorkoutSetRequestDto
+                {
+                    SetNumber = 1, Reps = 8, Weight = 100, WeightUnit = "kg",
+                    Rpe = 8, SetType = 1, Side = 2, IsCompleted = true,
+                },
+            ]);
+
+        var only = Assert.Single(await LoadHistory());
+        var set = Assert.Single(Assert.Single(only.Exercises).Sets);
+        Assert.Equal(8, set.Rpe);
+        Assert.Equal(1, set.SetType);
+        Assert.Equal(2, set.Side);
+        Assert.Equal(8, only.AvgRpe);
+    }
+
+    [Fact]
+    public async Task UpdatingASetRoundTripsRpeTypeAndSide()
+    {
+        var workout = AddWorkout("Lower A");
+        var exercise = AddWorkoutExercise(workout, sets: 1);
+        var session = AddSession(workout, plan: null, DaysAgo(1));
+        var entry = LogSets(session, exercise, reps: 8, weight: 100, count: 1);
+        var stored = _fx.Db.WorkoutSets.Single(s => s.ScheduledWorkoutExerciseId == entry.Id);
+
+        var updated = await new ScheduledWorkoutService(new ScheduledWorkoutRepository(_fx.Db))
+            .UpdateSetAsync(stored.Id, _client.Id, new WorkoutSetRequestDto
+            {
+                SetNumber = 1, Reps = 8, Weight = 100, Rpe = 9, SetType = 3, Side = 1, IsCompleted = true,
+            });
+
+        // The response is what the device reads back on its next pull.
+        Assert.NotNull(updated);
+        Assert.Equal(9, updated!.Rpe);
+        Assert.Equal(3, updated.SetType);
+        Assert.Equal(1, updated.Side);
+    }
+
+    [Fact]
+    public async Task AnUpdateFromAnOlderClientLeavesSetTypeAndSideAlone()
+    {
+        var workout = AddWorkout("Lower A");
+        var exercise = AddWorkoutExercise(workout, sets: 1);
+        var session = AddSession(workout, plan: null, DaysAgo(1));
+        var entry = LogSets(session, exercise, reps: 8, weight: 100, count: 1);
+        var stored = _fx.Db.WorkoutSets.Single(s => s.ScheduledWorkoutExerciseId == entry.Id);
+        stored.SetType = 1;
+        stored.Side = 2;
+        _fx.Db.SaveChanges();
+
+        // An app from before these fields synced sends a set without them. If an
+        // absent field bound as 0, a second, older device editing the reps would
+        // silently turn a warm-up into a working set.
+        await new ScheduledWorkoutService(new ScheduledWorkoutRepository(_fx.Db))
+            .UpdateSetAsync(stored.Id, _client.Id, new WorkoutSetRequestDto
+            {
+                SetNumber = 1, Reps = 10, Weight = 100, IsCompleted = true,
+            });
+
+        var after = (await _fx.Db.WorkoutSets.FindAsync(stored.Id))!;
+        Assert.Equal(10, after.Reps);
+        Assert.Equal(1, after.SetType);
+        Assert.Equal(2, after.Side);
+    }
+
     // ── Seeding ─────────────────────────────────────────────────────────────
 
     private static DateTime DaysAgo(int days) => DateTime.UtcNow.Date.AddDays(-days);

@@ -107,6 +107,9 @@ public class ScheduledWorkoutService : IScheduledWorkoutService
             Weight = dto.Weight,
             WeightUnit = dto.WeightUnit,
             DurationSeconds = dto.DurationSeconds,
+            Rpe = dto.Rpe,
+            SetType = dto.SetType ?? 0,
+            Side = dto.Side ?? 0,
             Notes = dto.Notes,
             IsCompleted = dto.IsCompleted,
         };
@@ -199,6 +202,9 @@ public class ScheduledWorkoutService : IScheduledWorkoutService
         Weight = s.Weight,
         WeightUnit = s.WeightUnit,
         DurationSeconds = s.DurationSeconds,
+        Rpe = s.Rpe,
+        SetType = s.SetType,
+        Side = s.Side,
         IsCompleted = s.IsCompleted,
         Notes = s.Notes,
     };

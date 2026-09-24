@@ -10,6 +10,7 @@ import 'package:ForgeForm/feature/trainer_console/presentation/widgets/client_sw
 import 'package:ForgeForm/core/widgets/app_widgets.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/status_badge.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/console_error.dart';
+import 'package:ForgeForm/feature/workout_planning/data/models/workout_set.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 
 /// "What did this client actually log" — session history list + detail
@@ -846,6 +847,7 @@ class _SetRow extends StatelessWidget {
     // deliberately no check/dash icon column — the tint carries it. The
     // Semantics label below keeps that accessible without relying on colour.
     final missedTarget = !set.hitTarget;
+    final tags = _tags(set, l10n);
 
     Widget cell(String text, {Color? color, FontWeight? weight}) => Container(
       margin: const EdgeInsets.only(left: 8),
@@ -875,46 +877,82 @@ class _SetRow extends StatelessWidget {
       label: _semanticsLabel(set, missedTarget, l10n),
       child: Padding(
         padding: const EdgeInsets.only(bottom: 6),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 28,
-              height: 28,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: sunken,
-                borderRadius: BorderRadius.circular(7),
-              ),
-              child: Text(
-                '${set.setNumber}',
-                style: TextStyle(
-                  fontFamily: 'Montserrat',
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12,
-                  color: colors.onSurface,
+            Row(
+              children: [
+                Container(
+                  width: 28,
+                  height: 28,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: sunken,
+                    borderRadius: BorderRadius.circular(7),
+                  ),
+                  child: Text(
+                    '${set.setNumber}',
+                    style: TextStyle(
+                      fontFamily: 'Montserrat',
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                      color: colors.onSurface,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: cell(
+                    set.reps?.toString() ?? '—',
+                    color: missedTarget ? ForgeColors.statusWarn : null,
+                    weight: FontWeight.w600,
+                  ),
+                ),
+                Expanded(child: cell(_formatWeight(set))),
+                Expanded(
+                  child: cell(
+                    set.rpe?.toString() ?? '—',
+                    color: colors.onSurface.withValues(alpha: 0.65),
+                    weight: FontWeight.w400,
+                  ),
+                ),
+              ],
+            ),
+            // Under the cells rather than in a column of its own: most sets
+            // carry no tag, and a fifth column would be empty on nearly every
+            // row. Indented to line up with the REPS cell.
+            if (tags.isNotEmpty)
+              Padding(
+                padding: EdgeInsets.only(
+                  left: _setColumnFlex[0].toDouble(),
+                  top: 4,
+                ),
+                child: Wrap(
+                  spacing: 4,
+                  runSpacing: 4,
+                  children: [for (final tag in tags) _SetTag(label: tag)],
                 ),
               ),
-            ),
-            Expanded(
-              child: cell(
-                set.reps?.toString() ?? '—',
-                color: missedTarget ? ForgeColors.statusWarn : null,
-                weight: FontWeight.w600,
-              ),
-            ),
-            Expanded(child: cell(_formatWeight(set))),
-            Expanded(
-              child: cell(
-                set.rpe?.toString() ?? '—',
-                color: colors.onSurface.withValues(alpha: 0.65),
-                weight: FontWeight.w400,
-              ),
-            ),
           ],
         ),
       ),
     );
   }
+
+  /// The words for whatever makes this set other than a normal, two-sided
+  /// one — empty for most sets.
+  static List<String> _tags(SessionSetLog set, AppLocalizations l10n) => [
+    switch (set.setType) {
+      SetType.normal => null,
+      SetType.warmup => l10n.setTypeWarmup,
+      SetType.dropset => l10n.setTypeDropset,
+      SetType.failure => l10n.setTypeFailure,
+    },
+    switch (set.side) {
+      SetSide.both => null,
+      SetSide.left => l10n.sideLeft,
+      SetSide.right => l10n.sideRight,
+    },
+  ].nonNulls.toList();
 
   static String _semanticsLabel(
     SessionSetLog set,
@@ -926,6 +964,7 @@ class _SetRow extends StatelessWidget {
       if (set.reps != null) l10n.repsCount(set.reps!),
       _formatWeight(set) == 'BW' ? l10n.bodyweight : _formatWeight(set),
       if (set.rpe != null) l10n.rpeValue('${set.rpe}'),
+      ..._tags(set, l10n),
       if (missedTarget) l10n.underTarget,
     ];
     return parts.join(', ');
@@ -969,6 +1008,35 @@ class _PrPill extends StatelessWidget {
           fontWeight: FontWeight.w800,
           letterSpacing: 0.5,
           color: ForgeColors.forgeOrange,
+        ),
+      ),
+    );
+  }
+}
+
+/// A neutral tag on a logged set ("Warm-up", "Left"). Neutral on purpose:
+/// none of these is good or bad, so none borrows a status tone.
+class _SetTag extends StatelessWidget {
+  final String label;
+
+  const _SetTag({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: colors.onSurface.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontFamily: 'Exo 2',
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: colors.onSurface.withValues(alpha: 0.75),
         ),
       ),
     );

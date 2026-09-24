@@ -385,6 +385,8 @@ public class TrainerConsoleService(
                         Weight = set.Weight,
                         WeightUnit = set.WeightUnit,
                         Rpe = set.Rpe,
+                        SetType = set.SetType,
+                        Side = set.Side,
                         // No target, or an unparseable one, counts as hit — don't
                         // flag an unprogrammed exercise as a miss.
                         HitTarget = targetReps is null || set.Reps is null || set.Reps >= targetReps,
