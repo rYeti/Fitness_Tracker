@@ -214,8 +214,8 @@ class MealDao extends DatabaseAccessor<AppDatabase> with _$MealDaoMixin {
   ///
   /// Runs as the sync engine (`AppDatabase.untracked`): folding a local
   /// duplicate is not the user deleting a meal, and must not reach the server
-  /// as a DELETE — the database records one for every synced row deleted any
-  /// other way.
+  /// as a DELETE — the database records one for every row with an id deleted
+  /// any other way.
   Future<void> deduplicateMeals() =>
       attachedDatabase.untracked(_deduplicateMeals);
 

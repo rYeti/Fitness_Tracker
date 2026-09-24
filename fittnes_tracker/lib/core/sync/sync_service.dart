@@ -262,7 +262,7 @@ class SyncService {
   }
 
   /// Sends the DELETEs the database recorded in `sync_deletion_table` — every
-  /// synced row deleted locally outside the sync engine.
+  /// row with an id deleted locally outside the sync engine, pushed or not.
   ///
   /// A 404 or 410 means the row is already gone, and a 403 that it was never
   /// this account's to delete; either way there is nothing left to send. A 409

@@ -18,7 +18,7 @@ import 'package:drift/drift.dart';
 /// |--------------------------|--------------------------------------|-----------------------------------------|
 /// | `sync_<t>_update`        | a pushed column of an entity changes | `local_rev + 1`, `synced → pendingUpdate` |
 /// | `sync_<t>_owner_*`       | a row of an owned list changes       | the same, applied to its owner          |
-/// | `sync_<t>_delete`        | a row the server has is deleted      | an entry in `sync_deletion_table`       |
+/// | `sync_<t>_delete`        | a row with a server id is deleted    | an entry in `sync_deletion_table`       |
 ///
 /// None of them fires inside `AppDatabase.untracked`, which is how the sync
 /// engine writes what the server sent without it looking like a local edit.
@@ -70,7 +70,7 @@ class _Deletion {
   /// A [SyncDeletionKind] name.
   final String kind;
 
-  /// A further condition on the deleted row, on top of the server having it.
+  /// A further condition on the deleted row, on top of its having a server id.
   final String? onlyWhen;
 }
 
@@ -223,15 +223,22 @@ String _recordDeletion(_Deletion d) =>
     'INSERT INTO sync_deletion_table (kind, server_id) '
     "VALUES ('${d.kind}', OLD.server_id);";
 
-/// Whether the server has the deleted row, and so needs telling.
+/// Whether the server may have the deleted row, and so needs telling.
 ///
-/// Every row now has a `server_id` from the moment it is inserted (the device
-/// mints it), so having one no longer says the server does. Its status does:
-/// a row still `pending` (0) never reached the server, and deleting it here is
-/// the end of it.
+/// Any row with a `server_id` may. The device mints that id on insert and
+/// every create sends it, so a create that reached the server but whose answer
+/// was lost has stored the row under that id while this device still calls it
+/// `pending` (0). A status test here used to skip those rows, and the server
+/// kept one the user had deleted, for the next pull to bring back. A DELETE
+/// for a row the server never got costs one 404, which the push treats as
+/// done. See `docs/sync-architecture.md` §15.
+///
+/// A null id still means the server can't have it: a built-in exercise until
+/// it is linked by name, which is the server's row and never the user's to
+/// delete.
 String _deletionCondition(_Deletion d) {
   final parts = [
-    'OLD.sync_status != 0 AND OLD.server_id IS NOT NULL',
+    'OLD.server_id IS NOT NULL',
     if (d.onlyWhen != null) d.onlyWhen!,
   ];
   return parts.join(' AND ');

@@ -428,6 +428,8 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
                 ),
               );
             } else {
+              // Gone at once; the database still records a DELETE for its
+              // id, in case a create whose answer was lost stored it.
               await (delete(workoutSetTemplateTable)
                 ..where((t) => t.workoutExerciseId.equals(ex.id))).go();
               await (delete(workoutExerciseTable)

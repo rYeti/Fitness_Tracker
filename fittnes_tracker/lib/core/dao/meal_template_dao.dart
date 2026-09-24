@@ -259,10 +259,12 @@ class MealTemplateDao {
         final removed = templates.removeAt(index);
         await _saveTemplates(templates);
         // Remembered until the push has told the server — without it the next
-        // pull found the template still there and put it back. One the server
-        // never got has nothing to tell it.
+        // pull found the template still there and put it back. Remembered even
+        // if it was never marked pushed: a create whose answer was lost left
+        // the template on the server under this id, and a DELETE for one the
+        // server never got is answered 404, which the push treats as done.
         final serverId = removed['serverId'] as String?;
-        if (_pushed(removed) && serverId != null) {
+        if (serverId != null && serverId.isNotEmpty) {
           final prefs = await SharedPreferences.getInstance();
           await prefs.setStringList(deletedStorageKey, [
             ...?prefs.getStringList(deletedStorageKey),

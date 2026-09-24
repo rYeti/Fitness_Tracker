@@ -19,7 +19,7 @@ String newSyncId() => const Uuid().v4();
 /// Tables the sync engine keeps for itself. None of them holds user data; see
 /// `lib/core/sync/sync_triggers.dart` and `docs/sync-architecture.md` §3.
 
-/// A row the server still has but this device has deleted.
+/// A row this device has deleted that the server may still have.
 ///
 /// Written only by the database, by an `AFTER DELETE` trigger on each synced
 /// table, whenever a row that has a `server_id` is deleted outside

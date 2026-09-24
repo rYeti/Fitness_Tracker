@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/dao/meal_template_dao.dart';
 import 'package:ForgeForm/core/sync/sync_service.dart';
+import 'package:ForgeForm/feature/weight_tracking/data/repositories/weight_repository.dart';
 import 'package:ForgeForm/feature/workout_planning/data/models/workout.dart';
 import 'package:ForgeForm/feature/workout_planning/data/models/workout_exercise.dart';
 import 'package:drift/drift.dart' hide isNull, isNotNull;
@@ -199,10 +200,13 @@ void main() {
   // ── Deleting ──────────────────────────────────────────────────────────────
 
   group('deleting a row', () {
-    test('the server never had records no DELETE for it', () async {
+    const weights = 'api/WeightTracking/TrackWeight';
+
+    test('records a DELETE for any row with an id, pushed or not', () async {
       final unpushed = await db.weightRecordDao.addWeightRecord(
         WeightRecordCompanion.insert(date: DateTime(2026, 1, 5), weight: 80),
       );
+      final minted = await serverIdOf(db.weightRecord, unpushed);
       final pushed = await db.untracked(
         () => db.weightRecordDao.addWeightRecord(
           WeightRecordCompanion.insert(
@@ -213,12 +217,152 @@ void main() {
           ),
         ),
       );
+      // A built-in exercise is the server's row, with no id until it is
+      // linked by name; it is never the user's to delete there.
+      final builtIn = await db
+          .into(db.exerciseTable)
+          .insert(
+            ExerciseTableCompanion.insert(
+              name: 'Bench Press',
+              type: 0,
+              targetMuscleGroups: '0',
+              serverId: const Value(null),
+            ),
+          );
 
       await db.weightRecordDao.deleteWeightRecord(unpushed);
       await db.weightRecordDao.deleteWeightRecord(pushed);
+      await db.exerciseDao.deleteExercise(builtIn);
 
+      // "Pending" says the device never heard back, not that the server never
+      // got it — a lost answer looks the same.
       final recorded = await db.select(db.syncDeletionTable).get();
-      expect(recorded.map((d) => d.serverId), ['server-wt1']);
+      expect(recorded.map((d) => d.serverId), [minted, 'server-wt1']);
+    });
+
+    test('whose create reached the server but whose answer was lost is '
+        'deleted there too, and not brought back', () async {
+      final weightsRepo = WeightRepository(db);
+      final id = await weightsRepo.addWeightRecord(
+        date: DateTime(2026, 1, 5),
+        weight: 80.4,
+      );
+      final minted = (await serverIdOf(db.weightRecord, id))!;
+      // The server stores the POST; its answer never arrives.
+      api.postsLosingResponse.add(weights);
+      await sync.syncAll();
+      expect(await statusOf(db.weightRecord, id), SyncStatus.pending.index);
+
+      // Deleted before the next push, through the screen's own path: to this
+      // device, a record the server never confirmed.
+      await weightsRepo.deleteWeightRecord(id);
+      await sync.syncAll();
+
+      expect(api.deletes, ['$weights/$minted']);
+      expect(
+        api.posts.where((p) => p.path == weights),
+        hasLength(1),
+        reason: 'nothing is left to create',
+      );
+      expect(await db.select(db.syncDeletionTable).get(), isEmpty);
+
+      // The server lists the record for as long as no DELETE has reached it.
+      api.getResponses[weights] = [
+        if (!api.deletes.contains('$weights/$minted'))
+          {
+            'id': minted,
+            'date': '2026-01-05T00:00:00Z',
+            'weight': 80.4,
+            'note': null,
+          },
+      ];
+      await sync.pullAll();
+      expect(await db.select(db.weightRecord).get(), isEmpty);
+    });
+
+    test('that was never sent costs one DELETE, which a 404 settles', () async {
+      final weightsRepo = WeightRepository(db);
+      final id = await weightsRepo.addWeightRecord(
+        date: DateTime(2026, 1, 5),
+        weight: 80.4,
+      );
+      final minted = (await serverIdOf(db.weightRecord, id))!;
+      await weightsRepo.deleteWeightRecord(id);
+      api.deleteStatuses['$weights/$minted'] = 404;
+
+      await sync.syncAll();
+      await sync.syncAll();
+
+      expect(api.deletes, ['$weights/$minted']);
+      expect(api.posts.where((p) => p.path == weights), isEmpty);
+      expect(await db.select(db.syncDeletionTable).get(), isEmpty);
+    });
+
+    // The sync engine's own deletes are not the user's. Before the condition
+    // above lost its status test, a row still pending recorded nothing however
+    // it was deleted; now only `untracked` stands between these and a DELETE.
+
+    test('a local row folded into another holding the same id records no '
+        'DELETE for it', () async {
+      final oats = await syncedFood('server-f1');
+      final kept = await syncedMeal('server-m1', oats);
+      // A second row the device holds for the server's meal, not yet pushed.
+      await db.mealDao.insertMeal(
+        MealTableCompanion.insert(
+          date: DateTime(2026, 1, 5),
+          category: 'Breakfast',
+          foodItemId: oats,
+          serverId: const Value('server-m1'),
+        ),
+      );
+
+      await sync.syncAll();
+
+      expect((await db.select(db.mealTable).get()).map((m) => m.id), [kept]);
+      // It is the server's live meal: a DELETE for it would take that too.
+      expect(api.deletes, isEmpty);
+      expect(await db.select(db.syncDeletionTable).get(), isEmpty);
+    });
+
+    test('a new meal the server answers with one already here records no '
+        'DELETE when it moves into it', () async {
+      final oats = await syncedFood('server-f1');
+      final skyr = await syncedFood('server-f2', name: 'Skyr');
+      final held = await syncedMeal('server-m9', skyr);
+      await db.untracked(
+        () => db.mealDao.addFoodToMeal(skyr, held, 'server-entry9'),
+      );
+      // A second breakfast for the same day, made here and not yet pushed. The
+      // server keeps one per day, so its create is answered with the one this
+      // device already holds.
+      final fresh = await db.mealDao.insertMeal(
+        MealTableCompanion.insert(
+          date: DateTime(2026, 1, 5),
+          category: 'Breakfast',
+          foodItemId: oats,
+        ),
+      );
+      await db.mealDao.addFoodToMeal(oats, fresh);
+      api.postResponses['api/Meal'] = serverMeal(
+        id: 'server-m9',
+        foodItemId: 'server-f2',
+        foodEntries: [
+          serverFoodEntry(id: 'server-entry9', foodItemId: 'server-f2'),
+        ],
+      );
+
+      await sync.syncAll();
+      await sync.syncAll();
+
+      expect((await db.select(db.mealTable).get()).map((m) => m.id), [held]);
+      expect(
+        (await db.mealDao.getAllFoodEntriesForMeal(
+          held,
+        )).map((e) => e.foodEntryId).toSet(),
+        {oats, skyr},
+      );
+      expect(api.deletes, isEmpty);
+      expect(await db.select(db.syncDeletionTable).get(), isEmpty);
     });
   });
 
@@ -529,16 +673,29 @@ void main() {
       expect(await MealTemplateDao.hasPendingSync(), isFalse);
     });
 
-    test('deleted before it was pushed tells the server nothing', () async {
+    test('deleted before the server confirmed it is still deleted there, in '
+        'case its create landed', () async {
       final dao = MealTemplateDao(db);
       final id = await dao.insertTemplate({
         'name': 'Chili',
         'category': 'Dinner',
         'items': <dynamic>[],
       });
+      final minted =
+          (await dao.getAllTemplates()).singleWhere(
+                (t) => t['id'] == id,
+              )['serverId']
+              as String;
+      // The server stores the POST; its answer never arrives.
+      api.postsLosingResponse.add('api/MealTemplate');
+      await sync.syncAll();
 
       await dao.deleteTemplate(id);
+      expect(await dao.getDeletedServerIds(), [minted]);
+      expect(await MealTemplateDao.hasPendingSync(), isTrue);
 
+      await sync.syncAll();
+      expect(api.deletes, ['api/MealTemplate/$minted']);
       expect(await dao.getDeletedServerIds(), isEmpty);
       expect(await MealTemplateDao.hasPendingSync(), isFalse);
     });
@@ -629,13 +786,18 @@ void main() {
           SyncStatus.pendingUpdate.index,
         );
 
-        // Deleting the never-pushed workout is the end of it; the synced one
-        // is recorded for the server.
+        // Both deletions are recorded for the server, the never-pushed one
+        // under the id it was just given: the trigger can't tell a row the
+        // server never got from one whose create answer was lost, and a 404
+        // settles the first.
         await db.customStatement(
           'DELETE FROM workout_table WHERE id IN (2, 3)',
         );
         final recorded = await db.select(db.syncDeletionTable).get();
-        expect(recorded.map((d) => d.serverId), ['server-w3']);
+        expect(recorded.map((d) => d.serverId).toSet(), {
+          workouts[2]!.serverId,
+          'server-w3',
+        });
       },
     );
   });

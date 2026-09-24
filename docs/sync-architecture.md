@@ -682,7 +682,10 @@ The id stopped meaning "the server has this". That fact moved to
 is one sentence, and it touched every place that had asked the question the
 old way: the push sweeps, the pull's fallbacks for unpushed local rows, the
 delete trigger, the dedup folds' preference for "the row the server knows",
-three DAO call sites and the meal-template store.
+three DAO call sites and the meal-template store. Two of those — the delete
+trigger and the meal-template store's delete — turned out not to want the
+status either, and now ask nothing but whether the row has an id. The
+subsection after next explains why.
 
 It is worth being precise about why this was the risky part of the change.
 Every one of those checks read `serverId == null`, and after this change every
@@ -699,15 +702,117 @@ pinned by tests that were run with the old null test put back (§21).
 ### The delete trigger
 
 Part one's delete trigger recorded a server DELETE for any deleted row with a
-`server_id`. Every row has one now, so the condition became
-`OLD.sync_status != 0` (`_deletionCondition`, `sync_triggers.dart`). A row that
-never reached the server has nothing to tell it. The cost of this rule is one
-narrow case: a row whose create *did* land, but whose response was lost, and
-which the user then deleted before the next push. The server keeps it, and the
-next pull brings it back. The push runs ten seconds after an edit, so the
-window is ten seconds wide and needs a lost response inside it; recording a
-DELETE for every never-pushed row instead would have spent a request on every
-placeholder session a plan regeneration throws away.
+`server_id`. Under server-minted ids that meant "any row the server has", and
+the condition read naturally. Once every row had an id from birth, the first
+version of part two moved the question to the status, the way the rest of
+this section did: the condition became `OLD.sync_status != 0`, on the theory
+that a row still `pending` never reached the server and deleting it here was
+the end of it. That theory is wrong, and it is wrong in exactly the way §14 is
+about.
+
+`pending` records what this device has *heard*: no answer to a create yet. It
+does not record what the server *holds*. §14's table has two rows that look
+identical from the device — the POST never arrived, or it arrived and the answer
+was lost — and a status can't tell them apart any better than a null id could.
+Here is the second row, followed by a delete:
+
+| Time | Device | Server |
+|---|---|---|
+| t0 | weight logged, `pending`, id X; the push POSTs X | stores X; the answer is lost |
+| t1 | the user deletes it; status 0, so the trigger records nothing | X |
+| t2 | the next push has nothing to send | X |
+| t3 | the pull finds X listed and not held here, and inserts it | X |
+
+The user deleted a weigh-in and it came back. Nothing exotic is needed for t0:
+it is the lost answer §14 opens with. Nor for t1: a delete made while the POST
+is still in flight lands the same way, because the row is still `pending`
+when it goes. The first version of this section called the window ten seconds
+wide. It is really "any time before the device hears back", which on a phone
+that has just lost signal is as long as the phone stays offline.
+
+The pull request that made the change named part three's tombstones as the
+eventual cure. They can't be. A tombstone is the server's record of a delete
+it carried out, so that a device that missed the delete can be told about it.
+Here the server was never told: from where it stands, X is a live row, and an
+incremental pull would deliver it as faithfully as the full one does. No fix on
+the receiving side can make up for a message that was never sent.
+
+So the condition is now just `OLD.server_id IS NOT NULL`, with each kind's own
+extra condition as before (`_deletionCondition`, `sync_triggers.dart`). What
+made the status test look necessary was the belief that a DELETE for a row the
+server never had would be harmful. It isn't, and the reason is the same one
+that made a client-minted id work in the first place: the id is known before
+the POST, so the device can name the row whether or not it heard back, and a
+DELETE by id is safe to send when there is nothing there. The server answers
+404; `_pushDeletions` treats 404 and 410 as "already gone", 403 as "never this
+account's" and 409 as a refusal a retry won't change, and drops the entry for
+all four. (Every DELETE endpoint looks the row up by id *and* owner, so an id
+that names someone else's row deletes nothing and answers 404.) A null id still
+means the server can't have it — a built-in exercise, until
+`_syncSystemExerciseIds` links it by name — and so records nothing. (Built-in
+exercises are also excluded by their kind's own `is_custom = 1` condition,
+which stays.)
+
+The cost is one request for each row that is created and deleted inside one
+push window, answered 404. Owned lists don't pay it: a meal's foods, a plan's
+workouts, a workout exercise's set templates and a session's logged sets never
+reach the outbox, because they go as a whole-list PUT from their owner (§18).
+The largest case is deleting a plan whose placeholder sessions haven't been
+pushed yet — offline, say — which sends one DELETE per session, once. That was
+the price the status test was avoiding. It is small, bounded, and paid once;
+a lost delete is none of those.
+
+Meal templates keep the same facts by hand, in SharedPreferences, and had the
+same test in `MealTemplateDao.deleteTemplate`. They get the same fix: a
+template with an id is remembered as deleted whether or not it was marked
+pushed.
+
+**What the fix makes dangerous.** Before it, a sync-engine delete of a
+`pending` row that forgot `untracked` was harmless by accident: the status test
+skipped it. Now every delete outside `untracked` of a row with an id becomes a
+DELETE on the server. For most engine deletes that would be a wasted 404, but
+not for all. `_deduplicateByServerId` folds rows that *share* a server id, and
+the one it drops can be `pending`. Recorded, that DELETE would name the id the
+kept row still holds — the live row on the server. So every engine-side delete
+was checked, not assumed:
+
+| Engine delete | Runs inside `untracked` |
+|---|---|
+| the push's own delete after it sent a DELETE (`_syncDelete*`), and retiring a workout exercise | yes, each call |
+| `_mergeIntoServerMeal` — a new meal answered with one this device already holds moves its foods there and is deleted | yes, at its one call site |
+| the legacy folds (`_deduplicateAll`), and the pull's content folds | yes, the whole of each |
+| `MealDao.deduplicateMeals`, called by the pull and by the progress screen | yes, inside the method |
+| `_removeDeletedElsewhere`, and the pull's per-record writes (`_applyEach`) | yes |
+| the pull adopting an unpushed meal or session for the same day | restamps the row; deletes nothing |
+| the 409 re-mints (`_mintNewIds`, a meal's food entries, a template's `assignServerId`) | change an id; delete nothing |
+| `clearAllUserData` at sign-out | yes, and it empties the outbox |
+
+None needed fixing. Two tests now pin the two where a tracked delete would do
+the most damage (§21). The deletes that stay tracked are the user's own — the
+calendar's remove, an exercise taken out of a workout, a weigh-in deleted,
+a plan deleted with its placeholder sessions — and recording those is the point.
+
+The general lesson is about what a flag can know. `sync_status` is this
+device's record of its own conversation with the server: what it sent, and
+what it heard back. It cannot say what the other side holds after a
+conversation that broke off halfway, because the device genuinely doesn't know.
+When a decision depends on a fact you can't observe, look for the action that
+is correct under both answers. A DELETE by a client-minted id is one: it
+removes the row if the server has it and costs a 404 if not. Skipping it was
+correct under one answer only, and the tests happened to ask only that one.
+
+### Why nothing caught the trigger
+
+- **The compiler couldn't.** The condition is a string of SQL inside a trigger
+  the database installs at open. Nothing typed ever sees it.
+- **The test pinned the premise, not the failure.** *the server never had
+  records no DELETE for it* built its "unpushed" row the obvious way: a row
+  that was never sent at all, which is the one case where the status test is
+  right. The fake could already lose a POST's answer (`postsLosingResponse`) —
+  the retry test in the group above used it — but no delete test combined the
+  two.
+  A test written from inside a rule's own assumption can only confirm the
+  assumption.
 
 ### Existing installs
 
@@ -943,8 +1048,11 @@ heal is gone.
 ## 21. What the tests pin
 
 In `test/sync/client_ids_test.dart` unless noted. Each was run against the
-code before the change, or — for the four marked \* — with just the one rule
-it pins put back to its old form, and failed there.
+code before the change, or — for those marked \* — with just the one rule it
+pins put back to its old form, and failed there. The two marked † were run
+with `untracked` taken off the delete they cover, and failed; with the old
+status test put back in the trigger as well, they pass — which is the point
+of them: that test used to hide exactly this mistake.
 
 | Test | Pins |
 |---|---|
@@ -952,7 +1060,11 @@ it pins put back to its old form, and failed there.
 | *is created under that id, and a retry after a lost response sends the same one* | §14: the fake stores the POST and loses the answer |
 | *whose id the server refuses (409) gets a fresh one* | §16 |
 | *is not referred to by id until the server has it* \* | §16: `_serverIdIfPushed` |
-| *the server never had records no DELETE for it* \* | §15: the trigger gates on status |
+| *records a DELETE for any row with an id, pushed or not* \* | §15: the trigger asks only for an id; a built-in exercise records nothing |
+| *whose create reached the server but whose answer was lost is deleted there too, and not brought back* \* | §15: the fake stores the POST and loses the answer; the delete goes through the weight screen's own path; one DELETE, and the pull doesn't restore the row |
+| *that was never sent costs one DELETE, which a 404 settles* \* | §15: the cost, and that the outbox ends empty |
+| *a local row folded into another holding the same id records no DELETE for it* † | §15: `_deduplicateAll` stays `untracked`; tracked, it deletes the server's live meal |
+| *a new meal the server answers with one already here records no DELETE when it moves into it* † | §15: `_mergeIntoServerMeal` stays `untracked` |
 | *two portions of one food are told apart by their ids* | §18 |
 | *a new meal the server already had for that day keeps the foods on both* | §17 |
 | *a food not on the server yet leaves the meal to go again* | §18 |
@@ -961,8 +1073,9 @@ it pins put back to its old form, and failed there.
 | *a removed one goes as the list without it, not as a DELETE* (plans) | §18 |
 | *a clean plan takes the server's list on pull* | §18 |
 | *a meal template is created under the id minted when it was made* | §15, for SharedPreferences |
-| *deleted before it was pushed tells the server nothing* \* (templates) | §15 |
-| *an install upgraded from schema 41* | §15: ids backfilled and distinct, built-ins left alone, statuses moved, owners dirtied |
+| *deleted before the server confirmed it is still deleted there, in case its create landed* \* (templates) | §15 |
+| *an install upgraded from schema 41* | §15: ids backfilled and distinct, built-ins left alone, statuses moved, owners dirtied; a deleted never-pushed row is recorded like a pushed one |
+| `sync_tracking_migration_test.dart` › *a trigger an earlier build installed is replaced on open, with no schema bump* \* | §15: an install holding the status-gated trigger takes the new one from `installSyncTriggers` |
 | `FitTracker.Api.Tests/ClientIdCreateTests.cs` (23 tests) | §16–18: a repeat returns and updates the same row with no second; every create the app sends; no id still mints one; the PK race; foreign ids refused, including a system exercise's and another user's session; the 409 filter; content de-duplication still answering with its own row; replaces keeping and moving ids; both new PUTs, including empty lists; every batch answering 404 for someone else's parent; both shapes of the session-exercise batch; `TotalWeightGrams` |
 
 The server tests were mutation-checked the same way: with ids ignored, with the
@@ -979,6 +1092,13 @@ and a workout exercise the server already has now expect the list PUT and the
 slot answer instead of a DELETE, a batch append and a GET, and a workout kept
 for its history now comes back `pending` rather than `pendingUpdate` (§16).
 
+Three tests asserted that deleting a row that was never pushed tells the server
+nothing, and now assert the opposite: *the server never had records no DELETE
+for it* became *records a DELETE for any row with an id, pushed or not*; the
+meal-template test *deleted before it was pushed tells the server nothing*
+became the lost-answer case above; and the schema-41 upgrade test's last check
+now expects both deletions recorded.
+
 ---
 
 ## 22. The rules part two leaves behind
@@ -987,8 +1107,16 @@ for its history now comes back `pending` rather than `pendingUpdate` (§16).
   row. The server mints an id for one sent without, the device marks what
   comes back by id, and so it never recognises the answer: the row is sent
   again on every push. Re-queue with the status.
-- **"The server has it" is `sync_status != 0`.** Never test `serverId` for
-  null. The test still compiles and is simply never true again.
+- **"Pushed" is `sync_status != 0`.** Never test `serverId` for null. The test
+  still compiles and is simply never true again. And read `pending` as "this
+  device hasn't heard back", not "the server doesn't have it": a lost answer
+  leaves the row on the server and the status at 0.
+- **A delete is recorded for any row with an id, pushed or not.** A DELETE for
+  a row the server never got costs a 404, which the push drops; skipping it
+  loses the delete whenever a create's answer was lost. The flip side is
+  sharper than part one's: an engine delete outside `untracked` is now a
+  server DELETE even for a `pending` row — including one that shares its id
+  with a row the server has.
 - **Send a reference only once its target is on the server**
   (`_serverIdIfPushed`).
 - **Keep the id a create answers with.** It can differ — the server still
