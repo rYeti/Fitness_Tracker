@@ -88,6 +88,26 @@ public class MealController(IMealService mealService) : ControllerBase
     public async Task<IActionResult> AddFoodsBatch([FromRoute] Guid mealId, [FromBody] List<Guid> foodItemIds)
     {
         var result = await mealService.AddFoodsToMealBatchAsync(mealId, UserId, foodItemIds);
+        if (result is null) return NotFound();
+        return Ok(result);
+    }
+
+    /// <summary>Replaces the foods in a meal with exactly <paramref name="entries"/>. An empty
+    /// list empties the meal.</summary>
+    /// <remarks>
+    /// How the app sends a meal's foods now. It used to add them with the batch above and
+    /// remove them one DELETE at a time — addressed by food item, which can't tell two
+    /// portions of the same food apart, and needing a record of every removal on the
+    /// device. The whole list, each entry under its own id, needs neither. The batch and
+    /// the DELETE stay for apps that still send them.
+    /// </remarks>
+    /// <param name="mealId">The meal ID.</param>
+    /// <param name="entries">The meal's complete list of foods.</param>
+    [HttpPut("{mealId:guid}/foods")]
+    public async Task<IActionResult> ReplaceFoods([FromRoute] Guid mealId, [FromBody] List<MealFoodEntryRequestDto> entries)
+    {
+        var result = await mealService.ReplaceFoodsAsync(mealId, UserId, entries);
+        if (result is null) return NotFound();
         return Ok(result);
     }
 

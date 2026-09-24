@@ -122,8 +122,32 @@ public class WorkoutPlanController : ControllerBase
         var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
         if (userId == Guid.Empty) return NotFound("User not found");
 
-        await _planService.AddWorkoutsToPlanBatchAsync(planId, workoutIds, userId);
+        var added = await _planService.AddWorkoutsToPlanBatchAsync(planId, workoutIds, userId);
+        if (!added) return NotFound("Plan not found");
+
         return Ok();
+    }
+
+    /// <summary>Replaces the workouts a plan holds with exactly <paramref name="workoutIds"/>.
+    /// An empty list empties the plan.</summary>
+    /// <remarks>
+    /// How the app sends a plan's workouts now. It used to add links with the batch above
+    /// and remove them one DELETE at a time, which needed a record of every removal on the
+    /// device; sending the whole list needs nothing but the list. The batch and the DELETE
+    /// stay for apps that still send them. Workouts the server doesn't hold are left out,
+    /// not refused, so one stale reference can't hold up the rest of the list.
+    /// </remarks>
+    /// <returns>The plan, or 404 if it isn't the caller's.</returns>
+    [HttpPut("{planId}/workouts")]
+    public async Task<IActionResult> ReplaceWorkouts([FromRoute] Guid planId, [FromBody] List<Guid> workoutIds)
+    {
+        var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
+        if (userId == Guid.Empty) return NotFound("User not found");
+
+        var result = await _planService.ReplacePlanWorkoutsAsync(planId, workoutIds, userId);
+        if (result == null) return NotFound("Plan not found");
+
+        return Ok(result);
     }
 
     /// <summary>Removes a workout from a plan.</summary>

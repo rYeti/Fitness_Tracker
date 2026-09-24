@@ -19,24 +19,30 @@ public class WeightTrackingService : IWeightTrackingService
     /// <inheritdoc/>
     public async Task<WeightTrackingResponseDto> LogWeightAsync(WeightTrackingRequestDto weightTrackingRequestDto, Guid userId)
     {
-        var weightLog = new Models.WeightTracking
-        {
-            Id = Guid.NewGuid(),
-            Weight = weightTrackingRequestDto.Weight,
-            Date = DateTime.SpecifyKind(weightTrackingRequestDto.Date, DateTimeKind.Utc),
-            Note = weightTrackingRequestDto.Note,
-            UserId = userId,
-        };
-
-        var newLog = await _weightRepository.CreateWeightTrackingAsync(weightLog);
-
-        return new WeightTrackingResponseDto
-        {
-            Id = newLog.Id,
-            Weight = newLog.Weight,
-            Date = newLog.Date,
-            Note = newLog.Note,
-        };
+        var result = await ClientIds.CreateOrResolveAsync(
+            weightTrackingRequestDto.Id,
+            userId,
+            _weightRepository.GetOwnerAsync,
+            id => UpdateWeightAsync(id, userId, weightTrackingRequestDto),
+            async id =>
+            {
+                var newLog = await _weightRepository.CreateWeightTrackingAsync(new Models.WeightTracking
+                {
+                    Id = id,
+                    Weight = weightTrackingRequestDto.Weight,
+                    Date = DateTime.SpecifyKind(weightTrackingRequestDto.Date, DateTimeKind.Utc),
+                    Note = weightTrackingRequestDto.Note,
+                    UserId = userId,
+                });
+                return new WeightTrackingResponseDto
+                {
+                    Id = newLog.Id,
+                    Weight = newLog.Weight,
+                    Date = newLog.Date,
+                    Note = newLog.Note,
+                };
+            });
+        return result!;
     }
 
     /// <inheritdoc/>

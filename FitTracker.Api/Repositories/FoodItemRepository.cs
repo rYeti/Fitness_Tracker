@@ -32,9 +32,16 @@ public class FoodItemRepository(AppDbContext context) : IFoodItemRepository
     public async Task<FoodItem> CreateFoodItemAsync(FoodItem item)
     {
         context.FoodItems.Add(item);
-        await context.SaveChangesAsync();
+        await context.SaveNewAsync();
         return item;
     }
+
+    /// <inheritdoc/>
+    public async Task<Guid?> GetOwnerAsync(Guid id) =>
+        (await context.FoodItems.AsNoTracking()
+            .Where(f => f.Id == id)
+            .Select(f => new { f.UserId })
+            .FirstOrDefaultAsync())?.UserId;
 
     /// <inheritdoc/>
     public async Task<FoodItem?> UpdateFoodItemAsync(Guid id, Guid userId, FoodItem item)

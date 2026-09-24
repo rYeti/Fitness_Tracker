@@ -2,6 +2,7 @@ using FitTracker.Api.Data;
 using FitTracker.Api.DTOs;
 using FitTracker.Api.Models;
 using FitTracker.Api.Repositories.Interfaces;
+using FitTracker.Api.Services;
 using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 
@@ -182,22 +183,20 @@ public class ScheduledWorkoutRepository : IScheduledWorkoutRepository
     /// <inheritdoc/>
     public async Task<ScheduledWorkout?> CreateScheduledWorkoutAsync(ScheduledWorkout sw, Guid userId)
     {
-        var existing = await _context.ScheduledWorkouts
-            .Include(s => s.Exercises)
-                .ThenInclude(e => e.Sets)
-            .FirstOrDefaultAsync(s => s.Id == sw.Id);
-
-        if (existing != null)
-            return existing;
-
+        // A repeat of an id is resolved before this is reached (ScheduledWorkoutService, via
+        // ClientIds) and scoped to its owner. The lookup by id that used to open this method
+        // was not: while the server minted every id it could never match, and once the app
+        // sent its own it would have handed any caller the session stored under an id they
+        // named, whoever's it was.
         var ownsWorkout = await _context.Workouts.AnyAsync(w => w.Id == sw.WorkoutId && w.UserId == userId);
         if (!ownsWorkout) return null;
 
-        // Creating is also idempotent per workout and day, not only per id. The sync
-        // client does not send an id — the server mints one and the client stores it —
-        // so matching on the id alone caught nothing: a push whose response was lost, and
-        // a second device pushing its own unlinked local row, each wrote another session
-        // for the same workout on the same date. The trainee app never showed the extras,
+        // Creating is also idempotent per workout and day, not only per id. Until the app
+        // minted its own ids it sent none, so matching on the id alone caught nothing: a
+        // push whose response was lost, and a second device pushing its own unlinked local
+        // row, each wrote another session for the same workout on the same date. Ids now
+        // cover the first; the second is two devices minting two ids for one session, which
+        // only this check sees. The trainee app never showed the extras,
         // because its own de-duplication pass treats two rows for one workout and date as
         // duplicates by definition and merges them on the device; the Trainer Console
         // listed each one, and the twin nobody logged against read as a session where the
@@ -251,9 +250,23 @@ public class ScheduledWorkoutRepository : IScheduledWorkoutRepository
         }
 
         _context.ScheduledWorkouts.Add(sw);
-        await _context.SaveChangesAsync();
+        await _context.SaveNewAsync();
         return sw;
     }
+
+    /// <inheritdoc/>
+    public async Task<Guid?> GetOwnerAsync(Guid id) =>
+        (await _context.ScheduledWorkouts.AsNoTracking()
+            .Where(sw => sw.Id == id)
+            .Select(sw => new { sw.Workout.UserId })
+            .FirstOrDefaultAsync())?.UserId;
+
+    /// <inheritdoc/>
+    public async Task<Guid?> GetExerciseOwnerAsync(Guid id) =>
+        (await _context.ScheduledWorkoutExercises.AsNoTracking()
+            .Where(e => e.Id == id)
+            .Select(e => new { e.ScheduledWorkout.Workout.UserId })
+            .FirstOrDefaultAsync())?.UserId;
 
     /// <inheritdoc/>
     public async Task<ScheduledWorkout?> UpdateScheduledWorkoutAsync(Guid id, Guid userId, ScheduledWorkoutRequestDto dto)
@@ -296,31 +309,63 @@ public class ScheduledWorkoutRepository : IScheduledWorkoutRepository
     }
 
     /// <inheritdoc/>
-    public async Task<List<ScheduledWorkoutExercise>?> CreateExercisesBatchAsync(Guid scheduledWorkoutId, Guid userId, List<Guid> workoutExerciseIds)
+    public async Task<List<ScheduledWorkoutExercise>?> CreateExercisesBatchAsync(Guid scheduledWorkoutId, Guid userId, List<ScheduledExerciseBatchItemDto> items)
     {
         var ownsScheduledWorkout = await _context.ScheduledWorkouts
             .AnyAsync(s => s.Id == scheduledWorkoutId && s.Workout.UserId == userId);
         if (!ownsScheduledWorkout) return null;
 
-        var existingWeIds = await _context.ScheduledWorkoutExercises
-            .Where(e => e.ScheduledWorkoutId == scheduledWorkoutId)
-            .Select(e => e.WorkoutExerciseId)
-            .ToListAsync();
+        // One entry per workout exercise per session — the key this batch has always been
+        // idempotent on, and the one the app matches the answer on. An entry the session
+        // already holds for a workout exercise is answered with that entry, under its id.
+        var existingWeIds = (await _context.ScheduledWorkoutExercises
+                .Where(e => e.ScheduledWorkoutId == scheduledWorkoutId)
+                .Select(e => e.WorkoutExerciseId)
+                .ToListAsync())
+            .ToHashSet();
 
-        var toCreate = workoutExerciseIds
-            .Where(weId => !existingWeIds.Contains(weId))
-            .Select(weId => new ScheduledWorkoutExercise
+        var requested = items
+            .Select(i => ClientIds.Requested(i.Id))
+            .OfType<Guid>()
+            .ToList();
+        var stored = await _context.ScheduledWorkoutExercises
+            .Where(e => requested.Contains(e.Id))
+            .Select(e => new { e.Id, e.ScheduledWorkout.Workout.UserId })
+            .ToListAsync();
+        var foreign = stored.FirstOrDefault(e => e.UserId != userId);
+        if (foreign != null) throw new ClientIdConflictException(foreign.Id);
+        var taken = stored.Select(e => e.Id).ToHashSet();
+
+        // Only the caller's own workout exercises: the foreign key would take anyone's, and
+        // an id that names no row at all failed the whole batch on it.
+        var wanted = items.Select(i => i.WorkoutExerciseId).Distinct().ToList();
+        var ownWeIds = (await _context.WorkoutExercises
+                .Where(we => wanted.Contains(we.Id) && we.Workout.UserId == userId)
+                .Select(we => we.Id)
+                .ToListAsync())
+            .ToHashSet();
+
+        var toCreate = new List<ScheduledWorkoutExercise>();
+        foreach (var item in items)
+        {
+            if (!ownWeIds.Contains(item.WorkoutExerciseId)) continue;
+            if (!existingWeIds.Add(item.WorkoutExerciseId)) continue;
+            // An id already stored for the caller elsewhere is a row this batch can't move;
+            // the entry is created under a fresh one, which the app takes from the answer.
+            var id = ClientIds.Requested(item.Id) is { } own && taken.Add(own) ? own : Guid.NewGuid();
+            toCreate.Add(new ScheduledWorkoutExercise
             {
-                Id = Guid.NewGuid(),
+                Id = id,
                 ScheduledWorkoutId = scheduledWorkoutId,
-                WorkoutExerciseId = weId,
+                WorkoutExerciseId = item.WorkoutExerciseId,
                 IsCompleted = false,
-            }).ToList();
+            });
+        }
 
         if (toCreate.Count > 0)
         {
             _context.ScheduledWorkoutExercises.AddRange(toCreate);
-            await _context.SaveChangesAsync();
+            await _context.SaveNewAsync();
         }
 
         return await _context.ScheduledWorkoutExercises
@@ -347,17 +392,31 @@ public class ScheduledWorkoutRepository : IScheduledWorkoutRepository
             .AnyAsync(e => e.Id == scheduledWorkoutExerciseId && e.ScheduledWorkout.Workout.UserId == userId);
         if (!ownsExercise) return null;
 
-        await using var transaction = await _context.Database.BeginTransactionAsync();
+        // Sets keep the ids the app sent. One may already be stored: in this log, which is
+        // replaced anyway; in another of the caller's logs, which means the app moved it
+        // (its de-duplication folds a twin exercise's sets into the one it keeps), so it
+        // goes from there; or in someone else's, which is not the caller's to take.
+        var ids = sets.Select(s => s.Id).ToList();
+        var foreign = await _context.WorkoutSets
+            .Where(s => ids.Contains(s.Id) && s.ScheduledWorkoutExercise.ScheduledWorkout.Workout.UserId != userId)
+            .Select(s => s.Id)
+            .FirstOrDefaultAsync();
+        if (foreign != Guid.Empty) throw new ClientIdConflictException(foreign);
+
+        await using var transaction = _context.Database.CurrentTransaction == null
+            ? await _context.Database.BeginTransactionAsync()
+            : null;
 
         await _context.WorkoutSets
-            .Where(s => s.ScheduledWorkoutExerciseId == scheduledWorkoutExerciseId)
+            .Where(s => s.ScheduledWorkoutExerciseId == scheduledWorkoutExerciseId || ids.Contains(s.Id))
             .ExecuteDeleteAsync();
 
         // The bulk delete bypasses the change tracker, so drop its copies of the deleted
         // rows — and empty an already-loaded Sets navigation, which fixup never prunes
         // (see WorkoutRepository.ReplaceSetTemplatesAsync for the full story).
         foreach (var entry in _context.ChangeTracker.Entries<WorkoutSet>()
-                     .Where(e => e.Entity.ScheduledWorkoutExerciseId == scheduledWorkoutExerciseId)
+                     .Where(e => e.Entity.ScheduledWorkoutExerciseId == scheduledWorkoutExerciseId
+                              || ids.Contains(e.Entity.Id))
                      .ToList())
         {
             entry.State = EntityState.Detached;
@@ -368,7 +427,7 @@ public class ScheduledWorkoutRepository : IScheduledWorkoutRepository
 
         _context.WorkoutSets.AddRange(sets);
         await _context.SaveChangesAsync();
-        await transaction.CommitAsync();
+        if (transaction != null) await transaction.CommitAsync();
         return sets;
     }
 

@@ -5,6 +5,14 @@ namespace FitTracker.Api.DTOs;
 /// <summary>Payload for adding or updating an exercise within a workout.</summary>
 public class WorkoutExerciseRequestDto
 {
+    /// <summary>
+    /// The id the app minted for this row. Only a create reads it: a repeat of the
+    /// same id updates and returns the row it already made, and an id that names
+    /// someone else's row is refused with 409. Apps older than client-minted ids send
+    /// none, and the server mints one. See <see cref="Services.ClientIds"/>.
+    /// </summary>
+    public Guid? Id { get; set; }
+
     /// <summary>The unique identifier of the exercise definition to reference.</summary>
     public Guid ExerciseId { get; set; }
 

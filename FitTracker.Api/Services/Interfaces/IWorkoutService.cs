@@ -56,7 +56,8 @@ public interface IWorkoutService
     Task<WorkoutExerciseResponseDto?> AddExerciseToWorkoutAsync(Guid workoutId, Guid userId, WorkoutExerciseRequestDto dto);
 
     /// <summary>Adds multiple exercise entries to a workout owned by the specified user in one call.</summary>
-    Task<List<WorkoutExerciseResponseDto>> AddExercisesToWorkoutBatchAsync(Guid workoutId, Guid userId, List<WorkoutExerciseRequestDto> dtos);
+    /// <returns>The entries, or <c>null</c> if the workout isn't found/owned.</returns>
+    Task<List<WorkoutExerciseResponseDto>?> AddExercisesToWorkoutBatchAsync(Guid workoutId, Guid userId, List<WorkoutExerciseRequestDto> dtos);
 
     /// <summary>Updates an existing workout exercise entry owned by the specified user.</summary>
     /// <param name="weId">The ID of the workout exercise to update.</param>
@@ -74,8 +75,10 @@ public interface IWorkoutService
     /// <summary>Adds a set template to a workout exercise owned by the specified user.</summary>
     Task<WorkoutSetTemplateResponseDto?> AddSetTemplateAsync(Guid workoutExerciseId, Guid userId, WorkoutSetTemplateRequestDto dto);
 
-    /// <summary>Adds multiple set templates to a workout exercise owned by the specified user in one call.</summary>
-    Task<List<WorkoutSetTemplateResponseDto>> AddSetTemplatesBatchAsync(Guid workoutExerciseId, Guid userId, List<WorkoutSetTemplateRequestDto> dtos);
+    /// <summary>Replaces the prescription of a workout exercise owned by the specified user —
+    /// the trainee app's push. An empty list changes nothing.</summary>
+    /// <returns>The set templates, or <c>null</c> if the exercise isn't found/owned.</returns>
+    Task<List<WorkoutSetTemplateResponseDto>?> AddSetTemplatesBatchAsync(Guid workoutExerciseId, Guid userId, List<WorkoutSetTemplateRequestDto> dtos);
 
     /// <summary>Replaces every set template on a workout exercise owned by the specified user
     /// with <paramref name="dtos"/>, including replacing them with nothing.</summary>

@@ -45,22 +45,25 @@ public class WorkoutService : IWorkoutService
     /// <inheritdoc/>
     public async Task<WorkoutResponseDto> CreateWorkoutAsync(WorkoutRequestDto dto, Guid userId, Guid? assignedByTrainerId = null)
     {
-        var workout = new Workout
-        {
-            Id = Guid.NewGuid(),
-            UserId = userId,
-            Name = dto.Name,
-            Description = dto.Description,
-            Difficulty = dto.Difficulty,
-            EstimatedDurationMinutes = dto.EstimatedDurationMinutes,
-            IsTemplate = dto.IsTemplate,
-            ScheduledDate = dto.ScheduledDate,
-            Color = dto.Color,
-            AssignedByTrainerId = assignedByTrainerId,
-        };
-
-        var created = await _workoutRepository.CreateWorkoutAsync(workout);
-        return ToDto(created);
+        var result = await ClientIds.CreateOrResolveAsync(
+            dto.Id,
+            userId,
+            _workoutRepository.GetWorkoutOwnerAsync,
+            id => UpdateWorkoutAsync(id, userId, dto),
+            async id => ToDto(await _workoutRepository.CreateWorkoutAsync(new Workout
+            {
+                Id = id,
+                UserId = userId,
+                Name = dto.Name,
+                Description = dto.Description,
+                Difficulty = dto.Difficulty,
+                EstimatedDurationMinutes = dto.EstimatedDurationMinutes,
+                IsTemplate = dto.IsTemplate,
+                ScheduledDate = dto.ScheduledDate,
+                Color = dto.Color,
+                AssignedByTrainerId = assignedByTrainerId,
+            })));
+        return result!;
     }
 
     /// <inheritdoc/>
@@ -77,25 +80,36 @@ public class WorkoutService : IWorkoutService
     }
 
     /// <inheritdoc/>
-    public async Task<WorkoutExerciseResponseDto?> AddExerciseToWorkoutAsync(Guid workoutId, Guid userId, WorkoutExerciseRequestDto dto)
-    {
-        var we = new WorkoutExercise
-        {
-            Id = Guid.NewGuid(),
-            WorkoutId = workoutId,
-            ExerciseId = dto.ExerciseId,
-            OrderPosition = dto.OrderPosition,
-            Notes = dto.Notes,
-            SupersetGroupId = dto.SupersetGroupId,
-        };
-
-        var created = await _workoutRepository.AddExerciseToWorkoutAsync(we, userId);
-        return created == null ? null : ToExerciseDto(created);
-    }
+    public Task<WorkoutExerciseResponseDto?> AddExerciseToWorkoutAsync(Guid workoutId, Guid userId, WorkoutExerciseRequestDto dto) =>
+        // The slot check in the repository still applies to an id it has never seen: an
+        // entry for the same exercise at the same position is answered with the row
+        // already there, under that row's id — which is the one the app must keep.
+        ClientIds.CreateOrResolveAsync(
+            dto.Id,
+            userId,
+            _workoutRepository.GetWorkoutExerciseOwnerAsync,
+            id => UpdateWorkoutExerciseAsync(id, userId, dto),
+            async id =>
+            {
+                var created = await _workoutRepository.AddExerciseToWorkoutAsync(new WorkoutExercise
+                {
+                    Id = id,
+                    WorkoutId = workoutId,
+                    ExerciseId = dto.ExerciseId,
+                    OrderPosition = dto.OrderPosition,
+                    Notes = dto.Notes,
+                    SupersetGroupId = dto.SupersetGroupId,
+                }, userId);
+                return created == null ? null : ToExerciseDto(created);
+            });
 
     /// <inheritdoc/>
-    public async Task<List<WorkoutExerciseResponseDto>> AddExercisesToWorkoutBatchAsync(Guid workoutId, Guid userId, List<WorkoutExerciseRequestDto> dtos)
+    public async Task<List<WorkoutExerciseResponseDto>?> AddExercisesToWorkoutBatchAsync(Guid workoutId, Guid userId, List<WorkoutExerciseRequestDto> dtos)
     {
+        // Answering 200 with an empty list for someone else's workout read, to the app,
+        // exactly like "created nothing" — so it said nothing and never retried.
+        if (await _workoutRepository.GetWorkoutOwnerAsync(workoutId) != userId) return null;
+
         var results = new List<WorkoutExerciseResponseDto>();
         foreach (var dto in dtos)
         {
@@ -135,41 +149,49 @@ public class WorkoutService : IWorkoutService
     }
 
     /// <inheritdoc/>
-    public async Task<List<WorkoutSetTemplateResponseDto>> AddSetTemplatesBatchAsync(Guid workoutExerciseId, Guid userId, List<WorkoutSetTemplateRequestDto> dtos)
+    public async Task<List<WorkoutSetTemplateResponseDto>?> AddSetTemplatesBatchAsync(Guid workoutExerciseId, Guid userId, List<WorkoutSetTemplateRequestDto> dtos)
     {
+        if (await _workoutRepository.GetWorkoutExerciseOwnerAsync(workoutExerciseId) != userId) return null;
+
         // The batch is the exercise's whole prescription, not an addition to it: the
         // client rebuilds every set template locally whenever a workout is saved and
         // then pushes the lot. Appending them left the previous generation behind, so
         // an exercise re-saved twice reported three times as many sets as it has.
         if (dtos.Count == 0) return [];
 
-        var templates = dtos.Select(dto => new WorkoutSetTemplate
-        {
-            Id = Guid.NewGuid(),
-            WorkoutExerciseId = workoutExerciseId,
-            SetNumber = dto.SetNumber,
-            TargetReps = dto.TargetReps,
-            OrderPosition = dto.OrderPosition,
-        }).ToList();
-
-        var replaced = await _workoutRepository.ReplaceSetTemplatesAsync(workoutExerciseId, userId, templates);
-        return replaced == null ? [] : [.. replaced.Select(ToSetTemplateDto)];
+        var replaced = await _workoutRepository.ReplaceSetTemplatesAsync(
+            workoutExerciseId, userId, ToSetTemplates(workoutExerciseId, dtos));
+        return replaced?.Select(ToSetTemplateDto).ToList();
     }
 
     /// <inheritdoc/>
     public async Task<List<WorkoutSetTemplateResponseDto>?> ReplaceSetTemplatesAsync(Guid workoutExerciseId, Guid userId, List<WorkoutSetTemplateRequestDto> dtos)
     {
-        var templates = dtos.Select(dto => new WorkoutSetTemplate
-        {
-            Id = Guid.NewGuid(),
-            WorkoutExerciseId = workoutExerciseId,
-            SetNumber = dto.SetNumber,
-            TargetReps = dto.TargetReps,
-            OrderPosition = dto.OrderPosition,
-        }).ToList();
-
-        var replaced = await _workoutRepository.ReplaceSetTemplatesAsync(workoutExerciseId, userId, templates);
+        var replaced = await _workoutRepository.ReplaceSetTemplatesAsync(
+            workoutExerciseId, userId, ToSetTemplates(workoutExerciseId, dtos));
         return replaced?.Select(ToSetTemplateDto).ToList();
+    }
+
+    /// <summary>The rows a replace inserts. Each keeps the id the app sent — a replace that
+    /// minted fresh ones left the app holding ids the server had just deleted — and an id
+    /// sent twice keeps it only once.</summary>
+    private static List<WorkoutSetTemplate> ToSetTemplates(Guid workoutExerciseId, List<WorkoutSetTemplateRequestDto> dtos)
+    {
+        var seen = new HashSet<Guid>();
+        return dtos.Select(dto =>
+        {
+            var id = ClientIds.Requested(dto.Id) is { } requested && seen.Add(requested)
+                ? requested
+                : Guid.NewGuid();
+            return new WorkoutSetTemplate
+            {
+                Id = id,
+                WorkoutExerciseId = workoutExerciseId,
+                SetNumber = dto.SetNumber,
+                TargetReps = dto.TargetReps,
+                OrderPosition = dto.OrderPosition,
+            };
+        }).ToList();
     }
 
     /// <inheritdoc/>

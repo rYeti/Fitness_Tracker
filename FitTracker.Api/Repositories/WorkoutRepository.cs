@@ -2,6 +2,7 @@ using FitTracker.Api.Data;
 using FitTracker.Api.DTOs;
 using FitTracker.Api.Models;
 using FitTracker.Api.Repositories.Interfaces;
+using FitTracker.Api.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace FitTracker.Api.Repositories;
@@ -71,9 +72,23 @@ public class WorkoutRepository : IWorkoutRepository
     public async Task<Workout> CreateWorkoutAsync(Workout workout)
     {
         _context.Workouts.Add(workout);
-        await _context.SaveChangesAsync();
+        await _context.SaveNewAsync();
         return workout;
     }
+
+    /// <inheritdoc/>
+    public async Task<Guid?> GetWorkoutOwnerAsync(Guid id) =>
+        (await _context.Workouts.AsNoTracking()
+            .Where(w => w.Id == id)
+            .Select(w => new { w.UserId })
+            .FirstOrDefaultAsync())?.UserId;
+
+    /// <inheritdoc/>
+    public async Task<Guid?> GetWorkoutExerciseOwnerAsync(Guid id) =>
+        (await _context.WorkoutExercises.AsNoTracking()
+            .Where(e => e.Id == id)
+            .Select(e => new { e.Workout.UserId })
+            .FirstOrDefaultAsync())?.UserId;
 
     /// <inheritdoc/>
     public async Task<Workout?> UpdateWorkoutAsync(Guid id, Guid userId, WorkoutRequestDto dto)
@@ -172,7 +187,7 @@ public class WorkoutRepository : IWorkoutRepository
         if (existing != null) return existing;
 
         _context.WorkoutExercises.Add(we);
-        await _context.SaveChangesAsync();
+        await _context.SaveNewAsync();
         return we;
     }
 
@@ -265,10 +280,28 @@ public class WorkoutRepository : IWorkoutRepository
             .AnyAsync(e => e.Id == workoutExerciseId && e.Workout.UserId == userId);
         if (!ownsExercise) return null;
 
+        // The templates keep the ids they were sent with (the app mints them), so an id may
+        // already be stored: under this exercise, which the replace removes anyway; under
+        // another of the caller's exercises, which means the app moved it, so it goes from
+        // there too; or under someone else's, which is not the caller's to take.
+        var ids = templates.Select(t => t.Id).ToList();
+        var foreign = await _context.WorkoutSetTemplates
+            .Where(t => ids.Contains(t.Id) && t.WorkoutExercise.Workout.UserId != userId)
+            .Select(t => t.Id)
+            .FirstOrDefaultAsync();
+        if (foreign != Guid.Empty) throw new ClientIdConflictException(foreign);
+
+        // One transaction, as ReplaceSetsAsync has always had: without it a failed insert
+        // left the exercise with no prescription at all, and two requests replacing the
+        // same list at once could interleave their deletes and inserts into both lists.
+        await using var transaction = _context.Database.CurrentTransaction == null
+            ? await _context.Database.BeginTransactionAsync()
+            : null;
+
         await _context.WorkoutSetTemplates
-            .Where(t => t.WorkoutExerciseId == workoutExerciseId)
+            .Where(t => t.WorkoutExerciseId == workoutExerciseId || ids.Contains(t.Id))
             .ExecuteDeleteAsync();
-        DetachTracked<WorkoutSetTemplate>(t => t.WorkoutExerciseId == workoutExerciseId);
+        DetachTracked<WorkoutSetTemplate>(t => t.WorkoutExerciseId == workoutExerciseId || ids.Contains(t.Id));
 
         // DetachTracked only drops the stale rows from the change tracker's entry list —
         // it never reaches into a WorkoutExercise's already-loaded SetTemplates
@@ -284,6 +317,7 @@ public class WorkoutRepository : IWorkoutRepository
 
         _context.WorkoutSetTemplates.AddRange(templates);
         await _context.SaveChangesAsync();
+        if (transaction != null) await transaction.CommitAsync();
         return templates;
     }
 

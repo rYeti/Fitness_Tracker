@@ -25,6 +25,11 @@ public interface IWeightTrackingRepository
     /// <returns>The newly created entry.</returns>
     Task<WeightTracking> CreateWeightTrackingAsync(WeightTracking weightTracking);
 
+    /// <summary>Who owns the weight entry stored under <paramref name="id"/>, or null when there is
+    /// none. Lets a create tell a repeat of its own id from someone else's (see
+    /// <c>ClientIds</c>).</summary>
+    Task<Guid?> GetOwnerAsync(Guid id);
+
     /// <summary>Updates the date, weight, and note of an existing entry.</summary>
     /// <param name="id">The ID of the entry to update.</param>
     /// <param name="userId">The ID of the user who owns the entry.</param>

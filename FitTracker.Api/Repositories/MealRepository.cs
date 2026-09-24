@@ -2,6 +2,7 @@ using FitTracker.Api.Data;
 using FitTracker.Api.DTOs;
 using FitTracker.Api.Models;
 using FitTracker.Api.Repositories.Interfaces;
+using FitTracker.Api.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace FitTracker.Api.Repositories;
@@ -51,8 +52,57 @@ public class MealRepository(AppDbContext context) : IMealRepository
     public async Task<Meal> CreateMealAsync(Meal meal)
     {
         context.Meals.Add(meal);
-        await context.SaveChangesAsync();
+        await context.SaveNewAsync();
         return meal;
+    }
+
+    /// <inheritdoc/>
+    public async Task<Guid?> GetOwnerAsync(Guid id) =>
+        (await context.Meals.AsNoTracking()
+            .Where(m => m.Id == id)
+            .Select(m => new { m.UserId })
+            .FirstOrDefaultAsync())?.UserId;
+
+    /// <inheritdoc/>
+    public async Task<Meal?> ReplaceFoodEntriesAsync(Guid mealId, Guid userId, List<MealFoodEntry> entries)
+    {
+        var ownsMeal = await context.Meals.AnyAsync(m => m.Id == mealId && m.UserId == userId);
+        if (!ownsMeal) return null;
+
+        // Entries keep the ids the app sent. One may already be stored: in this meal, which
+        // the replace clears anyway; in another of the caller's meals, which means the app
+        // moved it (its de-duplication folds a twin meal's foods into the one it keeps), so
+        // it goes from there; or in someone else's, which is not the caller's to take.
+        var ids = entries.Select(e => e.Id).ToList();
+        var foreign = await context.MealFoodEntries
+            .Where(e => ids.Contains(e.Id) && e.Meal.UserId != userId)
+            .Select(e => e.Id)
+            .FirstOrDefaultAsync();
+        if (foreign != Guid.Empty) throw new ClientIdConflictException(foreign);
+
+        await using var transaction = context.Database.CurrentTransaction == null
+            ? await context.Database.BeginTransactionAsync()
+            : null;
+
+        await context.MealFoodEntries
+            .Where(e => e.MealId == mealId || ids.Contains(e.Id))
+            .ExecuteDeleteAsync();
+        // The bulk delete bypasses the change tracker; see
+        // WorkoutRepository.ReplaceSetTemplatesAsync for why its copies must go too.
+        foreach (var entry in context.ChangeTracker.Entries<MealFoodEntry>()
+                     .Where(e => e.Entity.MealId == mealId || ids.Contains(e.Entity.Id))
+                     .ToList())
+        {
+            entry.State = EntityState.Detached;
+        }
+
+        context.MealFoodEntries.AddRange(entries);
+        await context.SaveChangesAsync();
+        if (transaction != null) await transaction.CommitAsync();
+
+        return await context.Meals.AsNoTracking()
+            .Include(m => m.FoodEntries)
+            .FirstAsync(m => m.Id == mealId);
     }
 
     /// <inheritdoc/>

@@ -25,9 +25,16 @@ public class MealTemplateRepository(AppDbContext context) : IMealTemplateReposit
     public async Task<MealTemplate> CreateAsync(MealTemplate template)
     {
         context.MealTemplates.Add(template);
-        await context.SaveChangesAsync();
+        await context.SaveNewAsync();
         return template;
     }
+
+    /// <inheritdoc/>
+    public async Task<Guid?> GetOwnerAsync(Guid id) =>
+        (await context.MealTemplates.AsNoTracking()
+            .Where(t => t.Id == id)
+            .Select(t => new { t.UserId })
+            .FirstOrDefaultAsync())?.UserId;
 
     /// <inheritdoc/>
     public async Task<MealTemplate?> UpdateAsync(Guid id, Guid userId, MealTemplate incoming)
@@ -41,6 +48,9 @@ public class MealTemplateRepository(AppDbContext context) : IMealTemplateReposit
         template.Name = incoming.Name;
         template.Description = incoming.Description;
         template.Category = incoming.Category;
+        // Left out until now, so an edited batch size never reached the server: the app
+        // scales every portion by it, and a reinstall brought the old one back.
+        template.TotalWeightGrams = incoming.TotalWeightGrams;
 
         // Replace items: delete old ones, add new ones.
         context.MealTemplateItems.RemoveRange(template.Items);

@@ -31,6 +31,16 @@ public interface IMealRepository
     /// <summary>Creates a new meal log entry.</summary>
     Task<Meal> CreateMealAsync(Meal meal);
 
+    /// <summary>Who owns the meal stored under <paramref name="id"/>, or null when there is
+    /// none. Lets a create tell a repeat of its own id from someone else's (see
+    /// <c>ClientIds</c>).</summary>
+    Task<Guid?> GetOwnerAsync(Guid id);
+
+    /// <summary>Makes a meal owned by <paramref name="userId"/> hold exactly
+    /// <paramref name="entries"/>, each under the id it carries, in one transaction.</summary>
+    /// <returns>The meal with its entries, or <c>null</c> if it isn't found/owned.</returns>
+    Task<Meal?> ReplaceFoodEntriesAsync(Guid mealId, Guid userId, List<MealFoodEntry> entries);
+
     /// <summary>Updates an existing meal entry. Returns null if not found.</summary>
     Task<Meal?> UpdateMealAsync(Guid id, Guid userId, MealRequestDto dto);
 

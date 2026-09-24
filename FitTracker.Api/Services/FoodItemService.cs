@@ -32,22 +32,25 @@ public class FoodItemService(IFoodItemRepository repository) : IFoodItemService
     /// <inheritdoc/>
     public async Task<FoodItemResponseDto> CreateFoodItemAsync(FoodItemRequestDto dto, Guid userId)
     {
-        var item = new FoodItem
-        {
-            Id = Guid.NewGuid(),
-            UserId = userId,
-            Name = dto.Name,
-            Calories = dto.Calories,
-            Protein = dto.Protein,
-            Carbs = dto.Carbs,
-            Fat = dto.Fat,
-            Gramm = dto.Gramm,
-            HiddenFromRecent = dto.HiddenFromRecent,
-            ExtendedNutrientsJson = dto.ExtendedNutrientsJson,
-        };
-
-        var created = await repository.CreateFoodItemAsync(item);
-        return ToDto(created);
+        var result = await ClientIds.CreateOrResolveAsync(
+            dto.Id,
+            userId,
+            repository.GetOwnerAsync,
+            id => UpdateFoodItemAsync(id, userId, dto),
+            async id => ToDto(await repository.CreateFoodItemAsync(new FoodItem
+            {
+                Id = id,
+                UserId = userId,
+                Name = dto.Name,
+                Calories = dto.Calories,
+                Protein = dto.Protein,
+                Carbs = dto.Carbs,
+                Fat = dto.Fat,
+                Gramm = dto.Gramm,
+                HiddenFromRecent = dto.HiddenFromRecent,
+                ExtendedNutrientsJson = dto.ExtendedNutrientsJson,
+            })));
+        return result!;
     }
 
     /// <inheritdoc/>

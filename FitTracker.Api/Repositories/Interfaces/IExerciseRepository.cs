@@ -6,6 +6,11 @@ namespace FitTracker.Api.Repositories.Interfaces;
 /// <summary>Data-access contract for exercise records.</summary>
 public interface IExerciseRepository
 {
+    /// <summary>Who owns the row stored under <paramref name="id"/>: null when there is none,
+    /// <see cref="Guid.Empty"/> when it belongs to no user. Lets a create tell a repeat of
+    /// its own id from someone else's (see <c>ClientIds</c>).</summary>
+    Task<Guid?> GetOwnerAsync(Guid id);
+
     /// <summary>Returns all exercises belonging to the specified user.</summary>
     /// <param name="id">The user's ID.</param>
     Task<List<Exercise>> GetUserExercisesAsync(Guid id);

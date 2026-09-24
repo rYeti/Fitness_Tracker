@@ -28,6 +28,17 @@ public interface IWorkoutPlanRepository
     /// <returns>The newly created workout plan.</returns>
     Task<WorkoutPlan> CreatePlanAsync(WorkoutPlan plan);
 
+    /// <summary>Who owns the plan stored under <paramref name="id"/>, or null when there is
+    /// none. Lets a create tell a repeat of its own id from someone else's (see
+    /// <c>ClientIds</c>).</summary>
+    Task<Guid?> GetOwnerAsync(Guid id);
+
+    /// <summary>Makes a plan owned by <paramref name="userId"/> hold exactly the given workouts:
+    /// links missing from the list are removed, new ones added. Workouts the caller doesn't
+    /// own, or the server doesn't hold, are left out.</summary>
+    /// <returns>The plan with its links, or <c>null</c> if the plan isn't found/owned.</returns>
+    Task<WorkoutPlan?> ReplacePlanWorkoutsAsync(Guid planId, Guid userId, IReadOnlyCollection<Guid> workoutIds);
+
     /// <summary>Updates an existing workout plan owned by the specified user.</summary>
     /// <param name="id">The ID of the plan to update.</param>
     /// <param name="userId">The ID of the user who owns the plan.</param>
@@ -49,7 +60,8 @@ public interface IWorkoutPlanRepository
     /// <summary>Adds a workout to a plan by persisting the join record, if both are owned by the specified user.</summary>
     /// <param name="link">The plan-workout join entity to persist.</param>
     /// <param name="userId">The ID of the user who must own both the plan and the workout.</param>
-    /// <returns><c>true</c> if the link was created; <c>false</c> if the plan or workout isn't found/owned.</returns>
+    /// <returns><c>true</c> if the link exists now — created, or already there; <c>false</c>
+    /// if the plan or workout isn't found/owned.</returns>
     Task<bool> AddWorkoutToPlanAsync(WorkoutPlanWorkout link, Guid userId);
 
     /// <summary>Removes a workout from a plan owned by the specified user by deleting the join record.</summary>

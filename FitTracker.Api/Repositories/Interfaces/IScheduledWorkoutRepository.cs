@@ -76,6 +76,15 @@ public interface IScheduledWorkoutRepository
     /// <returns>The newly created scheduled workout, or <c>null</c> if the referenced workout/plan isn't owned by <paramref name="userId"/>.</returns>
     Task<ScheduledWorkout?> CreateScheduledWorkoutAsync(ScheduledWorkout sw, Guid userId);
 
+    /// <summary>Who owns the scheduled workout stored under <paramref name="id"/>, or null
+    /// when there is none. Lets a create tell a repeat of its own id from someone else's
+    /// (see <c>ClientIds</c>).</summary>
+    Task<Guid?> GetOwnerAsync(Guid id);
+
+    /// <summary>Who owns the scheduled workout exercise stored under <paramref name="id"/>,
+    /// or null when there is none.</summary>
+    Task<Guid?> GetExerciseOwnerAsync(Guid id);
+
     /// <summary>Updates an existing scheduled workout owned by the specified user.</summary>
     /// <param name="id">The ID of the scheduled workout to update.</param>
     /// <param name="userId">The ID of the user who must own the scheduled workout and any newly-referenced workout.</param>
@@ -92,9 +101,11 @@ public interface IScheduledWorkoutRepository
     /// <summary>Creates scheduled workout exercise records for a set of workout exercise IDs, if the scheduled workout is owned by the specified user.</summary>
     /// <param name="scheduledWorkoutId">The scheduled workout to attach exercises to.</param>
     /// <param name="userId">The ID of the user who must own the scheduled workout.</param>
-    /// <param name="workoutExerciseIds">The workout exercise template IDs to link.</param>
-    /// <returns>The newly created scheduled workout exercises, or <c>null</c> if the scheduled workout isn't found/owned.</returns>
-    Task<List<ScheduledWorkoutExercise>?> CreateExercisesBatchAsync(Guid scheduledWorkoutId, Guid userId, List<Guid> workoutExerciseIds);
+    /// <param name="items">The workout exercises to create entries for, each with the id the
+    /// app minted for its entry, if it sent one.</param>
+    /// <returns>Every entry the session holds afterwards, or <c>null</c> if the scheduled
+    /// workout isn't found/owned.</returns>
+    Task<List<ScheduledWorkoutExercise>?> CreateExercisesBatchAsync(Guid scheduledWorkoutId, Guid userId, List<ScheduledExerciseBatchItemDto> items);
 
     /// <summary>Adds a performed set to a scheduled workout exercise owned by the specified user.</summary>
     /// <param name="set">The workout set entity to persist.</param>

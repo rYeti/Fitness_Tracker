@@ -61,6 +61,46 @@ public class WorkoutPlanRepository : IWorkoutPlanRepository
     public async Task<WorkoutPlan> CreatePlanAsync(WorkoutPlan plan)
     {
         _context.WorkoutPlans.Add(plan);
+        await _context.SaveNewAsync();
+        return plan;
+    }
+
+    /// <inheritdoc/>
+    public async Task<Guid?> GetOwnerAsync(Guid id) =>
+        (await _context.WorkoutPlans.AsNoTracking()
+            .Where(p => p.Id == id)
+            .Select(p => new { p.UserId })
+            .FirstOrDefaultAsync())?.UserId;
+
+    /// <inheritdoc/>
+    public async Task<WorkoutPlan?> ReplacePlanWorkoutsAsync(Guid planId, Guid userId, IReadOnlyCollection<Guid> workoutIds)
+    {
+        var plan = await _context.WorkoutPlans
+            .Include(p => p.PlanWorkouts)
+            .FirstOrDefaultAsync(p => p.Id == planId && p.UserId == userId);
+        if (plan == null) return null;
+
+        var wanted = workoutIds.Distinct().ToList();
+        var linkable = (await _context.Workouts
+                .Where(w => wanted.Contains(w.Id) && w.UserId == userId)
+                .Select(w => w.Id)
+                .ToListAsync())
+            .ToHashSet();
+
+        foreach (var link in plan.PlanWorkouts.Where(l => !linkable.Contains(l.WorkoutId)).ToList())
+        {
+            plan.PlanWorkouts.Remove(link);
+            _context.WorkoutPlanWorkouts.Remove(link);
+        }
+
+        var linked = plan.PlanWorkouts.Select(l => l.WorkoutId).ToHashSet();
+        foreach (var workoutId in wanted.Where(id => linkable.Contains(id) && !linked.Contains(id)))
+        {
+            // Through the DbSet, not the navigation: a row reached only through a navigation
+            // with its key already set is taken for an existing one and saved as an UPDATE.
+            _context.WorkoutPlanWorkouts.Add(new WorkoutPlanWorkout { Id = Guid.NewGuid(), PlanId = planId, WorkoutId = workoutId });
+        }
+
         await _context.SaveChangesAsync();
         return plan;
     }
@@ -107,6 +147,13 @@ public class WorkoutPlanRepository : IWorkoutPlanRepository
 
         var ownsWorkout = await _context.Workouts.AnyAsync(w => w.Id == link.WorkoutId && w.UserId == userId);
         if (!ownsWorkout) return false;
+
+        // Adding a workout a plan already holds adds nothing. The batch a shipped app sends
+        // is "every link I haven't heard back about", so a retry after a lost response
+        // posted the same links again — and each one was stored again.
+        var alreadyLinked = await _context.WorkoutPlanWorkouts
+            .AnyAsync(l => l.PlanId == link.PlanId && l.WorkoutId == link.WorkoutId);
+        if (alreadyLinked) return true;
 
         _context.WorkoutPlanWorkouts.Add(link);
         await _context.SaveChangesAsync();

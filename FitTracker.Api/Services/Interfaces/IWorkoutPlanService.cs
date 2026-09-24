@@ -48,8 +48,15 @@ public interface IWorkoutPlanService
     /// <returns><c>true</c> if the link was created; <c>false</c> if the plan or workout isn't found/owned.</returns>
     Task<bool> AddWorkoutToPlanAsync(Guid planId, Guid workoutId, Guid userId);
 
-    /// <summary>Adds multiple workouts to a plan owned by the specified user in one call.</summary>
-    Task AddWorkoutsToPlanBatchAsync(Guid planId, List<Guid> workoutIds, Guid userId);
+    /// <summary>Adds multiple workouts to a plan owned by the specified user in one call.
+    /// Workouts the plan already holds are skipped.</summary>
+    /// <returns><c>false</c> if the plan isn't found/owned.</returns>
+    Task<bool> AddWorkoutsToPlanBatchAsync(Guid planId, List<Guid> workoutIds, Guid userId);
+
+    /// <summary>Makes a plan owned by the specified user hold exactly the given workouts. An
+    /// empty list empties the plan.</summary>
+    /// <returns>The plan, or <c>null</c> if it isn't found/owned.</returns>
+    Task<WorkoutPlanResponseDto?> ReplacePlanWorkoutsAsync(Guid planId, List<Guid> workoutIds, Guid userId);
 
     /// <summary>Removes a workout from a plan owned by the specified user.</summary>
     /// <param name="planId">The ID of the plan.</param>
