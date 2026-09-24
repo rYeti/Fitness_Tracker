@@ -69,7 +69,9 @@ class FoodItemDao extends DatabaseAccessor<AppDatabase>
         fat: Value(fat),
         gramm: Value(gramm),
         extendedNutrientsJson: extendedNutrientsJson,
-        syncStatus: const Value(2), // pendingUpdate
+        // No status: the database marks a synced food pendingUpdate when one
+        // of these changes, and leaves a pending or pendingDelete one alone —
+        // writing pendingUpdate outright here un-deleted a food being deleted.
       ),
     );
   }

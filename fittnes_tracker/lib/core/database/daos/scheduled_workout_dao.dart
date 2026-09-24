@@ -40,30 +40,25 @@ class ScheduledWorkoutDao extends DatabaseAccessor<AppDatabase>
     return (delete(scheduledWorkoutTable)..where((t) => t.id.equals(id))).go();
   }
 
+  // Skip, unskip and postpone set no sync status: the database marks a synced
+  // session pendingUpdate when one of these columns changes. They used to write
+  // pendingUpdate outright, which also overwrote pendingDelete — un-deleting a
+  // session the user had just removed.
   Future<void> skipWorkout(int id) {
     return (update(scheduledWorkoutTable)..where((t) => t.id.equals(id))).write(
-      const ScheduledWorkoutTableCompanion(
-        isSkipped: Value(true),
-        syncStatus: Value(2),
-      ),
+      const ScheduledWorkoutTableCompanion(isSkipped: Value(true)),
     );
   }
 
   Future<void> unskipWorkout(int id) {
     return (update(scheduledWorkoutTable)..where((t) => t.id.equals(id))).write(
-      const ScheduledWorkoutTableCompanion(
-        isSkipped: Value(false),
-        syncStatus: Value(2),
-      ),
+      const ScheduledWorkoutTableCompanion(isSkipped: Value(false)),
     );
   }
 
   Future<void> postponeWorkout(int id, DateTime newDate) {
     return (update(scheduledWorkoutTable)..where((t) => t.id.equals(id))).write(
-      ScheduledWorkoutTableCompanion(
-        scheduledDate: Value(newDate),
-        syncStatus: const Value(2),
-      ),
+      ScheduledWorkoutTableCompanion(scheduledDate: Value(newDate)),
     );
   }
 
@@ -266,6 +261,7 @@ class ScheduledWorkoutDao extends DatabaseAccessor<AppDatabase>
           createdAt: row.read<DateTime>('created_at'),
           templateWorkoutId: row.readNullable<int>('template_workout_id'),
           syncStatus: 0,
+          localRev: 0,
         );
 
         // Prefer the actual workout row (w_*). If missing, fall back to the
@@ -287,6 +283,7 @@ class ScheduledWorkoutDao extends DatabaseAccessor<AppDatabase>
             completedDate: null,
             color: row.readNullable<int>('w_color'),
             syncStatus: 0,
+            localRev: 0,
           );
         } else if (row.readNullable<int>('tw_id') != null) {
           workout = WorkoutTableData(
@@ -302,6 +299,7 @@ class ScheduledWorkoutDao extends DatabaseAccessor<AppDatabase>
             completedDate: null,
             color: row.readNullable<int>('tw_color'),
             syncStatus: 0,
+            localRev: 0,
           );
         } else {
           workout = null;

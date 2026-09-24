@@ -72,6 +72,28 @@ void main() {
   });
 
   test('an edit marks the row pendingUpdate, the same as any other edit', () async {
+    // Synced, as the sync engine leaves it.
+    final id = await db.untracked(
+      () => db.foodItemDao.insertFoodItem(
+        FoodItemCompanion.insert(
+          name: 'Oats',
+          calories: 320,
+          protein: 12,
+          carbs: 54,
+          fat: 6,
+          serverId: const Value('server-f1'),
+          syncStatus: const Value(1),
+        ),
+      ),
+    );
+
+    await db.foodItemDao.updateFoodItem(id, calories: 640, protein: 24, carbs: 108, fat: 12, gramm: 200);
+
+    final updated = await db.foodItemDao.getFoodItemById(id);
+    expect(updated!.syncStatus, 2); // pendingUpdate
+  });
+
+  test('an edit to a food never pushed leaves it pending, to be created', () async {
     final id = await db.foodItemDao.insertFoodItem(
       FoodItemCompanion.insert(name: 'Oats', calories: 320, protein: 12, carbs: 54, fat: 6),
     );
@@ -79,6 +101,6 @@ void main() {
     await db.foodItemDao.updateFoodItem(id, calories: 640, protein: 24, carbs: 108, fat: 12, gramm: 200);
 
     final updated = await db.foodItemDao.getFoodItemById(id);
-    expect(updated!.syncStatus, 2); // pendingUpdate
+    expect(updated!.syncStatus, 0); // pending
   });
 }

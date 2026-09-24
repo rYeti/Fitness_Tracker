@@ -43,27 +43,20 @@ class WeightRepository {
     required double weight,
     String? note,
   }) async {
-    final existing = await db.weightRecordDao.getWeightRecordById(id);
-    if (existing == null) return false;
-
-    // Promote sync status: synced → pendingUpdate so the next sync pass
-    // sends a PUT. pending/pendingUpdate stay as-is — they haven't been
-    // pushed yet so there's nothing to update on the server.
-    final newSyncStatus =
-        existing.syncStatus == WeightSyncStatus.synced.index
-            ? WeightSyncStatus.pendingUpdate.index
-            : existing.syncStatus;
-
-    return db.weightRecordDao.updateWeightRecord(
-      WeightRecordData(
-        id: id,
-        date: date,
-        weight: weight,
-        note: note,
-        syncStatus: newSyncStatus,
-        serverId: existing.serverId,
+    // Only the fields the user changed. The database marks a synced record
+    // pendingUpdate by itself (`lib/core/sync/sync_triggers.dart`); this used
+    // to read the row, work the status out here and write the whole row back
+    // — including a server id and status that a sync finishing in between
+    // could already have changed.
+    final updated = await (db.update(db.weightRecord)
+      ..where((t) => t.id.equals(id))).write(
+      WeightRecordCompanion(
+        date: Value(date),
+        weight: Value(weight),
+        note: Value(note),
       ),
     );
+    return updated > 0;
   }
 
   // Delete a weight record

@@ -16,6 +16,14 @@ class FakeApiClient extends ApiClient {
   /// Response bodies for POSTs, keyed by path. Missing entries return `{}`.
   final Map<String, dynamic> postResponses = {};
 
+  /// Status codes DELETEs answer with, keyed by path. A missing entry is a
+  /// success.
+  final Map<String, int> deleteStatuses = {};
+
+  /// Runs while a PUT is in flight — after the request is made, before the
+  /// response arrives — to stand in for the user editing meanwhile.
+  Future<void> Function(String path)? duringPut;
+
   final List<String> gets = [];
   final List<({String path, dynamic data})> posts = [];
   final List<({String path, dynamic data})> puts = [];
@@ -79,6 +87,7 @@ class FakeApiClient extends ApiClient {
     Options? options,
   }) async {
     puts.add((path: path, data: data));
+    await duringPut?.call(path);
     return _ok(path, <String, dynamic>{});
   }
 
@@ -90,6 +99,14 @@ class FakeApiClient extends ApiClient {
     Options? options,
   }) async {
     deletes.add(path);
+    final status = deleteStatuses[path];
+    if (status != null) {
+      final options = RequestOptions(path: path);
+      throw DioException(
+        requestOptions: options,
+        response: Response<dynamic>(requestOptions: options, statusCode: status),
+      );
+    }
     return _ok(path, null);
   }
 }

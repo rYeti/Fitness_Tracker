@@ -72,9 +72,17 @@ class WorkoutPlanDao extends DatabaseAccessor<AppDatabase>
         isActive: Value(plan.isActive),
       );
 
-      final planId = await into(
-        workoutPlanTable,
-      ).insert(planCompanion, mode: InsertMode.insertOrReplace);
+      // Update in place rather than INSERT OR REPLACE, which deletes the row
+      // and inserts a fresh one — losing its server id, its sync status and
+      // every column this companion doesn't set.
+      final int planId;
+      if (plan.id == null) {
+        planId = await into(workoutPlanTable).insert(planCompanion);
+      } else {
+        planId = plan.id!;
+        await (update(workoutPlanTable)
+          ..where((p) => p.id.equals(planId))).write(planCompanion);
+      }
 
       // If updating, delete old workout links
       if (plan.id != null) {

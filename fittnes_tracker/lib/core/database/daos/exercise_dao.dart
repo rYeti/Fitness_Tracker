@@ -71,9 +71,18 @@ class ExerciseDao extends DatabaseAccessor<AppDatabase>
         .toList();
   }
 
-  // Insert or update an exercise
-  Future<int> saveExercise(ExerciseTableCompanion exercise) =>
-      into(exerciseTable).insert(exercise, mode: InsertMode.insertOrReplace);
+  /// Inserts a new exercise, or updates the one with [exercise]'s id.
+  ///
+  /// An update writes only the columns the companion sets. This used to be
+  /// INSERT OR REPLACE, which deletes the row and inserts a fresh one — so
+  /// editing a custom exercise wiped its server id and sync status, and the
+  /// next push created it on the server a second time.
+  Future<int> saveExercise(ExerciseTableCompanion exercise) async {
+    if (!exercise.id.present) return into(exerciseTable).insert(exercise);
+    await (update(exerciseTable)
+      ..where((e) => e.id.equals(exercise.id.value))).write(exercise);
+    return exercise.id.value;
+  }
 
   // Delete an exercise
   Future<int> deleteExercise(int id) =>

@@ -1,8 +1,5 @@
 import 'package:drift/drift.dart';
 
-/// Sync state for a locally-stored food item.
-enum FoodItemSyncStatus { pending, synced, pendingUpdate, pendingDelete }
-
 class FoodItem extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get name => text()();
@@ -18,8 +15,12 @@ class FoodItem extends Table {
   /// added before this column was introduced.
   TextColumn get extendedNutrientsJson => text().nullable()();
 
-  /// Maps to [FoodItemSyncStatus] by index.
+  /// Maps to [SyncStatus] by index.
   IntColumn get syncStatus => integer().withDefault(const Constant(0))();
+
+  /// Bumped by the database on every local change — see [SyncStatus] and
+  /// `lib/core/sync/sync_triggers.dart`.
+  IntColumn get localRev => integer().withDefault(const Constant(0))();
 
   /// UUID assigned by the remote API after first successful sync.
   TextColumn get serverId => text().nullable()();
@@ -46,17 +47,18 @@ class UserSettings extends Table {
   RealColumn get goalWeight => real().withDefault(const Constant(70.0))();
 }
 
-/// Sync state for a locally-stored meal.
-enum MealSyncStatus { pending, synced, pendingUpdate, pendingDelete }
-
 class MealTable extends Table {
   IntColumn get id => integer().autoIncrement()();
   DateTimeColumn get date => dateTime()();
   TextColumn get category => text()();
   IntColumn get foodItemId => integer()();
 
-  /// Maps to [MealSyncStatus] by index.
+  /// Maps to [SyncStatus] by index.
   IntColumn get syncStatus => integer().withDefault(const Constant(0))();
+
+  /// Bumped by the database on every local change — see [SyncStatus] and
+  /// `lib/core/sync/sync_triggers.dart`.
+  IntColumn get localRev => integer().withDefault(const Constant(0))();
 
   /// UUID assigned by the remote API after first successful sync.
   TextColumn get serverId => text().nullable()();

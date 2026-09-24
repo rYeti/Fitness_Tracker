@@ -108,6 +108,14 @@ placeholder and, with it, the logged sets it exists to protect. The fix
 excludes `syncStatus == 4` from that diff explicitly, so the placeholder is
 invisible to the diff the same way it's invisible to the UI.
 
+> **Correction** (`docs/sync-architecture.md` §6): that delete did not cascade.
+> Foreign keys are not enforced on the device's database — nothing sets
+> `PRAGMA foreign_keys` — so every `onDelete: cascade` is declarative only. The
+> hard delete *orphaned* the session rows and sets rather than deleting them,
+> and every screen that inner-joins them dropped them from view. The conclusion
+> above holds either way; the mechanism was different. Since that rework the
+> push retires a removed exercise that sessions point at instead of deleting it.
+
 Nothing else needed to be taught about the new value: `_syncMissingWorkoutExercises`
 already skips rows with a `serverId` (a retired placeholder always has one —
 it's stamped straight from the server payload), and every push sweep in

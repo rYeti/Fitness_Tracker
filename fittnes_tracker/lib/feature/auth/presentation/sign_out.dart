@@ -5,6 +5,7 @@ import 'package:ForgeForm/core/network/api_client.dart';
 import 'package:ForgeForm/core/network/secure_token_storage.dart';
 import 'package:ForgeForm/core/network/services/sync_service.dart';
 import 'package:ForgeForm/core/providers/access_provider.dart';
+import 'package:ForgeForm/core/sync/sync_lease.dart';
 import 'package:ForgeForm/core/providers/user_goals_provider.dart';
 import 'package:ForgeForm/feature/auth/presentation/providers/auth_provider.dart';
 import 'package:ForgeForm/feature/chat/data/attachment_store.dart';
@@ -101,7 +102,16 @@ Future<bool> confirmAndSignOut(BuildContext context, WidgetRef ref) async {
 
   await access.reset();
   await ref.read(authProvider.notifier).logout();
-  await db.clearAllUserData();
+  // Not under a sync that is still running — here or in the background
+  // isolate — which would go on writing the previous account's rows into a
+  // database being emptied beneath it. If one holds on past the wait, the
+  // user asked to sign out and the data goes regardless.
+  await SyncService.whenIdle();
+  final cleared = await SyncLease.run(db, (_) async {
+    await db.clearAllUserData();
+    return true;
+  });
+  if (cleared == null) await db.clearAllUserData();
   await clearPerAccountPrefs();
   // The identity key deliberately survives sign-out (docs/chat-encryption.md
   // §8); a library of somebody's progress photos and form-check videos must
@@ -139,6 +149,7 @@ Future<void> clearPerAccountPrefs() async {
   final prefs = await SharedPreferences.getInstance();
   await Future.wait([
     prefs.remove('meal_templates'),
+    prefs.remove(MealTemplateDao.deletedStorageKey),
     prefs.remove('last_sync_timestamp'),
     prefs.remove(lastPullPrefsKey),
     // A half-finished session belonging to the previous account, which the home

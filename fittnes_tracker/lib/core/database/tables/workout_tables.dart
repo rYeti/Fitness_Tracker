@@ -2,21 +2,41 @@ import 'package:drift/drift.dart';
 
 // Workout planning tables
 
-/// Sync state used across all tables that sync with the remote API.
+/// Sync state of a row in any table that syncs with the remote API, stored in
+/// its `sync_status` column by [index].
 ///
 /// - [pending]       New record, never pushed to the API.
-/// - [synced]        Successfully pushed; [serverId] is set.
+/// - [synced]        The server has exactly this; [serverId] is set.
 /// - [pendingUpdate] Edited locally after a successful sync.
 /// - [pendingDelete] Deleted locally; must be removed on the API before the
 ///                   local row is dropped.
+/// - [retired]       Only on [WorkoutExerciseTable]: an exercise the server has
+///                   already taken out of the workout, kept so logged sets can
+///                   still resolve what was performed. See that table's doc
+///                   comment.
 ///
-/// [WorkoutExerciseTable] additionally uses the raw value `4` ("retired") for
-/// an exercise the server has already removed from the workout — see that
-/// table's doc comment. It is deliberately not a member of this enum: this
-/// enum is switched over exhaustively for every other table it backs
-/// (workouts, plans, scheduled workouts, exercises, ...), and `retired` has
-/// no meaning for any of them.
-enum SyncStatus { pending, synced, pendingUpdate, pendingDelete }
+/// Read a stored value with [fromDb], never `SyncStatus.values[i]`. `retired`
+/// used to be a bare `4` outside this enum, and indexing `values` with it threw
+/// a `RangeError` that stopped every pull that reached it — see
+/// `docs/sync-architecture.md` §1. Being a member means every exhaustive
+/// `switch` has to say what it does with one.
+enum SyncStatus {
+  pending,
+  synced,
+  pendingUpdate,
+  pendingDelete,
+  retired;
+
+  /// The status stored as [raw]. A value this build does not know — only a
+  /// newer build could have written one — reads as [synced]: neither pushed
+  /// again nor deleted, and left for the next pull to reconcile.
+  static SyncStatus fromDb(int raw) =>
+      raw >= 0 && raw < values.length ? values[raw] : synced;
+
+  /// Whether this row holds a change the server has not seen yet.
+  bool get isDirty =>
+      this == pending || this == pendingUpdate || this == pendingDelete;
+}
 
 /// Table for storing exercise definitions
 class ExerciseTable extends Table {
@@ -31,6 +51,10 @@ class ExerciseTable extends Table {
   BoolColumn get isCustom => boolean().withDefault(const Constant(false))();
   TextColumn get serverId => text().nullable()();
   IntColumn get syncStatus => integer().withDefault(const Constant(0))();
+
+  /// Bumped by the database on every local change — see [SyncStatus] and
+  /// `lib/core/sync/sync_triggers.dart`.
+  IntColumn get localRev => integer().withDefault(const Constant(0))();
 }
 
 /// Table for storing complete workouts
@@ -48,20 +72,26 @@ class WorkoutTable extends Table {
   IntColumn get color => integer().nullable()();
   TextColumn get serverId => text().nullable()();
   IntColumn get syncStatus => integer().withDefault(const Constant(0))();
+
+  /// Bumped by the database on every local change — see [SyncStatus] and
+  /// `lib/core/sync/sync_triggers.dart`.
+  IntColumn get localRev => integer().withDefault(const Constant(0))();
 }
 
 /// Table for linking exercises to workouts (workout_exercise)
 ///
-/// `syncStatus` uses one value outside [SyncStatus]: `4` ("retired"), stamped
-/// only by `SyncService._pullWorkouts` on an exercise the server has already
-/// removed from the workout. The server still returns that exercise — a
-/// historic `ScheduledWorkoutExerciseTable`/`WorkoutSetTable` pulled
-/// afterwards needs a local row to link against, or the session that logged
-/// it can never be pulled onto another device. The row must stay out of
-/// every workout-builder and active-workout listing (every such query
-/// excludes both `3` and `4`) and must never be picked up by the
-/// `pendingDelete` (`3`) push sweep, since the server has nothing left to
-/// delete for it.
+/// The only table that uses [SyncStatus.retired] (`4`): an exercise that has
+/// left the workout but that logged sets still point at. The pull stamps it on
+/// an exercise the server reports `removedAt`, and the push stamps it on one
+/// this device removed once the server has been told, instead of deleting the
+/// row. Foreign keys are not enforced on this database (no
+/// `PRAGMA foreign_keys`), so deleting it would not cascade into history —
+/// it would orphan it, and every query that inner-joins a session's exercises
+/// to this table would silently drop them.
+///
+/// A retired row stays out of every workout-builder and active-workout
+/// listing (every such query excludes both `3` and `4`) and is never pushed:
+/// the server already has it as removed.
 class WorkoutExerciseTable extends Table {
   IntColumn get id => integer().autoIncrement()();
   IntColumn get workoutId =>
@@ -73,6 +103,10 @@ class WorkoutExerciseTable extends Table {
   IntColumn get supersetGroupId => integer().nullable()();
   TextColumn get serverId => text().nullable()();
   IntColumn get syncStatus => integer().withDefault(const Constant(0))();
+
+  /// Bumped by the database on every local change — see [SyncStatus] and
+  /// `lib/core/sync/sync_triggers.dart`.
+  IntColumn get localRev => integer().withDefault(const Constant(0))();
 }
 
 class ScheduledWorkoutExerciseTable extends Table {
@@ -100,6 +134,10 @@ class ScheduledWorkoutExerciseTable extends Table {
 
   TextColumn get serverId => text().nullable()();
   IntColumn get syncStatus => integer().withDefault(const Constant(0))();
+
+  /// Bumped by the database on every local change — see [SyncStatus] and
+  /// `lib/core/sync/sync_triggers.dart`.
+  IntColumn get localRev => integer().withDefault(const Constant(0))();
 }
 
 /// Table for storing individual sets within a workout exercise
@@ -145,6 +183,10 @@ class WorkoutPlanTable extends Table {
   IntColumn get durationDays => integer().nullable()();
   TextColumn get serverId => text().nullable()();
   IntColumn get syncStatus => integer().withDefault(const Constant(0))();
+
+  /// Bumped by the database on every local change — see [SyncStatus] and
+  /// `lib/core/sync/sync_triggers.dart`.
+  IntColumn get localRev => integer().withDefault(const Constant(0))();
 }
 
 /// Table for linking workouts to plans (many-to-many)
@@ -187,6 +229,10 @@ class ScheduledWorkoutTable extends Table {
 
   TextColumn get serverId => text().nullable()();
   IntColumn get syncStatus => integer().withDefault(const Constant(0))();
+
+  /// Bumped by the database on every local change — see [SyncStatus] and
+  /// `lib/core/sync/sync_triggers.dart`.
+  IntColumn get localRev => integer().withDefault(const Constant(0))();
 }
 
 @DataClassName('WorkoutSetTemplateData')

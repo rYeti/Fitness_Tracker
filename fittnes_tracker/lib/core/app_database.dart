@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart';
 import 'app_database_connection.dart'
     if (dart.library.io) 'app_database_connection_native.dart'
@@ -17,8 +19,10 @@ import 'database/daos/workout_plan_dao.dart';
 import 'database/daos/workout_set_template_dao.dart';
 import 'database/tables/chatOutbox_table.dart';
 import 'database/tables/food_tables.dart';
+import 'database/tables/sync_tables.dart';
 import 'database/tables/weight_tables.dart';
 import 'database/tables/workout_tables.dart';
+import 'sync/sync_triggers.dart';
 
 export 'database/daos/chatOutbox_dao.dart';
 export 'database/daos/exercise_dao.dart';
@@ -34,6 +38,7 @@ export 'database/daos/workout_plan_dao.dart';
 export 'database/daos/workout_set_template_dao.dart';
 export 'database/tables/chatOutbox_table.dart';
 export 'database/tables/food_tables.dart';
+export 'database/tables/sync_tables.dart';
 export 'database/tables/weight_tables.dart';
 export 'database/tables/workout_tables.dart';
 
@@ -59,6 +64,10 @@ part 'app_database.g.dart';
     WorkoutSetTemplateTable,
     ScheduledWorkoutExerciseTable,
     ChatOutBoxTable,
+    // Sync bookkeeping — see lib/core/sync/sync_triggers.dart
+    SyncDeletionTable,
+    SyncApplyGuardTable,
+    SyncLeaseTable,
   ],
   daos: [
     FoodItemDao,
@@ -90,31 +99,38 @@ class AppDatabase extends _$AppDatabase {
   /// row it is the only record that the *deletion* happened. Signing out has to
   /// be able to say how much would go, so the user can choose.
   ///
-  /// Counts every table carrying a `syncStatus`, where `1` is `SyncStatus.synced`
-  /// and every other value is work that has not reached the server. Built-in
-  /// exercises are seeded locally and never pushed, so only the user's own custom
-  /// ones count.
+  /// Counts rows in a state the push will act on — `pending` (0),
+  /// `pendingUpdate` (2) and `pendingDelete` (3) — plus deletions the database
+  /// recorded in `sync_deletion_table`. `synced` (1) and `retired` (4) are
+  /// not work, and neither is a non-template workout, which the push never
+  /// sends: counting either used to keep the sign-out warning up forever on
+  /// any device that had one. Built-in exercises are seeded locally and never
+  /// pushed, so only the user's own custom ones count.
   ///
   /// One statement rather than a dozen round trips, because this runs on the
   /// sign-out tap and the user is waiting on it.
-  Future<int> countUnsyncedChanges() async {
-    const sql = '''
+  ///
+  /// [includeChat] is for sign-out, which loses unsent messages too; the push
+  /// scheduler asks about sync alone, since chat sends through its own outbox.
+  Future<int> countUnsyncedChanges({bool includeChat = true}) async {
+    final sql = '''
       SELECT
-        (SELECT COUNT(*) FROM workout_table                     WHERE sync_status != 1) +
-        (SELECT COUNT(*) FROM workout_exercise_table            WHERE sync_status != 1) +
-        (SELECT COUNT(*) FROM workout_set_template_table        WHERE sync_status != 1) +
-        (SELECT COUNT(*) FROM workout_set_table                 WHERE sync_status != 1) +
-        (SELECT COUNT(*) FROM scheduled_workout_table           WHERE sync_status != 1) +
-        (SELECT COUNT(*) FROM scheduled_workout_exercise_table  WHERE sync_status != 1) +
-        (SELECT COUNT(*) FROM workout_plan_table                WHERE sync_status != 1) +
-        (SELECT COUNT(*) FROM workout_plan_workout_table        WHERE sync_status != 1) +
-        (SELECT COUNT(*) FROM meal_table                        WHERE sync_status != 1) +
-        (SELECT COUNT(*) FROM food_item                         WHERE sync_status != 1) +
-        (SELECT COUNT(*) FROM weight_record                     WHERE sync_status != 1) +
-        (SELECT COUNT(*) FROM exercise_table                    WHERE sync_status != 1 AND is_custom = 1) +
+        (SELECT COUNT(*) FROM workout_table                     WHERE sync_status IN (0, 2, 3) AND is_template = 1) +
+        (SELECT COUNT(*) FROM workout_exercise_table            WHERE sync_status IN (0, 2, 3)) +
+        (SELECT COUNT(*) FROM workout_set_template_table        WHERE sync_status IN (0, 2, 3)) +
+        (SELECT COUNT(*) FROM workout_set_table                 WHERE sync_status IN (0, 2, 3)) +
+        (SELECT COUNT(*) FROM scheduled_workout_table           WHERE sync_status IN (0, 2, 3)) +
+        (SELECT COUNT(*) FROM scheduled_workout_exercise_table  WHERE sync_status IN (0, 2, 3)) +
+        (SELECT COUNT(*) FROM workout_plan_table                WHERE sync_status IN (0, 2, 3)) +
+        (SELECT COUNT(*) FROM workout_plan_workout_table        WHERE sync_status IN (0, 2, 3)) +
+        (SELECT COUNT(*) FROM meal_table                        WHERE sync_status IN (0, 2, 3)) +
+        (SELECT COUNT(*) FROM food_item                         WHERE sync_status IN (0, 2, 3)) +
+        (SELECT COUNT(*) FROM weight_record                     WHERE sync_status IN (0, 2, 3)) +
+        (SELECT COUNT(*) FROM exercise_table                    WHERE sync_status IN (0, 2, 3) AND is_custom = 1) +
+        (SELECT COUNT(*) FROM sync_deletion_table) +
         -- Chat has its own status column: 1 is sent, 0 pending and 2 failed.
         -- An unsent message is lost by the wipe exactly like an unsynced set.
-        (SELECT COUNT(*) FROM chat_out_box_table                WHERE chat_message_status != 1)
+        ${includeChat ? '(SELECT COUNT(*) FROM chat_out_box_table WHERE chat_message_status != 1)' : '0'}
       AS total
     ''';
     final row = await customSelect(sql).getSingle();
@@ -123,8 +139,13 @@ class AppDatabase extends _$AppDatabase {
 
   /// Deletes all user-generated data from every table.
   /// Call this on logout so the next user starts with a clean local DB.
+  ///
+  /// [untracked], and the deletion outbox is emptied with it. Emptying a synced
+  /// table is not the user deleting their data — recorded as a deletion, it
+  /// would reach the server as a DELETE for every row the account owns the
+  /// next time anyone signed in on this device.
   Future<void> clearAllUserData() async {
-    await transaction(() async {
+    await untracked(() async {
       await delete(mealFoodTable).go();
       await delete(mealTable).go();
       await delete(foodItem).go();
@@ -140,8 +161,46 @@ class AppDatabase extends _$AppDatabase {
       await delete(userSettings).go();
       await delete(searchCacheTable).go();
       await delete(chatOutBoxTable).go();
+      await delete(syncDeletionTable).go();
       // Keep built-in exercises; remove only user-created ones
       await (delete(exerciseTable)..where((e) => e.isCustom.equals(true))).go();
+    });
+  }
+
+  static final _untrackedZone = Object();
+
+  /// Runs [body] as the sync engine: none of its writes counts as a local
+  /// change.
+  ///
+  /// The sync triggers (`lib/core/sync/sync_triggers.dart`) mark a row dirty
+  /// whenever a pushed column changes and record every deleted row the server
+  /// still has. That is right for a user's edit and wrong for the sync engine
+  /// writing what the server just sent, marking a row synced, or removing a
+  /// row the server already removed — so this sets the one flag every trigger
+  /// checks, for the length of a transaction. Drift runs nothing else on this
+  /// connection while a transaction is open, and SQLite lets no other
+  /// connection write, so no user edit can land while the flag is up and be
+  /// missed. The flag is cleared before the transaction commits, and a
+  /// transaction that throws rolls it back, so it is never left set.
+  ///
+  /// Keep [body] to database work. It holds the write lock, so a network call
+  /// inside it would stall every save in the app until the call returned.
+  ///
+  /// Calls nest: an inner call inside an outer one just runs its body.
+  Future<T> untracked<T>(Future<T> Function() body) {
+    if (Zone.current[_untrackedZone] == true) return body();
+    return transaction(() async {
+      await customStatement(
+        'UPDATE sync_apply_guard_table SET active = 1 WHERE id = 1',
+      );
+      final result = await runZoned(
+        body,
+        zoneValues: {_untrackedZone: true},
+      );
+      await customStatement(
+        'UPDATE sync_apply_guard_table SET active = 0 WHERE id = 1',
+      );
+      return result;
     });
   }
 
@@ -170,13 +229,33 @@ class AppDatabase extends _$AppDatabase {
   /// 40 changes no table. It re-queues every synced logged set that carries an
   /// RPE, a set type or a side, because none of the three was ever pushed
   /// before this version — see `if (from < 40)` and `docs/logged-set-sync.md`.
+  ///
+  /// 41 adds `local_rev` to every synced entity table and the three sync
+  /// bookkeeping tables in `sync_tables.dart`. The triggers that use them are
+  /// not part of any migration: [installSyncTriggers] reinstalls them from code
+  /// on every open. See `docs/sync-architecture.md` §3.
   @override
-  int get schemaVersion => 40;
+  int get schemaVersion => 41;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (Migrator m) async {
       await m.createAll();
+    },
+    beforeOpen: (details) async {
+      // The guard is only ever set inside a transaction that clears it again
+      // before committing, so this should never find it set. If it ever did,
+      // every sync trigger would stay silent for good — so it is cleared on
+      // every open rather than trusted.
+      await customStatement(
+        'INSERT INTO sync_apply_guard_table (id, active) VALUES (1, 0) '
+        'ON CONFLICT(id) DO UPDATE SET active = 0',
+      );
+      await customStatement(
+        'INSERT OR IGNORE INTO sync_lease_table (id, holder, expires_at) '
+        'VALUES (1, NULL, 0)',
+      );
+      await installSyncTriggers(this);
     },
     onUpgrade: (Migrator m, int from, int to) async {
       // try {
@@ -426,6 +505,28 @@ class AppDatabase extends _$AppDatabase {
           'WHERE sync_status = 1 AND server_id IS NOT NULL '
           'AND (rpe IS NOT NULL OR set_type != 0 OR side != 0)',
         );
+      }
+
+      if (from < 41) {
+        // The bookkeeping tables are new and already made by `createAll()`
+        // above; only the column needs adding to tables that existed.
+        for (final table in [
+          'exercise_table',
+          'workout_table',
+          'workout_exercise_table',
+          'scheduled_workout_exercise_table',
+          'scheduled_workout_table',
+          'workout_plan_table',
+          'food_item',
+          'meal_table',
+          'weight_record',
+        ]) {
+          try {
+            await customStatement(
+              'ALTER TABLE $table ADD COLUMN local_rev INTEGER NOT NULL DEFAULT 0',
+            );
+          } catch (_) {}
+        }
       }
     },
   );

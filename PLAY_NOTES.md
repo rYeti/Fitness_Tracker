@@ -22,6 +22,10 @@ Markdown links, headings or emphasis, none of which Play renders.
 
 See `docs/android-release.md`.
 
+## Unreleased
+
+Sync is more reliable: edits no longer revert, things you delete stay deleted, and data from your other devices keeps arriving. Workouts you log now reach your coach within seconds instead of hours later.
+
 ## 1.0.2+28
 
 Your workout's exercise order now syncs and stays put instead of snapping back to the old one next time the app opens.
