@@ -785,6 +785,11 @@ class _ExerciseCard extends StatelessWidget {
             const SizedBox(height: 6),
             ...exercise.sets.map((set) => _SetRow(set: set)),
           ],
+          if (exercise.clientNote != null &&
+              exercise.clientNote!.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _ClientNote(note: exercise.clientNote!),
+          ],
         ],
       ),
     );

@@ -135,14 +135,32 @@ class ScheduledWorkoutExerciseDao extends DatabaseAccessor<AppDatabase>
       (select(scheduledWorkoutExerciseTable)
         ..where((e) => e.scheduledWorkoutId.equals(scheduledWorkoutId))).get();
 
-  Future<void> markScheduledExerciseSynced(int localId, String serverId) =>
-      (update(scheduledWorkoutExerciseTable)
-        ..where((e) => e.id.equals(localId))).write(
-        ScheduledWorkoutExerciseTableCompanion(
-          syncStatus: const Value(1),
-          serverId: Value(serverId),
-        ),
-      );
+  /// Links a local entry to the server row it corresponds to, leaving it
+  /// pending (2) rather than synced when its note differs from [serverNotes].
+  ///
+  /// A link is not a push. The server creates its entries itself when a
+  /// scheduled workout is POSTed, with no note, so an entry the client wrote
+  /// a note on before the session ever synced would otherwise be marked
+  /// synced here and its note would never leave the device.
+  Future<void> linkScheduledExerciseToServer(
+    int localId,
+    String serverId, {
+    required String? serverNotes,
+  }) async {
+    final local =
+        await (select(scheduledWorkoutExerciseTable)
+          ..where((e) => e.id.equals(localId))).getSingleOrNull();
+    if (local == null) return;
+    String? normalise(String? n) => (n == null || n.trim().isEmpty) ? null : n;
+    final inStep = normalise(local.notes) == normalise(serverNotes);
+    await (update(scheduledWorkoutExerciseTable)
+      ..where((e) => e.id.equals(localId))).write(
+      ScheduledWorkoutExerciseTableCompanion(
+        serverId: Value(serverId),
+        syncStatus: Value(inStep ? 1 : 2),
+      ),
+    );
+  }
 
   Future<ScheduledWorkoutExerciseTableData?> getByServerId(String serverId) =>
       (select(scheduledWorkoutExerciseTable)

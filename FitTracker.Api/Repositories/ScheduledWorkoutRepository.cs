@@ -370,6 +370,20 @@ public class ScheduledWorkoutRepository : IScheduledWorkoutRepository
     }
 
     /// <inheritdoc/>
+    public async Task<bool> UpdateExerciseNotesAsync(Guid scheduledExerciseId, Guid userId, string? notes)
+    {
+        var exercise = await _context.ScheduledWorkoutExercises
+            .FirstOrDefaultAsync(e => e.Id == scheduledExerciseId && e.ScheduledWorkout.Workout.UserId == userId);
+        if (exercise == null) return false;
+
+        // Blank and absent are the same note; storing "" would make the console
+        // render an empty note card.
+        exercise.Notes = string.IsNullOrWhiteSpace(notes) ? null : notes;
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    /// <inheritdoc/>
     public async Task<bool> CompleteExerciseAsync(Guid scheduledExerciseId, Guid userId)
     {
         var exercise = await _context.ScheduledWorkoutExercises
