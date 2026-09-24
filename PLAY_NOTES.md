@@ -22,6 +22,10 @@ Markdown links, headings or emphasis, none of which Play renders.
 
 See `docs/android-release.md`.
 
+## Unreleased
+
+Trainer Console: the Attendance by week chart now lines up on phones. Week labels no longer wrap onto two lines or push their bar out of line.
+
 ## 1.0.2+28
 
 Your workout's exercise order now syncs and stays put instead of snapping back to the old one next time the app opens.

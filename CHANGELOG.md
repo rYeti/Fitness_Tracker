@@ -10,6 +10,10 @@ heading to the version it went out as, so a `## <version>` section is history:
 it is what those users have, and nothing new belongs in it. See
 `docs/android-release.md`.
 
+## Unreleased
+
+- Fixed the Trainer Console's Attendance by week chart looking broken on a phone. Twelve weeks share the card's width, which on a phone with a larger system font size leaves less room per column than a label like "20/7" needs. Those labels wrapped onto two lines and took the height out of their own bar, so only some bars rose off the baseline. The chart now measures its widest label once, labels every Nth week counting back from the current one, and gives every week the same single-line label area, so the bars always share a baseline. Labels also grew from 8px to 10px. Every week keeps its full date and sessions done out of planned for screen readers. See `docs/trainer-console-attendance-chart.md`.
+
 ## 1.0.2+28
 
 - Fixed sets appearing twice (set 1, set 1, set 2, set 2) in an active workout, where typing into one "set 1" also filled the other. The app syncs on launch and again on every resume, and a resume during the first sync started a second one alongside it; the two interleaved the pull's delete-then-insert of each exercise's set templates and left every set twice. `syncAll`/`pullAll` now join a run already in progress instead of starting another, the template refresh is one transaction (the background sync runs in another isolate, which only the database's own locking can see), and templates already duplicated on a device are folded on read and at rest, then re-pushed clean.
