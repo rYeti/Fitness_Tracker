@@ -65,6 +65,7 @@ re-run it after reseeding against a fresh database.
 | `playwright.config.ts` | Two projects: `chromium-desktop` (1440px) and `chromium-mobile` (390px). |
 | `fixtures/flutter.ts` | The `appPage` fixture — boots the app and enables semantics. |
 | `tests/` | Specs. |
+| `tests/session-review-set-sync.spec.ts` | RPE, set type and side: logged in the trainee app, read by the trainer in Session Review. Needs `E2E_API=1` and a seeded API; see `docs/logged-set-sync.md` §9. |
 | `tests/seed.spec.ts` | Empty template the Playwright generator agent copies. Never runs. |
 | `tools/serve-web.mjs` | Static server with the SPA rewrite production hosting also has to implement. |
 

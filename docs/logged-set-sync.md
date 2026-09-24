@@ -282,3 +282,84 @@ Two narrower rules fall out of it:
 | `logged_set_backfill_migration_test` | the schema-40 backfill flips exactly the rows in §5's table, on a real upgrade from a file at version 39 |
 | `session_review_screen_test` › *a warm-up or one-sided set is tagged, and says so out loud* | the tag, and that it's in the semantics label |
 | › *a set type or side this build does not know reads as normal* | the console model's clamp |
+| `e2e/tests/session-review-set-sync.spec.ts` | the whole path in a real browser against a real API — §9 |
+
+## 9. Driving it end to end in a browser
+
+Every test in §8 checks a single step. None of them opens the web bundle,
+and none of them makes a set leave the trainee's device through the real
+`SyncService`. `e2e/tests/session-review-set-sync.spec.ts` does both, against
+a local API seeded by `tools/seed-review-data.mjs` (the setup in
+`docs/e2e-playwright.md`, gated behind `E2E_API=1` like the other API specs).
+
+It has two tests, one for each half of the path. Both are built to produce
+the same numbers: a 12 × 40 kg warm-up, a left-side 5 × 100 kg at RPE 9, and
+a 5 × 100 kg at RPE 8. That gives a volume of **1,000 kg** (1,480 if the
+warm-up counted) and an Avg RPE of **8.5**:
+
+| Test | What it proves |
+|---|---|
+| *sets written through the sync endpoint are tagged, and a warm-up counts toward nothing* | Server and console: the sets go in through the batch endpoint the app's sync uses. Session Review must read each row's label (`Set 1, 12 reps, 40 kg, RPE 4, Warm-up`, `… RPE 9, Left`) and show 1,000 kg / 8.5. |
+| *sets logged in the trainee app reach the trainer* | The device: Robert turns on **Track RPE**, starts today's workout, and marks set 1 as a warm-up and set 2 as Left in the set-number sheet. He types weight, reps and RPE, finishes, and taps **Sync now**. Nina then opens the session in a separate browser context and must read the same rows. |
+
+Each test deletes and recreates its session through the API first. A
+completed session can't be started again in the app. Two sessions of one
+workout on one day are also folded into one by the console
+(`docs/trainer-console-duplicate-rows.md`), so a leftover session from an
+earlier run would decide which one the trainer sees.
+
+**It fails when the change is undone.** When the warm-up exclusion was
+removed from `TrainerConsoleService` and the API restarted, the first test
+failed on `1,000 kg`. It also failed one step earlier, in a way worth
+knowing about: with warm-ups counted, both sessions picked up a **PR**
+badge. That badge sits between the name and the date in the history
+entry's label, so the locator allows for it (`^Lower B (PR )?Today`). The
+failure should come from the volume assertion, not from a list entry the
+test couldn't find.
+
+### What the first run found
+
+**A field clipped at the bottom edge takes the keys and drops them.** The
+first version of the trainee test logged every set with `reps: null`, and
+the last set lost its RPE too. `typeReliably` had passed, because the
+semantics `<input>` Playwright types into read back "12". The canvas still
+showed the hint "0", though, and the completion summary's Reps column was
+blank. The Reps field sat right above the fixed Next Set bar, clipped by it.
+The keys reached the semantics node but never reached Flutter's editor.
+
+`typeIntoField` scrolls each field to the middle of the screen with the
+mouse wheel before typing. Playwright can't do this itself: it scrolls the
+page, and Flutter's scroll view isn't the page. I couldn't show that a real
+mouse user hits the same problem, so this is recorded as a harness trap
+rather than an app bug. The lesson carries over to any Flutter web test:
+**`typeReliably`'s read-back proves the semantics node took the value, not
+that the app did.** Only the app's own output — the canvas, a saved row, the
+server — proves that. That is why this spec asserts on what the *trainer*
+reads, not on the trainee's form.
+
+**The rest timer can only be closed by its barrier.** After every set a
+Rest Timer dialog opens (it auto-starts by default). Its toggle is in the
+premium group, so a free account can't turn it off. The dialog has no
+labelled close control and ignores Escape, so the spec closes it by tapping
+the barrier at a fixed position. That is the only coordinate click in the
+spec. By CLAUDE.md's accessibility rules this is a real gap: a keyboard or
+screen-reader user has no labelled way out. The same goes for the ✕ on the
+**Workout Complete!** summary, which is an unlabelled button (the spec uses
+**Done** instead). Neither is fixed here. Both are the next thing to fix on
+the active workout screen.
+
+### Running it
+
+```bash
+# API on :5080 against a local Postgres (Program.cs migrates on start), then:
+cd fittnes_tracker
+flutter build web --release --no-web-resources-cdn \
+  --dart-define=FORGE_API_URL=http://127.0.0.1:5080/
+cd ../e2e && node tools/seed-review-data.mjs
+E2E_API=1 npx playwright test session-review-set-sync.spec.ts --project=chromium-desktop
+```
+
+It takes about 3½ minutes and signs in four times through the UI plus a
+couple of times through the API. The API's `auth` limiter allows five
+logins a minute per IP, so run it on one project at a time rather than
+across all three widths at once.
