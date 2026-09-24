@@ -1198,14 +1198,8 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
       final updatedExercises =
           workout.exercises.map((e) {
             if (e.id == exercise.id) {
-              return WorkoutExercise(
-                id: e.id,
-                workoutId: e.workoutId,
-                exerciseId: e.exerciseId,
-                orderPosition: e.orderPosition,
-                exercise: e.exercise,
+              return e.copyWith(
                 sets: [...e.sets, newSet],
-                notes: e.notes,
               );
             }
             return e;
@@ -1273,14 +1267,8 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
         final updatedExercises =
             workout.exercises.map((e) {
               if (e.id == exercise.id) {
-                return WorkoutExercise(
-                  id: e.id,
-                  workoutId: e.workoutId,
-                  exerciseId: e.exerciseId,
-                  orderPosition: e.orderPosition,
-                  exercise: e.exercise,
+                return e.copyWith(
                   sets: e.sets.where((s) => s.id != set.id).toList(),
-                  notes: e.notes,
                 );
               }
               return e;
@@ -1382,17 +1370,11 @@ class _EditWorkoutViewState extends State<EditWorkoutView> {
         final updatedExercises =
             workout.exercises.map((e) {
               if (e.id == exercise.id) {
-                return WorkoutExercise(
-                  id: e.id,
-                  workoutId: e.workoutId,
-                  exerciseId: e.exerciseId,
-                  orderPosition: e.orderPosition,
-                  exercise: e.exercise,
+                return e.copyWith(
                   sets:
                       e.sets
                           .map((s) => s.id == set.id ? updatedSet : s)
                           .toList(),
-                  notes: e.notes,
                 );
               }
               return e;

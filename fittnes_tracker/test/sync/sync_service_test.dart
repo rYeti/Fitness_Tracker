@@ -161,6 +161,126 @@ void main() {
     });
   });
 
+  group('reordering the exercises of a synced workout', () {
+    Future<WorkoutExerciseTableData> exerciseRow(String serverId) =>
+        (db.select(db.workoutExerciseTable)
+          ..where((t) => t.serverId.equals(serverId))).getSingle();
+
+    WorkoutExercise asModel(
+      WorkoutExerciseTableData row, {
+      required int orderPosition,
+    }) => WorkoutExercise(
+      id: row.id,
+      workoutId: row.workoutId,
+      exerciseId: row.exerciseId,
+      orderPosition: orderPosition,
+      sets: const [],
+    );
+
+    // The reorder used to be written locally with each exercise row left at
+    // synced. The push only sends pendingUpdate exercises, so the server never
+    // heard about it, and the next pull's reconcile — which trusts a clean
+    // row to match the server — wrote the old positions back. From the gym
+    // floor that looked like the order changing on its own.
+    // See docs/workout-exercise-order.md.
+    test('pushes the new positions instead of leaving them local', () async {
+      await insertSyncedExercise(name: 'Bench Press', serverId: 'server-e1');
+      await insertSyncedExercise(name: 'Lat Pulldown', serverId: 'server-e2');
+
+      api.stubEmptyPull();
+      api.getResponses['api/Workout'] = [
+        serverWorkout(
+          id: 'server-w1',
+          name: 'Upper A',
+          exercises: [
+            serverWorkoutExercise(
+              id: 'server-we1',
+              exerciseId: 'server-e1',
+              orderPosition: 1,
+            ),
+            serverWorkoutExercise(
+              id: 'server-we2',
+              exerciseId: 'server-e2',
+              orderPosition: 2,
+            ),
+          ],
+        ),
+      ];
+      await sync.pullAll();
+
+      final local = await db.workoutDao.getWorkoutByServerId('server-w1');
+      final we1 = await exerciseRow('server-we1');
+      final we2 = await exerciseRow('server-we2');
+      // Swap them, the way the edit screen's drag handle does: same row ids,
+      // new positions, renumbered from the list order.
+      await db.workoutDao.saveCompleteWorkout(
+        Workout(
+          id: local!.id,
+          name: 'Upper A',
+          difficulty: WorkoutDifficulty.beginner,
+          exercises: [
+            asModel(we2, orderPosition: 1),
+            asModel(we1, orderPosition: 2),
+          ],
+        ),
+      );
+
+      final rows = await (db.select(db.workoutExerciseTable)
+            ..where((t) => t.workoutId.equals(local.id)))
+          .get();
+      // 2 == pendingUpdate: the only status the push sends for an exercise.
+      expect(rows.map((r) => r.syncStatus).toSet(), {2});
+
+      await sync.syncAll();
+
+      final pushed = {
+        for (final p in api.puts)
+          if (p.path.startsWith('api/Workout/exercises/'))
+            p.path: (p.data as Map)['orderPosition'],
+      };
+      expect(pushed, {
+        'api/Workout/exercises/server-we1': 2,
+        'api/Workout/exercises/server-we2': 1,
+      });
+    });
+
+    test('an untouched exercise stays synced', () async {
+      await insertSyncedExercise(serverId: 'server-e1');
+
+      api.stubEmptyPull();
+      api.getResponses['api/Workout'] = [
+        serverWorkout(
+          id: 'server-w1',
+          name: 'Upper A',
+          exercises: [
+            serverWorkoutExercise(
+              id: 'server-we1',
+              exerciseId: 'server-e1',
+              orderPosition: 0,
+            ),
+          ],
+        ),
+      ];
+      await sync.pullAll();
+
+      final local = await db.workoutDao.getWorkoutByServerId('server-w1');
+      final we1 = await exerciseRow('server-we1');
+      await db.workoutDao.saveCompleteWorkout(
+        Workout(
+          id: local!.id,
+          name: 'Upper A (renamed)',
+          difficulty: WorkoutDifficulty.beginner,
+          exercises: [asModel(we1, orderPosition: we1.orderPosition)],
+        ),
+      );
+
+      final row = await (db.select(db.workoutExerciseTable)
+            ..where((t) => t.serverId.equals('server-we1')))
+          .getSingle();
+      expect(row.syncStatus, 1);
+    });
+  });
+
   group('pulling a workout the server has duplicates of', () {
     test('inserts one exercise and one set per set number', () async {
       await insertSyncedExercise(serverId: 'server-e1');
