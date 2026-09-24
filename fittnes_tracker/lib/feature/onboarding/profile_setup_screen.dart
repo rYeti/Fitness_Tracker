@@ -191,7 +191,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         WeightRecordCompanion.insert(
           date: DateTime.now(),
           weight: currentWeight,
-          syncStatus: Value(WeightSyncStatus.pending.index),
+          syncStatus: Value(SyncStatus.pending.index),
         ),
       );
 

@@ -361,23 +361,13 @@ class WorkoutsListViewState extends State<WorkoutsListView> {
     }
   }
 
-  /// Marks the workout plan and its scheduled instances for deletion. The rows
-  /// still leave the local listing immediately (every workout/plan query
-  /// excludes `pendingDelete`), but the row itself survives until the next
-  /// sync push actually tells the server — a hard local delete here left the
-  /// plan on the server, which the next pull put straight back.
+  /// Deletes the plan and its untrained sessions, keeping every session the
+  /// user actually trained — see [WorkoutPlanDao.deletePlanKeepingHistory].
   Future<void> _deleteWorkout(int? planId) async {
     if (planId == null) return;
     final db = context.read<AppDatabase>();
 
-    final sessions = await (db.select(db.scheduledWorkoutTable)
-          ..where((t) => t.workoutPlanId.equals(planId)))
-        .get();
-    for (final session in sessions) {
-      await db.workoutDao.markScheduledWorkoutPendingDelete(session.id);
-    }
-
-    await db.workoutPlanDao.markPlanPendingDelete(planId);
+    await db.workoutPlanDao.deletePlanKeepingHistory(planId);
 
     if (!mounted) return;
     context.read<WorkoutProvider>().loadCompletePlans();

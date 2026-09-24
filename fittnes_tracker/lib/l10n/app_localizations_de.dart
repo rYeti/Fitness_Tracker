@@ -2344,6 +2344,10 @@ class AppLocalizationsDe extends AppLocalizations {
   String get syncComplete => 'Synchronisierung abgeschlossen';
 
   @override
+  String get syncAlreadyRunning =>
+      'Eine Synchronisierung läuft bereits. Versuche es gleich noch einmal.';
+
+  @override
   String syncFailed(Object error) {
     return 'Synchronisierung fehlgeschlagen: $error';
   }

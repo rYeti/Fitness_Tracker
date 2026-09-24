@@ -1,6 +1,6 @@
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/dao/meal_template_dao.dart';
-import 'package:ForgeForm/core/network/services/sync_service.dart';
+import 'package:ForgeForm/core/sync/sync_service.dart';
 import 'package:ForgeForm/feature/workout_planning/data/models/workout.dart';
 import 'package:ForgeForm/feature/workout_planning/data/models/workout_exercise.dart';
 import 'package:ForgeForm/feature/workout_planning/data/models/workout_set.dart';
@@ -26,6 +26,7 @@ void main() {
 
   setUp(() {
     SharedPreferences.setMockInitialValues({});
+    SyncService.resetForTesting();
     db = AppDatabase.test(NativeDatabase.memory());
     api = FakeApiClient();
     sync = SyncService(
@@ -1165,44 +1166,49 @@ void main() {
             ..where((t) => t.workoutId.equals(workoutId))).getSingle();
       await db.workoutDao.markWorkoutExerciseSynced(we.id, 'server-we1');
 
-      final swId = await db
-          .into(db.scheduledWorkoutTable)
-          .insert(
-            ScheduledWorkoutTableCompanion.insert(
-              workoutId: workoutId,
-              scheduledDate: DateTime(2026, 1, 5),
-              isCompleted: const Value(true),
-              serverId: Value(swServerId),
-              syncStatus: Value(swServerId == null ? 0 : 1),
-            ),
-          );
-      final seId = await db
-          .into(db.scheduledWorkoutExerciseTable)
-          .insert(
-            ScheduledWorkoutExerciseTableCompanion.insert(
-              scheduledWorkoutId: swId,
-              workoutExerciseId: we.id,
-              serverId: Value(seServerId),
-              syncStatus: Value(seServerId == null ? 0 : 1),
-            ),
-          );
-      final setId = await db
-          .into(db.workoutSetTable)
-          .insert(
-            WorkoutSetTableCompanion.insert(
-              scheduledWorkoutExerciseId: seId,
-              setNumber: 1,
-              reps: const Value(8),
-              weight: const Value(100),
-              rpe: Value(rpe),
-              setType: Value(setType.index),
-              side: Value(side.index),
-              isCompleted: const Value(true),
-              serverId: Value(setServerId),
-              syncStatus: Value(setSyncStatus),
-            ),
-          );
-      return (setId: setId);
+      // As the sync engine would have left them: logging a set is a change to
+      // its exercise, and the database marks the exercise for pushing — which
+      // is not the state being described here.
+      return db.untracked(() async {
+        final swId = await db
+            .into(db.scheduledWorkoutTable)
+            .insert(
+              ScheduledWorkoutTableCompanion.insert(
+                workoutId: workoutId,
+                scheduledDate: DateTime(2026, 1, 5),
+                isCompleted: const Value(true),
+                serverId: Value(swServerId),
+                syncStatus: Value(swServerId == null ? 0 : 1),
+              ),
+            );
+        final seId = await db
+            .into(db.scheduledWorkoutExerciseTable)
+            .insert(
+              ScheduledWorkoutExerciseTableCompanion.insert(
+                scheduledWorkoutId: swId,
+                workoutExerciseId: we.id,
+                serverId: Value(seServerId),
+                syncStatus: Value(seServerId == null ? 0 : 1),
+              ),
+            );
+        final setId = await db
+            .into(db.workoutSetTable)
+            .insert(
+              WorkoutSetTableCompanion.insert(
+                scheduledWorkoutExerciseId: seId,
+                setNumber: 1,
+                reps: const Value(8),
+                weight: const Value(100),
+                rpe: Value(rpe),
+                setType: Value(setType.index),
+                side: Value(side.index),
+                isCompleted: const Value(true),
+                serverId: Value(setServerId),
+                syncStatus: Value(setSyncStatus),
+              ),
+            );
+        return (setId: setId);
+      });
     }
 
     /// Stubs a pull in which the server holds the session seeded above, with
@@ -1288,10 +1294,14 @@ void main() {
 
       await sync.syncAll();
 
-      final put = api.puts.singleWhere(
-        (p) => p.path == 'api/ScheduledWorkout/exercises/sets/server-set1',
+      // The exercise's whole log, which the server replaces — see
+      // `_syncSetsForScheduledWorkout`.
+      final batch = api.posts.singleWhere(
+        (p) =>
+            p.path ==
+            'api/ScheduledWorkout/server-sw1/exercises/server-se1/sets/batch',
       );
-      final body = put.data as Map;
+      final body = (batch.data as List).single as Map;
       expect(body['rpe'], 9);
       expect(body['setType'], SetType.failure.index);
       expect(body['side'], SetSide.right.index);
@@ -1350,15 +1360,12 @@ void main() {
 
         await sync.syncAll();
 
-        final body =
-            api.puts
-                    .singleWhere(
-                      (p) =>
-                          p.path ==
-                          'api/ScheduledWorkout/exercises/sets/server-set1',
-                    )
-                    .data
-                as Map;
+        final batch = api.posts.singleWhere(
+          (p) =>
+              p.path ==
+              'api/ScheduledWorkout/server-sw1/exercises/server-se1/sets/batch',
+        );
+        final body = (batch.data as List).single as Map;
         expect(body['rpe'], 8);
         expect(body['setType'], SetType.warmup.index);
         expect(body['side'], SetSide.left.index);

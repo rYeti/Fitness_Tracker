@@ -6,7 +6,9 @@ import 'package:go_router/go_router.dart';
 import 'package:ForgeForm/core/dao/meal_template_dao.dart';
 import 'package:ForgeForm/core/network/api_client.dart';
 import 'package:ForgeForm/core/network/secure_token_storage.dart';
-import 'package:ForgeForm/core/network/services/sync_service.dart';
+import 'package:ForgeForm/core/sync/sync_service.dart';
+import 'package:ForgeForm/core/sync/sync_lease.dart';
+import 'package:ForgeForm/core/sync/sync_scheduler.dart';
 import 'package:ForgeForm/core/network/token_refresh_service.dart';
 import 'package:ForgeForm/core/seed_exercises.dart';
 import 'package:ForgeForm/core/seed_verified_foods.dart';
@@ -96,11 +98,24 @@ void _backgroundSyncDispatcher() {
       mealTemplateDao: MealTemplateDao(db),
     );
 
-    await syncService.syncAll();
-    await prefs.setInt(
-      'last_sync_timestamp',
-      DateTime.now().millisecondsSinceEpoch,
-    );
+    try {
+      // Takes the sync lease like any other run, so it never pushes alongside
+      // the app's own sync — two pushes at once POST the same rows twice.
+      await syncService.syncAll();
+      await prefs.setInt(
+        'last_sync_timestamp',
+        DateTime.now().millisecondsSinceEpoch,
+      );
+    } on SyncBusyException {
+      // The app is syncing right now; this run has nothing left to do.
+    } on SyncLeaseLostException {
+      // Another run took over mid-push; what this one didn't finish is still
+      // pending, and that run or the next one sends it.
+    } finally {
+      // This isolate's connection, not the app's. Left open, it held the
+      // database file for as long as the OS kept the isolate around.
+      await db.close();
+    }
 
     return true;
   });
@@ -677,6 +692,12 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int _selectedIndex = 0;
 
+  /// Pushes local changes as they happen — see [SyncScheduler].
+  late final SyncScheduler _syncScheduler = SyncScheduler(
+    db: sl<AppDatabase>(),
+    service: _syncService,
+  );
+
   // Builders rather than widgets: LazyIndexedStack mounts a tab the first time
   // it is selected. Building all five up front meant every tab ran its
   // initState database loads on the first frame — the Progress tab's
@@ -697,6 +718,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     // If the OS killed the app while the user was mid-workout, jump straight
     // to the gym tab so ScheduledWorkoutsView can auto-resume the session.
     _switchToGymTabIfWorkoutInProgress();
+    _syncScheduler.start();
     _runInitialSync();
 
     // Publishes this device's chat key, if it hasn't been already -- not
@@ -718,6 +740,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _syncScheduler.stop();
     super.dispose();
   }
 
@@ -725,6 +748,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _runInitialSync();
+    } else if (state == AppLifecycleState.paused) {
+      unawaited(_syncScheduler.onBackgrounded());
     }
   }
 
@@ -801,13 +826,32 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  Future<void> _runInitialSync() async {
+  /// A service to sync with, or null when nobody is signed in.
+  static Future<SyncService?> _syncService() async {
+    final token = await SecureTokenStorage.getToken();
+    if (token == null) return null;
     final prefs = await SharedPreferences.getInstance();
-    // The pull is throttled on its own key, not on last_sync_timestamp. The
-    // background task stamps that one after a push-only sync, so a background
-    // run that never downloaded anything used to suppress the foreground pull
-    // for the next six hours — which is why data could take most of a day to
-    // come back after signing in again.
+    final serverUrl = prefs.getString(serverUrlPrefsKey) ?? serverUrlDefault;
+    final db = sl<AppDatabase>();
+    return SyncService(
+      db: db,
+      apiClient: ApiClient(baseUrl: serverUrl),
+      mealTemplateDao: MealTemplateDao(db),
+    );
+  }
+
+  /// Launch and resume: push now, and pull if one is due.
+  ///
+  /// The push is not throttled — it only sends what changed, and a trainee's
+  /// session should reach their trainer when it's logged, not hours later.
+  /// The pull still downloads the whole account and keeps its six-hour
+  /// throttle, on its own key: the background task stamps
+  /// `last_sync_timestamp` after a push-only sync, so a background run that
+  /// never downloaded anything used to suppress the foreground pull.
+  Future<void> _runInitialSync() async {
+    await _syncScheduler.onResumed();
+
+    final prefs = await SharedPreferences.getInstance();
     final lastPullMs = prefs.getInt(lastPullPrefsKey);
     if (lastPullMs != null) {
       final lastPull = DateTime.fromMillisecondsSinceEpoch(lastPullMs);
@@ -816,22 +860,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       }
     }
 
-    final token = await SecureTokenStorage.getToken();
-    if (token == null) return; // not logged in
-
-    final serverUrl = prefs.getString(serverUrlPrefsKey) ?? serverUrlDefault;
-    final db = sl<AppDatabase>();
-    final syncService = SyncService(
-      db: db,
-      apiClient: ApiClient(baseUrl: serverUrl),
-      mealTemplateDao: MealTemplateDao(db),
-    );
+    final syncService = await _syncService();
+    if (syncService == null) return; // not logged in
 
     try {
-      await syncService.syncAll();
       await syncService.pullAll();
+      // Only a pull that finished every step counts: pullAll throws
+      // SyncIncompleteException otherwise, and the steps that failed are
+      // retried on the next launch or resume instead of in six hours.
       final now = DateTime.now().millisecondsSinceEpoch;
-      await prefs.setInt('last_sync_timestamp', now);
       await prefs.setInt(lastPullPrefsKey, now);
       if (mounted) {
         globalFoodTrackingKey.currentState?.loadNutritionData();

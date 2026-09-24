@@ -7,6 +7,11 @@ import 'dart:developer' as dev;
 class MealTemplateDao {
   final AppDatabase db;
   static const String _storageKey = 'meal_templates';
+
+  /// Server ids of templates deleted on this device and not yet deleted on
+  /// the server. Per account — `clearPerAccountPrefs` removes it with the
+  /// templates themselves.
+  static const String deletedStorageKey = 'meal_templates_deleted';
   static int _nextId = 1;
 
   MealTemplateDao(this.db) {
@@ -155,6 +160,7 @@ class MealTemplateDao {
 
         // Update the template
         template['items'] = items;
+        _markEdited(template);
         templates[index] = template;
 
         await _saveTemplates(templates);
@@ -182,6 +188,18 @@ class MealTemplateDao {
         if (!template.containsKey('items')) {
           template['items'] = templates[index]['items'];
         }
+
+        // And the sync bookkeeping, which no caller knows about: dropping the
+        // server id here made every edited template look new, so the push
+        // created a second copy on the server and the next pull brought the
+        // first back beside it.
+        for (final key in const ['serverId', 'rev']) {
+          if (!template.containsKey(key) &&
+              templates[index].containsKey(key)) {
+            template[key] = templates[index][key];
+          }
+        }
+        _markEdited(template);
 
         // Update the template in the list
         templates[index] = template;
@@ -213,6 +231,7 @@ class MealTemplateDao {
       if (index >= 0) {
         final itemCount = (templates[index]['items'] as List).length;
         templates[index]['items'] = [];
+        _markEdited(templates[index]);
         await _saveTemplates(templates);
         return itemCount;
       }
@@ -230,8 +249,18 @@ class MealTemplateDao {
       final index = templates.indexWhere((t) => t['id'] == templateId);
 
       if (index >= 0) {
-        templates.removeAt(index);
+        final removed = templates.removeAt(index);
         await _saveTemplates(templates);
+        // Remembered until the push has told the server — without it the next
+        // pull found the template still there and put it back.
+        final serverId = removed['serverId'] as String?;
+        if (serverId != null && serverId.isNotEmpty) {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setStringList(deletedStorageKey, [
+            ...?prefs.getStringList(deletedStorageKey),
+            serverId,
+          ]);
+        }
         return 1;
       }
       return 0;
@@ -243,6 +272,17 @@ class MealTemplateDao {
 
   // ── Sync helpers ────────────────────────────────────────────────────────────
 
+  // Templates live in SharedPreferences, where the database's sync triggers
+  // (lib/core/sync/sync_triggers.dart) can't see them, so they keep the same
+  // two facts by hand: `dirty`, set on every edit to one the server has, and
+  // `rev`, bumped on every edit so a push can tell whether what it sent is
+  // still what's stored.
+  static void _markEdited(Map<String, dynamic> template) {
+    template['rev'] = ((template['rev'] as int?) ?? 0) + 1;
+    final serverId = template['serverId'] as String?;
+    if (serverId != null && serverId.isNotEmpty) template['dirty'] = true;
+  }
+
   /// Returns all templates that have not yet been synced (no serverId).
   Future<List<Map<String, dynamic>>> getUnsyncedTemplates() async {
     final templates = await _loadTemplates();
@@ -251,14 +291,76 @@ class MealTemplateDao {
         .toList();
   }
 
-  /// Stores the server-assigned UUID on the template so it is not re-synced.
-  Future<void> markTemplateSynced(int localId, String serverId) async {
+  /// Templates the server has that were edited here since.
+  Future<List<Map<String, dynamic>>> getEditedTemplates() async {
+    final templates = await _loadTemplates();
+    return templates
+        .where(
+          (t) =>
+              t['dirty'] == true &&
+              t['serverId'] is String &&
+              (t['serverId'] as String).isNotEmpty,
+        )
+        .toList();
+  }
+
+  /// Stores the server-assigned UUID on the template and records that the
+  /// server has it as of [sentRev] — unless it was edited while the request
+  /// was in flight, in which case it stays marked for the next push.
+  Future<void> markTemplateSynced(
+    int localId,
+    String serverId, {
+    int? sentRev,
+  }) async {
     final templates = await _loadTemplates();
     final index = templates.indexWhere((t) => t['id'] == localId);
     if (index >= 0) {
-      templates[index]['serverId'] = serverId;
+      final template = templates[index];
+      template['serverId'] = serverId;
+      final unchanged = ((template['rev'] as int?) ?? 0) == (sentRev ?? 0);
+      if (unchanged) {
+        template.remove('dirty');
+      } else {
+        template['dirty'] = true;
+      }
       await _saveTemplates(templates);
     }
+  }
+
+  /// Whether any template has something to send: never pushed, edited since
+  /// it was, or deleted here. Static so the push scheduler can ask without
+  /// building a DAO.
+  static Future<bool> hasPendingSync() async {
+    final prefs = await SharedPreferences.getInstance();
+    if ((prefs.getStringList(deletedStorageKey) ?? const []).isNotEmpty) {
+      return true;
+    }
+    final json = prefs.getString(_storageKey);
+    if (json == null || json.isEmpty) return false;
+    try {
+      for (final t in (jsonDecode(json) as List).cast<Map>()) {
+        final serverId = t['serverId'] as String?;
+        if (serverId == null || serverId.isEmpty || t['dirty'] == true) {
+          return true;
+        }
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  /// Server ids of templates deleted here that the server may still have.
+  Future<List<String>> getDeletedServerIds() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getStringList(deletedStorageKey) ?? const [];
+  }
+
+  /// Forgets a deletion the server has been told about.
+  Future<void> clearDeleted(String serverId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(deletedStorageKey, [
+      for (final id in prefs.getStringList(deletedStorageKey) ?? const [])
+        if (id != serverId) id,
+    ]);
   }
 
   /// Returns the server UUID for the given local template ID, or null.

@@ -372,23 +372,11 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
           ..where((w) => w.id.equals(workout.id!))).write(workoutCompanion);
 
         workoutId = workout.id!;
-
-        // An edit to an already-synced workout has to re-enter the push queue,
-        // or nothing below this line ever reaches the server: syncWorkoutTemplates
-        // only looks at rows whose syncStatus != synced, so leaving it at synced
-        // stranded every rename, every set change, and — worst — every
-        // pendingDelete stamped on a removed exercise in step 2️⃣, which is what
-        // put deleted exercises back on the next full pull.
-        //
-        // Only synced is promoted: pending (a workout that has never reached the
-        // server) and pendingDelete (one on its way out) both outrank an update
-        // and must not be overwritten by it.
-        final current =
-            await (select(workoutTable)
-              ..where((w) => w.id.equals(workoutId))).getSingleOrNull();
-        if (current?.syncStatus == 1) {
-          await markWorkoutPendingUpdate(workoutId);
-        }
+        // No status to set here, for this row or any below it: the database
+        // marks a synced row pendingUpdate whenever a column the push sends
+        // actually changes (lib/core/sync/sync_triggers.dart). This method used
+        // to do it by hand, and every write that forgot to — this one included,
+        // until it was fixed twice — was an edit that never left the device.
       }
 
       // 🔹 2️⃣ If updating, diff old vs new exercises.
@@ -456,28 +444,16 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
         final existing = exercise.id != null ? existingById[exercise.id] : null;
         if (existing != null) {
           // Update in-place — preserve the ID so historical data stays linked.
+          // A reorder, a note or a superset change dirties the row by itself;
+          // one that changes nothing leaves it synced (see
+          // docs/workout-exercise-order.md for why both halves matter).
           exerciseInstanceId = existing.id;
-          // Same promotion as the workout row above, one level down. The push
-          // only sends an exercise whose own syncStatus is pendingUpdate, so a
-          // reorder written here while the row stayed synced never reached the
-          // server — and the next pull's reconcile, which trusts a clean row to
-          // match the server, put the old positions straight back. That is the
-          // "exercise order randomly changed" bug: see
-          // docs/workout-exercise-order.md.
-          final changed =
-              existing.orderPosition != exercise.orderPosition ||
-              existing.notes != exercise.notes ||
-              existing.supersetGroupId != exercise.supersetGroupId;
           await (update(workoutExerciseTable)
             ..where((we) => we.id.equals(exerciseInstanceId))).write(
             WorkoutExerciseTableCompanion(
               orderPosition: Value(exercise.orderPosition),
               notes: Value(exercise.notes),
               supersetGroupId: Value(exercise.supersetGroupId),
-              syncStatus:
-                  changed && existing.syncStatus == 1
-                      ? const Value(2) // pendingUpdate
-                      : const Value.absent(),
             ),
           );
         } else {
@@ -493,40 +469,42 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
           );
         }
 
-        // ✅ ONLY insert into workoutSetTable if NOT template
-        if (!workout.isTemplate) {
-          for (final set in exercise.sets) {
-            final setCompanion = WorkoutSetTableCompanion(
-              scheduledWorkoutExerciseId: Value(exerciseInstanceId),
-              setNumber: Value(set.setNumber),
-              reps: Value(set.reps),
-              weight: Value(set.weight),
-              weightUnit: Value(set.weightUnit),
-              durationSeconds: Value(set.durationSeconds),
-              isCompleted: Value(set.isCompleted),
-              notes: Value(set.notes),
-              rpe: Value(set.rpe),
-              setType: Value(set.setType.index),
-              side: Value(set.side.index),
+        // Logged sets are never written here. They belong to a session
+        // (`workout_set_table.scheduled_workout_exercise_id`), and the active
+        // workout writes them against one. This method used to insert a
+        // non-template workout's sets with a *workout* exercise id in that
+        // column — an id from another table, which attached them to whichever
+        // unrelated session happened to hold that number.
+
+        // Rebuild the prescription only when it changed. Every set template is
+        // part of the exercise's list on the server, so rewriting them marks
+        // the exercise for pushing (the database treats any change to an owned
+        // list as a change to its owner); rewriting an unchanged list on every
+        // save would PUT every exercise of the workout for a rename.
+        final prescription = [
+          for (final set in exercise.sets)
+            (set.setNumber, set.targetReps ?? '8 - 12', set.setNumber - 1),
+        ];
+        final stored = [
+          for (final t in await getSetTemplatesForWorkoutExercise(
+            exerciseInstanceId,
+          ))
+            (t.setNumber, t.targetReps, t.orderPosition),
+        ];
+        if (!_samePrescription(stored, prescription)) {
+          await (delete(workoutSetTemplateTable)
+            ..where((t) => t.workoutExerciseId.equals(exerciseInstanceId))).go();
+
+          for (final (setNumber, targetReps, orderPosition) in prescription) {
+            await into(workoutSetTemplateTable).insert(
+              WorkoutSetTemplateTableCompanion(
+                workoutExerciseId: Value(exerciseInstanceId),
+                setNumber: Value(setNumber),
+                targetReps: Value(targetReps),
+                orderPosition: Value(orderPosition),
+              ),
             );
-
-            await into(workoutSetTable).insert(setCompanion);
           }
-        }
-
-        // ✅ ALWAYS rebuild template sets
-        await (delete(workoutSetTemplateTable)
-          ..where((t) => t.workoutExerciseId.equals(exerciseInstanceId))).go();
-
-        for (final set in exercise.sets) {
-          final templateCompanion = WorkoutSetTemplateTableCompanion(
-            workoutExerciseId: Value(exerciseInstanceId),
-            setNumber: Value(set.setNumber),
-            targetReps: Value(set.targetReps ?? "8 - 12"),
-            orderPosition: Value(set.setNumber - 1),
-          );
-
-          await into(workoutSetTemplateTable).insert(templateCompanion);
         }
       }
 
@@ -534,26 +512,82 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
     });
   }
 
-  // Delete a workout and all related data
+  /// Whether a session scheduled from this workout holds any logged set.
+  Future<bool> hasLoggedSessions(int workoutId) async {
+    final sessionExercises = attachedDatabase.scheduledWorkoutExerciseTable;
+    final logged =
+        await (select(workoutSetTable).join([
+                innerJoin(
+                  sessionExercises,
+                  sessionExercises.id.equalsExp(
+                    workoutSetTable.scheduledWorkoutExerciseId,
+                  ),
+                ),
+                innerJoin(
+                  scheduledWorkoutTable,
+                  scheduledWorkoutTable.id.equalsExp(
+                    sessionExercises.scheduledWorkoutId,
+                  ),
+                ),
+              ])
+              ..where(scheduledWorkoutTable.workoutId.equals(workoutId))
+              ..limit(1))
+            .getSingleOrNull();
+    return logged != null;
+  }
+
+  static bool _samePrescription(
+    List<(int, String, int)> a,
+    List<(int, String, int)> b,
+  ) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
+  /// Deletes a workout with everything that belongs only to it: its exercise
+  /// entries, their set templates, its plan links, and the sessions scheduled
+  /// from it that nothing was logged in.
+  ///
+  /// Returns false, deleting nothing, when a session of it holds logged sets —
+  /// the same rule the server applies (it answers 409). Training history
+  /// outranks tidiness.
+  ///
+  /// Foreign keys aren't enforced on this database, so all of it is removed by
+  /// hand; nothing cascades. This used to delete logged sets `where
+  /// scheduledWorkoutExerciseId == <a workout exercise's id>` — an id from
+  /// another table — which removed sets from whichever unrelated sessions
+  /// happened to hold those numbers, and left this workout's own templates
+  /// and sessions behind.
   Future<bool> deleteWorkout(int id) {
     return transaction(() async {
-      // Get all exercise instances for this workout
+      if (await hasLoggedSessions(id)) return false;
+      final sessions =
+          await (select(scheduledWorkoutTable)
+            ..where((sw) => sw.workoutId.equals(id))).get();
+      final sessionExerciseTable = attachedDatabase.scheduledWorkoutExerciseTable;
+
+      await (delete(sessionExerciseTable)..where(
+            (se) => se.scheduledWorkoutId.isIn(sessions.map((s) => s.id)),
+          ))
+          .go();
+      await (delete(scheduledWorkoutTable)
+        ..where((sw) => sw.workoutId.equals(id))).go();
+
       final exerciseInstances =
           await (select(workoutExerciseTable)
             ..where((we) => we.workoutId.equals(id))).get();
-
-      // Delete sets for each exercise instance
-      for (final exercise in exerciseInstances) {
-        await (delete(
-          workoutSetTable,
-        )..where((s) => s.scheduledWorkoutExerciseId.equals(exercise.id))).go();
-      }
-
-      // Delete exercise instances
+      await (delete(workoutSetTemplateTable)..where(
+            (t) => t.workoutExerciseId.isIn(exerciseInstances.map((e) => e.id)),
+          ))
+          .go();
       await (delete(workoutExerciseTable)
         ..where((we) => we.workoutId.equals(id))).go();
+      await (delete(workoutPlanWorkoutTable)
+        ..where((l) => l.workoutId.equals(id))).go();
 
-      // Delete workout
       final rowsDeleted =
           await (delete(workoutTable)..where((w) => w.id.equals(id))).go();
 

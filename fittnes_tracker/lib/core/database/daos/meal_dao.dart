@@ -215,7 +215,15 @@ class MealDao extends DatabaseAccessor<AppDatabase> with _$MealDaoMixin {
 
   /// Removes duplicate meal rows for the same date+category, keeping the one
   /// with a serverId (or lowest id). Re-parents food entries before deleting.
-  Future<void> deduplicateMeals() async {
+  ///
+  /// Runs as the sync engine (`AppDatabase.untracked`): folding a local
+  /// duplicate is not the user deleting a meal, and must not reach the server
+  /// as a DELETE — the database records one for every synced row deleted any
+  /// other way.
+  Future<void> deduplicateMeals() =>
+      attachedDatabase.untracked(_deduplicateMeals);
+
+  Future<void> _deduplicateMeals() async {
     final all =
         await (select(mealTable)
           ..orderBy([(t) => OrderingTerm.asc(t.id)])).get();
@@ -246,6 +254,10 @@ class MealDao extends DatabaseAccessor<AppDatabase> with _$MealDaoMixin {
             keeperFoodIds.add(entry.foodEntryId);
           }
         }
+        // What wasn't moved repeats a food the keeper already has; left in
+        // place it would point at the meal deleted below.
+        await (delete(mealFoodTable)
+          ..where((t) => t.mealId.equals(dupe.id))).go();
         await (delete(mealTable)..where((t) => t.id.equals(dupe.id))).go();
       }
     }

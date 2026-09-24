@@ -690,22 +690,14 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
         final note =
             noteController?.text.isEmpty ?? true ? null : noteController!.text;
 
-        // Flagged for sync only when the note actually changed: this runs on
-        // every debounced set edit, and the note is what a client's trainer
-        // reads in Session Review — an unflagged write never leaves the device.
-        final stored =
-            await (db.select(db.scheduledWorkoutExerciseTable)..where(
-              (t) => t.id.equals(scheduledExerciseId),
-            )).getSingleOrNull();
-        if (stored != null && stored.notes != note) {
-          await (db.update(db.scheduledWorkoutExerciseTable)
-            ..where((t) => t.id.equals(scheduledExerciseId))).write(
-            ScheduledWorkoutExerciseTableCompanion(
-              notes: Value(note),
-              syncStatus: const Value(2),
-            ),
-          );
-        }
+        // The note is what a client's trainer reads in Session Review. The
+        // database marks the entry for pushing when the note actually changes
+        // (lib/core/sync/sync_triggers.dart), so this runs on every debounced
+        // set edit without pushing anything it didn't change.
+        await (db.update(db.scheduledWorkoutExerciseTable)
+          ..where((t) => t.id.equals(scheduledExerciseId))).write(
+          ScheduledWorkoutExerciseTableCompanion(notes: Value(note)),
+        );
       } else {
         // Guard against concurrent saves both seeing scheduledExerciseId==null
         // and each inserting a duplicate row.
@@ -852,7 +844,6 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                 : _workoutNoteController.text,
           ),
           isCompleted: const Value(true),
-          syncStatus: Value(SyncStatus.pendingUpdate.index),
         ),
       );
 
@@ -2297,6 +2288,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                                   orderPosition: _exercises.length + 1,
                                   notes: null,
                                   syncStatus: 0,
+                                  localRev: 0,
                                 ),
                                 templates: [
                                   WorkoutSetTemplateData(

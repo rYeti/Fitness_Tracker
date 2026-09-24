@@ -119,6 +119,18 @@ class $FoodItemTable extends FoodItem
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _localRevMeta = const VerificationMeta(
+    'localRev',
+  );
+  @override
+  late final GeneratedColumn<int> localRev = GeneratedColumn<int>(
+    'local_rev',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   static const VerificationMeta _serverIdMeta = const VerificationMeta(
     'serverId',
   );
@@ -153,6 +165,7 @@ class $FoodItemTable extends FoodItem
     hiddenFromRecent,
     extendedNutrientsJson,
     syncStatus,
+    localRev,
     serverId,
     openFoodFactsId,
   ];
@@ -241,6 +254,12 @@ class $FoodItemTable extends FoodItem
         syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
       );
     }
+    if (data.containsKey('local_rev')) {
+      context.handle(
+        _localRevMeta,
+        localRev.isAcceptableOrUnknown(data['local_rev']!, _localRevMeta),
+      );
+    }
     if (data.containsKey('server_id')) {
       context.handle(
         _serverIdMeta,
@@ -314,6 +333,11 @@ class $FoodItemTable extends FoodItem
             DriftSqlType.int,
             data['${effectivePrefix}sync_status'],
           )!,
+      localRev:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.int,
+            data['${effectivePrefix}local_rev'],
+          )!,
       serverId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}server_id'],
@@ -345,8 +369,12 @@ class FoodItemData extends DataClass implements Insertable<FoodItemData> {
   /// added before this column was introduced.
   final String? extendedNutrientsJson;
 
-  /// Maps to [FoodItemSyncStatus] by index.
+  /// Maps to [SyncStatus] by index.
   final int syncStatus;
+
+  /// Bumped by the database on every local change — see [SyncStatus] and
+  /// `lib/core/sync/sync_triggers.dart`.
+  final int localRev;
 
   /// UUID assigned by the remote API after first successful sync.
   final String? serverId;
@@ -365,6 +393,7 @@ class FoodItemData extends DataClass implements Insertable<FoodItemData> {
     required this.hiddenFromRecent,
     this.extendedNutrientsJson,
     required this.syncStatus,
+    required this.localRev,
     this.serverId,
     this.openFoodFactsId,
   });
@@ -383,6 +412,7 @@ class FoodItemData extends DataClass implements Insertable<FoodItemData> {
       map['extended_nutrients_json'] = Variable<String>(extendedNutrientsJson);
     }
     map['sync_status'] = Variable<int>(syncStatus);
+    map['local_rev'] = Variable<int>(localRev);
     if (!nullToAbsent || serverId != null) {
       map['server_id'] = Variable<String>(serverId);
     }
@@ -407,6 +437,7 @@ class FoodItemData extends DataClass implements Insertable<FoodItemData> {
               ? const Value.absent()
               : Value(extendedNutrientsJson),
       syncStatus: Value(syncStatus),
+      localRev: Value(localRev),
       serverId:
           serverId == null && nullToAbsent
               ? const Value.absent()
@@ -436,6 +467,7 @@ class FoodItemData extends DataClass implements Insertable<FoodItemData> {
         json['extendedNutrientsJson'],
       ),
       syncStatus: serializer.fromJson<int>(json['syncStatus']),
+      localRev: serializer.fromJson<int>(json['localRev']),
       serverId: serializer.fromJson<String?>(json['serverId']),
       openFoodFactsId: serializer.fromJson<String?>(json['openFoodFactsId']),
     );
@@ -456,6 +488,7 @@ class FoodItemData extends DataClass implements Insertable<FoodItemData> {
         extendedNutrientsJson,
       ),
       'syncStatus': serializer.toJson<int>(syncStatus),
+      'localRev': serializer.toJson<int>(localRev),
       'serverId': serializer.toJson<String?>(serverId),
       'openFoodFactsId': serializer.toJson<String?>(openFoodFactsId),
     };
@@ -472,6 +505,7 @@ class FoodItemData extends DataClass implements Insertable<FoodItemData> {
     bool? hiddenFromRecent,
     Value<String?> extendedNutrientsJson = const Value.absent(),
     int? syncStatus,
+    int? localRev,
     Value<String?> serverId = const Value.absent(),
     Value<String?> openFoodFactsId = const Value.absent(),
   }) => FoodItemData(
@@ -488,6 +522,7 @@ class FoodItemData extends DataClass implements Insertable<FoodItemData> {
             ? extendedNutrientsJson.value
             : this.extendedNutrientsJson,
     syncStatus: syncStatus ?? this.syncStatus,
+    localRev: localRev ?? this.localRev,
     serverId: serverId.present ? serverId.value : this.serverId,
     openFoodFactsId:
         openFoodFactsId.present ? openFoodFactsId.value : this.openFoodFactsId,
@@ -511,6 +546,7 @@ class FoodItemData extends DataClass implements Insertable<FoodItemData> {
               : this.extendedNutrientsJson,
       syncStatus:
           data.syncStatus.present ? data.syncStatus.value : this.syncStatus,
+      localRev: data.localRev.present ? data.localRev.value : this.localRev,
       serverId: data.serverId.present ? data.serverId.value : this.serverId,
       openFoodFactsId:
           data.openFoodFactsId.present
@@ -532,6 +568,7 @@ class FoodItemData extends DataClass implements Insertable<FoodItemData> {
           ..write('hiddenFromRecent: $hiddenFromRecent, ')
           ..write('extendedNutrientsJson: $extendedNutrientsJson, ')
           ..write('syncStatus: $syncStatus, ')
+          ..write('localRev: $localRev, ')
           ..write('serverId: $serverId, ')
           ..write('openFoodFactsId: $openFoodFactsId')
           ..write(')'))
@@ -550,6 +587,7 @@ class FoodItemData extends DataClass implements Insertable<FoodItemData> {
     hiddenFromRecent,
     extendedNutrientsJson,
     syncStatus,
+    localRev,
     serverId,
     openFoodFactsId,
   );
@@ -567,6 +605,7 @@ class FoodItemData extends DataClass implements Insertable<FoodItemData> {
           other.hiddenFromRecent == this.hiddenFromRecent &&
           other.extendedNutrientsJson == this.extendedNutrientsJson &&
           other.syncStatus == this.syncStatus &&
+          other.localRev == this.localRev &&
           other.serverId == this.serverId &&
           other.openFoodFactsId == this.openFoodFactsId);
 }
@@ -582,6 +621,7 @@ class FoodItemCompanion extends UpdateCompanion<FoodItemData> {
   final Value<bool> hiddenFromRecent;
   final Value<String?> extendedNutrientsJson;
   final Value<int> syncStatus;
+  final Value<int> localRev;
   final Value<String?> serverId;
   final Value<String?> openFoodFactsId;
   const FoodItemCompanion({
@@ -595,6 +635,7 @@ class FoodItemCompanion extends UpdateCompanion<FoodItemData> {
     this.hiddenFromRecent = const Value.absent(),
     this.extendedNutrientsJson = const Value.absent(),
     this.syncStatus = const Value.absent(),
+    this.localRev = const Value.absent(),
     this.serverId = const Value.absent(),
     this.openFoodFactsId = const Value.absent(),
   });
@@ -609,6 +650,7 @@ class FoodItemCompanion extends UpdateCompanion<FoodItemData> {
     this.hiddenFromRecent = const Value.absent(),
     this.extendedNutrientsJson = const Value.absent(),
     this.syncStatus = const Value.absent(),
+    this.localRev = const Value.absent(),
     this.serverId = const Value.absent(),
     this.openFoodFactsId = const Value.absent(),
   }) : name = Value(name),
@@ -627,6 +669,7 @@ class FoodItemCompanion extends UpdateCompanion<FoodItemData> {
     Expression<bool>? hiddenFromRecent,
     Expression<String>? extendedNutrientsJson,
     Expression<int>? syncStatus,
+    Expression<int>? localRev,
     Expression<String>? serverId,
     Expression<String>? openFoodFactsId,
   }) {
@@ -642,6 +685,7 @@ class FoodItemCompanion extends UpdateCompanion<FoodItemData> {
       if (extendedNutrientsJson != null)
         'extended_nutrients_json': extendedNutrientsJson,
       if (syncStatus != null) 'sync_status': syncStatus,
+      if (localRev != null) 'local_rev': localRev,
       if (serverId != null) 'server_id': serverId,
       if (openFoodFactsId != null) 'open_food_facts_id': openFoodFactsId,
     });
@@ -658,6 +702,7 @@ class FoodItemCompanion extends UpdateCompanion<FoodItemData> {
     Value<bool>? hiddenFromRecent,
     Value<String?>? extendedNutrientsJson,
     Value<int>? syncStatus,
+    Value<int>? localRev,
     Value<String?>? serverId,
     Value<String?>? openFoodFactsId,
   }) {
@@ -673,6 +718,7 @@ class FoodItemCompanion extends UpdateCompanion<FoodItemData> {
       extendedNutrientsJson:
           extendedNutrientsJson ?? this.extendedNutrientsJson,
       syncStatus: syncStatus ?? this.syncStatus,
+      localRev: localRev ?? this.localRev,
       serverId: serverId ?? this.serverId,
       openFoodFactsId: openFoodFactsId ?? this.openFoodFactsId,
     );
@@ -713,6 +759,9 @@ class FoodItemCompanion extends UpdateCompanion<FoodItemData> {
     if (syncStatus.present) {
       map['sync_status'] = Variable<int>(syncStatus.value);
     }
+    if (localRev.present) {
+      map['local_rev'] = Variable<int>(localRev.value);
+    }
     if (serverId.present) {
       map['server_id'] = Variable<String>(serverId.value);
     }
@@ -735,6 +784,7 @@ class FoodItemCompanion extends UpdateCompanion<FoodItemData> {
           ..write('hiddenFromRecent: $hiddenFromRecent, ')
           ..write('extendedNutrientsJson: $extendedNutrientsJson, ')
           ..write('syncStatus: $syncStatus, ')
+          ..write('localRev: $localRev, ')
           ..write('serverId: $serverId, ')
           ..write('openFoodFactsId: $openFoodFactsId')
           ..write(')'))
@@ -2035,6 +2085,18 @@ class $MealTableTable extends MealTable
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _localRevMeta = const VerificationMeta(
+    'localRev',
+  );
+  @override
+  late final GeneratedColumn<int> localRev = GeneratedColumn<int>(
+    'local_rev',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   static const VerificationMeta _serverIdMeta = const VerificationMeta(
     'serverId',
   );
@@ -2053,6 +2115,7 @@ class $MealTableTable extends MealTable
     category,
     foodItemId,
     syncStatus,
+    localRev,
     serverId,
   ];
   @override
@@ -2103,6 +2166,12 @@ class $MealTableTable extends MealTable
         syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
       );
     }
+    if (data.containsKey('local_rev')) {
+      context.handle(
+        _localRevMeta,
+        localRev.isAcceptableOrUnknown(data['local_rev']!, _localRevMeta),
+      );
+    }
     if (data.containsKey('server_id')) {
       context.handle(
         _serverIdMeta,
@@ -2143,6 +2212,11 @@ class $MealTableTable extends MealTable
             DriftSqlType.int,
             data['${effectivePrefix}sync_status'],
           )!,
+      localRev:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.int,
+            data['${effectivePrefix}local_rev'],
+          )!,
       serverId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}server_id'],
@@ -2162,8 +2236,12 @@ class MealTableData extends DataClass implements Insertable<MealTableData> {
   final String category;
   final int foodItemId;
 
-  /// Maps to [MealSyncStatus] by index.
+  /// Maps to [SyncStatus] by index.
   final int syncStatus;
+
+  /// Bumped by the database on every local change — see [SyncStatus] and
+  /// `lib/core/sync/sync_triggers.dart`.
+  final int localRev;
 
   /// UUID assigned by the remote API after first successful sync.
   final String? serverId;
@@ -2173,6 +2251,7 @@ class MealTableData extends DataClass implements Insertable<MealTableData> {
     required this.category,
     required this.foodItemId,
     required this.syncStatus,
+    required this.localRev,
     this.serverId,
   });
   @override
@@ -2183,6 +2262,7 @@ class MealTableData extends DataClass implements Insertable<MealTableData> {
     map['category'] = Variable<String>(category);
     map['food_item_id'] = Variable<int>(foodItemId);
     map['sync_status'] = Variable<int>(syncStatus);
+    map['local_rev'] = Variable<int>(localRev);
     if (!nullToAbsent || serverId != null) {
       map['server_id'] = Variable<String>(serverId);
     }
@@ -2196,6 +2276,7 @@ class MealTableData extends DataClass implements Insertable<MealTableData> {
       category: Value(category),
       foodItemId: Value(foodItemId),
       syncStatus: Value(syncStatus),
+      localRev: Value(localRev),
       serverId:
           serverId == null && nullToAbsent
               ? const Value.absent()
@@ -2214,6 +2295,7 @@ class MealTableData extends DataClass implements Insertable<MealTableData> {
       category: serializer.fromJson<String>(json['category']),
       foodItemId: serializer.fromJson<int>(json['foodItemId']),
       syncStatus: serializer.fromJson<int>(json['syncStatus']),
+      localRev: serializer.fromJson<int>(json['localRev']),
       serverId: serializer.fromJson<String?>(json['serverId']),
     );
   }
@@ -2226,6 +2308,7 @@ class MealTableData extends DataClass implements Insertable<MealTableData> {
       'category': serializer.toJson<String>(category),
       'foodItemId': serializer.toJson<int>(foodItemId),
       'syncStatus': serializer.toJson<int>(syncStatus),
+      'localRev': serializer.toJson<int>(localRev),
       'serverId': serializer.toJson<String?>(serverId),
     };
   }
@@ -2236,6 +2319,7 @@ class MealTableData extends DataClass implements Insertable<MealTableData> {
     String? category,
     int? foodItemId,
     int? syncStatus,
+    int? localRev,
     Value<String?> serverId = const Value.absent(),
   }) => MealTableData(
     id: id ?? this.id,
@@ -2243,6 +2327,7 @@ class MealTableData extends DataClass implements Insertable<MealTableData> {
     category: category ?? this.category,
     foodItemId: foodItemId ?? this.foodItemId,
     syncStatus: syncStatus ?? this.syncStatus,
+    localRev: localRev ?? this.localRev,
     serverId: serverId.present ? serverId.value : this.serverId,
   );
   MealTableData copyWithCompanion(MealTableCompanion data) {
@@ -2254,6 +2339,7 @@ class MealTableData extends DataClass implements Insertable<MealTableData> {
           data.foodItemId.present ? data.foodItemId.value : this.foodItemId,
       syncStatus:
           data.syncStatus.present ? data.syncStatus.value : this.syncStatus,
+      localRev: data.localRev.present ? data.localRev.value : this.localRev,
       serverId: data.serverId.present ? data.serverId.value : this.serverId,
     );
   }
@@ -2266,14 +2352,22 @@ class MealTableData extends DataClass implements Insertable<MealTableData> {
           ..write('category: $category, ')
           ..write('foodItemId: $foodItemId, ')
           ..write('syncStatus: $syncStatus, ')
+          ..write('localRev: $localRev, ')
           ..write('serverId: $serverId')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, date, category, foodItemId, syncStatus, serverId);
+  int get hashCode => Object.hash(
+    id,
+    date,
+    category,
+    foodItemId,
+    syncStatus,
+    localRev,
+    serverId,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2283,6 +2377,7 @@ class MealTableData extends DataClass implements Insertable<MealTableData> {
           other.category == this.category &&
           other.foodItemId == this.foodItemId &&
           other.syncStatus == this.syncStatus &&
+          other.localRev == this.localRev &&
           other.serverId == this.serverId);
 }
 
@@ -2292,6 +2387,7 @@ class MealTableCompanion extends UpdateCompanion<MealTableData> {
   final Value<String> category;
   final Value<int> foodItemId;
   final Value<int> syncStatus;
+  final Value<int> localRev;
   final Value<String?> serverId;
   const MealTableCompanion({
     this.id = const Value.absent(),
@@ -2299,6 +2395,7 @@ class MealTableCompanion extends UpdateCompanion<MealTableData> {
     this.category = const Value.absent(),
     this.foodItemId = const Value.absent(),
     this.syncStatus = const Value.absent(),
+    this.localRev = const Value.absent(),
     this.serverId = const Value.absent(),
   });
   MealTableCompanion.insert({
@@ -2307,6 +2404,7 @@ class MealTableCompanion extends UpdateCompanion<MealTableData> {
     required String category,
     required int foodItemId,
     this.syncStatus = const Value.absent(),
+    this.localRev = const Value.absent(),
     this.serverId = const Value.absent(),
   }) : date = Value(date),
        category = Value(category),
@@ -2317,6 +2415,7 @@ class MealTableCompanion extends UpdateCompanion<MealTableData> {
     Expression<String>? category,
     Expression<int>? foodItemId,
     Expression<int>? syncStatus,
+    Expression<int>? localRev,
     Expression<String>? serverId,
   }) {
     return RawValuesInsertable({
@@ -2325,6 +2424,7 @@ class MealTableCompanion extends UpdateCompanion<MealTableData> {
       if (category != null) 'category': category,
       if (foodItemId != null) 'food_item_id': foodItemId,
       if (syncStatus != null) 'sync_status': syncStatus,
+      if (localRev != null) 'local_rev': localRev,
       if (serverId != null) 'server_id': serverId,
     });
   }
@@ -2335,6 +2435,7 @@ class MealTableCompanion extends UpdateCompanion<MealTableData> {
     Value<String>? category,
     Value<int>? foodItemId,
     Value<int>? syncStatus,
+    Value<int>? localRev,
     Value<String?>? serverId,
   }) {
     return MealTableCompanion(
@@ -2343,6 +2444,7 @@ class MealTableCompanion extends UpdateCompanion<MealTableData> {
       category: category ?? this.category,
       foodItemId: foodItemId ?? this.foodItemId,
       syncStatus: syncStatus ?? this.syncStatus,
+      localRev: localRev ?? this.localRev,
       serverId: serverId ?? this.serverId,
     );
   }
@@ -2365,6 +2467,9 @@ class MealTableCompanion extends UpdateCompanion<MealTableData> {
     if (syncStatus.present) {
       map['sync_status'] = Variable<int>(syncStatus.value);
     }
+    if (localRev.present) {
+      map['local_rev'] = Variable<int>(localRev.value);
+    }
     if (serverId.present) {
       map['server_id'] = Variable<String>(serverId.value);
     }
@@ -2379,6 +2484,7 @@ class MealTableCompanion extends UpdateCompanion<MealTableData> {
           ..write('category: $category, ')
           ..write('foodItemId: $foodItemId, ')
           ..write('syncStatus: $syncStatus, ')
+          ..write('localRev: $localRev, ')
           ..write('serverId: $serverId')
           ..write(')'))
         .toString();
@@ -3020,6 +3126,18 @@ class $WeightRecordTable extends WeightRecord
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _localRevMeta = const VerificationMeta(
+    'localRev',
+  );
+  @override
+  late final GeneratedColumn<int> localRev = GeneratedColumn<int>(
+    'local_rev',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   static const VerificationMeta _serverIdMeta = const VerificationMeta(
     'serverId',
   );
@@ -3038,6 +3156,7 @@ class $WeightRecordTable extends WeightRecord
     weight,
     note,
     syncStatus,
+    localRev,
     serverId,
   ];
   @override
@@ -3083,6 +3202,12 @@ class $WeightRecordTable extends WeightRecord
         syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
       );
     }
+    if (data.containsKey('local_rev')) {
+      context.handle(
+        _localRevMeta,
+        localRev.isAcceptableOrUnknown(data['local_rev']!, _localRevMeta),
+      );
+    }
     if (data.containsKey('server_id')) {
       context.handle(
         _serverIdMeta,
@@ -3122,6 +3247,11 @@ class $WeightRecordTable extends WeightRecord
             DriftSqlType.int,
             data['${effectivePrefix}sync_status'],
           )!,
+      localRev:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.int,
+            data['${effectivePrefix}local_rev'],
+          )!,
       serverId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}server_id'],
@@ -3142,8 +3272,12 @@ class WeightRecordData extends DataClass
   final double weight;
   final String? note;
 
-  /// Maps to [WeightSyncStatus] by index. Defaults to [WeightSyncStatus.pending].
+  /// Maps to [SyncStatus] by index. Defaults to [SyncStatus.pending].
   final int syncStatus;
+
+  /// Bumped by the database on every local change — see [SyncStatus] and
+  /// `lib/core/sync/sync_triggers.dart`.
+  final int localRev;
 
   /// The UUID assigned by the remote API after the first successful sync.
   /// Null until the record has been synced at least once.
@@ -3154,6 +3288,7 @@ class WeightRecordData extends DataClass
     required this.weight,
     this.note,
     required this.syncStatus,
+    required this.localRev,
     this.serverId,
   });
   @override
@@ -3166,6 +3301,7 @@ class WeightRecordData extends DataClass
       map['note'] = Variable<String>(note);
     }
     map['sync_status'] = Variable<int>(syncStatus);
+    map['local_rev'] = Variable<int>(localRev);
     if (!nullToAbsent || serverId != null) {
       map['server_id'] = Variable<String>(serverId);
     }
@@ -3179,6 +3315,7 @@ class WeightRecordData extends DataClass
       weight: Value(weight),
       note: note == null && nullToAbsent ? const Value.absent() : Value(note),
       syncStatus: Value(syncStatus),
+      localRev: Value(localRev),
       serverId:
           serverId == null && nullToAbsent
               ? const Value.absent()
@@ -3197,6 +3334,7 @@ class WeightRecordData extends DataClass
       weight: serializer.fromJson<double>(json['weight']),
       note: serializer.fromJson<String?>(json['note']),
       syncStatus: serializer.fromJson<int>(json['syncStatus']),
+      localRev: serializer.fromJson<int>(json['localRev']),
       serverId: serializer.fromJson<String?>(json['serverId']),
     );
   }
@@ -3209,6 +3347,7 @@ class WeightRecordData extends DataClass
       'weight': serializer.toJson<double>(weight),
       'note': serializer.toJson<String?>(note),
       'syncStatus': serializer.toJson<int>(syncStatus),
+      'localRev': serializer.toJson<int>(localRev),
       'serverId': serializer.toJson<String?>(serverId),
     };
   }
@@ -3219,6 +3358,7 @@ class WeightRecordData extends DataClass
     double? weight,
     Value<String?> note = const Value.absent(),
     int? syncStatus,
+    int? localRev,
     Value<String?> serverId = const Value.absent(),
   }) => WeightRecordData(
     id: id ?? this.id,
@@ -3226,6 +3366,7 @@ class WeightRecordData extends DataClass
     weight: weight ?? this.weight,
     note: note.present ? note.value : this.note,
     syncStatus: syncStatus ?? this.syncStatus,
+    localRev: localRev ?? this.localRev,
     serverId: serverId.present ? serverId.value : this.serverId,
   );
   WeightRecordData copyWithCompanion(WeightRecordCompanion data) {
@@ -3236,6 +3377,7 @@ class WeightRecordData extends DataClass
       note: data.note.present ? data.note.value : this.note,
       syncStatus:
           data.syncStatus.present ? data.syncStatus.value : this.syncStatus,
+      localRev: data.localRev.present ? data.localRev.value : this.localRev,
       serverId: data.serverId.present ? data.serverId.value : this.serverId,
     );
   }
@@ -3248,13 +3390,15 @@ class WeightRecordData extends DataClass
           ..write('weight: $weight, ')
           ..write('note: $note, ')
           ..write('syncStatus: $syncStatus, ')
+          ..write('localRev: $localRev, ')
           ..write('serverId: $serverId')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, date, weight, note, syncStatus, serverId);
+  int get hashCode =>
+      Object.hash(id, date, weight, note, syncStatus, localRev, serverId);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -3264,6 +3408,7 @@ class WeightRecordData extends DataClass
           other.weight == this.weight &&
           other.note == this.note &&
           other.syncStatus == this.syncStatus &&
+          other.localRev == this.localRev &&
           other.serverId == this.serverId);
 }
 
@@ -3273,6 +3418,7 @@ class WeightRecordCompanion extends UpdateCompanion<WeightRecordData> {
   final Value<double> weight;
   final Value<String?> note;
   final Value<int> syncStatus;
+  final Value<int> localRev;
   final Value<String?> serverId;
   const WeightRecordCompanion({
     this.id = const Value.absent(),
@@ -3280,6 +3426,7 @@ class WeightRecordCompanion extends UpdateCompanion<WeightRecordData> {
     this.weight = const Value.absent(),
     this.note = const Value.absent(),
     this.syncStatus = const Value.absent(),
+    this.localRev = const Value.absent(),
     this.serverId = const Value.absent(),
   });
   WeightRecordCompanion.insert({
@@ -3288,6 +3435,7 @@ class WeightRecordCompanion extends UpdateCompanion<WeightRecordData> {
     required double weight,
     this.note = const Value.absent(),
     this.syncStatus = const Value.absent(),
+    this.localRev = const Value.absent(),
     this.serverId = const Value.absent(),
   }) : date = Value(date),
        weight = Value(weight);
@@ -3297,6 +3445,7 @@ class WeightRecordCompanion extends UpdateCompanion<WeightRecordData> {
     Expression<double>? weight,
     Expression<String>? note,
     Expression<int>? syncStatus,
+    Expression<int>? localRev,
     Expression<String>? serverId,
   }) {
     return RawValuesInsertable({
@@ -3305,6 +3454,7 @@ class WeightRecordCompanion extends UpdateCompanion<WeightRecordData> {
       if (weight != null) 'weight': weight,
       if (note != null) 'note': note,
       if (syncStatus != null) 'sync_status': syncStatus,
+      if (localRev != null) 'local_rev': localRev,
       if (serverId != null) 'server_id': serverId,
     });
   }
@@ -3315,6 +3465,7 @@ class WeightRecordCompanion extends UpdateCompanion<WeightRecordData> {
     Value<double>? weight,
     Value<String?>? note,
     Value<int>? syncStatus,
+    Value<int>? localRev,
     Value<String?>? serverId,
   }) {
     return WeightRecordCompanion(
@@ -3323,6 +3474,7 @@ class WeightRecordCompanion extends UpdateCompanion<WeightRecordData> {
       weight: weight ?? this.weight,
       note: note ?? this.note,
       syncStatus: syncStatus ?? this.syncStatus,
+      localRev: localRev ?? this.localRev,
       serverId: serverId ?? this.serverId,
     );
   }
@@ -3345,6 +3497,9 @@ class WeightRecordCompanion extends UpdateCompanion<WeightRecordData> {
     if (syncStatus.present) {
       map['sync_status'] = Variable<int>(syncStatus.value);
     }
+    if (localRev.present) {
+      map['local_rev'] = Variable<int>(localRev.value);
+    }
     if (serverId.present) {
       map['server_id'] = Variable<String>(serverId.value);
     }
@@ -3359,6 +3514,7 @@ class WeightRecordCompanion extends UpdateCompanion<WeightRecordData> {
           ..write('weight: $weight, ')
           ..write('note: $note, ')
           ..write('syncStatus: $syncStatus, ')
+          ..write('localRev: $localRev, ')
           ..write('serverId: $serverId')
           ..write(')'))
         .toString();
@@ -3493,6 +3649,18 @@ class $ExerciseTableTable extends ExerciseTable
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _localRevMeta = const VerificationMeta(
+    'localRev',
+  );
+  @override
+  late final GeneratedColumn<int> localRev = GeneratedColumn<int>(
+    'local_rev',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -3506,6 +3674,7 @@ class $ExerciseTableTable extends ExerciseTable
     isCustom,
     serverId,
     syncStatus,
+    localRev,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3597,6 +3766,12 @@ class $ExerciseTableTable extends ExerciseTable
         syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
       );
     }
+    if (data.containsKey('local_rev')) {
+      context.handle(
+        _localRevMeta,
+        localRev.isAcceptableOrUnknown(data['local_rev']!, _localRevMeta),
+      );
+    }
     return context;
   }
 
@@ -3656,6 +3831,11 @@ class $ExerciseTableTable extends ExerciseTable
             DriftSqlType.int,
             data['${effectivePrefix}sync_status'],
           )!,
+      localRev:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.int,
+            data['${effectivePrefix}local_rev'],
+          )!,
     );
   }
 
@@ -3678,6 +3858,10 @@ class ExerciseTableData extends DataClass
   final bool isCustom;
   final String? serverId;
   final int syncStatus;
+
+  /// Bumped by the database on every local change — see [SyncStatus] and
+  /// `lib/core/sync/sync_triggers.dart`.
+  final int localRev;
   const ExerciseTableData({
     required this.id,
     required this.name,
@@ -3690,6 +3874,7 @@ class ExerciseTableData extends DataClass
     required this.isCustom,
     this.serverId,
     required this.syncStatus,
+    required this.localRev,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3715,6 +3900,7 @@ class ExerciseTableData extends DataClass
       map['server_id'] = Variable<String>(serverId);
     }
     map['sync_status'] = Variable<int>(syncStatus);
+    map['local_rev'] = Variable<int>(localRev);
     return map;
   }
 
@@ -3744,6 +3930,7 @@ class ExerciseTableData extends DataClass
               ? const Value.absent()
               : Value(serverId),
       syncStatus: Value(syncStatus),
+      localRev: Value(localRev),
     );
   }
 
@@ -3766,6 +3953,7 @@ class ExerciseTableData extends DataClass
       isCustom: serializer.fromJson<bool>(json['isCustom']),
       serverId: serializer.fromJson<String?>(json['serverId']),
       syncStatus: serializer.fromJson<int>(json['syncStatus']),
+      localRev: serializer.fromJson<int>(json['localRev']),
     );
   }
   @override
@@ -3783,6 +3971,7 @@ class ExerciseTableData extends DataClass
       'isCustom': serializer.toJson<bool>(isCustom),
       'serverId': serializer.toJson<String?>(serverId),
       'syncStatus': serializer.toJson<int>(syncStatus),
+      'localRev': serializer.toJson<int>(localRev),
     };
   }
 
@@ -3798,6 +3987,7 @@ class ExerciseTableData extends DataClass
     bool? isCustom,
     Value<String?> serverId = const Value.absent(),
     int? syncStatus,
+    int? localRev,
   }) => ExerciseTableData(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -3811,6 +4001,7 @@ class ExerciseTableData extends DataClass
     isCustom: isCustom ?? this.isCustom,
     serverId: serverId.present ? serverId.value : this.serverId,
     syncStatus: syncStatus ?? this.syncStatus,
+    localRev: localRev ?? this.localRev,
   );
   ExerciseTableData copyWithCompanion(ExerciseTableCompanion data) {
     return ExerciseTableData(
@@ -3833,6 +4024,7 @@ class ExerciseTableData extends DataClass
       serverId: data.serverId.present ? data.serverId.value : this.serverId,
       syncStatus:
           data.syncStatus.present ? data.syncStatus.value : this.syncStatus,
+      localRev: data.localRev.present ? data.localRev.value : this.localRev,
     );
   }
 
@@ -3849,7 +4041,8 @@ class ExerciseTableData extends DataClass
           ..write('imageUrl: $imageUrl, ')
           ..write('isCustom: $isCustom, ')
           ..write('serverId: $serverId, ')
-          ..write('syncStatus: $syncStatus')
+          ..write('syncStatus: $syncStatus, ')
+          ..write('localRev: $localRev')
           ..write(')'))
         .toString();
   }
@@ -3867,6 +4060,7 @@ class ExerciseTableData extends DataClass
     isCustom,
     serverId,
     syncStatus,
+    localRev,
   );
   @override
   bool operator ==(Object other) =>
@@ -3882,7 +4076,8 @@ class ExerciseTableData extends DataClass
           other.imageUrl == this.imageUrl &&
           other.isCustom == this.isCustom &&
           other.serverId == this.serverId &&
-          other.syncStatus == this.syncStatus);
+          other.syncStatus == this.syncStatus &&
+          other.localRev == this.localRev);
 }
 
 class ExerciseTableCompanion extends UpdateCompanion<ExerciseTableData> {
@@ -3897,6 +4092,7 @@ class ExerciseTableCompanion extends UpdateCompanion<ExerciseTableData> {
   final Value<bool> isCustom;
   final Value<String?> serverId;
   final Value<int> syncStatus;
+  final Value<int> localRev;
   const ExerciseTableCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
@@ -3909,6 +4105,7 @@ class ExerciseTableCompanion extends UpdateCompanion<ExerciseTableData> {
     this.isCustom = const Value.absent(),
     this.serverId = const Value.absent(),
     this.syncStatus = const Value.absent(),
+    this.localRev = const Value.absent(),
   });
   ExerciseTableCompanion.insert({
     this.id = const Value.absent(),
@@ -3922,6 +4119,7 @@ class ExerciseTableCompanion extends UpdateCompanion<ExerciseTableData> {
     this.isCustom = const Value.absent(),
     this.serverId = const Value.absent(),
     this.syncStatus = const Value.absent(),
+    this.localRev = const Value.absent(),
   }) : name = Value(name),
        type = Value(type),
        targetMuscleGroups = Value(targetMuscleGroups);
@@ -3937,6 +4135,7 @@ class ExerciseTableCompanion extends UpdateCompanion<ExerciseTableData> {
     Expression<bool>? isCustom,
     Expression<String>? serverId,
     Expression<int>? syncStatus,
+    Expression<int>? localRev,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -3951,6 +4150,7 @@ class ExerciseTableCompanion extends UpdateCompanion<ExerciseTableData> {
       if (isCustom != null) 'is_custom': isCustom,
       if (serverId != null) 'server_id': serverId,
       if (syncStatus != null) 'sync_status': syncStatus,
+      if (localRev != null) 'local_rev': localRev,
     });
   }
 
@@ -3966,6 +4166,7 @@ class ExerciseTableCompanion extends UpdateCompanion<ExerciseTableData> {
     Value<bool>? isCustom,
     Value<String?>? serverId,
     Value<int>? syncStatus,
+    Value<int>? localRev,
   }) {
     return ExerciseTableCompanion(
       id: id ?? this.id,
@@ -3979,6 +4180,7 @@ class ExerciseTableCompanion extends UpdateCompanion<ExerciseTableData> {
       isCustom: isCustom ?? this.isCustom,
       serverId: serverId ?? this.serverId,
       syncStatus: syncStatus ?? this.syncStatus,
+      localRev: localRev ?? this.localRev,
     );
   }
 
@@ -4018,6 +4220,9 @@ class ExerciseTableCompanion extends UpdateCompanion<ExerciseTableData> {
     if (syncStatus.present) {
       map['sync_status'] = Variable<int>(syncStatus.value);
     }
+    if (localRev.present) {
+      map['local_rev'] = Variable<int>(localRev.value);
+    }
     return map;
   }
 
@@ -4034,7 +4239,8 @@ class ExerciseTableCompanion extends UpdateCompanion<ExerciseTableData> {
           ..write('imageUrl: $imageUrl, ')
           ..write('isCustom: $isCustom, ')
           ..write('serverId: $serverId, ')
-          ..write('syncStatus: $syncStatus')
+          ..write('syncStatus: $syncStatus, ')
+          ..write('localRev: $localRev')
           ..write(')'))
         .toString();
   }
@@ -4173,6 +4379,18 @@ class $WorkoutTableTable extends WorkoutTable
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _localRevMeta = const VerificationMeta(
+    'localRev',
+  );
+  @override
+  late final GeneratedColumn<int> localRev = GeneratedColumn<int>(
+    'local_rev',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -4186,6 +4404,7 @@ class $WorkoutTableTable extends WorkoutTable
     color,
     serverId,
     syncStatus,
+    localRev,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -4278,6 +4497,12 @@ class $WorkoutTableTable extends WorkoutTable
         syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
       );
     }
+    if (data.containsKey('local_rev')) {
+      context.handle(
+        _localRevMeta,
+        localRev.isAcceptableOrUnknown(data['local_rev']!, _localRevMeta),
+      );
+    }
     return context;
   }
 
@@ -4337,6 +4562,11 @@ class $WorkoutTableTable extends WorkoutTable
             DriftSqlType.int,
             data['${effectivePrefix}sync_status'],
           )!,
+      localRev:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.int,
+            data['${effectivePrefix}local_rev'],
+          )!,
     );
   }
 
@@ -4359,6 +4589,10 @@ class WorkoutTableData extends DataClass
   final int? color;
   final String? serverId;
   final int syncStatus;
+
+  /// Bumped by the database on every local change — see [SyncStatus] and
+  /// `lib/core/sync/sync_triggers.dart`.
+  final int localRev;
   const WorkoutTableData({
     required this.id,
     required this.name,
@@ -4371,6 +4605,7 @@ class WorkoutTableData extends DataClass
     this.color,
     this.serverId,
     required this.syncStatus,
+    required this.localRev,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -4396,6 +4631,7 @@ class WorkoutTableData extends DataClass
       map['server_id'] = Variable<String>(serverId);
     }
     map['sync_status'] = Variable<int>(syncStatus);
+    map['local_rev'] = Variable<int>(localRev);
     return map;
   }
 
@@ -4425,6 +4661,7 @@ class WorkoutTableData extends DataClass
               ? const Value.absent()
               : Value(serverId),
       syncStatus: Value(syncStatus),
+      localRev: Value(localRev),
     );
   }
 
@@ -4447,6 +4684,7 @@ class WorkoutTableData extends DataClass
       color: serializer.fromJson<int?>(json['color']),
       serverId: serializer.fromJson<String?>(json['serverId']),
       syncStatus: serializer.fromJson<int>(json['syncStatus']),
+      localRev: serializer.fromJson<int>(json['localRev']),
     );
   }
   @override
@@ -4466,6 +4704,7 @@ class WorkoutTableData extends DataClass
       'color': serializer.toJson<int?>(color),
       'serverId': serializer.toJson<String?>(serverId),
       'syncStatus': serializer.toJson<int>(syncStatus),
+      'localRev': serializer.toJson<int>(localRev),
     };
   }
 
@@ -4481,6 +4720,7 @@ class WorkoutTableData extends DataClass
     Value<int?> color = const Value.absent(),
     Value<String?> serverId = const Value.absent(),
     int? syncStatus,
+    int? localRev,
   }) => WorkoutTableData(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -4496,6 +4736,7 @@ class WorkoutTableData extends DataClass
     color: color.present ? color.value : this.color,
     serverId: serverId.present ? serverId.value : this.serverId,
     syncStatus: syncStatus ?? this.syncStatus,
+    localRev: localRev ?? this.localRev,
   );
   WorkoutTableData copyWithCompanion(WorkoutTableCompanion data) {
     return WorkoutTableData(
@@ -4523,6 +4764,7 @@ class WorkoutTableData extends DataClass
       serverId: data.serverId.present ? data.serverId.value : this.serverId,
       syncStatus:
           data.syncStatus.present ? data.syncStatus.value : this.syncStatus,
+      localRev: data.localRev.present ? data.localRev.value : this.localRev,
     );
   }
 
@@ -4539,7 +4781,8 @@ class WorkoutTableData extends DataClass
           ..write('completedDate: $completedDate, ')
           ..write('color: $color, ')
           ..write('serverId: $serverId, ')
-          ..write('syncStatus: $syncStatus')
+          ..write('syncStatus: $syncStatus, ')
+          ..write('localRev: $localRev')
           ..write(')'))
         .toString();
   }
@@ -4557,6 +4800,7 @@ class WorkoutTableData extends DataClass
     color,
     serverId,
     syncStatus,
+    localRev,
   );
   @override
   bool operator ==(Object other) =>
@@ -4572,7 +4816,8 @@ class WorkoutTableData extends DataClass
           other.completedDate == this.completedDate &&
           other.color == this.color &&
           other.serverId == this.serverId &&
-          other.syncStatus == this.syncStatus);
+          other.syncStatus == this.syncStatus &&
+          other.localRev == this.localRev);
 }
 
 class WorkoutTableCompanion extends UpdateCompanion<WorkoutTableData> {
@@ -4587,6 +4832,7 @@ class WorkoutTableCompanion extends UpdateCompanion<WorkoutTableData> {
   final Value<int?> color;
   final Value<String?> serverId;
   final Value<int> syncStatus;
+  final Value<int> localRev;
   const WorkoutTableCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
@@ -4599,6 +4845,7 @@ class WorkoutTableCompanion extends UpdateCompanion<WorkoutTableData> {
     this.color = const Value.absent(),
     this.serverId = const Value.absent(),
     this.syncStatus = const Value.absent(),
+    this.localRev = const Value.absent(),
   });
   WorkoutTableCompanion.insert({
     this.id = const Value.absent(),
@@ -4612,6 +4859,7 @@ class WorkoutTableCompanion extends UpdateCompanion<WorkoutTableData> {
     this.color = const Value.absent(),
     this.serverId = const Value.absent(),
     this.syncStatus = const Value.absent(),
+    this.localRev = const Value.absent(),
   }) : name = Value(name),
        difficulty = Value(difficulty);
   static Insertable<WorkoutTableData> custom({
@@ -4626,6 +4874,7 @@ class WorkoutTableCompanion extends UpdateCompanion<WorkoutTableData> {
     Expression<int>? color,
     Expression<String>? serverId,
     Expression<int>? syncStatus,
+    Expression<int>? localRev,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -4640,6 +4889,7 @@ class WorkoutTableCompanion extends UpdateCompanion<WorkoutTableData> {
       if (color != null) 'color': color,
       if (serverId != null) 'server_id': serverId,
       if (syncStatus != null) 'sync_status': syncStatus,
+      if (localRev != null) 'local_rev': localRev,
     });
   }
 
@@ -4655,6 +4905,7 @@ class WorkoutTableCompanion extends UpdateCompanion<WorkoutTableData> {
     Value<int?>? color,
     Value<String?>? serverId,
     Value<int>? syncStatus,
+    Value<int>? localRev,
   }) {
     return WorkoutTableCompanion(
       id: id ?? this.id,
@@ -4669,6 +4920,7 @@ class WorkoutTableCompanion extends UpdateCompanion<WorkoutTableData> {
       color: color ?? this.color,
       serverId: serverId ?? this.serverId,
       syncStatus: syncStatus ?? this.syncStatus,
+      localRev: localRev ?? this.localRev,
     );
   }
 
@@ -4710,6 +4962,9 @@ class WorkoutTableCompanion extends UpdateCompanion<WorkoutTableData> {
     if (syncStatus.present) {
       map['sync_status'] = Variable<int>(syncStatus.value);
     }
+    if (localRev.present) {
+      map['local_rev'] = Variable<int>(localRev.value);
+    }
     return map;
   }
 
@@ -4726,7 +4981,8 @@ class WorkoutTableCompanion extends UpdateCompanion<WorkoutTableData> {
           ..write('completedDate: $completedDate, ')
           ..write('color: $color, ')
           ..write('serverId: $serverId, ')
-          ..write('syncStatus: $syncStatus')
+          ..write('syncStatus: $syncStatus, ')
+          ..write('localRev: $localRev')
           ..write(')'))
         .toString();
   }
@@ -4869,6 +5125,18 @@ class $WorkoutPlanTableTable extends WorkoutPlanTable
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _localRevMeta = const VerificationMeta(
+    'localRev',
+  );
+  @override
+  late final GeneratedColumn<int> localRev = GeneratedColumn<int>(
+    'local_rev',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -4882,6 +5150,7 @@ class $WorkoutPlanTableTable extends WorkoutPlanTable
     durationDays,
     serverId,
     syncStatus,
+    localRev,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -4976,6 +5245,12 @@ class $WorkoutPlanTableTable extends WorkoutPlanTable
         syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
       );
     }
+    if (data.containsKey('local_rev')) {
+      context.handle(
+        _localRevMeta,
+        localRev.isAcceptableOrUnknown(data['local_rev']!, _localRevMeta),
+      );
+    }
     return context;
   }
 
@@ -5037,6 +5312,11 @@ class $WorkoutPlanTableTable extends WorkoutPlanTable
             DriftSqlType.int,
             data['${effectivePrefix}sync_status'],
           )!,
+      localRev:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.int,
+            data['${effectivePrefix}local_rev'],
+          )!,
     );
   }
 
@@ -5059,6 +5339,10 @@ class WorkoutPlanTableData extends DataClass
   final int? durationDays;
   final String? serverId;
   final int syncStatus;
+
+  /// Bumped by the database on every local change — see [SyncStatus] and
+  /// `lib/core/sync/sync_triggers.dart`.
+  final int localRev;
   const WorkoutPlanTableData({
     required this.id,
     required this.name,
@@ -5071,6 +5355,7 @@ class WorkoutPlanTableData extends DataClass
     this.durationDays,
     this.serverId,
     required this.syncStatus,
+    required this.localRev,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -5092,6 +5377,7 @@ class WorkoutPlanTableData extends DataClass
       map['server_id'] = Variable<String>(serverId);
     }
     map['sync_status'] = Variable<int>(syncStatus);
+    map['local_rev'] = Variable<int>(localRev);
     return map;
   }
 
@@ -5117,6 +5403,7 @@ class WorkoutPlanTableData extends DataClass
               ? const Value.absent()
               : Value(serverId),
       syncStatus: Value(syncStatus),
+      localRev: Value(localRev),
     );
   }
 
@@ -5137,6 +5424,7 @@ class WorkoutPlanTableData extends DataClass
       durationDays: serializer.fromJson<int?>(json['durationDays']),
       serverId: serializer.fromJson<String?>(json['serverId']),
       syncStatus: serializer.fromJson<int>(json['syncStatus']),
+      localRev: serializer.fromJson<int>(json['localRev']),
     );
   }
   @override
@@ -5154,6 +5442,7 @@ class WorkoutPlanTableData extends DataClass
       'durationDays': serializer.toJson<int?>(durationDays),
       'serverId': serializer.toJson<String?>(serverId),
       'syncStatus': serializer.toJson<int>(syncStatus),
+      'localRev': serializer.toJson<int>(localRev),
     };
   }
 
@@ -5169,6 +5458,7 @@ class WorkoutPlanTableData extends DataClass
     Value<int?> durationDays = const Value.absent(),
     Value<String?> serverId = const Value.absent(),
     int? syncStatus,
+    int? localRev,
   }) => WorkoutPlanTableData(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -5181,6 +5471,7 @@ class WorkoutPlanTableData extends DataClass
     durationDays: durationDays.present ? durationDays.value : this.durationDays,
     serverId: serverId.present ? serverId.value : this.serverId,
     syncStatus: syncStatus ?? this.syncStatus,
+    localRev: localRev ?? this.localRev,
   );
   WorkoutPlanTableData copyWithCompanion(WorkoutPlanTableCompanion data) {
     return WorkoutPlanTableData(
@@ -5206,6 +5497,7 @@ class WorkoutPlanTableData extends DataClass
       serverId: data.serverId.present ? data.serverId.value : this.serverId,
       syncStatus:
           data.syncStatus.present ? data.syncStatus.value : this.syncStatus,
+      localRev: data.localRev.present ? data.localRev.value : this.localRev,
     );
   }
 
@@ -5222,7 +5514,8 @@ class WorkoutPlanTableData extends DataClass
           ..write('isFreeChoice: $isFreeChoice, ')
           ..write('durationDays: $durationDays, ')
           ..write('serverId: $serverId, ')
-          ..write('syncStatus: $syncStatus')
+          ..write('syncStatus: $syncStatus, ')
+          ..write('localRev: $localRev')
           ..write(')'))
         .toString();
   }
@@ -5240,6 +5533,7 @@ class WorkoutPlanTableData extends DataClass
     durationDays,
     serverId,
     syncStatus,
+    localRev,
   );
   @override
   bool operator ==(Object other) =>
@@ -5255,7 +5549,8 @@ class WorkoutPlanTableData extends DataClass
           other.isFreeChoice == this.isFreeChoice &&
           other.durationDays == this.durationDays &&
           other.serverId == this.serverId &&
-          other.syncStatus == this.syncStatus);
+          other.syncStatus == this.syncStatus &&
+          other.localRev == this.localRev);
 }
 
 class WorkoutPlanTableCompanion extends UpdateCompanion<WorkoutPlanTableData> {
@@ -5270,6 +5565,7 @@ class WorkoutPlanTableCompanion extends UpdateCompanion<WorkoutPlanTableData> {
   final Value<int?> durationDays;
   final Value<String?> serverId;
   final Value<int> syncStatus;
+  final Value<int> localRev;
   const WorkoutPlanTableCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
@@ -5282,6 +5578,7 @@ class WorkoutPlanTableCompanion extends UpdateCompanion<WorkoutPlanTableData> {
     this.durationDays = const Value.absent(),
     this.serverId = const Value.absent(),
     this.syncStatus = const Value.absent(),
+    this.localRev = const Value.absent(),
   });
   WorkoutPlanTableCompanion.insert({
     this.id = const Value.absent(),
@@ -5295,6 +5592,7 @@ class WorkoutPlanTableCompanion extends UpdateCompanion<WorkoutPlanTableData> {
     this.durationDays = const Value.absent(),
     this.serverId = const Value.absent(),
     this.syncStatus = const Value.absent(),
+    this.localRev = const Value.absent(),
   }) : name = Value(name),
        startDate = Value(startDate),
        cyclePatternJson = Value(cyclePatternJson);
@@ -5310,6 +5608,7 @@ class WorkoutPlanTableCompanion extends UpdateCompanion<WorkoutPlanTableData> {
     Expression<int>? durationDays,
     Expression<String>? serverId,
     Expression<int>? syncStatus,
+    Expression<int>? localRev,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -5323,6 +5622,7 @@ class WorkoutPlanTableCompanion extends UpdateCompanion<WorkoutPlanTableData> {
       if (durationDays != null) 'duration_days': durationDays,
       if (serverId != null) 'server_id': serverId,
       if (syncStatus != null) 'sync_status': syncStatus,
+      if (localRev != null) 'local_rev': localRev,
     });
   }
 
@@ -5338,6 +5638,7 @@ class WorkoutPlanTableCompanion extends UpdateCompanion<WorkoutPlanTableData> {
     Value<int?>? durationDays,
     Value<String?>? serverId,
     Value<int>? syncStatus,
+    Value<int>? localRev,
   }) {
     return WorkoutPlanTableCompanion(
       id: id ?? this.id,
@@ -5351,6 +5652,7 @@ class WorkoutPlanTableCompanion extends UpdateCompanion<WorkoutPlanTableData> {
       durationDays: durationDays ?? this.durationDays,
       serverId: serverId ?? this.serverId,
       syncStatus: syncStatus ?? this.syncStatus,
+      localRev: localRev ?? this.localRev,
     );
   }
 
@@ -5390,6 +5692,9 @@ class WorkoutPlanTableCompanion extends UpdateCompanion<WorkoutPlanTableData> {
     if (syncStatus.present) {
       map['sync_status'] = Variable<int>(syncStatus.value);
     }
+    if (localRev.present) {
+      map['local_rev'] = Variable<int>(localRev.value);
+    }
     return map;
   }
 
@@ -5406,7 +5711,8 @@ class WorkoutPlanTableCompanion extends UpdateCompanion<WorkoutPlanTableData> {
           ..write('isFreeChoice: $isFreeChoice, ')
           ..write('durationDays: $durationDays, ')
           ..write('serverId: $serverId, ')
-          ..write('syncStatus: $syncStatus')
+          ..write('syncStatus: $syncStatus, ')
+          ..write('localRev: $localRev')
           ..write(')'))
         .toString();
   }
@@ -5513,6 +5819,18 @@ class $WorkoutExerciseTableTable extends WorkoutExerciseTable
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _localRevMeta = const VerificationMeta(
+    'localRev',
+  );
+  @override
+  late final GeneratedColumn<int> localRev = GeneratedColumn<int>(
+    'local_rev',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -5523,6 +5841,7 @@ class $WorkoutExerciseTableTable extends WorkoutExerciseTable
     supersetGroupId,
     serverId,
     syncStatus,
+    localRev,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -5593,6 +5912,12 @@ class $WorkoutExerciseTableTable extends WorkoutExerciseTable
         syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
       );
     }
+    if (data.containsKey('local_rev')) {
+      context.handle(
+        _localRevMeta,
+        localRev.isAcceptableOrUnknown(data['local_rev']!, _localRevMeta),
+      );
+    }
     return context;
   }
 
@@ -5642,6 +5967,11 @@ class $WorkoutExerciseTableTable extends WorkoutExerciseTable
             DriftSqlType.int,
             data['${effectivePrefix}sync_status'],
           )!,
+      localRev:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.int,
+            data['${effectivePrefix}local_rev'],
+          )!,
     );
   }
 
@@ -5661,6 +5991,10 @@ class WorkoutExerciseTableData extends DataClass
   final int? supersetGroupId;
   final String? serverId;
   final int syncStatus;
+
+  /// Bumped by the database on every local change — see [SyncStatus] and
+  /// `lib/core/sync/sync_triggers.dart`.
+  final int localRev;
   const WorkoutExerciseTableData({
     required this.id,
     required this.workoutId,
@@ -5670,6 +6004,7 @@ class WorkoutExerciseTableData extends DataClass
     this.supersetGroupId,
     this.serverId,
     required this.syncStatus,
+    required this.localRev,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -5688,6 +6023,7 @@ class WorkoutExerciseTableData extends DataClass
       map['server_id'] = Variable<String>(serverId);
     }
     map['sync_status'] = Variable<int>(syncStatus);
+    map['local_rev'] = Variable<int>(localRev);
     return map;
   }
 
@@ -5708,6 +6044,7 @@ class WorkoutExerciseTableData extends DataClass
               ? const Value.absent()
               : Value(serverId),
       syncStatus: Value(syncStatus),
+      localRev: Value(localRev),
     );
   }
 
@@ -5725,6 +6062,7 @@ class WorkoutExerciseTableData extends DataClass
       supersetGroupId: serializer.fromJson<int?>(json['supersetGroupId']),
       serverId: serializer.fromJson<String?>(json['serverId']),
       syncStatus: serializer.fromJson<int>(json['syncStatus']),
+      localRev: serializer.fromJson<int>(json['localRev']),
     );
   }
   @override
@@ -5739,6 +6077,7 @@ class WorkoutExerciseTableData extends DataClass
       'supersetGroupId': serializer.toJson<int?>(supersetGroupId),
       'serverId': serializer.toJson<String?>(serverId),
       'syncStatus': serializer.toJson<int>(syncStatus),
+      'localRev': serializer.toJson<int>(localRev),
     };
   }
 
@@ -5751,6 +6090,7 @@ class WorkoutExerciseTableData extends DataClass
     Value<int?> supersetGroupId = const Value.absent(),
     Value<String?> serverId = const Value.absent(),
     int? syncStatus,
+    int? localRev,
   }) => WorkoutExerciseTableData(
     id: id ?? this.id,
     workoutId: workoutId ?? this.workoutId,
@@ -5761,6 +6101,7 @@ class WorkoutExerciseTableData extends DataClass
         supersetGroupId.present ? supersetGroupId.value : this.supersetGroupId,
     serverId: serverId.present ? serverId.value : this.serverId,
     syncStatus: syncStatus ?? this.syncStatus,
+    localRev: localRev ?? this.localRev,
   );
   WorkoutExerciseTableData copyWithCompanion(
     WorkoutExerciseTableCompanion data,
@@ -5782,6 +6123,7 @@ class WorkoutExerciseTableData extends DataClass
       serverId: data.serverId.present ? data.serverId.value : this.serverId,
       syncStatus:
           data.syncStatus.present ? data.syncStatus.value : this.syncStatus,
+      localRev: data.localRev.present ? data.localRev.value : this.localRev,
     );
   }
 
@@ -5795,7 +6137,8 @@ class WorkoutExerciseTableData extends DataClass
           ..write('notes: $notes, ')
           ..write('supersetGroupId: $supersetGroupId, ')
           ..write('serverId: $serverId, ')
-          ..write('syncStatus: $syncStatus')
+          ..write('syncStatus: $syncStatus, ')
+          ..write('localRev: $localRev')
           ..write(')'))
         .toString();
   }
@@ -5810,6 +6153,7 @@ class WorkoutExerciseTableData extends DataClass
     supersetGroupId,
     serverId,
     syncStatus,
+    localRev,
   );
   @override
   bool operator ==(Object other) =>
@@ -5822,7 +6166,8 @@ class WorkoutExerciseTableData extends DataClass
           other.notes == this.notes &&
           other.supersetGroupId == this.supersetGroupId &&
           other.serverId == this.serverId &&
-          other.syncStatus == this.syncStatus);
+          other.syncStatus == this.syncStatus &&
+          other.localRev == this.localRev);
 }
 
 class WorkoutExerciseTableCompanion
@@ -5835,6 +6180,7 @@ class WorkoutExerciseTableCompanion
   final Value<int?> supersetGroupId;
   final Value<String?> serverId;
   final Value<int> syncStatus;
+  final Value<int> localRev;
   const WorkoutExerciseTableCompanion({
     this.id = const Value.absent(),
     this.workoutId = const Value.absent(),
@@ -5844,6 +6190,7 @@ class WorkoutExerciseTableCompanion
     this.supersetGroupId = const Value.absent(),
     this.serverId = const Value.absent(),
     this.syncStatus = const Value.absent(),
+    this.localRev = const Value.absent(),
   });
   WorkoutExerciseTableCompanion.insert({
     this.id = const Value.absent(),
@@ -5854,6 +6201,7 @@ class WorkoutExerciseTableCompanion
     this.supersetGroupId = const Value.absent(),
     this.serverId = const Value.absent(),
     this.syncStatus = const Value.absent(),
+    this.localRev = const Value.absent(),
   }) : workoutId = Value(workoutId),
        exerciseId = Value(exerciseId),
        orderPosition = Value(orderPosition);
@@ -5866,6 +6214,7 @@ class WorkoutExerciseTableCompanion
     Expression<int>? supersetGroupId,
     Expression<String>? serverId,
     Expression<int>? syncStatus,
+    Expression<int>? localRev,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -5876,6 +6225,7 @@ class WorkoutExerciseTableCompanion
       if (supersetGroupId != null) 'superset_group_id': supersetGroupId,
       if (serverId != null) 'server_id': serverId,
       if (syncStatus != null) 'sync_status': syncStatus,
+      if (localRev != null) 'local_rev': localRev,
     });
   }
 
@@ -5888,6 +6238,7 @@ class WorkoutExerciseTableCompanion
     Value<int?>? supersetGroupId,
     Value<String?>? serverId,
     Value<int>? syncStatus,
+    Value<int>? localRev,
   }) {
     return WorkoutExerciseTableCompanion(
       id: id ?? this.id,
@@ -5898,6 +6249,7 @@ class WorkoutExerciseTableCompanion
       supersetGroupId: supersetGroupId ?? this.supersetGroupId,
       serverId: serverId ?? this.serverId,
       syncStatus: syncStatus ?? this.syncStatus,
+      localRev: localRev ?? this.localRev,
     );
   }
 
@@ -5928,6 +6280,9 @@ class WorkoutExerciseTableCompanion
     if (syncStatus.present) {
       map['sync_status'] = Variable<int>(syncStatus.value);
     }
+    if (localRev.present) {
+      map['local_rev'] = Variable<int>(localRev.value);
+    }
     return map;
   }
 
@@ -5941,7 +6296,8 @@ class WorkoutExerciseTableCompanion
           ..write('notes: $notes, ')
           ..write('supersetGroupId: $supersetGroupId, ')
           ..write('serverId: $serverId, ')
-          ..write('syncStatus: $syncStatus')
+          ..write('syncStatus: $syncStatus, ')
+          ..write('localRev: $localRev')
           ..write(')'))
         .toString();
   }
@@ -6094,6 +6450,18 @@ class $ScheduledWorkoutTableTable extends ScheduledWorkoutTable
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _localRevMeta = const VerificationMeta(
+    'localRev',
+  );
+  @override
+  late final GeneratedColumn<int> localRev = GeneratedColumn<int>(
+    'local_rev',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -6107,6 +6475,7 @@ class $ScheduledWorkoutTableTable extends ScheduledWorkoutTable
     isSkipped,
     serverId,
     syncStatus,
+    localRev,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -6199,6 +6568,12 @@ class $ScheduledWorkoutTableTable extends ScheduledWorkoutTable
         syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
       );
     }
+    if (data.containsKey('local_rev')) {
+      context.handle(
+        _localRevMeta,
+        localRev.isAcceptableOrUnknown(data['local_rev']!, _localRevMeta),
+      );
+    }
     return context;
   }
 
@@ -6262,6 +6637,11 @@ class $ScheduledWorkoutTableTable extends ScheduledWorkoutTable
             DriftSqlType.int,
             data['${effectivePrefix}sync_status'],
           )!,
+      localRev:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.int,
+            data['${effectivePrefix}local_rev'],
+          )!,
     );
   }
 
@@ -6291,6 +6671,10 @@ class ScheduledWorkoutTableData extends DataClass
   final bool isSkipped;
   final String? serverId;
   final int syncStatus;
+
+  /// Bumped by the database on every local change — see [SyncStatus] and
+  /// `lib/core/sync/sync_triggers.dart`.
+  final int localRev;
   const ScheduledWorkoutTableData({
     required this.id,
     required this.workoutId,
@@ -6303,6 +6687,7 @@ class ScheduledWorkoutTableData extends DataClass
     required this.isSkipped,
     this.serverId,
     required this.syncStatus,
+    required this.localRev,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -6326,6 +6711,7 @@ class ScheduledWorkoutTableData extends DataClass
       map['server_id'] = Variable<String>(serverId);
     }
     map['sync_status'] = Variable<int>(syncStatus);
+    map['local_rev'] = Variable<int>(localRev);
     return map;
   }
 
@@ -6352,6 +6738,7 @@ class ScheduledWorkoutTableData extends DataClass
               ? const Value.absent()
               : Value(serverId),
       syncStatus: Value(syncStatus),
+      localRev: Value(localRev),
     );
   }
 
@@ -6372,6 +6759,7 @@ class ScheduledWorkoutTableData extends DataClass
       isSkipped: serializer.fromJson<bool>(json['isSkipped']),
       serverId: serializer.fromJson<String?>(json['serverId']),
       syncStatus: serializer.fromJson<int>(json['syncStatus']),
+      localRev: serializer.fromJson<int>(json['localRev']),
     );
   }
   @override
@@ -6389,6 +6777,7 @@ class ScheduledWorkoutTableData extends DataClass
       'isSkipped': serializer.toJson<bool>(isSkipped),
       'serverId': serializer.toJson<String?>(serverId),
       'syncStatus': serializer.toJson<int>(syncStatus),
+      'localRev': serializer.toJson<int>(localRev),
     };
   }
 
@@ -6404,6 +6793,7 @@ class ScheduledWorkoutTableData extends DataClass
     bool? isSkipped,
     Value<String?> serverId = const Value.absent(),
     int? syncStatus,
+    int? localRev,
   }) => ScheduledWorkoutTableData(
     id: id ?? this.id,
     workoutId: workoutId ?? this.workoutId,
@@ -6420,6 +6810,7 @@ class ScheduledWorkoutTableData extends DataClass
     isSkipped: isSkipped ?? this.isSkipped,
     serverId: serverId.present ? serverId.value : this.serverId,
     syncStatus: syncStatus ?? this.syncStatus,
+    localRev: localRev ?? this.localRev,
   );
   ScheduledWorkoutTableData copyWithCompanion(
     ScheduledWorkoutTableCompanion data,
@@ -6447,6 +6838,7 @@ class ScheduledWorkoutTableData extends DataClass
       serverId: data.serverId.present ? data.serverId.value : this.serverId,
       syncStatus:
           data.syncStatus.present ? data.syncStatus.value : this.syncStatus,
+      localRev: data.localRev.present ? data.localRev.value : this.localRev,
     );
   }
 
@@ -6463,7 +6855,8 @@ class ScheduledWorkoutTableData extends DataClass
           ..write('isCompleted: $isCompleted, ')
           ..write('isSkipped: $isSkipped, ')
           ..write('serverId: $serverId, ')
-          ..write('syncStatus: $syncStatus')
+          ..write('syncStatus: $syncStatus, ')
+          ..write('localRev: $localRev')
           ..write(')'))
         .toString();
   }
@@ -6481,6 +6874,7 @@ class ScheduledWorkoutTableData extends DataClass
     isSkipped,
     serverId,
     syncStatus,
+    localRev,
   );
   @override
   bool operator ==(Object other) =>
@@ -6496,7 +6890,8 @@ class ScheduledWorkoutTableData extends DataClass
           other.isCompleted == this.isCompleted &&
           other.isSkipped == this.isSkipped &&
           other.serverId == this.serverId &&
-          other.syncStatus == this.syncStatus);
+          other.syncStatus == this.syncStatus &&
+          other.localRev == this.localRev);
 }
 
 class ScheduledWorkoutTableCompanion
@@ -6512,6 +6907,7 @@ class ScheduledWorkoutTableCompanion
   final Value<bool> isSkipped;
   final Value<String?> serverId;
   final Value<int> syncStatus;
+  final Value<int> localRev;
   const ScheduledWorkoutTableCompanion({
     this.id = const Value.absent(),
     this.workoutId = const Value.absent(),
@@ -6524,6 +6920,7 @@ class ScheduledWorkoutTableCompanion
     this.isSkipped = const Value.absent(),
     this.serverId = const Value.absent(),
     this.syncStatus = const Value.absent(),
+    this.localRev = const Value.absent(),
   });
   ScheduledWorkoutTableCompanion.insert({
     this.id = const Value.absent(),
@@ -6537,6 +6934,7 @@ class ScheduledWorkoutTableCompanion
     this.isSkipped = const Value.absent(),
     this.serverId = const Value.absent(),
     this.syncStatus = const Value.absent(),
+    this.localRev = const Value.absent(),
   }) : workoutId = Value(workoutId),
        scheduledDate = Value(scheduledDate);
   static Insertable<ScheduledWorkoutTableData> custom({
@@ -6551,6 +6949,7 @@ class ScheduledWorkoutTableCompanion
     Expression<bool>? isSkipped,
     Expression<String>? serverId,
     Expression<int>? syncStatus,
+    Expression<int>? localRev,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -6564,6 +6963,7 @@ class ScheduledWorkoutTableCompanion
       if (isSkipped != null) 'is_skipped': isSkipped,
       if (serverId != null) 'server_id': serverId,
       if (syncStatus != null) 'sync_status': syncStatus,
+      if (localRev != null) 'local_rev': localRev,
     });
   }
 
@@ -6579,6 +6979,7 @@ class ScheduledWorkoutTableCompanion
     Value<bool>? isSkipped,
     Value<String?>? serverId,
     Value<int>? syncStatus,
+    Value<int>? localRev,
   }) {
     return ScheduledWorkoutTableCompanion(
       id: id ?? this.id,
@@ -6592,6 +6993,7 @@ class ScheduledWorkoutTableCompanion
       isSkipped: isSkipped ?? this.isSkipped,
       serverId: serverId ?? this.serverId,
       syncStatus: syncStatus ?? this.syncStatus,
+      localRev: localRev ?? this.localRev,
     );
   }
 
@@ -6631,6 +7033,9 @@ class ScheduledWorkoutTableCompanion
     if (syncStatus.present) {
       map['sync_status'] = Variable<int>(syncStatus.value);
     }
+    if (localRev.present) {
+      map['local_rev'] = Variable<int>(localRev.value);
+    }
     return map;
   }
 
@@ -6647,7 +7052,8 @@ class ScheduledWorkoutTableCompanion
           ..write('isCompleted: $isCompleted, ')
           ..write('isSkipped: $isSkipped, ')
           ..write('serverId: $serverId, ')
-          ..write('syncStatus: $syncStatus')
+          ..write('syncStatus: $syncStatus, ')
+          ..write('localRev: $localRev')
           ..write(')'))
         .toString();
   }
@@ -6760,6 +7166,18 @@ class $ScheduledWorkoutExerciseTableTable extends ScheduledWorkoutExerciseTable
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _localRevMeta = const VerificationMeta(
+    'localRev',
+  );
+  @override
+  late final GeneratedColumn<int> localRev = GeneratedColumn<int>(
+    'local_rev',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -6770,6 +7188,7 @@ class $ScheduledWorkoutExerciseTableTable extends ScheduledWorkoutExerciseTable
     overrideExerciseId,
     serverId,
     syncStatus,
+    localRev,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -6844,6 +7263,12 @@ class $ScheduledWorkoutExerciseTableTable extends ScheduledWorkoutExerciseTable
         syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
       );
     }
+    if (data.containsKey('local_rev')) {
+      context.handle(
+        _localRevMeta,
+        localRev.isAcceptableOrUnknown(data['local_rev']!, _localRevMeta),
+      );
+    }
     return context;
   }
 
@@ -6893,6 +7318,11 @@ class $ScheduledWorkoutExerciseTableTable extends ScheduledWorkoutExerciseTable
             DriftSqlType.int,
             data['${effectivePrefix}sync_status'],
           )!,
+      localRev:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.int,
+            data['${effectivePrefix}local_rev'],
+          )!,
     );
   }
 
@@ -6916,6 +7346,10 @@ class ScheduledWorkoutExerciseTableData extends DataClass
   final int? overrideExerciseId;
   final String? serverId;
   final int syncStatus;
+
+  /// Bumped by the database on every local change — see [SyncStatus] and
+  /// `lib/core/sync/sync_triggers.dart`.
+  final int localRev;
   const ScheduledWorkoutExerciseTableData({
     required this.id,
     required this.scheduledWorkoutId,
@@ -6925,6 +7359,7 @@ class ScheduledWorkoutExerciseTableData extends DataClass
     this.overrideExerciseId,
     this.serverId,
     required this.syncStatus,
+    required this.localRev,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -6943,6 +7378,7 @@ class ScheduledWorkoutExerciseTableData extends DataClass
       map['server_id'] = Variable<String>(serverId);
     }
     map['sync_status'] = Variable<int>(syncStatus);
+    map['local_rev'] = Variable<int>(localRev);
     return map;
   }
 
@@ -6963,6 +7399,7 @@ class ScheduledWorkoutExerciseTableData extends DataClass
               ? const Value.absent()
               : Value(serverId),
       syncStatus: Value(syncStatus),
+      localRev: Value(localRev),
     );
   }
 
@@ -6980,6 +7417,7 @@ class ScheduledWorkoutExerciseTableData extends DataClass
       overrideExerciseId: serializer.fromJson<int?>(json['overrideExerciseId']),
       serverId: serializer.fromJson<String?>(json['serverId']),
       syncStatus: serializer.fromJson<int>(json['syncStatus']),
+      localRev: serializer.fromJson<int>(json['localRev']),
     );
   }
   @override
@@ -6994,6 +7432,7 @@ class ScheduledWorkoutExerciseTableData extends DataClass
       'overrideExerciseId': serializer.toJson<int?>(overrideExerciseId),
       'serverId': serializer.toJson<String?>(serverId),
       'syncStatus': serializer.toJson<int>(syncStatus),
+      'localRev': serializer.toJson<int>(localRev),
     };
   }
 
@@ -7006,6 +7445,7 @@ class ScheduledWorkoutExerciseTableData extends DataClass
     Value<int?> overrideExerciseId = const Value.absent(),
     Value<String?> serverId = const Value.absent(),
     int? syncStatus,
+    int? localRev,
   }) => ScheduledWorkoutExerciseTableData(
     id: id ?? this.id,
     scheduledWorkoutId: scheduledWorkoutId ?? this.scheduledWorkoutId,
@@ -7018,6 +7458,7 @@ class ScheduledWorkoutExerciseTableData extends DataClass
             : this.overrideExerciseId,
     serverId: serverId.present ? serverId.value : this.serverId,
     syncStatus: syncStatus ?? this.syncStatus,
+    localRev: localRev ?? this.localRev,
   );
   ScheduledWorkoutExerciseTableData copyWithCompanion(
     ScheduledWorkoutExerciseTableCompanion data,
@@ -7042,6 +7483,7 @@ class ScheduledWorkoutExerciseTableData extends DataClass
       serverId: data.serverId.present ? data.serverId.value : this.serverId,
       syncStatus:
           data.syncStatus.present ? data.syncStatus.value : this.syncStatus,
+      localRev: data.localRev.present ? data.localRev.value : this.localRev,
     );
   }
 
@@ -7055,7 +7497,8 @@ class ScheduledWorkoutExerciseTableData extends DataClass
           ..write('notes: $notes, ')
           ..write('overrideExerciseId: $overrideExerciseId, ')
           ..write('serverId: $serverId, ')
-          ..write('syncStatus: $syncStatus')
+          ..write('syncStatus: $syncStatus, ')
+          ..write('localRev: $localRev')
           ..write(')'))
         .toString();
   }
@@ -7070,6 +7513,7 @@ class ScheduledWorkoutExerciseTableData extends DataClass
     overrideExerciseId,
     serverId,
     syncStatus,
+    localRev,
   );
   @override
   bool operator ==(Object other) =>
@@ -7082,7 +7526,8 @@ class ScheduledWorkoutExerciseTableData extends DataClass
           other.notes == this.notes &&
           other.overrideExerciseId == this.overrideExerciseId &&
           other.serverId == this.serverId &&
-          other.syncStatus == this.syncStatus);
+          other.syncStatus == this.syncStatus &&
+          other.localRev == this.localRev);
 }
 
 class ScheduledWorkoutExerciseTableCompanion
@@ -7095,6 +7540,7 @@ class ScheduledWorkoutExerciseTableCompanion
   final Value<int?> overrideExerciseId;
   final Value<String?> serverId;
   final Value<int> syncStatus;
+  final Value<int> localRev;
   const ScheduledWorkoutExerciseTableCompanion({
     this.id = const Value.absent(),
     this.scheduledWorkoutId = const Value.absent(),
@@ -7104,6 +7550,7 @@ class ScheduledWorkoutExerciseTableCompanion
     this.overrideExerciseId = const Value.absent(),
     this.serverId = const Value.absent(),
     this.syncStatus = const Value.absent(),
+    this.localRev = const Value.absent(),
   });
   ScheduledWorkoutExerciseTableCompanion.insert({
     this.id = const Value.absent(),
@@ -7114,6 +7561,7 @@ class ScheduledWorkoutExerciseTableCompanion
     this.overrideExerciseId = const Value.absent(),
     this.serverId = const Value.absent(),
     this.syncStatus = const Value.absent(),
+    this.localRev = const Value.absent(),
   }) : scheduledWorkoutId = Value(scheduledWorkoutId),
        workoutExerciseId = Value(workoutExerciseId);
   static Insertable<ScheduledWorkoutExerciseTableData> custom({
@@ -7125,6 +7573,7 @@ class ScheduledWorkoutExerciseTableCompanion
     Expression<int>? overrideExerciseId,
     Expression<String>? serverId,
     Expression<int>? syncStatus,
+    Expression<int>? localRev,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -7137,6 +7586,7 @@ class ScheduledWorkoutExerciseTableCompanion
         'override_exercise_id': overrideExerciseId,
       if (serverId != null) 'server_id': serverId,
       if (syncStatus != null) 'sync_status': syncStatus,
+      if (localRev != null) 'local_rev': localRev,
     });
   }
 
@@ -7149,6 +7599,7 @@ class ScheduledWorkoutExerciseTableCompanion
     Value<int?>? overrideExerciseId,
     Value<String?>? serverId,
     Value<int>? syncStatus,
+    Value<int>? localRev,
   }) {
     return ScheduledWorkoutExerciseTableCompanion(
       id: id ?? this.id,
@@ -7159,6 +7610,7 @@ class ScheduledWorkoutExerciseTableCompanion
       overrideExerciseId: overrideExerciseId ?? this.overrideExerciseId,
       serverId: serverId ?? this.serverId,
       syncStatus: syncStatus ?? this.syncStatus,
+      localRev: localRev ?? this.localRev,
     );
   }
 
@@ -7189,6 +7641,9 @@ class ScheduledWorkoutExerciseTableCompanion
     if (syncStatus.present) {
       map['sync_status'] = Variable<int>(syncStatus.value);
     }
+    if (localRev.present) {
+      map['local_rev'] = Variable<int>(localRev.value);
+    }
     return map;
   }
 
@@ -7202,7 +7657,8 @@ class ScheduledWorkoutExerciseTableCompanion
           ..write('notes: $notes, ')
           ..write('overrideExerciseId: $overrideExerciseId, ')
           ..write('serverId: $serverId, ')
-          ..write('syncStatus: $syncStatus')
+          ..write('syncStatus: $syncStatus, ')
+          ..write('localRev: $localRev')
           ..write(')'))
         .toString();
   }
@@ -9136,10 +9592,32 @@ class ChatOutBoxTableData extends DataClass
 
   /// Maps to [ChatMessageStatus] by index.
   final int chatMessageStatus;
+
+  /// The attachment envelope this message carries, if any — everything
+  /// [ChatBodyCodec] needs to rebuild the encrypted body on replay: the
+  /// per-attachment key, its manifest, the caption. `body` above stays the
+  /// plaintext caption alone; this is stored separately so replay can
+  /// reconstruct the envelope without re-parsing `body`, and so a schema
+  /// reader can see at a glance which rows carry an attachment.
   final String? attachmentManifest;
+
+  /// Where this device's processed (downscaled, sealed) plaintext bytes live
+  /// before upload — a temp file path, native platforms only. Null on web,
+  /// where there is no file system to resume an interrupted upload from; see
+  /// docs/chat-attachments.md.
   final String? attachmentLocalPath;
 
-  /// Maps to [AttachmentUploadStatus] by index.
+  /// Maps to [AttachmentUploadStatus] by index. `none` for every ordinary
+  /// text message — the overwhelmingly common case — so this column changes
+  /// nothing about a row that carries no attachment.
+  ///
+  /// A second column rather than widening [ChatMessageStatus], because the
+  /// two axes are genuinely independent (a message can be `pending` and
+  /// `uploaded` at once — sent, upload done, ack still outstanding) and
+  /// because [ChatMessageStatus]'s indices are read by raw SQL elsewhere
+  /// (`AppDatabase.countUnsyncedChanges`'s `chat_message_status != 1`, which
+  /// gates the sign-out confirmation) — overloading it would make that
+  /// predicate quietly wrong.
   final int uploadStatus;
   const ChatOutBoxTableData({
     required this.messageId,
@@ -9368,8 +9846,7 @@ class ChatOutBoxTableCompanion extends UpdateCompanion<ChatOutBoxTableData> {
       if (body != null) 'body': body,
       if (createdAt != null) 'created_at': createdAt,
       if (chatMessageStatus != null) 'chat_message_status': chatMessageStatus,
-      if (attachmentManifest != null)
-        'attachment_manifest': attachmentManifest,
+      if (attachmentManifest != null) 'attachment_manifest': attachmentManifest,
       if (attachmentLocalPath != null)
         'attachment_local_path': attachmentLocalPath,
       if (uploadStatus != null) 'upload_status': uploadStatus,
@@ -9453,6 +9930,833 @@ class ChatOutBoxTableCompanion extends UpdateCompanion<ChatOutBoxTableData> {
   }
 }
 
+class $SyncDeletionTableTable extends SyncDeletionTable
+    with TableInfo<$SyncDeletionTableTable, SyncDeletionData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SyncDeletionTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _kindMeta = const VerificationMeta('kind');
+  @override
+  late final GeneratedColumn<String> kind = GeneratedColumn<String>(
+    'kind',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _serverIdMeta = const VerificationMeta(
+    'serverId',
+  );
+  @override
+  late final GeneratedColumn<String> serverId = GeneratedColumn<String>(
+    'server_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _parentServerIdMeta = const VerificationMeta(
+    'parentServerId',
+  );
+  @override
+  late final GeneratedColumn<String> parentServerId = GeneratedColumn<String>(
+    'parent_server_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _extraServerIdMeta = const VerificationMeta(
+    'extraServerId',
+  );
+  @override
+  late final GeneratedColumn<String> extraServerId = GeneratedColumn<String>(
+    'extra_server_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    kind,
+    serverId,
+    parentServerId,
+    extraServerId,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'sync_deletion_table';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SyncDeletionData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('kind')) {
+      context.handle(
+        _kindMeta,
+        kind.isAcceptableOrUnknown(data['kind']!, _kindMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_kindMeta);
+    }
+    if (data.containsKey('server_id')) {
+      context.handle(
+        _serverIdMeta,
+        serverId.isAcceptableOrUnknown(data['server_id']!, _serverIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_serverIdMeta);
+    }
+    if (data.containsKey('parent_server_id')) {
+      context.handle(
+        _parentServerIdMeta,
+        parentServerId.isAcceptableOrUnknown(
+          data['parent_server_id']!,
+          _parentServerIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('extra_server_id')) {
+      context.handle(
+        _extraServerIdMeta,
+        extraServerId.isAcceptableOrUnknown(
+          data['extra_server_id']!,
+          _extraServerIdMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  SyncDeletionData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SyncDeletionData(
+      id:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.int,
+            data['${effectivePrefix}id'],
+          )!,
+      kind:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.string,
+            data['${effectivePrefix}kind'],
+          )!,
+      serverId:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.string,
+            data['${effectivePrefix}server_id'],
+          )!,
+      parentServerId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}parent_server_id'],
+      ),
+      extraServerId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}extra_server_id'],
+      ),
+    );
+  }
+
+  @override
+  $SyncDeletionTableTable createAlias(String alias) {
+    return $SyncDeletionTableTable(attachedDatabase, alias);
+  }
+}
+
+class SyncDeletionData extends DataClass
+    implements Insertable<SyncDeletionData> {
+  final int id;
+
+  /// Which endpoint the DELETE goes to — see `SyncDeletionKind`.
+  final String kind;
+
+  /// The deleted row's own server id.
+  final String serverId;
+
+  /// The server id of the row the DELETE route is nested under, for kinds that
+  /// have one (a meal's food entry is removed through its meal).
+  final String? parentServerId;
+
+  /// A second route id, for kinds that address a row by what it links (a
+  /// plan's workout, a meal's food item).
+  final String? extraServerId;
+  const SyncDeletionData({
+    required this.id,
+    required this.kind,
+    required this.serverId,
+    this.parentServerId,
+    this.extraServerId,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['kind'] = Variable<String>(kind);
+    map['server_id'] = Variable<String>(serverId);
+    if (!nullToAbsent || parentServerId != null) {
+      map['parent_server_id'] = Variable<String>(parentServerId);
+    }
+    if (!nullToAbsent || extraServerId != null) {
+      map['extra_server_id'] = Variable<String>(extraServerId);
+    }
+    return map;
+  }
+
+  SyncDeletionTableCompanion toCompanion(bool nullToAbsent) {
+    return SyncDeletionTableCompanion(
+      id: Value(id),
+      kind: Value(kind),
+      serverId: Value(serverId),
+      parentServerId:
+          parentServerId == null && nullToAbsent
+              ? const Value.absent()
+              : Value(parentServerId),
+      extraServerId:
+          extraServerId == null && nullToAbsent
+              ? const Value.absent()
+              : Value(extraServerId),
+    );
+  }
+
+  factory SyncDeletionData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SyncDeletionData(
+      id: serializer.fromJson<int>(json['id']),
+      kind: serializer.fromJson<String>(json['kind']),
+      serverId: serializer.fromJson<String>(json['serverId']),
+      parentServerId: serializer.fromJson<String?>(json['parentServerId']),
+      extraServerId: serializer.fromJson<String?>(json['extraServerId']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'kind': serializer.toJson<String>(kind),
+      'serverId': serializer.toJson<String>(serverId),
+      'parentServerId': serializer.toJson<String?>(parentServerId),
+      'extraServerId': serializer.toJson<String?>(extraServerId),
+    };
+  }
+
+  SyncDeletionData copyWith({
+    int? id,
+    String? kind,
+    String? serverId,
+    Value<String?> parentServerId = const Value.absent(),
+    Value<String?> extraServerId = const Value.absent(),
+  }) => SyncDeletionData(
+    id: id ?? this.id,
+    kind: kind ?? this.kind,
+    serverId: serverId ?? this.serverId,
+    parentServerId:
+        parentServerId.present ? parentServerId.value : this.parentServerId,
+    extraServerId:
+        extraServerId.present ? extraServerId.value : this.extraServerId,
+  );
+  SyncDeletionData copyWithCompanion(SyncDeletionTableCompanion data) {
+    return SyncDeletionData(
+      id: data.id.present ? data.id.value : this.id,
+      kind: data.kind.present ? data.kind.value : this.kind,
+      serverId: data.serverId.present ? data.serverId.value : this.serverId,
+      parentServerId:
+          data.parentServerId.present
+              ? data.parentServerId.value
+              : this.parentServerId,
+      extraServerId:
+          data.extraServerId.present
+              ? data.extraServerId.value
+              : this.extraServerId,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncDeletionData(')
+          ..write('id: $id, ')
+          ..write('kind: $kind, ')
+          ..write('serverId: $serverId, ')
+          ..write('parentServerId: $parentServerId, ')
+          ..write('extraServerId: $extraServerId')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, kind, serverId, parentServerId, extraServerId);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SyncDeletionData &&
+          other.id == this.id &&
+          other.kind == this.kind &&
+          other.serverId == this.serverId &&
+          other.parentServerId == this.parentServerId &&
+          other.extraServerId == this.extraServerId);
+}
+
+class SyncDeletionTableCompanion extends UpdateCompanion<SyncDeletionData> {
+  final Value<int> id;
+  final Value<String> kind;
+  final Value<String> serverId;
+  final Value<String?> parentServerId;
+  final Value<String?> extraServerId;
+  const SyncDeletionTableCompanion({
+    this.id = const Value.absent(),
+    this.kind = const Value.absent(),
+    this.serverId = const Value.absent(),
+    this.parentServerId = const Value.absent(),
+    this.extraServerId = const Value.absent(),
+  });
+  SyncDeletionTableCompanion.insert({
+    this.id = const Value.absent(),
+    required String kind,
+    required String serverId,
+    this.parentServerId = const Value.absent(),
+    this.extraServerId = const Value.absent(),
+  }) : kind = Value(kind),
+       serverId = Value(serverId);
+  static Insertable<SyncDeletionData> custom({
+    Expression<int>? id,
+    Expression<String>? kind,
+    Expression<String>? serverId,
+    Expression<String>? parentServerId,
+    Expression<String>? extraServerId,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (kind != null) 'kind': kind,
+      if (serverId != null) 'server_id': serverId,
+      if (parentServerId != null) 'parent_server_id': parentServerId,
+      if (extraServerId != null) 'extra_server_id': extraServerId,
+    });
+  }
+
+  SyncDeletionTableCompanion copyWith({
+    Value<int>? id,
+    Value<String>? kind,
+    Value<String>? serverId,
+    Value<String?>? parentServerId,
+    Value<String?>? extraServerId,
+  }) {
+    return SyncDeletionTableCompanion(
+      id: id ?? this.id,
+      kind: kind ?? this.kind,
+      serverId: serverId ?? this.serverId,
+      parentServerId: parentServerId ?? this.parentServerId,
+      extraServerId: extraServerId ?? this.extraServerId,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (kind.present) {
+      map['kind'] = Variable<String>(kind.value);
+    }
+    if (serverId.present) {
+      map['server_id'] = Variable<String>(serverId.value);
+    }
+    if (parentServerId.present) {
+      map['parent_server_id'] = Variable<String>(parentServerId.value);
+    }
+    if (extraServerId.present) {
+      map['extra_server_id'] = Variable<String>(extraServerId.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncDeletionTableCompanion(')
+          ..write('id: $id, ')
+          ..write('kind: $kind, ')
+          ..write('serverId: $serverId, ')
+          ..write('parentServerId: $parentServerId, ')
+          ..write('extraServerId: $extraServerId')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $SyncApplyGuardTableTable extends SyncApplyGuardTable
+    with TableInfo<$SyncApplyGuardTableTable, SyncApplyGuardTableData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SyncApplyGuardTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _activeMeta = const VerificationMeta('active');
+  @override
+  late final GeneratedColumn<int> active = GeneratedColumn<int>(
+    'active',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, active];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'sync_apply_guard_table';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SyncApplyGuardTableData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('active')) {
+      context.handle(
+        _activeMeta,
+        active.isAcceptableOrUnknown(data['active']!, _activeMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  SyncApplyGuardTableData map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SyncApplyGuardTableData(
+      id:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.int,
+            data['${effectivePrefix}id'],
+          )!,
+      active:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.int,
+            data['${effectivePrefix}active'],
+          )!,
+    );
+  }
+
+  @override
+  $SyncApplyGuardTableTable createAlias(String alias) {
+    return $SyncApplyGuardTableTable(attachedDatabase, alias);
+  }
+}
+
+class SyncApplyGuardTableData extends DataClass
+    implements Insertable<SyncApplyGuardTableData> {
+  final int id;
+  final int active;
+  const SyncApplyGuardTableData({required this.id, required this.active});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['active'] = Variable<int>(active);
+    return map;
+  }
+
+  SyncApplyGuardTableCompanion toCompanion(bool nullToAbsent) {
+    return SyncApplyGuardTableCompanion(id: Value(id), active: Value(active));
+  }
+
+  factory SyncApplyGuardTableData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SyncApplyGuardTableData(
+      id: serializer.fromJson<int>(json['id']),
+      active: serializer.fromJson<int>(json['active']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'active': serializer.toJson<int>(active),
+    };
+  }
+
+  SyncApplyGuardTableData copyWith({int? id, int? active}) =>
+      SyncApplyGuardTableData(id: id ?? this.id, active: active ?? this.active);
+  SyncApplyGuardTableData copyWithCompanion(SyncApplyGuardTableCompanion data) {
+    return SyncApplyGuardTableData(
+      id: data.id.present ? data.id.value : this.id,
+      active: data.active.present ? data.active.value : this.active,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncApplyGuardTableData(')
+          ..write('id: $id, ')
+          ..write('active: $active')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, active);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SyncApplyGuardTableData &&
+          other.id == this.id &&
+          other.active == this.active);
+}
+
+class SyncApplyGuardTableCompanion
+    extends UpdateCompanion<SyncApplyGuardTableData> {
+  final Value<int> id;
+  final Value<int> active;
+  const SyncApplyGuardTableCompanion({
+    this.id = const Value.absent(),
+    this.active = const Value.absent(),
+  });
+  SyncApplyGuardTableCompanion.insert({
+    this.id = const Value.absent(),
+    this.active = const Value.absent(),
+  });
+  static Insertable<SyncApplyGuardTableData> custom({
+    Expression<int>? id,
+    Expression<int>? active,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (active != null) 'active': active,
+    });
+  }
+
+  SyncApplyGuardTableCompanion copyWith({Value<int>? id, Value<int>? active}) {
+    return SyncApplyGuardTableCompanion(
+      id: id ?? this.id,
+      active: active ?? this.active,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (active.present) {
+      map['active'] = Variable<int>(active.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncApplyGuardTableCompanion(')
+          ..write('id: $id, ')
+          ..write('active: $active')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $SyncLeaseTableTable extends SyncLeaseTable
+    with TableInfo<$SyncLeaseTableTable, SyncLeaseTableData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SyncLeaseTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _holderMeta = const VerificationMeta('holder');
+  @override
+  late final GeneratedColumn<String> holder = GeneratedColumn<String>(
+    'holder',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _expiresAtMeta = const VerificationMeta(
+    'expiresAt',
+  );
+  @override
+  late final GeneratedColumn<int> expiresAt = GeneratedColumn<int>(
+    'expires_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, holder, expiresAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'sync_lease_table';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SyncLeaseTableData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('holder')) {
+      context.handle(
+        _holderMeta,
+        holder.isAcceptableOrUnknown(data['holder']!, _holderMeta),
+      );
+    }
+    if (data.containsKey('expires_at')) {
+      context.handle(
+        _expiresAtMeta,
+        expiresAt.isAcceptableOrUnknown(data['expires_at']!, _expiresAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  SyncLeaseTableData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SyncLeaseTableData(
+      id:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.int,
+            data['${effectivePrefix}id'],
+          )!,
+      holder: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}holder'],
+      ),
+      expiresAt:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.int,
+            data['${effectivePrefix}expires_at'],
+          )!,
+    );
+  }
+
+  @override
+  $SyncLeaseTableTable createAlias(String alias) {
+    return $SyncLeaseTableTable(attachedDatabase, alias);
+  }
+}
+
+class SyncLeaseTableData extends DataClass
+    implements Insertable<SyncLeaseTableData> {
+  final int id;
+  final String? holder;
+  final int expiresAt;
+  const SyncLeaseTableData({
+    required this.id,
+    this.holder,
+    required this.expiresAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    if (!nullToAbsent || holder != null) {
+      map['holder'] = Variable<String>(holder);
+    }
+    map['expires_at'] = Variable<int>(expiresAt);
+    return map;
+  }
+
+  SyncLeaseTableCompanion toCompanion(bool nullToAbsent) {
+    return SyncLeaseTableCompanion(
+      id: Value(id),
+      holder:
+          holder == null && nullToAbsent ? const Value.absent() : Value(holder),
+      expiresAt: Value(expiresAt),
+    );
+  }
+
+  factory SyncLeaseTableData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SyncLeaseTableData(
+      id: serializer.fromJson<int>(json['id']),
+      holder: serializer.fromJson<String?>(json['holder']),
+      expiresAt: serializer.fromJson<int>(json['expiresAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'holder': serializer.toJson<String?>(holder),
+      'expiresAt': serializer.toJson<int>(expiresAt),
+    };
+  }
+
+  SyncLeaseTableData copyWith({
+    int? id,
+    Value<String?> holder = const Value.absent(),
+    int? expiresAt,
+  }) => SyncLeaseTableData(
+    id: id ?? this.id,
+    holder: holder.present ? holder.value : this.holder,
+    expiresAt: expiresAt ?? this.expiresAt,
+  );
+  SyncLeaseTableData copyWithCompanion(SyncLeaseTableCompanion data) {
+    return SyncLeaseTableData(
+      id: data.id.present ? data.id.value : this.id,
+      holder: data.holder.present ? data.holder.value : this.holder,
+      expiresAt: data.expiresAt.present ? data.expiresAt.value : this.expiresAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncLeaseTableData(')
+          ..write('id: $id, ')
+          ..write('holder: $holder, ')
+          ..write('expiresAt: $expiresAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, holder, expiresAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SyncLeaseTableData &&
+          other.id == this.id &&
+          other.holder == this.holder &&
+          other.expiresAt == this.expiresAt);
+}
+
+class SyncLeaseTableCompanion extends UpdateCompanion<SyncLeaseTableData> {
+  final Value<int> id;
+  final Value<String?> holder;
+  final Value<int> expiresAt;
+  const SyncLeaseTableCompanion({
+    this.id = const Value.absent(),
+    this.holder = const Value.absent(),
+    this.expiresAt = const Value.absent(),
+  });
+  SyncLeaseTableCompanion.insert({
+    this.id = const Value.absent(),
+    this.holder = const Value.absent(),
+    this.expiresAt = const Value.absent(),
+  });
+  static Insertable<SyncLeaseTableData> custom({
+    Expression<int>? id,
+    Expression<String>? holder,
+    Expression<int>? expiresAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (holder != null) 'holder': holder,
+      if (expiresAt != null) 'expires_at': expiresAt,
+    });
+  }
+
+  SyncLeaseTableCompanion copyWith({
+    Value<int>? id,
+    Value<String?>? holder,
+    Value<int>? expiresAt,
+  }) {
+    return SyncLeaseTableCompanion(
+      id: id ?? this.id,
+      holder: holder ?? this.holder,
+      expiresAt: expiresAt ?? this.expiresAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (holder.present) {
+      map['holder'] = Variable<String>(holder.value);
+    }
+    if (expiresAt.present) {
+      map['expires_at'] = Variable<int>(expiresAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncLeaseTableCompanion(')
+          ..write('id: $id, ')
+          ..write('holder: $holder, ')
+          ..write('expiresAt: $expiresAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -9487,6 +10791,11 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $ChatOutBoxTableTable chatOutBoxTable = $ChatOutBoxTableTable(
     this,
   );
+  late final $SyncDeletionTableTable syncDeletionTable =
+      $SyncDeletionTableTable(this);
+  late final $SyncApplyGuardTableTable syncApplyGuardTable =
+      $SyncApplyGuardTableTable(this);
+  late final $SyncLeaseTableTable syncLeaseTable = $SyncLeaseTableTable(this);
   late final FoodItemDao foodItemDao = FoodItemDao(this as AppDatabase);
   late final UserSettingsDao userSettingsDao = UserSettingsDao(
     this as AppDatabase,
@@ -9533,6 +10842,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     workoutPlanWorkoutTable,
     workoutSetTemplateTable,
     chatOutBoxTable,
+    syncDeletionTable,
+    syncApplyGuardTable,
+    syncLeaseTable,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -9612,6 +10924,7 @@ typedef $$FoodItemTableCreateCompanionBuilder =
       Value<bool> hiddenFromRecent,
       Value<String?> extendedNutrientsJson,
       Value<int> syncStatus,
+      Value<int> localRev,
       Value<String?> serverId,
       Value<String?> openFoodFactsId,
     });
@@ -9627,6 +10940,7 @@ typedef $$FoodItemTableUpdateCompanionBuilder =
       Value<bool> hiddenFromRecent,
       Value<String?> extendedNutrientsJson,
       Value<int> syncStatus,
+      Value<int> localRev,
       Value<String?> serverId,
       Value<String?> openFoodFactsId,
     });
@@ -9713,6 +11027,11 @@ class $$FoodItemTableFilterComposer
 
   ColumnFilters<int> get syncStatus => $composableBuilder(
     column: $table.syncStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get localRev => $composableBuilder(
+    column: $table.localRev,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -9811,6 +11130,11 @@ class $$FoodItemTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get localRev => $composableBuilder(
+    column: $table.localRev,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get serverId => $composableBuilder(
     column: $table.serverId,
     builder: (column) => ColumnOrderings(column),
@@ -9866,6 +11190,9 @@ class $$FoodItemTableAnnotationComposer
     column: $table.syncStatus,
     builder: (column) => column,
   );
+
+  GeneratedColumn<int> get localRev =>
+      $composableBuilder(column: $table.localRev, builder: (column) => column);
 
   GeneratedColumn<String> get serverId =>
       $composableBuilder(column: $table.serverId, builder: (column) => column);
@@ -9939,6 +11266,7 @@ class $$FoodItemTableTableManager
                 Value<bool> hiddenFromRecent = const Value.absent(),
                 Value<String?> extendedNutrientsJson = const Value.absent(),
                 Value<int> syncStatus = const Value.absent(),
+                Value<int> localRev = const Value.absent(),
                 Value<String?> serverId = const Value.absent(),
                 Value<String?> openFoodFactsId = const Value.absent(),
               }) => FoodItemCompanion(
@@ -9952,6 +11280,7 @@ class $$FoodItemTableTableManager
                 hiddenFromRecent: hiddenFromRecent,
                 extendedNutrientsJson: extendedNutrientsJson,
                 syncStatus: syncStatus,
+                localRev: localRev,
                 serverId: serverId,
                 openFoodFactsId: openFoodFactsId,
               ),
@@ -9967,6 +11296,7 @@ class $$FoodItemTableTableManager
                 Value<bool> hiddenFromRecent = const Value.absent(),
                 Value<String?> extendedNutrientsJson = const Value.absent(),
                 Value<int> syncStatus = const Value.absent(),
+                Value<int> localRev = const Value.absent(),
                 Value<String?> serverId = const Value.absent(),
                 Value<String?> openFoodFactsId = const Value.absent(),
               }) => FoodItemCompanion.insert(
@@ -9980,6 +11310,7 @@ class $$FoodItemTableTableManager
                 hiddenFromRecent: hiddenFromRecent,
                 extendedNutrientsJson: extendedNutrientsJson,
                 syncStatus: syncStatus,
+                localRev: localRev,
                 serverId: serverId,
                 openFoodFactsId: openFoodFactsId,
               ),
@@ -10677,6 +12008,7 @@ typedef $$MealTableTableCreateCompanionBuilder =
       required String category,
       required int foodItemId,
       Value<int> syncStatus,
+      Value<int> localRev,
       Value<String?> serverId,
     });
 typedef $$MealTableTableUpdateCompanionBuilder =
@@ -10686,6 +12018,7 @@ typedef $$MealTableTableUpdateCompanionBuilder =
       Value<String> category,
       Value<int> foodItemId,
       Value<int> syncStatus,
+      Value<int> localRev,
       Value<String?> serverId,
     });
 
@@ -10743,6 +12076,11 @@ class $$MealTableTableFilterComposer
 
   ColumnFilters<int> get syncStatus => $composableBuilder(
     column: $table.syncStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get localRev => $composableBuilder(
+    column: $table.localRev,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -10811,6 +12149,11 @@ class $$MealTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get localRev => $composableBuilder(
+    column: $table.localRev,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get serverId => $composableBuilder(
     column: $table.serverId,
     builder: (column) => ColumnOrderings(column),
@@ -10844,6 +12187,9 @@ class $$MealTableTableAnnotationComposer
     column: $table.syncStatus,
     builder: (column) => column,
   );
+
+  GeneratedColumn<int> get localRev =>
+      $composableBuilder(column: $table.localRev, builder: (column) => column);
 
   GeneratedColumn<String> get serverId =>
       $composableBuilder(column: $table.serverId, builder: (column) => column);
@@ -10907,6 +12253,7 @@ class $$MealTableTableTableManager
                 Value<String> category = const Value.absent(),
                 Value<int> foodItemId = const Value.absent(),
                 Value<int> syncStatus = const Value.absent(),
+                Value<int> localRev = const Value.absent(),
                 Value<String?> serverId = const Value.absent(),
               }) => MealTableCompanion(
                 id: id,
@@ -10914,6 +12261,7 @@ class $$MealTableTableTableManager
                 category: category,
                 foodItemId: foodItemId,
                 syncStatus: syncStatus,
+                localRev: localRev,
                 serverId: serverId,
               ),
           createCompanionCallback:
@@ -10923,6 +12271,7 @@ class $$MealTableTableTableManager
                 required String category,
                 required int foodItemId,
                 Value<int> syncStatus = const Value.absent(),
+                Value<int> localRev = const Value.absent(),
                 Value<String?> serverId = const Value.absent(),
               }) => MealTableCompanion.insert(
                 id: id,
@@ -10930,6 +12279,7 @@ class $$MealTableTableTableManager
                 category: category,
                 foodItemId: foodItemId,
                 syncStatus: syncStatus,
+                localRev: localRev,
                 serverId: serverId,
               ),
           withReferenceMapper:
@@ -11581,6 +12931,7 @@ typedef $$WeightRecordTableCreateCompanionBuilder =
       required double weight,
       Value<String?> note,
       Value<int> syncStatus,
+      Value<int> localRev,
       Value<String?> serverId,
     });
 typedef $$WeightRecordTableUpdateCompanionBuilder =
@@ -11590,6 +12941,7 @@ typedef $$WeightRecordTableUpdateCompanionBuilder =
       Value<double> weight,
       Value<String?> note,
       Value<int> syncStatus,
+      Value<int> localRev,
       Value<String?> serverId,
     });
 
@@ -11624,6 +12976,11 @@ class $$WeightRecordTableFilterComposer
 
   ColumnFilters<int> get syncStatus => $composableBuilder(
     column: $table.syncStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get localRev => $composableBuilder(
+    column: $table.localRev,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -11667,6 +13024,11 @@ class $$WeightRecordTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get localRev => $composableBuilder(
+    column: $table.localRev,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get serverId => $composableBuilder(
     column: $table.serverId,
     builder: (column) => ColumnOrderings(column),
@@ -11698,6 +13060,9 @@ class $$WeightRecordTableAnnotationComposer
     column: $table.syncStatus,
     builder: (column) => column,
   );
+
+  GeneratedColumn<int> get localRev =>
+      $composableBuilder(column: $table.localRev, builder: (column) => column);
 
   GeneratedColumn<String> get serverId =>
       $composableBuilder(column: $table.serverId, builder: (column) => column);
@@ -11740,6 +13105,7 @@ class $$WeightRecordTableTableManager
                 Value<double> weight = const Value.absent(),
                 Value<String?> note = const Value.absent(),
                 Value<int> syncStatus = const Value.absent(),
+                Value<int> localRev = const Value.absent(),
                 Value<String?> serverId = const Value.absent(),
               }) => WeightRecordCompanion(
                 id: id,
@@ -11747,6 +13113,7 @@ class $$WeightRecordTableTableManager
                 weight: weight,
                 note: note,
                 syncStatus: syncStatus,
+                localRev: localRev,
                 serverId: serverId,
               ),
           createCompanionCallback:
@@ -11756,6 +13123,7 @@ class $$WeightRecordTableTableManager
                 required double weight,
                 Value<String?> note = const Value.absent(),
                 Value<int> syncStatus = const Value.absent(),
+                Value<int> localRev = const Value.absent(),
                 Value<String?> serverId = const Value.absent(),
               }) => WeightRecordCompanion.insert(
                 id: id,
@@ -11763,6 +13131,7 @@ class $$WeightRecordTableTableManager
                 weight: weight,
                 note: note,
                 syncStatus: syncStatus,
+                localRev: localRev,
                 serverId: serverId,
               ),
           withReferenceMapper:
@@ -11810,6 +13179,7 @@ typedef $$ExerciseTableTableCreateCompanionBuilder =
       Value<bool> isCustom,
       Value<String?> serverId,
       Value<int> syncStatus,
+      Value<int> localRev,
     });
 typedef $$ExerciseTableTableUpdateCompanionBuilder =
     ExerciseTableCompanion Function({
@@ -11824,6 +13194,7 @@ typedef $$ExerciseTableTableUpdateCompanionBuilder =
       Value<bool> isCustom,
       Value<String?> serverId,
       Value<int> syncStatus,
+      Value<int> localRev,
     });
 
 final class $$ExerciseTableTableReferences
@@ -11928,6 +13299,11 @@ class $$ExerciseTableTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<int> get localRev => $composableBuilder(
+    column: $table.localRev,
+    builder: (column) => ColumnFilters(column),
+  );
+
   Expression<bool> workoutExerciseTableRefs(
     Expression<bool> Function($$WorkoutExerciseTableTableFilterComposer f) f,
   ) {
@@ -12017,6 +13393,11 @@ class $$ExerciseTableTableOrderingComposer
     column: $table.syncStatus,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get localRev => $composableBuilder(
+    column: $table.localRev,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$ExerciseTableTableAnnotationComposer
@@ -12068,6 +13449,9 @@ class $$ExerciseTableTableAnnotationComposer
     column: $table.syncStatus,
     builder: (column) => column,
   );
+
+  GeneratedColumn<int> get localRev =>
+      $composableBuilder(column: $table.localRev, builder: (column) => column);
 
   Expression<T> workoutExerciseTableRefs<T extends Object>(
     Expression<T> Function($$WorkoutExerciseTableTableAnnotationComposer a) f,
@@ -12139,6 +13523,7 @@ class $$ExerciseTableTableTableManager
                 Value<bool> isCustom = const Value.absent(),
                 Value<String?> serverId = const Value.absent(),
                 Value<int> syncStatus = const Value.absent(),
+                Value<int> localRev = const Value.absent(),
               }) => ExerciseTableCompanion(
                 id: id,
                 name: name,
@@ -12151,6 +13536,7 @@ class $$ExerciseTableTableTableManager
                 isCustom: isCustom,
                 serverId: serverId,
                 syncStatus: syncStatus,
+                localRev: localRev,
               ),
           createCompanionCallback:
               ({
@@ -12165,6 +13551,7 @@ class $$ExerciseTableTableTableManager
                 Value<bool> isCustom = const Value.absent(),
                 Value<String?> serverId = const Value.absent(),
                 Value<int> syncStatus = const Value.absent(),
+                Value<int> localRev = const Value.absent(),
               }) => ExerciseTableCompanion.insert(
                 id: id,
                 name: name,
@@ -12177,6 +13564,7 @@ class $$ExerciseTableTableTableManager
                 isCustom: isCustom,
                 serverId: serverId,
                 syncStatus: syncStatus,
+                localRev: localRev,
               ),
           withReferenceMapper:
               (p0) =>
@@ -12254,6 +13642,7 @@ typedef $$WorkoutTableTableCreateCompanionBuilder =
       Value<int?> color,
       Value<String?> serverId,
       Value<int> syncStatus,
+      Value<int> localRev,
     });
 typedef $$WorkoutTableTableUpdateCompanionBuilder =
     WorkoutTableCompanion Function({
@@ -12268,6 +13657,7 @@ typedef $$WorkoutTableTableUpdateCompanionBuilder =
       Value<int?> color,
       Value<String?> serverId,
       Value<int> syncStatus,
+      Value<int> localRev,
     });
 
 final class $$WorkoutTableTableReferences
@@ -12452,6 +13842,11 @@ class $$WorkoutTableTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<int> get localRev => $composableBuilder(
+    column: $table.localRev,
+    builder: (column) => ColumnFilters(column),
+  );
+
   Expression<bool> workoutExerciseTableRefs(
     Expression<bool> Function($$WorkoutExerciseTableTableFilterComposer f) f,
   ) {
@@ -12619,6 +14014,11 @@ class $$WorkoutTableTableOrderingComposer
     column: $table.syncStatus,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get localRev => $composableBuilder(
+    column: $table.localRev,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$WorkoutTableTableAnnotationComposer
@@ -12676,6 +14076,9 @@ class $$WorkoutTableTableAnnotationComposer
     column: $table.syncStatus,
     builder: (column) => column,
   );
+
+  GeneratedColumn<int> get localRev =>
+      $composableBuilder(column: $table.localRev, builder: (column) => column);
 
   Expression<T> workoutExerciseTableRefs<T extends Object>(
     Expression<T> Function($$WorkoutExerciseTableTableAnnotationComposer a) f,
@@ -12828,6 +14231,7 @@ class $$WorkoutTableTableTableManager
                 Value<int?> color = const Value.absent(),
                 Value<String?> serverId = const Value.absent(),
                 Value<int> syncStatus = const Value.absent(),
+                Value<int> localRev = const Value.absent(),
               }) => WorkoutTableCompanion(
                 id: id,
                 name: name,
@@ -12840,6 +14244,7 @@ class $$WorkoutTableTableTableManager
                 color: color,
                 serverId: serverId,
                 syncStatus: syncStatus,
+                localRev: localRev,
               ),
           createCompanionCallback:
               ({
@@ -12854,6 +14259,7 @@ class $$WorkoutTableTableTableManager
                 Value<int?> color = const Value.absent(),
                 Value<String?> serverId = const Value.absent(),
                 Value<int> syncStatus = const Value.absent(),
+                Value<int> localRev = const Value.absent(),
               }) => WorkoutTableCompanion.insert(
                 id: id,
                 name: name,
@@ -12866,6 +14272,7 @@ class $$WorkoutTableTableTableManager
                 color: color,
                 serverId: serverId,
                 syncStatus: syncStatus,
+                localRev: localRev,
               ),
           withReferenceMapper:
               (p0) =>
@@ -13022,6 +14429,7 @@ typedef $$WorkoutPlanTableTableCreateCompanionBuilder =
       Value<int?> durationDays,
       Value<String?> serverId,
       Value<int> syncStatus,
+      Value<int> localRev,
     });
 typedef $$WorkoutPlanTableTableUpdateCompanionBuilder =
     WorkoutPlanTableCompanion Function({
@@ -13036,6 +14444,7 @@ typedef $$WorkoutPlanTableTableUpdateCompanionBuilder =
       Value<int?> durationDays,
       Value<String?> serverId,
       Value<int> syncStatus,
+      Value<int> localRev,
     });
 
 final class $$WorkoutPlanTableTableReferences
@@ -13172,6 +14581,11 @@ class $$WorkoutPlanTableTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<int> get localRev => $composableBuilder(
+    column: $table.localRev,
+    builder: (column) => ColumnFilters(column),
+  );
+
   Expression<bool> scheduledWorkoutTableRefs(
     Expression<bool> Function($$ScheduledWorkoutTableTableFilterComposer f) f,
   ) {
@@ -13288,6 +14702,11 @@ class $$WorkoutPlanTableTableOrderingComposer
     column: $table.syncStatus,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get localRev => $composableBuilder(
+    column: $table.localRev,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$WorkoutPlanTableTableAnnotationComposer
@@ -13341,6 +14760,9 @@ class $$WorkoutPlanTableTableAnnotationComposer
     column: $table.syncStatus,
     builder: (column) => column,
   );
+
+  GeneratedColumn<int> get localRev =>
+      $composableBuilder(column: $table.localRev, builder: (column) => column);
 
   Expression<T> scheduledWorkoutTableRefs<T extends Object>(
     Expression<T> Function($$ScheduledWorkoutTableTableAnnotationComposer a) f,
@@ -13447,6 +14869,7 @@ class $$WorkoutPlanTableTableTableManager
                 Value<int?> durationDays = const Value.absent(),
                 Value<String?> serverId = const Value.absent(),
                 Value<int> syncStatus = const Value.absent(),
+                Value<int> localRev = const Value.absent(),
               }) => WorkoutPlanTableCompanion(
                 id: id,
                 name: name,
@@ -13459,6 +14882,7 @@ class $$WorkoutPlanTableTableTableManager
                 durationDays: durationDays,
                 serverId: serverId,
                 syncStatus: syncStatus,
+                localRev: localRev,
               ),
           createCompanionCallback:
               ({
@@ -13473,6 +14897,7 @@ class $$WorkoutPlanTableTableTableManager
                 Value<int?> durationDays = const Value.absent(),
                 Value<String?> serverId = const Value.absent(),
                 Value<int> syncStatus = const Value.absent(),
+                Value<int> localRev = const Value.absent(),
               }) => WorkoutPlanTableCompanion.insert(
                 id: id,
                 name: name,
@@ -13485,6 +14910,7 @@ class $$WorkoutPlanTableTableTableManager
                 durationDays: durationDays,
                 serverId: serverId,
                 syncStatus: syncStatus,
+                localRev: localRev,
               ),
           withReferenceMapper:
               (p0) =>
@@ -13587,6 +15013,7 @@ typedef $$WorkoutExerciseTableTableCreateCompanionBuilder =
       Value<int?> supersetGroupId,
       Value<String?> serverId,
       Value<int> syncStatus,
+      Value<int> localRev,
     });
 typedef $$WorkoutExerciseTableTableUpdateCompanionBuilder =
     WorkoutExerciseTableCompanion Function({
@@ -13598,6 +15025,7 @@ typedef $$WorkoutExerciseTableTableUpdateCompanionBuilder =
       Value<int?> supersetGroupId,
       Value<String?> serverId,
       Value<int> syncStatus,
+      Value<int> localRev,
     });
 
 final class $$WorkoutExerciseTableTableReferences
@@ -13753,6 +15181,11 @@ class $$WorkoutExerciseTableTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<int> get localRev => $composableBuilder(
+    column: $table.localRev,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$WorkoutTableTableFilterComposer get workoutId {
     final $$WorkoutTableTableFilterComposer composer = $composerBuilder(
       composer: this,
@@ -13894,6 +15327,11 @@ class $$WorkoutExerciseTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get localRev => $composableBuilder(
+    column: $table.localRev,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$WorkoutTableTableOrderingComposer get workoutId {
     final $$WorkoutTableTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -13973,6 +15411,9 @@ class $$WorkoutExerciseTableTableAnnotationComposer
     column: $table.syncStatus,
     builder: (column) => column,
   );
+
+  GeneratedColumn<int> get localRev =>
+      $composableBuilder(column: $table.localRev, builder: (column) => column);
 
   $$WorkoutTableTableAnnotationComposer get workoutId {
     final $$WorkoutTableTableAnnotationComposer composer = $composerBuilder(
@@ -14129,6 +15570,7 @@ class $$WorkoutExerciseTableTableTableManager
                 Value<int?> supersetGroupId = const Value.absent(),
                 Value<String?> serverId = const Value.absent(),
                 Value<int> syncStatus = const Value.absent(),
+                Value<int> localRev = const Value.absent(),
               }) => WorkoutExerciseTableCompanion(
                 id: id,
                 workoutId: workoutId,
@@ -14138,6 +15580,7 @@ class $$WorkoutExerciseTableTableTableManager
                 supersetGroupId: supersetGroupId,
                 serverId: serverId,
                 syncStatus: syncStatus,
+                localRev: localRev,
               ),
           createCompanionCallback:
               ({
@@ -14149,6 +15592,7 @@ class $$WorkoutExerciseTableTableTableManager
                 Value<int?> supersetGroupId = const Value.absent(),
                 Value<String?> serverId = const Value.absent(),
                 Value<int> syncStatus = const Value.absent(),
+                Value<int> localRev = const Value.absent(),
               }) => WorkoutExerciseTableCompanion.insert(
                 id: id,
                 workoutId: workoutId,
@@ -14158,6 +15602,7 @@ class $$WorkoutExerciseTableTableTableManager
                 supersetGroupId: supersetGroupId,
                 serverId: serverId,
                 syncStatus: syncStatus,
+                localRev: localRev,
               ),
           withReferenceMapper:
               (p0) =>
@@ -14316,6 +15761,7 @@ typedef $$ScheduledWorkoutTableTableCreateCompanionBuilder =
       Value<bool> isSkipped,
       Value<String?> serverId,
       Value<int> syncStatus,
+      Value<int> localRev,
     });
 typedef $$ScheduledWorkoutTableTableUpdateCompanionBuilder =
     ScheduledWorkoutTableCompanion Function({
@@ -14330,6 +15776,7 @@ typedef $$ScheduledWorkoutTableTableUpdateCompanionBuilder =
       Value<bool> isSkipped,
       Value<String?> serverId,
       Value<int> syncStatus,
+      Value<int> localRev,
     });
 
 final class $$ScheduledWorkoutTableTableReferences
@@ -14491,6 +15938,11 @@ class $$ScheduledWorkoutTableTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<int> get localRev => $composableBuilder(
+    column: $table.localRev,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$WorkoutTableTableFilterComposer get workoutId {
     final $$WorkoutTableTableFilterComposer composer = $composerBuilder(
       composer: this,
@@ -14639,6 +16091,11 @@ class $$ScheduledWorkoutTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get localRev => $composableBuilder(
+    column: $table.localRev,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$WorkoutTableTableOrderingComposer get workoutId {
     final $$WorkoutTableTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -14747,6 +16204,9 @@ class $$ScheduledWorkoutTableTableAnnotationComposer
     column: $table.syncStatus,
     builder: (column) => column,
   );
+
+  GeneratedColumn<int> get localRev =>
+      $composableBuilder(column: $table.localRev, builder: (column) => column);
 
   $$WorkoutTableTableAnnotationComposer get workoutId {
     final $$WorkoutTableTableAnnotationComposer composer = $composerBuilder(
@@ -14902,6 +16362,7 @@ class $$ScheduledWorkoutTableTableTableManager
                 Value<bool> isSkipped = const Value.absent(),
                 Value<String?> serverId = const Value.absent(),
                 Value<int> syncStatus = const Value.absent(),
+                Value<int> localRev = const Value.absent(),
               }) => ScheduledWorkoutTableCompanion(
                 id: id,
                 workoutId: workoutId,
@@ -14914,6 +16375,7 @@ class $$ScheduledWorkoutTableTableTableManager
                 isSkipped: isSkipped,
                 serverId: serverId,
                 syncStatus: syncStatus,
+                localRev: localRev,
               ),
           createCompanionCallback:
               ({
@@ -14928,6 +16390,7 @@ class $$ScheduledWorkoutTableTableTableManager
                 Value<bool> isSkipped = const Value.absent(),
                 Value<String?> serverId = const Value.absent(),
                 Value<int> syncStatus = const Value.absent(),
+                Value<int> localRev = const Value.absent(),
               }) => ScheduledWorkoutTableCompanion.insert(
                 id: id,
                 workoutId: workoutId,
@@ -14940,6 +16403,7 @@ class $$ScheduledWorkoutTableTableTableManager
                 isSkipped: isSkipped,
                 serverId: serverId,
                 syncStatus: syncStatus,
+                localRev: localRev,
               ),
           withReferenceMapper:
               (p0) =>
@@ -15087,6 +16551,7 @@ typedef $$ScheduledWorkoutExerciseTableTableCreateCompanionBuilder =
       Value<int?> overrideExerciseId,
       Value<String?> serverId,
       Value<int> syncStatus,
+      Value<int> localRev,
     });
 typedef $$ScheduledWorkoutExerciseTableTableUpdateCompanionBuilder =
     ScheduledWorkoutExerciseTableCompanion Function({
@@ -15098,6 +16563,7 @@ typedef $$ScheduledWorkoutExerciseTableTableUpdateCompanionBuilder =
       Value<int?> overrideExerciseId,
       Value<String?> serverId,
       Value<int> syncStatus,
+      Value<int> localRev,
     });
 
 final class $$ScheduledWorkoutExerciseTableTableReferences
@@ -15224,6 +16690,11 @@ class $$ScheduledWorkoutExerciseTableTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<int> get localRev => $composableBuilder(
+    column: $table.localRev,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$ScheduledWorkoutTableTableFilterComposer get scheduledWorkoutId {
     final $$ScheduledWorkoutTableTableFilterComposer composer =
         $composerBuilder(
@@ -15336,6 +16807,11 @@ class $$ScheduledWorkoutExerciseTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get localRev => $composableBuilder(
+    column: $table.localRev,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$ScheduledWorkoutTableTableOrderingComposer get scheduledWorkoutId {
     final $$ScheduledWorkoutTableTableOrderingComposer composer =
         $composerBuilder(
@@ -15417,6 +16893,9 @@ class $$ScheduledWorkoutExerciseTableTableAnnotationComposer
     column: $table.syncStatus,
     builder: (column) => column,
   );
+
+  GeneratedColumn<int> get localRev =>
+      $composableBuilder(column: $table.localRev, builder: (column) => column);
 
   $$ScheduledWorkoutTableTableAnnotationComposer get scheduledWorkoutId {
     final $$ScheduledWorkoutTableTableAnnotationComposer composer =
@@ -15546,6 +17025,7 @@ class $$ScheduledWorkoutExerciseTableTableTableManager
                 Value<int?> overrideExerciseId = const Value.absent(),
                 Value<String?> serverId = const Value.absent(),
                 Value<int> syncStatus = const Value.absent(),
+                Value<int> localRev = const Value.absent(),
               }) => ScheduledWorkoutExerciseTableCompanion(
                 id: id,
                 scheduledWorkoutId: scheduledWorkoutId,
@@ -15555,6 +17035,7 @@ class $$ScheduledWorkoutExerciseTableTableTableManager
                 overrideExerciseId: overrideExerciseId,
                 serverId: serverId,
                 syncStatus: syncStatus,
+                localRev: localRev,
               ),
           createCompanionCallback:
               ({
@@ -15566,6 +17047,7 @@ class $$ScheduledWorkoutExerciseTableTableTableManager
                 Value<int?> overrideExerciseId = const Value.absent(),
                 Value<String?> serverId = const Value.absent(),
                 Value<int> syncStatus = const Value.absent(),
+                Value<int> localRev = const Value.absent(),
               }) => ScheduledWorkoutExerciseTableCompanion.insert(
                 id: id,
                 scheduledWorkoutId: scheduledWorkoutId,
@@ -15575,6 +17057,7 @@ class $$ScheduledWorkoutExerciseTableTableTableManager
                 overrideExerciseId: overrideExerciseId,
                 serverId: serverId,
                 syncStatus: syncStatus,
+                localRev: localRev,
               ),
           withReferenceMapper:
               (p0) =>
@@ -17064,6 +18547,9 @@ typedef $$ChatOutBoxTableTableCreateCompanionBuilder =
       required String body,
       required DateTime createdAt,
       Value<int> chatMessageStatus,
+      Value<String?> attachmentManifest,
+      Value<String?> attachmentLocalPath,
+      Value<int> uploadStatus,
       Value<int> rowid,
     });
 typedef $$ChatOutBoxTableTableUpdateCompanionBuilder =
@@ -17073,6 +18559,9 @@ typedef $$ChatOutBoxTableTableUpdateCompanionBuilder =
       Value<String> body,
       Value<DateTime> createdAt,
       Value<int> chatMessageStatus,
+      Value<String?> attachmentManifest,
+      Value<String?> attachmentLocalPath,
+      Value<int> uploadStatus,
       Value<int> rowid,
     });
 
@@ -17107,6 +18596,21 @@ class $$ChatOutBoxTableTableFilterComposer
 
   ColumnFilters<int> get chatMessageStatus => $composableBuilder(
     column: $table.chatMessageStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get attachmentManifest => $composableBuilder(
+    column: $table.attachmentManifest,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get attachmentLocalPath => $composableBuilder(
+    column: $table.attachmentLocalPath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get uploadStatus => $composableBuilder(
+    column: $table.uploadStatus,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -17144,6 +18648,21 @@ class $$ChatOutBoxTableTableOrderingComposer
     column: $table.chatMessageStatus,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get attachmentManifest => $composableBuilder(
+    column: $table.attachmentManifest,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get attachmentLocalPath => $composableBuilder(
+    column: $table.attachmentLocalPath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get uploadStatus => $composableBuilder(
+    column: $table.uploadStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$ChatOutBoxTableTableAnnotationComposer
@@ -17171,6 +18690,21 @@ class $$ChatOutBoxTableTableAnnotationComposer
 
   GeneratedColumn<int> get chatMessageStatus => $composableBuilder(
     column: $table.chatMessageStatus,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get attachmentManifest => $composableBuilder(
+    column: $table.attachmentManifest,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get attachmentLocalPath => $composableBuilder(
+    column: $table.attachmentLocalPath,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get uploadStatus => $composableBuilder(
+    column: $table.uploadStatus,
     builder: (column) => column,
   );
 }
@@ -17224,6 +18758,9 @@ class $$ChatOutBoxTableTableTableManager
                 Value<String> body = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<int> chatMessageStatus = const Value.absent(),
+                Value<String?> attachmentManifest = const Value.absent(),
+                Value<String?> attachmentLocalPath = const Value.absent(),
+                Value<int> uploadStatus = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ChatOutBoxTableCompanion(
                 messageId: messageId,
@@ -17231,6 +18768,9 @@ class $$ChatOutBoxTableTableTableManager
                 body: body,
                 createdAt: createdAt,
                 chatMessageStatus: chatMessageStatus,
+                attachmentManifest: attachmentManifest,
+                attachmentLocalPath: attachmentLocalPath,
+                uploadStatus: uploadStatus,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -17240,6 +18780,9 @@ class $$ChatOutBoxTableTableTableManager
                 required String body,
                 required DateTime createdAt,
                 Value<int> chatMessageStatus = const Value.absent(),
+                Value<String?> attachmentManifest = const Value.absent(),
+                Value<String?> attachmentLocalPath = const Value.absent(),
+                Value<int> uploadStatus = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ChatOutBoxTableCompanion.insert(
                 messageId: messageId,
@@ -17247,6 +18790,9 @@ class $$ChatOutBoxTableTableTableManager
                 body: body,
                 createdAt: createdAt,
                 chatMessageStatus: chatMessageStatus,
+                attachmentManifest: attachmentManifest,
+                attachmentLocalPath: attachmentLocalPath,
+                uploadStatus: uploadStatus,
                 rowid: rowid,
               ),
           withReferenceMapper:
@@ -17283,6 +18829,554 @@ typedef $$ChatOutBoxTableTableProcessedTableManager =
         >,
       ),
       ChatOutBoxTableData,
+      PrefetchHooks Function()
+    >;
+typedef $$SyncDeletionTableTableCreateCompanionBuilder =
+    SyncDeletionTableCompanion Function({
+      Value<int> id,
+      required String kind,
+      required String serverId,
+      Value<String?> parentServerId,
+      Value<String?> extraServerId,
+    });
+typedef $$SyncDeletionTableTableUpdateCompanionBuilder =
+    SyncDeletionTableCompanion Function({
+      Value<int> id,
+      Value<String> kind,
+      Value<String> serverId,
+      Value<String?> parentServerId,
+      Value<String?> extraServerId,
+    });
+
+class $$SyncDeletionTableTableFilterComposer
+    extends Composer<_$AppDatabase, $SyncDeletionTableTable> {
+  $$SyncDeletionTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get serverId => $composableBuilder(
+    column: $table.serverId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get parentServerId => $composableBuilder(
+    column: $table.parentServerId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get extraServerId => $composableBuilder(
+    column: $table.extraServerId,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SyncDeletionTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $SyncDeletionTableTable> {
+  $$SyncDeletionTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get serverId => $composableBuilder(
+    column: $table.serverId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get parentServerId => $composableBuilder(
+    column: $table.parentServerId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get extraServerId => $composableBuilder(
+    column: $table.extraServerId,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SyncDeletionTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SyncDeletionTableTable> {
+  $$SyncDeletionTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get kind =>
+      $composableBuilder(column: $table.kind, builder: (column) => column);
+
+  GeneratedColumn<String> get serverId =>
+      $composableBuilder(column: $table.serverId, builder: (column) => column);
+
+  GeneratedColumn<String> get parentServerId => $composableBuilder(
+    column: $table.parentServerId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get extraServerId => $composableBuilder(
+    column: $table.extraServerId,
+    builder: (column) => column,
+  );
+}
+
+class $$SyncDeletionTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SyncDeletionTableTable,
+          SyncDeletionData,
+          $$SyncDeletionTableTableFilterComposer,
+          $$SyncDeletionTableTableOrderingComposer,
+          $$SyncDeletionTableTableAnnotationComposer,
+          $$SyncDeletionTableTableCreateCompanionBuilder,
+          $$SyncDeletionTableTableUpdateCompanionBuilder,
+          (
+            SyncDeletionData,
+            BaseReferences<
+              _$AppDatabase,
+              $SyncDeletionTableTable,
+              SyncDeletionData
+            >,
+          ),
+          SyncDeletionData,
+          PrefetchHooks Function()
+        > {
+  $$SyncDeletionTableTableTableManager(
+    _$AppDatabase db,
+    $SyncDeletionTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer:
+              () => $$SyncDeletionTableTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer:
+              () => $$SyncDeletionTableTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer:
+              () => $$SyncDeletionTableTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> kind = const Value.absent(),
+                Value<String> serverId = const Value.absent(),
+                Value<String?> parentServerId = const Value.absent(),
+                Value<String?> extraServerId = const Value.absent(),
+              }) => SyncDeletionTableCompanion(
+                id: id,
+                kind: kind,
+                serverId: serverId,
+                parentServerId: parentServerId,
+                extraServerId: extraServerId,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String kind,
+                required String serverId,
+                Value<String?> parentServerId = const Value.absent(),
+                Value<String?> extraServerId = const Value.absent(),
+              }) => SyncDeletionTableCompanion.insert(
+                id: id,
+                kind: kind,
+                serverId: serverId,
+                parentServerId: parentServerId,
+                extraServerId: extraServerId,
+              ),
+          withReferenceMapper:
+              (p0) =>
+                  p0
+                      .map(
+                        (e) => (
+                          e.readTable(table),
+                          BaseReferences(db, table, e),
+                        ),
+                      )
+                      .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SyncDeletionTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SyncDeletionTableTable,
+      SyncDeletionData,
+      $$SyncDeletionTableTableFilterComposer,
+      $$SyncDeletionTableTableOrderingComposer,
+      $$SyncDeletionTableTableAnnotationComposer,
+      $$SyncDeletionTableTableCreateCompanionBuilder,
+      $$SyncDeletionTableTableUpdateCompanionBuilder,
+      (
+        SyncDeletionData,
+        BaseReferences<
+          _$AppDatabase,
+          $SyncDeletionTableTable,
+          SyncDeletionData
+        >,
+      ),
+      SyncDeletionData,
+      PrefetchHooks Function()
+    >;
+typedef $$SyncApplyGuardTableTableCreateCompanionBuilder =
+    SyncApplyGuardTableCompanion Function({Value<int> id, Value<int> active});
+typedef $$SyncApplyGuardTableTableUpdateCompanionBuilder =
+    SyncApplyGuardTableCompanion Function({Value<int> id, Value<int> active});
+
+class $$SyncApplyGuardTableTableFilterComposer
+    extends Composer<_$AppDatabase, $SyncApplyGuardTableTable> {
+  $$SyncApplyGuardTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get active => $composableBuilder(
+    column: $table.active,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SyncApplyGuardTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $SyncApplyGuardTableTable> {
+  $$SyncApplyGuardTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get active => $composableBuilder(
+    column: $table.active,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SyncApplyGuardTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SyncApplyGuardTableTable> {
+  $$SyncApplyGuardTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get active =>
+      $composableBuilder(column: $table.active, builder: (column) => column);
+}
+
+class $$SyncApplyGuardTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SyncApplyGuardTableTable,
+          SyncApplyGuardTableData,
+          $$SyncApplyGuardTableTableFilterComposer,
+          $$SyncApplyGuardTableTableOrderingComposer,
+          $$SyncApplyGuardTableTableAnnotationComposer,
+          $$SyncApplyGuardTableTableCreateCompanionBuilder,
+          $$SyncApplyGuardTableTableUpdateCompanionBuilder,
+          (
+            SyncApplyGuardTableData,
+            BaseReferences<
+              _$AppDatabase,
+              $SyncApplyGuardTableTable,
+              SyncApplyGuardTableData
+            >,
+          ),
+          SyncApplyGuardTableData,
+          PrefetchHooks Function()
+        > {
+  $$SyncApplyGuardTableTableTableManager(
+    _$AppDatabase db,
+    $SyncApplyGuardTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer:
+              () => $$SyncApplyGuardTableTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer:
+              () => $$SyncApplyGuardTableTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer:
+              () => $$SyncApplyGuardTableTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<int> active = const Value.absent(),
+              }) => SyncApplyGuardTableCompanion(id: id, active: active),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<int> active = const Value.absent(),
+              }) => SyncApplyGuardTableCompanion.insert(id: id, active: active),
+          withReferenceMapper:
+              (p0) =>
+                  p0
+                      .map(
+                        (e) => (
+                          e.readTable(table),
+                          BaseReferences(db, table, e),
+                        ),
+                      )
+                      .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SyncApplyGuardTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SyncApplyGuardTableTable,
+      SyncApplyGuardTableData,
+      $$SyncApplyGuardTableTableFilterComposer,
+      $$SyncApplyGuardTableTableOrderingComposer,
+      $$SyncApplyGuardTableTableAnnotationComposer,
+      $$SyncApplyGuardTableTableCreateCompanionBuilder,
+      $$SyncApplyGuardTableTableUpdateCompanionBuilder,
+      (
+        SyncApplyGuardTableData,
+        BaseReferences<
+          _$AppDatabase,
+          $SyncApplyGuardTableTable,
+          SyncApplyGuardTableData
+        >,
+      ),
+      SyncApplyGuardTableData,
+      PrefetchHooks Function()
+    >;
+typedef $$SyncLeaseTableTableCreateCompanionBuilder =
+    SyncLeaseTableCompanion Function({
+      Value<int> id,
+      Value<String?> holder,
+      Value<int> expiresAt,
+    });
+typedef $$SyncLeaseTableTableUpdateCompanionBuilder =
+    SyncLeaseTableCompanion Function({
+      Value<int> id,
+      Value<String?> holder,
+      Value<int> expiresAt,
+    });
+
+class $$SyncLeaseTableTableFilterComposer
+    extends Composer<_$AppDatabase, $SyncLeaseTableTable> {
+  $$SyncLeaseTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get holder => $composableBuilder(
+    column: $table.holder,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get expiresAt => $composableBuilder(
+    column: $table.expiresAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SyncLeaseTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $SyncLeaseTableTable> {
+  $$SyncLeaseTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get holder => $composableBuilder(
+    column: $table.holder,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get expiresAt => $composableBuilder(
+    column: $table.expiresAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SyncLeaseTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SyncLeaseTableTable> {
+  $$SyncLeaseTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get holder =>
+      $composableBuilder(column: $table.holder, builder: (column) => column);
+
+  GeneratedColumn<int> get expiresAt =>
+      $composableBuilder(column: $table.expiresAt, builder: (column) => column);
+}
+
+class $$SyncLeaseTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SyncLeaseTableTable,
+          SyncLeaseTableData,
+          $$SyncLeaseTableTableFilterComposer,
+          $$SyncLeaseTableTableOrderingComposer,
+          $$SyncLeaseTableTableAnnotationComposer,
+          $$SyncLeaseTableTableCreateCompanionBuilder,
+          $$SyncLeaseTableTableUpdateCompanionBuilder,
+          (
+            SyncLeaseTableData,
+            BaseReferences<
+              _$AppDatabase,
+              $SyncLeaseTableTable,
+              SyncLeaseTableData
+            >,
+          ),
+          SyncLeaseTableData,
+          PrefetchHooks Function()
+        > {
+  $$SyncLeaseTableTableTableManager(
+    _$AppDatabase db,
+    $SyncLeaseTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer:
+              () => $$SyncLeaseTableTableFilterComposer($db: db, $table: table),
+          createOrderingComposer:
+              () =>
+                  $$SyncLeaseTableTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer:
+              () => $$SyncLeaseTableTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String?> holder = const Value.absent(),
+                Value<int> expiresAt = const Value.absent(),
+              }) => SyncLeaseTableCompanion(
+                id: id,
+                holder: holder,
+                expiresAt: expiresAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String?> holder = const Value.absent(),
+                Value<int> expiresAt = const Value.absent(),
+              }) => SyncLeaseTableCompanion.insert(
+                id: id,
+                holder: holder,
+                expiresAt: expiresAt,
+              ),
+          withReferenceMapper:
+              (p0) =>
+                  p0
+                      .map(
+                        (e) => (
+                          e.readTable(table),
+                          BaseReferences(db, table, e),
+                        ),
+                      )
+                      .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SyncLeaseTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SyncLeaseTableTable,
+      SyncLeaseTableData,
+      $$SyncLeaseTableTableFilterComposer,
+      $$SyncLeaseTableTableOrderingComposer,
+      $$SyncLeaseTableTableAnnotationComposer,
+      $$SyncLeaseTableTableCreateCompanionBuilder,
+      $$SyncLeaseTableTableUpdateCompanionBuilder,
+      (
+        SyncLeaseTableData,
+        BaseReferences<_$AppDatabase, $SyncLeaseTableTable, SyncLeaseTableData>,
+      ),
+      SyncLeaseTableData,
       PrefetchHooks Function()
     >;
 
@@ -17333,4 +19427,10 @@ class $AppDatabaseManager {
       );
   $$ChatOutBoxTableTableTableManager get chatOutBoxTable =>
       $$ChatOutBoxTableTableTableManager(_db, _db.chatOutBoxTable);
+  $$SyncDeletionTableTableTableManager get syncDeletionTable =>
+      $$SyncDeletionTableTableTableManager(_db, _db.syncDeletionTable);
+  $$SyncApplyGuardTableTableTableManager get syncApplyGuardTable =>
+      $$SyncApplyGuardTableTableTableManager(_db, _db.syncApplyGuardTable);
+  $$SyncLeaseTableTableTableManager get syncLeaseTable =>
+      $$SyncLeaseTableTableTableManager(_db, _db.syncLeaseTable);
 }

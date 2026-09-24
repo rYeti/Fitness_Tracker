@@ -72,9 +72,17 @@ class WorkoutPlanDao extends DatabaseAccessor<AppDatabase>
         isActive: Value(plan.isActive),
       );
 
-      final planId = await into(
-        workoutPlanTable,
-      ).insert(planCompanion, mode: InsertMode.insertOrReplace);
+      // Update in place rather than INSERT OR REPLACE, which deletes the row
+      // and inserts a fresh one — losing its server id, its sync status and
+      // every column this companion doesn't set.
+      final int planId;
+      if (plan.id == null) {
+        planId = await into(workoutPlanTable).insert(planCompanion);
+      } else {
+        planId = plan.id!;
+        await (update(workoutPlanTable)
+          ..where((p) => p.id.equals(planId))).write(planCompanion);
+      }
 
       // If updating, delete old workout links
       if (plan.id != null) {
@@ -109,11 +117,69 @@ class WorkoutPlanDao extends DatabaseAccessor<AppDatabase>
       await (delete(workoutPlanWorkoutTable)
         ..where((link) => link.planId.equals(id))).go();
 
+      // Sessions scheduled from it outlive it, detached — the server's
+      // ON DELETE SET NULL on the same column. Foreign keys aren't enforced
+      // here, so nothing else would clear it, and a session left pointing at a
+      // deleted plan's id would be grouped under a plan that no longer exists.
+      await (update(attachedDatabase.scheduledWorkoutTable)
+        ..where((sw) => sw.workoutPlanId.equals(id))).write(
+        const ScheduledWorkoutTableCompanion(workoutPlanId: Value(null)),
+      );
+
       // Delete plan
       final rowsDeleted =
           await (delete(workoutPlanTable)..where((p) => p.id.equals(id))).go();
 
       return rowsDeleted > 0;
+    });
+  }
+
+  /// Deletes a plan the way the user means it: the plan goes, and so do the
+  /// sessions it scheduled that were never trained — but every session the
+  /// user actually did stays, with its logged sets.
+  ///
+  /// A session counts as trained if it has any logged set or was marked
+  /// complete. The plan itself is marked `pendingDelete` so the push can tell
+  /// the server; once it has, [deleteWorkoutPlan] detaches the sessions that
+  /// were kept. The untrained ones are deleted outright, which the database
+  /// records as server DELETEs for any the server already has
+  /// (`lib/core/sync/sync_triggers.dart`), and which takes them off the
+  /// calendar at once rather than after the next sync.
+  ///
+  /// The workouts list used to mark *every* session of the plan for deletion,
+  /// logged ones included, and the server then deleted that training history
+  /// for good. The plan editor did the opposite and left even the future,
+  /// never-trained sessions behind on the calendar. Both call this now.
+  Future<void> deletePlanKeepingHistory(int planId) {
+    final db = attachedDatabase;
+    return transaction(() async {
+      final sessions =
+          await (select(db.scheduledWorkoutTable)
+            ..where((sw) => sw.workoutPlanId.equals(planId))).get();
+      for (final session in sessions) {
+        if (session.isCompleted) continue;
+        final exercises =
+            await (select(db.scheduledWorkoutExerciseTable)
+              ..where((se) => se.scheduledWorkoutId.equals(session.id))).get();
+        final logged =
+            exercises.isEmpty
+                ? null
+                : await (select(db.workoutSetTable)
+                      ..where(
+                        (s) => s.scheduledWorkoutExerciseId.isIn(
+                          exercises.map((e) => e.id),
+                        ),
+                      )
+                      ..limit(1))
+                    .getSingleOrNull();
+        if (logged != null) continue;
+
+        await (delete(db.scheduledWorkoutExerciseTable)
+          ..where((se) => se.scheduledWorkoutId.equals(session.id))).go();
+        await (delete(db.scheduledWorkoutTable)
+          ..where((sw) => sw.id.equals(session.id))).go();
+      }
+      await markPlanPendingDelete(planId);
     });
   }
 

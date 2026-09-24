@@ -14,7 +14,7 @@ class WeightRecordDao extends DatabaseAccessor<AppDatabase>
       (select(weightRecord)
             ..where(
               (t) =>
-                  t.syncStatus.isNotValue(WeightSyncStatus.pendingDelete.index),
+                  t.syncStatus.isNotValue(SyncStatus.pendingDelete.index),
             )
             ..orderBy([
               (t) => OrderingTerm(expression: t.date, mode: OrderingMode.desc),
@@ -26,7 +26,7 @@ class WeightRecordDao extends DatabaseAccessor<AppDatabase>
       (select(weightRecord)
             ..where(
               (t) =>
-                  t.syncStatus.isNotValue(WeightSyncStatus.pendingDelete.index),
+                  t.syncStatus.isNotValue(SyncStatus.pendingDelete.index),
             )
             ..orderBy([
               (t) => OrderingTerm(expression: t.date, mode: OrderingMode.desc),
@@ -38,7 +38,7 @@ class WeightRecordDao extends DatabaseAccessor<AppDatabase>
       (select(weightRecord)
             ..where(
               (t) =>
-                  t.syncStatus.isNotValue(WeightSyncStatus.pendingDelete.index),
+                  t.syncStatus.isNotValue(SyncStatus.pendingDelete.index),
             )
             ..orderBy([
               (t) => OrderingTerm(expression: t.date, mode: OrderingMode.desc),
@@ -78,35 +78,35 @@ class WeightRecordDao extends DatabaseAccessor<AppDatabase>
   /// (pending, pendingUpdate, or pendingDelete).
   Future<List<WeightRecordData>> getUnsyncedRecords() =>
       (select(weightRecord)..where(
-        (t) => t.syncStatus.isNotIn([WeightSyncStatus.synced.index]),
+        (t) => t.syncStatus.isNotIn([SyncStatus.synced.index]),
       )).get();
 
-  /// Marks a record as [WeightSyncStatus.synced] and stores the [serverId]
+  /// Marks a record as [SyncStatus.synced] and stores the [serverId]
   /// returned by the API.
   Future<void> markSynced({required int localId, required String serverId}) =>
       (update(weightRecord)..where((t) => t.id.equals(localId))).write(
         WeightRecordCompanion(
-          syncStatus: Value(WeightSyncStatus.synced.index),
+          syncStatus: Value(SyncStatus.synced.index),
           serverId: Value(serverId),
         ),
       );
 
-  /// Marks an already-synced record as [WeightSyncStatus.pendingUpdate] so
+  /// Marks an already-synced record as [SyncStatus.pendingUpdate] so
   /// the next sync pass will push the change via PUT.
   Future<void> markPendingUpdate(int localId) =>
       (update(weightRecord)..where((t) => t.id.equals(localId))).write(
         WeightRecordCompanion(
-          syncStatus: Value(WeightSyncStatus.pendingUpdate.index),
+          syncStatus: Value(SyncStatus.pendingUpdate.index),
         ),
       );
 
-  /// Marks a record as [WeightSyncStatus.pendingDelete].
+  /// Marks a record as [SyncStatus.pendingDelete].
   /// Call this instead of [deleteWeightRecord] when the record has a [serverId]
   /// so the sync pass can delete it on the API first.
   Future<void> markPendingDelete(int localId) =>
       (update(weightRecord)..where((t) => t.id.equals(localId))).write(
         WeightRecordCompanion(
-          syncStatus: Value(WeightSyncStatus.pendingDelete.index),
+          syncStatus: Value(SyncStatus.pendingDelete.index),
         ),
       );
 

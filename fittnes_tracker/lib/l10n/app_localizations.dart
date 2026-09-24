@@ -4267,6 +4267,12 @@ abstract class AppLocalizations {
   /// **'Sync complete'**
   String get syncComplete;
 
+  /// No description provided for @syncAlreadyRunning.
+  ///
+  /// In en, this message translates to:
+  /// **'A sync is already running. Try again in a moment.'**
+  String get syncAlreadyRunning;
+
   /// No description provided for @syncFailed.
   ///
   /// In en, this message translates to:
