@@ -114,6 +114,17 @@ public class TrainerLicenceService(
         var licence = await _licences.GetBySubscriptionAsync(snapshot.SubscriptionId)
                    ?? await _licences.GetByCustomerAsync(snapshot.CustomerId);
 
+        if (licence == null && _catalog.TierForPrice(snapshot.PriceId) == null)
+        {
+            // Not a trainer plan at all. RevenueCat Web Billing sells consumer
+            // Pro through this same Stripe account, so its subscriptions arrive
+            // here too; RevenueCat's own webhook is what records those.
+            _logger.LogDebug(
+                "Ignoring Stripe subscription {Subscription}: price {Price} is not a trainer plan",
+                snapshot.SubscriptionId, snapshot.PriceId);
+            return;
+        }
+
         if (licence == null)
         {
             // A subscription we can't attribute. Worth shouting about: it means

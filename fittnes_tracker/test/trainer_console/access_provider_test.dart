@@ -49,6 +49,36 @@ void main() {
     expect(access.hasPremiumAccess, isTrue);
   });
 
+  test("the server's record of an own purchase grants premium access", () {
+    // Web has no RevenueCat SDK, so this is the only way a purchase made on a
+    // phone reaches the browser.
+    final access = AccessProvider.withState(proFromPurchase: true);
+    expect(access.isPremium, isFalse);
+    expect(access.hasPremiumAccess, isTrue);
+  });
+
+  test('the status payload reports a purchase separately from a licence', () {
+    final access = AccessProvider.withState();
+    access.applyStatusPayload({
+      'isTrainerClient': false,
+      'isTrainer': false,
+      'proFromLicence': false,
+      'proFromPurchase': true,
+    });
+    expect(access.proFromPurchase, isTrue);
+    expect(access.proFromLicence, isFalse);
+    expect(access.hasPremiumAccess, isTrue);
+    // Pro that nobody else is paying for can't lapse on the user.
+    expect(access.proIsLapsing, isFalse);
+  });
+
+  test('a status payload from an older API grants no purchase', () {
+    final access = AccessProvider.withState();
+    access.applyStatusPayload({'isTrainerClient': false, 'isTrainer': false});
+    expect(access.proFromPurchase, isFalse);
+    expect(access.hasPremiumAccess, isFalse);
+  });
+
   group('lapse warning', () {
     test('is silent while nothing is expiring', () {
       final access = AccessProvider.withState(proFromLicence: true);
@@ -140,6 +170,7 @@ void main() {
         'access_is_trainer_client': true,
         'access_is_premium': true,
         'access_pro_from_licence': true,
+        'access_pro_from_purchase': true,
         'access_trainer_id': 'coach-1',
         'access_trainer_name': 'Alex Rowe',
       });

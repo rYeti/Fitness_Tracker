@@ -100,6 +100,10 @@ public class TrainerClientService(
             ProFromLicence = proFromTrainer || proFromOwn,
             ProEndsAt = ProExpiryFor(trainersLicence, ownLicence),
 
+            // The user's own purchase, as the server knows it. Its own field
+            // rather than OR'd into ProFromLicence — see the DTO for why.
+            ProFromPurchase = await _revenueCat.IsEntitledAsync(userId),
+
             Licence = ownLicence == null
                 ? null
                 : TrainerLicenceDto.From(

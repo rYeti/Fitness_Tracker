@@ -199,4 +199,53 @@ public class TrainerClientServiceTests : IDisposable
         Assert.True(status.ProFromLicence);
         Assert.Null(status.ProEndsAt);
     }
+
+    // ── Pro from the user's own purchase ─────────────────────────────────────
+
+    [Fact]
+    public async Task AnOwnPurchaseIsReportedAsItsOwnSourceOfPro()
+    {
+        // The web client has no RevenueCat SDK, so this field is the only way a
+        // user who bought Pro on their phone has it in the browser. It must not
+        // leak into ProFromLicence, which the server's own licence gates read.
+        var user = _fx.AddUser();
+        AddPurchase(user.Id, expiresAt: DateTime.UtcNow.AddDays(20));
+
+        var status = await _service.GetStatusAsync(user.Id);
+
+        Assert.True(status.ProFromPurchase);
+        Assert.False(status.ProFromLicence);
+    }
+
+    [Fact]
+    public async Task AnExpiredPurchaseGrantsNothing()
+    {
+        var user = _fx.AddUser();
+        AddPurchase(user.Id, expiresAt: DateTime.UtcNow.AddDays(-1));
+
+        var status = await _service.GetStatusAsync(user.Id);
+
+        Assert.False(status.ProFromPurchase);
+    }
+
+    [Fact]
+    public async Task AUserWhoNeverBoughtHasNoPurchase()
+    {
+        var user = _fx.AddUser();
+
+        var status = await _service.GetStatusAsync(user.Id);
+
+        Assert.False(status.ProFromPurchase);
+    }
+
+    private void AddPurchase(Guid userId, DateTime expiresAt)
+    {
+        _fx.Db.RevenueCatSubscriptions.Add(new RevenueCatSubscription
+        {
+            UserId = userId,
+            ExpiresAt = expiresAt,
+            LastEventAt = DateTime.UtcNow,
+        });
+        _fx.Db.SaveChanges();
+    }
 }

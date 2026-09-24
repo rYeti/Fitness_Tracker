@@ -338,6 +338,10 @@ silent without throwing.
 - No change to `AccessProvider.hasPremiumAccess` or any other feature reading
   it — `IRevenueCatService.IsEntitledAsync` has exactly one caller
   (`TrainerClientService`), not a platform-wide premium refactor.
+  *(Superseded on the client by "Premium on web" below, which feeds the same
+  entitlement into `hasPremiumAccess` as its own flag. The server-side point
+  still holds: nothing that gates on the licence started accepting a
+  purchase.)*
 - No `TRANSFER` handling beyond the log-and-drop above; alias resolution
   covers the case this codebase actually hits (an old username-keyed
   customer), not a full reconciliation of RevenueCat's transfer semantics.
@@ -350,3 +354,103 @@ silent without throwing.
   delivery would have written had resolution worked at the time. Re-sending
   the event from RevenueCat's dashboard delivery log, or re-granting the
   entitlement, produces a fresh one.
+
+## Premium on web: the purchase the browser couldn't see
+
+### The gap
+
+`AccessProvider._checkRevenueCat` opens with
+`if (kIsWeb || (!Platform.isAndroid && !Platform.isIOS)) return;`. The RevenueCat
+SDK is never configured in a browser, so on web `_isPremium` is only ever what
+`SharedPreferences` restored, and a fresh browser has nothing stored. Someone
+who paid for Pro on their phone and signed in to the web app got the free app.
+There was also no way to buy Pro on web at all. `getCurrentOffering()` returns
+null there, so the paywall only ever showed "no plans available".
+
+The server already knew better. RevenueCat's webhook has kept a
+`RevenueCatSubscription` row per user since the section above was written. It
+just never told the client, because the only thing that read the row was the
+nutrient-pin endpoint.
+
+No test caught this, because every test of premium access builds an
+`AccessProvider` with the flags already set (`AccessProvider.withState`). The
+question "where does `isPremium` come from on web?" had no answer to test,
+since nothing ever set it there. The type system couldn't catch it either: a
+`bool` that defaults to `false` looks exactly like "not premium".
+
+### The fix: a third flag, not a wider second one
+
+`GET api/TrainerClient/status` now returns `proFromPurchase`, read from
+`IRevenueCatService.IsEntitledAsync`, the same call the nutrient-pin endpoints
+make. The client stores it as its own field and caches it the same way as the
+others, with the same per-account stamp, so one account's purchase is never
+restored for another account on a shared device. `hasPremiumAccess` becomes:
+
+```dart
+bool get hasPremiumAccess =>
+    _isPremium || _proFromLicence || _proFromPurchase;
+```
+
+The shortcut would have been to set `ProFromLicence = … || purchased` on the
+server and change nothing on the client. It's exactly the merge that
+"Two premium sources that stay siblings" above rules out. `ProFromLicence` has
+a meaning the server relies on: "a paid, current *licence* grants this user
+Pro". It's pinned by three regression tests, and the licence-gated features
+(the micronutrient lock) test against it. Folding a purchase into it would have
+made every one of those features accept a purchase too, and nothing in the
+diff would have shown it. A separate field keeps the server's two questions
+separate, and only the client, which already combined the two, combines three.
+
+Does the third flag open a new way to get Pro? No. `proFromPurchase` is the
+server's record of the same RevenueCat entitlement that `_isPremium` reads
+through the SDK on a phone. It only removes the dependence on the SDK being
+present. In particular it doesn't bring back the invite-code leak described in
+`docs/trainer-licensing.md`: the flag is true only when RevenueCat has
+reported someone actually paying, never because a relationship exists.
+
+`proIsLapsing` deliberately stays keyed on `_proFromLicence` alone. The lapse
+warning is for "someone *else* stopped paying for you". A user's own
+subscription ending is between them and their store, and the warning doesn't
+apply.
+
+### What's left: buying on web
+
+What's above fixes *seeing* a purchase in the browser. *Making* one there needs
+RevenueCat Web Billing, which uses the same Stripe account as the trainer
+licences. That's dashboard work first: connect Stripe, add a Web Billing app,
+attach its products to the `ForgeForm Pro` entitlement and put them in the
+current offering. That produces an `rcb_…` public key. Then there's client
+work, shaped by what the web half of `purchases_flutter` 10.0.1 actually
+implements (`lib/web/purchases_flutter_web.dart`):
+
+| Call | On web |
+|---|---|
+| `configure`, `logIn`, `getCustomerInfo`, `getOfferings` | Implemented |
+| `purchasePackage` (deprecated) | Implemented: opens Web Billing's Stripe checkout |
+| `purchase(PurchaseParams)`, which `PaywallScreen._purchase` uses | **Throws `UnsupportedPlatformException`** |
+| `restorePurchases` | Returns current customer info (there's nothing to restore on web) |
+
+So the paywall has to branch to `purchasePackage` on web, and
+`_checkRevenueCat` / `getCurrentOffering` have to stop returning early on web
+and configure with the `rcb_` key. The plugin also loads its JS mapping at
+runtime from `cdn.jsdelivr.net`. That's the CDN fetch CLAUDE.md already notes
+under "Known web constraints", and it goes against what
+`--no-web-resources-cdn` does for the engine (`docs/e2e-playwright.md`), so the
+e2e suite will need to allow that host or stub it.
+
+One effect on the trainer side is already handled. RevenueCat's Web Billing
+subscriptions are created in the same Stripe account, so they reach
+`POST /api/stripe/webhook` too, and each used to log "matched no licence" as a
+warning, the message meant for "a trainer paid and isn't getting what they
+bought". `TrainerLicenceService.HandleWebhookAsync` now drops a subscription
+whose price isn't a trainer plan at debug level before that check. That
+leaves the warning for the case it's meant for.
+
+### The general lesson
+
+If a platform is ruled out with an early `return`, everything downstream of it
+silently falls back to its default, and a `false` default looks just like a
+correct answer. The question to ask is not "does this work where the SDK runs?"
+but "where does this value come from on the platforms where it doesn't?". When
+the server already has an answer, send it, and keep it as its own named field
+next to the others instead of merging it into one of them.

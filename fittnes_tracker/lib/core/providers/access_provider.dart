@@ -22,6 +22,7 @@ const _prefIsTrainer = 'access_is_trainer';
 const _prefTrainerId = 'access_trainer_id';
 const _prefTrainerName = 'access_trainer_name';
 const _prefProFromLicence = 'access_pro_from_licence';
+const _prefProFromPurchase = 'access_pro_from_purchase';
 // Who the cached flags above describe. They are account state, not device
 // state: without this key a trainee's cached "not a trainer" was restored for
 // the next account to sign in on the same device — see [AccessProvider.initialize].
@@ -46,6 +47,7 @@ class AccessProvider extends ChangeNotifier {
     bool isTrainerClient = false,
     bool isTrainer = false,
     bool proFromLicence = false,
+    bool proFromPurchase = false,
     DateTime? proEndsAt,
     bool initialized = true,
     bool roleResolved = true,
@@ -56,6 +58,7 @@ class AccessProvider extends ChangeNotifier {
        _isTrainerClient = isTrainerClient,
        _isTrainer = isTrainer,
        _proFromLicence = proFromLicence,
+       _proFromPurchase = proFromPurchase,
        _proEndsAt = proEndsAt,
        _initialized = initialized,
        _roleResolved = roleResolved,
@@ -67,6 +70,7 @@ class AccessProvider extends ChangeNotifier {
   bool _isTrainerClient = false;
   bool _isTrainer = false;
   bool _proFromLicence = false;
+  bool _proFromPurchase = false;
   DateTime? _proEndsAt;
   bool _initialized = false;
   bool _roleResolved = false;
@@ -93,6 +97,14 @@ class AccessProvider extends ChangeNotifier {
   ///
   /// Computed server-side and never inferred here. See [hasPremiumAccess].
   bool get proFromLicence => _proFromLicence;
+
+  /// Whether the server says this user bought Pro themselves, as RevenueCat's
+  /// webhook last reported it.
+  ///
+  /// The same purchase [isPremium] reads from the RevenueCat SDK, seen from the
+  /// other side. It exists for web, where there is no SDK to ask: without it a
+  /// user who bought Pro on their phone signed in to the browser without it.
+  bool get proFromPurchase => _proFromPurchase;
 
   /// When licence-derived Pro runs out, set only while the licence granting it
   /// is inside its post-lapse grace window. The trainee gets warned before a
@@ -136,7 +148,11 @@ class AccessProvider extends ChangeNotifier {
   /// second account and invite themselves — invite codes cost nothing to mint.
   /// Pro now derives only from [proFromLicence], which the server computes from
   /// a paid, current licence. Do not reintroduce a relationship-based grant.
-  bool get hasPremiumAccess => _isPremium || _proFromLicence;
+  ///
+  /// [proFromPurchase] adds no new way in: it is the server's record of the
+  /// same purchase [isPremium] checks on the device.
+  bool get hasPremiumAccess =>
+      _isPremium || _proFromLicence || _proFromPurchase;
 
   bool get initialized => _initialized;
 
@@ -170,6 +186,8 @@ class AccessProvider extends ChangeNotifier {
     _trainerName = cacheIsOurs ? prefs.getString(_prefTrainerName) : null;
     _proFromLicence =
         (cacheIsOurs ? prefs.getBool(_prefProFromLicence) : null) ?? false;
+    _proFromPurchase =
+        (cacheIsOurs ? prefs.getBool(_prefProFromPurchase) : null) ?? false;
     _initialized = true;
     notifyListeners();
 
@@ -188,6 +206,7 @@ class AccessProvider extends ChangeNotifier {
     await prefs.setBool(_prefIsTrainer, _isTrainer);
     await _persistTrainer(prefs);
     await prefs.setBool(_prefProFromLicence, _proFromLicence);
+    await prefs.setBool(_prefProFromPurchase, _proFromPurchase);
     notifyListeners();
   }
 
@@ -206,6 +225,7 @@ class AccessProvider extends ChangeNotifier {
     await prefs.setBool(_prefIsTrainer, _isTrainer);
     await _persistTrainer(prefs);
     await prefs.setBool(_prefProFromLicence, _proFromLicence);
+    await prefs.setBool(_prefProFromPurchase, _proFromPurchase);
     notifyListeners();
   }
 
@@ -215,6 +235,7 @@ class AccessProvider extends ChangeNotifier {
     _isTrainerClient = false;
     _isTrainer = false;
     _proFromLicence = false;
+    _proFromPurchase = false;
     _proEndsAt = null;
     _initialized = false;
     _roleResolved = false;
@@ -229,6 +250,7 @@ class AccessProvider extends ChangeNotifier {
     await prefs.remove(_prefTrainerId);
     await prefs.remove(_prefTrainerName);
     await prefs.remove(_prefProFromLicence);
+    await prefs.remove(_prefProFromPurchase);
     try {
       await Purchases.logOut();
     } catch (_) {}
@@ -314,6 +336,7 @@ class AccessProvider extends ChangeNotifier {
     // Server-computed. The client must never derive premium from
     // `isTrainerClient` — see hasPremiumAccess.
     _proFromLicence = payload['proFromLicence'] as bool? ?? false;
+    _proFromPurchase = payload['proFromPurchase'] as bool? ?? false;
     final proEnds = payload['proEndsAt'];
     _proEndsAt = proEnds is String ? DateTime.tryParse(proEnds)?.toLocal() : null;
     notifyListeners();

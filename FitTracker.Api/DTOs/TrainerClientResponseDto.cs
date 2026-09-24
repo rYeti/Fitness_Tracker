@@ -37,6 +37,16 @@ public class TrainerClientStatusDto
     /// derived Pro stops. Null when nothing is expiring.</summary>
     public DateTime? ProEndsAt { get; set; }
 
+    /// <summary>Whether this user holds ForgeForm Pro from their own app-store
+    /// purchase, as RevenueCat's webhook last reported it.
+    ///
+    /// A sibling of <see cref="ProFromLicence"/>, never folded into it: the
+    /// server's licence gates (the micronutrient lock, for one) read the licence
+    /// alone, and must not silently start accepting a purchase too. This exists
+    /// for the client, which has no RevenueCat SDK on web — without it, a user
+    /// who bought Pro on their phone signed in to the browser without it.</summary>
+    public bool ProFromPurchase { get; set; }
+
     /// <summary>The caller's own plan. Null for users who aren't trainers.</summary>
     public TrainerLicenceDto? Licence { get; set; }
 }
