@@ -10,7 +10,7 @@ import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/dao/meal_template_dao.dart';
 import 'package:ForgeForm/core/di/service_locator.dart';
 import 'package:ForgeForm/core/network/api_client.dart';
-import 'package:ForgeForm/core/network/services/sync_service.dart';
+import 'package:ForgeForm/core/sync/sync_service.dart';
 import 'package:ForgeForm/core/providers/access_provider.dart';
 import 'package:ForgeForm/feature/auth/presentation/sign_out.dart';
 import 'package:ForgeForm/feature/chat/presentation/view/chat_storage_screen.dart';

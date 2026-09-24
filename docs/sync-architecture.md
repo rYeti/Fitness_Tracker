@@ -486,6 +486,33 @@ created, and both cases are pinned.
 
 ---
 
+## 12. Where the code lives
+
+`SyncService` was one 3,500-line file. It is now one library in `lib/core/sync/`,
+split by what it syncs. The split was a separate commit that moves code and
+changes nothing else.
+
+| File | Holds |
+|---|---|
+| `sync_service.dart` | the class: entry points (`syncAll`, `pullAll`), the lease and step isolation, `_markSent`, the deletion outbox drain, `_applyEach`, `_removeDeletedElsewhere` |
+| `exercise_sync.dart` | custom exercises; linking built-in exercises to their server ids |
+| `workout_sync.dart` | workouts, their exercise entries, set templates |
+| `plan_sync.dart` | plans and the workouts in them |
+| `session_sync.dart` | scheduled workouts, their exercises, logged sets |
+| `nutrition_sync.dart` | food items, meals and their foods, meal templates |
+| `body_sync.dart` | settings and weight records |
+| `sync_dedup.dart` | the folds that heal legacy duplicates |
+| `sync_triggers.dart` | the pushed-column map and the triggers made from it |
+| `sync_lease.dart` | `SyncLease` |
+| `sync_scheduler.dart` | `SyncScheduler` |
+
+The domain files are `part`s of `sync_service.dart`, each an extension on
+`SyncService`, so they share its private members. A *static* member of the
+class has to be written `SyncService._name` inside an extension, because an
+extension doesn't see its target type's statics unqualified.
+
+---
+
 ## What is deliberately not here yet
 
 - **Client-minted ids and idempotent creates** (part two). Until then the

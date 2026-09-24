@@ -3,7 +3,7 @@ import 'package:ForgeForm/core/dao/meal_template_dao.dart';
 import 'package:ForgeForm/core/di/service_locator.dart';
 import 'package:ForgeForm/core/network/api_client.dart';
 import 'package:ForgeForm/core/network/secure_token_storage.dart';
-import 'package:ForgeForm/core/network/services/sync_service.dart';
+import 'package:ForgeForm/core/sync/sync_service.dart';
 import 'package:ForgeForm/core/providers/access_provider.dart';
 import 'package:ForgeForm/core/sync/sync_lease.dart';
 import 'package:ForgeForm/core/providers/user_goals_provider.dart';

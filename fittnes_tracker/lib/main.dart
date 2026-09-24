@@ -6,7 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:ForgeForm/core/dao/meal_template_dao.dart';
 import 'package:ForgeForm/core/network/api_client.dart';
 import 'package:ForgeForm/core/network/secure_token_storage.dart';
-import 'package:ForgeForm/core/network/services/sync_service.dart';
+import 'package:ForgeForm/core/sync/sync_service.dart';
 import 'package:ForgeForm/core/sync/sync_scheduler.dart';
 import 'package:ForgeForm/core/network/token_refresh_service.dart';
 import 'package:ForgeForm/core/seed_exercises.dart';

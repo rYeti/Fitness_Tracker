@@ -1,6 +1,6 @@
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/dao/meal_template_dao.dart';
-import 'package:ForgeForm/core/network/services/sync_service.dart';
+import 'package:ForgeForm/core/sync/sync_service.dart';
 import 'package:ForgeForm/feature/workout_planning/data/models/workout.dart';
 import 'package:ForgeForm/feature/workout_planning/data/models/workout_exercise.dart';
 import 'package:ForgeForm/feature/workout_planning/data/models/workout_set.dart';
