@@ -334,6 +334,9 @@ extension SessionSync on SyncService {
       '_syncMissingScheduledExerciseSets: checking ${syncedSws.length} synced SWs',
     );
     for (final sw in syncedSws) {
+      // Outside the try: a lease lost mid-push must stop the push, not be
+      // logged as one item's failure.
+      await SyncLease.current?.renew();
       try {
         final localExercises = await _db.scheduledWorkoutExerciseDao
             .getAllForScheduledWorkout(sw.id);

@@ -1170,6 +1170,93 @@ void main() {
 
   // ── Runs and scheduling ───────────────────────────────────────────────────
 
+  group('a deleted workout that sessions logged sets against', () {
+    Future<int> seed({String? serverId}) async {
+      final exerciseId = await insertSyncedExercise(serverId: 'server-e1');
+      return db.untracked(() async {
+        final w = await db
+            .into(db.workoutTable)
+            .insert(
+              WorkoutTableCompanion.insert(
+                name: 'Push',
+                difficulty: 0,
+                serverId: Value(serverId),
+                syncStatus: Value(serverId == null ? 0 : 1),
+              ),
+            );
+        final we = await db
+            .into(db.workoutExerciseTable)
+            .insert(
+              WorkoutExerciseTableCompanion.insert(
+                workoutId: w,
+                exerciseId: exerciseId,
+                orderPosition: 0,
+              ),
+            );
+        final sw = await db
+            .into(db.scheduledWorkoutTable)
+            .insert(
+              ScheduledWorkoutTableCompanion.insert(
+                workoutId: w,
+                scheduledDate: DateTime(2026, 1, 5),
+              ),
+            );
+        final se = await db
+            .into(db.scheduledWorkoutExerciseTable)
+            .insert(
+              ScheduledWorkoutExerciseTableCompanion.insert(
+                scheduledWorkoutId: sw,
+                workoutExerciseId: we,
+              ),
+            );
+        // Logged, but not pushed yet: the server doesn't know about it.
+        await db
+            .into(db.workoutSetTable)
+            .insert(
+              WorkoutSetTableCompanion.insert(
+                scheduledWorkoutExerciseId: se,
+                setNumber: 1,
+                reps: const Value(5),
+              ),
+            );
+        return w;
+      });
+    }
+
+    test('is kept and shown again, never left pending forever', () async {
+      final w = await seed(serverId: 'server-w1');
+      await db.workoutDao.markWorkoutPendingDelete(w);
+
+      await sync.syncAll();
+
+      expect(api.deletes, isNot(contains('api/Workout/server-w1')));
+      expect(
+        await statusOf(db.workoutTable, w),
+        SyncStatus.pendingUpdate.index,
+      );
+
+      await sync.syncAll();
+      expect(await statusOf(db.workoutTable, w), SyncStatus.synced.index);
+      expect(api.deletes, isEmpty);
+    });
+
+    test(
+      'one that never reached the server is created there instead',
+      () async {
+        final w = await seed();
+        await db.workoutDao.markWorkoutPendingDelete(w);
+        api.postResponses['api/Workout'] = {'id': 'server-w1'};
+
+        await sync.syncAll();
+        expect(await statusOf(db.workoutTable, w), SyncStatus.pending.index);
+
+        await sync.syncAll();
+        expect(api.posts.map((p) => p.path), contains('api/Workout'));
+        expect(await statusOf(db.workoutTable, w), SyncStatus.synced.index);
+      },
+    );
+  });
+
   group('the sync lease', () {
     test('keeps a second run out while the first holds it', () async {
       int? second;
@@ -1184,6 +1271,47 @@ void main() {
       expect(second, isNull);
 
       expect(await SyncLease.run(db, (_) async => 2), 2);
+    });
+
+    test(
+      'a run that another has taken it from stops at its next check',
+      () async {
+        Object? thrown;
+        await SyncLease.run(db, (lease) async {
+          // Expired while this run was suspended, and taken by another.
+          await db.customStatement(
+            "UPDATE sync_lease_table SET holder = 'other', "
+            'expires_at = ${DateTime.now().add(const Duration(minutes: 5)).millisecondsSinceEpoch} '
+            'WHERE id = 1',
+          );
+          try {
+            await lease.renew();
+          } catch (e) {
+            thrown = e;
+          }
+          return 0;
+        });
+        expect(thrown, isA<SyncLeaseLostException>());
+      },
+    );
+
+    test('a push or pull that could not get it says so, instead of returning '
+        'as if it had run', () async {
+      await db.customStatement(
+        "UPDATE sync_lease_table SET holder = 'background', "
+        'expires_at = ${DateTime.now().add(const Duration(minutes: 5)).millisecondsSinceEpoch} '
+        'WHERE id = 1',
+      );
+      final busy = SyncService(
+        db: db,
+        apiClient: api,
+        mealTemplateDao: MealTemplateDao(db),
+        leaseWait: const Duration(milliseconds: 200),
+      );
+
+      await expectLater(busy.syncAll(), throwsA(isA<SyncBusyException>()));
+      await expectLater(busy.pullAll(), throwsA(isA<SyncBusyException>()));
+      expect(api.gets, isEmpty);
     });
 
     test('is taken over once a crashed holder lets it expire', () async {

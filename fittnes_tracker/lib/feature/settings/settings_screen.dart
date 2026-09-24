@@ -10,6 +10,7 @@ import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/dao/meal_template_dao.dart';
 import 'package:ForgeForm/core/di/service_locator.dart';
 import 'package:ForgeForm/core/network/api_client.dart';
+import 'package:ForgeForm/core/sync/sync_lease.dart';
 import 'package:ForgeForm/core/sync/sync_service.dart';
 import 'package:ForgeForm/core/providers/access_provider.dart';
 import 'package:ForgeForm/feature/auth/presentation/sign_out.dart';
@@ -187,6 +188,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           context,
         ).showSnackBar(SnackBar(content: Text(l10n.syncComplete)));
       }
+    } on SyncBusyException {
+      // Nothing ran, so nothing is recorded and nothing is reported as done.
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(l10n.syncAlreadyRunning)));
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -221,6 +229,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(l10n.restoreComplete)));
+      }
+    } on SyncBusyException {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(l10n.syncAlreadyRunning)));
       }
     } catch (e) {
       if (mounted) {

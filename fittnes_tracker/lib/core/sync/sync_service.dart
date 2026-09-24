@@ -44,9 +44,24 @@ class SyncService {
     required AppDatabase db,
     required ApiClient apiClient,
     required MealTemplateDao mealTemplateDao,
+    this.leaseWait = const Duration(seconds: 30),
   }) : _db = db,
        _apiClient = apiClient,
        _mealTemplateDao = mealTemplateDao;
+
+  /// How long [syncAll] / [pullAll] wait for another run to finish before
+  /// giving up with [SyncBusyException].
+  final Duration leaseWait;
+
+  /// Runs [body] holding the sync lease, or throws [SyncBusyException] if
+  /// another run held it for all of [leaseWait].
+  Future<void> _leased(Future<void> Function(SyncLease lease) body) async {
+    final ran = await SyncLease.run(_db, (lease) async {
+      await body(lease);
+      return true;
+    }, wait: leaseWait);
+    if (ran == null) throw const SyncBusyException();
+  }
 
   // The run already in progress, if any. Static because no caller holds on to
   // a SyncService — main.dart, Settings and sign-out each build a fresh one —
@@ -89,8 +104,12 @@ class SyncService {
   ///
   /// A call made while a push is already running joins that run rather than
   /// starting a second one alongside it.
+  ///
+  /// Throws [SyncBusyException] if another run (the background task, or a pull)
+  /// held the database for the whole of [leaseWait] — so a caller never takes
+  /// a push that didn't happen for one that did.
   Future<void> syncAll() =>
-      _syncInFlight ??= SyncLease.run(_db, _syncAll).whenComplete(
+      _syncInFlight ??= _leased(_syncAll).whenComplete(
         () => _syncInFlight = null,
       );
 
@@ -253,8 +272,10 @@ class SyncService {
   /// A call made while a pull is already running joins that run: a second
   /// pull straight after the first would fetch the same data, and running the
   /// two side by side is how set templates came to be duplicated.
+  ///
+  /// Like [syncAll], throws [SyncBusyException] when it couldn't start.
   Future<void> pullAll() =>
-      _pullInFlight ??= SyncLease.run(_db, _pullAll).whenComplete(
+      _pullInFlight ??= _leased(_pullAll).whenComplete(
         () => _pullInFlight = null,
       );
 
@@ -343,6 +364,10 @@ class SyncService {
           }
         }
       });
+      // One step can take minutes on a first pull of years of history; this
+      // is where a run that lost the lease meanwhile finds out and stops,
+      // rather than at the end of the step.
+      await SyncLease.current?.renew();
     }
   }
 

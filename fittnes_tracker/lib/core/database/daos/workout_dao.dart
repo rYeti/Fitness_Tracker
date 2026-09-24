@@ -512,6 +512,30 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
     });
   }
 
+  /// Whether a session scheduled from this workout holds any logged set.
+  Future<bool> hasLoggedSessions(int workoutId) async {
+    final sessionExercises = attachedDatabase.scheduledWorkoutExerciseTable;
+    final logged =
+        await (select(workoutSetTable).join([
+                innerJoin(
+                  sessionExercises,
+                  sessionExercises.id.equalsExp(
+                    workoutSetTable.scheduledWorkoutExerciseId,
+                  ),
+                ),
+                innerJoin(
+                  scheduledWorkoutTable,
+                  scheduledWorkoutTable.id.equalsExp(
+                    sessionExercises.scheduledWorkoutId,
+                  ),
+                ),
+              ])
+              ..where(scheduledWorkoutTable.workoutId.equals(workoutId))
+              ..limit(1))
+            .getSingleOrNull();
+    return logged != null;
+  }
+
   static bool _samePrescription(
     List<(int, String, int)> a,
     List<(int, String, int)> b,
@@ -539,29 +563,11 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
   /// and sessions behind.
   Future<bool> deleteWorkout(int id) {
     return transaction(() async {
+      if (await hasLoggedSessions(id)) return false;
       final sessions =
           await (select(scheduledWorkoutTable)
             ..where((sw) => sw.workoutId.equals(id))).get();
       final sessionExerciseTable = attachedDatabase.scheduledWorkoutExerciseTable;
-      final sessionExercises =
-          sessions.isEmpty
-              ? <ScheduledWorkoutExerciseTableData>[]
-              : await (select(sessionExerciseTable)..where(
-                    (se) => se.scheduledWorkoutId.isIn(sessions.map((s) => s.id)),
-                  ))
-                  .get();
-      if (sessionExercises.isNotEmpty) {
-        final logged =
-            await (select(workoutSetTable)
-                  ..where(
-                    (s) => s.scheduledWorkoutExerciseId.isIn(
-                      sessionExercises.map((e) => e.id),
-                    ),
-                  )
-                  ..limit(1))
-                .getSingleOrNull();
-        if (logged != null) return false;
-      }
 
       await (delete(sessionExerciseTable)..where(
             (se) => se.scheduledWorkoutId.isIn(sessions.map((s) => s.id)),

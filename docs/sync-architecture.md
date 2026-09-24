@@ -320,6 +320,17 @@ only. A delete never cascades; it orphans. Several pieces of code, and
   now deletes the workout's templates, exercise entries, plan links and
   unlogged placeholder sessions, and refuses (returns `false`) when a session
   of it holds logged sets.
+
+  The push checks for logged sessions *before* it sends the DELETE, and keeps
+  the workout when there are any. It shows the workout again: `pendingUpdate`
+  if the server has it, `pending` if the server never did. Checking only
+  afterwards, as an early version did, left the workout stuck. Sessions push
+  after workouts, so the server often doesn't know about the sets yet and
+  accepts the DELETE, but the local delete then refuses. The row stayed hidden
+  and `pendingDelete` for good, re-sending the DELETE on every push and keeping
+  the sign-out warning up. That is the rule from
+  `docs/sync-account-switch-duplication.md` — a status left unchanged is an
+  edit that never leaves the device — in its delete form. Caught in review.
 - **`_syncDeleteWorkoutExercise`** hard-deleted the exercise entry after the
   server's DELETE. The session entries pointing at it survived as orphans, and
   `watchForScheduledWorkout` (an inner join) stopped showing them. So the
@@ -377,11 +388,28 @@ which every isolate sees. It is taken with a conditional `UPDATE`:
 
 - the holder is a token per *run*, not per isolate, so a push and a pull in the
   same isolate don't overlap either;
-- it expires after five minutes, and is renewed between steps, so a run killed
-  mid-sync stops blocking the next one;
-- a run that can't get it within 30 seconds doesn't run. A sync that didn't run
-  is retried on the next trigger; a sync that ran alongside another is how
+- it expires after five minutes unless renewed. A heartbeat renews it every 30
+  seconds while the run is alive, however long any one step takes. So it only
+  runs out when the process can't run at all — killed, or suspended in the
+  background mid-sync — and a dead run stops blocking the next one within
+  minutes;
+- a run whose lease was taken while it was suspended finds out the next time it
+  checks and stops, with `SyncLeaseLostException`. The checks are between steps,
+  every 40 records within a pull step, and per workout or session in the push's
+  long loops. What it hadn't finished is still pending and goes on the next
+  run;
+- a run that can't get the lease within 30 seconds doesn't run, and says so:
+  `syncAll` and `pullAll` throw `SyncBusyException`. A sync that didn't run is
+  retried on the next trigger. A sync that ran alongside another is how
   duplicates got onto the server.
+
+An early version of this returned quietly when it couldn't get the lease, and
+`pullAll` then completed as if it had run. `main.dart` recorded the pull time
+and skipped pulling for six hours, and Settings reported "Restore complete".
+The realistic trigger was a slow background push still holding the lease when
+the app resumed. It was caught in review, and it is the general shape of every
+"skipped" path: **a caller acts on "it finished", so "it didn't run" has to be
+something it can't mistake for that.**
 
 Sign-out waits for it before clearing the database. The background isolate now
 closes its connection when it's done. The native connection sets
@@ -446,8 +474,9 @@ there.
 | *an edit made while its push is in flight* | §4 |
 | *a meal template the server has* | §4: an edit is a PUT, not a copy; a delete is sent and not undone by a pull first |
 | *deleting a plan* | §12: trained sessions and their sets stay, placeholders go, nothing trained is deleted on the server, kept sessions end up detached |
+| *a deleted workout that sessions logged sets against* (2 tests) | §6: kept and shown again, never left pending; one never pushed is created instead |
 | *a session's exercises created on the server* | §7: linked by exercise, not position |
-| *the sync lease* (2 tests) | §8: excludes a second run; an expired one is taken over |
+| *the sync lease* (4 tests) | §8: excludes a second run; a run that lost it stops; a push or pull that couldn't get it throws `SyncBusyException`; an expired one is taken over |
 | *the push scheduler* (2 tests) | §9: pushes after an edit; a no-op when nothing's pending |
 | `sync_tracking_migration_test.dart` (2 tests) | §3: a v40 install upgrades, its existing rows are tracked; reopening rewrites nothing |
 

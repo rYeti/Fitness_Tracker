@@ -7,6 +7,7 @@ import 'package:ForgeForm/core/dao/meal_template_dao.dart';
 import 'package:ForgeForm/core/network/api_client.dart';
 import 'package:ForgeForm/core/network/secure_token_storage.dart';
 import 'package:ForgeForm/core/sync/sync_service.dart';
+import 'package:ForgeForm/core/sync/sync_lease.dart';
 import 'package:ForgeForm/core/sync/sync_scheduler.dart';
 import 'package:ForgeForm/core/network/token_refresh_service.dart';
 import 'package:ForgeForm/core/seed_exercises.dart';
@@ -105,6 +106,11 @@ void _backgroundSyncDispatcher() {
         'last_sync_timestamp',
         DateTime.now().millisecondsSinceEpoch,
       );
+    } on SyncBusyException {
+      // The app is syncing right now; this run has nothing left to do.
+    } on SyncLeaseLostException {
+      // Another run took over mid-push; what this one didn't finish is still
+      // pending, and that run or the next one sends it.
     } finally {
       // This isolate's connection, not the app's. Left open, it held the
       // database file for as long as the OS kept the isolate around.

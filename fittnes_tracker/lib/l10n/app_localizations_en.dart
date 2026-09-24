@@ -2329,6 +2329,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get syncComplete => 'Sync complete';
 
   @override
+  String get syncAlreadyRunning =>
+      'A sync is already running. Try again in a moment.';
+
+  @override
   String syncFailed(Object error) {
     return 'Sync failed: $error';
   }

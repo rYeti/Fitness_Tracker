@@ -1372,6 +1372,7 @@
   "syncNow": "Jetzt synchronisieren",
   "syncNowSubtitle": "Alle ausstehenden lokalen Änderungen auf den Server übertragen",
   "syncComplete": "Synchronisierung abgeschlossen",
+  "syncAlreadyRunning": "Eine Synchronisierung läuft bereits. Versuche es gleich noch einmal.",
   "syncFailed": "Synchronisierung fehlgeschlagen: {error}",
   "@syncFailed": {
     "placeholders": {

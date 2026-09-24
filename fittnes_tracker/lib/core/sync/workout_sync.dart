@@ -76,29 +76,89 @@ extension WorkoutSync on SyncService {
     _logger.i('Updated workout ${w.id} on server ${w.serverId}');
   }
 
+  /// Deletes a workout the user removed — unless training history hangs on
+  /// it, in which case it is kept and shown again.
+  ///
+  /// The history check comes first, before the server is asked. A session's
+  /// sets are pushed after workouts, so the server may not know about them yet
+  /// and would accept a DELETE the device then couldn't carry out. Left like
+  /// that, the row stayed hidden and `pendingDelete` for good, re-sending the
+  /// DELETE on every push and keeping the sign-out warning up. Keeping it is
+  /// the same answer the server gives (409) once it does know, and the same
+  /// rule a deleted plan follows (`docs/sync-architecture.md` §12).
   Future<void> _syncDeleteWorkout(WorkoutTableData w) async {
+    if (await _db.workoutDao.hasLoggedSessions(w.id)) {
+      await _keepWorkoutForHistory(w);
+      return;
+    }
     if (w.serverId != null) {
       try {
         await _apiClient.delete('api/Workout/${w.serverId}');
       } on DioException catch (e) {
         if (e.response?.statusCode == 409) {
-          // Sessions with logged sets still hang on it, and the server keeps
-          // it for them. Keeping it hidden here while the server has it would
-          // be a delete that retries forever; show it again instead.
-          await _db.untracked(
-            () => (_db.update(_db.workoutTable)
-              ..where((t) => t.id.equals(w.id))).write(
-              const WorkoutTableCompanion(syncStatus: Value(1)),
-            ),
-          );
-          _logger.w('Workout ${w.id} has logged history; the server kept it');
+          await _keepWorkoutForHistory(w);
           return;
         }
         if (e.response?.statusCode != 404) rethrow;
       }
     }
-    await _db.untracked(() => _db.workoutDao.deleteWorkout(w.id));
+    final deleted = await _db.untracked(
+      () => _db.workoutDao.deleteWorkout(w.id),
+    );
+    if (!deleted && await _db.workoutDao.hasLoggedSessions(w.id)) {
+      // A set was logged against it between the check above and now — an
+      // active workout still open on it. The server copy is gone, so it comes
+      // back as a new workout: the history under it has to be pushable.
+      await _db.untracked(() async {
+        await (_db.update(_db.workoutTable)
+          ..where((t) => t.id.equals(w.id))).write(
+          WorkoutTableCompanion(
+            serverId: const Value(null),
+            syncStatus: Value(SyncStatus.pending.index),
+          ),
+        );
+        final live = (await _db.workoutDao.getExercisesForWorkoutRaw(
+          w.id,
+        )).where(_isLive).map((e) => e.id);
+        await (_db.update(_db.workoutExerciseTable)
+          ..where((t) => t.id.isIn(live))).write(
+          WorkoutExerciseTableCompanion(
+            serverId: const Value(null),
+            syncStatus: Value(SyncStatus.pending.index),
+          ),
+        );
+        await (_db.update(_db.workoutSetTemplateTable)
+          ..where((t) => t.workoutExerciseId.isIn(live))).write(
+          WorkoutSetTemplateTableCompanion(
+            serverId: const Value(null),
+            syncStatus: Value(SyncStatus.pending.index),
+          ),
+        );
+      });
+      _logger.w('Workout ${w.id} gained logged sets mid-delete; re-creating it');
+      return;
+    }
     _logger.i('Deleted workout ${w.id} (server ${w.serverId})');
+  }
+
+  /// Shows a deleted workout again because history hangs on it: `pendingUpdate`
+  /// if the server has it (anything edited before the delete still goes up),
+  /// `pending` if it never reached the server (it goes up now, so the sessions
+  /// logged under it can follow).
+  Future<void> _keepWorkoutForHistory(WorkoutTableData w) async {
+    await _db.untracked(
+      () => (_db.update(_db.workoutTable)..where((t) => t.id.equals(w.id)))
+          .write(
+            WorkoutTableCompanion(
+              syncStatus: Value(
+                w.serverId == null
+                    ? SyncStatus.pending.index
+                    : SyncStatus.pendingUpdate.index,
+              ),
+            ),
+          ),
+    );
+    _logger.w('Workout ${w.id} has logged history; kept instead of deleted');
   }
 
   static bool _isLive(WorkoutExerciseTableData we) {
@@ -377,6 +437,9 @@ extension WorkoutSync on SyncService {
         await (_db.select(_db.workoutTable)..where((w) => w.id.isIn(ids))).get();
 
     for (final w in syncedWorkouts) {
+      // Outside the try: a lease lost mid-push must stop the push, not be
+      // logged as one item's failure.
+      await SyncLease.current?.renew();
       try {
         var exercises = await _db.workoutDao.getExercisesForWorkoutRaw(w.id);
         // pendingDelete and retired rows are on their way out or already

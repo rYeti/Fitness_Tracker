@@ -1,7 +1,34 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:drift/drift.dart';
+
+/// Thrown by `SyncService.syncAll` / `pullAll` when another run held the lease
+/// for the whole wait, so this one never started.
+///
+/// A distinct exception rather than a quiet return, because the callers act on
+/// "it finished": `main.dart` records the pull time (and so skips pulling for
+/// six hours), and Settings reports success. A run that didn't happen must not
+/// look like one that did.
+class SyncBusyException implements Exception {
+  const SyncBusyException();
+
+  @override
+  String toString() => 'Another sync is already running';
+}
+
+/// Thrown from [SyncLease.renew] when the lease was taken by another run while
+/// this one still thought it held it — it expired because nothing could renew
+/// it (the OS suspended the app mid-sync). Carrying on would put two runs on
+/// the database at once, which is what the lease exists to prevent, so the run
+/// stops; everything it hadn't finished is still pending and is retried.
+class SyncLeaseLostException implements Exception {
+  const SyncLeaseLostException();
+
+  @override
+  String toString() => 'Sync lease lost to another run';
+}
 
 /// Ownership of the database for one sync run, shared by every isolate.
 ///
@@ -11,7 +38,7 @@ import 'package:drift/drift.dart';
 /// POST the same pending rows twice, and most creates on the server have no
 /// way to tell a retry from a new row. The lease is a row in the database, so
 /// both isolates see the same one. It also keeps a push and a pull in the same
-/// isolate from running side by side. See `docs/sync-architecture.md` §5.
+/// isolate from running side by side. See `docs/sync-architecture.md` §8.
 class SyncLease {
   SyncLease._(this._db) : _token = _newToken();
 
@@ -21,14 +48,27 @@ class SyncLease {
   /// be able to take the lease from each other either.
   final String _token;
 
+  /// Set when a heartbeat found the lease gone; [renew] then throws.
+  bool _lost = false;
+
   static final _random = Random();
   static String _newToken() =>
       '${DateTime.now().microsecondsSinceEpoch}-${_random.nextInt(1 << 32)}';
 
-  /// How long a run can hold the lease without renewing it. Long enough for a
-  /// slow step between two [renew] calls, short enough that a run killed
-  /// mid-sync stops blocking the next one within minutes.
+  static final _zoneKey = Object();
+
+  /// The lease held by the run this code is part of, if any — so code deep in
+  /// a step (a loop over thousands of pulled records) can [renew] without the
+  /// lease being passed down to it.
+  static SyncLease? get current => Zone.current[_zoneKey] as SyncLease?;
+
+  /// How long the lease lasts without renewal. A heartbeat renews it every
+  /// [heartbeat] while the run is alive, however long any one step takes; it
+  /// only runs out when the process can't run at all — killed, or suspended in
+  /// the background — so a run that died stops blocking the next within
+  /// minutes.
   static const ttl = Duration(minutes: 5);
+  static const heartbeat = Duration(seconds: 30);
 
   /// Runs [body] while holding the lease, and returns its result.
   ///
@@ -47,15 +87,33 @@ class SyncLease {
       if (DateTime.now().isAfter(deadline)) return null;
       await Future<void>.delayed(const Duration(milliseconds: 500));
     }
+    final beat = Timer.periodic(heartbeat, (_) async {
+      try {
+        if (!lease._lost && !await lease._tryAcquire()) lease._lost = true;
+      } catch (_) {
+        // A beat still in flight when the run ends can find the database
+        // closed (the background isolate closes it right after). Nothing
+        // awaits a timer callback, so an error here would be unhandled; the
+        // next [renew] checks the lease properly anyway.
+      }
+    });
     try {
-      return await body(lease);
+      return await runZoned(() => body(lease), zoneValues: {_zoneKey: lease});
     } finally {
+      beat.cancel();
       await lease._release();
     }
   }
 
-  /// Extends the lease. Called between the steps of a run.
-  Future<void> renew() => _tryAcquire();
+  /// Extends the lease, or throws [SyncLeaseLostException] if another run has
+  /// taken it. Called between the steps of a run and within long ones, which
+  /// is where a run that lost the lease finds out and stops.
+  Future<void> renew() async {
+    if (_lost || !await _tryAcquire()) {
+      _lost = true;
+      throw const SyncLeaseLostException();
+    }
+  }
 
   Future<bool> _tryAcquire() async {
     final now = DateTime.now().millisecondsSinceEpoch;

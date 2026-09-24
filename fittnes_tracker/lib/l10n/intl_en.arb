@@ -1379,6 +1379,7 @@
   "syncNow": "Sync now",
   "syncNowSubtitle": "Push all pending local changes to the server",
   "syncComplete": "Sync complete",
+  "syncAlreadyRunning": "A sync is already running. Try again in a moment.",
   "syncFailed": "Sync failed: {error}",
   "@syncFailed": {
     "placeholders": {
