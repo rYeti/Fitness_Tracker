@@ -2205,6 +2205,16 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String paywallStartTrial(String duration) {
+    return 'Try Premium free for $duration';
+  }
+
+  @override
+  String paywallTrialThen(String price, String plan) {
+    return 'After the trial: $price ($plan). Cancel before it ends and you won\'t be charged.';
+  }
+
+  @override
   String get paywallPeriodDay => 'day';
 
   @override

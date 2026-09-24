@@ -642,9 +642,10 @@ class SyncService {
 
       final serverExId = serverEx['id'] as String?;
       if (serverExId != null) {
-        await _db.scheduledWorkoutExerciseDao.markScheduledExerciseSynced(
+        await _db.scheduledWorkoutExerciseDao.linkScheduledExerciseToServer(
           localEx.id,
           serverExId,
+          serverNotes: serverEx['notes'] as String?,
         );
       }
     }
@@ -668,6 +669,14 @@ class SyncService {
         );
         continue;
       }
+      if (localEx.syncStatus == 2) {
+        try {
+          await _syncScheduledExerciseNotes(localEx);
+        } catch (e) {
+          _logger.w('Exercise note sync failed for exercise ${localEx.id}: $e');
+        }
+      }
+
       final sets = await _db.workoutDao.getSetsForScheduledExercise(localEx.id);
 
       // Any new set means push the whole log. The endpoint replaces what the
@@ -711,6 +720,24 @@ class SyncService {
         }
       }
     }
+  }
+
+  /// Pushes the client's own note on one exercise of a session — the note
+  /// their trainer reads under that exercise in Session Review.
+  Future<void> _syncScheduledExerciseNotes(
+    ScheduledWorkoutExerciseTableData localEx,
+  ) async {
+    await _apiClient.put(
+      'api/ScheduledWorkout/exercises/${localEx.serverId}/notes',
+      data: {'notes': localEx.notes},
+    );
+    // Compared against what was just pushed rather than marked synced outright,
+    // so a note edited while the request was in flight stays pending.
+    await _db.scheduledWorkoutExerciseDao.linkScheduledExerciseToServer(
+      localEx.id,
+      localEx.serverId!,
+      serverNotes: localEx.notes,
+    );
   }
 
   Future<void> _syncNewWorkoutSetsBatch(
@@ -1735,9 +1762,10 @@ class SyncService {
                   (response.data as List).cast<Map<String, dynamic>>();
               for (var i = 0; i < valid.length && i < serverList.length; i++) {
                 await _db.scheduledWorkoutExerciseDao
-                    .markScheduledExerciseSynced(
+                    .linkScheduledExerciseToServer(
                       valid[i].id,
                       serverList[i]['id'] as String,
+                      serverNotes: serverList[i]['notes'] as String?,
                     );
               }
             }
@@ -3028,6 +3056,29 @@ class SyncService {
         int localSeId;
         if (existingSe != null) {
           localSeId = existingSe.id;
+          // Only a clean local copy is reconciled; a pending one is the push's.
+          final serverNotes = se['notes'] as String?;
+          final serverHasNote =
+              serverNotes != null && serverNotes.trim().isNotEmpty;
+          final localHasNote =
+              existingSe.notes != null && existingSe.notes!.trim().isNotEmpty;
+          if (existingSe.syncStatus == 1 && existingSe.notes != serverNotes) {
+            await (_db.update(_db.scheduledWorkoutExerciseTable)
+              ..where((t) => t.id.equals(localSeId))).write(
+              serverHasNote || !localHasNote
+                  // Written on another device.
+                  ? ScheduledWorkoutExerciseTableCompanion(
+                    notes: Value(serverNotes),
+                  )
+                  // A note here and none on the server is a note that never
+                  // left: until notes were pushed at all, every one written
+                  // was stamped synced without being sent. Clearing it to
+                  // match the server would delete it; queue it instead.
+                  : const ScheduledWorkoutExerciseTableCompanion(
+                    syncStatus: Value(2),
+                  ),
+            );
+          }
         } else {
           final localWe = await _db.workoutDao.getWorkoutExerciseByServerId(
             se['workoutExerciseId'] as String,
@@ -3059,12 +3110,10 @@ class SyncService {
 
           if (unlinkedSe != null) {
             localSeId = unlinkedSe.id;
-            await (_db.update(_db.scheduledWorkoutExerciseTable)
-              ..where((t) => t.id.equals(localSeId))).write(
-              ScheduledWorkoutExerciseTableCompanion(
-                serverId: Value(seServerId),
-                syncStatus: const Value(1),
-              ),
+            await _db.scheduledWorkoutExerciseDao.linkScheduledExerciseToServer(
+              localSeId,
+              seServerId,
+              serverNotes: se['notes'] as String?,
             );
             _logger.i(
               'Pull SW $swServerId: re-linked local exercise $localSeId to server $seServerId',

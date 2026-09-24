@@ -82,6 +82,14 @@ public interface IScheduledWorkoutService
     /// <returns><c>true</c> if deleted; <c>false</c> if not found or not owned.</returns>
     Task<bool> DeleteSetAsync(Guid setId, Guid userId);
 
+    /// <summary>Replaces the client's own note on one exercise of a session, if the
+    /// parent scheduled workout is owned by the specified user.</summary>
+    /// <param name="scheduledExerciseId">The ID of the scheduled exercise to annotate.</param>
+    /// <param name="userId">The ID of the user who must own the parent scheduled workout.</param>
+    /// <param name="notes">The note, or null/blank to clear it.</param>
+    /// <returns><c>true</c> if updated; <c>false</c> if not found or not owned.</returns>
+    Task<bool> UpdateExerciseNotesAsync(Guid scheduledExerciseId, Guid userId, string? notes);
+
     /// <summary>Marks a scheduled exercise as completed, if owned by the specified user.</summary>
     /// <param name="scheduledExerciseId">The ID of the scheduled exercise to complete.</param>
     /// <param name="userId">The ID of the user who must own the parent scheduled workout.</param>

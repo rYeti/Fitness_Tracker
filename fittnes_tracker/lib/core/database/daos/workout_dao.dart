@@ -207,7 +207,13 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
                     we.syncStatus.isNotValue(3) &
                     we.syncStatus.isNotValue(4),
               )
-              ..orderBy([(we) => OrderingTerm(expression: we.orderPosition)]))
+              // id breaks ties so two rows sharing a position (possible in data
+              // written before positions were kept contiguous) can't swap
+              // places between one load and the next.
+              ..orderBy([
+                (we) => OrderingTerm(expression: we.orderPosition),
+                (we) => OrderingTerm.asc(we.id),
+              ]))
             .get();
 
     final workoutExercises = <WorkoutExercise>[];
@@ -287,7 +293,10 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
                     we.syncStatus.isNotValue(3) &
                     we.syncStatus.isNotValue(4),
               )
-              ..orderBy([(we) => OrderingTerm.asc(we.orderPosition)]))
+              ..orderBy([
+                (we) => OrderingTerm.asc(we.orderPosition),
+                (we) => OrderingTerm.asc(we.id),
+              ]))
             .get();
     final results =
         <
@@ -448,12 +457,27 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
         if (existing != null) {
           // Update in-place — preserve the ID so historical data stays linked.
           exerciseInstanceId = existing.id;
+          // Same promotion as the workout row above, one level down. The push
+          // only sends an exercise whose own syncStatus is pendingUpdate, so a
+          // reorder written here while the row stayed synced never reached the
+          // server — and the next pull's reconcile, which trusts a clean row to
+          // match the server, put the old positions straight back. That is the
+          // "exercise order randomly changed" bug: see
+          // docs/workout-exercise-order.md.
+          final changed =
+              existing.orderPosition != exercise.orderPosition ||
+              existing.notes != exercise.notes ||
+              existing.supersetGroupId != exercise.supersetGroupId;
           await (update(workoutExerciseTable)
             ..where((we) => we.id.equals(exerciseInstanceId))).write(
             WorkoutExerciseTableCompanion(
               orderPosition: Value(exercise.orderPosition),
               notes: Value(exercise.notes),
               supersetGroupId: Value(exercise.supersetGroupId),
+              syncStatus:
+                  changed && existing.syncStatus == 1
+                      ? const Value(2) // pendingUpdate
+                      : const Value.absent(),
             ),
           );
         } else {

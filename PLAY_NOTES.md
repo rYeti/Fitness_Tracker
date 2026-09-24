@@ -24,7 +24,13 @@ See `docs/android-release.md`.
 
 ## Unreleased
 
-Fixed sets sometimes showing up twice during a workout, where typing into one set also filled in its twin. Fixed logged sets being sent to your trainer several times over; sessions already affected are corrected the next time the app syncs.
+Your workout's exercise order now syncs and stays put instead of snapping back to the old one next time the app opens.
+
+If you train with a coach, notes you write under an exercise during a workout now reach them beside that exercise's sets. Older notes are sent on the next sync.
+
+The Premium screen offers the free trial up front again and shows what the plan costs once it ends.
+
+Fixed sets showing up twice in a workout, and logged sets reaching your coach several times over.
 
 ## 1.0.2+27
 

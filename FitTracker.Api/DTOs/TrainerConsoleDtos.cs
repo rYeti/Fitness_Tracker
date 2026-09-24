@@ -291,6 +291,12 @@ public class SessionExerciseLogDto
     /// only strictly-earlier sessions.</summary>
     public bool IsPr { get; set; }
 
+    /// <summary>The client's own note on this exercise, typed under it during the
+    /// session (<c>ScheduledWorkoutExercise.Notes</c>). Distinct from the trainer's
+    /// guidance on the exercise (<c>WorkoutExercise.Notes</c>), which the trainer
+    /// wrote and doesn't need read back to them.</summary>
+    public string? ClientNote { get; set; }
+
     public List<SessionSetLogDto> Sets { get; set; } = [];
 }
 

@@ -457,6 +457,110 @@ public class TrainerSessionReviewTests : IDisposable
         Assert.Equal(2, logged.Count);
     }
 
+    // ── The client's own note on an exercise ────────────────────────────────
+
+    [Fact]
+    public async Task AnExerciseNoteTheClientWroteReachesTheirTrainer()
+    {
+        var workout = AddWorkout("Lower A");
+        var exercise = AddWorkoutExercise(workout, sets: 3);
+        var plan = AddPlan("Spring Block", isActive: true);
+        var session = AddSession(workout, plan, DaysAgo(1), isCompleted: true);
+        var entry = LogSets(session, exercise, reps: 8, weight: 100, count: 3);
+
+        // Written the way the sync client writes it, through the owner-scoped endpoint.
+        var written = await new ScheduledWorkoutService(new ScheduledWorkoutRepository(_fx.Db))
+            .UpdateExerciseNotesAsync(entry.Id, _client.Id, "Left knee caved on the last rep");
+        Assert.True(written);
+
+        var logged = Assert.Single(Assert.Single(await LoadHistory()).Exercises);
+        Assert.Equal("Left knee caved on the last rep", logged.ClientNote);
+    }
+
+    [Fact]
+    public async Task OnlyTheOwnerCanWriteAnExerciseNote()
+    {
+        var workout = AddWorkout("Lower A");
+        var exercise = AddWorkoutExercise(workout, sets: 3);
+        var session = AddSession(workout, plan: null, DaysAgo(1));
+        var entry = AddScheduledEntry(session, exercise);
+
+        // Being the client's trainer grants read access to their training, never a
+        // way to put words in their mouth.
+        var written = await new ScheduledWorkoutService(new ScheduledWorkoutRepository(_fx.Db))
+            .UpdateExerciseNotesAsync(entry.Id, _trainer.Id, "Felt great");
+
+        Assert.False(written);
+        Assert.Null((await _fx.Db.ScheduledWorkoutExercises.FindAsync(entry.Id))!.Notes);
+    }
+
+    [Fact]
+    public async Task ABlankExerciseNoteIsStoredAsNoNote()
+    {
+        var workout = AddWorkout("Lower A");
+        var exercise = AddWorkoutExercise(workout, sets: 3);
+        var session = AddSession(workout, plan: null, DaysAgo(1));
+        var entry = AddScheduledEntry(session, exercise);
+        entry.Notes = "Old note";
+        _fx.Db.SaveChanges();
+
+        await new ScheduledWorkoutService(new ScheduledWorkoutRepository(_fx.Db))
+            .UpdateExerciseNotesAsync(entry.Id, _client.Id, "   ");
+
+        Assert.Null((await _fx.Db.ScheduledWorkoutExercises.FindAsync(entry.Id))!.Notes);
+    }
+
+    [Fact]
+    public async Task ANoteOnARetiredExerciseTheClientNeverLoggedIsStillShown()
+    {
+        var workout = AddWorkout("Lower A");
+        var kept = AddWorkoutExercise(workout, sets: 3);
+        var dropped = AddWorkoutExercise(workout, sets: 3);
+        var plan = AddPlan("Spring Block", isActive: true);
+        var session = AddSession(workout, plan, DaysAgo(2), isCompleted: true);
+        LogSets(session, kept, reps: 8, weight: 100, count: 3);
+        var entry = AddScheduledEntry(session, dropped);
+        entry.Notes = "Skipped — shoulder flared up";
+        dropped.RemovedAt = DateTime.UtcNow;
+        await _fx.Db.SaveChangesAsync();
+
+        var only = Assert.Single(await LoadHistory());
+
+        // No sets and no longer programmed is what gets an entry dropped as a ghost;
+        // a note is proof the client was there and had something to say about it.
+        Assert.Contains(only.Exercises, e => e.ClientNote == "Skipped — shoulder flared up");
+    }
+
+    [Fact]
+    public async Task FoldingAnEmptyTwinAwayKeepsTheNoteItCarried()
+    {
+        var workout = AddWorkout("Lower A");
+        var live = AddWorkoutExercise(workout, sets: 2);
+        var twin = new WorkoutExercise
+        {
+            Id = Guid.NewGuid(),
+            WorkoutId = workout.Id,
+            ExerciseId = _squat.Id,
+            OrderPosition = live.OrderPosition,
+        };
+        _fx.Db.WorkoutExercises.Add(twin);
+        _fx.Db.SaveChanges();
+
+        var plan = AddPlan("Spring Block", isActive: true);
+        var session = AddSession(workout, plan, DaysAgo(2), isCompleted: true);
+        LogSets(session, live, reps: 8, weight: 100, count: 2);
+        // Which twin a note landed on is an accident of which local row the device
+        // had linked when it pushed.
+        var empty = AddScheduledEntry(session, twin);
+        empty.Notes = "Grip gave out before legs";
+        _fx.Db.SaveChanges();
+
+        var logged = Assert.Single(Assert.Single(await LoadHistory()).Exercises);
+
+        Assert.Equal(live.Id, logged.WorkoutExerciseId);
+        Assert.Equal("Grip gave out before legs", logged.ClientNote);
+    }
+
     // ── Seeding ─────────────────────────────────────────────────────────────
 
     private static DateTime DaysAgo(int days) => DateTime.UtcNow.Date.AddDays(-days);
@@ -552,7 +656,7 @@ public class TrainerSessionReviewTests : IDisposable
         return entry;
     }
 
-    private void LogSets(
+    private ScheduledWorkoutExercise LogSets(
         ScheduledWorkout session,
         WorkoutExercise exercise,
         int reps,
@@ -575,5 +679,6 @@ public class TrainerSessionReviewTests : IDisposable
             });
         }
         _fx.Db.SaveChanges();
+        return entry;
     }
 }
