@@ -203,6 +203,60 @@ void main() {
     );
   });
 
+  testWidgets('the client\'s note on an exercise is shown under it', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      FakeTrainerConsoleRepository(
+        rosterWithStats: [fakeRosterEntry()],
+        sessions: [
+          fakeSession(
+            exercises: const [
+              SessionExerciseLog(
+                workoutExerciseId: 'we-1',
+                exerciseName: 'Bench Press',
+                skipped: false,
+                isPr: false,
+                clientNote: 'Left shoulder pinched on the last rep',
+                sets: [
+                  SessionSetLog(
+                    setNumber: 1,
+                    reps: 8,
+                    weight: 80,
+                    rpe: 8,
+                    hitTarget: true,
+                  ),
+                ],
+              ),
+              SessionExerciseLog(
+                workoutExerciseId: 'we-2',
+                exerciseName: 'Incline Press',
+                skipped: false,
+                isPr: false,
+                sets: [
+                  SessionSetLog(
+                    setNumber: 1,
+                    reps: 10,
+                    weight: 60,
+                    rpe: 7,
+                    hitTarget: true,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Left shoulder pinched on the last rep'), findsOneWidget);
+    // One note card: the exercise that has a note. The session has none, and
+    // an exercise without one draws nothing.
+    expect(find.text('CLIENT NOTE'), findsOneWidget);
+  });
+
   testWidgets('mobile layout uses session tabs instead of the list pane', (
     tester,
   ) async {

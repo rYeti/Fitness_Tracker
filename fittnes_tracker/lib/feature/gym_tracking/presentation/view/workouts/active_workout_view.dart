@@ -687,17 +687,25 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
 
       if (exerciseData.scheduledExerciseId != null) {
         scheduledExerciseId = exerciseData.scheduledExerciseId!;
+        final note =
+            noteController?.text.isEmpty ?? true ? null : noteController!.text;
 
-        await (db.update(db.scheduledWorkoutExerciseTable)
-          ..where((t) => t.id.equals(scheduledExerciseId))).write(
-          ScheduledWorkoutExerciseTableCompanion(
-            notes: Value(
-              noteController?.text.isEmpty ?? true
-                  ? null
-                  : noteController!.text,
+        // Flagged for sync only when the note actually changed: this runs on
+        // every debounced set edit, and the note is what a client's trainer
+        // reads in Session Review — an unflagged write never leaves the device.
+        final stored =
+            await (db.select(db.scheduledWorkoutExerciseTable)..where(
+              (t) => t.id.equals(scheduledExerciseId),
+            )).getSingleOrNull();
+        if (stored != null && stored.notes != note) {
+          await (db.update(db.scheduledWorkoutExerciseTable)
+            ..where((t) => t.id.equals(scheduledExerciseId))).write(
+            ScheduledWorkoutExerciseTableCompanion(
+              notes: Value(note),
+              syncStatus: const Value(2),
             ),
-          ),
-        );
+          );
+        }
       } else {
         // Guard against concurrent saves both seeing scheduledExerciseId==null
         // and each inserting a duplicate row.

@@ -24,7 +24,11 @@ See `docs/android-release.md`.
 
 ## Unreleased
 
-The Premium screen now leads with the free trial: the button reads "Try Premium free for 2 weeks" and tells you what the plan costs once the trial ends.
+Your workout's exercise order now syncs and stays put instead of snapping back to the old one next time the app opens.
+
+If you train with a coach, notes you write under an exercise during a workout now reach them beside that exercise's sets. Older notes are sent on the next sync.
+
+The Premium screen offers the free trial up front again and shows what the plan costs once it ends.
 
 ## 1.0.2+27
 

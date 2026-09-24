@@ -161,6 +161,126 @@ void main() {
     });
   });
 
+  group('reordering the exercises of a synced workout', () {
+    Future<WorkoutExerciseTableData> exerciseRow(String serverId) =>
+        (db.select(db.workoutExerciseTable)
+          ..where((t) => t.serverId.equals(serverId))).getSingle();
+
+    WorkoutExercise asModel(
+      WorkoutExerciseTableData row, {
+      required int orderPosition,
+    }) => WorkoutExercise(
+      id: row.id,
+      workoutId: row.workoutId,
+      exerciseId: row.exerciseId,
+      orderPosition: orderPosition,
+      sets: const [],
+    );
+
+    // The reorder used to be written locally with each exercise row left at
+    // synced. The push only sends pendingUpdate exercises, so the server never
+    // heard about it, and the next pull's reconcile — which trusts a clean
+    // row to match the server — wrote the old positions back. From the gym
+    // floor that looked like the order changing on its own.
+    // See docs/workout-exercise-order.md.
+    test('pushes the new positions instead of leaving them local', () async {
+      await insertSyncedExercise(name: 'Bench Press', serverId: 'server-e1');
+      await insertSyncedExercise(name: 'Lat Pulldown', serverId: 'server-e2');
+
+      api.stubEmptyPull();
+      api.getResponses['api/Workout'] = [
+        serverWorkout(
+          id: 'server-w1',
+          name: 'Upper A',
+          exercises: [
+            serverWorkoutExercise(
+              id: 'server-we1',
+              exerciseId: 'server-e1',
+              orderPosition: 1,
+            ),
+            serverWorkoutExercise(
+              id: 'server-we2',
+              exerciseId: 'server-e2',
+              orderPosition: 2,
+            ),
+          ],
+        ),
+      ];
+      await sync.pullAll();
+
+      final local = await db.workoutDao.getWorkoutByServerId('server-w1');
+      final we1 = await exerciseRow('server-we1');
+      final we2 = await exerciseRow('server-we2');
+      // Swap them, the way the edit screen's drag handle does: same row ids,
+      // new positions, renumbered from the list order.
+      await db.workoutDao.saveCompleteWorkout(
+        Workout(
+          id: local!.id,
+          name: 'Upper A',
+          difficulty: WorkoutDifficulty.beginner,
+          exercises: [
+            asModel(we2, orderPosition: 1),
+            asModel(we1, orderPosition: 2),
+          ],
+        ),
+      );
+
+      final rows = await (db.select(db.workoutExerciseTable)
+            ..where((t) => t.workoutId.equals(local.id)))
+          .get();
+      // 2 == pendingUpdate: the only status the push sends for an exercise.
+      expect(rows.map((r) => r.syncStatus).toSet(), {2});
+
+      await sync.syncAll();
+
+      final pushed = {
+        for (final p in api.puts)
+          if (p.path.startsWith('api/Workout/exercises/'))
+            p.path: (p.data as Map)['orderPosition'],
+      };
+      expect(pushed, {
+        'api/Workout/exercises/server-we1': 2,
+        'api/Workout/exercises/server-we2': 1,
+      });
+    });
+
+    test('an untouched exercise stays synced', () async {
+      await insertSyncedExercise(serverId: 'server-e1');
+
+      api.stubEmptyPull();
+      api.getResponses['api/Workout'] = [
+        serverWorkout(
+          id: 'server-w1',
+          name: 'Upper A',
+          exercises: [
+            serverWorkoutExercise(
+              id: 'server-we1',
+              exerciseId: 'server-e1',
+              orderPosition: 0,
+            ),
+          ],
+        ),
+      ];
+      await sync.pullAll();
+
+      final local = await db.workoutDao.getWorkoutByServerId('server-w1');
+      final we1 = await exerciseRow('server-we1');
+      await db.workoutDao.saveCompleteWorkout(
+        Workout(
+          id: local!.id,
+          name: 'Upper A (renamed)',
+          difficulty: WorkoutDifficulty.beginner,
+          exercises: [asModel(we1, orderPosition: we1.orderPosition)],
+        ),
+      );
+
+      final row = await (db.select(db.workoutExerciseTable)
+            ..where((t) => t.serverId.equals('server-we1')))
+          .getSingle();
+      expect(row.syncStatus, 1);
+    });
+  });
+
   group('pulling a workout the server has duplicates of', () {
     test('inserts one exercise and one set per set number', () async {
       await insertSyncedExercise(serverId: 'server-e1');
@@ -541,6 +661,175 @@ void main() {
       expect(
         api.posts.map((p) => p.path),
         contains('api/Workout/server-w1/exercises/batch'),
+      );
+    });
+  });
+
+  group('a client\'s note on an exercise of a session', () {
+    /// A synced workout holding one synced exercise, and a session of it with
+    /// one entry carrying [note] — the shape the active workout leaves behind.
+    Future<({int swId, int seId})> seedSession({
+      required String? note,
+      String? swServerId,
+      String? seServerId,
+      int seSyncStatus = 0,
+    }) async {
+      final exerciseId = await insertSyncedExercise(serverId: 'server-e1');
+      final workoutId = await db.workoutDao.saveCompleteWorkout(
+        Workout(
+          name: 'Push Day',
+          difficulty: WorkoutDifficulty.beginner,
+          exercises: [
+            WorkoutExercise(
+              workoutId: 0,
+              exerciseId: exerciseId,
+              orderPosition: 0,
+              sets: [WorkoutSet(exerciseInstanceId: 0, setNumber: 1)],
+            ),
+          ],
+        ),
+      );
+      await db.workoutDao.markWorkoutSynced(workoutId, 'server-w1');
+      final we =
+          await (db.select(db.workoutExerciseTable)
+            ..where((t) => t.workoutId.equals(workoutId))).getSingle();
+      await db.workoutDao.markWorkoutExerciseSynced(we.id, 'server-we1');
+
+      final swId = await db
+          .into(db.scheduledWorkoutTable)
+          .insert(
+            ScheduledWorkoutTableCompanion.insert(
+              workoutId: workoutId,
+              scheduledDate: DateTime(2026, 1, 5),
+              isCompleted: const Value(true),
+              serverId: Value(swServerId),
+              syncStatus: Value(swServerId == null ? 0 : 2),
+            ),
+          );
+      final seId = await db
+          .into(db.scheduledWorkoutExerciseTable)
+          .insert(
+            ScheduledWorkoutExerciseTableCompanion.insert(
+              scheduledWorkoutId: swId,
+              workoutExerciseId: we.id,
+              notes: Value(note),
+              serverId: Value(seServerId),
+              syncStatus: Value(seSyncStatus),
+            ),
+          );
+      return (swId: swId, seId: seId);
+    }
+
+    test(
+      'written before the session ever synced, is pushed once it links',
+      () async {
+        final ids = await seedSession(note: 'Left knee caved on rep 8');
+        // The server creates its own entries when the session is POSTed, with
+        // no note. Linking to one is not the same as having pushed ours.
+        api.postResponses['api/ScheduledWorkout'] = {
+          'id': 'server-sw1',
+          'exercises': [
+            {
+              'id': 'server-se1',
+              'workoutExerciseId': 'server-we1',
+              'notes': null,
+              'sets': <dynamic>[],
+            },
+          ],
+        };
+
+        await sync.syncScheduledWorkouts();
+
+        final put = api.puts.singleWhere(
+          (p) => p.path == 'api/ScheduledWorkout/exercises/server-se1/notes',
+        );
+        expect(put.data, {'notes': 'Left knee caved on rep 8'});
+        final row =
+            await (db.select(db.scheduledWorkoutExerciseTable)
+              ..where((t) => t.id.equals(ids.seId))).getSingle();
+        expect(row.serverId, 'server-se1');
+        expect(row.syncStatus, 1);
+      },
+    );
+
+    test('already on the server is not pushed again', () async {
+      await seedSession(
+        note: 'Felt strong',
+        swServerId: 'server-sw1',
+        seServerId: 'server-se1',
+        seSyncStatus: 1,
+      );
+
+      await sync.syncScheduledWorkouts();
+
+      expect(
+        api.puts.where((p) => p.path.endsWith('/notes')),
+        isEmpty,
+        reason: 'a note push per exercise per sync would be pure noise',
+      );
+    });
+
+    test(
+      'held from before notes were pushed is queued by the pull, not erased',
+      () async {
+        final ids = await seedSession(
+          note: 'Spotter needed on the last set',
+          swServerId: 'server-sw1',
+          seServerId: 'server-se1',
+          seSyncStatus: 1,
+        );
+        api.stubEmptyPull();
+        api.getResponses['api/Workout'] = [
+          serverWorkout(
+            id: 'server-w1',
+            name: 'Push Day',
+            exercises: [
+              serverWorkoutExercise(
+                id: 'server-we1',
+                exerciseId: 'server-e1',
+                orderPosition: 0,
+              ),
+            ],
+          ),
+        ];
+        // The server never heard of the note: it was stamped synced by a link
+        // back when nothing pushed notes at all.
+        api.getResponses['api/ScheduledWorkout'] = [
+          serverScheduledWorkout(
+            id: 'server-sw1',
+            workoutId: 'server-w1',
+            exercises: [
+              serverScheduledExercise(
+                id: 'server-se1',
+                workoutExerciseId: 'server-we1',
+              ),
+            ],
+          ),
+        ];
+
+        await sync.pullAll();
+
+        final row =
+            await (db.select(db.scheduledWorkoutExerciseTable)
+              ..where((t) => t.id.equals(ids.seId))).getSingle();
+        expect(row.notes, 'Spotter needed on the last set');
+        expect(row.syncStatus, 2, reason: 'queued for the next push');
+      },
+    );
+
+    test('edited on a linked entry is pushed', () async {
+      await seedSession(
+        note: 'Grip went before legs',
+        swServerId: 'server-sw1',
+        seServerId: 'server-se1',
+        seSyncStatus: 2,
+      );
+
+      await sync.syncScheduledWorkouts();
+
+      expect(
+        api.puts.map((p) => p.path),
+        contains('api/ScheduledWorkout/exercises/server-se1/notes'),
       );
     });
   });
