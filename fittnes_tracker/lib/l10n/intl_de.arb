@@ -1305,6 +1305,25 @@
       }
     }
   },
+  "paywallStartTrial": "Premium {duration} kostenlos testen",
+  "@paywallStartTrial": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "paywallTrialThen": "Nach dem Testzeitraum: {price} ({plan}). Kündige vorher, dann zahlst du nichts.",
+  "@paywallTrialThen": {
+    "placeholders": {
+      "price": {
+        "type": "String"
+      },
+      "plan": {
+        "type": "String"
+      }
+    }
+  },
   "paywallPeriodDay": "Tag",
   "paywallPeriodDays": "Tage",
   "paywallPeriodWeek": "Woche",

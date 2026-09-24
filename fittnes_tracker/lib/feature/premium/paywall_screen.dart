@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -31,6 +32,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
   _LoadState _state = _LoadState.loading;
   Offering? _offering;
   Package? _selectedPackage;
+  Set<String> _introIneligible = const {};
   bool _isPurchasing = false;
   bool _isRestoring = false;
 
@@ -52,17 +54,70 @@ class _PaywallScreenState extends State<PaywallScreen> {
       setState(() => _state = _LoadState.empty);
       return;
     }
+    final ineligible = await _ineligibleIntroProducts(offering.availablePackages);
+    if (!mounted) return;
     setState(() {
       _offering = offering;
+      _introIneligible = ineligible;
       _selectedPackage = _defaultPackage(offering.availablePackages);
       _state = _LoadState.loaded;
     });
   }
 
+  /// Product ids whose introductory offer this user can't actually get.
+  ///
+  /// The two stores disagree about who sees an offer. Google Play leaves an
+  /// offer out of the product entirely when the user isn't eligible for it,
+  /// so on Android the offer's presence already is the answer (and
+  /// RevenueCat's eligibility check always says "unknown" there). The App
+  /// Store reports the intro offer to everyone, including someone who used
+  /// their trial last year, so on Apple platforms it has to be asked — and
+  /// RevenueCat's guidance is to show regular pricing unless the answer is
+  /// a definite "eligible", rather than advertise a trial that won't apply.
+  Future<Set<String>> _ineligibleIntroProducts(List<Package> packages) async {
+    final isApple =
+        !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.iOS ||
+            defaultTargetPlatform == TargetPlatform.macOS);
+    if (!isApple) return const {};
+    final ids = packages.map((p) => p.storeProduct.identifier).toList();
+    try {
+      final eligibility = await Purchases.checkTrialOrIntroductoryPriceEligibility(ids);
+      return {
+        for (final id in ids)
+          if (eligibility[id]?.status != IntroEligibilityStatus.introEligibilityStatusEligible) id,
+      };
+    } on PlatformException {
+      return ids.toSet();
+    }
+  }
+
+  /// The introductory offer buying [package] right now would start, or null.
+  IntroductoryPrice? _introOffer(Package package) {
+    if (_introIneligible.contains(package.storeProduct.identifier)) return null;
+    return package.storeProduct.introductoryPrice;
+  }
+
+  /// The free trial buying [package] right now would start, or null.
+  IntroductoryPrice? _freeTrial(Package package) {
+    final intro = _introOffer(package);
+    return intro != null && intro.price == 0 ? intro : null;
+  }
+
+  /// Pre-selects the plan the paywall leads with: annual with a free trial,
+  /// then any plan with a free trial, then annual. A trial the store offers
+  /// on the monthly plan only would otherwise sit unselected under an annual
+  /// default, and the button would never mention it.
   Package _defaultPackage(List<Package> packages) {
+    bool isAnnual(Package p) => p.packageType == PackageType.annual;
+    bool hasTrial(Package p) => _freeTrial(p) != null;
     return packages.firstWhere(
-      (p) => p.packageType == PackageType.annual,
-      orElse: () => packages.first,
+      (p) => isAnnual(p) && hasTrial(p),
+      orElse:
+          () => packages.firstWhere(
+            hasTrial,
+            orElse: () => packages.firstWhere(isAnnual, orElse: () => packages.first),
+          ),
     );
   }
 
@@ -205,6 +260,8 @@ class _PaywallScreenState extends State<PaywallScreen> {
 
   Widget _buildOffering(AppLocalizations l10n, ThemeData theme, bool isDark) {
     final packages = _offering!.availablePackages;
+    final selected = _selectedPackage;
+    final trial = selected == null ? null : _freeTrial(selected);
     return ListView(
       padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
       children: [
@@ -242,6 +299,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
             padding: const EdgeInsets.only(bottom: 12),
             child: _PackageCard(
               package: package,
+              introOffer: _introOffer(package),
               selected: _selectedPackage == package,
               isDark: isDark,
               onTap: () => setState(() => _selectedPackage = package),
@@ -270,13 +328,23 @@ class _PaywallScreenState extends State<PaywallScreen> {
                       ),
                     )
                     : Text(
-                      _selectedPackage != null
-                          ? '${l10n.goPremiumBannerButton} · ${_selectedPackage!.storeProduct.priceString}'
+                      trial != null
+                          ? l10n.paywallStartTrial(paywallIntroDuration(l10n, trial))
+                          : selected != null
+                          ? '${l10n.goPremiumBannerButton} · ${selected.storeProduct.priceString}'
                           : l10n.goPremiumBannerButton,
                     ),
           ),
         ),
         const SizedBox(height: 12),
+        if (trial != null) ...[
+          Text(
+            l10n.paywallTrialThen(selected!.storeProduct.priceString, _planLabel(selected)),
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodySmall,
+          ),
+          const SizedBox(height: 4),
+        ],
         Text(
           l10n.paywallFinePrint,
           textAlign: TextAlign.center,
@@ -303,60 +371,24 @@ class _PaywallScreenState extends State<PaywallScreen> {
 class _PackageCard extends StatelessWidget {
   const _PackageCard({
     required this.package,
+    required this.introOffer,
     required this.selected,
     required this.isDark,
     required this.onTap,
   });
 
   final Package package;
+  final IntroductoryPrice? introOffer;
   final bool selected;
   final bool isDark;
   final VoidCallback onTap;
 
-  String get _durationLabel {
-    switch (package.packageType) {
-      case PackageType.annual:
-        return 'Annual';
-      case PackageType.sixMonth:
-        return '6 Months';
-      case PackageType.threeMonth:
-        return '3 Months';
-      case PackageType.twoMonth:
-        return '2 Months';
-      case PackageType.monthly:
-        return 'Monthly';
-      case PackageType.weekly:
-        return 'Weekly';
-      case PackageType.lifetime:
-        return 'Lifetime';
-      case PackageType.custom:
-      case PackageType.unknown:
-        return package.storeProduct.title;
-    }
-  }
-
-  String _periodUnitLabel(AppLocalizations l10n, PeriodUnit unit, int count) {
-    switch (unit) {
-      case PeriodUnit.day:
-        return count == 1 ? l10n.paywallPeriodDay : l10n.paywallPeriodDays;
-      case PeriodUnit.week:
-        return count == 1 ? l10n.paywallPeriodWeek : l10n.paywallPeriodWeeks;
-      case PeriodUnit.month:
-        return count == 1 ? l10n.paywallPeriodMonth : l10n.paywallPeriodMonths;
-      case PeriodUnit.year:
-        return count == 1 ? l10n.paywallPeriodYear : l10n.paywallPeriodYears;
-      case PeriodUnit.unknown:
-        return '';
-    }
-  }
-
-  /// Returns the free-trial or discounted-intro-price label for this
-  /// package, or null if it has no introductory offer.
+  /// The free-trial or discounted-intro-price label for this package, or
+  /// null if it has no introductory offer this user can get.
   String? _introOfferLabel(AppLocalizations l10n) {
-    final intro = package.storeProduct.introductoryPrice;
+    final intro = introOffer;
     if (intro == null) return null;
-    final totalUnits = intro.periodNumberOfUnits * intro.cycles;
-    final duration = '$totalUnits ${_periodUnitLabel(l10n, intro.periodUnit, totalUnits)}';
+    final duration = paywallIntroDuration(l10n, intro);
     if (intro.price == 0) {
       return l10n.paywallFreeTrial(duration);
     }
@@ -395,7 +427,7 @@ class _PackageCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    _durationLabel,
+                    _planLabel(package),
                     style: const TextStyle(
                       fontFamily: 'Montserrat',
                       fontWeight: FontWeight.w600,
@@ -430,4 +462,57 @@ class _PackageCard extends StatelessWidget {
       ),
     );
   }
+}
+
+String _planLabel(Package package) {
+  switch (package.packageType) {
+    case PackageType.annual:
+      return 'Annual';
+    case PackageType.sixMonth:
+      return '6 Months';
+    case PackageType.threeMonth:
+      return '3 Months';
+    case PackageType.twoMonth:
+      return '2 Months';
+    case PackageType.monthly:
+      return 'Monthly';
+    case PackageType.weekly:
+      return 'Weekly';
+    case PackageType.lifetime:
+      return 'Lifetime';
+    case PackageType.custom:
+    case PackageType.unknown:
+      return package.storeProduct.title;
+  }
+}
+
+String _periodUnitLabel(AppLocalizations l10n, PeriodUnit unit, int count) {
+  switch (unit) {
+    case PeriodUnit.day:
+      return count == 1 ? l10n.paywallPeriodDay : l10n.paywallPeriodDays;
+    case PeriodUnit.week:
+      return count == 1 ? l10n.paywallPeriodWeek : l10n.paywallPeriodWeeks;
+    case PeriodUnit.month:
+      return count == 1 ? l10n.paywallPeriodMonth : l10n.paywallPeriodMonths;
+    case PeriodUnit.year:
+      return count == 1 ? l10n.paywallPeriodYear : l10n.paywallPeriodYears;
+    case PeriodUnit.unknown:
+      return '';
+  }
+}
+
+/// How long an introductory offer lasts, e.g. "2 weeks".
+///
+/// RevenueCat's Android bridge reports a week-based period as days — a
+/// Play offer of P2W arrives as 14 × DAY — so without folding whole weeks
+/// back, the two-week trial configured in Play Console reads "14 days".
+@visibleForTesting
+String paywallIntroDuration(AppLocalizations l10n, IntroductoryPrice intro) {
+  var unit = intro.periodUnit;
+  var count = intro.periodNumberOfUnits * intro.cycles;
+  if (unit == PeriodUnit.day && count > 0 && count % 7 == 0) {
+    unit = PeriodUnit.week;
+    count ~/= 7;
+  }
+  return '$count ${_periodUnitLabel(l10n, unit, count)}';
 }

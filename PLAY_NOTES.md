@@ -24,9 +24,11 @@ See `docs/android-release.md`.
 
 ## Unreleased
 
-Fixed the order of exercises in a workout changing on its own. If you rearranged a workout, the new order now syncs and stays put instead of snapping back to the old one the next time the app opened.
+Your workout's exercise order now syncs and stays put instead of snapping back to the old one next time the app opens.
 
-If you train with a coach, the notes you write under an exercise during a workout now reach them - they see each note beside that exercise's sets when reviewing your session. Notes you wrote before this update are sent the next time the app syncs.
+If you train with a coach, notes you write under an exercise during a workout now reach them beside that exercise's sets. Older notes are sent on the next sync.
+
+The Premium screen offers the free trial up front again and shows what the plan costs once it ends.
 
 ## 1.0.2+27
 
