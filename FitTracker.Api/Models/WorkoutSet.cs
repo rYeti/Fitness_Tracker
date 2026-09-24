@@ -35,6 +35,11 @@ public class WorkoutSet
     /// </summary>
     public int SetType { get; set; }
 
+    /// <summary>The <see cref="SetType"/> ordinal of a warm-up set. Warm-ups are shown
+    /// but never counted toward volume, average RPE or personal records — the same
+    /// rule the app applies to its own stats.</summary>
+    public const int WarmUpSetType = 1;
+
     /// <summary>
     /// Which side a unilateral set was performed with, as the app's <c>SetSide</c>
     /// ordinal: 0 both, 1 left, 2 right.

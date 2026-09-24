@@ -30,6 +30,8 @@ If you train with a coach, your exercise notes now reach them, as do the RPE, wa
 
 The Premium screen offers the free trial up front again and shows what the plan costs once it ends.
 
+Fixed sets showing up twice in a workout, and logged sets reaching your coach several times over.
+
 ## 1.0.2+27
 
 The personal best shown while you train now covers your whole training plan instead of just the session in front of you. Standing in Upper A, you see the heaviest set you have hit on that exercise anywhere in the block - Upper B and Lower A included - and it still updates live as you type, so you can watch yourself beat it. Workouts that are not part of a plan show your best across every time you have done that workout.

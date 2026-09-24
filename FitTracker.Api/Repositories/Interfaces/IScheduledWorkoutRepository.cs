@@ -102,6 +102,14 @@ public interface IScheduledWorkoutRepository
     /// <returns>The newly created workout set, or <c>null</c> if the scheduled workout exercise isn't found/owned.</returns>
     Task<WorkoutSet?> AddSetAsync(WorkoutSet set, Guid userId);
 
+    /// <summary>Replaces every performed set logged against a scheduled workout exercise
+    /// with <paramref name="sets"/>, in one transaction.</summary>
+    /// <param name="scheduledWorkoutExerciseId">The scheduled workout exercise whose log is replaced.</param>
+    /// <param name="userId">The ID of the user who must own the parent scheduled workout.</param>
+    /// <param name="sets">The exercise's complete log.</param>
+    /// <returns>The stored sets, or <c>null</c> if the scheduled workout exercise isn't found/owned.</returns>
+    Task<List<WorkoutSet>?> ReplaceSetsAsync(Guid scheduledWorkoutExerciseId, Guid userId, List<WorkoutSet> sets);
+
     /// <summary>Updates an existing performed set owned by the specified user.</summary>
     /// <param name="setId">The ID of the set to update.</param>
     /// <param name="userId">The ID of the user who must own the parent scheduled workout.</param>

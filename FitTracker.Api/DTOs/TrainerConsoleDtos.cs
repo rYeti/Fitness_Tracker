@@ -271,7 +271,7 @@ public class SessionSetLogDto
     public int? Rpe { get; set; }
 
     /// <summary>Set type ordinal as the app logged it (0 normal, 1 warm-up, 2 drop set,
-    /// 3 failure). Shown as a tag; it doesn't change volume, RPE or PR maths.</summary>
+    /// 3 failure). Shown as a tag; a warm-up is left out of the session's volume, Avg RPE and PRs.</summary>
     public int SetType { get; set; }
 
     /// <summary>Side ordinal (0 both, 1 left, 2 right).</summary>

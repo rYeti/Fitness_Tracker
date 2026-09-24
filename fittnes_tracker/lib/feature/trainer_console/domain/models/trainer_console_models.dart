@@ -463,7 +463,7 @@ class SessionSetLog {
   final int? rpe;
 
   /// Warm-up, drop set or failure, as the client logged it. Shown as a tag;
-  /// the server doesn't treat any type differently in volume, RPE or PRs.
+  /// the server already leaves warm-ups out of volume, Avg RPE and PRs.
   final SetType setType;
 
   /// Left or right for a unilateral set; [SetSide.both] otherwise.

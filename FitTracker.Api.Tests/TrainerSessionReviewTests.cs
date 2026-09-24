@@ -216,6 +216,31 @@ public class TrainerSessionReviewTests : IDisposable
     }
 
     [Fact]
+    public async Task PushingALoggedExerciseReplacesTheOldLog()
+    {
+        var workout = AddWorkout("Upper B");
+        var exercise = AddWorkoutExercise(workout, sets: 2);
+        var session = AddSession(workout, plan: null, DaysAgo(1), isCompleted: true);
+        LogSets(session, exercise, reps: 3, weight: 30, count: 2);
+        var entry = _fx.Db.ScheduledWorkoutExercises.Single(e => e.ScheduledWorkoutId == session.Id);
+
+        var scheduled = new ScheduledWorkoutService(new ScheduledWorkoutRepository(_fx.Db));
+        await scheduled.AddSetsBatchAsync(entry.Id, _client.Id,
+        [
+            new WorkoutSetRequestDto { SetNumber = 1, Reps = 5, Weight = 35, WeightUnit = "kg", IsCompleted = true },
+            new WorkoutSetRequestDto { SetNumber = 2, Reps = 8, Weight = 35, WeightUnit = "kg", IsCompleted = true },
+        ]);
+
+        // The active workout rewrites an exercise's sets as fresh rows on every save and
+        // the sync pushes the lot. Appending them left every earlier push in place, and the
+        // session review listed "set 1" once per save.
+        var history = await LoadHistory();
+        var sets = history.Single().Exercises.Single().Sets;
+        Assert.Equal([1, 2], sets.Select(s => s.SetNumber));
+        Assert.Equal([5, 8], sets.Select(s => s.Reps));
+    }
+
+    [Fact]
     public async Task RemovingAnExerciseClearsTheSessionsThatNeverLoggedIt()
     {
         var workout = AddWorkout("Lower A");
@@ -556,14 +581,14 @@ public class TrainerSessionReviewTests : IDisposable
                 new WorkoutSetRequestDto
                 {
                     SetNumber = 1, Reps = 8, Weight = 100, WeightUnit = "kg",
-                    Rpe = 8, SetType = 1, Side = 2, IsCompleted = true,
+                    Rpe = 8, SetType = 2, Side = 2, IsCompleted = true,
                 },
             ]);
 
         var only = Assert.Single(await LoadHistory());
         var set = Assert.Single(Assert.Single(only.Exercises).Sets);
         Assert.Equal(8, set.Rpe);
-        Assert.Equal(1, set.SetType);
+        Assert.Equal(2, set.SetType);
         Assert.Equal(2, set.Side);
         Assert.Equal(8, only.AvgRpe);
     }
@@ -615,6 +640,52 @@ public class TrainerSessionReviewTests : IDisposable
         Assert.Equal(10, after.Reps);
         Assert.Equal(1, after.SetType);
         Assert.Equal(2, after.Side);
+    }
+
+    // ── Warm-ups count toward nothing ────────────────────────────────────────
+
+    [Fact]
+    public async Task AWarmUpIsListedButLeftOutOfVolumeAndAverageRpe()
+    {
+        var workout = AddWorkout("Lower A");
+        var exercise = AddWorkoutExercise(workout, sets: 2);
+        var plan = AddPlan("Spring Block", isActive: true);
+        var session = AddSession(workout, plan, DaysAgo(1), isCompleted: true);
+        var entry = LogSets(session, exercise, reps: 5, weight: 100, count: 1);
+        AddSet(entry, setNumber: 2, reps: 10, weight: 40, rpe: 4, setType: WorkoutSet.WarmUpSetType);
+        _fx.Db.WorkoutSets.Single(s => s.ScheduledWorkoutExerciseId == entry.Id && s.SetNumber == 1).Rpe = 9;
+        _fx.Db.SaveChanges();
+
+        var only = Assert.Single(await LoadHistory());
+
+        // The trainer still sees the warm-up, tagged — it is only the maths that skips it.
+        Assert.Equal(2, Assert.Single(only.Exercises).Sets.Count);
+        Assert.Equal(500, only.TotalVolume);
+        Assert.Equal(9, only.AvgRpe);
+    }
+
+    [Fact]
+    public async Task AHeavyWarmUpIsNeitherAPrNorTheBaselineForOne()
+    {
+        var workout = AddWorkout("Lower A");
+        var exercise = AddWorkoutExercise(workout, sets: 1);
+        var plan = AddPlan("Spring Block", isActive: true);
+
+        var first = AddSession(workout, plan, DaysAgo(14), isCompleted: true);
+        LogSets(first, exercise, reps: 5, weight: 100, count: 1);
+        // A mislabelled or deliberately heavy warm-up must not become the bar the
+        // next real set has to clear.
+        var second = AddSession(workout, plan, DaysAgo(7), isCompleted: true);
+        var secondEntry = AddScheduledEntry(second, exercise);
+        AddSet(secondEntry, setNumber: 1, reps: 1, weight: 140, rpe: null, setType: WorkoutSet.WarmUpSetType);
+
+        var third = AddSession(workout, plan, DaysAgo(1), isCompleted: true);
+        LogSets(third, exercise, reps: 5, weight: 105, count: 1);
+
+        var sessions = await LoadHistory();
+
+        Assert.False(sessions.Single(s => s.ScheduledWorkoutId == second.Id).IsPr);
+        Assert.True(sessions.Single(s => s.ScheduledWorkoutId == third.Id).IsPr);
     }
 
     // ── Seeding ─────────────────────────────────────────────────────────────
@@ -710,6 +781,24 @@ public class TrainerSessionReviewTests : IDisposable
         _fx.Db.ScheduledWorkoutExercises.Add(entry);
         _fx.Db.SaveChanges();
         return entry;
+    }
+
+    private void AddSet(
+        ScheduledWorkoutExercise entry, int setNumber, int reps, double weight, int? rpe, int setType)
+    {
+        _fx.Db.WorkoutSets.Add(new WorkoutSet
+        {
+            Id = Guid.NewGuid(),
+            ScheduledWorkoutExerciseId = entry.Id,
+            SetNumber = setNumber,
+            Reps = reps,
+            Weight = weight,
+            WeightUnit = "kg",
+            Rpe = rpe,
+            SetType = setType,
+            IsCompleted = true,
+        });
+        _fx.Db.SaveChanges();
     }
 
     private ScheduledWorkoutExercise LogSets(

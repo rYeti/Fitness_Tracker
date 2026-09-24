@@ -90,7 +90,7 @@ use; `WorkoutSetRequestDto` pins the range with `[Range(0, 3)]` and
 
 The non-obvious part is that on the **request** DTO, `SetType` and `Side` are
 `int?`, not `int`, and the two are treated differently from RPE on update
-(`ScheduledWorkoutRepository.cs:355`):
+(`ScheduledWorkoutRepository.cs:389`):
 
 ```csharp
 set.Rpe = dto.Rpe;
@@ -122,7 +122,7 @@ update.
 ### 4c. Pulling, and an ordinal the device doesn't know
 
 The pull inserts all three from the server's copy, but reads the two ordinals
-through `_setTypeOrdinal` / `_setSideOrdinal` (`sync_service.dart:3045`), which
+through `_setTypeOrdinal` / `_setSideOrdinal` (`sync_service.dart:3157`), which
 fall back to `0` for anything out of range.
 
 This is the lesson `docs/chat-attachments.md` records for `MediaType`: the
@@ -135,21 +135,24 @@ set. Clamping at the point of entry means the database never holds an ordinal
 this build can't read, so none of those three readers needs to defend itself.
 The console model does the same in `SessionSetLog.fromJson` (`_byOrdinal`).
 
-### 4d. Linking is not syncing
+### 4d. The pull that landed underneath this change
 
-The pull has a fallback for a local set with no server id that matches a
-server set on exercise + set number: rather than insert a duplicate, it stamps
-the local row with the server's id. It used to stamp it `syncStatus = 1`,
-synced.
+While this work was in review, rYeti/Fitness_Tracker#105 rewrote the set pull
+(`docs/sync-concurrent-runs.md`). The per-set loop this change first edited
+— including a fallback that linked an unlinked local set to a server set and
+stamped it synced — was replaced by `_reconcileLoggedSets`, which decides per
+exercise: it leaves an exercise alone if any of its local sets is unpushed,
+inserts the server's sets into an empty one, and otherwise keeps or replaces
+the local log as a whole. The merge carried the three fields into that
+function's insert and dropped the link-compare this change had added, since
+the path it guarded no longer exists.
 
-That is exactly the trap `docs/trainer-exercise-notes.md` §3d describes for
-notes. The common way to reach that branch is a set that *was* pushed, then
-lost its link locally. If it was pushed before this change, the server's copy
-has no RPE, type or side, and marking the local row synced would declare them
-sent without sending them — permanently, because nothing looks at a clean row
-again. The link now compares the three fields and leaves the row at `2`
-(pending update) when they differ, so the next sync pushes them
-(`sync_service.dart:3010`).
+The property the link-compare protected still holds, for a different reason.
+A set re-queued by the backfill in §5 is at `syncStatus 2`, and
+`_reconcileLoggedSets` never touches an exercise holding a row that isn't
+synced — so the server's bare copy can't overwrite the RPE the device is
+about to send. `sync_service_test` › *a set re-queued by the backfill is not
+overwritten…* pins that across the pull and the push that follows.
 
 ## 5. The data that was already there
 
@@ -163,10 +166,11 @@ not behind it.*
 The notes fix handled that inside the pull: while reconciling an exercise
 entry it already held, a note present locally and absent on the server was
 queued rather than cleared. That doesn't work here. The set pull never
-reconciles a set it already holds — it `continue`s on any known server id —
-so there is no branch to hang the comparison on, and adding a reconcile there
-would be a much larger change to a path with its own history
-(`docs/sync-account-switch-duplication.md`).
+compares a clean set's fields with the server's — when the device's rows and
+the server's ids line up it keeps the device's log and moves on — so there
+is no branch to hang the comparison on, and adding a field-by-field
+reconcile there would be a much larger change to a path with its own history
+(`docs/sync-account-switch-duplication.md`, `docs/sync-concurrent-runs.md`).
 
 Instead the backfill is a one-off drift migration, schema **40**
 (`app_database.dart:416`):
@@ -220,12 +224,28 @@ would be empty on nearly every row, and they're neutral-toned rather than a
 row's single semantics label ("Set 1, 12 reps, 10 kg, Warm-up"), so they
 aren't visual-only.
 
-The numbers were deliberately left alone: a warm-up still counts toward the
-session's volume, Avg RPE and PR detection on the server. The device's own
-personal-best queries already skip warm-ups (`workout_dao.dart`), so the two
-disagree about that, and a trainer may reasonably expect them not to. That
-is a behaviour change to figures trainers already read, and it was scoped out
-of this fix on purpose — it's the obvious next step, not an oversight.
+### Warm-ups count toward nothing
+
+A warm-up is listed and tagged, and then skipped by every figure Session
+Review computes: it adds nothing to the session's volume, its RPE is left out
+of Avg RPE, it can't be a personal record, and it can't be the baseline a
+later set has to beat to become one. That last part is in the query, not
+just the loop: `GetBestWeightsBeforeAsync` filters warm-ups out of the
+history it seeds the baseline from, otherwise one heavy single tagged as a
+warm-up three weeks ago would quietly raise the bar every real set since has
+been measured against. `WorkoutSet.WarmUpSetType` names the ordinal so the
+two places can't drift.
+
+This is the rule the app already applied to itself: the progress dashboard's
+volume query and the personal-best queries in `workout_dao.dart` both filter
+`set_type != warmup`, and the active workout's live "best" card skips
+warm-ups too. Before this change it didn't matter that the server
+disagreed — the server never knew which sets were warm-ups. The moment set
+type started syncing, leaving the server's arithmetic as it was would have
+put two different volumes and two different PRs in front of a client and
+their trainer for the same session. Target-hit is unchanged: a warm-up is
+still marked under-target if its reps fall short, since that describes the
+set, not a total.
 
 ## 7. The rule it leaves behind
 
@@ -254,9 +274,11 @@ Two narrower rules fall out of it:
 | `TrainerSessionReviewTests.WhatTheClientLoggedOnASetReachesTheirTrainer` | written through the batch endpoint the device uses, read back in Session Review with Avg RPE |
 | `…UpdatingASetRoundTripsRpeTypeAndSide` | the update path and the response DTO carry all three |
 | `…AnUpdateFromAnOlderClientLeavesSetTypeAndSideAlone` | null means "not sent" (§4a) |
+| `…AWarmUpIsListedButLeftOutOfVolumeAndAverageRpe` | §6: shown, not counted |
+| `…AHeavyWarmUpIsNeitherAPrNorTheBaselineForOne` | §6: the PR and the baseline query |
 | `sync_service_test` › *RPE, set type and side on a logged set* › *are sent when a new set is pushed* / *…when a synced set is edited* | both push maps |
 | › *arrive on pull, and an ordinal this build does not know reads as normal rather than crashing* | the pull and the clamp (§4c) |
-| › *a local set linked to a server row that lacks them stays pending* / *…that agrees is marked synced* | the link compare (§4d) |
+| › *a set re-queued by the backfill is not overwritten by the server copy that lacks them, and is then pushed* | §4d and §5 end to end |
 | `logged_set_backfill_migration_test` | the schema-40 backfill flips exactly the rows in §5's table, on a real upgrade from a file at version 39 |
 | `session_review_screen_test` › *a warm-up or one-sided set is tagged, and says so out loud* | the tag, and that it's in the semantics label |
 | › *a set type or side this build does not know reads as normal* | the console model's clamp |
