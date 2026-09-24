@@ -4,6 +4,7 @@
 // are still NotImplementedException stubs.
 
 import 'package:ForgeForm/core/nutrition/extended_nutrients.dart';
+import 'package:ForgeForm/feature/workout_planning/data/models/workout_set.dart';
 
 class TrainerDashboardKpis {
   final int activeClientCount;
@@ -461,6 +462,13 @@ class SessionSetLog {
   final String? weightUnit;
   final int? rpe;
 
+  /// Warm-up, drop set or failure, as the client logged it. Shown as a tag;
+  /// the server already leaves warm-ups out of volume, Avg RPE and PRs.
+  final SetType setType;
+
+  /// Left or right for a unilateral set; [SetSide.both] otherwise.
+  final SetSide side;
+
   /// Reps met the low end of *this* set's own target. True when there was no
   /// parseable target, so an unprogrammed exercise doesn't render as a miss.
   final bool hitTarget;
@@ -471,6 +479,8 @@ class SessionSetLog {
     this.weight,
     this.weightUnit,
     this.rpe,
+    this.setType = SetType.normal,
+    this.side = SetSide.both,
     required this.hitTarget,
   });
 
@@ -482,9 +492,17 @@ class SessionSetLog {
       weight: (json['weight'] as num?)?.toDouble(),
       weightUnit: json['weightUnit'] as String?,
       rpe: json['rpe'] as int?,
+      setType: _byOrdinal(SetType.values, json['setType'], SetType.normal),
+      side: _byOrdinal(SetSide.values, json['side'], SetSide.both),
       hitTarget: json['hitTarget'] as bool? ?? true,
     );
   }
+
+  /// Both enums travel as ordinals. Indexing `values` with one this build
+  /// doesn't know throws, and in a list that takes the whole session down
+  /// with it (docs/chat-attachments.md) — so an unknown one falls back.
+  static T _byOrdinal<T>(List<T> values, Object? raw, T fallback) =>
+      raw is int && raw >= 0 && raw < values.length ? values[raw] : fallback;
 }
 
 /// What was programmed for one exercise. Structured rather than a formatted

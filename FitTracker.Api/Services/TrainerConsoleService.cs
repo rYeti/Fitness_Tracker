@@ -385,12 +385,17 @@ public class TrainerConsoleService(
                         Weight = set.Weight,
                         WeightUnit = set.WeightUnit,
                         Rpe = set.Rpe,
+                        SetType = set.SetType,
+                        Side = set.Side,
                         // No target, or an unparseable one, counts as hit — don't
                         // flag an unprogrammed exercise as a miss.
                         HitTarget = targetReps is null || set.Reps is null || set.Reps >= targetReps,
                     });
 
-                    if (!set.IsCompleted) continue;
+                    // A warm-up is listed with its tag but counts toward nothing: an
+                    // easy 10 kg set would drag Avg RPE down and pad the volume, and
+                    // the app's own volume and personal bests already skip them.
+                    if (!set.IsCompleted || set.SetType == WorkoutSet.WarmUpSetType) continue;
 
                     totalVolume += (set.Reps ?? 0) * (set.Weight ?? 0);
                     if (set.Rpe is int rpe) rpes.Add(rpe);

@@ -1,6 +1,7 @@
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/dao/meal_template_dao.dart';
 import 'package:ForgeForm/core/network/api_client.dart';
+import 'package:ForgeForm/feature/workout_planning/data/models/workout_set.dart';
 import 'package:drift/drift.dart';
 import 'package:logger/logger.dart';
 
@@ -756,6 +757,9 @@ class SyncService {
                   'weight': s.weight,
                   'weightUnit': s.weightUnit,
                   'durationSeconds': s.durationSeconds,
+                  'rpe': s.rpe,
+                  'setType': s.setType,
+                  'side': s.side,
                   'isCompleted': s.isCompleted,
                   'notes': s.notes,
                 },
@@ -784,6 +788,9 @@ class SyncService {
         'weight': s.weight,
         'weightUnit': s.weightUnit,
         'durationSeconds': s.durationSeconds,
+        'rpe': s.rpe,
+        'setType': s.setType,
+        'side': s.side,
         'isCompleted': s.isCompleted,
         'notes': s.notes,
       },
@@ -3143,6 +3150,18 @@ class SyncService {
     }
   }
 
+  /// A set type ordinal from the server, clamped to one this build knows.
+  /// The stored ordinal is later read as `SetType.values[i]`, which throws on
+  /// a value a newer server or app added — so an unknown one reads as normal
+  /// rather than crashing every screen that lists the set.
+  static int _setTypeOrdinal(Object? raw) =>
+      raw is int && raw >= 0 && raw < SetType.values.length ? raw : 0;
+
+  /// A side ordinal from the server; unknown reads as both. See
+  /// [_setTypeOrdinal].
+  static int _setSideOrdinal(Object? raw) =>
+      raw is int && raw >= 0 && raw < SetSide.values.length ? raw : 0;
+
   /// Brings one scheduled exercise's logged sets in line with the server's.
   ///
   /// Decided per exercise, not per set. This used to insert every server set
@@ -3218,6 +3237,9 @@ class SyncService {
               weight: Value((s['weight'] as num?)?.toDouble()),
               weightUnit: Value(s['weightUnit'] as String?),
               durationSeconds: Value(s['durationSeconds'] as int?),
+              rpe: Value(s['rpe'] as int?),
+              setType: Value(_setTypeOrdinal(s['setType'])),
+              side: Value(_setSideOrdinal(s['side'])),
               isCompleted: Value(s['isCompleted'] as bool),
               notes: Value(s['notes'] as String?),
               serverId: Value(s['id'] as String),

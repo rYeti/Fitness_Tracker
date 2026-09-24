@@ -157,6 +157,8 @@ public class ScheduledWorkoutRepository : IScheduledWorkoutRepository
         var best = await _context.WorkoutSets
             .AsNoTracking()
             .Where(s => s.IsCompleted && s.Weight > 0)
+            // A warm-up is never a PR, so it can't be the baseline one is measured against.
+            .Where(s => s.SetType != WorkoutSet.WarmUpSetType)
             .Where(s => s.ScheduledWorkoutExercise.ScheduledWorkout.Workout.UserId == userId)
             .Where(s => s.ScheduledWorkoutExercise.ScheduledWorkout.ScheduledDate < before)
             .GroupBy(s => s.ScheduledWorkoutExercise.OverrideExerciseId
@@ -382,6 +384,11 @@ public class ScheduledWorkoutRepository : IScheduledWorkoutRepository
         set.Weight = dto.Weight;
         set.WeightUnit = dto.WeightUnit;
         set.DurationSeconds = dto.DurationSeconds;
+        // RPE is assigned outright: null is a real value ("not logged"), so it can't
+        // double as "not sent". Set type and side can, and an older app sends neither.
+        set.Rpe = dto.Rpe;
+        if (dto.SetType is int setType) set.SetType = setType;
+        if (dto.Side is int side) set.Side = side;
         set.IsCompleted = dto.IsCompleted;
         set.Notes = dto.Notes;
 

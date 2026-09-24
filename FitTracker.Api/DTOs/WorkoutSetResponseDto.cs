@@ -27,6 +27,12 @@ public class WorkoutSetResponseDto
     /// <summary>Rate of Perceived Exertion (1-10), or null if not recorded.</summary>
     public int? Rpe { get; set; }
 
+    /// <summary>Set type ordinal (0 normal, 1 warm-up, 2 drop set, 3 failure).</summary>
+    public int SetType { get; set; }
+
+    /// <summary>Side ordinal (0 both, 1 left, 2 right).</summary>
+    public int Side { get; set; }
+
     /// <summary>Whether this set has been marked as completed by the user.</summary>
     public bool IsCompleted { get; set; }
 
