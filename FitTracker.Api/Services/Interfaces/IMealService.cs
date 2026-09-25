@@ -29,16 +29,14 @@ public interface IMealService
     /// <summary>Adds a food item to an existing meal. Returns null if the meal is not found.</summary>
     Task<MealFoodEntryResponseDto?> AddFoodToMealAsync(Guid mealId, Guid userId, Guid foodItemId);
 
-    /// <summary>Adds multiple food items to a meal in one call. Returns null if the meal is
-    /// not found.</summary>
-    Task<List<MealFoodEntryResponseDto>?> AddFoodsToMealBatchAsync(Guid mealId, Guid userId, List<Guid> foodItemIds);
+    /// <summary>Adds each of <paramref name="entries"/> to a meal, or — for an id the caller
+    /// already holds — makes that entry the meal's again, with the food sent. Removes nothing.
+    /// Returns the entries in the order sent, or null if the meal is not the caller's.</summary>
+    Task<List<MealFoodEntryResponseDto>?> AddFoodsToMealBatchAsync(Guid mealId, Guid userId, List<MealFoodEntryRequestDto> entries);
 
-    /// <summary>Replaces a meal's foods with exactly <paramref name="entries"/>; an empty list
-    /// empties it. Returns null if the meal is not found.</summary>
-    Task<MealResponseDto?> ReplaceFoodsAsync(Guid mealId, Guid userId, List<MealFoodEntryRequestDto> entries);
-
-    /// <summary>Removes a food item from a meal. Returns false if not found.</summary>
-    Task<bool> RemoveFoodFromMealAsync(Guid mealId, Guid userId, Guid foodItemId);
+    /// <summary>Removes the entry <paramref name="id"/> names — by its own id, or (shipped
+    /// apps) by its food item. Returns false if the caller has no such entry.</summary>
+    Task<bool> RemoveFoodFromMealAsync(Guid mealId, Guid userId, Guid id);
 
     /// <summary>Returns all meal entries for the specified user across all dates.</summary>
     Task<List<MealResponseDto>> GetAllMealsAsync(Guid userId);

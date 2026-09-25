@@ -103,9 +103,10 @@ public interface IScheduledWorkoutRepository
     /// <param name="userId">The ID of the user who must own the scheduled workout.</param>
     /// <param name="items">The workout exercises to create entries for, each with the id the
     /// app minted for its entry, if it sent one.</param>
-    /// <returns>Every entry the session holds afterwards, or <c>null</c> if the scheduled
+    /// <returns>Every entry the session holds afterwards, each with the id sent by the item
+    /// it answers (null for an entry that answers none), or <c>null</c> if the scheduled
     /// workout isn't found/owned.</returns>
-    Task<List<ScheduledWorkoutExercise>?> CreateExercisesBatchAsync(Guid scheduledWorkoutId, Guid userId, List<ScheduledExerciseBatchItemDto> items);
+    Task<List<(ScheduledWorkoutExercise Entry, Guid? RequestedId)>?> CreateExercisesBatchAsync(Guid scheduledWorkoutId, Guid userId, List<ScheduledExerciseBatchItemDto> items);
 
     /// <summary>Adds a performed set to a scheduled workout exercise owned by the specified user.</summary>
     /// <param name="set">The workout set entity to persist.</param>

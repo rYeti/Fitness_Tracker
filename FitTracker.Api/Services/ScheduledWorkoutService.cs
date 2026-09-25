@@ -128,15 +128,20 @@ public class ScheduledWorkoutService : IScheduledWorkoutService
     /// <inheritdoc/>
     public async Task<List<WorkoutSetResponseDto>?> AddSetsBatchAsync(Guid scheduledWorkoutExerciseId, Guid userId, List<WorkoutSetRequestDto> dtos)
     {
-        if (await _scheduledRepository.GetExerciseOwnerAsync(scheduledWorkoutExerciseId) != userId) return null;
-
         // The batch is the exercise's whole log, not an addition to it — the same
         // correction AddSetTemplatesBatchAsync needed one table over. The client's active
         // workout rewrites an exercise's sets on every save, as fresh rows with no server
         // id, and the sync pushes those. Appending meant every save that followed a push
         // added another copy of the exercise: a session reviewed in the Trainer Console
         // listed "set 1" eight times. See docs/sync-concurrent-runs.md.
-        if (dtos.Count == 0) return [];
+        //
+        // An empty batch changes nothing, but still answers 404 for someone else's exercise.
+        // A non-empty one leaves the owner check to the replace, which makes it anyway: this
+        // used to check here first, and so twice for every batch on the push's hot path.
+        if (dtos.Count == 0)
+        {
+            return await _scheduledRepository.GetExerciseOwnerAsync(scheduledWorkoutExerciseId) == userId ? [] : null;
+        }
 
         // Each set keeps the id the app sent: a replace that minted fresh ones left the app
         // holding ids the server had just deleted. An id sent twice keeps it only once.
@@ -196,7 +201,12 @@ public class ScheduledWorkoutService : IScheduledWorkoutService
     public async Task<List<ScheduledWorkoutExerciseResponseDto>?> CreateExercisesBatchAsync(Guid scheduledWorkoutId, Guid userId, List<ScheduledExerciseBatchItemDto> items)
     {
         var created = await _scheduledRepository.CreateExercisesBatchAsync(scheduledWorkoutId, userId, items);
-        return created == null ? null : [.. created.Select(ToExerciseDto)];
+        return created?.Select(c =>
+        {
+            var dto = ToExerciseDto(c.Entry);
+            dto.RequestedId = c.RequestedId;
+            return dto;
+        }).ToList();
     }
 
     private static ScheduledWorkoutResponseDto ToDto(ScheduledWorkout sw) => new()

@@ -110,11 +110,17 @@ public class WorkoutService : IWorkoutService
         // exactly like "created nothing" — so it said nothing and never retried.
         if (await _workoutRepository.GetWorkoutOwnerAsync(workoutId) != userId) return null;
 
+        // Each answer says which item it answers. The slot check can answer an item with the
+        // entry already in its slot, under that entry's id, so the id alone doesn't say; and
+        // the app used to pair the answer with its request by position, which isn't an
+        // identity either — an item that failed shifted every pairing after it.
         var results = new List<WorkoutExerciseResponseDto>();
         foreach (var dto in dtos)
         {
             var created = await AddExerciseToWorkoutAsync(workoutId, userId, dto);
-            if (created != null) results.Add(created);
+            if (created == null) continue;
+            created.RequestedId = ClientIds.Requested(dto.Id);
+            results.Add(created);
         }
         return results;
     }
@@ -151,13 +157,18 @@ public class WorkoutService : IWorkoutService
     /// <inheritdoc/>
     public async Task<List<WorkoutSetTemplateResponseDto>?> AddSetTemplatesBatchAsync(Guid workoutExerciseId, Guid userId, List<WorkoutSetTemplateRequestDto> dtos)
     {
-        if (await _workoutRepository.GetWorkoutExerciseOwnerAsync(workoutExerciseId) != userId) return null;
-
         // The batch is the exercise's whole prescription, not an addition to it: the
         // client rebuilds every set template locally whenever a workout is saved and
         // then pushes the lot. Appending them left the previous generation behind, so
         // an exercise re-saved twice reported three times as many sets as it has.
-        if (dtos.Count == 0) return [];
+        //
+        // An empty batch changes nothing (unlike ReplaceSetTemplatesAsync below), but still
+        // answers 404 for someone else's exercise. A non-empty one leaves the owner check to
+        // the replace, which makes it anyway — see AddSetsBatchAsync on sessions.
+        if (dtos.Count == 0)
+        {
+            return await _workoutRepository.GetWorkoutExerciseOwnerAsync(workoutExerciseId) == userId ? [] : null;
+        }
 
         var replaced = await _workoutRepository.ReplaceSetTemplatesAsync(
             workoutExerciseId, userId, ToSetTemplates(workoutExerciseId, dtos));

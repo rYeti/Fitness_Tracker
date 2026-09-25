@@ -108,7 +108,8 @@ public interface IScheduledWorkoutService
     /// <param name="userId">The ID of the user who must own the scheduled workout.</param>
     /// <param name="items">The workout exercises to link, each with the id the app minted for
     /// its entry, if any.</param>
-    /// <returns>Every entry the session holds afterwards, or <c>null</c> if the scheduled
-    /// workout isn't found/owned.</returns>
+    /// <returns>Every entry the session holds afterwards — an entry that answers an item
+    /// carrying, as <c>RequestedId</c>, the id that item was sent with — or <c>null</c> if the
+    /// scheduled workout isn't found/owned.</returns>
     Task<List<ScheduledWorkoutExerciseResponseDto>?> CreateExercisesBatchAsync(Guid scheduledWorkoutId, Guid userId, List<ScheduledExerciseBatchItemDto> items);
 }

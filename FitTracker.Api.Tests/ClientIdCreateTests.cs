@@ -1,3 +1,4 @@
+using System.Data.Common;
 using System.Security.Claims;
 using System.Text.Json;
 using FitTracker.Api.Controllers;
@@ -12,6 +13,7 @@ using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Xunit;
 
 namespace FitTracker.Api.Tests;
@@ -344,40 +346,118 @@ public class ClientIdCreateTests : IDisposable
         Assert.Equal(theirSet.ScheduledWorkoutExerciseId, stored.ScheduledWorkoutExerciseId);
     }
 
-    // ── The full-list PUTs ──────────────────────────────────────────────────
+    // ── A meal's foods: upserted by id, removed one DELETE at a time ─────────
 
     [Fact]
-    public async Task PuttingAMealsFoodsReplacesTheListUnderTheGivenIds()
+    public async Task TheFoodsBatchStoresEachEntryOnceAndRemovesNothing()
     {
+        // The app sends every entry of a meal it changed, each time. Another device's entry in
+        // the same meal — one this app has never pulled — must survive that: the whole-list
+        // replace this batch took over from deleted it.
         var meal = _fx.AddMeal(_me.Id, DateTime.UtcNow);
-        _fx.AddFoodToMeal(meal.Id, Guid.NewGuid()); // removed on the device since
+        var otherDevices = _fx.AddFoodToMeal(meal.Id, Guid.NewGuid());
         var oats = Guid.NewGuid();
+        var skyr = Guid.NewGuid();
         var first = Guid.NewGuid();
         var second = Guid.NewGuid();
         var controller = WithCaller(new MealController(Meals), _me.Id);
 
-        var result = await controller.ReplaceFoods(meal.Id,
+        await controller.AddFoodsBatch(meal.Id,
         [
             new MealFoodEntryRequestDto { Id = first, FoodItemId = oats },
             // Two portions of one food are two entries, told apart by their ids.
             new MealFoodEntryRequestDto { Id = second, FoodItemId = oats },
         ]);
+        // Sent again after an edit: the second portion is now skyr.
+        var result = await controller.AddFoodsBatch(meal.Id,
+        [
+            new MealFoodEntryRequestDto { Id = first, FoodItemId = oats },
+            new MealFoodEntryRequestDto { Id = second, FoodItemId = skyr },
+        ]);
 
-        var body = Assert.IsType<MealResponseDto>(Assert.IsType<OkObjectResult>(result).Value);
-        Assert.Equal(new[] { first, second }.OrderBy(g => g), body.FoodEntries.Select(e => e.Id).OrderBy(g => g));
-        Assert.Equal(new[] { first, second }.OrderBy(g => g),
-            (await _fx.Db.MealFoodEntries.AsNoTracking().Select(e => e.Id).ToListAsync()).OrderBy(g => g));
+        var body = Assert.IsType<List<MealFoodEntryResponseDto>>(Assert.IsType<OkObjectResult>(result).Value);
+        Assert.Equal([first, second], body.Select(e => e.Id));
+        var stored = await _fx.Db.MealFoodEntries.AsNoTracking().ToDictionaryAsync(e => e.Id);
+        Assert.Equal(3, stored.Count);
+        Assert.Equal(skyr, stored[second].FoodItemId);
+        Assert.True(stored.ContainsKey(otherDevices.Id));
     }
 
     [Fact]
-    public async Task PuttingAnEmptyFoodListEmptiesTheMeal()
+    public async Task TheFoodsBatchMovesAnEntryFromAnotherOfTheCallersMeals()
+    {
+        // The app folds a twin meal's foods into the meal it keeps, ids and all.
+        var twin = _fx.AddMeal(_me.Id, DateTime.UtcNow);
+        var kept = _fx.AddMeal(_me.Id, DateTime.UtcNow, "lunch");
+        var entry = _fx.AddFoodToMeal(twin.Id, Guid.NewGuid());
+
+        await Meals.AddFoodsToMealBatchAsync(kept.Id, _me.Id,
+            [new MealFoodEntryRequestDto { Id = entry.Id, FoodItemId = entry.FoodItemId }]);
+
+        var row = await _fx.Db.MealFoodEntries.AsNoTracking().SingleAsync();
+        Assert.Equal(entry.Id, row.Id);
+        Assert.Equal(kept.Id, row.MealId);
+    }
+
+    [Fact]
+    public async Task TheFoodsBatchRefusesAnEntryIdFromSomeoneElsesMeal()
+    {
+        var theirs = _fx.AddFoodToMeal(_fx.AddMeal(_someoneElse.Id, DateTime.UtcNow).Id, Guid.NewGuid());
+        var mine = _fx.AddMeal(_me.Id, DateTime.UtcNow);
+
+        var refused = await Assert.ThrowsAsync<ClientIdConflictException>(() =>
+            Meals.AddFoodsToMealBatchAsync(mine.Id, _me.Id,
+                [new MealFoodEntryRequestDto { Id = theirs.Id, FoodItemId = Guid.NewGuid() }]));
+
+        Assert.Equal(theirs.Id, refused.Id);
+        var stored = await _fx.Db.MealFoodEntries.AsNoTracking().SingleAsync();
+        Assert.Equal(theirs.MealId, stored.MealId);
+        Assert.Equal(theirs.FoodItemId, stored.FoodItemId);
+    }
+
+    [Fact]
+    public async Task TheFoodsBatchReadsBothShapesTheAppsSend()
+    {
+        var oats = Guid.NewGuid();
+        var entryId = Guid.NewGuid();
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+
+        var old = JsonSerializer.Deserialize<List<MealFoodEntryRequestDto>>($"[\"{oats}\"]", options)!;
+        var current = JsonSerializer.Deserialize<List<MealFoodEntryRequestDto>>(
+            $"[{{\"id\":\"{entryId}\",\"foodItemId\":\"{oats}\"}}]", options)!;
+
+        Assert.Null(old.Single().Id);
+        Assert.Equal(oats, old.Single().FoodItemId);
+        Assert.Equal(entryId, current.Single().Id);
+        Assert.Equal(oats, current.Single().FoodItemId);
+
+        // A shipped app's bare ids are new entries every time, as they always were.
+        var meal = _fx.AddMeal(_me.Id, DateTime.UtcNow);
+        await Meals.AddFoodsToMealBatchAsync(meal.Id, _me.Id, old);
+        await Meals.AddFoodsToMealBatchAsync(meal.Id, _me.Id, old);
+        Assert.Equal(2, await _fx.Db.MealFoodEntries.CountAsync());
+    }
+
+    [Fact]
+    public async Task RemovingAFoodByItsEntryIdTakesThatPortionOnly()
     {
         var meal = _fx.AddMeal(_me.Id, DateTime.UtcNow);
-        _fx.AddFoodToMeal(meal.Id, Guid.NewGuid());
+        var oats = Guid.NewGuid();
+        var firstPortion = _fx.AddFoodToMeal(meal.Id, oats);
+        var secondPortion = _fx.AddFoodToMeal(meal.Id, oats);
+        var theirs = _fx.AddFoodToMeal(_fx.AddMeal(_someoneElse.Id, DateTime.UtcNow).Id, oats);
+        var controller = WithCaller(new MealController(Meals), _me.Id);
 
-        await WithCaller(new MealController(Meals), _me.Id).ReplaceFoods(meal.Id, []);
+        Assert.IsType<NoContentResult>(await controller.RemoveFood(meal.Id, secondPortion.Id));
+        // Someone else's entry, named by its id, is not the caller's to remove.
+        Assert.IsType<NotFoundResult>(await controller.RemoveFood(meal.Id, theirs.Id));
 
-        Assert.Empty(await _fx.Db.MealFoodEntries.ToListAsync());
+        var left = await _fx.Db.MealFoodEntries.AsNoTracking().Select(e => e.Id).ToListAsync();
+        Assert.Equal(new[] { firstPortion.Id, theirs.Id }.OrderBy(g => g), left.OrderBy(g => g));
+
+        // A shipped app names the food item, and gets a portion of it.
+        Assert.IsType<NoContentResult>(await controller.RemoveFood(meal.Id, oats));
+        Assert.Equal([theirs.Id], await _fx.Db.MealFoodEntries.AsNoTracking().Select(e => e.Id).ToListAsync());
     }
 
     [Fact]
@@ -401,6 +481,24 @@ public class ClientIdCreateTests : IDisposable
 
         await controller.ReplaceWorkouts(plan.Id, []);
         Assert.Empty(await _fx.Db.WorkoutPlanWorkouts.ToListAsync());
+    }
+
+    [Fact]
+    public async Task ReplacingAPlansWorkoutsKeepsOneLinkPerWorkout()
+    {
+        // The batch this replaced stored a link again each time it was sent one, so plans
+        // hold twins. The replace is the plan's canonical list; it must not keep them.
+        var plan = _fx.AddPlan(_me.Id, "Block 1", isActive: true);
+        var upper = _fx.AddWorkout(_me.Id, "Upper");
+        _fx.Db.WorkoutPlanWorkouts.AddRange(
+            new WorkoutPlanWorkout { Id = Guid.NewGuid(), PlanId = plan.Id, WorkoutId = upper.Id },
+            new WorkoutPlanWorkout { Id = Guid.NewGuid(), PlanId = plan.Id, WorkoutId = upper.Id });
+        await _fx.Db.SaveChangesAsync();
+
+        var result = await WithCaller(new WorkoutPlanController(Plans), _me.Id).ReplaceWorkouts(plan.Id, [upper.Id]);
+
+        Assert.IsType<OkObjectResult>(result);
+        Assert.Single(await _fx.Db.WorkoutPlanWorkouts.AsNoTracking().Where(l => l.PlanId == plan.Id).ToListAsync());
     }
 
     [Fact]
@@ -442,8 +540,13 @@ public class ClientIdCreateTests : IDisposable
             [new WorkoutSetTemplateRequestDto { SetNumber = 1, TargetReps = "5" }]));
         Assert.IsType<NotFoundObjectResult>(await sessions.AddSetsBatch(theirSession.Id, theirEntry.Id,
             [new WorkoutSetRequestDto { SetNumber = 1 }]));
-        Assert.IsType<NotFoundResult>(await meals.AddFoodsBatch(theirMeal.Id, [Guid.NewGuid()]));
-        Assert.IsType<NotFoundResult>(await meals.ReplaceFoods(theirMeal.Id, []));
+        Assert.IsType<NotFoundResult>(await meals.AddFoodsBatch(theirMeal.Id,
+            [new MealFoodEntryRequestDto { Id = Guid.NewGuid(), FoodItemId = Guid.NewGuid() }]));
+        // An empty batch against someone else's parent still answers 404: the owner check
+        // moved into the repositories, and an empty list must not skip it.
+        Assert.IsType<NotFoundObjectResult>(await workouts.AddSetTemplatesBatch(theirWe.Id, []));
+        Assert.IsType<NotFoundObjectResult>(await sessions.AddSetsBatch(theirSession.Id, theirEntry.Id, []));
+        Assert.IsType<NotFoundResult>(await meals.AddFoodsBatch(theirMeal.Id, []));
         Assert.IsType<NotFoundObjectResult>(await plans.AddWorkoutsBatch(theirPlan.Id, [theirWorkout.Id]));
         Assert.IsType<NotFoundObjectResult>(await plans.ReplaceWorkouts(theirPlan.Id, []));
 
@@ -498,6 +601,119 @@ public class ClientIdCreateTests : IDisposable
             [new ScheduledExerciseBatchItemDto { WorkoutExerciseId = theirWe.Id }]);
 
         Assert.Empty(result!);
+    }
+
+    // ── Batch answers say which item they answer ────────────────────────────
+
+    [Fact]
+    public async Task TheWorkoutExerciseBatchEchoesTheIdEachItemWasSentWith()
+    {
+        // The slot check answers an item for an occupied slot with the entry already in it,
+        // under that entry's id. The app used to pair such an answer with its request by
+        // position; the echo is what it pairs by now.
+        var workout = _fx.AddWorkout(_me.Id);
+        var squat = Guid.NewGuid();
+        var inSlot = _fx.AddWorkoutExercise(workout.Id, squat, orderPosition: 0);
+        var sentForSlot = Guid.NewGuid();
+        var fresh = Guid.NewGuid();
+
+        var answers = await Workouts.AddExercisesToWorkoutBatchAsync(workout.Id, _me.Id,
+        [
+            new WorkoutExerciseRequestDto { Id = sentForSlot, ExerciseId = squat, OrderPosition = 0 },
+            new WorkoutExerciseRequestDto { Id = fresh, ExerciseId = Guid.NewGuid(), OrderPosition = 1 },
+        ]);
+
+        Assert.Equal([(inSlot.Id, sentForSlot), (fresh, fresh)],
+            answers!.Select(a => (a.Id, a.RequestedId!.Value)));
+        // Only a batch's answer carries it.
+        var read = await Workouts.GetWorkoutByIdAsync(workout.Id, _me.Id);
+        Assert.DoesNotContain("requestedId",
+            JsonSerializer.Serialize(read, new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+    }
+
+    [Fact]
+    public async Task TheSessionExerciseBatchEchoesTheIdEachItemWasSentWith()
+    {
+        // The session already holds an entry for one workout exercise — made when the session
+        // was created, or by another device — so an item for it is answered with that entry.
+        var workout = _fx.AddWorkout(_me.Id);
+        var session = _fx.AddSession(workout.Id, DateTime.UtcNow);
+        var bench = _fx.AddWorkoutExercise(workout.Id, Guid.NewGuid());
+        var row = _fx.AddWorkoutExercise(workout.Id, Guid.NewGuid(), orderPosition: 1);
+        var held = new ScheduledWorkoutExercise { Id = Guid.NewGuid(), ScheduledWorkoutId = session.Id, WorkoutExerciseId = bench.Id };
+        _fx.Db.ScheduledWorkoutExercises.Add(held);
+        await _fx.Db.SaveChangesAsync();
+        var sentForBench = Guid.NewGuid();
+        var sentForRow = Guid.NewGuid();
+
+        var answers = await Sessions.CreateExercisesBatchAsync(session.Id, _me.Id,
+        [
+            new ScheduledExerciseBatchItemDto { Id = sentForBench, WorkoutExerciseId = bench.Id },
+            new ScheduledExerciseBatchItemDto { Id = sentForRow, WorkoutExerciseId = row.Id },
+        ]);
+
+        var byId = answers!.ToDictionary(a => a.Id);
+        Assert.Equal(2, byId.Count);
+        Assert.Equal(sentForBench, byId[held.Id].RequestedId);
+        Assert.Equal(sentForRow, byId[sentForRow].RequestedId);
+    }
+
+    // ── A replaced list never takes someone else's row ──────────────────────
+
+    [Fact]
+    public async Task AReplaceNeverDeletesARowThatIsNotTheCallers()
+    {
+        // The foreign-id check refuses an id someone else holds, but it is a read, and a row
+        // can appear under that id between it and the delete — another request, committed in
+        // between. The delete is scoped to the caller's rows, so that row survives and the
+        // replace fails on its key instead. The interceptor below plays the other request.
+        var theirWorkout = _fx.AddWorkout(_someoneElse.Id);
+        var theirSet = _fx.AddLoggedSet(_fx.AddSession(theirWorkout.Id, DateTime.UtcNow).Id,
+            _fx.AddWorkoutExercise(theirWorkout.Id, Guid.NewGuid()).Id);
+        var myWorkout = _fx.AddWorkout(_me.Id);
+        var myEntry = new ScheduledWorkoutExercise
+        {
+            Id = Guid.NewGuid(),
+            ScheduledWorkoutId = _fx.AddSession(myWorkout.Id, DateTime.UtcNow).Id,
+            WorkoutExerciseId = _fx.AddWorkoutExercise(myWorkout.Id, Guid.NewGuid()).Id,
+        };
+        _fx.Db.ScheduledWorkoutExercises.Add(myEntry);
+        await _fx.Db.SaveChangesAsync();
+        var sent = Guid.NewGuid();
+        await using var db = _fx.NewContext(new BeforeDelete(
+            $"UPDATE WorkoutSets SET Id = '{sent.ToString().ToUpperInvariant()}' " +
+            $"WHERE Id = '{theirSet.Id.ToString().ToUpperInvariant()}'"));
+        var sessions = new ScheduledWorkoutService(new ScheduledWorkoutRepository(db));
+
+        await Assert.ThrowsAsync<DbUpdateException>(() =>
+            sessions.AddSetsBatchAsync(myEntry.Id, _me.Id, [new WorkoutSetRequestDto { Id = sent, SetNumber = 1 }]));
+
+        var stored = await _fx.Db.WorkoutSets.AsNoTracking().SingleAsync();
+        Assert.Equal(theirSet.ScheduledWorkoutExerciseId, stored.ScheduledWorkoutExerciseId);
+    }
+
+    /// <summary>Runs <paramref name="sql"/> on the request's own connection and transaction
+    /// just before its first bulk DELETE: a row committed by someone else in between.</summary>
+    private sealed class BeforeDelete(string sql) : DbCommandInterceptor
+    {
+        private bool _done;
+
+        public override async ValueTask<InterceptionResult<int>> NonQueryExecutingAsync(
+            DbCommand command,
+            CommandEventData eventData,
+            InterceptionResult<int> result,
+            CancellationToken cancellationToken = default)
+        {
+            if (!_done && command.CommandText.TrimStart().StartsWith("DELETE", StringComparison.OrdinalIgnoreCase))
+            {
+                _done = true;
+                await using var other = command.Connection!.CreateCommand();
+                other.Transaction = command.Transaction;
+                other.CommandText = sql;
+                await other.ExecuteNonQueryAsync(cancellationToken);
+            }
+            return await base.NonQueryExecutingAsync(command, eventData, result, cancellationToken);
+        }
     }
 
     // ── Meal template edits ─────────────────────────────────────────────────

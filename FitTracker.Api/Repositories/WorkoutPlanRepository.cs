@@ -87,13 +87,19 @@ public class WorkoutPlanRepository : IWorkoutPlanRepository
                 .ToListAsync())
             .ToHashSet();
 
-        foreach (var link in plan.PlanWorkouts.Where(l => !linkable.Contains(l.WorkoutId)).ToList())
+        // The list is a set of workouts, so a plan holds one link per workout. Keeping every
+        // link to a wanted workout was not enough: the batch this replaced stored a link again
+        // each time it was sent the same one, so plans already hold twins, and a replace that
+        // kept them left the Trainer Console listing the workout twice. The first link to each
+        // workout stays; the others go with the links to workouts no longer wanted.
+        var linked = new HashSet<Guid>();
+        foreach (var link in plan.PlanWorkouts.ToList())
         {
+            if (linkable.Contains(link.WorkoutId) && linked.Add(link.WorkoutId)) continue;
             plan.PlanWorkouts.Remove(link);
             _context.WorkoutPlanWorkouts.Remove(link);
         }
 
-        var linked = plan.PlanWorkouts.Select(l => l.WorkoutId).ToHashSet();
         foreach (var workoutId in wanted.Where(id => linkable.Contains(id) && !linked.Contains(id)))
         {
             // Through the DbSet, not the navigation: a row reached only through a navigation

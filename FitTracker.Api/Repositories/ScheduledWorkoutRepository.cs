@@ -309,20 +309,21 @@ public class ScheduledWorkoutRepository : IScheduledWorkoutRepository
     }
 
     /// <inheritdoc/>
-    public async Task<List<ScheduledWorkoutExercise>?> CreateExercisesBatchAsync(Guid scheduledWorkoutId, Guid userId, List<ScheduledExerciseBatchItemDto> items)
+    public async Task<List<(ScheduledWorkoutExercise Entry, Guid? RequestedId)>?> CreateExercisesBatchAsync(Guid scheduledWorkoutId, Guid userId, List<ScheduledExerciseBatchItemDto> items)
     {
         var ownsScheduledWorkout = await _context.ScheduledWorkouts
             .AnyAsync(s => s.Id == scheduledWorkoutId && s.Workout.UserId == userId);
         if (!ownsScheduledWorkout) return null;
 
         // One entry per workout exercise per session — the key this batch has always been
-        // idempotent on, and the one the app matches the answer on. An entry the session
-        // already holds for a workout exercise is answered with that entry, under its id.
-        var existingWeIds = (await _context.ScheduledWorkoutExercises
+        // idempotent on. An entry the session already holds for a workout exercise is the
+        // answer to an item for it, under that entry's id.
+        var heldByWe = (await _context.ScheduledWorkoutExercises
                 .Where(e => e.ScheduledWorkoutId == scheduledWorkoutId)
-                .Select(e => e.WorkoutExerciseId)
+                .Select(e => new { e.WorkoutExerciseId, e.Id })
                 .ToListAsync())
-            .ToHashSet();
+            .GroupBy(e => e.WorkoutExerciseId)
+            .ToDictionary(g => g.Key, g => g.First().Id);
 
         var requested = items
             .Select(i => ClientIds.Requested(i.Id))
@@ -346,20 +347,29 @@ public class ScheduledWorkoutRepository : IScheduledWorkoutRepository
             .ToHashSet();
 
         var toCreate = new List<ScheduledWorkoutExercise>();
+        // Which item each entry answers, by the id the item was sent with. The answer's id
+        // can differ from it — the entry the session already held, or a fresh id when the
+        // sent one is stored elsewhere — so the app pairs by this, not by the id or by
+        // position.
+        var answered = new Dictionary<Guid, Guid>();
         foreach (var item in items)
         {
             if (!ownWeIds.Contains(item.WorkoutExerciseId)) continue;
-            if (!existingWeIds.Add(item.WorkoutExerciseId)) continue;
-            // An id already stored for the caller elsewhere is a row this batch can't move;
-            // the entry is created under a fresh one, which the app takes from the answer.
-            var id = ClientIds.Requested(item.Id) is { } own && taken.Add(own) ? own : Guid.NewGuid();
-            toCreate.Add(new ScheduledWorkoutExercise
+            if (!heldByWe.TryGetValue(item.WorkoutExerciseId, out var answer))
             {
-                Id = id,
-                ScheduledWorkoutId = scheduledWorkoutId,
-                WorkoutExerciseId = item.WorkoutExerciseId,
-                IsCompleted = false,
-            });
+                // An id already stored for the caller elsewhere is a row this batch can't
+                // move; the entry is created under a fresh one, which the answer carries.
+                answer = ClientIds.Requested(item.Id) is { } own && taken.Add(own) ? own : Guid.NewGuid();
+                toCreate.Add(new ScheduledWorkoutExercise
+                {
+                    Id = answer,
+                    ScheduledWorkoutId = scheduledWorkoutId,
+                    WorkoutExerciseId = item.WorkoutExerciseId,
+                    IsCompleted = false,
+                });
+                heldByWe[item.WorkoutExerciseId] = answer;
+            }
+            if (ClientIds.Requested(item.Id) is { } sent) answered.TryAdd(answer, sent);
         }
 
         if (toCreate.Count > 0)
@@ -368,9 +378,11 @@ public class ScheduledWorkoutRepository : IScheduledWorkoutRepository
             await _context.SaveNewAsync();
         }
 
-        return await _context.ScheduledWorkoutExercises
-            .Where(e => e.ScheduledWorkoutId == scheduledWorkoutId)
-            .ToListAsync();
+        return (await _context.ScheduledWorkoutExercises
+                .Where(e => e.ScheduledWorkoutId == scheduledWorkoutId)
+                .ToListAsync())
+            .Select(e => (e, answered.TryGetValue(e.Id, out var sent) ? sent : (Guid?)null))
+            .ToList();
     }
 
     /// <inheritdoc/>
@@ -396,38 +408,14 @@ public class ScheduledWorkoutRepository : IScheduledWorkoutRepository
         // replaced anyway; in another of the caller's logs, which means the app moved it
         // (its de-duplication folds a twin exercise's sets into the one it keeps), so it
         // goes from there; or in someone else's, which is not the caller's to take.
-        var ids = sets.Select(s => s.Id).ToList();
-        var foreign = await _context.WorkoutSets
-            .Where(s => ids.Contains(s.Id) && s.ScheduledWorkoutExercise.ScheduledWorkout.Workout.UserId != userId)
-            .Select(s => s.Id)
-            .FirstOrDefaultAsync();
-        if (foreign != Guid.Empty) throw new ClientIdConflictException(foreign);
-
-        await using var transaction = _context.Database.CurrentTransaction == null
-            ? await _context.Database.BeginTransactionAsync()
-            : null;
-
-        await _context.WorkoutSets
-            .Where(s => s.ScheduledWorkoutExerciseId == scheduledWorkoutExerciseId || ids.Contains(s.Id))
-            .ExecuteDeleteAsync();
-
-        // The bulk delete bypasses the change tracker, so drop its copies of the deleted
-        // rows — and empty an already-loaded Sets navigation, which fixup never prunes
-        // (see WorkoutRepository.ReplaceSetTemplatesAsync for the full story).
-        foreach (var entry in _context.ChangeTracker.Entries<WorkoutSet>()
-                     .Where(e => e.Entity.ScheduledWorkoutExerciseId == scheduledWorkoutExerciseId
-                              || ids.Contains(e.Entity.Id))
-                     .ToList())
-        {
-            entry.State = EntityState.Detached;
-        }
-        _context.ChangeTracker.Entries<ScheduledWorkoutExercise>()
-            .FirstOrDefault(e => e.Entity.Id == scheduledWorkoutExerciseId)
-            ?.Entity.Sets.Clear();
-
-        _context.WorkoutSets.AddRange(sets);
-        await _context.SaveChangesAsync();
-        if (transaction != null) await transaction.CommitAsync();
+        await _context.ReplaceListAsync(
+            sets,
+            s => s.Id,
+            inList: s => s.ScheduledWorkoutExerciseId == scheduledWorkoutExerciseId,
+            ownedByCaller: s => s.ScheduledWorkoutExercise.ScheduledWorkout.Workout.UserId == userId,
+            loadedList: () => _context.ChangeTracker.Entries<ScheduledWorkoutExercise>()
+                .FirstOrDefault(e => e.Entity.Id == scheduledWorkoutExerciseId)
+                ?.Entity.Sets);
         return sets;
     }
 

@@ -64,45 +64,52 @@ public class MealRepository(AppDbContext context) : IMealRepository
             .FirstOrDefaultAsync())?.UserId;
 
     /// <inheritdoc/>
-    public async Task<Meal?> ReplaceFoodEntriesAsync(Guid mealId, Guid userId, List<MealFoodEntry> entries)
+    public async Task<List<MealFoodEntry>?> UpsertFoodEntriesAsync(Guid mealId, Guid userId, IReadOnlyList<MealFoodEntryRequestDto> entries)
     {
-        var ownsMeal = await context.Meals.AnyAsync(m => m.Id == mealId && m.UserId == userId);
-        if (!ownsMeal) return null;
+        if (!await context.Meals.AnyAsync(m => m.Id == mealId && m.UserId == userId)) return null;
 
-        // Entries keep the ids the app sent. One may already be stored: in this meal, which
-        // the replace clears anyway; in another of the caller's meals, which means the app
-        // moved it (its de-duplication folds a twin meal's foods into the one it keeps), so
-        // it goes from there; or in someone else's, which is not the caller's to take.
-        var ids = entries.Select(e => e.Id).ToList();
-        var foreign = await context.MealFoodEntries
-            .Where(e => ids.Contains(e.Id) && e.Meal.UserId != userId)
-            .Select(e => e.Id)
-            .FirstOrDefaultAsync();
-        if (foreign != Guid.Empty) throw new ClientIdConflictException(foreign);
-
-        await using var transaction = context.Database.CurrentTransaction == null
-            ? await context.Database.BeginTransactionAsync()
-            : null;
-
-        await context.MealFoodEntries
-            .Where(e => e.MealId == mealId || ids.Contains(e.Id))
-            .ExecuteDeleteAsync();
-        // The bulk delete bypasses the change tracker; see
-        // WorkoutRepository.ReplaceSetTemplatesAsync for why its copies must go too.
-        foreach (var entry in context.ChangeTracker.Entries<MealFoodEntry>()
-                     .Where(e => e.Entity.MealId == mealId || ids.Contains(e.Entity.Id))
-                     .ToList())
+        // One entry at a time through ClientIds, which is what makes a repeat of an id — a
+        // retry after a lost answer, or the whole meal sent again after an edit — land on the
+        // row it made rather than beside it, and refuses an id that is someone else's.
+        var stored = new List<MealFoodEntry>(entries.Count);
+        foreach (var e in entries)
         {
-            entry.State = EntityState.Detached;
+            var entry = await ClientIds.CreateOrResolveAsync(
+                e.Id,
+                userId,
+                GetFoodEntryOwnerAsync,
+                id => PlaceFoodEntryAsync(id, mealId, e.FoodItemId),
+                async id =>
+                {
+                    var row = new MealFoodEntry { Id = id, MealId = mealId, FoodItemId = e.FoodItemId };
+                    context.MealFoodEntries.Add(row);
+                    await context.SaveNewAsync();
+                    return row;
+                });
+            stored.Add(entry!);
         }
+        return stored;
+    }
 
-        context.MealFoodEntries.AddRange(entries);
+    /// <summary>Who owns the meal entry stored under <paramref name="id"/>, or null when
+    /// there is none.</summary>
+    private async Task<Guid?> GetFoodEntryOwnerAsync(Guid id) =>
+        (await context.MealFoodEntries.AsNoTracking()
+            .Where(e => e.Id == id)
+            .Select(e => new { e.Meal.UserId })
+            .FirstOrDefaultAsync())?.UserId;
+
+    /// <summary>Makes the caller's entry <paramref name="id"/> hold <paramref name="foodItemId"/>
+    /// in <paramref name="mealId"/>. It can be in another of the caller's meals: the app's
+    /// de-duplication folds a twin meal's foods into the meal it keeps, ids and all, and this
+    /// is how that move reaches the server.</summary>
+    private async Task<MealFoodEntry?> PlaceFoodEntryAsync(Guid id, Guid mealId, Guid foodItemId)
+    {
+        var entry = await context.MealFoodEntries.FirstAsync(e => e.Id == id);
+        entry.MealId = mealId;
+        entry.FoodItemId = foodItemId;
         await context.SaveChangesAsync();
-        if (transaction != null) await transaction.CommitAsync();
-
-        return await context.Meals.AsNoTracking()
-            .Include(m => m.FoodEntries)
-            .FirstAsync(m => m.Id == mealId);
+        return entry;
     }
 
     /// <inheritdoc/>
@@ -147,10 +154,15 @@ public class MealRepository(AppDbContext context) : IMealRepository
             .ToListAsync();
 
     /// <inheritdoc/>
-    public async Task<bool> RemoveFoodFromMealAsync(Guid mealId, Guid foodItemId)
+    public async Task<bool> RemoveFoodFromMealAsync(Guid mealId, Guid userId, Guid id)
     {
-        var entry = await context.MealFoodEntries
-            .FirstOrDefaultAsync(e => e.MealId == mealId && e.FoodItemId == foodItemId);
+        var entry =
+            // The entry by its own id — what current apps send.
+            await context.MealFoodEntries.FirstOrDefaultAsync(e => e.Id == id && e.Meal.UserId == userId)
+            // Shipped apps name the food item, which can't say which of two portions they
+            // mean; they get the first one in the meal.
+            ?? await context.MealFoodEntries.FirstOrDefaultAsync(e =>
+                e.MealId == mealId && e.Meal.UserId == userId && e.FoodItemId == id);
         if (entry == null) return false;
 
         context.MealFoodEntries.Remove(entry);
