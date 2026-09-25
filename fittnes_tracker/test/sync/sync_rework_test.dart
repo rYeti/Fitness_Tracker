@@ -86,7 +86,7 @@ void main() {
       () async {
         await insertSyncedExercise(serverId: 'server-e1');
         api.stubEmptyPull();
-        api.getResponses['api/Workout'] = [
+        api.changes['workouts'] = [
           serverWorkout(
             id: 'server-w1',
             name: 'Push Day',
@@ -104,7 +104,7 @@ void main() {
         await sync.pullAll();
 
         // Something pulled after workouts, to prove the second pull reaches it.
-        api.getResponses['api/FoodItem'] = [
+        api.changes['foodItems'] = [
           serverFoodItem(id: 'server-f1', name: 'Oats'),
         ];
         await sync.pullAll();
@@ -118,8 +118,11 @@ void main() {
   group('a pull step that fails', () {
     test('does not stop the steps after it, and the pull says so', () async {
       api.stubEmptyPull();
-      api.getResponses.remove('api/Workout'); // the GET throws
-      api.getResponses['api/FoodItem'] = [
+      // A workout this build can't read: it has no name.
+      api.changes['workouts'] = [
+        {'id': 'server-w1', 'exercises': <dynamic>[]},
+      ];
+      api.changes['foodItems'] = [
         serverFoodItem(id: 'server-f1', name: 'Oats'),
       ];
 
@@ -136,6 +139,8 @@ void main() {
 
       final foods = await db.select(db.foodItem).get();
       expect(foods.map((f) => f.serverId), ['server-f1']);
+      // And the cursor stays, so the next pull asks for the workout again.
+      expect(await db.select(db.syncMeta).get(), isEmpty);
     });
   });
 
@@ -144,7 +149,7 @@ void main() {
       await insertSyncedWorkout('Upper A', 'server-mine');
       await insertSyncedWorkout('Upper A', 'server-trainers');
       api.stubEmptyPull();
-      api.getResponses['api/Workout'] = [
+      api.changes['workouts'] = [
         serverWorkout(id: 'server-mine', name: 'Upper A'),
         serverWorkout(id: 'server-trainers', name: 'Upper A'),
       ];
@@ -165,7 +170,7 @@ void main() {
           .into(db.workoutTable)
           .insert(WorkoutTableCompanion.insert(name: 'Upper A', difficulty: 0));
       api.stubEmptyPull();
-      api.getResponses['api/Workout'] = [
+      api.changes['workouts'] = [
         serverWorkout(id: 'server-trainers', name: 'Upper A'),
       ];
 
@@ -483,7 +488,7 @@ void main() {
       // And the server's retired copy, pulled twice, neither duplicates it
       // nor breaks the pull.
       api.stubEmptyPull();
-      api.getResponses['api/Workout'] = [
+      api.changes['workouts'] = [
         serverWorkout(
           id: 'server-w1',
           name: 'Push Day',
@@ -497,7 +502,7 @@ void main() {
           ],
         ),
       ];
-      api.getResponses['api/ScheduledWorkout'] = [
+      api.changes['scheduledWorkouts'] = [
         serverScheduledWorkout(
           id: 'server-sw1',
           workoutId: 'server-w1',
@@ -544,7 +549,7 @@ void main() {
               );
         });
         api.stubEmptyPull();
-        api.getResponses['api/Workout'] = [
+        api.changes['workouts'] = [
           serverWorkout(
             id: 'server-w1',
             name: 'Push Day',
@@ -558,7 +563,7 @@ void main() {
             ],
           ),
         ];
-        api.getResponses['api/ScheduledWorkout'] = [
+        api.changes['scheduledWorkouts'] = [
           serverScheduledWorkout(
             id: 'server-sw1',
             workoutId: 'server-w1',
@@ -600,10 +605,9 @@ void main() {
 
     test('is deleted here, not pushed back to the server', () async {
       await insertWeight('server-gone');
+      await insertWeight('server-kept');
       api.stubEmptyPull();
-      api.getResponses['api/WeightTracking/TrackWeight'] = [
-        {'id': 'server-kept', 'date': '2026-01-06T00:00:00Z', 'weight': 79},
-      ];
+      api.changes['deleted'] = [serverTombstone('weight', 'server-gone')];
 
       await sync.pullAll();
       await sync.syncAll();
@@ -611,21 +615,23 @@ void main() {
       final rows = await db.select(db.weightRecord).get();
       expect(rows.map((r) => r.serverId), ['server-kept']);
       expect(api.posts.where((p) => p.path.contains('TrackWeight')), isEmpty);
+      expect(api.deletes, isEmpty, reason: 'the server deleted it already');
     });
 
-    test('is kept while it holds an edit this device has not sent', () async {
+    test('is deleted even while it holds an edit this device has not sent: '
+        'the edit could never land', () async {
       await insertWeight('server-gone', status: SyncStatus.pendingUpdate.index);
       api.stubEmptyPull();
-      api.getResponses['api/WeightTracking/TrackWeight'] = [
-        {'id': 'server-kept', 'date': '2026-01-06T00:00:00Z', 'weight': 79},
-      ];
+      api.changes['deleted'] = [serverTombstone('weight', 'server-gone')];
 
       await sync.pullAll();
+      await sync.syncAll();
 
-      expect(await db.select(db.weightRecord).get(), hasLength(2));
+      expect(await db.select(db.weightRecord).get(), isEmpty);
+      expect(api.puts, isEmpty);
     });
 
-    test('is not assumed from an empty list', () async {
+    test('is not assumed from a row missing from the answer', () async {
       await insertWeight('server-1');
       api.stubEmptyPull();
 
@@ -671,15 +677,8 @@ void main() {
         }
       });
       api.stubEmptyPull();
-      api.getResponses['api/Workout'] = [
-        serverWorkout(id: 'server-w1', name: 'Push'),
-      ];
-      api.getResponses['api/ScheduledWorkout'] = [
-        serverScheduledWorkout(
-          id: 'server-kept',
-          workoutId: 'server-w1',
-          scheduledDate: '2026-01-06T00:00:00Z',
-        ),
+      api.changes['deleted'] = [
+        serverTombstone('scheduledWorkout', 'server-gone'),
       ];
 
       await sync.pullAll();
@@ -691,6 +690,7 @@ void main() {
         hasLength(1),
       );
       expect(await db.select(db.workoutSetTable).get(), hasLength(1));
+      expect(await db.select(db.syncDeletionTable).get(), isEmpty);
     });
   });
 
@@ -727,10 +727,10 @@ void main() {
       final sw = await insertSyncedSession();
       await db.scheduledWorkoutDao.removeScheduled(sw);
       api.stubEmptyPull();
-      api.getResponses['api/Workout'] = [
+      api.changes['workouts'] = [
         serverWorkout(id: 'server-w1', name: 'Push'),
       ];
-      api.getResponses['api/ScheduledWorkout'] = [
+      api.changes['scheduledWorkouts'] = [
         serverScheduledWorkout(id: 'server-sw1', workoutId: 'server-w1'),
       ];
 
@@ -839,7 +839,7 @@ void main() {
 
         await dao.deleteTemplate(id);
         api.stubEmptyPull();
-        api.getResponses['api/MealTemplate'] = [
+        api.changes['mealTemplates'] = [
           {'id': 'server-t1', 'name': 'Overnight oats', 'items': <dynamic>[]},
         ];
         await sync.pullAll(); // before the DELETE has gone out

@@ -10848,6 +10848,218 @@ class SyncLeaseTableCompanion extends UpdateCompanion<SyncLeaseTableData> {
   }
 }
 
+class $SyncMetaTable extends SyncMeta
+    with TableInfo<$SyncMetaTable, SyncMetaData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SyncMetaTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _changesCursorMeta = const VerificationMeta(
+    'changesCursor',
+  );
+  @override
+  late final GeneratedColumn<String> changesCursor = GeneratedColumn<String>(
+    'changes_cursor',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, changesCursor];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'sync_meta';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SyncMetaData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('changes_cursor')) {
+      context.handle(
+        _changesCursorMeta,
+        changesCursor.isAcceptableOrUnknown(
+          data['changes_cursor']!,
+          _changesCursorMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  SyncMetaData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SyncMetaData(
+      id:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.int,
+            data['${effectivePrefix}id'],
+          )!,
+      changesCursor: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}changes_cursor'],
+      ),
+    );
+  }
+
+  @override
+  $SyncMetaTable createAlias(String alias) {
+    return $SyncMetaTable(attachedDatabase, alias);
+  }
+}
+
+class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
+  final int id;
+
+  /// The `cursor` of the last changes-feed answer this device applied whole,
+  /// exactly as the server sent it; the next pull sends it back as `since`.
+  final String? changesCursor;
+  const SyncMetaData({required this.id, this.changesCursor});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    if (!nullToAbsent || changesCursor != null) {
+      map['changes_cursor'] = Variable<String>(changesCursor);
+    }
+    return map;
+  }
+
+  SyncMetaCompanion toCompanion(bool nullToAbsent) {
+    return SyncMetaCompanion(
+      id: Value(id),
+      changesCursor:
+          changesCursor == null && nullToAbsent
+              ? const Value.absent()
+              : Value(changesCursor),
+    );
+  }
+
+  factory SyncMetaData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SyncMetaData(
+      id: serializer.fromJson<int>(json['id']),
+      changesCursor: serializer.fromJson<String?>(json['changesCursor']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'changesCursor': serializer.toJson<String?>(changesCursor),
+    };
+  }
+
+  SyncMetaData copyWith({
+    int? id,
+    Value<String?> changesCursor = const Value.absent(),
+  }) => SyncMetaData(
+    id: id ?? this.id,
+    changesCursor:
+        changesCursor.present ? changesCursor.value : this.changesCursor,
+  );
+  SyncMetaData copyWithCompanion(SyncMetaCompanion data) {
+    return SyncMetaData(
+      id: data.id.present ? data.id.value : this.id,
+      changesCursor:
+          data.changesCursor.present
+              ? data.changesCursor.value
+              : this.changesCursor,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncMetaData(')
+          ..write('id: $id, ')
+          ..write('changesCursor: $changesCursor')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, changesCursor);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SyncMetaData &&
+          other.id == this.id &&
+          other.changesCursor == this.changesCursor);
+}
+
+class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
+  final Value<int> id;
+  final Value<String?> changesCursor;
+  const SyncMetaCompanion({
+    this.id = const Value.absent(),
+    this.changesCursor = const Value.absent(),
+  });
+  SyncMetaCompanion.insert({
+    this.id = const Value.absent(),
+    this.changesCursor = const Value.absent(),
+  });
+  static Insertable<SyncMetaData> custom({
+    Expression<int>? id,
+    Expression<String>? changesCursor,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (changesCursor != null) 'changes_cursor': changesCursor,
+    });
+  }
+
+  SyncMetaCompanion copyWith({Value<int>? id, Value<String?>? changesCursor}) {
+    return SyncMetaCompanion(
+      id: id ?? this.id,
+      changesCursor: changesCursor ?? this.changesCursor,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (changesCursor.present) {
+      map['changes_cursor'] = Variable<String>(changesCursor.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncMetaCompanion(')
+          ..write('id: $id, ')
+          ..write('changesCursor: $changesCursor')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -10887,6 +11099,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $SyncApplyGuardTableTable syncApplyGuardTable =
       $SyncApplyGuardTableTable(this);
   late final $SyncLeaseTableTable syncLeaseTable = $SyncLeaseTableTable(this);
+  late final $SyncMetaTable syncMeta = $SyncMetaTable(this);
   late final FoodItemDao foodItemDao = FoodItemDao(this as AppDatabase);
   late final UserSettingsDao userSettingsDao = UserSettingsDao(
     this as AppDatabase,
@@ -10936,6 +11149,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     syncDeletionTable,
     syncApplyGuardTable,
     syncLeaseTable,
+    syncMeta,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -19491,6 +19705,143 @@ typedef $$SyncLeaseTableTableProcessedTableManager =
       SyncLeaseTableData,
       PrefetchHooks Function()
     >;
+typedef $$SyncMetaTableCreateCompanionBuilder =
+    SyncMetaCompanion Function({Value<int> id, Value<String?> changesCursor});
+typedef $$SyncMetaTableUpdateCompanionBuilder =
+    SyncMetaCompanion Function({Value<int> id, Value<String?> changesCursor});
+
+class $$SyncMetaTableFilterComposer
+    extends Composer<_$AppDatabase, $SyncMetaTable> {
+  $$SyncMetaTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get changesCursor => $composableBuilder(
+    column: $table.changesCursor,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SyncMetaTableOrderingComposer
+    extends Composer<_$AppDatabase, $SyncMetaTable> {
+  $$SyncMetaTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get changesCursor => $composableBuilder(
+    column: $table.changesCursor,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SyncMetaTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SyncMetaTable> {
+  $$SyncMetaTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get changesCursor => $composableBuilder(
+    column: $table.changesCursor,
+    builder: (column) => column,
+  );
+}
+
+class $$SyncMetaTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SyncMetaTable,
+          SyncMetaData,
+          $$SyncMetaTableFilterComposer,
+          $$SyncMetaTableOrderingComposer,
+          $$SyncMetaTableAnnotationComposer,
+          $$SyncMetaTableCreateCompanionBuilder,
+          $$SyncMetaTableUpdateCompanionBuilder,
+          (
+            SyncMetaData,
+            BaseReferences<_$AppDatabase, $SyncMetaTable, SyncMetaData>,
+          ),
+          SyncMetaData,
+          PrefetchHooks Function()
+        > {
+  $$SyncMetaTableTableManager(_$AppDatabase db, $SyncMetaTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer:
+              () => $$SyncMetaTableFilterComposer($db: db, $table: table),
+          createOrderingComposer:
+              () => $$SyncMetaTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer:
+              () => $$SyncMetaTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String?> changesCursor = const Value.absent(),
+              }) => SyncMetaCompanion(id: id, changesCursor: changesCursor),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String?> changesCursor = const Value.absent(),
+              }) => SyncMetaCompanion.insert(
+                id: id,
+                changesCursor: changesCursor,
+              ),
+          withReferenceMapper:
+              (p0) =>
+                  p0
+                      .map(
+                        (e) => (
+                          e.readTable(table),
+                          BaseReferences(db, table, e),
+                        ),
+                      )
+                      .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SyncMetaTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SyncMetaTable,
+      SyncMetaData,
+      $$SyncMetaTableFilterComposer,
+      $$SyncMetaTableOrderingComposer,
+      $$SyncMetaTableAnnotationComposer,
+      $$SyncMetaTableCreateCompanionBuilder,
+      $$SyncMetaTableUpdateCompanionBuilder,
+      (
+        SyncMetaData,
+        BaseReferences<_$AppDatabase, $SyncMetaTable, SyncMetaData>,
+      ),
+      SyncMetaData,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -19545,4 +19896,6 @@ class $AppDatabaseManager {
       $$SyncApplyGuardTableTableTableManager(_db, _db.syncApplyGuardTable);
   $$SyncLeaseTableTableTableManager get syncLeaseTable =>
       $$SyncLeaseTableTableTableManager(_db, _db.syncLeaseTable);
+  $$SyncMetaTableTableManager get syncMeta =>
+      $$SyncMetaTableTableManager(_db, _db.syncMeta);
 }

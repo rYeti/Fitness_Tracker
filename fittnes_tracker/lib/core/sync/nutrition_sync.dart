@@ -369,6 +369,13 @@ extension NutritionSync on SyncService {
   ///
   /// Returns false when a food in the meal is not on the server yet: that
   /// one waits, and the meal is left dirty so it goes next push.
+  ///
+  /// A food the server answers 410 for was removed from the meal elsewhere —
+  /// another device took it out, and this one hasn't pulled that yet. It is
+  /// dropped here, as the tombstone would have dropped it, and the rest go
+  /// again. Before the server kept that record, this upsert put the food
+  /// back: an edit to the meal on a device that hadn't pulled undid a
+  /// removal made on another.
   Future<bool> _upsertMealFoods(int localMealId, String mealServerId) async {
     final entries = await _db.mealDao.getAllFoodEntriesForMeal(localMealId);
     final body = <Map<String, dynamic>>[];
@@ -390,6 +397,17 @@ extension NutritionSync on SyncService {
     try {
       await _apiClient.post('api/Meal/$mealServerId/foods/batch', data: body);
     } catch (e) {
+      final gone = SyncService._goneId(e);
+      // Only an entry this request named — which is also what makes the
+      // retry end: each one removes an entry from a finite list.
+      if (gone != null && body.any((b) => b['id'] == gone)) {
+        _logger.w(
+          'Meal $localMealId: food $gone was removed elsewhere (410); '
+          'dropped here, sending the rest again',
+        );
+        await _db.untracked(() => _mealFoodGone(gone));
+        return _upsertMealFoods(localMealId, mealServerId);
+      }
       // One entry's id names a row that isn't this account's (409). That
       // entry, and only that one, takes a new id: the rest may be on the
       // server under theirs, and a new id would store them a second time.
@@ -404,6 +422,49 @@ extension NutritionSync on SyncService {
       rethrow;
     }
     return complete;
+  }
+
+  /// A food taken out of a meal elsewhere (see [SyncService._goneElsewhere]):
+  /// that one entry goes. Its meal is not marked changed — this is the
+  /// server's list, not an edit to send back.
+  Future<void> _mealFoodGone(String serverId) =>
+      (_db.delete(_db.mealFoodTable)
+        ..where((t) => t.serverId.equals(serverId))).go();
+
+  /// A meal deleted elsewhere (see [SyncService._goneElsewhere]): it goes,
+  /// with its foods, whatever this device holds in it that it hasn't sent.
+  /// Nothing else hangs on a meal. A food added here, offline, to a meal
+  /// another device deleted is lost with it; the alternative — the addition
+  /// bringing the deleted meal back — is the bug tombstones exist to end.
+  Future<void> _mealGone(String serverId) async {
+    final meal = await _db.mealDao.getByServerId(serverId);
+    if (meal == null) return;
+    await (_db.delete(_db.mealFoodTable)
+      ..where((t) => t.mealId.equals(meal.id))).go();
+    await (_db.delete(_db.mealTable)..where((t) => t.id.equals(meal.id))).go();
+  }
+
+  /// A food item deleted elsewhere (see [SyncService._goneElsewhere]).
+  ///
+  /// Deleted here unless a meal logged it: that meal still reads the food's
+  /// name and macros from this row, and deleting it would change a day that
+  /// already happened. A kept one stays as it is — a meal's foods name it on
+  /// the server only as an opaque reference — unless it holds an edit not
+  /// sent yet, which takes a fresh id so it has somewhere to land.
+  Future<void> _foodItemGone(String serverId) async {
+    final food = await _db.foodItemDao.getByServerId(serverId);
+    if (food == null) return;
+    final status = SyncStatus.fromDb(food.syncStatus);
+    final inMeal =
+        await (_db.select(_db.mealFoodTable)
+              ..where((m) => m.foodEntryId.equals(food.id))
+              ..limit(1))
+            .getSingleOrNull();
+    if (inMeal == null || status == SyncStatus.pendingDelete) {
+      await _db.foodItemDao.deleteById(food.id);
+    } else if (status.isDirty) {
+      await _giveFreshId(_db.foodItem, food.id);
+    }
   }
 
   Future<void> _syncDeleteMeal(MealTableData meal) async {
@@ -486,6 +547,12 @@ extension NutritionSync on SyncService {
         data: {'id': id, ..._mealTemplateBody(template)},
       );
     } catch (e) {
+      if (SyncService._goneId(e, {'id': id}) != null) {
+        // Deleted elsewhere after a create whose answer this device never
+        // heard: the template goes, as the deletion would have taken it.
+        await _mealTemplateDao.removeDeletedElsewhere(id);
+        return;
+      }
       if (SyncService._isIdConflict(e)) {
         await _mealTemplateDao.assignServerId(localId);
       }
@@ -535,82 +602,44 @@ extension NutritionSync on SyncService {
     };
   }
 
-  Future<void> _pullFoodItems() async {
-    final response = await _apiClient.get('api/FoodItem');
-    final list = (response.data as List).cast<Map<String, dynamic>>();
+  /// Food items from a changes answer: a new one is inserted, a clean one
+  /// takes the server's values, and a dirty one is held back for the push.
+  Future<void> _pullFoodItems(List<Map<String, dynamic>> list) async {
     await _applyEach('food items', list, (f) async {
       final serverId = f['id'] as String;
-      if (await _db.foodItemDao.getByServerId(serverId) != null) return;
-      await _db.foodItemDao.insertFoodItem(
-        FoodItemCompanion(
-          name: Value(f['name'] as String),
-          calories: Value(f['calories'] as int),
-          protein: Value(f['protein'] as int),
-          carbs: Value(f['carbs'] as int),
-          fat: Value(f['fat'] as int),
-          gramm: Value(f['gramm'] as int? ?? 100),
-          hiddenFromRecent: Value(f['hiddenFromRecent'] as bool? ?? false),
-          extendedNutrientsJson: Value(f['extendedNutrientsJson'] as String?),
-          serverId: Value(serverId),
-          syncStatus: const Value(1),
-        ),
+      final fields = FoodItemCompanion(
+        name: Value(f['name'] as String),
+        calories: Value(f['calories'] as int),
+        protein: Value(f['protein'] as int),
+        carbs: Value(f['carbs'] as int),
+        fat: Value(f['fat'] as int),
+        gramm: Value(f['gramm'] as int? ?? 100),
+        hiddenFromRecent: Value(f['hiddenFromRecent'] as bool? ?? false),
+        extendedNutrientsJson: Value(f['extendedNutrientsJson'] as String?),
       );
+      final existing = await _db.foodItemDao.getByServerId(serverId);
+      if (existing == null) {
+        await _db.foodItemDao.insertFoodItem(
+          fields.copyWith(
+            serverId: Value(serverId),
+            syncStatus: const Value(1),
+          ),
+        );
+        return;
+      }
+      if (SyncStatus.fromDb(existing.syncStatus).isDirty) {
+        _holdBack('food items', serverId);
+        return;
+      }
+      await (_db.update(_db.foodItem)
+        ..where((t) => t.id.equals(existing.id))).write(fields);
     });
-
-    await _removeDeletedElsewhere<FoodItemData>(
-      what: 'food items',
-      serverIds: {for (final f in list) f['id'] as String},
-      locals:
-          await (_db.select(_db.foodItem)..where(
-                (t) =>
-                    t.serverId.isNotNull() &
-                    t.syncStatus.isNotValue(SyncStatus.pending.index),
-              ))
-              .get(),
-      serverIdOf: (r) => r.serverId!,
-      syncStatusOf: (r) => r.syncStatus,
-      // A meal logged with it still reads its name and macros from this row;
-      // deleting it would change a day that already happened.
-      delete: (r) async {
-        final inMeal =
-            await (_db.select(_db.mealFoodTable)
-                  ..where((m) => m.foodEntryId.equals(r.id))
-                  ..limit(1))
-                .getSingleOrNull();
-        if (inMeal != null) return false;
-        await _db.foodItemDao.deleteById(r.id);
-        return true;
-      },
-    );
     _logger.i('Pulled ${list.length} food items');
   }
 
-  Future<void> _pullMeals() async {
-    final response = await _apiClient.get('api/Meal/all');
-    final list = (response.data as List).cast<Map<String, dynamic>>();
+  /// Meals from a changes answer, each with every one of its foods.
+  Future<void> _pullMeals(List<Map<String, dynamic>> list) async {
     await _applyEach('meals', list, _applyServerMeal);
-
-    await _removeDeletedElsewhere<MealTableData>(
-      what: 'meals',
-      serverIds: {for (final m in list) m['id'] as String},
-      locals:
-          await (_db.select(_db.mealTable)..where(
-                (t) =>
-                    t.serverId.isNotNull() &
-                    t.syncStatus.isNotValue(SyncStatus.pending.index),
-              ))
-              .get(),
-      serverIdOf: (r) => r.serverId!,
-      syncStatusOf: (r) => r.syncStatus,
-      // Only ever reached for a clean meal, whose foods the server has all
-      // seen: a food added here dirties its meal until the push sends it.
-      delete: (r) async {
-        await (_db.delete(_db.mealFoodTable)
-          ..where((t) => t.mealId.equals(r.id))).go();
-        await (_db.delete(_db.mealTable)..where((t) => t.id.equals(r.id))).go();
-        return true;
-      },
-    );
     _logger.i('Pulled ${list.length} meals');
   }
 
@@ -705,7 +734,10 @@ extension NutritionSync on SyncService {
     }
     // A meal with an unsent change may hold foods the server hasn't been sent
     // yet; taking out what the server doesn't list would take those too.
-    if (SyncStatus.fromDb(existing.syncStatus) != SyncStatus.synced) return;
+    if (SyncStatus.fromDb(existing.syncStatus) != SyncStatus.synced) {
+      _holdBack('meals', mealServerId);
+      return;
+    }
 
     // A clean meal holds nothing the server hasn't seen, so its list is the
     // server's to set: add what it has, and take out what it no longer lists.
@@ -721,21 +753,16 @@ extension NutritionSync on SyncService {
         .go();
   }
 
-  Future<void> _pullMealTemplates() async {
-    final response = await _apiClient.get('api/MealTemplate');
-    final list = (response.data as List).cast<Map<String, dynamic>>();
-    final existing = await _mealTemplateDao.getAllTemplates();
-    final existingServerIds =
-        existing
-            .map((t) => t['serverId'] as String?)
-            .whereType<String>()
-            .toSet();
-
+  /// Meal templates from a changes answer. A new one is inserted and a clean
+  /// one takes the server's copy; one edited here and not sent yet — or one
+  /// whose create this device hasn't heard back about — is held back for the
+  /// push, as a dirty database row is. They live in SharedPreferences, so
+  /// [MealTemplateDao] keeps those facts by hand.
+  Future<void> _pullMealTemplates(List<Map<String, dynamic>> list) async {
     final deletedHere = (await _mealTemplateDao.getDeletedServerIds()).toSet();
 
     for (final t in list) {
       final serverId = t['id'] as String;
-      if (existingServerIds.contains(serverId)) continue;
       if (deletedHere.contains(serverId)) continue;
 
       final items =
@@ -755,17 +782,27 @@ extension NutritionSync on SyncService {
                 },
               )
               .toList();
-
-      final localId = await _mealTemplateDao.insertTemplate({
+      final fields = {
         'name': t['name'],
         'description': t['description'] ?? '',
         'category': t['category'] ?? '',
         if (t['totalWeightGrams'] != null)
           'total_weight_grams': (t['totalWeightGrams'] as num).toDouble(),
         'items': items,
-        'serverId': serverId,
-      });
-      _logger.i('Pulled meal template $serverId → local $localId');
+      };
+
+      switch (await _mealTemplateDao.applyFromServer(serverId, fields)) {
+        case TemplateApply.applied:
+          break;
+        case TemplateApply.heldBack:
+          _holdBack('meal templates', serverId);
+        case TemplateApply.absent:
+          final localId = await _mealTemplateDao.insertTemplate({
+            ...fields,
+            'serverId': serverId,
+          });
+          _logger.i('Pulled meal template $serverId → local $localId');
+      }
     }
   }
 

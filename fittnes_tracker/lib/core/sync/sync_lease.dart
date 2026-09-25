@@ -8,9 +8,9 @@ import 'package:drift/drift.dart';
 /// for the whole wait, so this one never started.
 ///
 /// A distinct exception rather than a quiet return, because the callers act on
-/// "it finished": `main.dart` records the pull time (and so skips pulling for
-/// six hours), and Settings reports success. A run that didn't happen must not
-/// look like one that did.
+/// "it finished": `main.dart` records the pull time (and so skips the next
+/// pull), and Settings reports success. A run that didn't happen must not look
+/// like one that did.
 class SyncBusyException implements Exception {
   const SyncBusyException();
 

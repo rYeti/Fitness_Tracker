@@ -267,7 +267,7 @@ void main() {
       expect(await db.select(db.syncDeletionTable).get(), isEmpty);
 
       // The server lists the record for as long as no DELETE has reached it.
-      api.getResponses[weights] = [
+      api.changes['weights'] = [
         if (!api.deletes.contains('$weights/$minted'))
           {
             'id': minted,
@@ -608,10 +608,10 @@ void main() {
       await db.mealDao.addFoodToMeal(oats, dirty);
 
       // Another device removed the oats from both meals.
-      api.getResponses['api/FoodItem'] = [
+      api.changes['foodItems'] = [
         serverFoodItem(id: 'server-f1', name: 'Oats'),
       ];
-      api.getResponses['api/Meal/all'] = [
+      api.changes['meals'] = [
         serverMeal(id: 'server-m1', foodItemId: 'server-f1'),
         serverMeal(
           id: 'server-m2',
@@ -639,11 +639,11 @@ void main() {
         ),
       );
       await db.mealDao.addFoodToMeal(oats, local);
-      api.getResponses['api/FoodItem'] = [
+      api.changes['foodItems'] = [
         serverFoodItem(id: 'server-f1', name: 'Oats'),
         serverFoodItem(id: 'server-f2', name: 'Skyr'),
       ];
-      api.getResponses['api/Meal/all'] = [
+      api.changes['meals'] = [
         serverMeal(
           id: 'server-m9',
           foodItemId: 'server-f2',
@@ -737,11 +737,11 @@ void main() {
 
     test('a clean plan takes the server\'s list on pull', () async {
       final ids = await seedPlan();
-      api.getResponses['api/Workout'] = [
+      api.changes['workouts'] = [
         serverWorkout(id: 'server-w1', name: 'Upper'),
         serverWorkout(id: 'server-w2', name: 'Lower'),
       ];
-      api.getResponses['api/WorkoutPlan'] = [
+      api.changes['workoutPlans'] = [
         {
           'id': 'server-p1',
           'name': 'Block 1',
@@ -1441,10 +1441,10 @@ void main() {
             "VALUES (1, $seconds, 'Breakfast', 1, 0)",
         entriesWithoutId: 1,
       );
-      api.getResponses['api/FoodItem'] = [
+      api.changes['foodItems'] = [
         serverFoodItem(id: 'server-f1', name: 'Oats'),
       ];
-      api.getResponses['api/Meal/all'] = [
+      api.changes['meals'] = [
         serverMeal(
           id: 'server-m9',
           foodItemId: 'server-f1',

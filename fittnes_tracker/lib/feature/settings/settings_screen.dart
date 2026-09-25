@@ -218,7 +218,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         apiClient: ApiClient(baseUrl: serverUrl),
         mealTemplateDao: MealTemplateDao(db),
       );
-      await syncService.pullAll();
+      await syncService.pullAll(everything: true);
       await prefs.setInt(
         lastPullPrefsKey,
         DateTime.now().millisecondsSinceEpoch,

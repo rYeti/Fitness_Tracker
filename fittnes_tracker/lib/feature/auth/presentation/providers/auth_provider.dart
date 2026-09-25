@@ -233,13 +233,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
 const serverUrlPrefsKey = 'server_url';
 
 /// When the app last *downloaded* server state, as opposed to
-/// `last_sync_timestamp`, which records the last push.
+/// `last_sync_timestamp`, which records the last push. It spaces out the
+/// pulls launch and resume ask for (two minutes, `_runInitialSync`).
 ///
-/// They have to be separate keys. The background task only ever pushes, and it
-/// stamped the shared one, so a background run that had downloaded nothing
-/// still convinced the startup sync that everything was fresh — and the pull it
-/// then skipped was the one that would have fetched the account's real data.
-/// Cleared alongside the local database whenever accounts change.
+/// They have to be separate keys. The background task stamped the shared one
+/// after a push, so a background run that had downloaded nothing still
+/// convinced the startup sync that everything was fresh — and the pull it then
+/// skipped was the one that would have fetched the account's real data.
+/// Cleared alongside the local database whenever accounts change, so the next
+/// account's first launch pulls at once.
 const lastPullPrefsKey = 'last_pull_timestamp';
 /// The API this build talks to.
 ///

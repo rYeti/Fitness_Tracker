@@ -53,21 +53,46 @@ class FakeApiClient extends ApiClient {
   /// what goes before what.
   final List<String> requests = [];
 
-  /// Stubs every endpoint `pullAll` touches with an empty result, so a test only
-  /// has to describe the one it cares about.
+  /// What `GET api/Sync/changes` answers: the changes feed, in the API's
+  /// shape. Every list starts empty, with no deletions and a fixed cursor; a
+  /// test puts in what the server has changed. It answers the same whatever
+  /// `since` is sent — for a test that pulls twice, the second answer is what
+  /// this holds by then. [changesSince] records what was sent.
+  final Map<String, dynamic> changes = emptyChanges();
+
+  /// The `since` each changes request carried, in order.
+  final List<String?> changesSince = [];
+
+  /// Ids the server holds a deletion of: a POST naming one — as a create, or
+  /// as an entry of a batch — is refused with 410 `{error: id_deleted, id}`,
+  /// as the API refuses to create a deleted id again.
+  final Set<String> deletedIds = {};
+
+  /// A changes answer holding nothing, with [cursor] as its cursor.
+  static Map<String, dynamic> emptyChanges({
+    String cursor = '2026-01-01T00:00:00.000Z',
+  }) => {
+    'exercises': <dynamic>[],
+    'workouts': <dynamic>[],
+    'workoutPlans': <dynamic>[],
+    'scheduledWorkouts': <dynamic>[],
+    'foodItems': <dynamic>[],
+    'meals': <dynamic>[],
+    'mealTemplates': <dynamic>[],
+    'weights': <dynamic>[],
+    'settings': null,
+    'deleted': <dynamic>[],
+    'cursor': cursor,
+  };
+
+  /// Stubs what `pullAll` asks for with an empty result — the built-in
+  /// exercise catalogue, and a changes answer with nothing in it — so a test
+  /// only has to describe what it cares about.
   void stubEmptyPull() {
-    getResponses.addAll({
-      'api/Exercise/AllExercises': <dynamic>[],
-      'api/Exercise/UserExercise': <dynamic>[],
-      'api/UserSettings': null,
-      'api/Workout': <dynamic>[],
-      'api/WorkoutPlan': <dynamic>[],
-      'api/ScheduledWorkout': <dynamic>[],
-      'api/WeightTracking/TrackWeight': <dynamic>[],
-      'api/FoodItem': <dynamic>[],
-      'api/Meal/all': <dynamic>[],
-      'api/MealTemplate': <dynamic>[],
-    });
+    getResponses['api/Exercise/AllExercises'] = <dynamic>[];
+    changes
+      ..clear()
+      ..addAll(emptyChanges());
   }
 
   Response<dynamic> _ok(String path, dynamic data) => Response<dynamic>(
@@ -84,6 +109,10 @@ class FakeApiClient extends ApiClient {
   }) async {
     gets.add(path);
     requests.add('GET $path');
+    if (path == 'api/Sync/changes') {
+      changesSince.add(queryParameters?['since'] as String?);
+      return _ok(path, Map<String, dynamic>.from(changes));
+    }
     if (!getResponses.containsKey(path)) {
       throw DioException(
         requestOptions: RequestOptions(path: path),
@@ -109,8 +138,21 @@ class FakeApiClient extends ApiClient {
         message: 'FakeApiClient: response to POST $path lost',
       );
     }
+    final deleted = _deletedIdIn(data);
+    if (deleted != null) {
+      _failIfStubbed(path, 410, {'error': 'id_deleted', 'id': deleted});
+    }
     _failIfStubbed(path, postStatuses[path], postErrorBodies[path]);
     return _ok(path, postResponses[path] ?? _echo(data));
+  }
+
+  String? _deletedIdIn(dynamic data) {
+    for (final item in data is List ? data : [data]) {
+      if (item is Map && deletedIds.contains(item['id'])) {
+        return item['id'] as String;
+      }
+    }
+    return null;
   }
 
   static dynamic _echo(dynamic data) => switch (data) {
@@ -171,6 +213,13 @@ class FakeApiClient extends ApiClient {
     return _ok(path, null);
   }
 }
+
+/// A deletion as the changes feed lists it.
+Map<String, dynamic> serverTombstone(String entityType, String entityId) => {
+  'entityType': entityType,
+  'entityId': entityId,
+  'deletedAt': '2026-01-10T00:00:00Z',
+};
 
 /// A workout as `GET api/Workout` returns it.
 Map<String, dynamic> serverWorkout({

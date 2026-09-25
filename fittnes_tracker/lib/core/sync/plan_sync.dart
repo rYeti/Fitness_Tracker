@@ -153,29 +153,17 @@ extension PlanSync on SyncService {
     return true;
   }
 
-  Future<void> _pullWorkoutPlans() async {
-    final response = await _apiClient.get('api/WorkoutPlan');
-    final list = (response.data as List).cast<Map<String, dynamic>>();
-    await _applyEach('plans', list, _applyServerPlan);
+  /// Plans from a changes answer, each with its whole list of workouts.
+  Future<void> _pullWorkoutPlans(List<Map<String, dynamic>> list) =>
+      _applyEach('plans', list, _applyServerPlan);
 
-    await _removeDeletedElsewhere<WorkoutPlanTableData>(
-      what: 'plans',
-      serverIds: {for (final p in list) p['id'] as String},
-      locals:
-          await (_db.select(_db.workoutPlanTable)..where(
-                (t) =>
-                    t.serverId.isNotNull() &
-                    t.syncStatus.isNotValue(SyncStatus.pending.index),
-              ))
-              .get(),
-      serverIdOf: (r) => r.serverId!,
-      syncStatusOf: (r) => r.syncStatus,
-      // Deleting a plan never touches its days server-side (only the
-      // grouping goes away — see TrainerConsoleService.DeleteClientWorkoutPlanAsync),
-      // so nothing here needs to protect logged history; deleteWorkoutPlan
-      // detaches the sessions that pointed at it.
-      delete: (r) => _db.workoutPlanDao.deleteWorkoutPlan(r.id),
-    );
+  /// A plan deleted elsewhere (see [SyncService._goneElsewhere]). Nothing is
+  /// kept for history: deleting a plan never deletes its days, and
+  /// [WorkoutPlanDao.deleteWorkoutPlan] detaches the sessions it scheduled,
+  /// as the server's `SET NULL` did.
+  Future<void> _planGone(String serverId) async {
+    final plan = await _db.workoutPlanDao.getPlanByServerId(serverId);
+    if (plan != null) await _db.workoutPlanDao.deleteWorkoutPlan(plan.id);
   }
 
   Future<void> _applyServerPlan(Map<String, dynamic> p) async {
@@ -184,6 +172,27 @@ extension PlanSync on SyncService {
       planServerId,
     );
     if (existingPlan != null) {
+      if (SyncStatus.fromDb(existingPlan.syncStatus).isDirty) {
+        _holdBack('plans', planServerId);
+        return;
+      }
+      // A clean plan takes the server's copy of what the push sends — a
+      // rename or a new cycle made on another device, or by a trainer. Not
+      // `isActive`, which is this device's own choice and never sent.
+      await (_db.update(_db.workoutPlanTable)
+        ..where((t) => t.id.equals(existingPlan.id))).write(
+        WorkoutPlanTableCompanion(
+          name: Value(p['name'] as String),
+          description: Value(p['description'] as String?),
+          startDate: Value(DateTime.parse(p['startDate'] as String)),
+          cyclePatternJson: Value(p['cyclePatternJson'] as String),
+          isFreeChoice: Value(p['isFreeChoice'] as bool),
+        ),
+      );
+      await _db.customStatement(
+        'UPDATE workout_plan_table SET duration_days = ? WHERE id = ?',
+        [p['durationDays'] as int?, existingPlan.id],
+      );
       // A trainer building a client's plan from the console adds workouts to
       // it after the plan itself exists, so a device that already pulled the
       // plan picks the new membership up here.
