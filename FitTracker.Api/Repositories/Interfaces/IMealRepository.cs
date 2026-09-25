@@ -4,7 +4,7 @@ using FitTracker.Api.Models;
 namespace FitTracker.Api.Repositories.Interfaces;
 
 /// <summary>Data-access contract for meal log management.</summary>
-public interface IMealRepository : IDeletedIdLookup
+public interface IMealRepository
 {
     /// <summary>Returns all meal entries for the specified user on the given calendar day.</summary>
     Task<List<Meal>> GetMealsForDateAsync(Guid userId, DateTime date);

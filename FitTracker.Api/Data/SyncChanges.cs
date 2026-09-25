@@ -1,20 +1,31 @@
+using System.Linq.Expressions;
+using System.Runtime.CompilerServices;
 using FitTracker.Api.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace FitTracker.Api.Data;
 
 /// <summary>
-/// What a write that <see cref="SyncChangeInterceptor"/> can't see has to do by hand. See
-/// docs/sync-architecture.md, part three.
+/// What a write that <see cref="SyncChangeInterceptor"/> can't see has to do by hand, and
+/// the one way a root is stamped. See docs/sync-architecture.md, part three.
 /// </summary>
 /// <remarks>
 /// The interceptor reads the change tracker, so it sees every row a save adds, changes or
 /// removes. It does not see <c>ExecuteDelete</c>/<c>ExecuteUpdate</c>, which go straight to
 /// the database, or what the database itself does on a delete (<c>ON DELETE CASCADE</c>,
 /// <c>SET NULL</c>). A call site doing either to synced data bumps the roots it changed
-/// (<see cref="TouchAsync{TRoot}"/>) and records the roots it deleted
-/// (<see cref="Bury"/>) — inside the same transaction as the write, or the feed can see one
-/// without the other.
+/// (<see cref="TouchAsync{TRoot}(AppDbContext, IReadOnlyCollection{Guid})"/>, or
+/// <see cref="TouchWhereAsync{TRoot}"/> when the roots are whichever ones a predicate
+/// matches at that moment) and records the roots it deleted (<see cref="Bury"/>) — inside
+/// the same transaction as the write, or the feed can see one without the other.
+///
+/// A root is stamped at most once per transaction. A batch that saves once per entry, or a
+/// replace that stamps before its delete and then saves its inserts, would otherwise write
+/// the same root row once per save; inside one transaction the first stamp is already the
+/// one every later reader sees, since none of them sees anything before the commit.
 /// </remarks>
 internal static class SyncChanges
 {
@@ -27,23 +38,32 @@ internal static class SyncChanges
             ? roots.Where(r => EF.Property<DateTime>(r, nameof(ISyncRoot.UpdatedAt)) >= from)
             : roots;
 
-    /// <summary>Whether <paramref name="userId"/>'s data held a row under
-    /// <paramref name="id"/> that the server has deleted.</summary>
-    public static Task<bool> WasDeletedAsync(this AppDbContext context, Guid userId, Guid id) =>
-        context.SyncTombstones.AnyAsync(t => t.UserId == userId && t.EntityId == id);
+    /// <summary>Marks the given roots changed now, in one statement that writes only their
+    /// <c>UpdatedAt</c> — skipping any this transaction has already stamped.</summary>
+    public static Task TouchAsync<TRoot>(this AppDbContext context, IReadOnlyCollection<Guid> ids)
+        where TRoot : class, ISyncRoot =>
+        StampAsync<TRoot>(context, ids, DateTime.UtcNow, async: true, default);
 
-    /// <summary>Marks the given roots changed now, in one statement.</summary>
-    public static async Task TouchAsync<TRoot>(this AppDbContext context, IReadOnlyCollection<Guid> ids)
+    /// <summary>Marks changed now every root <paramref name="which"/> matches when the
+    /// statement runs.</summary>
+    /// <remarks>
+    /// For a root found through rows a later statement deletes: a list of ids read first
+    /// is already stale when the delete runs, and a row committed in between is deleted
+    /// without its root being stamped. Issued immediately before the delete, in its
+    /// transaction, the predicate is evaluated as late as it can be — and the row lock the
+    /// update takes on each root holds back any other writer of that root's children,
+    /// which stamps the same row, until this transaction ends.
+    ///
+    /// The roots it stamps aren't known here, so the once-per-transaction record can't
+    /// include them; a later save in the same transaction may stamp one of them again.
+    /// </remarks>
+    public static Task TouchWhereAsync<TRoot>(this AppDbContext context, Expression<Func<TRoot, bool>> which)
         where TRoot : class, ISyncRoot
     {
-        if (ids.Count == 0) return;
-
-        var wanted = ids.Distinct().ToList();
         var now = DateTime.UtcNow;
-        await context.Set<TRoot>()
-            .Where(r => wanted.Contains(EF.Property<Guid>(r, nameof(ISyncRoot.Id))))
-            .ExecuteUpdateAsync(s => s.SetProperty(
-                r => EF.Property<DateTime>(r, nameof(ISyncRoot.UpdatedAt)), now));
+        return context.Set<TRoot>()
+            .Where(which)
+            .ExecuteUpdateAsync(s => s.SetProperty(r => EF.Property<DateTime>(r, nameof(ISyncRoot.UpdatedAt)), now));
     }
 
     /// <summary>Records that <paramref name="userId"/>'s rows <paramref name="ids"/> were
@@ -62,5 +82,81 @@ internal static class SyncChanges
                 DeletedAt = now,
             });
         }
+    }
+
+    /// <summary>Stamps the roots <paramref name="ids"/> this transaction hasn't stamped yet:
+    /// tracked ones through their entry, so the stamp goes out with the save; the rest in
+    /// one <c>UPDATE</c> of the one column, without loading them.</summary>
+    /// <remarks>
+    /// Outside an explicit transaction the <c>UPDATE</c> commits on its own, before the save
+    /// it runs ahead of. If that save then fails the root has been stamped for nothing, and
+    /// the feed sends it once more than it needed to — the harmless direction. The other
+    /// order, a save that commits with a stamp that doesn't, is a change nobody hears of.
+    /// </remarks>
+    internal static async Task StampAsync<TRoot>(
+        AppDbContext context,
+        IReadOnlyCollection<Guid> ids,
+        DateTime now,
+        bool async,
+        CancellationToken ct,
+        IEnumerable<EntityEntry>? tracked = null)
+        where TRoot : class, ISyncRoot
+    {
+        if (ids.Count == 0) return;
+
+        var stamped = StampedInTransaction(context);
+        var pending = new HashSet<Guid>(ids);
+        if (stamped != null) pending.RemoveWhere(id => stamped.Contains((typeof(TRoot), id)));
+        if (pending.Count == 0) return;
+
+        foreach (var entry in tracked ?? context.ChangeTracker.Entries<TRoot>())
+        {
+            if (entry.Entity is not TRoot root || !pending.Remove(root.Id)) continue;
+            // A root being added is stamped already; one being deleted is not coming back.
+            if (entry.State is EntityState.Unchanged or EntityState.Modified)
+            {
+                entry.Property(nameof(ISyncRoot.UpdatedAt)).CurrentValue = now;
+            }
+            stamped?.Add((typeof(TRoot), root.Id));
+        }
+        if (pending.Count == 0) return;
+
+        var wanted = pending.ToList();
+        var query = context.Set<TRoot>().Where(r => wanted.Contains(EF.Property<Guid>(r, nameof(ISyncRoot.Id))));
+        Expression<Func<SetPropertyCalls<TRoot>, SetPropertyCalls<TRoot>>> set =
+            s => s.SetProperty(r => EF.Property<DateTime>(r, nameof(ISyncRoot.UpdatedAt)), now);
+        if (async) await query.ExecuteUpdateAsync(set, ct);
+        else query.ExecuteUpdate(set);
+        stamped?.UnionWith(wanted.Select(id => (typeof(TRoot), id)));
+    }
+
+    /// <summary>Records that the root <paramref name="id"/> was stamped in this transaction
+    /// by a statement that couldn't record it itself (<see cref="TouchWhereAsync{TRoot}"/>).</summary>
+    internal static void MarkStamped<TRoot>(this AppDbContext context, Guid id)
+        where TRoot : class, ISyncRoot =>
+        StampedInTransaction(context)?.Add((typeof(TRoot), id));
+
+    /// <summary>The roots already stamped in the context's current transaction, or null
+    /// outside one — where every save is its own transaction and stamps what it touches.</summary>
+    private static HashSet<(Type, Guid)>? StampedInTransaction(AppDbContext context)
+    {
+        if (context.Database.CurrentTransaction is not { } transaction) return null;
+        var record = Records.GetOrCreateValue(context);
+        if (!ReferenceEquals(record.Transaction, transaction))
+        {
+            record.Transaction = transaction;
+            record.Roots.Clear();
+        }
+        return record.Roots;
+    }
+
+    /// <summary>Per context, not per request scope or thread: a context is one unit of
+    /// work, and the table lets it go with the context.</summary>
+    private static readonly ConditionalWeakTable<AppDbContext, StampRecord> Records = new();
+
+    private sealed class StampRecord
+    {
+        public IDbContextTransaction? Transaction { get; set; }
+        public HashSet<(Type, Guid)> Roots { get; } = [];
     }
 }

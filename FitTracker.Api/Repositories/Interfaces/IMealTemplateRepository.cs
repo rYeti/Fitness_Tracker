@@ -3,7 +3,7 @@ using FitTracker.Api.Models;
 namespace FitTracker.Api.Repositories.Interfaces;
 
 /// <summary>Data-access contract for meal template management.</summary>
-public interface IMealTemplateRepository : IDeletedIdLookup
+public interface IMealTemplateRepository
 {
     /// <summary>Returns all meal templates for the specified user.</summary>
     /// <param name="changedSince">Only those whose aggregate changed at or after this instant, for the sync

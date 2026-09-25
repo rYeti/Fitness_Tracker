@@ -4,7 +4,7 @@ using FitTracker.Api.Models;
 namespace FitTracker.Api.Repositories.Interfaces;
 
 /// <summary>Data-access contract for weight tracking entries.</summary>
-public interface IWeightTrackingRepository : IDeletedIdLookup
+public interface IWeightTrackingRepository
 {
     /// <summary>Returns a single weight tracking entry by its ID.</summary>
     /// <param name="id">The ID of the entry to retrieve.</param>

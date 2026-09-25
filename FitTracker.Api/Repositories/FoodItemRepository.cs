@@ -37,9 +37,6 @@ public class FoodItemRepository(AppDbContext context) : IFoodItemRepository
     }
 
     /// <inheritdoc/>
-    public Task<bool> WasDeletedAsync(Guid userId, Guid id) => context.WasDeletedAsync(userId, id);
-
-    /// <inheritdoc/>
     public async Task<Guid?> GetOwnerAsync(Guid id) =>
         (await context.FoodItems.AsNoTracking()
             .Where(f => f.Id == id)

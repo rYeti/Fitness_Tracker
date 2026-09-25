@@ -3,7 +3,7 @@ using FitTracker.Api.Models;
 namespace FitTracker.Api.Repositories.Interfaces;
 
 /// <summary>Data-access contract for food item management.</summary>
-public interface IFoodItemRepository : IDeletedIdLookup
+public interface IFoodItemRepository
 {
     /// <summary>Returns all food items belonging to the specified user.</summary>
     /// <param name="changedSince">Only those whose aggregate changed at or after this instant, for the sync

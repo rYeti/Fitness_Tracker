@@ -25,13 +25,16 @@ namespace FitTracker.Api.Data;
 ///    | <see cref="MealTemplateItem"/> | its <see cref="MealTemplate"/>         |
 ///
 ///    A new child table under a synced root goes in <see cref="CollectRoots"/>. Leaving it
-///    out compiles, saves, and never sends the change to anyone.
+///    out compiles, saves, and never sends the change to anyone. A root the save isn't
+///    holding is stamped with one <c>UPDATE</c> of its <c>UpdatedAt</c>, not loaded, and a
+///    root is stamped at most once per transaction (<see cref="SyncChanges.StampAsync{TRoot}"/>).
 /// 3. writes a <see cref="SyncTombstone"/> for every root the save deletes, and for every
-///    meal food entry it deletes — including those a deleted meal takes with it, which the
-///    database removes without EF ever loading them.
+///    meal food entry it deletes. A deleted meal's foods are loaded and deleted by the save
+///    itself, rather than left to the database's cascade, so the tombstones are for exactly
+///    the rows the save removes.
 ///
-/// All of it is added to the same save, so it commits or fails with the change it
-/// describes. What the change tracker never sees — <c>ExecuteDelete</c>,
+/// Tombstones are added to the same save, so they commit or fail with the change they
+/// describe. What the change tracker never sees — <c>ExecuteDelete</c>,
 /// <c>ExecuteUpdate</c>, and the database's own cascades — is handled at those call sites
 /// (<see cref="SyncChanges"/>).
 ///
@@ -65,9 +68,11 @@ public sealed class SyncChangeInterceptor : SaveChangesInterceptor
 
     private static async Task RecordAsync(AppDbContext db, bool async, CancellationToken ct)
     {
-        // Entries() runs DetectChanges, so edits made to tracked entities without telling
-        // the context are seen here too.
-        var changed = db.ChangeTracker.Entries()
+        // One snapshot of the tracker for the whole save. Entries() runs DetectChanges, so
+        // edits made to tracked entities without telling the context are seen here too —
+        // and it scans everything tracked, so it runs once, not once per type asked about.
+        var tracked = db.ChangeTracker.Entries().ToList();
+        var changed = tracked
             .Where(e => e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
             .ToList();
         if (changed.Count == 0) return;
@@ -75,24 +80,30 @@ public sealed class SyncChangeInterceptor : SaveChangesInterceptor
         var now = DateTime.UtcNow;
         var roots = CollectRoots(changed);
 
-        roots.Workouts.UnionWith(await ParentsAsync(db, roots.WorkoutExercises,
+        roots.Workouts.UnionWith(await ParentsAsync(tracked, roots.WorkoutExercises,
             (WorkoutExercise e) => e.WorkoutId, ids => db.WorkoutExercises.Where(e => ids.Contains(e.Id)).Select(e => e.WorkoutId), async, ct));
-        roots.Sessions.UnionWith(await ParentsAsync(db, roots.SessionExercises,
+        roots.Sessions.UnionWith(await ParentsAsync(tracked, roots.SessionExercises,
             (ScheduledWorkoutExercise e) => e.ScheduledWorkoutId, ids => db.ScheduledWorkoutExercises.Where(e => ids.Contains(e.Id)).Select(e => e.ScheduledWorkoutId), async, ct));
 
         foreach (var entry in changed)
         {
-            if (entry.Entity is ISyncRoot && entry.State is EntityState.Added or EntityState.Modified) Stamp(entry, now);
+            if (entry.Entity is ISyncRoot && entry.State is EntityState.Added or EntityState.Modified)
+            {
+                entry.Property(nameof(ISyncRoot.UpdatedAt)).CurrentValue = now;
+            }
         }
 
-        await BumpAsync<Workout>(db, roots.Workouts, now, async, ct);
-        await BumpAsync<ScheduledWorkout>(db, roots.Sessions, now, async, ct);
-        await BumpAsync<Meal>(db, roots.Meals, now, async, ct);
-        await BumpAsync<WorkoutPlan>(db, roots.Plans, now, async, ct);
-        await BumpAsync<MealTemplate>(db, roots.Templates, now, async, ct);
+        await SyncChanges.StampAsync<Workout>(db, roots.Workouts, now, async, ct, OfType<Workout>(tracked));
+        await SyncChanges.StampAsync<ScheduledWorkout>(db, roots.Sessions, now, async, ct, OfType<ScheduledWorkout>(tracked));
+        await SyncChanges.StampAsync<Meal>(db, roots.Meals, now, async, ct, OfType<Meal>(tracked));
+        await SyncChanges.StampAsync<WorkoutPlan>(db, roots.Plans, now, async, ct, OfType<WorkoutPlan>(tracked));
+        await SyncChanges.StampAsync<MealTemplate>(db, roots.Templates, now, async, ct, OfType<MealTemplate>(tracked));
 
-        await BuryAsync(db, changed, now, async, ct);
+        await BuryAsync(db, tracked, changed, now, async, ct);
     }
+
+    private static IEnumerable<EntityEntry> OfType<T>(List<EntityEntry> tracked) =>
+        tracked.Where(e => e.Entity is T);
 
     /// <summary>The ids of the roots — or of the children one level down that lead to
     /// them — whose children this save touches.</summary>
@@ -122,10 +133,10 @@ public sealed class SyncChangeInterceptor : SaveChangesInterceptor
         return roots;
     }
 
-    /// <summary>The parents of <paramref name="childIds"/>, from the change tracker where it
-    /// holds them and from the database otherwise.</summary>
+    /// <summary>The parents of <paramref name="childIds"/>, from the tracker snapshot where
+    /// it holds them and from the database otherwise.</summary>
     private static async Task<IEnumerable<Guid>> ParentsAsync<TChild>(
-        AppDbContext db,
+        List<EntityEntry> tracked,
         HashSet<Guid> childIds,
         Func<TChild, Guid> parentOf,
         Func<List<Guid>, IQueryable<Guid>> storedParents,
@@ -137,10 +148,11 @@ public sealed class SyncChangeInterceptor : SaveChangesInterceptor
 
         var parents = new HashSet<Guid>();
         var unresolved = new HashSet<Guid>(childIds);
-        foreach (var entry in db.ChangeTracker.Entries<TChild>())
+        foreach (var entry in tracked)
         {
+            if (entry.Entity is not TChild child) continue;
             var id = (Guid)entry.Property("Id").CurrentValue!;
-            if (unresolved.Remove(id)) parents.Add(parentOf(entry.Entity));
+            if (unresolved.Remove(id)) parents.Add(parentOf(child));
         }
         if (unresolved.Count == 0) return parents;
 
@@ -149,35 +161,9 @@ public sealed class SyncChangeInterceptor : SaveChangesInterceptor
         return parents;
     }
 
-    /// <summary>Stamps the roots <paramref name="ids"/>, loading the ones this save isn't
-    /// already holding so their stamp is written by the same save.</summary>
-    private static async Task BumpAsync<TRoot>(AppDbContext db, HashSet<Guid> ids, DateTime now, bool async, CancellationToken ct)
-        where TRoot : class, ISyncRoot
-    {
-        if (ids.Count == 0) return;
-
-        var toLoad = new HashSet<Guid>(ids);
-        foreach (var entry in db.ChangeTracker.Entries<TRoot>())
-        {
-            if (!toLoad.Remove(entry.Entity.Id)) continue;
-            // A root being added is stamped already; one being deleted is not coming back.
-            if (entry.State is EntityState.Unchanged or EntityState.Modified) Stamp(entry, now);
-        }
-        if (toLoad.Count == 0) return;
-
-        var wanted = toLoad.ToList();
-        var query = db.Set<TRoot>().Where(r => wanted.Contains(EF.Property<Guid>(r, nameof(ISyncRoot.Id))));
-        foreach (var root in async ? await query.ToListAsync(ct) : query.ToList())
-        {
-            Stamp(db.Entry(root), now);
-        }
-    }
-
-    private static void Stamp(EntityEntry entry, DateTime now) =>
-        entry.Property(nameof(ISyncRoot.UpdatedAt)).CurrentValue = now;
-
     /// <summary>Adds a tombstone for every root and meal food entry this save deletes.</summary>
-    private static async Task BuryAsync(AppDbContext db, List<EntityEntry> changed, DateTime now, bool async, CancellationToken ct)
+    private static async Task BuryAsync(
+        AppDbContext db, List<EntityEntry> tracked, List<EntityEntry> changed, DateTime now, bool async, CancellationToken ct)
     {
         var deleted = changed.Where(e => e.State == EntityState.Deleted).ToList();
         if (deleted.Count == 0) return;
@@ -212,25 +198,13 @@ public sealed class SyncChangeInterceptor : SaveChangesInterceptor
             }
         }
 
-        // The foods a deleted meal takes with it. The database cascades them, so unless
-        // something loaded them, the change tracker never hears of them.
-        if (mealOwners.Count > 0)
-        {
-            var mealIds = mealOwners.Keys.ToList();
-            var cascaded = db.MealFoodEntries.AsNoTracking()
-                .Where(e => mealIds.Contains(e.MealId))
-                .Select(e => new { e.MealId, e.Id });
-            foreach (var e in async ? await cascaded.ToListAsync(ct) : cascaded.ToList())
-            {
-                foodsByMeal.Add((e.MealId, e.Id));
-            }
-        }
+        if (mealOwners.Count > 0) foodsByMeal.AddRange(await DeleteFoodsOfAsync(db, tracked, mealOwners.Keys.ToList(), async, ct));
 
-        var workoutOwners = await OwnersAsync<Workout>(db, sessionsByWorkout.Select(s => s.WorkoutId), async, ct);
+        var workoutOwners = await OwnersAsync<Workout>(db, tracked, sessionsByWorkout.Select(s => s.WorkoutId), async, ct);
         buried.AddRange(sessionsByWorkout.Select(s =>
             (workoutOwners.TryGetValue(s.WorkoutId, out var o) ? o : (Guid?)null, SyncEntityTypes.ScheduledWorkout, s.Id)));
 
-        var foodMealOwners = await OwnersAsync<Meal>(db, foodsByMeal.Select(f => f.MealId).Where(id => !mealOwners.ContainsKey(id)), async, ct);
+        var foodMealOwners = await OwnersAsync<Meal>(db, tracked, foodsByMeal.Select(f => f.MealId).Where(id => !mealOwners.ContainsKey(id)), async, ct);
         foreach (var (id, owner) in mealOwners) foodMealOwners[id] = owner;
         buried.AddRange(foodsByMeal.Select(f =>
             (foodMealOwners.TryGetValue(f.MealId, out var o) ? o : (Guid?)null, SyncEntityTypes.MealFood, f.Id)));
@@ -250,18 +224,55 @@ public sealed class SyncChangeInterceptor : SaveChangesInterceptor
         }
     }
 
-    /// <summary>The owner of each of the given rows, from the change tracker where it holds
-    /// them and from the database otherwise.</summary>
-    private static async Task<Dictionary<Guid, Guid>> OwnersAsync<TRoot>(AppDbContext db, IEnumerable<Guid> ids, bool async, CancellationToken ct)
+    /// <summary>Makes the save delete the foods of the meals <paramref name="mealIds"/> by
+    /// itself, and returns the ones it will delete.</summary>
+    /// <remarks>
+    /// The database would cascade them, out of the change tracker's sight, and a list of
+    /// their ids read here to tombstone them would be a guess at what that cascade removes.
+    /// Deleted by the save, the tombstones are for exactly the rows it deletes. A food this
+    /// save moves *out* of the meal (tracked, its current <c>MealId</c> another meal's) is
+    /// not deleted and gets no tombstone: the feed must never tell a device to delete a
+    /// live row. A food moved *in* by another request after this read would still go to
+    /// the cascade untombstoned; <c>MealRepository.DeleteMealAsync</c> stamps the meal
+    /// first, in its transaction, which is the row every such move stamps too, so a move
+    /// either commits before that stamp (and is read here) or waits for the delete to
+    /// commit (and fails on the missing meal).
+    /// </remarks>
+    private static async Task<List<(Guid MealId, Guid Id)>> DeleteFoodsOfAsync(
+        AppDbContext db, List<EntityEntry> tracked, List<Guid> mealIds, bool async, CancellationToken ct)
+    {
+        var query = db.MealFoodEntries.Where(e => mealIds.Contains(e.MealId));
+        var foods = async ? await query.ToListAsync(ct) : query.ToList();
+        // And any this save moves *into* one of the meals, which the query reads under
+        // the meal they're stored in.
+        foods.AddRange(tracked.Select(e => e.Entity).OfType<MealFoodEntry>());
+
+        var removed = new List<(Guid MealId, Guid Id)>();
+        foreach (var food in foods.Distinct())
+        {
+            var entry = db.Entry(food);
+            // A tracked entry answers the query with its current values, so a food already
+            // moved to another meal by this save is recognised here as not being in this one.
+            if (!mealIds.Contains(food.MealId)) continue;
+            if (entry.State is EntityState.Unchanged or EntityState.Modified) entry.State = EntityState.Deleted;
+            if (entry.State == EntityState.Deleted) removed.Add((food.MealId, food.Id));
+        }
+        return removed;
+    }
+
+    /// <summary>The owner of each of the given rows, from the tracker snapshot where it
+    /// holds them and from the database otherwise.</summary>
+    private static async Task<Dictionary<Guid, Guid>> OwnersAsync<TRoot>(
+        AppDbContext db, List<EntityEntry> tracked, IEnumerable<Guid> ids, bool async, CancellationToken ct)
         where TRoot : class, ISyncRoot
     {
         var owners = new Dictionary<Guid, Guid>();
         var unresolved = ids.ToHashSet();
         if (unresolved.Count == 0) return owners;
 
-        foreach (var entry in db.ChangeTracker.Entries<TRoot>())
+        foreach (var entry in tracked)
         {
-            if (unresolved.Remove(entry.Entity.Id)) owners[entry.Entity.Id] = Original<Guid>(entry, "UserId");
+            if (entry.Entity is TRoot root && unresolved.Remove(root.Id)) owners[root.Id] = Original<Guid>(entry, "UserId");
         }
         if (unresolved.Count == 0) return owners;
 

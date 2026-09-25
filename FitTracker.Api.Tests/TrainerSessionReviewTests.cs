@@ -38,15 +38,15 @@ public class TrainerSessionReviewTests : IDisposable
         _fx.Db.Exercise.Add(_squat);
         _fx.Db.SaveChanges();
 
-        _workouts = new WorkoutService(new WorkoutRepository(_fx.Db));
+        _workouts = new WorkoutService(new WorkoutRepository(_fx.Db), new SyncTombstoneRepository(_fx.Db));
         _console = new TrainerConsoleService(
             new ActiveRelationshipStub(_trainer.Id, _client.Id),
             null!,
-            new WorkoutPlanService(new WorkoutPlanRepository(_fx.Db)),
-            new ScheduledWorkoutService(new ScheduledWorkoutRepository(_fx.Db)),
+            new WorkoutPlanService(new WorkoutPlanRepository(_fx.Db), new SyncTombstoneRepository(_fx.Db)),
+            new ScheduledWorkoutService(new ScheduledWorkoutRepository(_fx.Db), new SyncTombstoneRepository(_fx.Db)),
             null!,
             null!,
-            new ExerciseService(new ExerciseRepository(_fx.Db)),
+            new ExerciseService(new ExerciseRepository(_fx.Db), new SyncTombstoneRepository(_fx.Db)),
             null!,
             _workouts,
             null!);
@@ -224,7 +224,7 @@ public class TrainerSessionReviewTests : IDisposable
         LogSets(session, exercise, reps: 3, weight: 30, count: 2);
         var entry = _fx.Db.ScheduledWorkoutExercises.Single(e => e.ScheduledWorkoutId == session.Id);
 
-        var scheduled = new ScheduledWorkoutService(new ScheduledWorkoutRepository(_fx.Db));
+        var scheduled = new ScheduledWorkoutService(new ScheduledWorkoutRepository(_fx.Db), new SyncTombstoneRepository(_fx.Db));
         await scheduled.AddSetsBatchAsync(entry.Id, _client.Id,
         [
             new WorkoutSetRequestDto { SetNumber = 1, Reps = 5, Weight = 35, WeightUnit = "kg", IsCompleted = true },
@@ -289,7 +289,7 @@ public class TrainerSessionReviewTests : IDisposable
         retired.RemovedAt = DateTime.UtcNow;
         await _fx.Db.SaveChangesAsync();
 
-        var scheduling = new ScheduledWorkoutService(new ScheduledWorkoutRepository(_fx.Db));
+        var scheduling = new ScheduledWorkoutService(new ScheduledWorkoutRepository(_fx.Db), new SyncTombstoneRepository(_fx.Db));
         var created = await scheduling.CreateScheduledWorkoutAsync(new ScheduledWorkoutRequestDto
         {
             WorkoutId = workout.Id,
@@ -333,7 +333,7 @@ public class TrainerSessionReviewTests : IDisposable
         var workout = AddWorkout("Lower A");
         AddWorkoutExercise(workout, sets: 3);
 
-        var scheduling = new ScheduledWorkoutService(new ScheduledWorkoutRepository(_fx.Db));
+        var scheduling = new ScheduledWorkoutService(new ScheduledWorkoutRepository(_fx.Db), new SyncTombstoneRepository(_fx.Db));
         var dto = new ScheduledWorkoutRequestDto
         {
             WorkoutId = workout.Id,
@@ -469,7 +469,7 @@ public class TrainerSessionReviewTests : IDisposable
         var entry = LogSets(session, exercise, reps: 8, weight: 100, count: 3);
 
         // Written the way the sync client writes it, through the owner-scoped endpoint.
-        var written = await new ScheduledWorkoutService(new ScheduledWorkoutRepository(_fx.Db))
+        var written = await new ScheduledWorkoutService(new ScheduledWorkoutRepository(_fx.Db), new SyncTombstoneRepository(_fx.Db))
             .UpdateExerciseNotesAsync(entry.Id, _client.Id, "Left knee caved on the last rep");
         Assert.True(written);
 
@@ -487,7 +487,7 @@ public class TrainerSessionReviewTests : IDisposable
 
         // Being the client's trainer grants read access to their training, never a
         // way to put words in their mouth.
-        var written = await new ScheduledWorkoutService(new ScheduledWorkoutRepository(_fx.Db))
+        var written = await new ScheduledWorkoutService(new ScheduledWorkoutRepository(_fx.Db), new SyncTombstoneRepository(_fx.Db))
             .UpdateExerciseNotesAsync(entry.Id, _trainer.Id, "Felt great");
 
         Assert.False(written);
@@ -504,7 +504,7 @@ public class TrainerSessionReviewTests : IDisposable
         entry.Notes = "Old note";
         _fx.Db.SaveChanges();
 
-        await new ScheduledWorkoutService(new ScheduledWorkoutRepository(_fx.Db))
+        await new ScheduledWorkoutService(new ScheduledWorkoutRepository(_fx.Db), new SyncTombstoneRepository(_fx.Db))
             .UpdateExerciseNotesAsync(entry.Id, _client.Id, "   ");
 
         Assert.Null((await _fx.Db.ScheduledWorkoutExercises.FindAsync(entry.Id))!.Notes);
@@ -575,7 +575,7 @@ public class TrainerSessionReviewTests : IDisposable
         // Pushed the way the sync client pushes a new set: the batch endpoint. Every
         // one of these fields existed on both sides of the API while the service that
         // builds the row quietly dropped all three.
-        await new ScheduledWorkoutService(new ScheduledWorkoutRepository(_fx.Db))
+        await new ScheduledWorkoutService(new ScheduledWorkoutRepository(_fx.Db), new SyncTombstoneRepository(_fx.Db))
             .AddSetsBatchAsync(entry.Id, _client.Id,
             [
                 new WorkoutSetRequestDto
@@ -602,7 +602,7 @@ public class TrainerSessionReviewTests : IDisposable
         var entry = LogSets(session, exercise, reps: 8, weight: 100, count: 1);
         var stored = _fx.Db.WorkoutSets.Single(s => s.ScheduledWorkoutExerciseId == entry.Id);
 
-        var updated = await new ScheduledWorkoutService(new ScheduledWorkoutRepository(_fx.Db))
+        var updated = await new ScheduledWorkoutService(new ScheduledWorkoutRepository(_fx.Db), new SyncTombstoneRepository(_fx.Db))
             .UpdateSetAsync(stored.Id, _client.Id, new WorkoutSetRequestDto
             {
                 SetNumber = 1, Reps = 8, Weight = 100, Rpe = 9, SetType = 3, Side = 1, IsCompleted = true,
@@ -630,7 +630,7 @@ public class TrainerSessionReviewTests : IDisposable
         // An app from before these fields synced sends a set without them. If an
         // absent field bound as 0, a second, older device editing the reps would
         // silently turn a warm-up into a working set.
-        await new ScheduledWorkoutService(new ScheduledWorkoutRepository(_fx.Db))
+        await new ScheduledWorkoutService(new ScheduledWorkoutRepository(_fx.Db), new SyncTombstoneRepository(_fx.Db))
             .UpdateSetAsync(stored.Id, _client.Id, new WorkoutSetRequestDto
             {
                 SetNumber = 1, Reps = 10, Weight = 100, IsCompleted = true,

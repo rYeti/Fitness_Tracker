@@ -4,7 +4,7 @@ using FitTracker.Api.Models;
 namespace FitTracker.Api.Repositories.Interfaces;
 
 /// <summary>Data-access contract for exercise records.</summary>
-public interface IExerciseRepository : IDeletedIdLookup
+public interface IExerciseRepository
 {
     /// <summary>Who owns the row stored under <paramref name="id"/>: null when there is none,
     /// <see cref="Guid.Empty"/> when it belongs to no user. Lets a create tell a repeat of

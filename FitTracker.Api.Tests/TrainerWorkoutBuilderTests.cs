@@ -38,17 +38,17 @@ public class TrainerWorkoutBuilderTests : IDisposable
         _client = _fx.AddUser("Marco", "Fenn");
         _fx.AddRelationship(_trainer.Id, _client.Id, TrainerClientStatus.Active);
 
-        _exercises = new ExerciseService(new ExerciseRepository(_fx.Db));
+        _exercises = new ExerciseService(new ExerciseRepository(_fx.Db), new SyncTombstoneRepository(_fx.Db));
         _console = new TrainerConsoleService(
             new ActiveRelationshipStub(_trainer.Id, _client.Id),
             null!,
-            new WorkoutPlanService(new WorkoutPlanRepository(_fx.Db)),
-            new ScheduledWorkoutService(new ScheduledWorkoutRepository(_fx.Db)),
+            new WorkoutPlanService(new WorkoutPlanRepository(_fx.Db), new SyncTombstoneRepository(_fx.Db)),
+            new ScheduledWorkoutService(new ScheduledWorkoutRepository(_fx.Db), new SyncTombstoneRepository(_fx.Db)),
             null!,
             null!,
             _exercises,
             null!,
-            new WorkoutService(new WorkoutRepository(_fx.Db)),
+            new WorkoutService(new WorkoutRepository(_fx.Db), new SyncTombstoneRepository(_fx.Db)),
             null!);
     }
 
@@ -149,7 +149,7 @@ public class TrainerWorkoutBuilderTests : IDisposable
             Name = "Leg Day",
             Exercises = [new ClientWorkoutExerciseRequestDto { ExerciseId = squat.Id, TargetReps = ["5"] }],
         });
-        var workoutService = new WorkoutService(new WorkoutRepository(_fx.Db));
+        var workoutService = new WorkoutService(new WorkoutRepository(_fx.Db), new SyncTombstoneRepository(_fx.Db));
 
         // The self-service path — no actingAsTrainer flag — is what the client's own app calls.
         var clientAttempt = await workoutService.DeleteWorkoutAsync(created.Workout!.Id, _client.Id);
@@ -170,7 +170,7 @@ public class TrainerWorkoutBuilderTests : IDisposable
             StartDate = DateTime.UtcNow.Date,
             IsFreeChoice = true,
         });
-        var planService = new WorkoutPlanService(new WorkoutPlanRepository(_fx.Db));
+        var planService = new WorkoutPlanService(new WorkoutPlanRepository(_fx.Db), new SyncTombstoneRepository(_fx.Db));
 
         Assert.Equal(PlanDeleteResult.AssignedByTrainer,
             await planService.DeletePlanAsync(planResult!.Id, _client.Id));
@@ -182,8 +182,8 @@ public class TrainerWorkoutBuilderTests : IDisposable
     [Fact]
     public async Task AClientCanStillDeleteAWorkoutAndPlanTheyBuiltThemselves()
     {
-        var workoutService = new WorkoutService(new WorkoutRepository(_fx.Db));
-        var planService = new WorkoutPlanService(new WorkoutPlanRepository(_fx.Db));
+        var workoutService = new WorkoutService(new WorkoutRepository(_fx.Db), new SyncTombstoneRepository(_fx.Db));
+        var planService = new WorkoutPlanService(new WorkoutPlanRepository(_fx.Db), new SyncTombstoneRepository(_fx.Db));
 
         var ownWorkout = await workoutService.CreateWorkoutAsync(new WorkoutRequestDto { Name = "My Own Day" }, _client.Id);
         var ownPlan = await planService.CreatePlanAsync(new WorkoutPlanRequestDto

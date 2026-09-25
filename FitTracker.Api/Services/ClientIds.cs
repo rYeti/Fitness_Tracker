@@ -29,12 +29,29 @@ public sealed class ClientIdConflictException(Guid id)
 /// delete. The app answers 410 by deleting its own copy, unless history on the device
 /// still hangs on the row, which then needs a fresh id. See docs/sync-architecture.md,
 /// part three (§30, §35).
+///
+/// A batch is refused whole, naming every deleted id it carried (<see cref="Ids"/>), so the
+/// device can drop them all and send the rest again in one round rather than one per id.
 /// </remarks>
-public sealed class ClientIdGoneException(Guid id)
-    : Exception($"The id {id} was deleted.")
+public sealed class ClientIdGoneException : Exception
 {
-    /// <summary>The id the caller asked for.</summary>
-    public Guid Id { get; } = id;
+    /// <summary>One deleted id.</summary>
+    public ClientIdGoneException(Guid id) : this([id]) { }
+
+    /// <summary>Every deleted id a request carried; at least one.</summary>
+    public ClientIdGoneException(IReadOnlyList<Guid> ids)
+        : base($"The id{(ids.Count == 1 ? "" : "s")} {string.Join(", ", ids)} {(ids.Count == 1 ? "was" : "were")} deleted.")
+    {
+        if (ids.Count == 0) throw new ArgumentException("A refusal names at least one id.", nameof(ids));
+        Ids = ids;
+    }
+
+    /// <summary>The first deleted id the caller asked for — the only one a single create
+    /// can carry, and the field a batch's older readers look at.</summary>
+    public Guid Id => Ids[0];
+
+    /// <summary>Every deleted id the request carried.</summary>
+    public IReadOnlyList<Guid> Ids { get; }
 }
 
 /// <summary>

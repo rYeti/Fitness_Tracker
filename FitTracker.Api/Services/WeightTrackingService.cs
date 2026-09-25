@@ -8,12 +8,15 @@ namespace FitTracker.Api.Services;
 public class WeightTrackingService : IWeightTrackingService
 {
     private readonly IWeightTrackingRepository _weightRepository;
+    private readonly ISyncTombstoneRepository _tombstones;
 
     /// <summary>Initialises a new instance of <see cref="WeightTrackingService"/>.</summary>
+    /// <param name="tombstones">Which of the caller's ids were deleted.</param>
     /// <param name="weightTrackingRepository">The weight tracking repository.</param>
-    public WeightTrackingService(IWeightTrackingRepository weightTrackingRepository)
+    public WeightTrackingService(IWeightTrackingRepository weightTrackingRepository, ISyncTombstoneRepository tombstones)
     {
         _weightRepository = weightTrackingRepository;
+        _tombstones = tombstones;
     }
 
     /// <inheritdoc/>
@@ -23,7 +26,7 @@ public class WeightTrackingService : IWeightTrackingService
             weightTrackingRequestDto.Id,
             userId,
             _weightRepository.GetOwnerAsync,
-            id => _weightRepository.WasDeletedAsync(userId, id),
+            id => _tombstones.WasDeletedAsync(userId, id),
             id => UpdateWeightAsync(id, userId, weightTrackingRequestDto),
             async id =>
             {

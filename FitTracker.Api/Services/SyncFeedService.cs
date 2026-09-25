@@ -59,16 +59,16 @@ public class SyncFeedService(
             MealTemplates = await mealTemplates.GetAllAsync(userId, since),
             Weights = await weights.GetWeightLogs(userId, since) ?? [],
             Settings = await settings.GetSettingsAsync(userId, since),
-            // A full answer lists what exists; a device starting from nothing has nothing a
-            // tombstone could remove.
-            Deleted = since is { } from
-                ? [.. (await tombstones.GetDeletedSinceAsync(userId, from)).Select(t => new SyncTombstoneDto
-                {
-                    EntityType = t.EntityType,
-                    EntityId = t.EntityId,
-                    DeletedAt = t.DeletedAt,
-                })]
-                : [],
+            // Without a cursor, every delete there has ever been. "No cursor" does not mean
+            // "holds nothing": an install upgrading to the feed already holds everything its
+            // old full pulls fetched, and has never had a cursor. Its first answer is the only
+            // one that can tell it about a delete made before it upgraded.
+            Deleted = [.. (await tombstones.GetDeletedSinceAsync(userId, since)).Select(t => new SyncTombstoneDto
+            {
+                EntityType = t.EntityType,
+                EntityId = t.EntityId,
+                DeletedAt = t.DeletedAt,
+            })],
             Cursor = cursor,
         };
     }

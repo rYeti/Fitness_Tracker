@@ -34,19 +34,19 @@ public class SyncFeedTests : IDisposable
 
     public void Dispose() => _fx.Dispose();
 
-    private WorkoutService Workouts => new(new WorkoutRepository(_fx.Db));
-    private ScheduledWorkoutService Sessions => new(new ScheduledWorkoutRepository(_fx.Db));
-    private MealService Meals => new(new MealRepository(_fx.Db));
+    private WorkoutService Workouts => new(new WorkoutRepository(_fx.Db), new SyncTombstoneRepository(_fx.Db));
+    private ScheduledWorkoutService Sessions => new(new ScheduledWorkoutRepository(_fx.Db), new SyncTombstoneRepository(_fx.Db));
+    private MealService Meals => new(new MealRepository(_fx.Db), new SyncTombstoneRepository(_fx.Db));
 
     private SyncFeedService Feed => new(
-        new ExerciseService(new ExerciseRepository(_fx.Db)),
+        new ExerciseService(new ExerciseRepository(_fx.Db), new SyncTombstoneRepository(_fx.Db)),
         Workouts,
-        new WorkoutPlanService(new WorkoutPlanRepository(_fx.Db)),
+        new WorkoutPlanService(new WorkoutPlanRepository(_fx.Db), new SyncTombstoneRepository(_fx.Db)),
         Sessions,
-        new FoodItemService(new FoodItemRepository(_fx.Db)),
+        new FoodItemService(new FoodItemRepository(_fx.Db), new SyncTombstoneRepository(_fx.Db)),
         Meals,
-        new MealTemplateService(new MealTemplateRepository(_fx.Db)),
-        new WeightTrackingService(new WeightTrackingRepository(_fx.Db)),
+        new MealTemplateService(new MealTemplateRepository(_fx.Db), new SyncTombstoneRepository(_fx.Db)),
+        new WeightTrackingService(new WeightTrackingRepository(_fx.Db), new SyncTombstoneRepository(_fx.Db)),
         new UserSettingsService(new UserSettingsRepository(_fx.Db)),
         new SyncTombstoneRepository(_fx.Db));
 
@@ -60,7 +60,7 @@ public class SyncFeedTests : IDisposable
     /// <summary>One of everything, for <paramref name="user"/>.</summary>
     private async Task<(Guid Workout, Guid Session, Guid Meal)> SeedAsync(User user)
     {
-        var exercise = new ExerciseService(new ExerciseRepository(_fx.Db));
+        var exercise = new ExerciseService(new ExerciseRepository(_fx.Db), new SyncTombstoneRepository(_fx.Db));
         await exercise.CreateExercise(new ExerciseRequestDto { Name = "Sissy Squat", IsCustom = true }, user.Id);
         var workout = _fx.AddWorkout(user.Id);
         var entry = _fx.AddWorkoutExercise(workout.Id, Guid.NewGuid());
@@ -70,9 +70,9 @@ public class SyncFeedTests : IDisposable
         var food = _fx.AddFoodItem(user.Id);
         var meal = _fx.AddMeal(user.Id, new DateTime(2026, 3, 1, 23, 0, 0, DateTimeKind.Utc));
         _fx.AddFoodToMeal(meal.Id, food.Id);
-        await new MealTemplateService(new MealTemplateRepository(_fx.Db))
+        await new MealTemplateService(new MealTemplateRepository(_fx.Db), new SyncTombstoneRepository(_fx.Db))
             .CreateAsync(new MealTemplateRequestDto { Name = "Overnight oats", Category = "Breakfast" }, user.Id);
-        await new WeightTrackingService(new WeightTrackingRepository(_fx.Db))
+        await new WeightTrackingService(new WeightTrackingRepository(_fx.Db), new SyncTombstoneRepository(_fx.Db))
             .LogWeightAsync(new WeightTrackingRequestDto { Date = DateTime.UtcNow, Weight = 81.4 }, user.Id);
         await new UserSettingsService(new UserSettingsRepository(_fx.Db))
             .UpsertSettingsAsync(user.Id, new UserSettingsRequestDto { DailyCalorieGoal = 2400 });
@@ -82,10 +82,12 @@ public class SyncFeedTests : IDisposable
     // ── Without a cursor ─────────────────────────────────────────────────────
 
     [Fact]
-    public async Task WithoutACursorItReturnsEverythingTheCallerHasAndNoDeletes()
+    public async Task WithoutACursorItReturnsEverythingTheCallerHasAndEveryDelete()
     {
-        // A first pull on a new install: everything that exists, and nothing to delete —
-        // a device starting from nothing holds nothing a tombstone could remove.
+        // No cursor is not the same as no data. An install upgrading to the feed holds
+        // everything its old full pulls fetched and has never had a cursor, so its first
+        // answer is the only one that can tell it about a delete made before it upgraded —
+        // however long ago that was.
         await SeedAsync(_me);
         var gone = _fx.AddWorkout(_me.Id);
         await Workouts.DeleteWorkoutAsync(gone.Id, _me.Id);
@@ -102,7 +104,8 @@ public class SyncFeedTests : IDisposable
         Assert.Single(changes.MealTemplates);
         Assert.Single(changes.Weights);
         Assert.NotNull(changes.Settings);
-        Assert.Empty(changes.Deleted);
+        var deleted = Assert.Single(changes.Deleted);
+        Assert.Equal((SyncEntityTypes.Workout, gone.Id), (deleted.EntityType, deleted.EntityId));
     }
 
     // ── With a cursor ────────────────────────────────────────────────────────
@@ -225,8 +228,8 @@ public class SyncFeedTests : IDisposable
         _fx.AddRelationship(_someoneElse.Id, _me.Id, TrainerClientStatus.Active);
         var console = new TrainerConsoleService(
             new ActiveRelationshipStub(_someoneElse.Id, _me.Id), null!,
-            new WorkoutPlanService(new WorkoutPlanRepository(_fx.Db)), Sessions, null!, null!,
-            new ExerciseService(new ExerciseRepository(_fx.Db)), null!, Workouts, null!);
+            new WorkoutPlanService(new WorkoutPlanRepository(_fx.Db), new SyncTombstoneRepository(_fx.Db)), Sessions, null!, null!,
+            new ExerciseService(new ExerciseRepository(_fx.Db), new SyncTombstoneRepository(_fx.Db)), null!, Workouts, null!);
         var created = await console.CreateClientWorkoutAsync(_someoneElse.Id, _me.Id, new ClientWorkoutRequestDto { Name = "Leg Day" });
         _fx.Backdate(LongAgo);
 
@@ -256,9 +259,14 @@ public class SyncFeedTests : IDisposable
         // The overlap's job: a transaction that stamped its rows a moment before the last
         // answer began, but committed after that answer's queries ran, was invisible to it.
         // The next answer, from the returned cursor, still includes it.
+        //
+        // The stamp is taken from the clock before the last answer began, not from the
+        // cursor it returned: a stamp derived from the cursor lands after it whatever the
+        // overlap is, and the test would pass with the overlap removed.
         var workout = _fx.AddWorkout(_me.Id);
+        var before = DateTime.UtcNow;
         var first = await ChangesAsync(_me, since: null);
-        await _fx.Db.Workouts.ExecuteUpdateAsync(s => s.SetProperty(w => w.UpdatedAt, first.Cursor.AddMinutes(1)));
+        await _fx.Db.Workouts.ExecuteUpdateAsync(s => s.SetProperty(w => w.UpdatedAt, before.AddSeconds(-1)));
 
         var next = await ChangesAsync(_me, first.Cursor);
 

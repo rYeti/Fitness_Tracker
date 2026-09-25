@@ -4,7 +4,7 @@ using FitTracker.Api.Models;
 namespace FitTracker.Api.Repositories.Interfaces;
 
 /// <summary>Data-access contract for workout templates and their exercises and set templates.</summary>
-public interface IWorkoutRepository : IDeletedIdLookup
+public interface IWorkoutRepository
 {
     /// <summary>Returns all workouts belonging to the specified user.</summary>
     /// <param name="userId">The user's ID.</param>

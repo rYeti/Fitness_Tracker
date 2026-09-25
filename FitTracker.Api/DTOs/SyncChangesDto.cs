@@ -43,9 +43,10 @@ public class SyncChangesDto
     /// caller has never saved any).</summary>
     public UserSettingsResponseDto? Settings { get; set; }
 
-    /// <summary>Every row of the caller's deleted since the cursor. Empty when no cursor was
-    /// sent: a full answer lists what exists, and a device starting from nothing has nothing
-    /// to delete.</summary>
+    /// <summary>Every row of the caller's deleted since the cursor, or every one ever deleted
+    /// when no cursor was sent: an install upgrading to the feed already holds data and has
+    /// never had a cursor, and its first answer is the only one that can tell it about a
+    /// delete made before it upgraded.</summary>
     public List<SyncTombstoneDto> Deleted { get; set; } = [];
 
     /// <summary>What to send as <c>since</c> next time: when this answer began, minus an
