@@ -25,7 +25,7 @@ public class MealCreationTests : IDisposable
 
     public MealCreationTests()
     {
-        _meals = new MealService(new MealRepository(_fx.Db));
+        _meals = new MealService(new MealRepository(_fx.Db), new SyncTombstoneRepository(_fx.Db));
     }
 
     public void Dispose() => _fx.Dispose();

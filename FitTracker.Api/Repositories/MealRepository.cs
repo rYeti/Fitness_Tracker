@@ -57,9 +57,6 @@ public class MealRepository(AppDbContext context) : IMealRepository
     }
 
     /// <inheritdoc/>
-    public Task<bool> WasDeletedAsync(Guid userId, Guid id) => context.WasDeletedAsync(userId, id);
-
-    /// <inheritdoc/>
     public async Task<Guid?> GetOwnerAsync(Guid id) =>
         (await context.Meals.AsNoTracking()
             .Where(m => m.Id == id)
@@ -69,11 +66,36 @@ public class MealRepository(AppDbContext context) : IMealRepository
     /// <inheritdoc/>
     public async Task<List<MealFoodEntry>?> UpsertFoodEntriesAsync(Guid mealId, Guid userId, IReadOnlyList<MealFoodEntryRequestDto> entries)
     {
+        // All or nothing. Each entry saves on its own (below), so without a transaction an
+        // entry refused halfway through left the ones before it applied and the meal
+        // stamped — and another device pulled half a meal.
+        await using var transaction = context.Database.CurrentTransaction == null
+            ? await context.Database.BeginTransactionAsync()
+            : null;
+
         if (!await context.Meals.AnyAsync(m => m.Id == mealId && m.UserId == userId)) return null;
+
+        // Every deleted id in one query, before anything is written, and refused together:
+        // answered one at a time, a meal holding n foods removed elsewhere took n rounds to
+        // converge. An id still stored is resolved by ClientIds as a repeat before any
+        // tombstone is asked about, so only ids with no row are gone.
+        var sent = entries.Select(e => ClientIds.Requested(e.Id)).OfType<Guid>().Distinct().ToList();
+        if (sent.Count > 0)
+        {
+            var gone = await context.SyncTombstones
+                .Where(t => t.UserId == userId && sent.Contains(t.EntityId)
+                    && !context.MealFoodEntries.Any(e => e.Id == t.EntityId))
+                .Select(t => t.EntityId)
+                .Distinct()
+                .ToListAsync();
+            if (gone.Count > 0) throw new ClientIdGoneException([.. sent.Where(gone.Contains)]);
+        }
 
         // One entry at a time through ClientIds, which is what makes a repeat of an id — a
         // retry after a lost answer, or the whole meal sent again after an edit — land on the
-        // row it made rather than beside it, and refuses an id that is someone else's.
+        // row it made rather than beside it, and refuses an id that is someone else's. The
+        // meal is written once, by the first save, however many entries follow: a root is
+        // stamped once per transaction.
         var stored = new List<MealFoodEntry>(entries.Count);
         foreach (var e in entries)
         {
@@ -81,7 +103,8 @@ public class MealRepository(AppDbContext context) : IMealRepository
                 e.Id,
                 userId,
                 GetFoodEntryOwnerAsync,
-                id => context.WasDeletedAsync(userId, id),
+                // Asked above, for the whole batch.
+                _ => Task.FromResult(false),
                 id => PlaceFoodEntryAsync(id, mealId, e.FoodItemId),
                 async id =>
                 {
@@ -92,6 +115,7 @@ public class MealRepository(AppDbContext context) : IMealRepository
                 });
             stored.Add(entry!);
         }
+        if (transaction != null) await transaction.CommitAsync();
         return stored;
     }
 
@@ -133,11 +157,27 @@ public class MealRepository(AppDbContext context) : IMealRepository
     /// <inheritdoc/>
     public async Task<bool> DeleteMealAsync(Guid id, Guid userId)
     {
+        // The save loads the meal's foods and deletes them itself, so each gets a tombstone
+        // (SyncChangeInterceptor). A food moved into the meal after that load would go to the
+        // database's cascade with none. Stamping the meal first, in the delete's transaction,
+        // closes that for the foods batch, which is how the app adds and moves foods: it
+        // stamps the meal inside its own transaction before writing a food, so it either
+        // committed before this stamp — and the load sees its foods — or waits on the meal's
+        // row until the delete commits, and then finds no meal to write into. (Shipped apps'
+        // single add, AddFoodToMealAsync, saves without a transaction and so isn't held
+        // back; the id it creates is the server's own, not one a device could send again.)
+        await using var transaction = context.Database.CurrentTransaction == null
+            ? await context.Database.BeginTransactionAsync()
+            : null;
+
         var meal = await context.Meals.FirstOrDefaultAsync(m => m.Id == id && m.UserId == userId);
         if (meal == null) return false;
 
+        await context.TouchWhereAsync<Meal>(m => m.Id == id);
+
         context.Meals.Remove(meal);
         await context.SaveChangesAsync();
+        if (transaction != null) await transaction.CommitAsync();
         return true;
     }
 
@@ -153,6 +193,7 @@ public class MealRepository(AppDbContext context) : IMealRepository
     /// <inheritdoc/>
     public Task<List<Meal>> GetAllMealsAsync(Guid userId, DateTime? changedSince = null) =>
         context.Meals
+            .AsNoTracking()
             .Where(m => m.UserId == userId)
             .ChangedSince(changedSince)
             .Include(m => m.FoodEntries)

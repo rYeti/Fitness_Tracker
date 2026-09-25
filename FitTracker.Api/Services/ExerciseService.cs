@@ -9,10 +9,12 @@ public class ExerciseService : IExerciseService
 {
 
     private readonly IExerciseRepository _exerciseRepository;
+    private readonly ISyncTombstoneRepository _tombstones;
 
-    public ExerciseService(IExerciseRepository exerciseRepository)
+    public ExerciseService(IExerciseRepository exerciseRepository, ISyncTombstoneRepository tombstones)
     {
         _exerciseRepository = exerciseRepository;
+        _tombstones = tombstones;
     }
 
     /// <inheritdoc/>
@@ -24,7 +26,7 @@ public class ExerciseService : IExerciseService
             exercise.Id,
             userId,
             _exerciseRepository.GetOwnerAsync,
-            id => _exerciseRepository.WasDeletedAsync(userId, id),
+            id => _tombstones.WasDeletedAsync(userId, id),
             id => UpdateExercise(id, userId, exercise),
             async id => ToResponseDto(await _exerciseRepository.CreateExercisesAsync(new Exercise
             {

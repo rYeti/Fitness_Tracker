@@ -16,9 +16,6 @@ public class ExerciseRepository : IExerciseRepository
     }
 
     /// <inheritdoc/>
-    public Task<bool> WasDeletedAsync(Guid userId, Guid id) => _context.WasDeletedAsync(userId, id);
-
-    /// <inheritdoc/>
     public async Task<Guid?> GetOwnerAsync(Guid id)
     {
         // A system exercise has no owner; it is nobody's to create again.
@@ -55,6 +52,7 @@ public class ExerciseRepository : IExerciseRepository
     public async Task<List<Exercise>> GetUserExercisesAsync(Guid id, DateTime? changedSince = null)
     {
         return await _context.Exercise
+            .AsNoTracking()
             .Where(w => w.UserId == id)
             .ChangedSince(changedSince)
             .ToListAsync();

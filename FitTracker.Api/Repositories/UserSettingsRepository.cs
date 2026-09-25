@@ -10,7 +10,7 @@ public class UserSettingsRepository(AppDbContext context) : IUserSettingsReposit
 {
     /// <inheritdoc/>
     public Task<UserSettings?> GetByUserIdAsync(Guid userId, DateTime? changedSince = null) =>
-        context.UserSettings.Where(s => s.UserId == userId).ChangedSince(changedSince).FirstOrDefaultAsync();
+        context.UserSettings.AsNoTracking().Where(s => s.UserId == userId).ChangedSince(changedSince).FirstOrDefaultAsync();
 
     /// <inheritdoc/>
     public async Task<UserSettings> UpsertAsync(Guid userId, UserSettings settings)

@@ -1650,8 +1650,26 @@ every save, reads the change tracker, and:
    the one it left as much as the one it joined;
 3. writes the tombstones (§29).
 
-A root the save isn't already holding is loaded and stamped in the same save,
-so the stamp commits or fails with the change it describes.
+A root the save isn't already holding is stamped with one `UPDATE` of its
+`UpdatedAt` column, issued just before the save's own statements. It is not
+loaded. The first version loaded every such root, tracked, and let the save
+write it back. That cost a `SELECT` and a whole-row `UPDATE` per save, and the
+foods batch saves once per entry, so a meal of eight foods was written eight
+times.
+
+A root is also stamped at most once per transaction
+(`SyncChanges.StampAsync`, which keeps a record per context of what the
+current transaction has stamped). Inside one transaction nobody else can see
+anything before the commit. The first stamp is therefore the one every reader
+sees, and the next seven would only take the same row lock again. The
+record is what makes a foods batch write its meal once, and a sets replace
+write its session once instead of twice (§28).
+
+Outside an explicit transaction that `UPDATE` commits on its own, ahead of the
+save it belongs to. If the save then fails, the root has been stamped for
+nothing and the feed sends it once more than it needed to. That is the harmless
+direction. The other order, a save that commits while its stamp doesn't, is a
+change nobody hears of.
 
 This is part one's argument about triggers, on the other side of the wire. A
 rule every repository must remember ("set `UpdatedAt` when you change a root,
@@ -1738,23 +1756,90 @@ through it. Three kinds of write don't:
   or change rows of *other tables* that EF never loaded;
 - raw SQL, of which there is none on synced tables.
 
-Every one of these on synced data has to say what it did by hand, with two
-helpers in `SyncChanges` (`FitTracker.Api/Data/SyncChanges.cs`): `TouchAsync`
-stamps roots in one statement, and `Bury` adds tombstones to the next save.
+Every one of these on synced data has to say what it did by hand, with three
+helpers in `SyncChanges` (`FitTracker.Api/Data/SyncChanges.cs`):
+
+- `TouchAsync` stamps roots named by id, in one statement;
+- `TouchWhereAsync` stamps whichever roots a predicate matches when the
+  statement runs;
+- `Bury` adds tombstones to the next save.
+
 These are all of them:
 
 | Call site | What EF doesn't see | What it now does |
 |---|---|---|
-| `ReplaceListAsync` (`DbContextExtensions.cs`), behind the set and set-template replaces | the bulk delete of the list — and of the caller's rows stored under the sent ids in *other* lists, which the app moved there | stamps the root of every row the delete removes, in the replace's transaction (`rootOf`) |
-| `WorkoutRepository.DeleteWorkoutAsync` | the bulk delete of the workout's placeholder sessions | a tombstone for each |
-| the same | the cascade deleting links in plans that list the workout | stamps those plans |
+| `ReplaceListAsync` (`DbContextExtensions.cs`), behind the set and set-template replaces | the bulk delete of the list — and of the caller's rows stored under the sent ids in *other* lists, which the app moved there | immediately before the delete, one statement stamps the list's own root and the root of every row the delete is about to remove |
+| `WorkoutRepository.DeleteWorkoutAsync` | the bulk delete of the workout's placeholder sessions | a tombstone for each one actually deleted |
+| the same | the cascade deleting links in plans that list the workout | stamps, by predicate, the plans listing it, immediately before the delete |
 | `WorkoutRepository.DeleteWorkoutExerciseAsync` | the bulk delete of the placeholder entries sessions hold for the exercise | stamps those sessions |
-| `WorkoutPlanRepository.DeletePlanAsync` | `SET NULL` on each of the plan's sessions | stamps those sessions |
-| a meal delete (any) | the cascade deleting the meal's foods | the interceptor queries them and writes their tombstones (§29) |
+| `WorkoutPlanRepository.DeletePlanAsync` | `SET NULL` on each of the plan's sessions | stamps, by predicate, the plan's sessions, immediately before the delete |
+| `MealRepository.DeleteMealAsync` | the cascade deleting the meal's foods | nothing is left to the cascade: the save loads the foods and deletes them itself, and each gets a tombstone (§29) |
 | `UserRepository.DeleteUserAsync` | everything, by cascade | nothing: the account's tombstones go with it, and there is no device left to tell |
 
-The ones that were not already in a transaction now run in one, so the stamp or
-the tombstone commits if and only if the write it describes does.
+Each runs in one transaction, begun before anything it decides from is read,
+so the stamp or the tombstone commits if and only if the write it describes
+does.
+
+### A list read first is already out of date
+
+The first version of this table did the right things from the wrong
+information. Each call site read a list, then wrote. It read the roots to stamp
+and the sessions that were "only placeholders", and afterwards it deleted.
+The list was correct when it was read. By the time the delete ran, another
+request could have committed a change it didn't include. Postgres runs these
+transactions at READ COMMITTED, so each statement sees whatever has committed
+by the time that statement starts. Starting a transaction is not enough: a
+transaction begun before the read still lets the next statement see a newer
+database than the read did.
+
+| Time | Trainer deletes a client's workout | The client's phone |
+|---|---|---|
+| t0 | reads the sessions: all placeholders, none has a logged set | |
+| t1 | | logs a set in one of those sessions and commits |
+| t2 | deletes the sessions it read, by id | |
+| | the cascade deletes the set; the session's tombstone tells every other device to delete it too | the set is gone from the server |
+
+The same shape hid in four more places. A plan linked the workout between the
+read of the plans and the cascade that removed the link. A session was
+scheduled under a plan between the read and `SET NULL`. A set was stored under
+an id the replace was sent between the read of the roots and the delete. A food
+was moved into a meal between the read of its foods and the meal's cascade.
+Each time, a row was changed or deleted and nothing told a device.
+
+The fix is the same each time: **the write asks the question itself, as it
+runs.**
+
+- **A delete that was guarded by a read repeats the guard in its own
+  predicate.** The placeholder delete is `emptySessionIds.Contains(sw.Id) &&
+  !sw.Exercises.Any(e => e.Sets.Any())`. A session that gained a set since the
+  read is left alone. The call site then compares the row count with the list
+  it read. For a workout, the rows actually deleted get tombstones and the
+  workout stays (`HasLoggedHistory`). For a workout exercise, the entry is
+  retired instead of deleted, because it has history now. A tombstone is
+  written only for a row the delete really removed. A tombstone for a session
+  that survived would make every device delete that session, and the set with
+  it.
+- **A stamp before a cascade is a predicate, issued immediately before the
+  statement that cascades.** For example,
+  `WorkoutPlans.Where(p => p.PlanWorkouts.Any(l => l.WorkoutId == id))`, with
+  no list of ids read beforehand. The window can't be closed completely
+  without locking, but there is no longer a round trip inside it. The
+  `UPDATE` also takes a row lock on every root it stamps. Every other writer of
+  that root's children stamps the same row (§27), so that writer now waits for
+  this transaction to finish.
+- **The replace names its list's root outright**
+  (`ReplaceListAsync(…, listRoot, …)`), as well as the roots of the rows it is
+  about to delete. So even an empty list stamps, and locks, its root. The replace
+  records that root as stamped, so the insert's save doesn't write it again.
+
+Nothing in the suite could see any of this, because it takes two requests.
+Every test runs one call on one connection, and a race needs a second writer
+between two of that call's statements. `InterleavedCommit`
+(`FitTracker.Api.Tests/InterleavedCommit.cs`) plays that writer. It runs one
+statement on the call's own connection just before the call's first write, so
+the call has already read and hasn't written yet. Each race above now has a
+test that injects the other request's row there. The test fails against the
+read-then-write version and passes when the write asks for itself.
 
 ### Why nothing would catch the next one
 
@@ -1778,8 +1863,10 @@ exact about why.
 
 So the rule is a rule, and the test is how it is kept: **a new `ExecuteDelete`
 or `ExecuteUpdate` on a synced table, or a new `ON DELETE` rule between them,
-stamps or buries at the call site, and gets a test that backdates every root
-(`DbFixture.Backdate`) and checks the one it should have moved.**
+stamps or buries at the call site — by predicate, in the write's transaction,
+immediately before it, never from a list read earlier — and gets a test that
+backdates every root (`DbFixture.Backdate`) and checks the one it should have
+moved, and one that commits a row in between with `InterleavedCommit`.**
 
 ---
 
@@ -1804,10 +1891,30 @@ A food's id is therefore one a device that hasn't pulled can send again, into
 this meal or — after its dedup folds moved it — into another, and refusing
 that (§30) needs a record of the id.
 
-For the same reason a deleted meal's foods get tombstones too. The database
-cascades them without EF ever loading them, so the interceptor asks for them
-before the save. Without that, a device that had folded the deleted meal's twin
-into another could upsert the deleted meal's foods into the survivor.
+For the same reason a deleted meal's foods get tombstones too. Without them, a
+device that had folded the deleted meal's twin into another could upsert the
+deleted meal's foods into the survivor. The database would cascade them without
+EF ever loading them. The first version listed them with a `SELECT` before the
+save and tombstoned that list. It was a list of what the cascade was *expected*
+to remove, and it was wrong both ways:
+
+- a food moved into the meal after the `SELECT` went with the cascade and no
+  tombstone (§28's race);
+- a food the same save moved *out* of the meal was still listed under its old
+  meal. It got a tombstone although it survived, and the feed would have told
+  every device to delete a live food.
+
+The interceptor now loads the meal's foods, tracked, and deletes them itself
+in the same save (`DeleteFoodsOfAsync`). The tombstones are then for exactly
+the rows the save deletes, by construction. A tracked food answers that query
+with its current `MealId`, so one this save moves elsewhere is recognised and
+left alone. `MealRepository.DeleteMealAsync` stamps the meal first, inside its
+transaction, and that stamp is what closes the race. The foods batch, which is
+how the app adds and moves foods, stamps the same meal row inside *its*
+transaction before writing a food. Each of the two therefore waits for the
+other's row lock. A move either commits before the delete's stamp, and the load
+sees its food, or waits until the delete has committed and then finds no meal
+to write into.
 
 Workout exercises are the nearest case: the device creates them by id, and
 both the trainee and a trainer's Workout Builder remove them. A deleted one is
@@ -1876,9 +1983,35 @@ lost create answer (§15) ends the same way: a retry after the row was deleted
 elsewhere would bring it back.
 
 The 410 names the id, as the 409 does (`ClientIdGoneFilter`), because a foods
-batch can be refused for one of its entries and the device has to know which.
+batch can be refused for its entries and the device has to know which.
 It is registered globally for the 409's reason: a controller that forgot a
 catch would turn a deleted id into a 500 the app retries for ever.
+
+### A batch is refused whole
+
+The body is `{ "error": "id_deleted", "id": "…", "ids": ["…", …] }`. `ids`
+lists every deleted id the request carried. `id` is the first of them, kept
+because the device's first reader of a 410 looks there. A single create
+carries one id, so there the two say the same thing.
+
+The foods batch (`MealRepository.UpsertFoodEntriesAsync`) used to find out
+about a deleted id the way every create does: one entry at a time, as it
+reached it. Each entry saves on its own, and there was no transaction around
+them. When entry *k* was refused, entries 1 to *k*−1 had already been
+committed, the meal had been stamped, and the entries after *k* had never been
+looked at. Other devices then pulled a half-applied meal. The answer also named
+one gone id, so a meal holding *n* foods removed elsewhere took *n* sync rounds
+to settle.
+
+Now the batch runs in one transaction. Before it writes anything, it asks
+about every id it was sent in one query: which of them have a tombstone of the
+caller's and no row. If any do, it applies nothing and answers 410 with all of
+them. The device drops those entries and sends the rest in one more round. Any
+other refusal partway, such as a 409 for someone else's id, rolls back the
+entries before it too. The per-entry tombstone lookup inside `ClientIds` is
+given `_ => false` there, because the batch has already asked.
+`ABatchCarryingDeletedIdsIsRefusedWholeAndNamesEveryOne` and
+`ABatchRefusedPartWayAppliesNothing` pin both.
 
 ### Before the content check
 
@@ -1905,7 +2038,12 @@ device has since deleted is lost with the meal. That is the usual rule for
 tombstones, and the alternative — the edit resurrects the meal — is the bug.
 
 Every create that sends an id pays one indexed lookup, `(UserId, EntityId)`,
-and only when the id isn't already stored: a repeat is resolved before it.
+and only when the id isn't already stored: a repeat is resolved before it. The
+lookup is `ISyncTombstoneRepository.WasDeletedAsync`, which the services
+depend on directly. There is one exception. A workout exercise is never
+tombstoned (§29), so its create passes `_ => false` rather than run a query
+that can only answer no. That query would also have suggested, to anyone
+reading it, that a removed entry's id is refused. It isn't.
 
 ---
 
@@ -1925,14 +2063,38 @@ and only when the id isn't already stored: a repeat is resolved before it.
 | `mealTemplates` | as `GET api/MealTemplate`, with every item |
 | `weights` | as `GET api/WeightTracking/TrackWeight` |
 | `settings` | as `GET api/UserSettings`, or null when unchanged or never saved |
-| `deleted` | `[{ entityType, entityId, deletedAt }]`, every delete of the caller's since the cursor |
+| `deleted` | `[{ entityType, entityId, deletedAt }]`, every delete of the caller's since the cursor — or ever, without one |
 | `cursor` | the `since` to send next time |
 
 Each list holds the aggregates whose root was stamped at or after `since`.
-Without `since`, every list holds everything and `deleted` is empty: a device
-starting from nothing holds nothing a tombstone could remove. Built-in
-exercises are not the caller's data and are never in it; linking them to the
-device's seeded copies still goes through `GET api/Exercise/AllExercises`.
+Without `since`, every list holds everything and `deleted` holds every
+tombstone the caller has. Built-in exercises are not the caller's data and are
+never in it; linking them to the device's seeded copies still goes through
+`GET api/Exercise/AllExercises`.
+
+### No cursor is not the same as no data
+
+The first version sent no deletes with a full answer. Its reasoning was that a
+device with no cursor starts from nothing and holds nothing a tombstone could
+remove. That is true of a fresh install. It is false of the device that asks
+first and most often: an install upgrading to the app that reads the feed. That
+install holds everything its old full pulls downloaded, and it has never had a
+cursor.
+
+The API deploys when this pull request merges, and the app ships later. In
+between, every delete made on another device or by a trainer is recorded as a
+tombstone that the upgrading device has never seen. Its first answer is the
+only one that can pass those deletes on, because every later answer starts
+from a cursor after them. With `deleted: []` it could only have inferred them
+from absence, and absence is the inference this part exists to remove.
+
+So without a cursor, `deleted` is every tombstone the caller has. A fresh
+install receives deletes for rows it doesn't hold, and deleting a row that
+isn't there costs nothing. The alternative was to have the client send an
+epoch `since` on its first run. That puts a rule on every client for a case
+the server can cover by itself, and a client that forgot the rule would fail
+silently. `WithoutACursorItReturnsEverythingTheCallerHasAndEveryDelete` pins
+this behaviour.
 
 ### Why the existing DTOs
 
@@ -1970,6 +2132,13 @@ that whatever changed in the last two minutes is sent twice, and applying a row
 twice is harmless by construction. The cursor is the server's clock and never
 the device's, because a phone's clock is whatever its owner set it to.
 `ARowStampedJustBeforeTheLastAnswerArrivesWithTheNextOne` pins the overlap.
+The row's stamp in that test is read from the clock *before* the answer began,
+one second earlier. The first version took the stamp from the cursor the
+answer returned (`cursor + 1 minute`). A stamp derived from the cursor always
+lands after the cursor, whatever the overlap is, so that test still passed with
+the overlap set to zero. It now fails that way. A test that computes its input
+from the output of the code under test is often checking the code against
+itself.
 
 ### No paging
 
@@ -2037,6 +2206,26 @@ run below found a rule no test held, and fails with that rule taken out.
 | *WithoutACursor…*, *ItReturnsOnlyWhatChangedSinceTheCursor*, *AChildsChangeShipsItsWholeAggregate*, *ItReturnsTheDeletesSinceTheCursor*, *ItReturnsOnlyTheCallersData*, *ARetiredExerciseStillShipsInsideItsWorkout*, *ATrainersEditReachesTheClientsFeedAndNotTheTrainers* | §31 |
 | *TheCursorIsWhenTheAnswerBeganLessTwoMinutes*, *ARowStampedJustBeforeTheLastAnswerArrivesWithTheNextOne*, *TheEndpointAnswersForTheCallerAndReadsTheCursorAsAnInstant* | §31: the cursor, and `since` read as an instant whatever its offset |
 
+Twelve more were added after the owner's review, and
+*WithoutACursor…* now expects every delete. The first version passed the whole
+suite with each of the defects below, which is the reason each of these tests
+exists. Every one of them was checked against a mutation that puts the old
+behaviour back, and every one failed there:
+
+| Test | Pins | Fails when… |
+|---|---|---|
+| *WithoutACursorItReturnsEverythingTheCallerHasAndEveryDelete* | §31: deletes on a full answer | a full answer sends `deleted: []` |
+| *ABatchCarryingDeletedIdsIsRefusedWholeAndNamesEveryOne*, *ABatchsRefusalNamesEveryId…* | §30: all or nothing, every id | the up-front tombstone query is taken out |
+| *ABatchRefusedPartWayAppliesNothing* | §30: one transaction | the batch runs without one |
+| *DeletingAWorkoutKeepsASetLoggedAfterItsCheck*, *RemovingAnExerciseKeepsASetLoggedAfterItsCheck* | §28: the delete repeats its guard | the guard is dropped from the delete's predicate |
+| *DeletingAWorkoutBumpsAPlanThatListedItJustBefore*, *DeletingAPlanBumpsASessionScheduledUnderItJustBefore*, *AReplaceBumpsTheRootOfARowMovedUnderASentIdJustBefore* | §28: stamp by predicate, just before | the roots come from a list read earlier |
+| *DeletingAMealTombstonesAFoodMovedIntoItJustBefore* | §29: the meal is stamped first | the delete doesn't stamp the meal first |
+| *AFoodMovedOutOfAMealInTheSaveThatDeletesItGetsNoTombstone* | §29: tombstones for what the save deletes | foods are matched by the meal they're stored under |
+| *ABatchOfFoodsWritesItsMealOnce*, *AReplaceWritesItsSessionOnce* | §27: once per transaction | the per-transaction record is switched off |
+| *ARowStampedJustBefore…* (rewritten) | §31: the overlap | `Overlap` is zero |
+
+`SyncChangeTrackingTests.cs` now holds 39 tests and `SyncFeedTests.cs` 10.
+
 Then each rule was taken out on its own and the suite run again. Each of these
 failed at least one test: every explicit stamp and tombstone in §28's table; each
 child in the interceptor's map; the original parent of a move; the cascaded meal
@@ -2054,18 +2243,28 @@ chooses for an insert and a delete in one save.
 ## 34. The rules part three leaves behind (server)
 
 - **`UpdatedAt` is never set by hand.** The interceptor stamps it; a bulk write
-  stamps through `SyncChanges.TouchAsync`. A child table added under a synced
-  root goes in the interceptor's map (`CollectRoots`), or its changes never
-  leave the server.
+  stamps through `SyncChanges.TouchAsync` or `TouchWhereAsync`. A child table
+  added under a synced root goes in the interceptor's map (`CollectRoots`), or
+  its changes never leave the server. A root is written once per transaction,
+  and only its `UpdatedAt` column.
 - **A bulk write, or a database cascade, on a synced table says what it did.**
-  `TouchAsync` for the roots it changed, `Bury` for the roots it deleted, in the
-  same transaction as the write — and a test that backdates and checks, because
-  nothing else will notice (§28).
+  `TouchAsync`/`TouchWhereAsync` for the roots it changed, `Bury` for the roots
+  it deleted, in the same transaction as the write — and a test that backdates
+  and checks, because nothing else will notice (§28).
+- **A write never acts on a list read before it.** A delete guarded by a read
+  repeats the guard in its own predicate and tombstones only what it removed.
+  A stamp ahead of a cascade is a predicate issued immediately before that
+  statement. A race needs a test that commits in between (`InterleavedCommit`),
+  because no single-request test can fail on one (§28).
 - **Every root delete, and every meal food delete, leaves a tombstone,** written
-  by the save that deletes it. Tombstones are never pruned.
+  by the save that deletes it — for the rows it deletes, never for the rows it
+  expects a cascade to. Tombstones are never pruned.
 - **A create resolves a client id through `ClientIds.CreateOrResolveAsync`,**
-  which now needs `deletedByCaller` — the repository's `WasDeletedAsync` — and
-  refuses a deleted id with 410 before any content check runs.
+  which now needs `deletedByCaller` — `ISyncTombstoneRepository.WasDeletedAsync`
+  — and refuses a deleted id with 410 before any content check runs. A batch
+  asks for all its ids at once and is refused whole, naming every one.
+- **An answer without a cursor carries every tombstone.** No cursor means the
+  device has never asked, not that it holds nothing.
 - **The feed reuses the list endpoints' own services.** A new synced list is a
   list endpoint with a `changedSince` parameter, and a field in the feed is a
   field in that endpoint's DTO.
@@ -2547,6 +2746,10 @@ from, not of what they say. Five in `sync_rework_test.dart` changed in meaning:
 - **A new synced root needs, on the server, `UpdatedAt` and a tombstone on
   delete (§34), and a place in the feed; on the device, an apply method fed
   from the answer, a hold for a dirty copy, and a case in `_goneElsewhere`.**
+- **A 410 on a foods batch means the batch applied nothing.** The answer
+  names every deleted entry in `ids` (`id` is the first); the device drops all
+  of them in one pass and sends the rest again, so a meal that lost several
+  foods elsewhere converges in one retry, not one per food.
 
 ---
 

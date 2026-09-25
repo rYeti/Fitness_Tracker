@@ -42,9 +42,6 @@ public class WeightTrackingRepository(AppDbContext context) : IWeightTrackingRep
     }
 
     /// <inheritdoc/>
-    public Task<bool> WasDeletedAsync(Guid userId, Guid id) => _context.WasDeletedAsync(userId, id);
-
-    /// <inheritdoc/>
     public async Task<Guid?> GetOwnerAsync(Guid id) =>
         (await _context.WeightTrackings.AsNoTracking()
             .Where(w => w.Id == id)

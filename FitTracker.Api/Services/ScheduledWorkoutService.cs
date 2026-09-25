@@ -10,12 +10,15 @@ namespace FitTracker.Api.Services;
 public class ScheduledWorkoutService : IScheduledWorkoutService
 {
     private readonly IScheduledWorkoutRepository _scheduledRepository;
+    private readonly ISyncTombstoneRepository _tombstones;
 
     /// <summary>Initialises a new instance of <see cref="ScheduledWorkoutService"/>.</summary>
+    /// <param name="tombstones">Which of the caller's ids were deleted.</param>
     /// <param name="scheduledRepository">The scheduled workout repository.</param>
-    public ScheduledWorkoutService(IScheduledWorkoutRepository scheduledRepository)
+    public ScheduledWorkoutService(IScheduledWorkoutRepository scheduledRepository, ISyncTombstoneRepository tombstones)
     {
         _scheduledRepository = scheduledRepository;
+        _tombstones = tombstones;
     }
 
     /// <inheritdoc/>
@@ -72,7 +75,7 @@ public class ScheduledWorkoutService : IScheduledWorkoutService
             dto.Id,
             userId,
             _scheduledRepository.GetOwnerAsync,
-            id => _scheduledRepository.WasDeletedAsync(userId, id),
+            id => _tombstones.WasDeletedAsync(userId, id),
             id => UpdateScheduledWorkoutAsync(id, userId, dto),
             async id =>
             {

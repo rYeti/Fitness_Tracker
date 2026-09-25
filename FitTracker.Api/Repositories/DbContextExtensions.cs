@@ -57,11 +57,12 @@ internal static class DbContextExtensions
     ///    duplicate — never a row <paramref name="ownedByCaller"/> doesn't select, so a row
     ///    another account stored under one of those ids after step 1 survives, and the
     ///    insert below fails on its key rather than taking it;
-    /// 3. marks changed the root (<typeparamref name="TRoot"/>) of every row step 2 deleted —
-    ///    the bulk delete goes straight to the database, so the change tracking the sync feed
-    ///    reads never sees it, and a list replaced with nothing, or a row moved away from
-    ///    another parent, would otherwise never reach another device
-    ///    (docs/sync-architecture.md, part three);
+    /// 3. first, marks changed the list's own root (<paramref name="listRoot"/>) and the root
+    ///    (<typeparamref name="TRoot"/>) of every row step 2 is about to delete, in one
+    ///    statement whose predicate is evaluated just before the delete — the bulk delete
+    ///    goes straight to the database, so the change tracking the sync feed reads never
+    ///    sees it, and a list replaced with nothing, or a row moved away from another parent,
+    ///    would otherwise never reach another device (docs/sync-architecture.md, part three);
     /// 4. stops tracking the deleted rows, including in the parent's already-loaded list
     ///    (<paramref name="loadedList"/>), which fixup never prunes — a request that read the
     ///    parent, replaced its list and read it again would see both generations;
@@ -73,7 +74,9 @@ internal static class DbContextExtensions
     /// <param name="idOf">A row's id.</param>
     /// <param name="inList">Selects the rows currently in the list.</param>
     /// <param name="ownedByCaller">Selects the rows that belong to the caller.</param>
-    /// <param name="rootOf">The id of a row's sync root — the aggregate the feed ships it in.</param>
+    /// <param name="listRoot">The id of the list's own sync root — the aggregate the feed
+    /// ships the list in.</param>
+    /// <param name="rootOf">The id of a row's sync root.</param>
     /// <param name="loadedList">The parent's list navigation, if the context has it loaded.</param>
     public static async Task ReplaceListAsync<T, TRoot>(
         this AppDbContext context,
@@ -81,6 +84,7 @@ internal static class DbContextExtensions
         Func<T, Guid> idOf,
         Expression<Func<T, bool>> inList,
         Expression<Func<T, bool>> ownedByCaller,
+        Guid listRoot,
         Expression<Func<T, Guid>> rootOf,
         Func<ICollection<T>?> loadedList)
         where T : class
@@ -103,9 +107,20 @@ internal static class DbContextExtensions
         var replaced = context.Set<T>()
             .Where(ownedByCaller)
             .Where(OrElse(inList, sentId));
-        var emptied = await replaced.Select(rootOf).Distinct().ToListAsync();
+
+        // Stamped by predicate, immediately before the delete: the list's own root, and the
+        // root of every row the delete is about to remove. A list of those roots read
+        // earlier would miss a row committed in between, which the delete then removes
+        // without its root ever hearing of it. The list's root is named outright, so it is
+        // stamped (and its row locked against other writers of its children) even while
+        // its list is empty, and recorded as stamped so the insert's save below doesn't
+        // write it a second time.
+        var rootsOfReplaced = replaced.Select(rootOf);
+        await context.TouchWhereAsync<TRoot>(r =>
+            EF.Property<Guid>(r, nameof(ISyncRoot.Id)) == listRoot
+            || rootsOfReplaced.Contains(EF.Property<Guid>(r, nameof(ISyncRoot.Id))));
+        context.MarkStamped<TRoot>(listRoot);
         await replaced.ExecuteDeleteAsync();
-        await context.TouchAsync<TRoot>(emptied);
 
         // The bulk delete bypasses the change tracker, so its copies of the deleted rows go
         // by hand; left tracked, the insert below would clash with them on the key.

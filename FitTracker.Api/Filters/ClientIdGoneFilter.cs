@@ -12,8 +12,11 @@ namespace FitTracker.Api.Filters;
 /// The sibling of <see cref="ClientIdConflictFilter"/>, registered globally for the same
 /// reason: a controller that forgot a catch would turn a deleted id into a 500 the app
 /// retries forever, rather than a 410 it answers by deleting its own copy. The body names
-/// the id, as the 409's does, because a batch (a meal's foods) can be refused for one of
-/// its entries and the app has to know which.
+/// the id, as the 409's does, because a batch (a meal's foods) can be refused for its
+/// entries and the app has to know which: <c>ids</c> lists every one, and <c>id</c> is the
+/// first of them, kept for readers written before a batch could name more than one.
+///
+/// <code>{ "error": "id_deleted", "id": "…", "ids": ["…", …] }</code>
 /// </remarks>
 public sealed class ClientIdGoneFilter : IExceptionFilter
 {
@@ -26,6 +29,7 @@ public sealed class ClientIdGoneFilter : IExceptionFilter
         {
             error = "id_deleted",
             id = gone.Id,
+            ids = gone.Ids,
         })
         {
             StatusCode = StatusCodes.Status410Gone,

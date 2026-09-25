@@ -11,6 +11,7 @@ public class MealTemplateRepository(AppDbContext context) : IMealTemplateReposit
     /// <inheritdoc/>
     public Task<List<MealTemplate>> GetAllAsync(Guid userId, DateTime? changedSince = null) =>
         context.MealTemplates
+            .AsNoTracking()
             .Where(t => t.UserId == userId)
             .ChangedSince(changedSince)
             .Include(t => t.Items)
@@ -29,9 +30,6 @@ public class MealTemplateRepository(AppDbContext context) : IMealTemplateReposit
         await context.SaveNewAsync();
         return template;
     }
-
-    /// <inheritdoc/>
-    public Task<bool> WasDeletedAsync(Guid userId, Guid id) => context.WasDeletedAsync(userId, id);
 
     /// <inheritdoc/>
     public async Task<Guid?> GetOwnerAsync(Guid id) =>
