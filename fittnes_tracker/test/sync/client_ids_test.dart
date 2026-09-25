@@ -366,9 +366,11 @@ void main() {
     });
   });
 
-  // ── A meal's foods, sent as the whole list ───────────────────────────────
+  // ── A meal's foods, upserted by id ──────────────────────────────────────
 
   group('a meal\'s foods', () {
+    const batch = 'api/Meal/server-m1/foods/batch';
+
     test('two portions of one food are told apart by their ids', () async {
       final food = await syncedFood('server-f1');
       final meal = await syncedMeal('server-m1', food);
@@ -382,22 +384,48 @@ void main() {
         ..where((t) => t.serverId.equals('server-entry2'))).go();
       await sync.syncAll();
 
-      // A DELETE addressed by meal and food item can't say which portion.
-      expect(api.deletes, isEmpty);
-      expect(
-        api.puts.singleWhere((p) => p.path == 'api/Meal/server-m1/foods').data,
-        [
-          {'id': 'server-entry1', 'foodItemId': 'server-f1'},
-        ],
-      );
+      // A DELETE addressed by meal and food item couldn't say which portion;
+      // one addressed by the entry's id can.
+      expect(api.deletes, ['api/Meal/server-m1/foods/server-entry2']);
+      expect(api.puts, isEmpty);
+      expect(await statusOf(db.mealTable, meal), SyncStatus.synced.index);
     });
 
-    test('a new meal the server already had for that day keeps the foods on '
-        'both', () async {
+    test('an edit sends only this device\'s foods, and none of them as a '
+        'list that could leave another device\'s out', () async {
       final oats = await syncedFood('server-f1');
-      final skyr = await syncedFood('server-f2', name: 'Skyr');
+      final meal = await syncedMeal('server-m1', oats);
+      await db.untracked(
+        () => db.mealDao.addFoodToMeal(oats, meal, 'server-entry1'),
+      );
+      // Another device has since added skyr to this meal, made from a food
+      // this device has never pulled. And this device added blueberries.
+      final blueberries = await syncedFood('server-f3', name: 'Blueberries');
+      await db.mealDao.addFoodToMeal(blueberries, meal);
+      final added =
+          (await db.mealDao.getAllFoodEntriesForMeal(
+            meal,
+          )).singleWhere((e) => e.foodEntryId == blueberries).serverId;
+
+      await sync.syncAll();
+
+      // Upserted by id: nothing in the request can remove what it doesn't
+      // name. The whole-list PUT it replaced deleted the skyr.
+      expect(api.puts.where((p) => p.path.endsWith('/foods')), isEmpty);
+      expect(api.deletes, isEmpty);
+      expect(api.posts.singleWhere((p) => p.path == batch).data, [
+        {'id': 'server-entry1', 'foodItemId': 'server-f1'},
+        {'id': added, 'foodItemId': 'server-f3'},
+      ]);
+      expect(await statusOf(db.mealTable, meal), SyncStatus.synced.index);
+    });
+
+    test('a new meal the server already had for that day sends only its own '
+        'foods to it, and is on the server from then on', () async {
+      final oats = await syncedFood('server-f1');
       // This device logs oats for a breakfast another device already logged
-      // skyr for.
+      // skyr for — from a food it created just now, which this device can't
+      // resolve.
       final meal = await db.mealDao.insertMeal(
         MealTableCompanion.insert(
           date: DateTime(2026, 1, 5),
@@ -410,24 +438,71 @@ void main() {
           (await db.mealDao.getAllFoodEntriesForMeal(meal)).single.serverId;
       api.postResponses['api/Meal'] = serverMeal(
         id: 'server-m9',
-        foodItemId: 'server-f2',
+        foodItemId: 'server-f-new',
         foodEntries: [
-          serverFoodEntry(id: 'server-entry9', foodItemId: 'server-f2'),
+          serverFoodEntry(id: 'server-entry9', foodItemId: 'server-f-new'),
         ],
       );
+      // The foods fail to go the first time.
+      api.postStatuses['api/Meal/server-m9/foods/batch'] = 500;
 
       await sync.syncAll();
 
       expect(await serverIdOf(db.mealTable, meal), 'server-m9');
-      final entries = await db.mealDao.getAllFoodEntriesForMeal(meal);
-      expect(entries.map((e) => e.foodEntryId).toSet(), {oats, skyr});
-      final put = api.puts.singleWhere(
-        (p) => p.path == 'api/Meal/server-m9/foods',
+      // The server has it now: not `pending`, whatever became of its foods.
+      expect(
+        await statusOf(db.mealTable, meal),
+        SyncStatus.pendingUpdate.index,
       );
-      expect((put.data as List).map((e) => (e as Map)['id']).toSet(), {
-        oatsEntry,
-        'server-entry9',
-      }, reason: 'the whole list, so the other device\'s skyr must be in it');
+
+      api.postStatuses.clear();
+      await sync.syncAll();
+
+      expect(
+        api.posts.where((p) => p.path == 'api/Meal'),
+        hasLength(1),
+        reason: 'on the server since the first answer; never created again',
+      );
+      expect(
+        api.posts.lastWhere((p) => p.path == 'api/Meal/server-m9/foods/batch').data,
+        [
+          {'id': oatsEntry, 'foodItemId': 'server-f1'},
+        ],
+      );
+      expect(api.puts.where((p) => p.path.endsWith('/foods')), isEmpty);
+      expect(api.deletes, isEmpty);
+      // The server answered with its meal as it was, so this device's fields
+      // went up afterwards, as an update.
+      expect(api.puts.map((p) => p.path), contains('api/Meal/server-m9'));
+      expect(await statusOf(db.mealTable, meal), SyncStatus.synced.index);
+    });
+
+    test('a new meal answered with another stays changed, so its own fields '
+        'follow as an update', () async {
+      final oats = await syncedFood('server-f1');
+      final meal = await db.mealDao.insertMeal(
+        MealTableCompanion.insert(
+          date: DateTime(2026, 1, 5),
+          category: 'Breakfast',
+          foodItemId: oats,
+        ),
+      );
+      await db.mealDao.addFoodToMeal(oats, meal);
+      api.postResponses['api/Meal'] = serverMeal(
+        id: 'server-m9',
+        foodItemId: 'server-f2',
+      );
+
+      await sync.syncAll();
+
+      expect(
+        await statusOf(db.mealTable, meal),
+        SyncStatus.pendingUpdate.index,
+        reason: 'the server answered with its meal as it was',
+      );
+      await sync.syncAll();
+      final put = api.puts.singleWhere((p) => p.path == 'api/Meal/server-m9');
+      expect((put.data as Map)['foodItemId'], 'server-f1');
       expect(await statusOf(db.mealTable, meal), SyncStatus.synced.index);
     });
 
@@ -448,14 +523,64 @@ void main() {
 
       await sync.syncAll();
 
-      expect(
-        api.puts.singleWhere((p) => p.path == 'api/Meal/server-m1/foods').data,
-        isEmpty,
-      );
+      expect(api.posts.where((p) => p.path == batch), isEmpty);
       expect(
         await statusOf(db.mealTable, meal),
         SyncStatus.pendingUpdate.index,
       );
+    });
+
+    test('a food whose row is gone from this device is neither sent nor '
+        'deleted', () async {
+      final oats = await syncedFood('server-f1');
+      final meal = await syncedMeal('server-m1', oats);
+      await db.untracked(() async {
+        await db.mealDao.addFoodToMeal(oats, meal, 'server-entry1');
+        // An entry whose food row this device no longer has.
+        await db.mealDao.addFoodToMeal(9999, meal, 'server-dangling');
+      });
+      await db.mealDao.addFoodToMeal(oats, meal);
+
+      await sync.syncAll();
+
+      final sent =
+          (api.posts.singleWhere((p) => p.path == batch).data as List)
+              .map((e) => (e as Map)['id']);
+      expect(sent, isNot(contains('server-dangling')));
+      expect(api.deletes, isEmpty);
+
+      // Taken out here, it still says nothing to the server: this device
+      // can't say what it was.
+      await (db.delete(db.mealFoodTable)
+        ..where((t) => t.serverId.equals('server-dangling'))).go();
+      expect(await db.select(db.syncDeletionTable).get(), isEmpty);
+    });
+
+    test('an id the server refuses (409) is the only one replaced', () async {
+      final oats = await syncedFood('server-f1');
+      final meal = await syncedMeal('server-m1', oats);
+      await db.untracked(
+        () => db.mealDao.addFoodToMeal(oats, meal, 'server-entry1'),
+      );
+      await db.mealDao.addFoodToMeal(oats, meal);
+      final refused =
+          (await db.mealDao.getAllFoodEntriesForMeal(
+            meal,
+          )).singleWhere((e) => e.serverId != 'server-entry1').serverId!;
+      api.postStatuses[batch] = 409;
+      api.postErrorBodies[batch] = {'error': 'id_in_use', 'id': refused};
+
+      await sync.syncAll();
+
+      final ids =
+          (await db.mealDao.getAllFoodEntriesForMeal(
+            meal,
+          )).map((e) => e.serverId).toSet();
+      // The entry the server already holds keeps its id: a new one would be
+      // stored beside it.
+      expect(ids, contains('server-entry1'));
+      expect(ids, isNot(contains(refused)));
+      expect(ids, hasLength(2));
     });
 
     test('a clean meal takes the server\'s list on pull, a dirty one keeps '
@@ -639,6 +764,381 @@ void main() {
     });
   });
 
+  // ── A row the server has is never `pending` ──────────────────────────────
+
+  Future<int> syncedWorkout(String serverId, {String name = 'Upper'}) =>
+      db.untracked(
+        () => db
+            .into(db.workoutTable)
+            .insert(
+              WorkoutTableCompanion.insert(
+                name: name,
+                difficulty: 0,
+                serverId: Value(serverId),
+                syncStatus: const Value(1),
+              ),
+            ),
+      );
+
+  Future<int> newPlan() => db
+      .into(db.workoutPlanTable)
+      .insert(
+        WorkoutPlanTableCompanion.insert(
+          name: 'Block 1',
+          startDate: DateTime(2026, 1, 5),
+          cyclePatternJson: '[]',
+        ),
+      );
+
+  Future<int> newSession(int workoutId, {int? planId, bool done = false}) =>
+      db
+          .into(db.scheduledWorkoutTable)
+          .insert(
+            ScheduledWorkoutTableCompanion.insert(
+              workoutId: workoutId,
+              workoutPlanId: Value(planId),
+              scheduledDate: DateTime(2026, 1, 5),
+              isCompleted: Value(done),
+            ),
+          );
+
+  Map<String, dynamic> lastPost(String path) =>
+      (api.posts.lastWhere((p) => p.path == path).data as Map)
+          .cast<String, dynamic>();
+
+  group('a row the server has', () {
+    test('is out of pending as soon as its create is answered: a plan whose '
+        'workouts then fail to go still reaches its sessions', () async {
+      final upper = await syncedWorkout('server-w1');
+      final plan = await newPlan();
+      await db
+          .into(db.workoutPlanWorkoutTable)
+          .insert(
+            WorkoutPlanWorkoutTableCompanion.insert(
+              planId: plan,
+              workoutId: upper,
+            ),
+          );
+      await newSession(upper, planId: plan);
+      final planId = (await serverIdOf(db.workoutPlanTable, plan))!;
+      api.putStatuses['api/WorkoutPlan/$planId/workouts'] = 500;
+
+      await sync.syncAll();
+
+      expect(
+        await statusOf(db.workoutPlanTable, plan),
+        SyncStatus.pendingUpdate.index,
+        reason: 'the server holds it; only its list is still to go',
+      );
+      // Pushed in the same run, after the plan: it names the plan. Sent with
+      // null, it was stored without one and never sent again.
+      expect(lastPost('api/ScheduledWorkout')['workoutPlanId'], planId);
+    });
+
+    test('a new meal whose foods fail to go is on the server, and is updated '
+        'rather than created again', () async {
+      final oats = await syncedFood('server-f1');
+      final meal = await db.mealDao.insertMeal(
+        MealTableCompanion.insert(
+          date: DateTime(2026, 1, 5),
+          category: 'Breakfast',
+          foodItemId: oats,
+        ),
+      );
+      await db.mealDao.addFoodToMeal(oats, meal);
+      final mealId = (await serverIdOf(db.mealTable, meal))!;
+      api.postStatuses['api/Meal/$mealId/foods/batch'] = 500;
+
+      await sync.syncAll();
+
+      expect(
+        await statusOf(db.mealTable, meal),
+        SyncStatus.pendingUpdate.index,
+      );
+      api.postStatuses.clear();
+      await sync.syncAll();
+      expect(api.posts.where((p) => p.path == 'api/Meal'), hasLength(1));
+      expect(api.puts.map((p) => p.path), contains('api/Meal/$mealId'));
+      expect(await statusOf(db.mealTable, meal), SyncStatus.synced.index);
+    });
+
+    test('a session whose plan isn\'t on the server yet waits for it, rather '
+        'than going without it', () async {
+      final upper = await syncedWorkout('server-w1');
+      final plan = await newPlan();
+      final session = await newSession(upper, planId: plan);
+      final planId = (await serverIdOf(db.workoutPlanTable, plan))!;
+      api.postStatuses['api/WorkoutPlan'] = 500;
+
+      await sync.syncAll();
+
+      expect(api.posts.where((p) => p.path == 'api/ScheduledWorkout'), isEmpty);
+      expect(
+        await statusOf(db.scheduledWorkoutTable, session),
+        SyncStatus.pending.index,
+      );
+
+      api.postStatuses.clear();
+      await sync.syncAll();
+      expect(lastPost('api/ScheduledWorkout')['workoutPlanId'], planId);
+      expect(
+        await statusOf(db.scheduledWorkoutTable, session),
+        SyncStatus.synced.index,
+      );
+    });
+
+    test('a plan\'s list waits for a workout the server may not have, rather '
+        'than unlinking it', () async {
+      final upper = await syncedWorkout('server-w1');
+      // Pending: its create failed — or reached the server with its answer
+      // lost, which from here looks the same.
+      final lower = await db.workoutDao.saveCompleteWorkout(
+        Workout(name: 'Lower', difficulty: WorkoutDifficulty.beginner),
+      );
+      api.postStatuses['api/Workout'] = 500;
+      final plan = await db.untracked(
+        () => db
+            .into(db.workoutPlanTable)
+            .insert(
+              WorkoutPlanTableCompanion.insert(
+                name: 'Block 1',
+                startDate: DateTime(2026, 1, 5),
+                cyclePatternJson: '[]',
+                serverId: const Value('server-p1'),
+                syncStatus: const Value(1),
+              ),
+            ),
+      );
+      for (final w in [upper, lower]) {
+        await db
+            .into(db.workoutPlanWorkoutTable)
+            .insert(
+              WorkoutPlanWorkoutTableCompanion.insert(planId: plan, workoutId: w),
+            );
+      }
+
+      await sync.syncAll();
+
+      expect(
+        api.puts.where((p) => p.path == 'api/WorkoutPlan/server-p1/workouts'),
+        isEmpty,
+        reason: 'the list without Lower would unlink it on a server that has it',
+      );
+      expect(
+        await statusOf(db.workoutPlanTable, plan),
+        SyncStatus.pendingUpdate.index,
+      );
+
+      api.postStatuses.clear();
+      await sync.syncAll();
+      expect(
+        api.puts
+            .singleWhere((p) => p.path == 'api/WorkoutPlan/server-p1/workouts')
+            .data,
+        ['server-w1', await serverIdOf(db.workoutTable, lower)],
+      );
+    });
+  });
+
+  // ── A create answered with a row that isn't the one sent ─────────────────
+
+  group('a create the server answers with another row', () {
+    test('stays changed, so this device\'s fields follow as an update', () async {
+      final upper = await syncedWorkout('server-w1');
+      // Finished here; another device's copy of the same session isn't.
+      final session = await newSession(upper, done: true);
+      api.postResponses['api/ScheduledWorkout'] = {
+        ...serverScheduledWorkout(
+          id: 'server-sw9',
+          workoutId: 'server-w1',
+          isCompleted: false,
+        ),
+      };
+
+      await sync.syncAll();
+
+      expect(
+        await serverIdOf(db.scheduledWorkoutTable, session),
+        'server-sw9',
+      );
+      expect(
+        await statusOf(db.scheduledWorkoutTable, session),
+        SyncStatus.pendingUpdate.index,
+        reason: 'clean, the next pull would mark it not done',
+      );
+
+      await sync.syncAll();
+      final put = api.puts.singleWhere(
+        (p) => p.path == 'api/ScheduledWorkout/server-sw9',
+      );
+      expect((put.data as Map)['isCompleted'], isTrue);
+      expect(
+        await statusOf(db.scheduledWorkoutTable, session),
+        SyncStatus.synced.index,
+      );
+    });
+  });
+
+  // ── A workout's exercises ────────────────────────────────────────────────
+
+  group('a workout\'s exercises', () {
+    Future<int> exercise(String name, {String? serverId, bool custom = false}) =>
+        db.untracked(
+          () => db
+              .into(db.exerciseTable)
+              .insert(
+                ExerciseTableCompanion.insert(
+                  name: name,
+                  type: 0,
+                  targetMuscleGroups: '0',
+                  isCustom: Value(custom),
+                  serverId: Value(serverId),
+                  syncStatus: Value(serverId == null ? 0 : 1),
+                ),
+              ),
+        );
+
+    Future<int> entry(
+      int workoutId,
+      int exerciseId, {
+      int position = 0,
+      String? serverId,
+      int status = 0,
+    }) => db.untracked(
+      () => db
+          .into(db.workoutExerciseTable)
+          .insert(
+            WorkoutExerciseTableCompanion.insert(
+              workoutId: workoutId,
+              exerciseId: exerciseId,
+              orderPosition: position,
+              serverId: serverId == null ? const Value.absent() : Value(serverId),
+              syncStatus: Value(status),
+            ),
+          ),
+    );
+
+    test('one taken out and put back in the same place is deleted before the '
+        'new one is created', () async {
+      final squat = await exercise('Squat', serverId: 'server-e1');
+      final w = await syncedWorkout('server-w1', name: 'Legs');
+      // Taken out (pendingDelete, still in its slot on the server), and put
+      // back where it was.
+      final removed = await entry(w, squat, serverId: 'server-we1', status: 3);
+      final readded = await entry(w, squat);
+      final readdedId = (await serverIdOf(db.workoutExerciseTable, readded))!;
+
+      await sync.syncAll();
+
+      final delete = api.requests.indexOf(
+        'DELETE api/Workout/exercises/server-we1',
+      );
+      final create = api.requests.indexOf(
+        'POST api/Workout/server-w1/exercises/batch',
+      );
+      expect(delete, isNot(-1));
+      expect(create, greaterThan(delete),
+          reason: 'created first, the server answers with the entry the '
+              'DELETE then removes');
+      expect(
+        await (db.select(db.workoutExerciseTable)
+              ..where((t) => t.id.equals(removed)))
+            .getSingleOrNull(),
+        isNull,
+      );
+      expect(await serverIdOf(db.workoutExerciseTable, readded), readdedId);
+      expect(
+        await statusOf(db.workoutExerciseTable, readded),
+        SyncStatus.synced.index,
+      );
+    });
+
+    test('an answer is paired with the item it names, not by slot', () async {
+      final squat = await exercise('Squat', serverId: 'server-e1');
+      final w = await syncedWorkout('server-w1', name: 'Legs');
+      // Two entries for one slot — overlapping saves made both.
+      final first = await entry(w, squat);
+      final twin = await entry(w, squat);
+      final firstId = (await serverIdOf(db.workoutExerciseTable, first))!;
+      final twinId = (await serverIdOf(db.workoutExerciseTable, twin))!;
+      // The server stores the first, and answers the second with it: the
+      // slot is taken.
+      api.postResponses['api/Workout/server-w1/exercises/batch'] = [
+        for (final requested in [firstId, twinId])
+          {
+            ...serverWorkoutExercise(
+              id: firstId,
+              exerciseId: 'server-e1',
+              orderPosition: 0,
+            ),
+            'requestedId': requested,
+          },
+      ];
+
+      await sync.syncAll();
+
+      expect(await serverIdOf(db.workoutExerciseTable, twin), firstId);
+      // Answered with a row that isn't the one it sent, so its own fields
+      // hadn't reached the server: they follow as an update of that row.
+      expect(api.puts.map((p) => p.path), contains('api/Workout/exercises/$firstId'));
+      expect(
+        await statusOf(db.workoutExerciseTable, twin),
+        SyncStatus.synced.index,
+      );
+    });
+
+    test('one whose built-in exercise isn\'t linked yet waits, and never goes '
+        'up as another lift with a similar name', () async {
+      // The server's "Front Squat" is linked here; "Squat" is not yet.
+      await exercise('Front Squat', serverId: 'server-front-squat');
+      final squat = await exercise('Squat');
+      final w = await syncedWorkout('server-w1', name: 'Legs');
+      final fresh = await entry(w, squat);
+      // One the server already has, edited here since.
+      await entry(w, squat, position: 1, serverId: 'server-we2', status: 2);
+
+      await sync.syncAll();
+
+      expect(
+        api.posts.where(
+          (p) => p.path == 'api/Workout/server-w1/exercises/batch',
+        ),
+        isEmpty,
+      );
+      expect(
+        api.puts.where((p) => p.path == 'api/Workout/exercises/server-we2'),
+        isEmpty,
+      );
+      expect(
+        await statusOf(db.workoutExerciseTable, fresh),
+        SyncStatus.pending.index,
+      );
+    });
+
+    test('built-ins are linked to the server\'s by their exact name only',
+        () async {
+      final frontSquat = await exercise('Front Squat');
+      final bench = await exercise('bench press');
+      api.getResponses['api/Exercise/AllExercises'] = [
+        {'id': 'server-squat', 'name': 'Squat', 'isCustom': false},
+        {'id': 'server-bench', 'name': 'Bench Press', 'isCustom': false},
+      ];
+
+      await sync.pullAll();
+
+      expect(await serverIdOf(db.exerciseTable, bench), 'server-bench');
+      expect(
+        await serverIdOf(db.exerciseTable, frontSquat),
+        isNull,
+        reason: 'a name containing another is a different exercise',
+      );
+      final squat =
+          await (db.select(db.exerciseTable)
+            ..where((e) => e.serverId.equals('server-squat'))).getSingle();
+      expect(squat.name, 'Squat');
+    });
+  });
+
   // ── Meal templates, in SharedPreferences ─────────────────────────────────
 
   group('a meal template', () {
@@ -776,6 +1276,12 @@ void main() {
 
         final entries = await db.select(db.mealFoodTable).get();
         expect(entries.every((e) => e.serverId != null), isTrue);
+        // Only the entry that was given an id here may be on the server under
+        // another: it is flagged for the push to look first.
+        expect(
+          {for (final e in entries) e.serverId == 'server-e1': e.idBackfilled},
+          {true: false, false: true},
+        );
         expect(
           (await db.select(db.mealTable).getSingle()).syncStatus,
           SyncStatus.pendingUpdate.index,
@@ -800,5 +1306,161 @@ void main() {
         });
       },
     );
+  });
+
+  // ── What an older build left half-sent ───────────────────────────────────
+
+  group('a food an older build sent but never heard back about', () {
+    late Directory tempDir;
+    late File file;
+    final day = DateTime(2026, 1, 5);
+
+    setUp(() async {
+      tempDir = await Directory.systemTemp.createTemp('forgeform_heal');
+      file = File('${tempDir.path}/app.sqlite');
+    });
+
+    tearDown(() async {
+      if (await tempDir.exists()) await tempDir.delete(recursive: true);
+    });
+
+    /// A version-41 install holding oats and a breakfast of them, opened by
+    /// this build — so the entries without an id get one from the migration.
+    Future<({AppDatabase db, SyncService sync})> upgraded({
+      required String meal,
+      required int entriesWithoutId,
+    }) async {
+      final old = AppDatabase.test(NativeDatabase(file));
+      await old.customStatement('SELECT 1');
+      await old.customStatement(
+        "INSERT INTO food_item (id, name, calories, protein, carbs, fat, server_id, sync_status) "
+        "VALUES (1, 'Oats', 100, 5, 10, 2, 'server-f1', 1)",
+      );
+      await old.customStatement(meal);
+      for (var i = 0; i < entriesWithoutId; i++) {
+        await old.customStatement(
+          'INSERT INTO meal_food_table (meal_id, food_entry_id) VALUES (1, 1)',
+        );
+      }
+      await old.customStatement('PRAGMA user_version = 41');
+      await old.close();
+      final db = AppDatabase.test(NativeDatabase(file));
+      addTearDown(db.close);
+      return (
+        db: db,
+        sync: SyncService(
+          db: db,
+          apiClient: api,
+          mealTemplateDao: MealTemplateDao(db),
+        ),
+      );
+    }
+
+    final seconds = day.millisecondsSinceEpoch ~/ 1000;
+
+    test('in a meal the server has is matched to the server\'s entry, not '
+        'sent again', () async {
+      final u = await upgraded(
+        meal:
+            "INSERT INTO meal_table (id, date, category, food_item_id, server_id, sync_status) "
+            "VALUES (1, $seconds, 'Breakfast', 1, 'server-m1', 1)",
+        // Two portions whose answers never came; the server got one of them.
+        entriesWithoutId: 2,
+      );
+      await u.db.customStatement(
+        "INSERT INTO meal_food_table (meal_id, food_entry_id, server_id) "
+        "VALUES (1, 1, 'server-e1')",
+      );
+      api.getResponses['api/Meal/server-m1'] = serverMeal(
+        id: 'server-m1',
+        foodItemId: 'server-f1',
+        foodEntries: [
+          serverFoodEntry(id: 'server-e1', foodItemId: 'server-f1'),
+          serverFoodEntry(id: 'server-lost', foodItemId: 'server-f1'),
+        ],
+      );
+
+      await u.sync.syncAll();
+
+      final sent =
+          (api.posts
+                      .singleWhere(
+                        (p) => p.path == 'api/Meal/server-m1/foods/batch',
+                      )
+                      .data
+                  as List)
+              .map((e) => (e as Map)['id'] as String)
+              .toList();
+      expect(sent, containsAll(['server-e1', 'server-lost']));
+      expect(sent, hasLength(3), reason: 'the portion never sent goes as new');
+      final entries = await u.db.select(u.db.mealFoodTable).get();
+      expect(entries.map((e) => e.serverId).toSet(), sent.toSet());
+      expect(entries.any((e) => e.idBackfilled), isFalse);
+
+      // Asked once: the flags are gone.
+      await u.db.mealDao.addFoodToMeal(1, 1);
+      await u.sync.syncAll();
+      expect(api.gets.where((g) => g == 'api/Meal/server-m1'), hasLength(1));
+    });
+
+    test('in a meal the create is answered with, takes the server\'s entry',
+        () async {
+      final u = await upgraded(
+        meal:
+            "INSERT INTO meal_table (id, date, category, food_item_id, sync_status) "
+            "VALUES (1, $seconds, 'Breakfast', 1, 0)",
+        entriesWithoutId: 1,
+      );
+      api.postResponses['api/Meal'] = serverMeal(
+        id: 'server-m9',
+        foodItemId: 'server-f1',
+        foodEntries: [
+          serverFoodEntry(id: 'server-lost', foodItemId: 'server-f1'),
+        ],
+      );
+
+      await u.sync.syncAll();
+
+      expect(
+        api.posts
+            .singleWhere((p) => p.path == 'api/Meal/server-m9/foods/batch')
+            .data,
+        [
+          {'id': 'server-lost', 'foodItemId': 'server-f1'},
+        ],
+        reason: 'under its new id it would be stored beside itself',
+      );
+      final entries = await u.db.select(u.db.mealFoodTable).get();
+      expect(entries.map((e) => e.serverId), ['server-lost']);
+    });
+
+    test('in a meal the pull adopts, is not added a second time', () async {
+      final u = await upgraded(
+        meal:
+            "INSERT INTO meal_table (id, date, category, food_item_id, sync_status) "
+            "VALUES (1, $seconds, 'Breakfast', 1, 0)",
+        entriesWithoutId: 1,
+      );
+      api.getResponses['api/FoodItem'] = [
+        serverFoodItem(id: 'server-f1', name: 'Oats'),
+      ];
+      api.getResponses['api/Meal/all'] = [
+        serverMeal(
+          id: 'server-m9',
+          foodItemId: 'server-f1',
+          date: day.toUtc().toIso8601String(),
+          category: 'Breakfast',
+          foodEntries: [
+            serverFoodEntry(id: 'server-lost', foodItemId: 'server-f1'),
+          ],
+        ),
+      ];
+
+      await u.sync.pullAll();
+
+      final entries = await u.db.select(u.db.mealFoodTable).get();
+      expect(entries.map((e) => e.serverId), ['server-lost']);
+      expect(entries.single.idBackfilled, isFalse);
+    });
   });
 }

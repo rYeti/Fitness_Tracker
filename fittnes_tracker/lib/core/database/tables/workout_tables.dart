@@ -41,6 +41,19 @@ enum SyncStatus {
   /// Whether this row holds a change the server has not seen yet.
   bool get isDirty =>
       this == pending || this == pendingUpdate || this == pendingDelete;
+
+  /// Whether this device knows the server has the row: its create was
+  /// answered, or it came from the server.
+  ///
+  /// Every row has a `server_id` from the moment it is inserted, so the id no
+  /// longer says this; the status is the only thing that does. And a row
+  /// leaves [pending] the moment its create is answered — before whatever the
+  /// push sends after it — so that a row the server holds is never taken for
+  /// one it doesn't (`docs/sync-architecture.md`, part two).
+  ///
+  /// It is not the converse of "the server doesn't have it": a create whose
+  /// answer was lost leaves the row [pending] on a server that stored it.
+  bool get isOnServer => this != pending;
 }
 
 /// Table for storing exercise definitions

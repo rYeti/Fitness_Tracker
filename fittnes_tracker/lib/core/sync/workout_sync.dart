@@ -40,7 +40,7 @@ extension WorkoutSync on SyncService {
     final exercises = await _db.workoutDao.getExercisesForWorkoutRaw(w.id);
     await _syncNewWorkoutExercisesBatch(
       exercises
-          .where((e) => SyncStatus.fromDb(e.syncStatus) == SyncStatus.pending)
+          .where((e) => !SyncStatus.fromDb(e.syncStatus).isOnServer)
           .toList(),
       serverId,
     );
@@ -161,45 +161,38 @@ extension WorkoutSync on SyncService {
   /// The server id of the exercise a workout exercise performs, if the server
   /// has it.
   ///
-  /// A built-in exercise this device never linked (`_syncSystemExerciseIds`
-  /// matches them by name) falls back to a linked built-in of the same name:
-  /// that is how the server's catalogue and the seeded one are joined in the
-  /// first place. A custom exercise gets no such fallback — it is the user's
-  /// own row, and until it is pushed there is nothing on the server that is
-  /// it, whatever it is called.
+  /// A built-in exercise has one once `_syncSystemExerciseIds` has linked it
+  /// to the server's catalogue, on the pull; until then this is null, and an
+  /// entry performing it waits, pending, rather than going up as something
+  /// else. It used to fall back to "a linked built-in of the same name" —
+  /// found with a substring search, so an unlinked "Squat" could go up as
+  /// "Front Squat", and since the update path used it too, an edit could
+  /// turn an entry the server already held into a different lift on every
+  /// device. A name is not an identity, and the push matches nothing by one.
   Future<String?> _exerciseServerId(int localExerciseId) async {
     final exercise = await _db.exerciseDao.getExerciseById(localExerciseId);
     if (exercise == null) return null;
-    final own = SyncService._serverIdIfPushed(
+    return SyncService._serverIdIfPushed(
       exercise.serverId,
       exercise.syncStatus,
     );
-    if (own != null || exercise.isCustom) return own;
-    final candidates = await _db.exerciseDao.searchExercises(exercise.name);
-    final linked =
-        candidates
-            .where((c) => !c.isCustom)
-            .map((c) => SyncService._serverIdIfPushed(c.serverId, c.syncStatus))
-            .whereType<String>()
-            .firstOrNull;
-    if (linked != null) {
-      _logger.i(
-        'Resolved built-in exercise "${exercise.name}" (local ${exercise.id}) '
-        'through a linked row of the same name',
-      );
-    }
-    return linked;
   }
 
   /// Creates workout exercises the server doesn't have yet, under the ids this
   /// device minted for them, and then their prescriptions.
   ///
-  /// Each entry is matched to the answer by the id it was sent with. The
-  /// server answers with a different one in one case only: the workout already
-  /// holds an entry for that exercise at that position — the slot its create
-  /// has always been idempotent on — and then that entry *is* this one, so its
-  /// id is the one kept. Matching on the slot there is matching on the
-  /// server's own key, not guessing.
+  /// Each answer says which item it answers: `requestedId`, the id that item
+  /// was sent with. Its own id differs in one case: the workout already holds
+  /// an entry for that exercise at that position — the slot the server's
+  /// create has always been idempotent on — and the server answers with that
+  /// entry, which this row then becomes. Such a row stays `pendingUpdate`: the
+  /// server returned its entry as it was, so this device's notes and superset
+  /// group reach it only with the next push's PUT.
+  ///
+  /// This used to pair an unmatched answer with its request by the slot
+  /// itself, on this side — the exercise and the position. A position is not
+  /// an identity, and it paired a new row with one the same push was about to
+  /// delete (see [_syncWorkoutExercises]).
   Future<void> _syncNewWorkoutExercisesBatch(
     List<WorkoutExerciseTableData> exercises,
     String workoutServerId,
@@ -234,50 +227,30 @@ extension WorkoutSync on SyncService {
       valid.map((we) => we.id),
     );
     if (response == null) return;
-    final serverList = (response.data as List).cast<Map<String, dynamic>>();
+    final answered = {
+      for (final s in (response.data as List).cast<Map<String, dynamic>>())
+        if (s['requestedId'] != null)
+          s['requestedId'] as String: s['id'] as String,
+    };
 
-    final claimed = <String>{};
-    final matched = List<String?>.filled(valid.length, null);
-    for (var i = 0; i < valid.length; i++) {
-      final id = valid[i].serverId;
-      if (serverList.any((s) => s['id'] == id) && claimed.add(id!)) {
-        matched[i] = id;
-      }
-    }
-    for (var i = 0; i < valid.length; i++) {
-      if (matched[i] != null) continue;
-      final slot =
-          serverList
-              .where(
-                (s) =>
-                    !claimed.contains(s['id']) &&
-                    s['exerciseId'] == dtos[i]['exerciseId'] &&
-                    s['orderPosition'] == dtos[i]['orderPosition'],
-              )
-              .firstOrNull;
-      if (slot == null) continue;
-      matched[i] = slot['id'] as String;
-      claimed.add(matched[i]!);
-    }
-
-    for (var i = 0; i < valid.length; i++) {
-      final weServerId = matched[i];
+    for (final we in valid) {
+      final weServerId = answered[we.serverId];
       if (weServerId == null) {
         _logger.w(
-          'Workout exercise ${valid[i].id} is missing from the batch answer; '
+          'Workout exercise ${we.id} is missing from the batch answer; '
           'left pending',
         );
         continue;
       }
       await _markSent(
         _db.workoutExerciseTable,
-        valid[i].id,
+        we.id,
         weServerId,
-        valid[i].localRev,
+        weServerId == we.serverId ? we.localRev : -1,
       );
 
       final templates = await _db.workoutDao.getSetTemplatesForWorkoutExercise(
-        valid[i].id,
+        we.id,
       );
       // The whole prescription, for the same reason as in
       // _syncWorkoutExercises: the endpoint replaces rather than appends.
@@ -406,9 +379,10 @@ extension WorkoutSync on SyncService {
   /// Pushes every changed exercise entry of every workout the server has, on
   /// the entry's own status.
   ///
+  /// - `pendingDelete` → the DELETE is sent and the row retired or removed —
+  ///   first, before anything is created (below);
   /// - never pushed → created, under the id it already has;
   /// - `pendingUpdate` → the entry and its whole prescription are sent;
-  /// - `pendingDelete` → the DELETE is sent and the row retired or removed;
   /// - an entry the server has whose prescription holds unsent rows (only
   ///   possible for data written before the database tracked changes) → the
   ///   prescription is sent whole.
@@ -418,6 +392,15 @@ extension WorkoutSync on SyncService {
   /// whose response was lost had still created the row, and posting again made
   /// a second. With the id minted here, posting again *is* the check — the
   /// server answers a repeat with the row it made.
+  ///
+  /// Deletes go before creates. An entry removed here keeps its slot on the
+  /// server until its DELETE lands, and the server answers a create for an
+  /// occupied slot with the entry in it. Remove an exercise and add it back
+  /// in the same place — an undo, or taking the last one out and putting it
+  /// back — and the new row, created first, was answered with the old one,
+  /// took its id, and then lost it to the DELETE the same push sent next: the
+  /// re-added exercise vanished from every device. A delete that fails stops
+  /// this workout's push for this run, for the same reason.
   Future<void> _syncWorkoutExercises() async {
     // Only the workouts with something to send, found in one query: the push
     // now runs after every edit, and walking every workout's exercises and
@@ -443,25 +426,27 @@ extension WorkoutSync on SyncService {
       await SyncLease.current?.renew();
       try {
         var exercises = await _db.workoutDao.getExercisesForWorkoutRaw(w.id);
-        // pendingDelete and retired rows are not pending, so one the user took
-        // out is never posted back.
+        for (final ex in exercises.where(
+          (e) => SyncStatus.fromDb(e.syncStatus) == SyncStatus.pendingDelete,
+        )) {
+          await _syncDeleteWorkoutExercise(ex);
+        }
+
+        // pendingDelete and retired rows are on the server, so one the user
+        // took out is never posted back.
         final unpushed =
-            exercises
-                .where(
-                  (e) => SyncStatus.fromDb(e.syncStatus) == SyncStatus.pending,
-                )
+            (await _db.workoutDao.getExercisesForWorkoutRaw(w.id))
+                .where((e) => !SyncStatus.fromDb(e.syncStatus).isOnServer)
                 .toList();
         if (unpushed.isNotEmpty) {
           await _syncNewWorkoutExercisesBatch(unpushed, w.serverId!);
-          exercises = await _db.workoutDao.getExercisesForWorkoutRaw(w.id);
         }
+        exercises = await _db.workoutDao.getExercisesForWorkoutRaw(w.id);
 
         for (final ex in exercises) {
           switch (SyncStatus.fromDb(ex.syncStatus)) {
             case SyncStatus.pendingUpdate:
               await _syncUpdateWorkoutExercise(ex);
-            case SyncStatus.pendingDelete:
-              await _syncDeleteWorkoutExercise(ex);
             case SyncStatus.synced:
               final templates = await _db.workoutDao
                   .getSetTemplatesForWorkoutExercise(ex.id);
@@ -474,7 +459,9 @@ extension WorkoutSync on SyncService {
               )) {
                 await _syncNewSetTemplatesBatch(templates, ex.serverId!);
               }
-            case SyncStatus.pending || SyncStatus.retired:
+            case SyncStatus.pending ||
+                SyncStatus.pendingDelete ||
+                SyncStatus.retired:
               break;
           }
         }

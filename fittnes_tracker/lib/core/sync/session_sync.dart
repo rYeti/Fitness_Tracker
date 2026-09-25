@@ -25,9 +25,19 @@ extension SessionSync on SyncService {
     }
   }
 
-  /// What a session's create and update send, or null while the workout it
-  /// is a session of isn't on the server yet — a session can't be stored
-  /// without its workout (a foreign key), and workouts push first.
+  /// What a session's create and update send, or null while a row it refers
+  /// to — its workout, its plan, the workout it was generated from — is on
+  /// this device but not on the server yet. The session then waits, dirty,
+  /// for a push after that row's.
+  ///
+  /// It used to wait only for its workout (a foreign key the server would
+  /// refuse) and send null for a plan it couldn't name yet. The server took
+  /// the null at its word: the session was stored with no plan, marked sent,
+  /// and never sent again, and an update to a session it already had cleared
+  /// the plan it held. `pending` doesn't even mean the server lacks the plan —
+  /// only that this device hasn't heard back. A reference that can't be sent
+  /// yet defers the row; it never goes as null. A plan or template gone from
+  /// this device altogether does go as null: there is nothing to wait for.
   Future<Map<String, dynamic>?> _scheduledWorkoutBody(
     ScheduledWorkoutTableData sw,
   ) async {
@@ -53,6 +63,7 @@ extension SessionSync on SyncService {
           planRow.serverId,
           planRow.syncStatus,
         );
+        if (planServerId == null) return null;
       }
     }
 
@@ -67,6 +78,7 @@ extension SessionSync on SyncService {
           templateRow.serverId,
           templateRow.syncStatus,
         );
+        if (templateWorkoutServerId == null) return null;
       }
     }
 
@@ -83,7 +95,7 @@ extension SessionSync on SyncService {
 
   Future<void> _syncNewScheduledWorkout(ScheduledWorkoutTableData sw) async {
     final body = await _scheduledWorkoutBody(sw);
-    if (body == null) return; // workout not synced yet
+    if (body == null) return; // a row it refers to isn't on the server yet
 
     final response = await _create(
       'api/ScheduledWorkout',
@@ -94,14 +106,28 @@ extension SessionSync on SyncService {
     if (response == null) return;
     // Usually the id sent. A session the server already holds for the same
     // workout on the same day — another device's — comes back under its own
-    // id, and this row becomes that session.
+    // id, and this row becomes that session. The server returned that session
+    // as it was, without this device's completion, skip or notes, so it stays
+    // `pendingUpdate` and the next push PUTs them; marked clean, the next pull
+    // would have put the server's values over them — a workout finished here
+    // shown as not done.
     final swServerId = response.data['id'] as String;
-    await _markSent(_db.scheduledWorkoutTable, sw.id, swServerId, sw.localRev);
+    await _markSent(
+      _db.scheduledWorkoutTable,
+      sw.id,
+      swServerId,
+      swServerId == sw.serverId ? sw.localRev : -1,
+    );
 
     // The server creates a session's exercises itself, one per exercise of
     // the workout, and returns them: link this device's to them by the
     // workout exercise each performs. Any left over are created by
     // _syncSessionExercises, which also pushes the sets.
+    //
+    // These are the one answer paired by content rather than by the id sent:
+    // nothing was sent for them. The server made them from the workout, one
+    // per workout exercise, and (session, workout exercise) is the key it
+    // made them on — two ids, not a position or a name.
     final serverExercises =
         (response.data['exercises'] as List<dynamic>? ?? [])
             .cast<Map<String, dynamic>>();
@@ -120,7 +146,8 @@ extension SessionSync on SyncService {
     final body = await _scheduledWorkoutBody(sw);
     if (body == null) {
       _logger.w(
-        '_syncUpdateScheduledWorkout: SW ${sw.id} skipped — workout ${sw.workoutId} not yet synced',
+        '_syncUpdateScheduledWorkout: SW ${sw.id} skipped — a row it refers '
+        'to is not on the server yet',
       );
       return;
     }
@@ -178,7 +205,7 @@ extension SessionSync on SyncService {
   ) async {
     final localExercises = (await _db.scheduledWorkoutExerciseDao
             .getAllForScheduledWorkout(localSwId))
-        .where((e) => SyncStatus.fromDb(e.syncStatus) == SyncStatus.pending);
+        .where((e) => !SyncStatus.fromDb(e.syncStatus).isOnServer);
 
     for (final localEx in localExercises) {
       final weServerId = await _workoutExerciseServerId(
@@ -204,6 +231,37 @@ extension SessionSync on SyncService {
     }
   }
 
+  /// Links the session exercises in [sentLocalIds] to the entries a batch
+  /// answered them with, by the id each was sent with (`requestedId`).
+  ///
+  /// Not by the workout exercise each performs, and never by position: the
+  /// answer names the item it answers, so nothing has to be inferred. One the
+  /// answer doesn't name — its workout exercise isn't this account's — stays
+  /// pending. The link keeps the row dirty if its note differs from the
+  /// entry's (`linkScheduledExerciseToServer`), which is what sends this
+  /// device's note to an entry the server already held.
+  Future<void> _linkAnsweredScheduledExercises(
+    List<int> sentLocalIds,
+    List<Map<String, dynamic>> answer,
+  ) async {
+    final byRequested = {
+      for (final s in answer)
+        if (s['requestedId'] != null) s['requestedId'] as String: s,
+    };
+    for (final localId in sentLocalIds) {
+      final local =
+          await (_db.select(_db.scheduledWorkoutExerciseTable)
+            ..where((t) => t.id.equals(localId))).getSingleOrNull();
+      final entry = local == null ? null : byRequested[local.serverId];
+      if (entry == null) continue;
+      await _db.scheduledWorkoutExerciseDao.linkScheduledExerciseToServer(
+        localId,
+        entry['id'] as String,
+        serverNotes: entry['notes'] as String?,
+      );
+    }
+  }
+
   /// Pushes what changed on each exercise of one session: the client's note
   /// on it, and its logged sets.
   ///
@@ -225,7 +283,7 @@ extension SessionSync on SyncService {
         .getAllForScheduledWorkout(localSwId);
 
     for (final localEx in localExercises) {
-      if (SyncStatus.fromDb(localEx.syncStatus) == SyncStatus.pending) {
+      if (!SyncStatus.fromDb(localEx.syncStatus).isOnServer) {
         _logger.w(
           '_syncSetsForScheduledWorkout: skipping exercise ${localEx.id} (workoutExerciseId=${localEx.workoutExerciseId}) — not on the server yet',
         );
@@ -346,10 +404,13 @@ extension SessionSync on SyncService {
   ///
   /// An exercise not on the server yet is sent to the session's exercise batch
   /// under the id this device minted for it. The server answers with every
-  /// exercise the session now holds, and this device's are linked to them by
-  /// the workout exercise each performs: the session may already have had one
-  /// for it — the server makes one per workout exercise when the session is
-  /// created — and then that one is this one.
+  /// exercise the session now holds, each one that answers an item carrying
+  /// the id that item was sent with (`requestedId`), and this device's rows
+  /// are linked by it. The answer's own id can differ: the session may
+  /// already have had an entry for that workout exercise — the server makes
+  /// one per workout exercise when the session is created — and then that
+  /// one is this one; or the id sent was stored elsewhere, and the server
+  /// minted another.
   ///
   /// This used to start with a GET of every such session, to find out which of
   /// the device's exercises the server had made while a lost response kept the
@@ -379,7 +440,7 @@ extension SessionSync on SyncService {
         final unpushed =
             (await _db.scheduledWorkoutExerciseDao.getAllForScheduledWorkout(
               sw.id,
-            )).where((e) => SyncStatus.fromDb(e.syncStatus) == SyncStatus.pending);
+            )).where((e) => !SyncStatus.fromDb(e.syncStatus).isOnServer);
         final items = <Map<String, dynamic>>[];
         final sent = <int>[];
         for (final localEx in unpushed) {
@@ -398,12 +459,8 @@ extension SessionSync on SyncService {
             sent,
           );
           if (response != null) {
-            // Matched on the workout exercise each entry performs, not on
-            // position: the endpoint answers with *every* entry the session
-            // now has, in no promised order.
-            await _storeScheduledExerciseServerIds(
-              sw.id,
-              sw.serverId!,
+            await _linkAnsweredScheduledExercises(
+              sent,
               (response.data as List).cast<Map<String, dynamic>>(),
             );
           }
@@ -504,8 +561,7 @@ extension SessionSync on SyncService {
         // pushed, is this one: the server keeps one per workout per day, and
         // would answer its create with this session anyway. One the server
         // already has under another id is a server-side duplicate — skip it.
-        if (SyncStatus.fromDb(existingByContent.syncStatus) !=
-            SyncStatus.pending) {
+        if (SyncStatus.fromDb(existingByContent.syncStatus).isOnServer) {
           return;
         }
         localSwId = existingByContent.id;

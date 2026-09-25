@@ -420,7 +420,7 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
         // instead if sessions logged sets against it.
         for (final ex in existingExercises) {
           if (!keptIds.contains(ex.id)) {
-            if (SyncStatus.fromDb(ex.syncStatus) != SyncStatus.pending) {
+            if (SyncStatus.fromDb(ex.syncStatus).isOnServer) {
               await (update(workoutExerciseTable)
                 ..where((we) => we.id.equals(ex.id))).write(
                 const WorkoutExerciseTableCompanion(

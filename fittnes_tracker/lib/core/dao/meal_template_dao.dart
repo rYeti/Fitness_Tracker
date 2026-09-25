@@ -294,24 +294,28 @@ class MealTemplateDao {
   // here has none, and counts as pending too.
   static void _markEdited(Map<String, dynamic> template) {
     template['rev'] = ((template['rev'] as int?) ?? 0) + 1;
-    if (_pushed(template)) template['dirty'] = true;
+    if (_isOnServer(template)) template['dirty'] = true;
   }
 
-  /// Whether the server has this template.
-  static bool _pushed(Map template) =>
+  /// Whether this device knows the server has this template — what
+  /// `SyncStatus.isOnServer` says for a database row. A template has no
+  /// status column, so the `pending` flag stands in for `sync_status = 0`.
+  static bool _isOnServer(Map template) =>
       template['pending'] != true &&
       ((template['serverId'] as String?)?.isNotEmpty ?? false);
 
   /// Templates the server doesn't have yet.
   Future<List<Map<String, dynamic>>> getUnsyncedTemplates() async {
     final templates = await _loadTemplates();
-    return templates.where((t) => !_pushed(t)).toList();
+    return templates.where((t) => !_isOnServer(t)).toList();
   }
 
   /// Templates the server has that were edited here since.
   Future<List<Map<String, dynamic>>> getEditedTemplates() async {
     final templates = await _loadTemplates();
-    return templates.where((t) => t['dirty'] == true && _pushed(t)).toList();
+    return templates
+        .where((t) => t['dirty'] == true && _isOnServer(t))
+        .toList();
   }
 
   /// Gives a template the server doesn't have a fresh id and returns it: one
@@ -321,7 +325,7 @@ class MealTemplateDao {
     final templates = await _loadTemplates();
     final id = newSyncId();
     final index = templates.indexWhere((t) => t['id'] == localId);
-    if (index >= 0 && !_pushed(templates[index])) {
+    if (index >= 0 && !_isOnServer(templates[index])) {
       templates[index]['serverId'] = id;
       templates[index]['pending'] = true;
       await _saveTemplates(templates);
@@ -366,7 +370,7 @@ class MealTemplateDao {
     if (json == null || json.isEmpty) return false;
     try {
       for (final t in (jsonDecode(json) as List).cast<Map>()) {
-        if (!_pushed(t) || t['dirty'] == true) return true;
+        if (!_isOnServer(t) || t['dirty'] == true) return true;
       }
     } catch (_) {}
     return false;

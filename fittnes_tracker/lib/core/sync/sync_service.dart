@@ -194,12 +194,18 @@ class SyncService {
   /// yet, else null.
   ///
   /// Every row has a server id from the moment it is inserted, so a non-null
-  /// one no longer means the server has the row; `pending` means it hasn't.
-  /// Sending a reference to a row the server doesn't hold would, for most of
-  /// these, be refused (a session's workout is a foreign key) or quietly point
-  /// at nothing until the row arrived.
+  /// one no longer means the server has the row; [SyncStatus.isOnServer]
+  /// does. Sending a reference to a row the server doesn't hold would, for
+  /// most of these, be refused (a session's workout is a foreign key) or
+  /// quietly point at nothing until the row arrived.
+  ///
+  /// A null here is never sent in the reference's place: the row that refers
+  /// waits instead, dirty, for a push after its target's (see
+  /// `_scheduledWorkoutBody`, `_putPlanWorkouts`). Sending null *says*
+  /// something — "this session belongs to no plan" — and the server believes
+  /// it.
   static String? _serverIdIfPushed(String? serverId, int syncStatus) =>
-      serverId != null && SyncStatus.fromDb(syncStatus) != SyncStatus.pending
+      serverId != null && SyncStatus.fromDb(syncStatus).isOnServer
           ? serverId
           : null;
 
@@ -207,6 +213,15 @@ class SyncService {
   /// 409 from a create means the id names a row that belongs to someone else.
   static bool _isIdConflict(Object error) =>
       error is DioException && error.response?.statusCode == 409;
+
+  /// The id a 409 refused, which the server names in its answer
+  /// (`{ "error": "id_in_use", "id": … }`) — for a batch, where only that one
+  /// row needs a new id.
+  static String? _refusedId(Object error) {
+    if (!_isIdConflict(error)) return null;
+    final body = (error as DioException).response?.data;
+    return body is Map ? body['id'] as String? : null;
+  }
 
   /// Gives never-pushed rows fresh ids after the server refused theirs (409).
   ///
@@ -314,7 +329,10 @@ class SyncService {
       case SyncDeletionKind.meal:
         return 'api/Meal/${d.serverId}';
       case SyncDeletionKind.mealFood:
-        return 'api/Meal/${d.parentServerId}/foods/${d.extraServerId}';
+        // By the entry's own id, which tells two portions of one food apart.
+        // An entry an older build queued names the entry too; the food item
+        // it also recorded is what that build sent, and is no longer needed.
+        return 'api/Meal/${d.parentServerId}/foods/${d.serverId}';
       case SyncDeletionKind.weight:
         return 'api/WeightTracking/TrackWeight/${d.serverId}';
       case null:

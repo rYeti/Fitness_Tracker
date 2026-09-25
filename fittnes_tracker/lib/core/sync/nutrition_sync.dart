@@ -104,61 +104,99 @@ extension NutritionSync on SyncService {
         : SyncService._serverIdIfPushed(food.serverId, food.syncStatus);
   }
 
-  Future<Map<String, dynamic>> _mealBody(MealTableData meal) async => {
-    'date': meal.date.toUtc().toIso8601String(),
-    'category': meal.category,
-    'foodItemId':
-        await _foodServerId(meal.foodItemId) ??
-        '00000000-0000-0000-0000-000000000000',
-  };
+  /// What a meal's create and update send, or null while the food it names
+  /// is on this device but not on the server yet: the meal waits for it
+  /// rather than going up without it (see [SyncService._serverIdIfPushed]).
+  ///
+  /// `foodItemId` is the meal's vestigial "primary" food — totals come from
+  /// its entries. A food this device doesn't hold at all (the pull stores 0
+  /// when nothing in a server meal resolved) goes as the server's own
+  /// null-object id, which is what it held already.
+  Future<Map<String, dynamic>?> _mealBody(MealTableData meal) async {
+    var foodItemId = '00000000-0000-0000-0000-000000000000';
+    final food = await _db.foodItemDao.getFoodItemById(meal.foodItemId);
+    if (food != null) {
+      final pushed = SyncService._serverIdIfPushed(
+        food.serverId,
+        food.syncStatus,
+      );
+      if (pushed == null) return null;
+      foodItemId = pushed;
+    }
+    return {
+      'date': meal.date.toUtc().toIso8601String(),
+      'category': meal.category,
+      'foodItemId': foodItemId,
+    };
+  }
 
   Future<void> _syncNewMeal(MealTableData meal) async {
+    final body = await _mealBody(meal);
+    if (body == null) return; // its food is not on the server yet
     final response = await _create(
       'api/Meal',
-      {'id': meal.serverId, ...await _mealBody(meal)},
+      {'id': meal.serverId, ...body},
       _db.mealTable,
       [meal.id],
     );
     if (response == null) return;
     final data = (response.data as Map).cast<String, dynamic>();
     final mealServerId = data['id'] as String;
+    final serverEntries =
+        (data['foodEntries'] as List? ?? []).cast<Map<String, dynamic>>();
 
     if (mealServerId != meal.serverId) {
       // The server keeps one meal per day and category, and already had this
       // one — another device's, or this device's before a reinstall — so it
-      // answered with that meal. Its foods are part of it: sending this
-      // device's list as the whole list would delete them.
+      // answered with that meal.
       final merged = await _db.untracked(
-        () => _mergeIntoServerMeal(meal, mealServerId, data),
+        () => _mergeIntoServerMeal(meal, mealServerId, serverEntries),
       );
       if (!merged) return;
+    } else {
+      await _healBackfilledEntries(meal.id, serverEntries);
+      // Out of `pending` the moment the server has it, before the foods: a
+      // failure sending them must leave a meal that is on the server and
+      // still dirty — never one that looks as if the server lacks it.
+      await _markSent(_db.mealTable, meal.id, mealServerId, -1);
     }
 
-    final complete = await _putMealFoods(meal.id, mealServerId);
-    // Only once its foods are across: a meal marked synced first and then
-    // failing on its foods left them behind a row that looked done.
-    await _markSent(
-      _db.mealTable,
-      meal.id,
-      mealServerId,
-      complete ? meal.localRev : -1,
-    );
+    final complete = await _upsertMealFoods(meal.id, mealServerId);
+    // A meal answered with another stays dirty whatever happened: the server
+    // returned its own meal as it was, so this device's date, category and
+    // food were never applied, and the next push PUTs them.
+    if (complete && mealServerId == meal.serverId) {
+      await _markSent(_db.mealTable, meal.id, mealServerId, meal.localRev);
+    }
     _logger.i('Synced new meal ${meal.id} → server $mealServerId');
   }
 
   /// Makes [meal] the server's meal [mealServerId], which its create was
-  /// answered with, keeping the foods on both.
+  /// answered with. Only this device's foods are then sent to it, each under
+  /// its own id; the server's stay where they are, and come down with the
+  /// first pull after this meal is clean again.
   ///
   /// If another row on this device is already that meal, this one's foods
   /// move to it and this row goes; that row is marked changed, so its push
-  /// sends the combined list, and there is nothing left here to send (false).
-  /// Otherwise this row takes the server's id and the foods the server's meal
-  /// holds, and its push goes on to send the combined list (true).
+  /// upserts them, and there is nothing left here to send (false). Otherwise
+  /// this row takes the server's id and leaves `pending` in the same write —
+  /// the server has it — as `pendingUpdate`, since the server has not seen
+  /// its fields (true).
+  ///
+  /// This used to take the server meal's foods into the local one first, and
+  /// then send the union as the meal's whole list. The union was only ever as
+  /// complete as what this device could resolve: a food another device had
+  /// just created, not yet pulled here, was left out, and the replace deleted
+  /// it from the server.
   Future<bool> _mergeIntoServerMeal(
     MealTableData meal,
     String mealServerId,
-    Map<String, dynamic> serverMeal,
+    List<Map<String, dynamic>> serverEntries,
   ) async {
+    // Before anything moves: an entry the migration gave an id may be one of
+    // the server's already.
+    await _healBackfilledEntries(meal.id, serverEntries);
+
     final twin = await _db.mealDao.getByServerId(mealServerId);
     if (twin != null && twin.id != meal.id) {
       await (_db.update(_db.mealFoodTable)
@@ -175,11 +213,10 @@ extension NutritionSync on SyncService {
     }
 
     await (_db.update(_db.mealTable)..where((t) => t.id.equals(meal.id))).write(
-      MealTableCompanion(serverId: Value(mealServerId)),
-    );
-    await _addServerFoodEntries(
-      meal.id,
-      (serverMeal['foodEntries'] as List? ?? []).cast<Map<String, dynamic>>(),
+      MealTableCompanion(
+        serverId: Value(mealServerId),
+        syncStatus: Value(SyncStatus.pendingUpdate.index),
+      ),
     );
     return true;
   }
@@ -192,7 +229,7 @@ extension NutritionSync on SyncService {
   ) async {
     for (final entry in serverEntries) {
       final entryServerId = entry['id'] as String;
-      // An older build's removal of it, not yet sent.
+      // Removed here, and the DELETE not sent yet.
       if (_deletedHere.contains(entryServerId)) continue;
       if (await _db.mealDao.getFoodEntryByServerId(entryServerId) != null) {
         continue;
@@ -205,19 +242,104 @@ extension NutritionSync on SyncService {
     }
   }
 
+  /// Gives each food of [localMealId] that the schema-42 migration minted an
+  /// id for (`id_backfilled`) the id of the server's entry it already is, if
+  /// the server has one, and clears the flag.
+  ///
+  /// This is legacy healing, and the one place a meal's foods are matched by
+  /// content. It exists for one state an older build could leave behind: its
+  /// foods batch committed on the server and the answer was lost, so the
+  /// server's meal holds this device's entries under ids the device never
+  /// heard, while the device's rows had none. The migration gave those rows
+  /// fresh ids, and sent under them they would be stored a second time — a
+  /// lunch of five foods became ten, which is the bug this rework began with.
+  ///
+  /// A flagged entry takes an unclaimed server entry of the same meal naming
+  /// the same food item. The food item row is one logged portion (each add
+  /// writes its own), so the same food item is the same food at the same
+  /// quantity. Unclaimed means no row on this device holds that id already,
+  /// no deletion of it is waiting to be sent, and no other flagged entry took
+  /// it first — so two portions of one food each claim one server entry, and
+  /// a server entry claims at most one local row.
+  ///
+  /// Why this doesn't break "a name, a position or a response index is not an
+  /// identity": it never pairs two rows that each have an identity. A flagged
+  /// row has none — its id was invented after the fact by the migration, and
+  /// names nothing anywhere. The match adopts the only identity that row ever
+  /// had, on the server, for rows the migration minted, once; the flag is
+  /// cleared whether or not a match is found, so nothing logged since the
+  /// migration, and nothing twice, is ever matched this way.
+  Future<void> _healBackfilledEntries(
+    int localMealId,
+    List<Map<String, dynamic>> serverEntries,
+  ) async {
+    final flagged =
+        (await _db.mealDao.getAllFoodEntriesForMeal(
+          localMealId,
+        )).where((e) => e.idBackfilled).toList();
+    if (flagged.isEmpty) return;
+    final deletedHere = {
+      for (final d in await _db.select(_db.syncDeletionTable).get()) d.serverId,
+    };
+    final claimed = <String>{};
+    await _db.untracked(() async {
+      for (final entry in flagged) {
+        final foodServerId = await _foodServerId(entry.foodEntryId);
+        String? adopt;
+        if (foodServerId != null) {
+          for (final s in serverEntries) {
+            final id = s['id'] as String;
+            if (s['foodItemId'] != foodServerId ||
+                claimed.contains(id) ||
+                deletedHere.contains(id) ||
+                await _db.mealDao.getFoodEntryByServerId(id) != null) {
+              continue;
+            }
+            adopt = id;
+            break;
+          }
+        }
+        if (adopt != null) claimed.add(adopt);
+        await (_db.update(_db.mealFoodTable)
+          ..where((t) => t.id.equals(entry.id))).write(
+          MealFoodTableCompanion(
+            serverId: adopt == null ? const Value.absent() : Value(adopt),
+            idBackfilled: const Value(false),
+          ),
+        );
+      }
+    });
+    if (claimed.isNotEmpty) {
+      _logger.i(
+        'Meal $localMealId: ${claimed.length} food(s) the migration gave ids '
+        'were already on the server; took the server\'s ids',
+      );
+    }
+  }
+
   Future<void> _syncUpdateMeal(MealTableData meal) async {
     if (meal.serverId == null) {
       await _syncNewMeal(meal);
       return;
     }
-    await _apiClient.put(
-      'api/Meal/${meal.serverId}',
-      data: await _mealBody(meal),
-    );
-    // A food added to or taken out of a meal the server has is what dirties
-    // the meal (the database marks the owner), so this is the path that
-    // sends it — as the whole list.
-    final complete = await _putMealFoods(meal.id, meal.serverId!);
+    final body = await _mealBody(meal);
+    if (body == null) return; // its food is not on the server yet
+    // Only a meal the migration touched, and only once: its flagged foods are
+    // matched against the server's before any of them is sent.
+    if ((await _db.mealDao.getAllFoodEntriesForMeal(
+      meal.id,
+    )).any((e) => e.idBackfilled)) {
+      final response = await _apiClient.get('api/Meal/${meal.serverId}');
+      await _healBackfilledEntries(
+        meal.id,
+        ((response.data as Map)['foodEntries'] as List? ?? [])
+            .cast<Map<String, dynamic>>(),
+      );
+    }
+    await _apiClient.put('api/Meal/${meal.serverId}', data: body);
+    // A food added to a meal the server has is what dirties the meal (the
+    // database marks the owner), so this is the path that sends it.
+    final complete = await _upsertMealFoods(meal.id, meal.serverId!);
     await _markSent(
       _db.mealTable,
       meal.id,
@@ -227,27 +349,33 @@ extension NutritionSync on SyncService {
     _logger.i('Updated meal ${meal.id} on server ${meal.serverId}');
   }
 
-  /// Sends a meal's whole list of foods, each under the id this device minted
-  /// for it, which the server makes the meal's list.
+  /// Sends each food of a meal this device changed, under the id it was
+  /// given when it was logged, for the server to store once in that meal.
   ///
-  /// This replaced two things. Foods were added with a batch whose answer was
-  /// paired with the request by position, and after a meal create that the
-  /// server answered with an existing meal they were first matched by food
-  /// against what it held (`_stampMealFoodEntriesFromServer`). And a removed
-  /// food needed its own DELETE, addressed by meal and food item — which could
-  /// not tell two portions of one food apart. The whole list under stable ids
-  /// needs neither.
+  /// It is an upsert, one entry at a time: a food already stored under its id
+  /// is that food again, and nothing the request doesn't name is touched. A
+  /// food taken out of the meal is its own DELETE, which the database records
+  /// when the row goes (`sync_triggers.dart`).
   ///
-  /// Returns false when a food in the meal is not on the server yet: the list
-  /// goes without it, and the meal is left dirty so it goes again next push,
-  /// when the food has been created.
-  Future<bool> _putMealFoods(int localMealId, String mealServerId) async {
+  /// For a while this sent the meal's whole list as a replace
+  /// (`PUT api/Meal/{id}/foods`), which deleted whatever the list left out.
+  /// A list this device builds can only name what this device holds — and it
+  /// did not hold a food another device had added since its last pull, or one
+  /// whose food item it couldn't resolve. Both were deleted from the server,
+  /// and the next pull deleted them from the device that added them.
+  ///
+  /// A dangling entry — its food row gone from this device — is neither sent
+  /// nor deleted: this device can't say what it is.
+  ///
+  /// Returns false when a food in the meal is not on the server yet: that
+  /// one waits, and the meal is left dirty so it goes next push.
+  Future<bool> _upsertMealFoods(int localMealId, String mealServerId) async {
     final entries = await _db.mealDao.getAllFoodEntriesForMeal(localMealId);
     final body = <Map<String, dynamic>>[];
     var complete = true;
     for (final entry in entries) {
       final food = await _db.foodItemDao.getFoodItemById(entry.foodEntryId);
-      if (food == null) continue; // a dangling entry names nothing to send
+      if (food == null) continue;
       final foodServerId = SyncService._serverIdIfPushed(
         food.serverId,
         food.syncStatus,
@@ -258,14 +386,16 @@ extension NutritionSync on SyncService {
       }
       body.add({'id': entry.serverId, 'foodItemId': foodServerId});
     }
+    if (body.isEmpty) return complete;
     try {
-      await _apiClient.put('api/Meal/$mealServerId/foods', data: body);
+      await _apiClient.post('api/Meal/$mealServerId/foods/batch', data: body);
     } catch (e) {
-      if (SyncService._isIdConflict(e)) {
-        // The server refused one of the entries' ids (409). The list is
-        // replaced whole, so every entry can take a new one at no cost: the
-        // next PUT drops the rows stored under the old ids and keeps these.
-        for (final entry in entries) {
+      // One entry's id names a row that isn't this account's (409). That
+      // entry, and only that one, takes a new id: the rest may be on the
+      // server under theirs, and a new id would store them a second time.
+      final refused = SyncService._refusedId(e);
+      if (refused != null) {
+        for (final entry in entries.where((x) => x.serverId == refused)) {
           await _db.untracked(
             () => _db.mealDao.setFoodEntryServerId(entry.id, newSyncId()),
           );
@@ -514,6 +644,9 @@ extension NutritionSync on SyncService {
     }
     localFoodId ??= 0;
 
+    final serverEntries =
+        (m['foodEntries'] as List).cast<Map<String, dynamic>>();
+
     // Check by serverId first (already synced).
     var existing = await _db.mealDao.getByServerId(mealServerId);
 
@@ -531,9 +664,11 @@ extension NutritionSync on SyncService {
         m['category'] as String,
       );
       if (unpushed != null &&
-          SyncStatus.fromDb(unpushed.syncStatus) == SyncStatus.pending) {
-        // The server has this meal now, but not this device's foods: it stays
-        // changed, and its push sends the combined list.
+          !SyncStatus.fromDb(unpushed.syncStatus).isOnServer) {
+        // An entry the migration gave an id may be one of the server's.
+        await _healBackfilledEntries(unpushed.id, serverEntries);
+        // The server has this meal now, but not this device's foods or
+        // fields: it stays changed, and its push sends them.
         await (_db.update(_db.mealTable)
           ..where((t) => t.id.equals(unpushed.id))).write(
           MealTableCompanion(
@@ -546,8 +681,6 @@ extension NutritionSync on SyncService {
       }
     }
 
-    final serverEntries =
-        (m['foodEntries'] as List).cast<Map<String, dynamic>>();
     if (existing == null) {
       final serverDate = _toLocalMidnight(
         DateTime.parse(m['date'] as String),
@@ -570,16 +703,16 @@ extension NutritionSync on SyncService {
       await _addServerFoodEntries(localMealId, serverEntries);
       return;
     }
-    // A meal with an unsent change holds this device's list, which its push
-    // sends whole — a food taken out here must not come back from the server
-    // before it goes.
+    // A meal with an unsent change may hold foods the server hasn't been sent
+    // yet; taking out what the server doesn't list would take those too.
     if (SyncStatus.fromDb(existing.syncStatus) != SyncStatus.synced) return;
 
     // A clean meal holds nothing the server hasn't seen, so its list is the
     // server's to set: add what it has, and take out what it no longer lists.
-    // This used to only add, which was enough while the push only ever added
-    // too. It now sends the whole list, so a food removed on another device
-    // but left here would go back up with the next edit to this meal.
+    // This used to only add, which was enough while the push only ever sent
+    // new foods. A dirty meal now sends every food it holds, so a food
+    // removed on another device but left here would go back up with the next
+    // edit to this meal.
     await _addServerFoodEntries(localMealId, serverEntries);
     final listed = {for (final e in serverEntries) e['id'] as String};
     await (_db.delete(_db.mealFoodTable)..where(

@@ -235,9 +235,11 @@ class AppDatabase extends _$AppDatabase {
   /// not part of any migration: [installSyncTriggers] reinstalls them from code
   /// on every open. See `docs/sync-architecture.md` §3.
   ///
-  /// 42 changes no table's shape. The device now mints every row's
-  /// `server_id` on insert (`newSyncId`), so every existing row that has none
-  /// is given one, and "not pushed yet" becomes `sync_status = 0` alone. See
+  /// 42 adds `id_backfilled` to `meal_food_table` and changes no other
+  /// table's shape. The device now mints every row's `server_id` on insert
+  /// (`newSyncId`), so every existing row that has none is given one, and "not
+  /// pushed yet" becomes `sync_status = 0` alone; a meal food given one is
+  /// flagged, because the server may hold it under another. See
   /// `if (from < 42)` and `docs/sync-architecture.md` part two.
   @override
   int get schemaVersion => 42;
@@ -540,9 +542,10 @@ class AppDatabase extends _$AppDatabase {
         // inserted, so that fact moves to the status. In order:
         //
         // 1. A meal or plan whose list holds a food or workout the server
-        //    never got is dirtied: its push now sends the whole list, so the
-        //    missing one goes with it. Left synced, the pull — which now makes
-        //    a clean meal or plan match the server's list — would delete it.
+        //    never got is dirtied: its push is what sends a meal's foods and a
+        //    plan's workouts now, so the missing one goes with it. Left
+        //    synced, the pull — which now makes a clean meal's or plan's list
+        //    match the server's — would delete it.
         await customStatement(
           'UPDATE meal_table SET sync_status = 2 WHERE sync_status = 1 AND id '
           'IN (SELECT meal_id FROM meal_food_table WHERE server_id IS NULL)',
@@ -552,7 +555,21 @@ class AppDatabase extends _$AppDatabase {
           'AND id IN (SELECT plan_id FROM workout_plan_workout_table '
           'WHERE sync_status != 1)',
         );
-        // 2. A row with no id that is marked edited was never created on the
+        // 2. A meal food with no id is flagged before it gets one. An older
+        //    build's foods batch could commit and lose its answer, leaving the
+        //    server holding the entry under an id this device never heard;
+        //    sent under the new id, it would be stored a second time. The
+        //    flag is what lets the push adopt the server's id first
+        //    (`_healBackfilledEntries`). The column is new here; `createAll()`
+        //    above already made it on an install that had no such table.
+        try {
+          await m.addColumn(mealFoodTable, mealFoodTable.idBackfilled);
+        } catch (_) {}
+        await customStatement(
+          'UPDATE meal_food_table SET id_backfilled = 1 '
+          'WHERE server_id IS NULL',
+        );
+        // 3. A row with no id that is marked edited was never created on the
         //    server — the push used to catch that by the null id and POST
         //    it — so it is pending, which is what will now POST it.
         //    Built-in exercises are the server's rows and keep no id until
@@ -563,7 +580,7 @@ class AppDatabase extends _$AppDatabase {
             'AND sync_status IN (1, 2)$onlyWhere',
           );
         }
-        // 3. Every row without an id gets one. The same expression runs per
+        // 4. Every row without an id gets one. The same expression runs per
         //    row, so each gets its own.
         for (final (table, onlyWhere) in [
           ..._tablesWithDeviceIds,

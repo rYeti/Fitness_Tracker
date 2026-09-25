@@ -74,10 +74,20 @@ class MealFoodTable extends Table {
   IntColumn get foodEntryId => integer().references(FoodItem, #id)();
 
   /// The entry's global id, minted on insert ([newSyncId]) or taken from the
-  /// server on pull. The meal's push sends its whole list of foods under these
-  /// ids (`PUT api/Meal/{id}/foods`), which is what tells two portions of the
-  /// same food apart.
+  /// server on pull. A dirty meal's push upserts each of its foods under these
+  /// ids (`POST api/Meal/{id}/foods/batch`), and a removed one is deleted by
+  /// its id — which is what tells two portions of the same food apart.
   TextColumn get serverId => text().nullable().clientDefault(newSyncId)();
+
+  /// Set on an entry whose id the schema-42 migration minted, rather than the
+  /// device when the food was logged. Such an entry may already be on the
+  /// server under an id this device never heard: an older build's foods batch
+  /// could commit and lose its answer. Before the meal's foods are next sent,
+  /// the entry takes the id of an unclaimed server entry of the same meal and
+  /// food, if there is one, and the flag is cleared either way. See
+  /// `_healBackfilledEntries` and `docs/sync-architecture.md` §18.
+  BoolColumn get idBackfilled =>
+      boolean().withDefault(const Constant(false))();
 }
 
 /// Curated verified foods (per-100g values) shown above crowdsourced search

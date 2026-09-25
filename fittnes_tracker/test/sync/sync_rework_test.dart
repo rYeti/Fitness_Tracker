@@ -792,14 +792,12 @@ void main() {
       await db.mealDao.deleteFoodFromMeal(meal.food, meal.meal);
       await sync.syncAll();
 
-      // By sending the meal's whole list, now without it — not a DELETE, and
-      // nothing recorded for one.
-      expect(api.deletes, isEmpty);
+      // As its own DELETE, by the entry's id. The meal isn't changed by it:
+      // its foods are upserted, never sent as a list that could leave one out.
+      expect(api.deletes, ['api/Meal/server-m1/foods/server-entry1']);
       expect(await db.select(db.syncDeletionTable).get(), isEmpty);
-      expect(
-        api.puts.singleWhere((p) => p.path == 'api/Meal/server-m1/foods').data,
-        isEmpty,
-      );
+      expect(api.puts, isEmpty);
+      expect(api.posts, isEmpty);
       expect(await statusOf(db.mealTable, meal.meal), SyncStatus.synced.index);
     });
 
@@ -1025,7 +1023,9 @@ void main() {
       await sync.syncAll();
       final entry = (await db.mealDao.getAllFoodEntriesForMeal(ids.meal)).single;
       expect(
-        api.puts.singleWhere((p) => p.path == 'api/Meal/server-m1/foods').data,
+        api.posts
+            .singleWhere((p) => p.path == 'api/Meal/server-m1/foods/batch')
+            .data,
         [
           {'id': entry.serverId, 'foodItemId': 'server-f1'},
         ],
@@ -1100,7 +1100,7 @@ void main() {
   // ── Links ─────────────────────────────────────────────────────────────────
 
   group("a session's exercises created on the server", () {
-    test('are linked by the exercise they perform, not by position', () async {
+    test('are linked by the item each answers, not by position', () async {
       final exerciseId = await insertSyncedExercise(serverId: 'server-e1');
       final w = await insertSyncedWorkout('Push', 'server-w1');
       final ids = await db.untracked(() async {
@@ -1154,10 +1154,26 @@ void main() {
             );
         return (se1: se1, se2: se2);
       });
-      // Every entry the session now has, in no particular order.
+      final sent = {
+        for (final se in await db.select(db.scheduledWorkoutExerciseTable).get())
+          se.id: se.serverId!,
+      };
+      // Every entry the session now has, in no particular order — two it
+      // already held, under ids of their own — each naming the item it
+      // answers.
       api.postResponses['api/ScheduledWorkout/server-sw1/exercises/batch'] = [
-        {'id': 'server-se2', 'workoutExerciseId': 'server-we2', 'notes': null},
-        {'id': 'server-se1', 'workoutExerciseId': 'server-we1', 'notes': null},
+        {
+          'id': 'server-se2',
+          'requestedId': sent[ids.se2],
+          'workoutExerciseId': 'server-we2',
+          'notes': null,
+        },
+        {
+          'id': 'server-se1',
+          'requestedId': sent[ids.se1],
+          'workoutExerciseId': 'server-we1',
+          'notes': null,
+        },
       ];
 
       await sync.syncAll();

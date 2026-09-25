@@ -39,7 +39,7 @@ extension _SyncDedup on SyncService {
           (sw) => logged[sw.id] == true,
           orElse:
               () => group.firstWhere(
-                (sw) => _onServer(sw.syncStatus),
+                (sw) => SyncStatus.fromDb(sw.syncStatus).isOnServer,
                 orElse: () => group.first,
               ),
         );
@@ -97,7 +97,7 @@ extension _SyncDedup on SyncService {
       for (final group in groups.values) {
         if (group.length < 2) continue;
         final winner = group.firstWhere(
-          (e) => _onServer(e.syncStatus),
+          (e) => SyncStatus.fromDb(e.syncStatus).isOnServer,
           orElse: () => group.first,
         );
         for (final loser in group.where((e) => e.id != winner.id)) {
@@ -146,7 +146,8 @@ extension _SyncDedup on SyncService {
         final kept = survivors[key];
         if (kept == null) {
           survivors[key] = row;
-        } else if (!_onServer(kept.syncStatus) && _onServer(row.syncStatus)) {
+        } else if (!SyncStatus.fromDb(kept.syncStatus).isOnServer &&
+            SyncStatus.fromDb(row.syncStatus).isOnServer) {
           losers.add(kept);
           survivors[key] = row;
         } else {
@@ -232,11 +233,6 @@ extension _SyncDedup on SyncService {
       _logger.w('_deduplicateLoggedSets failed: $e');
     }
   }
-
-  /// Whether the server has a row: every row has a server id from the moment
-  /// it is inserted, so it is the status that says so.
-  static bool _onServer(int syncStatus) =>
-      SyncStatus.fromDb(syncStatus) != SyncStatus.pending;
 
   Future<bool> _hasLoggedSets(int scheduledWorkoutId) async {
     final exercises = await _db.scheduledWorkoutExerciseDao

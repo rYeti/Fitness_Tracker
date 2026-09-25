@@ -43,16 +43,15 @@ extension PlanSync on SyncService {
     );
     if (response == null) return;
     final serverId = response.data['id'] as String;
-    // The workouts before the plan is marked sent, as in _syncUpdatePlan: a
-    // plan marked first and then failing on its list left the list behind a
-    // row that no longer looked like it had anything to send.
-    final complete = await _putPlanWorkouts(p.id, serverId);
-    await _markSent(
-      _db.workoutPlanTable,
-      p.id,
-      serverId,
-      complete ? p.localRev : -1,
-    );
+    // Out of `pending` the moment the server has it, and still dirty until its
+    // workouts are across. Marked after the list instead, a list that failed
+    // left a plan the server held at `pending` — and the sessions pushed next
+    // in the same run, reading that as "the server has no such plan", went
+    // up without it, for good.
+    await _markSent(_db.workoutPlanTable, p.id, serverId, -1);
+    if (await _putPlanWorkouts(p.id, serverId)) {
+      await _markSent(_db.workoutPlanTable, p.id, serverId, p.localRev);
+    }
     _logger.i('Synced new plan ${p.id} → server $serverId');
   }
 
@@ -107,15 +106,19 @@ extension PlanSync on SyncService {
   /// This replaced adding new links in a batch and removing each dropped one
   /// with its own DELETE, which needed the database to record every removal.
   /// A removal now only has to dirty the plan (`sync_triggers.dart`), and the
-  /// list says the rest.
+  /// list says the rest. A link has no id of its own, so there is nothing to
+  /// upsert it by, as a meal's foods are; the cost is last-writer-wins for
+  /// the list (`docs/sync-architecture.md` §18).
   ///
-  /// Returns false when a workout in the plan is not on the server yet: the
-  /// list goes without it, and the plan is left dirty so it goes again next
-  /// push, when that workout has been created.
+  /// Returns false, sending nothing, while a workout in the plan is not on
+  /// the server yet; the plan stays dirty and goes when the workout has. It
+  /// used to send the list without that workout — but "not on the server" is
+  /// only what this device has heard: a create whose answer was lost, or a
+  /// workout kept for its history, is `pending` on a server that has it, and
+  /// the list without it unlinked it there.
   Future<bool> _putPlanWorkouts(int localPlanId, String planServerId) async {
     final links = await _db.workoutPlanDao.getPlanWorkoutsForPlan(localPlanId);
     final workoutServerIds = <String>[];
-    var complete = true;
     for (final link in links) {
       final workout =
           await ((_db.select(_db.workoutTable))
@@ -126,10 +129,13 @@ extension PlanSync on SyncService {
         workout.syncStatus,
       );
       if (id == null) {
-        complete = false;
-      } else {
-        workoutServerIds.add(id);
+        _logger.i(
+          'Plan $localPlanId: workout ${workout.id} is not on the server yet; '
+          'its list waits for it',
+        );
+        return false;
       }
+      workoutServerIds.add(id);
     }
     await _apiClient.put(
       'api/WorkoutPlan/$planServerId/workouts',
@@ -144,7 +150,7 @@ extension PlanSync on SyncService {
             ),
           ),
     );
-    return complete;
+    return true;
   }
 
   Future<void> _pullWorkoutPlans() async {

@@ -234,7 +234,7 @@ class MealDao extends DatabaseAccessor<AppDatabase> with _$MealDaoMixin {
     for (final group in groups.values) {
       if (group.length <= 1) continue;
       final keeper = group.firstWhere(
-        (m) => SyncStatus.fromDb(m.syncStatus) != SyncStatus.pending,
+        (m) => SyncStatus.fromDb(m.syncStatus).isOnServer,
         orElse: () => group.first,
       );
       for (final dupe in group) {

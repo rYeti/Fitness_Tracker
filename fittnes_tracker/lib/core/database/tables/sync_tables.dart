@@ -41,8 +41,9 @@ class SyncDeletionTable extends Table {
   /// have one (a meal's food entry is removed through its meal).
   TextColumn get parentServerId => text().nullable()();
 
-  /// A second route id, for kinds that address a row by what it links (a
-  /// plan's workout, a meal's food item).
+  /// A second route id. Only entries an older build queued carry one (a meal
+  /// food's food item, which its DELETE was addressed by); nothing reads it
+  /// now that a meal's food is removed by its own id.
   TextColumn get extraServerId => text().nullable()();
 }
 

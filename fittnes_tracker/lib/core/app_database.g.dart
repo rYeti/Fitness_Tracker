@@ -2552,8 +2552,29 @@ class $MealFoodTableTable extends MealFoodTable
     requiredDuringInsert: false,
     clientDefault: newSyncId,
   );
+  static const VerificationMeta _idBackfilledMeta = const VerificationMeta(
+    'idBackfilled',
+  );
   @override
-  List<GeneratedColumn> get $columns => [id, mealId, foodEntryId, serverId];
+  late final GeneratedColumn<bool> idBackfilled = GeneratedColumn<bool>(
+    'id_backfilled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("id_backfilled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    mealId,
+    foodEntryId,
+    serverId,
+    idBackfilled,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -2594,6 +2615,15 @@ class $MealFoodTableTable extends MealFoodTable
         serverId.isAcceptableOrUnknown(data['server_id']!, _serverIdMeta),
       );
     }
+    if (data.containsKey('id_backfilled')) {
+      context.handle(
+        _idBackfilledMeta,
+        idBackfilled.isAcceptableOrUnknown(
+          data['id_backfilled']!,
+          _idBackfilledMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -2622,6 +2652,11 @@ class $MealFoodTableTable extends MealFoodTable
         DriftSqlType.string,
         data['${effectivePrefix}server_id'],
       ),
+      idBackfilled:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.bool,
+            data['${effectivePrefix}id_backfilled'],
+          )!,
     );
   }
 
@@ -2638,15 +2673,25 @@ class MealFoodTableData extends DataClass
   final int foodEntryId;
 
   /// The entry's global id, minted on insert ([newSyncId]) or taken from the
-  /// server on pull. The meal's push sends its whole list of foods under these
-  /// ids (`PUT api/Meal/{id}/foods`), which is what tells two portions of the
-  /// same food apart.
+  /// server on pull. A dirty meal's push upserts each of its foods under these
+  /// ids (`POST api/Meal/{id}/foods/batch`), and a removed one is deleted by
+  /// its id — which is what tells two portions of the same food apart.
   final String? serverId;
+
+  /// Set on an entry whose id the schema-42 migration minted, rather than the
+  /// device when the food was logged. Such an entry may already be on the
+  /// server under an id this device never heard: an older build's foods batch
+  /// could commit and lose its answer. Before the meal's foods are next sent,
+  /// the entry takes the id of an unclaimed server entry of the same meal and
+  /// food, if there is one, and the flag is cleared either way. See
+  /// `_healBackfilledEntries` and `docs/sync-architecture.md` §18.
+  final bool idBackfilled;
   const MealFoodTableData({
     required this.id,
     required this.mealId,
     required this.foodEntryId,
     this.serverId,
+    required this.idBackfilled,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2657,6 +2702,7 @@ class MealFoodTableData extends DataClass
     if (!nullToAbsent || serverId != null) {
       map['server_id'] = Variable<String>(serverId);
     }
+    map['id_backfilled'] = Variable<bool>(idBackfilled);
     return map;
   }
 
@@ -2669,6 +2715,7 @@ class MealFoodTableData extends DataClass
           serverId == null && nullToAbsent
               ? const Value.absent()
               : Value(serverId),
+      idBackfilled: Value(idBackfilled),
     );
   }
 
@@ -2682,6 +2729,7 @@ class MealFoodTableData extends DataClass
       mealId: serializer.fromJson<int>(json['mealId']),
       foodEntryId: serializer.fromJson<int>(json['foodEntryId']),
       serverId: serializer.fromJson<String?>(json['serverId']),
+      idBackfilled: serializer.fromJson<bool>(json['idBackfilled']),
     );
   }
   @override
@@ -2692,6 +2740,7 @@ class MealFoodTableData extends DataClass
       'mealId': serializer.toJson<int>(mealId),
       'foodEntryId': serializer.toJson<int>(foodEntryId),
       'serverId': serializer.toJson<String?>(serverId),
+      'idBackfilled': serializer.toJson<bool>(idBackfilled),
     };
   }
 
@@ -2700,11 +2749,13 @@ class MealFoodTableData extends DataClass
     int? mealId,
     int? foodEntryId,
     Value<String?> serverId = const Value.absent(),
+    bool? idBackfilled,
   }) => MealFoodTableData(
     id: id ?? this.id,
     mealId: mealId ?? this.mealId,
     foodEntryId: foodEntryId ?? this.foodEntryId,
     serverId: serverId.present ? serverId.value : this.serverId,
+    idBackfilled: idBackfilled ?? this.idBackfilled,
   );
   MealFoodTableData copyWithCompanion(MealFoodTableCompanion data) {
     return MealFoodTableData(
@@ -2713,6 +2764,10 @@ class MealFoodTableData extends DataClass
       foodEntryId:
           data.foodEntryId.present ? data.foodEntryId.value : this.foodEntryId,
       serverId: data.serverId.present ? data.serverId.value : this.serverId,
+      idBackfilled:
+          data.idBackfilled.present
+              ? data.idBackfilled.value
+              : this.idBackfilled,
     );
   }
 
@@ -2722,13 +2777,15 @@ class MealFoodTableData extends DataClass
           ..write('id: $id, ')
           ..write('mealId: $mealId, ')
           ..write('foodEntryId: $foodEntryId, ')
-          ..write('serverId: $serverId')
+          ..write('serverId: $serverId, ')
+          ..write('idBackfilled: $idBackfilled')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, mealId, foodEntryId, serverId);
+  int get hashCode =>
+      Object.hash(id, mealId, foodEntryId, serverId, idBackfilled);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2736,7 +2793,8 @@ class MealFoodTableData extends DataClass
           other.id == this.id &&
           other.mealId == this.mealId &&
           other.foodEntryId == this.foodEntryId &&
-          other.serverId == this.serverId);
+          other.serverId == this.serverId &&
+          other.idBackfilled == this.idBackfilled);
 }
 
 class MealFoodTableCompanion extends UpdateCompanion<MealFoodTableData> {
@@ -2744,17 +2802,20 @@ class MealFoodTableCompanion extends UpdateCompanion<MealFoodTableData> {
   final Value<int> mealId;
   final Value<int> foodEntryId;
   final Value<String?> serverId;
+  final Value<bool> idBackfilled;
   const MealFoodTableCompanion({
     this.id = const Value.absent(),
     this.mealId = const Value.absent(),
     this.foodEntryId = const Value.absent(),
     this.serverId = const Value.absent(),
+    this.idBackfilled = const Value.absent(),
   });
   MealFoodTableCompanion.insert({
     this.id = const Value.absent(),
     required int mealId,
     required int foodEntryId,
     this.serverId = const Value.absent(),
+    this.idBackfilled = const Value.absent(),
   }) : mealId = Value(mealId),
        foodEntryId = Value(foodEntryId);
   static Insertable<MealFoodTableData> custom({
@@ -2762,12 +2823,14 @@ class MealFoodTableCompanion extends UpdateCompanion<MealFoodTableData> {
     Expression<int>? mealId,
     Expression<int>? foodEntryId,
     Expression<String>? serverId,
+    Expression<bool>? idBackfilled,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (mealId != null) 'meal_id': mealId,
       if (foodEntryId != null) 'food_entry_id': foodEntryId,
       if (serverId != null) 'server_id': serverId,
+      if (idBackfilled != null) 'id_backfilled': idBackfilled,
     });
   }
 
@@ -2776,12 +2839,14 @@ class MealFoodTableCompanion extends UpdateCompanion<MealFoodTableData> {
     Value<int>? mealId,
     Value<int>? foodEntryId,
     Value<String?>? serverId,
+    Value<bool>? idBackfilled,
   }) {
     return MealFoodTableCompanion(
       id: id ?? this.id,
       mealId: mealId ?? this.mealId,
       foodEntryId: foodEntryId ?? this.foodEntryId,
       serverId: serverId ?? this.serverId,
+      idBackfilled: idBackfilled ?? this.idBackfilled,
     );
   }
 
@@ -2800,6 +2865,9 @@ class MealFoodTableCompanion extends UpdateCompanion<MealFoodTableData> {
     if (serverId.present) {
       map['server_id'] = Variable<String>(serverId.value);
     }
+    if (idBackfilled.present) {
+      map['id_backfilled'] = Variable<bool>(idBackfilled.value);
+    }
     return map;
   }
 
@@ -2809,7 +2877,8 @@ class MealFoodTableCompanion extends UpdateCompanion<MealFoodTableData> {
           ..write('id: $id, ')
           ..write('mealId: $mealId, ')
           ..write('foodEntryId: $foodEntryId, ')
-          ..write('serverId: $serverId')
+          ..write('serverId: $serverId, ')
+          ..write('idBackfilled: $idBackfilled')
           ..write(')'))
         .toString();
   }
@@ -10124,8 +10193,9 @@ class SyncDeletionData extends DataClass
   /// have one (a meal's food entry is removed through its meal).
   final String? parentServerId;
 
-  /// A second route id, for kinds that address a row by what it links (a
-  /// plan's workout, a meal's food item).
+  /// A second route id. Only entries an older build queued carry one (a meal
+  /// food's food item, which its DELETE was addressed by); nothing reads it
+  /// now that a meal's food is removed by its own id.
   final String? extraServerId;
   const SyncDeletionData({
     required this.id,
@@ -12371,6 +12441,7 @@ typedef $$MealFoodTableTableCreateCompanionBuilder =
       required int mealId,
       required int foodEntryId,
       Value<String?> serverId,
+      Value<bool> idBackfilled,
     });
 typedef $$MealFoodTableTableUpdateCompanionBuilder =
     MealFoodTableCompanion Function({
@@ -12378,6 +12449,7 @@ typedef $$MealFoodTableTableUpdateCompanionBuilder =
       Value<int> mealId,
       Value<int> foodEntryId,
       Value<String?> serverId,
+      Value<bool> idBackfilled,
     });
 
 final class $$MealFoodTableTableReferences
@@ -12447,6 +12519,11 @@ class $$MealFoodTableTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<bool> get idBackfilled => $composableBuilder(
+    column: $table.idBackfilled,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$MealTableTableFilterComposer get mealId {
     final $$MealTableTableFilterComposer composer = $composerBuilder(
       composer: this,
@@ -12513,6 +12590,11 @@ class $$MealFoodTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get idBackfilled => $composableBuilder(
+    column: $table.idBackfilled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$MealTableTableOrderingComposer get mealId {
     final $$MealTableTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -12574,6 +12656,11 @@ class $$MealFoodTableTableAnnotationComposer
 
   GeneratedColumn<String> get serverId =>
       $composableBuilder(column: $table.serverId, builder: (column) => column);
+
+  GeneratedColumn<bool> get idBackfilled => $composableBuilder(
+    column: $table.idBackfilled,
+    builder: (column) => column,
+  );
 
   $$MealTableTableAnnotationComposer get mealId {
     final $$MealTableTableAnnotationComposer composer = $composerBuilder(
@@ -12658,11 +12745,13 @@ class $$MealFoodTableTableTableManager
                 Value<int> mealId = const Value.absent(),
                 Value<int> foodEntryId = const Value.absent(),
                 Value<String?> serverId = const Value.absent(),
+                Value<bool> idBackfilled = const Value.absent(),
               }) => MealFoodTableCompanion(
                 id: id,
                 mealId: mealId,
                 foodEntryId: foodEntryId,
                 serverId: serverId,
+                idBackfilled: idBackfilled,
               ),
           createCompanionCallback:
               ({
@@ -12670,11 +12759,13 @@ class $$MealFoodTableTableTableManager
                 required int mealId,
                 required int foodEntryId,
                 Value<String?> serverId = const Value.absent(),
+                Value<bool> idBackfilled = const Value.absent(),
               }) => MealFoodTableCompanion.insert(
                 id: id,
                 mealId: mealId,
                 foodEntryId: foodEntryId,
                 serverId: serverId,
+                idBackfilled: idBackfilled,
               ),
           withReferenceMapper:
               (p0) =>

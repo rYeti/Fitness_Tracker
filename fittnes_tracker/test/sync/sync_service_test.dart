@@ -602,12 +602,20 @@ void main() {
       // already there.
       await db.workoutDao.markWorkoutSynced(workoutId, 'server-w1');
       api.stubEmptyPull();
+      final sent =
+          (await (db.select(db.workoutExerciseTable)
+                ..where((t) => t.workoutId.equals(workoutId))).getSingle())
+              .serverId;
       api.postResponses['api/Workout/server-w1/exercises/batch'] = [
-        serverWorkoutExercise(
-          id: 'server-we1',
-          exerciseId: 'server-e1',
-          orderPosition: 0,
-        ),
+        {
+          ...serverWorkoutExercise(
+            id: 'server-we1',
+            exerciseId: 'server-e1',
+            orderPosition: 0,
+          ),
+          // Which item this answers: the id it was sent with.
+          'requestedId': sent,
+        },
       ];
 
       await sync.syncAll();
@@ -621,6 +629,12 @@ void main() {
           await (db.select(db.workoutExerciseTable)
             ..where((t) => t.workoutId.equals(workoutId))).getSingle();
       expect(we.serverId, 'server-we1');
+      // The server returned its entry as it was, not with this device's
+      // fields: they follow as an update of that entry.
+      expect(
+        api.puts.map((p) => p.path),
+        contains('api/Workout/exercises/server-we1'),
+      );
       expect(we.syncStatus, SyncStatus.synced.index);
     });
 
