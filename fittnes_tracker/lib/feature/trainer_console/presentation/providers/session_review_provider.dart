@@ -39,30 +39,46 @@ class SessionReviewProvider extends ChangeNotifier {
   String? _loadedClientId;
   String? get loadedClientId => _loadedClientId;
 
+  /// Which [load] call is the latest; only its answer is applied.
+  int _request = 0;
+
   /// Loads the client's sessions (newest first). One request covers both the
   /// list and every entry's detail, so there's no per-selection fetch.
-  Future<void> load(String clientId) async {
-    _isLoading = true;
-    _error = null;
-    // Drop the previous client's sessions immediately — showing one client's
-    // history under another's name while the request is in flight would be
-    // worse than showing the skeleton.
-    _sessions = const [];
-    _selectedSessionId = null;
-    _loadedClientId = clientId;
-    notifyListeners();
+  ///
+  /// [keepShown] is a refresh of the client already on screen — the console
+  /// heard that their data changed. It leaves the list, the selection and the
+  /// state on screen as they are while it reads, and if the read fails it
+  /// keeps them rather than swapping a populated review for an error. For
+  /// another client, or before the first load has settled, it is an ordinary
+  /// load: there is nothing of theirs on screen to keep.
+  Future<void> load(String clientId, {bool keepShown = false}) async {
+    final request = ++_request;
+    final keep = keepShown && _loadedClientId == clientId && !_isLoading;
+    if (!keep) {
+      _isLoading = true;
+      _error = null;
+      // Drop the previous client's sessions immediately — showing one client's
+      // history under another's name while the request is in flight would be
+      // worse than showing the skeleton.
+      _sessions = const [];
+      _selectedSessionId = null;
+      _loadedClientId = clientId;
+      notifyListeners();
+    }
 
     try {
       final sessions = await _repository.getClientSessionHistory(clientId);
       // A slow response for a client the trainer has already switched away
-      // from must not overwrite the newer one's data.
-      if (_loadedClientId != clientId) return;
+      // from — or one overtaken by a later read — must not overwrite the newer
+      // one's data.
+      if (request != _request) return;
       _sessions = sessions;
+      _error = null;
     } catch (_) {
-      if (_loadedClientId != clientId) return;
+      if (request != _request || keep) return;
       _error = ConsoleError.loadSessions;
     } finally {
-      if (_loadedClientId == clientId) {
+      if (request == _request) {
         _isLoading = false;
         notifyListeners();
       }

@@ -36,18 +36,34 @@ class TrainerConsoleProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> load() async {
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
+  /// Which [load] call is the latest; only its answer is applied.
+  int _request = 0;
+
+  /// Loads the KPI row. [keepShown] is a refresh: no loading state, and a
+  /// failure keeps the figures already shown instead of swapping them for the
+  /// error strip — see [ActiveClientProvider.loadClients].
+  Future<void> load({bool keepShown = false}) async {
+    final request = ++_request;
+    final keep = keepShown && !_isLoading;
+    if (!keep) {
+      _isLoading = true;
+      _error = null;
+      notifyListeners();
+    }
 
     try {
-      _kpis = await _repository.getDashboardKpis();
+      final kpis = await _repository.getDashboardKpis();
+      if (request != _request) return;
+      _kpis = kpis;
+      _error = null;
     } catch (_) {
+      if (request != _request || keep) return;
       _error = ConsoleError.loadDashboard;
     } finally {
-      _isLoading = false;
-      notifyListeners();
+      if (request == _request) {
+        _isLoading = false;
+        notifyListeners();
+      }
     }
   }
 }

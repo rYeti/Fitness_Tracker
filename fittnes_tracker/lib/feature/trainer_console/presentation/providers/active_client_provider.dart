@@ -46,25 +46,47 @@ class ActiveClientProvider extends ChangeNotifier {
     return _clients.where((c) => c.clientId == id).firstOrNull ?? _clients.first;
   }
 
+  /// Which [loadClients] call is the latest; only its answer is applied.
+  int _request = 0;
+
   /// Loads the trainer's roster and defaults the selection to the first
   /// client. Safe to call more than once; a reload keeps the current
   /// selection if that client is still on the roster.
-  Future<void> loadClients() async {
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
+  ///
+  /// [keepShown] is a refresh — the console heard that a client's data
+  /// changed. It raises no loading state, and a refresh that fails leaves
+  /// the roster as it was rather than replacing it with an error: every
+  /// client-scoped pane renders a full-page error while [error] is set, so a
+  /// failed background read would otherwise blank whatever the trainer was
+  /// looking at. Until the first load has settled there is nothing shown to
+  /// keep, and it is an ordinary load.
+  Future<void> loadClients({bool keepShown = false}) async {
+    final request = ++_request;
+    final keep = keepShown && !_isLoading;
+    if (!keep) {
+      _isLoading = true;
+      _error = null;
+      notifyListeners();
+    }
     try {
-      _clients = await _repository.getRosterWithStats();
+      final clients = await _repository.getRosterWithStats();
+      // A slower, older answer must not overwrite a newer one.
+      if (request != _request) return;
+      _clients = clients;
+      _error = null;
       final stillPresent =
           _clients.any((c) => c.clientId == _activeClientId);
       if (!stillPresent) {
         _activeClientId = _clients.isEmpty ? null : _clients.first.clientId;
       }
     } catch (_) {
+      if (request != _request || keep) return;
       _error = ConsoleError.loadRoster;
     } finally {
-      _isLoading = false;
-      notifyListeners();
+      if (request == _request) {
+        _isLoading = false;
+        notifyListeners();
+      }
     }
   }
 

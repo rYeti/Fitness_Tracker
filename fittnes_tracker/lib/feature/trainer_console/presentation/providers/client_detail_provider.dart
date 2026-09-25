@@ -31,6 +31,9 @@ class ClientDetailProvider extends ChangeNotifier {
   bool get hasAnyData =>
       _workoutSummary != null || _weightHistory.isNotEmpty || _nutrition != null;
 
+  /// Which [load] call is the latest; only its answers are applied.
+  int _request = 0;
+
   /// Fetches the three sources this screen composes, in parallel and
   /// independently of each other.
   ///
@@ -38,43 +41,68 @@ class ClientDetailProvider extends ChangeNotifier {
   /// else. A single `Future.wait` with one try/catch used to mean any one of the three
   /// blanked the whole screen — a nutrition outage hid the client's training — and left
   /// the log as the only record of which had failed.
-  Future<void> load() async {
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
+  ///
+  /// [keepShown] is a refresh — the console heard that this client's data
+  /// changed. It raises no loading state, and a section whose read fails keeps
+  /// what it showed (`docs/sync-architecture.md`, part four).
+  Future<void> load({bool keepShown = false}) async {
+    final request = ++_request;
+    final keep = keepShown && !_isLoading;
+    if (!keep) {
+      _isLoading = true;
+      _error = null;
+      notifyListeners();
+    }
 
     await Future.wait([
       _loadSection(
+        request,
+        keep,
         'workout summary',
-        () async => _workoutSummary = await _repository.getClientWorkoutSummary(clientId),
+        () => _repository.getClientWorkoutSummary(clientId),
+        (summary) => _workoutSummary = summary,
       ),
       _loadSection(
+        request,
+        keep,
         'weight history',
-        () async => _weightHistory = await _repository.getClientWeightHistory(clientId),
+        () => _repository.getClientWeightHistory(clientId),
+        (history) => _weightHistory = history,
       ),
       _loadSection(
+        request,
+        keep,
         'nutrition summary',
-        () async => _nutrition =
-            await _repository.getClientNutritionSummary(clientId, DateTime.now()),
+        () => _repository.getClientNutritionSummary(clientId, DateTime.now()),
+        (nutrition) => _nutrition = nutrition,
       ),
     ]);
 
+    // A later read has overtaken this one; its answers are the ones to show.
+    if (request != _request) return;
     _isLoading = false;
     notifyListeners();
   }
 
   /// Runs one section's fetch, recording a failure without letting it take the others
   /// down. [what] only ever reaches the log — the trainer sees the screen's error state.
-  Future<void> _loadSection(String what, Future<void> Function() fetch) async {
+  Future<void> _loadSection<T>(
+    int request,
+    bool keep,
+    String what,
+    Future<T> Function() fetch,
+    void Function(T value) apply,
+  ) async {
     try {
-      await fetch();
+      final value = await fetch();
+      if (request == _request) apply(value);
     } catch (e, stackTrace) {
       _logger.e(
         'Client detail $what failed for client $clientId',
         error: e,
         stackTrace: stackTrace,
       );
-      _error = ConsoleError.loadClientDetail;
+      if (request == _request && !keep) _error = ConsoleError.loadClientDetail;
     }
   }
 

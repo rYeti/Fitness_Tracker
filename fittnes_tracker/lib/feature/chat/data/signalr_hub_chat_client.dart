@@ -32,6 +32,8 @@ class SignalRHubChatClient implements ChatSignalRClient {
   final _incoming = StreamController<ChatMessage>.broadcast();
   final _reconnected = StreamController<void>.broadcast();
   final _status = StreamController<ChatConnectionStatus>.broadcast();
+  final _clientDataChanged =
+      StreamController<Map<String, dynamic>>.broadcast();
 
   SignalRHubChatClient({String? baseUrl})
     : baseUrl = baseUrl ?? serverUrlDefault;
@@ -72,6 +74,7 @@ class SignalRHubChatClient implements ChatSignalRClient {
             .build();
 
     connection.on('ReceiveMessage', _onReceiveMessage);
+    connection.on('ClientDataChanged', _onClientDataChanged);
 
     connection.onreconnecting(({Object? error}) {
       _status.add(ChatConnectionStatus.reconnecting);
@@ -169,10 +172,27 @@ class SignalRHubChatClient implements ChatSignalRClient {
   @override
   Stream<ChatConnectionStatus> get connectionStatus => _status.stream;
 
+  /// The hub's `ClientDataChanged` events, as sent: `{clientId, areas}`.
+  ///
+  /// Not chat, and so not on [ChatSignalRClient]. It rides this connection
+  /// because the Trainer Console already holds it open for as long as the
+  /// console is open, and a second socket for a few bytes an hour would double
+  /// what the console keeps open against the API. Left as JSON: the console
+  /// owns what the event means (`ClientDataChange`), and this layer only
+  /// carries it. See `docs/sync-architecture.md`, part four.
+  Stream<Map<String, dynamic>> get clientDataChanges =>
+      _clientDataChanged.stream;
+
   void _onReceiveMessage(List<Object?>? arguments) {
     final payload = arguments?.isNotEmpty == true ? arguments!.first : null;
     if (payload == null) return;
     _incoming.add(ChatMessage.fromJson(_asJson(payload)));
+  }
+
+  void _onClientDataChanged(List<Object?>? arguments) {
+    final payload = arguments?.isNotEmpty == true ? arguments!.first : null;
+    if (payload is! Map) return;
+    _clientDataChanged.add(_asJson(payload));
   }
 
   /// The JSON hub protocol hands back plain decoded JSON, which arrives as a
@@ -207,5 +227,6 @@ class SignalRHubChatClient implements ChatSignalRClient {
     await _incoming.close();
     await _reconnected.close();
     await _status.close();
+    await _clientDataChanged.close();
   }
 }

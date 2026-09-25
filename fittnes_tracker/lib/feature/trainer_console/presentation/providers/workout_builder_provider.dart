@@ -166,6 +166,7 @@ class WorkoutBuilderProvider extends ChangeNotifier {
   /// Loads the templates for the create flow plus the client's active plan for
   /// the read-only view.
   Future<void> load(String clientId) async {
+    _epoch++;
     _isLoading = true;
     _error = null;
     _currentPlan = null;
@@ -202,6 +203,7 @@ class WorkoutBuilderProvider extends ChangeNotifier {
   /// Loads the client's workouts and exercise library — everything the day
   /// editor needs. Called once a plan exists to show its days against.
   Future<void> loadDays(String clientId) async {
+    _epoch++;
     _isLoadingDays = true;
     _daysError = null;
     notifyListeners();
@@ -229,6 +231,103 @@ class WorkoutBuilderProvider extends ChangeNotifier {
         notifyListeners();
       }
     }
+  }
+
+  // ── Refreshing in place ──────────────────────────────────────────────────
+
+  /// Bumped by every read or write that sets what the builder shows from the
+  /// server, so a [refresh] that overlapped one knows its answer may be older
+  /// than what is on screen.
+  int _epoch = 0;
+
+  /// Bumped when a [refresh] replaces the open day's draft with the server's
+  /// copy. The editor builds its text fields from the draft once, when the day
+  /// is opened; the screen keys the editor on this so they are built again
+  /// from the new copy instead of still showing the old one.
+  int _draftRevision = 0;
+  int get draftRevision => _draftRevision;
+
+  bool get _busy =>
+      _isLoading ||
+      _isLoadingDays ||
+      _isSaving ||
+      _isSavingDay ||
+      _isDeletingDay ||
+      _isDeletingPlan ||
+      _isCreatingExercise;
+
+  /// Re-reads the client's plan and days in place — the console heard that
+  /// their workouts changed (`docs/sync-architecture.md`, part four).
+  ///
+  /// Nothing is taken off screen while it reads, and a read that fails
+  /// changes nothing. A read or write of the builder's own already in flight
+  /// wins, and so does one that starts meanwhile: this one is dropped, since
+  /// whatever it overlapped either shows data at least as new or is a save
+  /// whose own event brings another refresh.
+  ///
+  /// The open day is the trainer's. A draft with unsaved edits is left exactly
+  /// as it is while the rest of the pane — the plan, the list of days —
+  /// updates around it; only a clean draft takes the server's copy. It is the
+  /// same rule the device's pull keeps for a row with an unsent change.
+  Future<void> refresh(String clientId) async {
+    if (_loadedClientId != clientId || _busy) return;
+    final epoch = _epoch;
+
+    final List<Object> results;
+    try {
+      results = await Future.wait<Object>([
+        _repository.getClientWorkoutSummary(clientId),
+        _repository.getClientWorkouts(clientId),
+        _repository.getClientExerciseLibrary(clientId),
+      ]);
+    } catch (_) {
+      return;
+    }
+    if (epoch != _epoch || _loadedClientId != clientId) return;
+
+    final plan = (results[0] as ClientWorkoutSummary).currentPlan;
+    final dirty = isDraftDirty;
+    if (plan == null && _currentPlan != null) {
+      // The plan was deleted elsewhere. Unsaved edits hold the pane where it
+      // is until the trainer saves or discards them; otherwise it lands where
+      // deleting it here would have.
+      if (dirty) return;
+      _currentPlan = null;
+      _isNew = true;
+      _resetDayState();
+      notifyListeners();
+      return;
+    }
+
+    _currentPlan = plan;
+    _allWorkouts = results[1] as List<ClientWorkout>;
+    _exerciseLibrary = results[2] as List<ClientExerciseOption>;
+    _daysError = null;
+    if (!dirty) _takeServerCopyOfOpenDay();
+    notifyListeners();
+  }
+
+  /// Replaces a clean open day with the server's copy, or closes it if the
+  /// day is gone. Only when the copy differs: a refresh that follows the
+  /// trainer's own save finds what they saved, and rebuilding the editor then
+  /// would only take their cursor away.
+  void _takeServerCopyOfOpenDay() {
+    final selectedId = _selectedWorkoutId;
+    final snapshot = _savedSnapshot;
+    if (selectedId == null || snapshot == null) return;
+
+    final fresh = _allWorkouts.where((w) => w.id == selectedId).firstOrNull;
+    if (fresh == null) {
+      _selectedWorkoutId = null;
+      _draft = null;
+      _savedSnapshot = null;
+      return;
+    }
+    final copy = WorkoutDraft.fromExisting(fresh);
+    if (_draftsEqual(copy, snapshot)) return;
+    _draft = copy;
+    _savedSnapshot = WorkoutDraft.fromExisting(fresh);
+    _draftRevision++;
   }
 
   void _resetDayState() {
@@ -361,6 +460,7 @@ class WorkoutBuilderProvider extends ChangeNotifier {
       return false;
     }
 
+    _epoch++;
     _isSavingDay = true;
     _dayError = null;
     notifyListeners();
@@ -432,6 +532,7 @@ class WorkoutBuilderProvider extends ChangeNotifier {
     final workoutId = _selectedWorkoutId;
     if (workoutId == null) return false;
 
+    _epoch++;
     _isDeletingDay = true;
     _dayError = null;
     notifyListeners();
@@ -474,6 +575,7 @@ class WorkoutBuilderProvider extends ChangeNotifier {
       return null;
     }
 
+    _epoch++;
     _isCreatingExercise = true;
     _dayError = null;
     notifyListeners();
@@ -523,6 +625,7 @@ class WorkoutBuilderProvider extends ChangeNotifier {
       return false;
     }
 
+    _epoch++;
     _isSaving = true;
     _error = null;
     notifyListeners();
@@ -553,6 +656,7 @@ class WorkoutBuilderProvider extends ChangeNotifier {
     final plan = _currentPlan;
     if (plan == null) return false;
 
+    _epoch++;
     _isDeletingPlan = true;
     _planError = null;
     notifyListeners();

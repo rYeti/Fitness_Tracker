@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:ForgeForm/core/network/api_client.dart';
 import 'package:dio/dio.dart';
 
@@ -63,6 +65,12 @@ class FakeApiClient extends ApiClient {
   /// The `since` each changes request carried, in order.
   final List<String?> changesSince = [];
 
+  /// When set, a changes request is answered with what [changes] held when it
+  /// arrived, but only once this completes — a pull whose request reached the
+  /// server before a change was committed, and whose answer is still on its
+  /// way back.
+  Completer<void>? holdChanges;
+
   /// Ids the server holds a deletion of: a POST naming one — as a create, or
   /// as an entry of a batch — is refused with 410 `{error: id_deleted, id,
   /// ids}`, as the API refuses to create a deleted id again: a batch applies
@@ -112,7 +120,10 @@ class FakeApiClient extends ApiClient {
     requests.add('GET $path');
     if (path == 'api/Sync/changes') {
       changesSince.add(queryParameters?['since'] as String?);
-      return _ok(path, Map<String, dynamic>.from(changes));
+      final answer = Map<String, dynamic>.from(changes);
+      final hold = holdChanges;
+      if (hold != null) await hold.future;
+      return _ok(path, answer);
     }
     if (!getResponses.containsKey(path)) {
       throw DioException(

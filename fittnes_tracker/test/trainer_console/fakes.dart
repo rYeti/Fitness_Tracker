@@ -11,18 +11,22 @@ class FakeTrainerConsoleRepository implements TrainerConsoleRepository {
   final List<TrainerRosterEntry> rosterWithStats;
   final List<ClientSessionSummary> sessions;
   final TrainerDashboardKpis? kpis;
-  final ClientNutritionSummary? nutrition;
+  /// Not final, so a test can change what the server holds between two
+  /// reads — a client logging a meal while the console is open.
+  ClientNutritionSummary? nutrition;
   final ClientWorkoutSummary? workoutSummary;
   final List<ClientWeightEntry> weightHistory;
   final List<WorkoutPlanTemplateSummary> templates;
   final List<ClientWorkout> clientWorkouts;
   final List<ClientExerciseOption> exerciseLibrary;
 
-  /// Set to make the matching call throw, for error-state tests.
+  /// Set to make the matching call throw, for error-state tests. The
+  /// nutrition and roster ones can be flipped after the first load, to fail a
+  /// refresh of something already on screen.
   final bool throwOnSessions;
   final bool throwOnDashboard;
-  final bool throwOnNutrition;
-  final bool throwOnRoster;
+  bool throwOnNutrition;
+  bool throwOnRoster;
   final bool throwOnClientWorkouts;
   final bool throwOnExerciseLibrary;
 
@@ -41,7 +45,9 @@ class FakeTrainerConsoleRepository implements TrainerConsoleRepository {
   /// `_pump` **awaits** `ActiveClientProvider.loadClients()` before pumping the widget,
   /// since there is nothing to render until an active client exists. A gate covering both
   /// deadlocks those tests — the completer is only completed after `_pump` returns.
-  final Completer<void>? gate;
+  ///
+  /// [gate] can be set after the first load, to hold a refresh open.
+  Completer<void>? gate;
   final Completer<void>? rosterGate;
   final Completer<void>? kpiGate;
 
@@ -154,8 +160,10 @@ class FakeTrainerConsoleRepository implements TrainerConsoleRepository {
   }
 
   @override
-  Future<List<ClientWeightEntry>> getClientWeightHistory(String clientId) async =>
-      weightHistory;
+  Future<List<ClientWeightEntry>> getClientWeightHistory(String clientId) async {
+    _record('weightHistory');
+    return weightHistory;
+  }
 
   @override
   Future<List<WorkoutPlanTemplateSummary>> getWorkoutPlanTemplates() async {

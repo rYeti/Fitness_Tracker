@@ -12,7 +12,9 @@ import 'package:ForgeForm/feature/chat/data/signalr_hub_chat_client.dart';
 import 'package:ForgeForm/feature/chat/presentation/providers/chat_attachment_provider.dart';
 import 'package:ForgeForm/feature/chat/presentation/providers/chat_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/data/trainer_console_repository.dart';
+import 'package:ForgeForm/feature/trainer_console/domain/models/client_data_change.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/active_client_provider.dart';
+import 'package:ForgeForm/feature/trainer_console/presentation/providers/console_live_updates.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/trainer_licence_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/view/client_detail_screen.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/view/messages_screen.dart';
@@ -50,6 +52,10 @@ class TrainerConsoleHome extends StatefulWidget {
   /// Injection seam for tests. Defaults to a live provider.
   final TrainerLicenceProvider? licenceProvider;
 
+  /// Injection seam for tests, so they can say a client's data changed
+  /// without a socket. Defaults to one fed by the chat connection.
+  final ConsoleLiveUpdates? liveUpdates;
+
   final TrainerConsoleRoute initialRoute;
 
   /// Leaves the console for the trainee app. Set on web, where the console is
@@ -80,6 +86,7 @@ class TrainerConsoleHome extends StatefulWidget {
     this.repository,
     this.chatRepository,
     this.licenceProvider,
+    this.liveUpdates,
     this.initialRoute = TrainerConsoleRoute.dashboard,
     this.onExitConsole,
     this.syncUrl = false,
@@ -111,6 +118,14 @@ class _TrainerConsoleHomeState extends State<TrainerConsoleHome> {
   late final TrainerLicenceProvider _licence;
   late final bool _ownsLicenceProvider;
   late TrainerConsoleRoute _route;
+
+  /// When what the console shows should be read again: a client's data
+  /// changed, the socket came back, or the tab came back into focus.
+  /// `docs/sync-architecture.md`, part four.
+  late final ConsoleLiveUpdates _live;
+  late final bool _ownsLive;
+  StreamSubscription<ConsoleRefresh>? _rosterRefreshes;
+  late final AppLifecycleListener _lifecycle;
 
   @override
   void initState() {
@@ -161,10 +176,38 @@ class _TrainerConsoleHomeState extends State<TrainerConsoleHome> {
     unawaited(_chat?.loadConversations() ?? Future<void>.value());
     _ownsLicenceProvider = widget.licenceProvider == null;
     _licence = widget.licenceProvider ?? TrainerLicenceProvider();
+
+    // The same socket as chat, not a second one: the server sends
+    // `ClientDataChanged` to this connection's trainer group. Without chat
+    // there is no socket, and focus is the only thing that refreshes.
+    _ownsLive = widget.liveUpdates == null;
+    final signalR = _signalR;
+    _live = widget.liveUpdates ??
+        (signalR == null
+            ? ConsoleLiveUpdates()
+            : ConsoleLiveUpdates(
+                changes: signalR.clientDataChanges
+                    .map(ClientDataChange.tryParse)
+                    .where((change) => change != null)
+                    .cast<ClientDataChange>(),
+                reconnected:
+                    ConsoleLiveUpdates.reconnectsOf(signalR.connectionStatus),
+              ));
+    // The roster is the shell's, and every pane shows it in its switcher, so
+    // it is refreshed here rather than by whichever pane is on screen.
+    _rosterRefreshes = _live.refreshes
+        .where((refresh) => refresh is RosterRefresh)
+        .listen((_) => _activeClient.loadClients(keepShown: true));
+    // Resumed covers a browser tab or window coming back into focus as well
+    // as an app coming back to the foreground.
+    _lifecycle = AppLifecycleListener(onResume: _live.focusRegained);
   }
 
   @override
   void dispose() {
+    _lifecycle.dispose();
+    unawaited(_rosterRefreshes?.cancel() ?? Future<void>.value());
+    if (_ownsLive) _live.dispose();
     _activeClient.dispose();
     _chat?.dispose();
     _attachments?.dispose();
@@ -176,10 +219,15 @@ class _TrainerConsoleHomeState extends State<TrainerConsoleHome> {
   void _openClientDetail(String clientId, String clientName) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => ClientDetailScreen(
-          clientId: clientId,
-          clientName: clientName,
-          repository: widget.repository,
+        // A pushed route is not under the console's providers, so the one
+        // it refreshes from is handed across.
+        builder: (_) => Provider<ConsoleLiveUpdates>.value(
+          value: _live,
+          child: ClientDetailScreen(
+            clientId: clientId,
+            clientName: clientName,
+            repository: widget.repository,
+          ),
         ),
       ),
     );
@@ -213,6 +261,7 @@ class _TrainerConsoleHomeState extends State<TrainerConsoleHome> {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider<ActiveClientProvider>.value(value: _activeClient),
+        Provider<ConsoleLiveUpdates>.value(value: _live),
         if (chat != null)
           ChangeNotifierProvider<ChatProvider>.value(value: chat),
         if (attachments != null)
