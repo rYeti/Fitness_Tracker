@@ -1,10 +1,14 @@
 namespace FitTracker.Api.Models;
 
 /// <summary>Represents a food definition in the user's food library.</summary>
-public class FoodItem
+public class FoodItem : ISyncRoot
 {
     /// <summary>The unique identifier of this food item.</summary>
     public Guid Id { get; set; }
+
+    /// <summary>When this aggregate last changed on the server, in UTC. Stamped by
+    /// <c>SyncChangeInterceptor</c>; never set by hand. See <see cref="ISyncRoot"/>.</summary>
+    public DateTime UpdatedAt { get; set; }
 
     /// <summary>The ID of the user who owns this food item.</summary>
     public Guid UserId { get; set; }

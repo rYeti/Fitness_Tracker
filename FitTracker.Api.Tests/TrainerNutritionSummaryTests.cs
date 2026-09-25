@@ -38,10 +38,10 @@ public class TrainerNutritionSummaryTests : IDisposable
             null!,
             null!,
             null!,
-            new MealService(new MealRepository(_fx.Db)),
+            new MealService(new MealRepository(_fx.Db), new SyncTombstoneRepository(_fx.Db)),
             new UserSettingsService(new UserSettingsRepository(_fx.Db)),
             null!,
-            new FoodItemService(new FoodItemRepository(_fx.Db)),
+            new FoodItemService(new FoodItemRepository(_fx.Db), new SyncTombstoneRepository(_fx.Db)),
             null!,
             new TrainerNutrientPinRepository(_fx.Db));
     }
@@ -309,10 +309,10 @@ public class TrainerNutritionSummaryTests : IDisposable
         var lockedConsole = new TrainerConsoleService(
             new ActiveRelationshipStub(_trainerId, _clientId, grantsPro: false),
             null!, null!, null!,
-            new MealService(new MealRepository(_fx.Db)),
+            new MealService(new MealRepository(_fx.Db), new SyncTombstoneRepository(_fx.Db)),
             new UserSettingsService(new UserSettingsRepository(_fx.Db)),
             null!,
-            new FoodItemService(new FoodItemRepository(_fx.Db)),
+            new FoodItemService(new FoodItemRepository(_fx.Db), new SyncTombstoneRepository(_fx.Db)),
             null!,
             new TrainerNutrientPinRepository(_fx.Db));
 

@@ -273,6 +273,34 @@ public sealed class DbFixture : IDisposable
         return set;
     }
 
+    /// <summary>Makes every synced aggregate and tombstone look as though it was written at
+    /// <paramref name="when"/>, then forgets everything tracked — so what a test does next
+    /// reads like a later request, and whatever it bumps stands out.</summary>
+    /// <remarks>Bulk updates, which is the point: the change tracking only sees what goes
+    /// through the change tracker, so these are the one write that can move a root's
+    /// <c>UpdatedAt</c> backwards.</remarks>
+    public void Backdate(DateTime when)
+    {
+        Db.Exercise.ExecuteUpdate(s => s.SetProperty(r => r.UpdatedAt, when));
+        Db.Workouts.ExecuteUpdate(s => s.SetProperty(r => r.UpdatedAt, when));
+        Db.WorkoutPlans.ExecuteUpdate(s => s.SetProperty(r => r.UpdatedAt, when));
+        Db.ScheduledWorkouts.ExecuteUpdate(s => s.SetProperty(r => r.UpdatedAt, when));
+        Db.FoodItems.ExecuteUpdate(s => s.SetProperty(r => r.UpdatedAt, when));
+        Db.Meals.ExecuteUpdate(s => s.SetProperty(r => r.UpdatedAt, when));
+        Db.MealTemplates.ExecuteUpdate(s => s.SetProperty(r => r.UpdatedAt, when));
+        Db.WeightTrackings.ExecuteUpdate(s => s.SetProperty(r => r.UpdatedAt, when));
+        Db.UserSettings.ExecuteUpdate(s => s.SetProperty(r => r.UpdatedAt, when));
+        Db.SyncTombstones.ExecuteUpdate(s => s.SetProperty(t => t.DeletedAt, when));
+        Db.ChangeTracker.Clear();
+    }
+
+    /// <summary>When the root <paramref name="id"/> last changed, as stored.</summary>
+    public DateTime UpdatedAtOf<T>(Guid id) where T : class, ISyncRoot =>
+        Db.Set<T>().AsNoTracking()
+            .Where(r => EF.Property<Guid>(r, nameof(ISyncRoot.Id)) == id)
+            .Select(r => EF.Property<DateTime>(r, nameof(ISyncRoot.UpdatedAt)))
+            .Single();
+
     /// <summary>Adds an exercise entry to a workout, which sessions then log sets against.</summary>
     public WorkoutExercise AddWorkoutExercise(Guid workoutId, Guid exerciseId, int orderPosition = 0)
     {

@@ -46,11 +46,12 @@ public class ScheduledWorkoutRepository : IScheduledWorkoutRepository
             || sw.Exercises.Any(e => e.Sets.Any());
 
     /// <inheritdoc/>
-    public async Task<List<ScheduledWorkout>> GetUserScheduledWorkoutsAsync(Guid userId)
+    public async Task<List<ScheduledWorkout>> GetUserScheduledWorkoutsAsync(Guid userId, DateTime? changedSince = null)
     {
         return await _context.ScheduledWorkouts
             .AsNoTracking()
             .Where(sw => sw.Workout.UserId == userId)
+            .ChangedSince(changedSince)
             .Include(sw => sw.Exercises)
                 .ThenInclude(e => e.Sets)
             .ToListAsync();
@@ -400,19 +401,23 @@ public class ScheduledWorkoutRepository : IScheduledWorkoutRepository
     /// <inheritdoc/>
     public async Task<List<WorkoutSet>?> ReplaceSetsAsync(Guid scheduledWorkoutExerciseId, Guid userId, List<WorkoutSet> sets)
     {
-        var ownsExercise = await _context.ScheduledWorkoutExercises
-            .AnyAsync(e => e.Id == scheduledWorkoutExerciseId && e.ScheduledWorkout.Workout.UserId == userId);
-        if (!ownsExercise) return null;
+        var session = await _context.ScheduledWorkoutExercises
+            .Where(e => e.Id == scheduledWorkoutExerciseId && e.ScheduledWorkout.Workout.UserId == userId)
+            .Select(e => (Guid?)e.ScheduledWorkoutId)
+            .FirstOrDefaultAsync();
+        if (session is not { } sessionId) return null;
 
         // Sets keep the ids the app sent. One may already be stored: in this log, which is
         // replaced anyway; in another of the caller's logs, which means the app moved it
         // (its de-duplication folds a twin exercise's sets into the one it keeps), so it
         // goes from there; or in someone else's, which is not the caller's to take.
-        await _context.ReplaceListAsync(
+        await _context.ReplaceListAsync<WorkoutSet, ScheduledWorkout>(
             sets,
             s => s.Id,
             inList: s => s.ScheduledWorkoutExerciseId == scheduledWorkoutExerciseId,
             ownedByCaller: s => s.ScheduledWorkoutExercise.ScheduledWorkout.Workout.UserId == userId,
+            listRoot: sessionId,
+            rootOf: s => s.ScheduledWorkoutExercise.ScheduledWorkoutId,
             loadedList: () => _context.ChangeTracker.Entries<ScheduledWorkoutExercise>()
                 .FirstOrDefault(e => e.Entity.Id == scheduledWorkoutExerciseId)
                 ?.Entity.Sets);

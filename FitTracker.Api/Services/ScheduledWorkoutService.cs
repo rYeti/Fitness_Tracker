@@ -10,18 +10,21 @@ namespace FitTracker.Api.Services;
 public class ScheduledWorkoutService : IScheduledWorkoutService
 {
     private readonly IScheduledWorkoutRepository _scheduledRepository;
+    private readonly ISyncTombstoneRepository _tombstones;
 
     /// <summary>Initialises a new instance of <see cref="ScheduledWorkoutService"/>.</summary>
+    /// <param name="tombstones">Which of the caller's ids were deleted.</param>
     /// <param name="scheduledRepository">The scheduled workout repository.</param>
-    public ScheduledWorkoutService(IScheduledWorkoutRepository scheduledRepository)
+    public ScheduledWorkoutService(IScheduledWorkoutRepository scheduledRepository, ISyncTombstoneRepository tombstones)
     {
         _scheduledRepository = scheduledRepository;
+        _tombstones = tombstones;
     }
 
     /// <inheritdoc/>
-    public async Task<List<ScheduledWorkoutResponseDto>> GetUserScheduledWorkoutsAsync(Guid userId)
+    public async Task<List<ScheduledWorkoutResponseDto>> GetUserScheduledWorkoutsAsync(Guid userId, DateTime? changedSince = null)
     {
-        var items = await _scheduledRepository.GetUserScheduledWorkoutsAsync(userId);
+        var items = await _scheduledRepository.GetUserScheduledWorkoutsAsync(userId, changedSince);
         return [.. items.Select(ToDto)];
     }
 
@@ -72,6 +75,7 @@ public class ScheduledWorkoutService : IScheduledWorkoutService
             dto.Id,
             userId,
             _scheduledRepository.GetOwnerAsync,
+            id => _tombstones.WasDeletedAsync(userId, id),
             id => UpdateScheduledWorkoutAsync(id, userId, dto),
             async id =>
             {

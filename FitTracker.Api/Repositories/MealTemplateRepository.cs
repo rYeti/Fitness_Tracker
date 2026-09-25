@@ -9,9 +9,11 @@ namespace FitTracker.Api.Repositories;
 public class MealTemplateRepository(AppDbContext context) : IMealTemplateRepository
 {
     /// <inheritdoc/>
-    public Task<List<MealTemplate>> GetAllAsync(Guid userId) =>
+    public Task<List<MealTemplate>> GetAllAsync(Guid userId, DateTime? changedSince = null) =>
         context.MealTemplates
+            .AsNoTracking()
             .Where(t => t.UserId == userId)
+            .ChangedSince(changedSince)
             .Include(t => t.Items)
             .ToListAsync();
 
@@ -52,9 +54,14 @@ public class MealTemplateRepository(AppDbContext context) : IMealTemplateReposit
         // scales every portion by it, and a reinstall brought the old one back.
         template.TotalWeightGrams = incoming.TotalWeightGrams;
 
-        // Replace items: delete old ones, add new ones.
+        // Replace items: delete old ones, add new ones — through the DbSet, not by assigning
+        // the navigation. The new items carry the ids they were given, and a row reached
+        // only through a navigation with its key already set is taken for a stored one and
+        // saved as an UPDATE, which matched nothing: every edit of a template with items
+        // failed with a concurrency exception.
         context.MealTemplateItems.RemoveRange(template.Items);
-        template.Items = incoming.Items;
+        foreach (var item in incoming.Items) item.TemplateId = template.Id;
+        context.MealTemplateItems.AddRange(incoming.Items);
 
         await context.SaveChangesAsync();
         return template;

@@ -42,10 +42,10 @@ public class ClientIdCreateTests : IDisposable
 
     public void Dispose() => _fx.Dispose();
 
-    private WorkoutService Workouts => new(new WorkoutRepository(_fx.Db));
-    private WorkoutPlanService Plans => new(new WorkoutPlanRepository(_fx.Db));
-    private ScheduledWorkoutService Sessions => new(new ScheduledWorkoutRepository(_fx.Db));
-    private MealService Meals => new(new MealRepository(_fx.Db));
+    private WorkoutService Workouts => new(new WorkoutRepository(_fx.Db), new SyncTombstoneRepository(_fx.Db));
+    private WorkoutPlanService Plans => new(new WorkoutPlanRepository(_fx.Db), new SyncTombstoneRepository(_fx.Db));
+    private ScheduledWorkoutService Sessions => new(new ScheduledWorkoutRepository(_fx.Db), new SyncTombstoneRepository(_fx.Db));
+    private MealService Meals => new(new MealRepository(_fx.Db), new SyncTombstoneRepository(_fx.Db));
 
     private static WorkoutRequestDto Workout(Guid? id, string name = "Push Day") =>
         new() { Id = id, Name = name, EstimatedDurationMinutes = 45, IsTemplate = true };
@@ -97,10 +97,10 @@ public class ClientIdCreateTests : IDisposable
     [Fact]
     public async Task EveryCreateTheAppSendsIsIdempotentOnItsId()
     {
-        var exercises = new ExerciseService(new ExerciseRepository(_fx.Db));
-        var foods = new FoodItemService(new FoodItemRepository(_fx.Db));
-        var templates = new MealTemplateService(new MealTemplateRepository(_fx.Db));
-        var weights = new WeightTrackingService(new WeightTrackingRepository(_fx.Db));
+        var exercises = new ExerciseService(new ExerciseRepository(_fx.Db), new SyncTombstoneRepository(_fx.Db));
+        var foods = new FoodItemService(new FoodItemRepository(_fx.Db), new SyncTombstoneRepository(_fx.Db));
+        var templates = new MealTemplateService(new MealTemplateRepository(_fx.Db), new SyncTombstoneRepository(_fx.Db));
+        var weights = new WeightTrackingService(new WeightTrackingRepository(_fx.Db), new SyncTombstoneRepository(_fx.Db));
         var workout = await Workouts.CreateWorkoutAsync(Workout(Guid.NewGuid()), _me.Id);
 
         async Task Twice<T>(Func<Task<T>> create, Func<T, Guid> idOf, Guid expected)
@@ -169,6 +169,7 @@ public class ClientIdCreateTests : IDisposable
             id,
             _me.Id,
             _ => Task.FromResult<Guid?>(lookups++ == 0 ? null : _me.Id),
+            _ => Task.FromResult(false),
             _ => Task.FromResult<string?>("the stored row"),
             _ => throw new DbUpdateException("duplicate key"));
 
@@ -214,7 +215,7 @@ public class ClientIdCreateTests : IDisposable
         await _fx.Db.SaveChangesAsync();
 
         await Assert.ThrowsAsync<ClientIdConflictException>(() =>
-            new ExerciseService(new ExerciseRepository(_fx.Db)).CreateExercise(
+            new ExerciseService(new ExerciseRepository(_fx.Db), new SyncTombstoneRepository(_fx.Db)).CreateExercise(
                 new ExerciseRequestDto { Id = system.Id, Name = "Mine", IsCustom = true }, _me.Id));
     }
 
@@ -683,7 +684,7 @@ public class ClientIdCreateTests : IDisposable
         await using var db = _fx.NewContext(new BeforeDelete(
             $"UPDATE WorkoutSets SET Id = '{sent.ToString().ToUpperInvariant()}' " +
             $"WHERE Id = '{theirSet.Id.ToString().ToUpperInvariant()}'"));
-        var sessions = new ScheduledWorkoutService(new ScheduledWorkoutRepository(db));
+        var sessions = new ScheduledWorkoutService(new ScheduledWorkoutRepository(db), new SyncTombstoneRepository(db));
 
         await Assert.ThrowsAsync<DbUpdateException>(() =>
             sessions.AddSetsBatchAsync(myEntry.Id, _me.Id, [new WorkoutSetRequestDto { Id = sent, SetNumber = 1 }]));
@@ -721,7 +722,7 @@ public class ClientIdCreateTests : IDisposable
     [Fact]
     public async Task EditingAMealTemplateSavesItsTotalWeight()
     {
-        var templates = new MealTemplateService(new MealTemplateRepository(_fx.Db));
+        var templates = new MealTemplateService(new MealTemplateRepository(_fx.Db), new SyncTombstoneRepository(_fx.Db));
         var created = await templates.CreateAsync(
             new MealTemplateRequestDto { Name = "Chili", Category = "Dinner", TotalWeightGrams = 1200 }, _me.Id);
 

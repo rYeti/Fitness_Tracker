@@ -114,14 +114,20 @@ extension BodySync on SyncService {
     );
   }
 
-  Future<void> _pullUserSettings() async {
+  /// Settings from a changes answer — null when they haven't changed — fill
+  /// in a device that has none, and are otherwise left to this device's push.
+  ///
+  /// That is the rule settings have always had, kept on purpose. They have no
+  /// sync status, so the pull can't tell a local edit that hasn't been sent
+  /// from a clean copy, and overwriting the first would lose it; the push
+  /// sends them whole whenever they differ from what it last sent.
+  Future<void> _pullUserSettings(Map<String, dynamic>? data) async {
     try {
-      final response = await _apiClient.get('api/UserSettings');
-      final data = response.data as Map<String, dynamic>?;
       if (data == null) return;
       final existing = await _db.userSettingsDao.getSettings();
-      if (existing != null)
+      if (existing != null) {
         return; // already populated, let syncUserSettings handle updates
+      }
       await _db.userSettingsDao.updateProfile(
         name: data['name'] as String?,
         age: data['age'] as int?,
@@ -142,40 +148,38 @@ extension BodySync on SyncService {
     }
   }
 
-  Future<void> _pullWeightLogs() async {
-    final response = await _apiClient.get('api/WeightTracking/TrackWeight');
-    final list = (response.data as List).cast<Map<String, dynamic>>();
+  /// Weight records from a changes answer: a new one is inserted, a clean one
+  /// takes the server's values, and a dirty one is held back for the push.
+  Future<void> _pullWeightLogs(List<Map<String, dynamic>> list) async {
     await _applyEach('weights', list, (w) async {
       final serverId = w['id'] as String;
-      if (await _db.weightRecordDao.getByServerId(serverId) != null) return;
-      await _db.weightRecordDao.addWeightRecord(
-        WeightRecordCompanion(
-          date: Value(DateTime.parse(w['date'] as String)),
-          weight: Value((w['weight'] as num).toDouble()),
-          note: Value(w['note'] as String?),
-          syncStatus: Value(SyncStatus.synced.index),
-          serverId: Value(serverId),
-        ),
+      final fields = WeightRecordCompanion(
+        weight: Value((w['weight'] as num).toDouble()),
+        note: Value(w['note'] as String?),
       );
+      final existing = await _db.weightRecordDao.getByServerId(serverId);
+      if (existing == null) {
+        await _db.weightRecordDao.addWeightRecord(
+          fields.copyWith(
+            date: Value(DateTime.parse(w['date'] as String)),
+            syncStatus: Value(SyncStatus.synced.index),
+            serverId: Value(serverId),
+          ),
+        );
+        return;
+      }
+      if (SyncStatus.fromDb(existing.syncStatus).isDirty) {
+        _holdBack('weights', serverId);
+        return;
+      }
+      // Not the date. The push sends a record's local wall-clock time with
+      // no offset, and the server stamps it UTC as it stands, so the date it
+      // echoes back is this device's date moved by its time-zone offset:
+      // written over a record logged here, west of Greenwich, it would move
+      // the weigh-in to the day before.
+      await (_db.update(_db.weightRecord)
+        ..where((t) => t.id.equals(existing.id))).write(fields);
     });
-
-    await _removeDeletedElsewhere<WeightRecordData>(
-      what: 'weights',
-      serverIds: {for (final w in list) w['id'] as String},
-      locals:
-          await (_db.select(_db.weightRecord)..where(
-                (t) =>
-                    t.serverId.isNotNull() &
-                    t.syncStatus.isNotValue(SyncStatus.pending.index),
-              ))
-              .get(),
-      serverIdOf: (r) => r.serverId!,
-      syncStatusOf: (r) => r.syncStatus,
-      delete: (r) async {
-        await _db.weightRecordDao.deleteWeightRecord(r.id);
-        return true;
-      },
-    );
     _logger.i('Pulled ${list.length} weight records');
   }
 }

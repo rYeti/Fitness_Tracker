@@ -9,10 +9,12 @@ public class ExerciseService : IExerciseService
 {
 
     private readonly IExerciseRepository _exerciseRepository;
+    private readonly ISyncTombstoneRepository _tombstones;
 
-    public ExerciseService(IExerciseRepository exerciseRepository)
+    public ExerciseService(IExerciseRepository exerciseRepository, ISyncTombstoneRepository tombstones)
     {
         _exerciseRepository = exerciseRepository;
+        _tombstones = tombstones;
     }
 
     /// <inheritdoc/>
@@ -24,6 +26,7 @@ public class ExerciseService : IExerciseService
             exercise.Id,
             userId,
             _exerciseRepository.GetOwnerAsync,
+            id => _tombstones.WasDeletedAsync(userId, id),
             id => UpdateExercise(id, userId, exercise),
             async id => ToResponseDto(await _exerciseRepository.CreateExercisesAsync(new Exercise
             {
@@ -63,9 +66,9 @@ public class ExerciseService : IExerciseService
         _exerciseRepository.GetNamesByWorkoutExerciseIdsAsync(workoutExerciseIds);
 
     /// <inheritdoc/>
-    public async Task<List<ExerciseResponseDto>> GetUserExercisesAsync(Guid id)
+    public async Task<List<ExerciseResponseDto>> GetUserExercisesAsync(Guid id, DateTime? changedSince = null)
     {
-        var exercises = await _exerciseRepository.GetUserExercisesAsync(id);
+        var exercises = await _exerciseRepository.GetUserExercisesAsync(id, changedSince);
         return [.. exercises.Select(ToResponseDto)];
     }
 

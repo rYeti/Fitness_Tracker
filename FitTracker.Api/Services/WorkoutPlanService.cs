@@ -9,18 +9,21 @@ namespace FitTracker.Api.Services;
 public class WorkoutPlanService : IWorkoutPlanService
 {
     private readonly IWorkoutPlanRepository _planRepository;
+    private readonly ISyncTombstoneRepository _tombstones;
 
     /// <summary>Initialises a new instance of <see cref="WorkoutPlanService"/>.</summary>
+    /// <param name="tombstones">Which of the caller's ids were deleted.</param>
     /// <param name="planRepository">The workout plan repository.</param>
-    public WorkoutPlanService(IWorkoutPlanRepository planRepository)
+    public WorkoutPlanService(IWorkoutPlanRepository planRepository, ISyncTombstoneRepository tombstones)
     {
         _planRepository = planRepository;
+        _tombstones = tombstones;
     }
 
     /// <inheritdoc/>
-    public async Task<List<WorkoutPlanResponseDto>> GetUserPlansAsync(Guid userId)
+    public async Task<List<WorkoutPlanResponseDto>> GetUserPlansAsync(Guid userId, DateTime? changedSince = null)
     {
-        var plans = await _planRepository.GetUserPlansAsync(userId);
+        var plans = await _planRepository.GetUserPlansAsync(userId, changedSince);
         return [.. plans.Select(ToDto)];
     }
 
@@ -42,6 +45,7 @@ public class WorkoutPlanService : IWorkoutPlanService
             dto.Id,
             userId,
             _planRepository.GetOwnerAsync,
+            id => _tombstones.WasDeletedAsync(userId, id),
             id => UpdatePlanAsync(id, userId, dto),
             async id => ToDto(await _planRepository.CreatePlanAsync(new WorkoutPlan
             {

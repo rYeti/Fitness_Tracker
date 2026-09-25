@@ -13,7 +13,9 @@ public interface IExerciseRepository
 
     /// <summary>Returns all exercises belonging to the specified user.</summary>
     /// <param name="id">The user's ID.</param>
-    Task<List<Exercise>> GetUserExercisesAsync(Guid id);
+    /// <param name="changedSince">Only those whose aggregate changed at or after this instant, for the sync
+    /// changes feed (docs/sync-architecture.md, part three); all of them when null.</param>
+    Task<List<Exercise>> GetUserExercisesAsync(Guid id, DateTime? changedSince = null);
 
     /// <summary>The names of the given exercises, keyed by exercise id. Ids that don't resolve
     /// are simply absent.</summary>

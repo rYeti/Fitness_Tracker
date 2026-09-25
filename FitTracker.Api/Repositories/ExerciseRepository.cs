@@ -49,9 +49,13 @@ public class ExerciseRepository : IExerciseRepository
     }
 
     /// <inheritdoc/>
-    public async Task<List<Exercise>> GetUserExercisesAsync(Guid id)
+    public async Task<List<Exercise>> GetUserExercisesAsync(Guid id, DateTime? changedSince = null)
     {
-        return await _context.Exercise.Where(w => w.UserId == id).ToListAsync();
+        return await _context.Exercise
+            .AsNoTracking()
+            .Where(w => w.UserId == id)
+            .ChangedSince(changedSince)
+            .ToListAsync();
     }
 
     /// <inheritdoc/>

@@ -473,40 +473,73 @@ extension SessionSync on SyncService {
     }
   }
 
-  Future<void> _pullScheduledWorkouts() async {
-    final response = await _apiClient.get('api/ScheduledWorkout');
-    final list = (response.data as List).cast<Map<String, dynamic>>();
-    await _applyEach('sessions', list, _applyServerScheduledWorkout);
+  /// Sessions from a changes answer, each with its exercises and their
+  /// logged sets.
+  Future<void> _pullScheduledWorkouts(List<Map<String, dynamic>> list) =>
+      _applyEach('sessions', list, _applyServerScheduledWorkout);
 
-    await _removeDeletedElsewhere<ScheduledWorkoutTableData>(
-      what: 'sessions',
-      serverIds: {for (final sw in list) sw['id'] as String},
-      locals:
-          await (_db.select(_db.scheduledWorkoutTable)..where(
-                (t) =>
-                    t.serverId.isNotNull() &
-                    t.syncStatus.isNotValue(SyncStatus.pending.index),
-              ))
-              .get(),
-      serverIdOf: (r) => r.serverId!,
-      syncStatusOf: (r) => r.syncStatus,
-      // Sessions are only ever deleted on purpose — a user removing one on
-      // another device, or a workout deleted with its unlogged placeholders.
-      // Anything this device logged and hasn't sent yet stays.
-      delete: (r) async {
-        final exercises = await _db.scheduledWorkoutExerciseDao
-            .getAllForScheduledWorkout(r.id);
-        for (final ex in exercises) {
-          if (SyncStatus.fromDb(ex.syncStatus).isDirty) return false;
-          final sets = await _db.workoutDao.getSetsForScheduledExercise(ex.id);
-          if (sets.any((s) => SyncStatus.fromDb(s.syncStatus).isDirty)) {
-            return false;
-          }
-        }
-        await _deleteScheduledWorkoutLocally(r.id);
-        return true;
-      },
+  /// A session deleted elsewhere (see [SyncService._goneElsewhere]): deleted
+  /// here with its exercises and sets — unless it holds logged work this
+  /// device hasn't sent. Then that work needs somewhere on the server to go,
+  /// and the session is created again under a fresh id ([_recreateSession]).
+  ///
+  /// Logged sets the server already has don't keep it: someone deleted the
+  /// session knowing what was in it, and deletion wins.
+  Future<void> _sessionGone(String serverId) async {
+    final sw = await _db.scheduledWorkoutDao.getByServerId(serverId);
+    if (sw == null) return;
+    if (!await _holdsUnsentLog(sw.id)) {
+      await _deleteScheduledWorkoutLocally(sw.id);
+      return;
+    }
+    await _recreateSession(sw.id);
+    _logger.w(
+      'Session ${sw.id} was deleted elsewhere while it held sets not sent '
+      'yet; created again under a new id',
     );
+  }
+
+  /// Whether a session holds logged work the server hasn't seen: an exercise
+  /// with a change not sent, or a set not sent.
+  Future<bool> _holdsUnsentLog(int swId) async {
+    final exercises = await _db.scheduledWorkoutExerciseDao
+        .getAllForScheduledWorkout(swId);
+    for (final ex in exercises) {
+      if (SyncStatus.fromDb(ex.syncStatus).isDirty) return true;
+      final sets = await _db.workoutDao.getSetsForScheduledExercise(ex.id);
+      if (sets.any((s) => SyncStatus.fromDb(s.syncStatus).isDirty)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// Makes a session the server deleted pushable again: a fresh id — the
+  /// server refuses a create of the old one for good (410) — and `pending`,
+  /// with its exercises and their logged sets `pending` too, so the create
+  /// goes out, the exercises are linked to the ones the server makes for it,
+  /// and the whole log follows. The exercises and sets keep their ids: the
+  /// server keeps no record of deleting those.
+  Future<void> _recreateSession(int swId) async {
+    await _giveFreshId(_db.scheduledWorkoutTable, swId);
+    final exercises = await _db.scheduledWorkoutExerciseDao
+        .getAllForScheduledWorkout(swId);
+    await (_db.update(_db.scheduledWorkoutExerciseTable)
+      ..where((t) => t.scheduledWorkoutId.equals(swId))).write(
+      ScheduledWorkoutExerciseTableCompanion(
+        syncStatus: Value(SyncStatus.pending.index),
+      ),
+    );
+    await (_db.update(_db.workoutSetTable)..where(
+          (t) =>
+              t.scheduledWorkoutExerciseId.isIn(exercises.map((e) => e.id)) &
+              t.syncStatus.isNotValue(SyncStatus.pendingDelete.index),
+        ))
+        .write(
+          WorkoutSetTableCompanion(
+            syncStatus: Value(SyncStatus.pending.index),
+          ),
+        );
   }
 
   Future<void> _applyServerScheduledWorkout(Map<String, dynamic> sw) async {
@@ -525,7 +558,9 @@ extension SessionSync on SyncService {
       localSwId = existingBySid.id;
       // Always update mutable server-authoritative fields so completions/skips
       // made on other devices are reflected locally.
-      if (existingBySid.syncStatus == 1) {
+      if (SyncStatus.fromDb(existingBySid.syncStatus).isDirty) {
+        _holdBack('sessions', swServerId);
+      } else if (existingBySid.syncStatus == 1) {
         await (_db.update(_db.scheduledWorkoutTable)
           ..where((t) => t.id.equals(localSwId))).write(
           ScheduledWorkoutTableCompanion(
@@ -627,7 +662,11 @@ extension SessionSync on SyncService {
             serverNotes != null && serverNotes.trim().isNotEmpty;
         final localHasNote =
             existingSe.notes != null && existingSe.notes!.trim().isNotEmpty;
-        if (existingSe.syncStatus == 1 && existingSe.notes != serverNotes) {
+        if (SyncStatus.fromDb(existingSe.syncStatus).isDirty &&
+            existingSe.notes != serverNotes) {
+          _holdBack('sessions', seServerId);
+        } else if (existingSe.syncStatus == 1 &&
+            existingSe.notes != serverNotes) {
           await (_db.update(_db.scheduledWorkoutExerciseTable)
             ..where((t) => t.id.equals(localSeId))).write(
             serverHasNote || !localHasNote
@@ -787,6 +826,7 @@ extension SessionSync on SyncService {
           ..where((t) => t.id.equals(localSeId))).getSingleOrNull();
     if (exercise != null &&
         SyncStatus.fromDb(exercise.syncStatus) == SyncStatus.pendingUpdate) {
+      _holdBack('sessions', exercise.serverId);
       return;
     }
     final local =
@@ -794,7 +834,10 @@ extension SessionSync on SyncService {
               (t) => t.scheduledWorkoutExerciseId.equals(localSeId),
             ))
             .get();
-    if (local.any((s) => s.syncStatus != 1)) return;
+    if (local.any((s) => s.syncStatus != 1)) {
+      _holdBack('sessions', exercise?.serverId);
+      return;
+    }
 
     final serverIds = {for (final s in serverSets) s['id'] as String};
     if (local.isNotEmpty) {

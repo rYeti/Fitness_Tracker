@@ -18,10 +18,13 @@ var builder = WebApplication.CreateBuilder(args);
 
 // ── Services ────────────────────────────────────────────────
 builder.Services.AddDbContext<AppDbContext>(options => options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
-// A create given an id that belongs to someone else answers 409 from every controller
-// (see Services/ClientIds.cs).
+// A create given an id that belongs to someone else answers 409 from every controller,
+// and one given an id the caller deleted answers 410 (see Services/ClientIds.cs).
 builder.Services.AddControllers(options =>
-    options.Filters.Add<FitTracker.Api.Filters.ClientIdConflictFilter>());
+{
+    options.Filters.Add<FitTracker.Api.Filters.ClientIdConflictFilter>();
+    options.Filters.Add<FitTracker.Api.Filters.ClientIdGoneFilter>();
+});
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -214,6 +217,8 @@ builder.Services.AddScoped<IUserSettingsRepository, UserSettingsRepository>();
 builder.Services.AddScoped<IUserSettingsService, UserSettingsService>();
 builder.Services.AddScoped<IMealTemplateRepository, MealTemplateRepository>();
 builder.Services.AddScoped<IMealTemplateService, MealTemplateService>();
+builder.Services.AddScoped<ISyncTombstoneRepository, SyncTombstoneRepository>();
+builder.Services.AddScoped<ISyncFeedService, SyncFeedService>();
 builder.Services.AddScoped<ITrainerClientRepository, TrainerClientRepository>();
 builder.Services.AddScoped<ITrainerClientService, TrainerClientService>();
 builder.Services.AddScoped<ITrainerLicenceRepository, TrainerLicenceRepository>();

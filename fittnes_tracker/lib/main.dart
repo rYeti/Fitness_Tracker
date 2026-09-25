@@ -106,11 +106,18 @@ void _backgroundSyncDispatcher() {
         'last_sync_timestamp',
         DateTime.now().millisecondsSinceEpoch,
       );
+      // Then what changed elsewhere, so a trainer's edit is already here the
+      // next time the app opens. It only asks for what changed since the
+      // last pull, which is why the background task can afford to.
+      await syncService.pullAll();
     } on SyncBusyException {
       // The app is syncing right now; this run has nothing left to do.
     } on SyncLeaseLostException {
       // Another run took over mid-push; what this one didn't finish is still
       // pending, and that run or the next one sends it.
+    } on SyncIncompleteException {
+      // Part of the pull failed; its cursor stayed put, so the next pull —
+      // here or in the app — asks for the same changes again.
     } finally {
       // This isolate's connection, not the app's. Left open, it held the
       // database file for as long as the OS kept the isolate around.
@@ -840,14 +847,18 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  /// Launch and resume: push now, and pull if one is due.
+  /// The shortest time between two pulls on launch and resume. Resume fires
+  /// for a permission dialog or a glance at the notification shade.
+  static const _pullInterval = Duration(minutes: 2);
+
+  /// Launch and resume: push now, then pull what changed elsewhere.
   ///
-  /// The push is not throttled — it only sends what changed, and a trainee's
-  /// session should reach their trainer when it's logged, not hours later.
-  /// The pull still downloads the whole account and keeps its six-hour
-  /// throttle, on its own key: the background task stamps
-  /// `last_sync_timestamp` after a push-only sync, so a background run that
-  /// never downloaded anything used to suppress the foreground pull.
+  /// The pull asks the server only for what changed since the last one
+  /// (`docs/sync-architecture.md`, part three), so it no longer needs the
+  /// six-hour throttle it had while it downloaded the whole account every
+  /// time: that throttle is why a trainer's edit could take hours to reach
+  /// the phone. [_pullInterval] only keeps a burst of resumes from pulling
+  /// once each.
   Future<void> _runInitialSync() async {
     await _syncScheduler.onResumed();
 
@@ -855,9 +866,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final lastPullMs = prefs.getInt(lastPullPrefsKey);
     if (lastPullMs != null) {
       final lastPull = DateTime.fromMillisecondsSinceEpoch(lastPullMs);
-      if (DateTime.now().difference(lastPull) < const Duration(hours: 6)) {
-        return;
-      }
+      if (DateTime.now().difference(lastPull) < _pullInterval) return;
     }
 
     final syncService = await _syncService();
@@ -866,10 +875,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     try {
       await syncService.pullAll();
       // Only a pull that finished every step counts: pullAll throws
-      // SyncIncompleteException otherwise, and the steps that failed are
-      // retried on the next launch or resume instead of in six hours.
-      final now = DateTime.now().millisecondsSinceEpoch;
-      await prefs.setInt(lastPullPrefsKey, now);
+      // SyncIncompleteException otherwise, and is tried again on the next
+      // launch or resume.
+      await prefs.setInt(
+        lastPullPrefsKey,
+        DateTime.now().millisecondsSinceEpoch,
+      );
       if (mounted) {
         globalFoodTrackingKey.currentState?.loadNutritionData();
         globalProgressKey.currentState?.reloadGymData();

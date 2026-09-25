@@ -18,9 +18,9 @@ public class WeightTrackingRepository(AppDbContext context) : IWeightTrackingRep
     }
 
     /// <inheritdoc/>
-    public async Task<List<WeightTracking>> GetWeightTrackingsAsync(Guid id)
+    public async Task<List<WeightTracking>> GetWeightTrackingsAsync(Guid id, DateTime? changedSince = null)
     {
-        return await _context.WeightTrackings.AsNoTracking().Where(w => w.UserId == id).ToListAsync();
+        return await _context.WeightTrackings.AsNoTracking().Where(w => w.UserId == id).ChangedSince(changedSince).ToListAsync();
     }
 
     /// <inheritdoc/>

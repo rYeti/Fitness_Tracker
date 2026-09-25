@@ -34,7 +34,8 @@ enum SyncStatus {
 
   /// The status stored as [raw]. A value this build does not know — only a
   /// newer build could have written one — reads as [synced]: neither pushed
-  /// again nor deleted, and left for the next pull to reconcile.
+  /// again nor deleted, and left for the pull to reconcile when the server
+  /// next sends the row.
   static SyncStatus fromDb(int raw) =>
       raw >= 0 && raw < values.length ? values[raw] : synced;
 

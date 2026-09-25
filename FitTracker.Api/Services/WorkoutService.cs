@@ -9,18 +9,21 @@ namespace FitTracker.Api.Services;
 public class WorkoutService : IWorkoutService
 {
     private readonly IWorkoutRepository _workoutRepository;
+    private readonly ISyncTombstoneRepository _tombstones;
 
     /// <summary>Initialises a new instance of <see cref="WorkoutService"/>.</summary>
+    /// <param name="tombstones">Which of the caller's ids were deleted.</param>
     /// <param name="workoutRepository">The workout repository.</param>
-    public WorkoutService(IWorkoutRepository workoutRepository)
+    public WorkoutService(IWorkoutRepository workoutRepository, ISyncTombstoneRepository tombstones)
     {
         _workoutRepository = workoutRepository;
+        _tombstones = tombstones;
     }
 
     /// <inheritdoc/>
-    public async Task<List<WorkoutResponseDto>> GetUserWorkoutsAsync(Guid userId)
+    public async Task<List<WorkoutResponseDto>> GetUserWorkoutsAsync(Guid userId, DateTime? changedSince = null)
     {
-        var workouts = await _workoutRepository.GetUserWorkoutsAsync(userId);
+        var workouts = await _workoutRepository.GetUserWorkoutsAsync(userId, changedSince);
         return [.. workouts.Select(ToDto)];
     }
 
@@ -49,6 +52,7 @@ public class WorkoutService : IWorkoutService
             dto.Id,
             userId,
             _workoutRepository.GetWorkoutOwnerAsync,
+            id => _tombstones.WasDeletedAsync(userId, id),
             id => UpdateWorkoutAsync(id, userId, dto),
             async id => ToDto(await _workoutRepository.CreateWorkoutAsync(new Workout
             {
@@ -84,10 +88,15 @@ public class WorkoutService : IWorkoutService
         // The slot check in the repository still applies to an id it has never seen: an
         // entry for the same exercise at the same position is answered with the row
         // already there, under that row's id — which is the one the app must keep.
+        //
+        // A workout exercise is never tombstoned (docs/sync-architecture.md §29), so no
+        // tombstone lookup could ever match one; asking would be a query per create that
+        // always answers no, and would suggest a removed entry's id is refused when it isn't.
         ClientIds.CreateOrResolveAsync(
             dto.Id,
             userId,
             _workoutRepository.GetWorkoutExerciseOwnerAsync,
+            _ => Task.FromResult(false),
             id => UpdateWorkoutExerciseAsync(id, userId, dto),
             async id =>
             {

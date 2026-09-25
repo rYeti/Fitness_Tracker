@@ -376,6 +376,47 @@ class MealTemplateDao {
     return false;
   }
 
+  /// Writes the server's copy of a template over this device's, the way the
+  /// sync engine writes a database row: without marking it edited.
+  ///
+  /// Only a template that holds nothing to send is overwritten. One edited
+  /// here and not sent yet, or one whose create this device hasn't heard back
+  /// about, is left as it is and reported [TemplateApply.heldBack] — the push
+  /// sends it, and the pull asks for the server's copy again afterwards.
+  Future<TemplateApply> applyFromServer(
+    String serverId,
+    Map<String, dynamic> fields,
+  ) async {
+    final templates = await _loadTemplates();
+    final index = templates.indexWhere((t) => t['serverId'] == serverId);
+    if (index < 0) return TemplateApply.absent;
+    final template = templates[index];
+    if (!_isOnServer(template) || template['dirty'] == true) {
+      return TemplateApply.heldBack;
+    }
+    // Its local id, sync bookkeeping and anything else stored beside the
+    // server's fields stay; the fields the server sends replace them.
+    templates[index] = {...template, ...fields};
+    if (!fields.containsKey('total_weight_grams')) {
+      templates[index].remove('total_weight_grams');
+    }
+    await _saveTemplates(templates);
+    return TemplateApply.applied;
+  }
+
+  /// Removes a template the server deleted — another device did, or it was
+  /// deleted there after a create this device never heard back about —
+  /// without remembering it as deleted here: there is nothing to tell the
+  /// server. A deletion of it this device was waiting to send is forgotten
+  /// too, for the same reason.
+  Future<void> removeDeletedElsewhere(String serverId) async {
+    final templates = await _loadTemplates();
+    final before = templates.length;
+    templates.removeWhere((t) => t['serverId'] == serverId);
+    if (templates.length != before) await _saveTemplates(templates);
+    await clearDeleted(serverId);
+  }
+
   /// Server ids of templates deleted here that the server may still have.
   Future<List<String>> getDeletedServerIds() async {
     final prefs = await SharedPreferences.getInstance();
@@ -394,4 +435,16 @@ class MealTemplateDao {
   /// Returns the server UUID for the given local template ID, or null.
   String? getServerId(Map<String, dynamic> template) =>
       template['serverId'] as String?;
+}
+
+/// What [MealTemplateDao.applyFromServer] did with the server's copy.
+enum TemplateApply {
+  /// No template here has that server id.
+  absent,
+
+  /// This device's copy was clean, and now matches the server's.
+  applied,
+
+  /// This device's copy holds something not sent yet, and was left alone.
+  heldBack,
 }

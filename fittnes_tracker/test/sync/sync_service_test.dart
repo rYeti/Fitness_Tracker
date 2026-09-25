@@ -147,10 +147,10 @@ void main() {
 
       api.stubEmptyPull();
       // Reconcile must still see the workout, or it clears the serverId first.
-      api.getResponses['api/Workout'] = [
+      api.changes['workouts'] = [
         serverWorkout(id: 'server-w1', name: 'Push Day'),
       ];
-      api.getResponses['api/Exercise/UserExercise'] = <dynamic>[];
+      api.changes['exercises'] = <dynamic>[];
 
       await sync.syncAll();
 
@@ -189,7 +189,7 @@ void main() {
       await insertSyncedExercise(name: 'Lat Pulldown', serverId: 'server-e2');
 
       api.stubEmptyPull();
-      api.getResponses['api/Workout'] = [
+      api.changes['workouts'] = [
         serverWorkout(
           id: 'server-w1',
           name: 'Upper A',
@@ -249,7 +249,7 @@ void main() {
       await insertSyncedExercise(serverId: 'server-e1');
 
       api.stubEmptyPull();
-      api.getResponses['api/Workout'] = [
+      api.changes['workouts'] = [
         serverWorkout(
           id: 'server-w1',
           name: 'Upper A',
@@ -287,7 +287,7 @@ void main() {
       await insertSyncedExercise(serverId: 'server-e1');
 
       api.stubEmptyPull();
-      api.getResponses['api/Workout'] = [
+      api.changes['workouts'] = [
         serverWorkout(
           id: 'server-w1',
           name: 'Push Day',
@@ -329,7 +329,7 @@ void main() {
       await insertSyncedExercise(serverId: 'server-e1');
 
       api.stubEmptyPull();
-      api.getResponses['api/Workout'] = [
+      api.changes['workouts'] = [
         serverWorkout(
           id: 'server-w1',
           name: 'Push Day',
@@ -361,7 +361,7 @@ void main() {
         await insertSyncedExercise(serverId: 'server-e1');
 
         api.stubEmptyPull();
-        api.getResponses['api/Workout'] = [
+        api.changes['workouts'] = [
           serverWorkout(
             id: 'server-w1',
             name: 'Push Day',
@@ -407,7 +407,7 @@ void main() {
       await insertSyncedExercise(serverId: 'server-e1');
 
       api.stubEmptyPull();
-      api.getResponses['api/Workout'] = [
+      api.changes['workouts'] = [
         serverWorkout(
           id: 'server-w1',
           name: 'Push Day',
@@ -429,7 +429,7 @@ void main() {
 
       // The trainer renames the day and represcribes the set from the
       // console. Same workout id, same exercise id — a fresh set of values.
-      api.getResponses['api/Workout'] = [
+      api.changes['workouts'] = [
         serverWorkout(
           id: 'server-w1',
           name: 'Push Day A',
@@ -467,7 +467,7 @@ void main() {
       await insertSyncedExercise(serverId: 'server-e1');
 
       api.stubEmptyPull();
-      api.getResponses['api/Workout'] = [
+      api.changes['workouts'] = [
         serverWorkout(id: 'server-w1', name: 'Push Day'),
       ];
       await sync.pullAll();
@@ -480,7 +480,7 @@ void main() {
       );
       await db.workoutDao.markWorkoutPendingUpdate(local!.id);
 
-      api.getResponses['api/Workout'] = [
+      api.changes['workouts'] = [
         serverWorkout(id: 'server-w1', name: 'Push Day (server rename)'),
       ];
       await sync.pullAll();
@@ -499,7 +499,7 @@ void main() {
         await insertSyncedExercise(serverId: 'server-e1');
 
         api.stubEmptyPull();
-        api.getResponses['api/Workout'] = [
+        api.changes['workouts'] = [
           serverWorkout(
             id: 'server-w1',
             name: 'Push Day',
@@ -513,7 +513,7 @@ void main() {
             ],
           ),
         ];
-        api.getResponses['api/ScheduledWorkout'] = [
+        api.changes['scheduledWorkouts'] = [
           serverScheduledWorkout(
             id: 'server-sw1',
             workoutId: 'server-w1',
@@ -552,10 +552,10 @@ void main() {
         api.stubEmptyPull();
         // 'server-deleted' never appears here — the food it once named is
         // gone from the account entirely, same as a real deletion.
-        api.getResponses['api/FoodItem'] = [
+        api.changes['foodItems'] = [
           serverFoodItem(id: 'server-oats', name: 'Oats'),
         ];
-        api.getResponses['api/Meal/all'] = [
+        api.changes['meals'] = [
           serverMeal(
             id: 'server-m1',
             // The meal's vestigial "primary" food — deleted since this meal
@@ -685,7 +685,7 @@ void main() {
     test('leave one set template per set number', () async {
       await insertSyncedExercise(serverId: 'server-e1');
       api.stubEmptyPull();
-      api.getResponses['api/Workout'] = [
+      api.changes['workouts'] = [
         serverWorkout(
           id: 'server-w1',
           name: 'Push Day',
@@ -788,7 +788,7 @@ void main() {
     test('are folded at rest and the clean prescription re-pushed', () async {
       await seedTwins();
       api.stubEmptyPull();
-      api.getResponses['api/Workout'] = [
+      api.changes['workouts'] = [
         serverWorkout(id: 'server-w1', name: 'Push Day'),
       ];
       await sync.syncAll();
@@ -816,7 +816,7 @@ void main() {
         'api/ScheduledWorkout/server-sw1/exercises/server-se1/sets/batch';
 
     void stubSession(List<Map<String, dynamic>> sets) {
-      api.getResponses['api/Workout'] = [
+      api.changes['workouts'] = [
         serverWorkout(
           id: 'server-w1',
           name: 'Push Day',
@@ -829,7 +829,7 @@ void main() {
           ],
         ),
       ];
-      api.getResponses['api/ScheduledWorkout'] = [
+      api.changes['scheduledWorkouts'] = [
         serverScheduledWorkout(
           id: 'server-sw1',
           workoutId: 'server-w1',
@@ -1075,7 +1075,7 @@ void main() {
           seSyncStatus: 1,
         );
         api.stubEmptyPull();
-        api.getResponses['api/Workout'] = [
+        api.changes['workouts'] = [
           serverWorkout(
             id: 'server-w1',
             name: 'Push Day',
@@ -1090,7 +1090,7 @@ void main() {
         ];
         // The server never heard of the note: it was stamped synced by a link
         // back when nothing pushed notes at all.
-        api.getResponses['api/ScheduledWorkout'] = [
+        api.changes['scheduledWorkouts'] = [
           serverScheduledWorkout(
             id: 'server-sw1',
             workoutId: 'server-w1',
@@ -1213,7 +1213,7 @@ void main() {
     /// [sets] on its one exercise.
     void stubServerSession(List<Map<String, dynamic>> sets) {
       api.stubEmptyPull();
-      api.getResponses['api/Workout'] = [
+      api.changes['workouts'] = [
         serverWorkout(
           id: 'server-w1',
           name: 'Push Day',
@@ -1226,7 +1226,7 @@ void main() {
           ],
         ),
       ];
-      api.getResponses['api/ScheduledWorkout'] = [
+      api.changes['scheduledWorkouts'] = [
         serverScheduledWorkout(
           id: 'server-sw1',
           workoutId: 'server-w1',

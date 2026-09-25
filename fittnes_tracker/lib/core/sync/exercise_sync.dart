@@ -150,16 +150,13 @@ extension ExerciseSync on SyncService {
     }
   }
 
-  Future<void> _pullCustomExercises() async {
-    final response = await _apiClient.get('api/Exercise/UserExercise');
-    final list = (response.data as List).cast<Map<String, dynamic>>();
-    await _applyEach('custom exercises', list, (e) async {
-      final serverId = e['id'] as String;
-      if (await _db.exerciseDao.getExerciseByServerId(serverId) != null) {
-        return;
-      }
-      await _db.exerciseDao.saveExercise(
-        ExerciseTableCompanion(
+  /// Custom exercises from a changes answer: a new one is inserted, a clean
+  /// one takes the server's fields, and a dirty one is held back for the push
+  /// ([SyncService._holdBack]).
+  Future<void> _pullCustomExercises(List<Map<String, dynamic>> list) =>
+      _applyEach('custom exercises', list, (e) async {
+        final serverId = e['id'] as String;
+        final fields = ExerciseTableCompanion(
           name: Value(e['name'] as String),
           description: Value(e['description'] as String?),
           nameDe: Value(e['nameDe'] as String?),
@@ -167,38 +164,49 @@ extension ExerciseSync on SyncService {
           type: Value(e['type'] as int),
           targetMuscleGroups: Value(e['targetMuscleGroups'] as String? ?? ''),
           imageUrl: Value(e['imageUrl'] as String?),
-          isCustom: const Value(true),
-          serverId: Value(serverId),
-          syncStatus: const Value(1),
-        ),
-      );
-      _logger.i('Pulled exercise $serverId');
-    });
+        );
+        final existing = await _db.exerciseDao.getExerciseByServerId(serverId);
+        if (existing == null) {
+          await _db.exerciseDao.saveExercise(
+            fields.copyWith(
+              isCustom: const Value(true),
+              serverId: Value(serverId),
+              syncStatus: const Value(1),
+            ),
+          );
+          _logger.i('Pulled exercise $serverId');
+          return;
+        }
+        if (SyncStatus.fromDb(existing.syncStatus).isDirty) {
+          _holdBack('custom exercises', serverId);
+          return;
+        }
+        await (_db.update(_db.exerciseTable)
+          ..where((t) => t.id.equals(existing.id))).write(fields);
+      });
 
-    await _removeDeletedElsewhere<ExerciseTableData>(
-      what: 'custom exercises',
-      serverIds: {for (final e in list) e['id'] as String},
-      locals:
-          await (_db.select(_db.exerciseTable)..where(
-                (t) =>
-                    t.serverId.isNotNull() &
-                    t.isCustom.equals(true) &
-                    t.syncStatus.isNotValue(SyncStatus.pending.index),
-              ))
-              .get(),
-      serverIdOf: (r) => r.serverId!,
-      syncStatusOf: (r) => r.syncStatus,
-      delete: (r) async {
-        // A workout still using it would lose the exercise from under it.
-        final inUse =
-            await (_db.select(_db.workoutExerciseTable)
-                  ..where((we) => we.exerciseId.equals(r.id))
-                  ..limit(1))
-                .getSingleOrNull();
-        if (inUse != null) return false;
-        await _db.exerciseDao.deleteExercise(r.id);
-        return true;
-      },
-    );
+  /// A custom exercise deleted elsewhere (see [SyncService._goneElsewhere]).
+  ///
+  /// Deleted here unless a workout on this device still uses it. Then it
+  /// stays as it is: the entries that name it would otherwise name nothing —
+  /// foreign keys aren't enforced here — and on the server a workout exercise
+  /// holds an exercise id only as an opaque reference, so nothing needs the
+  /// exercise to exist there. Only an edit this device hasn't sent needs
+  /// somewhere to land, so an exercise holding one takes a fresh id and is
+  /// created again. One the user deleted here too simply goes.
+  Future<void> _exerciseGone(String serverId) async {
+    final e = await _db.exerciseDao.getExerciseByServerId(serverId);
+    if (e == null || !e.isCustom) return;
+    final status = SyncStatus.fromDb(e.syncStatus);
+    final inUse =
+        await (_db.select(_db.workoutExerciseTable)
+              ..where((we) => we.exerciseId.equals(e.id))
+              ..limit(1))
+            .getSingleOrNull();
+    if (inUse == null || status == SyncStatus.pendingDelete) {
+      await _db.exerciseDao.deleteExercise(e.id);
+    } else if (status.isDirty) {
+      await _giveFreshId(_db.exerciseTable, e.id);
+    }
   }
 }

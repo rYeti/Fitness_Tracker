@@ -104,30 +104,10 @@ extension WorkoutSync on SyncService {
     if (!deleted && await _db.workoutDao.hasLoggedSessions(w.id)) {
       // A set was logged against it between the check above and now — an
       // active workout still open on it. The server copy is gone, so it comes
-      // back as a new workout: the history under it has to be pushable. Under
-      // the ids it already has — the server deleted those rows, so a create
-      // under them makes them afresh.
-      await _db.untracked(() async {
-        await (_db.update(_db.workoutTable)
-          ..where((t) => t.id.equals(w.id))).write(
-          WorkoutTableCompanion(syncStatus: Value(SyncStatus.pending.index)),
-        );
-        final live = (await _db.workoutDao.getExercisesForWorkoutRaw(
-          w.id,
-        )).where(_isLive).map((e) => e.id);
-        await (_db.update(_db.workoutExerciseTable)
-          ..where((t) => t.id.isIn(live))).write(
-          WorkoutExerciseTableCompanion(
-            syncStatus: Value(SyncStatus.pending.index),
-          ),
-        );
-        await (_db.update(_db.workoutSetTemplateTable)
-          ..where((t) => t.workoutExerciseId.isIn(live))).write(
-          WorkoutSetTemplateTableCompanion(
-            syncStatus: Value(SyncStatus.pending.index),
-          ),
-        );
-      });
+      // back as a new workout: the history under it has to be pushable. Not
+      // under the id it had: the server recorded the delete, and refuses a
+      // create of that id for good (410).
+      await _db.untracked(() => _recreateWorkout(w.id));
       _logger.w('Workout ${w.id} gained logged sets mid-delete; re-creating it');
       return;
     }
@@ -151,6 +131,71 @@ extension WorkoutSync on SyncService {
           ),
     );
     _logger.w('Workout ${w.id} has logged history; kept instead of deleted');
+  }
+
+  /// A workout deleted elsewhere (see [SyncService._goneElsewhere]): deleted
+  /// here with everything that is only its own, unless a session on this
+  /// device logged sets against it ([WorkoutDao.deleteWorkout] refuses then).
+  ///
+  /// The server refuses to delete a workout whose sessions hold logged sets
+  /// (409), so a deletion that reached it anyway means the server never had
+  /// those sets: they are this device's, and not sent yet. Kept as it was,
+  /// the workout would hold them under an id the server will never accept
+  /// again, and they could never be sent. So it is created again
+  /// ([_recreateWorkout]).
+  Future<void> _workoutGone(String serverId) async {
+    final w = await _db.workoutDao.getWorkoutByServerId(serverId);
+    if (w == null) return;
+    if (await _db.workoutDao.deleteWorkout(w.id)) return;
+    await _recreateWorkout(w.id);
+    _logger.w(
+      'Workout ${w.id} was deleted elsewhere, but sessions here logged sets '
+      'against it; kept, and created again under a new id',
+    );
+  }
+
+  /// Makes a workout the server deleted pushable again, for the history
+  /// logged under it here.
+  ///
+  /// The workout, and each session of it the server had, take fresh ids: the
+  /// server recorded their deletion and refuses a create of those ids for
+  /// good (410). Their exercise entries, set templates, session exercises and
+  /// sets have no such record and keep theirs; they go `pending`, so they are
+  /// created again under the new rows. Sessions nothing was logged in were
+  /// deleted on the server with the workout, as [WorkoutDao.deleteWorkout]
+  /// deletes them here, and go.
+  ///
+  /// This used to re-create the workout under the ids it already had —
+  /// "the server deleted those rows, so a create under them makes them
+  /// afresh". Since the server remembers what it deleted, that create is
+  /// answered 410.
+  Future<void> _recreateWorkout(int workoutId) async {
+    await _giveFreshId(_db.workoutTable, workoutId);
+    final live = (await _db.workoutDao.getExercisesForWorkoutRaw(
+      workoutId,
+    )).where(_isLive).map((e) => e.id);
+    await (_db.update(_db.workoutExerciseTable)
+      ..where((t) => t.id.isIn(live))).write(
+      WorkoutExerciseTableCompanion(
+        syncStatus: Value(SyncStatus.pending.index),
+      ),
+    );
+    await (_db.update(_db.workoutSetTemplateTable)
+      ..where((t) => t.workoutExerciseId.isIn(live))).write(
+      WorkoutSetTemplateTableCompanion(
+        syncStatus: Value(SyncStatus.pending.index),
+      ),
+    );
+    final sessions =
+        await (_db.select(_db.scheduledWorkoutTable)
+          ..where((sw) => sw.workoutId.equals(workoutId))).get();
+    for (final sw in sessions) {
+      if (!await _hasLoggedSets(sw.id)) {
+        await _deleteScheduledWorkoutLocally(sw.id);
+      } else if (SyncStatus.fromDb(sw.syncStatus).isOnServer) {
+        await _recreateSession(sw.id);
+      }
+    }
   }
 
   static bool _isLive(WorkoutExerciseTableData we) {
@@ -539,30 +584,10 @@ extension WorkoutSync on SyncService {
     return result;
   }
 
-  Future<void> _pullWorkouts() async {
-    final response = await _apiClient.get('api/Workout');
-    final list = (response.data as List).cast<Map<String, dynamic>>();
-    await _applyEach('workouts', list, _applyServerWorkout);
-
-    await _removeDeletedElsewhere<WorkoutTableData>(
-      what: 'workouts',
-      serverIds: {for (final w in list) w['id'] as String},
-      locals:
-          await (_db.select(_db.workoutTable)..where(
-                (t) =>
-                    t.serverId.isNotNull() &
-                    t.syncStatus.isNotValue(SyncStatus.pending.index),
-              ))
-              .get(),
-      serverIdOf: (r) => r.serverId!,
-      syncStatusOf: (r) => r.syncStatus,
-      // Only ever a workout deleted from another device or by a trainer from
-      // the console — this device's own delete leaves no row to find. Kept if
-      // a session on this device logged sets against it, the same way the
-      // server keeps (409s) a workout with logged history.
-      delete: (r) => _db.workoutDao.deleteWorkout(r.id),
-    );
-  }
+  /// Workouts from a changes answer, each with every exercise entry it holds
+  /// — retired ones included — and their set templates.
+  Future<void> _pullWorkouts(List<Map<String, dynamic>> list) =>
+      _applyEach('workouts', list, _applyServerWorkout);
 
   Future<void> _applyServerWorkout(Map<String, dynamic> w) async {
     final workoutServerId = w['id'] as String;
@@ -585,6 +610,11 @@ extension WorkoutSync on SyncService {
       // would silently throw it away instead of pushing it.
       if (SyncStatus.fromDb(existingWorkout.syncStatus) == SyncStatus.synced) {
         await _reconcileWorkoutFromServer(existingWorkout, w);
+      } else if (existingWorkout.isTemplate) {
+        // Only a workout the push sends can be held back for it: a
+        // non-template workout never leaves the device, so waiting for its
+        // push would hold the cursor for good.
+        _holdBack('workouts', workoutServerId);
       }
       return;
     }
@@ -765,8 +795,14 @@ extension WorkoutSync on SyncService {
       }
 
       // Same rule as the workout level, one row down: a dirty local copy of
-      // this exercise is this device's own unsent edit.
-      if (SyncStatus.fromDb(local.syncStatus) != SyncStatus.synced) continue;
+      // this exercise is this device's own unsent edit. A retired one is
+      // history, and stays as it is.
+      final localStatus = SyncStatus.fromDb(local.syncStatus);
+      if (localStatus.isDirty) {
+        _holdBack('workouts', exServerId);
+        continue;
+      }
+      if (localStatus != SyncStatus.synced) continue;
 
       if (isRetiredOnServer) {
         if (local.syncStatus != 4) {
@@ -829,6 +865,7 @@ extension WorkoutSync on SyncService {
     if (localSets.any(
       (s) => SyncStatus.fromDb(s.syncStatus) != SyncStatus.synced,
     )) {
+      _holdBack('workouts', ex['id']);
       return;
     }
 

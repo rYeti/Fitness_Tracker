@@ -8,7 +8,9 @@ public interface IWorkoutService
 {
     /// <summary>Returns all workouts belonging to the specified user.</summary>
     /// <param name="userId">The user's ID.</param>
-    Task<List<WorkoutResponseDto>> GetUserWorkoutsAsync(Guid userId);
+    /// <param name="changedSince">Only those whose aggregate changed at or after this instant, for the sync
+    /// changes feed (docs/sync-architecture.md, part three); all of them when null.</param>
+    Task<List<WorkoutResponseDto>> GetUserWorkoutsAsync(Guid userId, DateTime? changedSince = null);
 
     /// <summary>The names of the given workouts, keyed by workout id.</summary>
     Task<Dictionary<Guid, string>> GetNamesByIdsAsync(IReadOnlyCollection<Guid> workoutIds);

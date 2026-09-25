@@ -68,6 +68,7 @@ part 'app_database.g.dart';
     SyncDeletionTable,
     SyncApplyGuardTable,
     SyncLeaseTable,
+    SyncMeta,
   ],
   daos: [
     FoodItemDao,
@@ -162,6 +163,10 @@ class AppDatabase extends _$AppDatabase {
       await delete(searchCacheTable).go();
       await delete(chatOutBoxTable).go();
       await delete(syncDeletionTable).go();
+      // The changes feed's cursor describes the data above: kept, it would
+      // tell the next account's first pull that it already held everything
+      // up to this account's position, and that pull would fetch nothing.
+      await delete(syncMeta).go();
       // Keep built-in exercises; remove only user-created ones
       await (delete(exerciseTable)..where((e) => e.isCustom.equals(true))).go();
     });
@@ -241,8 +246,15 @@ class AppDatabase extends _$AppDatabase {
   /// pushed yet" becomes `sync_status = 0` alone; a meal food given one is
   /// flagged, because the server may hold it under another. See
   /// `if (from < 42)` and `docs/sync-architecture.md` part two.
+  ///
+  /// 43 adds `sync_meta`, which holds the changes feed's cursor: the pull now
+  /// asks the server for what changed since it last asked, rather than for
+  /// everything. No `if (from < 43)` branch — `createAll()` makes the table,
+  /// as it did for 37 — and none is needed: an upgraded install has no cursor
+  /// yet, so its first pull asks for everything, with every deletion the
+  /// server has recorded. See `docs/sync-architecture.md` part three.
   @override
-  int get schemaVersion => 42;
+  int get schemaVersion => 43;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(

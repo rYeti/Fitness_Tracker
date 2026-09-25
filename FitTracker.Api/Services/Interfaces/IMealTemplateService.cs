@@ -6,7 +6,9 @@ namespace FitTracker.Api.Services.Interfaces;
 public interface IMealTemplateService
 {
     /// <summary>Returns all templates for the specified user.</summary>
-    Task<List<MealTemplateResponseDto>> GetAllAsync(Guid userId);
+    /// <param name="changedSince">Only those whose aggregate changed at or after this instant, for the sync
+    /// changes feed (docs/sync-architecture.md, part three); all of them when null.</param>
+    Task<List<MealTemplateResponseDto>> GetAllAsync(Guid userId, DateTime? changedSince = null);
 
     /// <summary>Returns a single template by ID, or null if not found.</summary>
     Task<MealTemplateResponseDto?> GetByIdAsync(Guid id, Guid userId);

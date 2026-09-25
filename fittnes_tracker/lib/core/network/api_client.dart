@@ -98,6 +98,21 @@ class ApiClient {
     }
   }
 
+  /// `GET api/Sync/changes`: every aggregate of the caller's that changed
+  /// since [since], what was deleted since, and the `cursor` to send as
+  /// [since] next time — or, with no [since], everything, and every deletion.
+  /// See `docs/sync-architecture.md`, part three.
+  ///
+  /// [since] goes back exactly as the server wrote it; Dio encodes it, so an
+  /// offset's `+` is not read as a space.
+  Future<Map<String, dynamic>> getChanges(String? since) async {
+    final response = await get(
+      'api/Sync/changes',
+      queryParameters: {if (since != null) 'since': since},
+    );
+    return (response.data as Map).cast<String, dynamic>();
+  }
+
   Future<Response> post(
     String path, {
     dynamic data,

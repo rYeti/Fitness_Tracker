@@ -333,7 +333,7 @@ class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
   /// Set numbers are ordinals within an exercise, so two rows numbered 1 are
   /// the same set. A device can still be holding twins left by two pulls that
   /// overlapped (docs/sync-concurrent-runs.md) until the next sync folds them
-  /// at rest, and the sync is throttled to once every six hours. Read
+  /// at rest, which may not be before this screen opens. Read
   /// unfolded, the active workout lists every set twice with both inputs on
   /// one controller, and the builder saves the twins straight back as pending.
   List<WorkoutSetTemplateData> _oneTemplatePerSetNumber(

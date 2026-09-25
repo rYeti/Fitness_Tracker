@@ -6,12 +6,12 @@ using FitTracker.Api.Services.Interfaces;
 namespace FitTracker.Api.Services;
 
 /// <summary>Implementation of <see cref="IMealTemplateService"/>.</summary>
-public class MealTemplateService(IMealTemplateRepository repository) : IMealTemplateService
+public class MealTemplateService(IMealTemplateRepository repository, ISyncTombstoneRepository tombstones) : IMealTemplateService
 {
     /// <inheritdoc/>
-    public async Task<List<MealTemplateResponseDto>> GetAllAsync(Guid userId)
+    public async Task<List<MealTemplateResponseDto>> GetAllAsync(Guid userId, DateTime? changedSince = null)
     {
-        var templates = await repository.GetAllAsync(userId);
+        var templates = await repository.GetAllAsync(userId, changedSince);
         return templates.Select(ToDto).ToList();
     }
 
@@ -29,6 +29,7 @@ public class MealTemplateService(IMealTemplateRepository repository) : IMealTemp
             dto.Id,
             userId,
             repository.GetOwnerAsync,
+            id => tombstones.WasDeletedAsync(userId, id),
             id => UpdateAsync(id, userId, dto),
             async id => ToDto(await repository.CreateAsync(new MealTemplate
             {

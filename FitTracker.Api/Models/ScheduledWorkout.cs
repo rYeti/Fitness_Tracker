@@ -1,10 +1,14 @@
 namespace FitTracker.Api.Models;
 
 /// <summary>Represents a concrete scheduled occurrence of a workout on a specific date.</summary>
-public class ScheduledWorkout
+public class ScheduledWorkout : ISyncRoot
 {
     /// <summary>The unique identifier of this scheduled workout.</summary>
     public Guid Id { get; set; }
+
+    /// <summary>When this aggregate last changed on the server, in UTC. Stamped by
+    /// <c>SyncChangeInterceptor</c>; never set by hand. See <see cref="ISyncRoot"/>.</summary>
+    public DateTime UpdatedAt { get; set; }
 
     /// <summary>The unique identifier of the workout this scheduled entry is based on.</summary>
     public Guid WorkoutId { get; set; }

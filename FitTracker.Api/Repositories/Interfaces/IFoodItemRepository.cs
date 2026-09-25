@@ -6,7 +6,9 @@ namespace FitTracker.Api.Repositories.Interfaces;
 public interface IFoodItemRepository
 {
     /// <summary>Returns all food items belonging to the specified user.</summary>
-    Task<List<FoodItem>> GetUserFoodItemsAsync(Guid userId);
+    /// <param name="changedSince">Only those whose aggregate changed at or after this instant, for the sync
+    /// changes feed (docs/sync-architecture.md, part three); all of them when null.</param>
+    Task<List<FoodItem>> GetUserFoodItemsAsync(Guid userId, DateTime? changedSince = null);
 
     /// <summary>Returns the specified user's food items with the given ids.</summary>
     /// <remarks>Resolving a day of meals used to load the user's entire food library. The ids

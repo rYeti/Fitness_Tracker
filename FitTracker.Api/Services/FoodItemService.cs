@@ -6,12 +6,12 @@ using FitTracker.Api.Services.Interfaces;
 namespace FitTracker.Api.Services;
 
 /// <summary>Implementation of <see cref="IFoodItemService"/>.</summary>
-public class FoodItemService(IFoodItemRepository repository) : IFoodItemService
+public class FoodItemService(IFoodItemRepository repository, ISyncTombstoneRepository tombstones) : IFoodItemService
 {
     /// <inheritdoc/>
-    public async Task<List<FoodItemResponseDto>> GetUserFoodItemsAsync(Guid userId)
+    public async Task<List<FoodItemResponseDto>> GetUserFoodItemsAsync(Guid userId, DateTime? changedSince = null)
     {
-        var items = await repository.GetUserFoodItemsAsync(userId);
+        var items = await repository.GetUserFoodItemsAsync(userId, changedSince);
         return items.Select(ToDto).ToList();
     }
 
@@ -36,6 +36,7 @@ public class FoodItemService(IFoodItemRepository repository) : IFoodItemService
             dto.Id,
             userId,
             repository.GetOwnerAsync,
+            id => tombstones.WasDeletedAsync(userId, id),
             id => UpdateFoodItemAsync(id, userId, dto),
             async id => ToDto(await repository.CreateFoodItemAsync(new FoodItem
             {

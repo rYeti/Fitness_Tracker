@@ -170,12 +170,15 @@ namespace FitTracker.Api.Migrations
                     b.Property<int>("Type")
                         .HasColumnType("integer");
 
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<Guid?>("UserId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("UserId", "UpdatedAt");
 
                     b.ToTable("Exercise");
                 });
@@ -211,12 +214,15 @@ namespace FitTracker.Api.Migrations
                     b.Property<int>("Protein")
                         .HasColumnType("integer");
 
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("UserId", "UpdatedAt");
 
                     b.ToTable("FoodItems");
                 });
@@ -237,12 +243,17 @@ namespace FitTracker.Api.Migrations
                     b.Property<Guid>("FoodItemId")
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
                     b.HasIndex("UserId", "Date");
+
+                    b.HasIndex("UserId", "UpdatedAt");
 
                     b.ToTable("Meals");
                 });
@@ -286,12 +297,15 @@ namespace FitTracker.Api.Migrations
                     b.Property<decimal?>("TotalWeightGrams")
                         .HasColumnType("numeric");
 
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("UserId", "UpdatedAt");
 
                     b.ToTable("MealTemplates");
                 });
@@ -461,6 +475,9 @@ namespace FitTracker.Api.Migrations
                     b.Property<Guid?>("TemplateWorkoutId")
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<Guid>("WorkoutId")
                         .HasColumnType("uuid");
 
@@ -472,6 +489,8 @@ namespace FitTracker.Api.Migrations
                     b.HasIndex("WorkoutPlanId");
 
                     b.HasIndex("WorkoutId", "ScheduledDate");
+
+                    b.HasIndex("WorkoutId", "UpdatedAt");
 
                     b.ToTable("ScheduledWorkouts");
                 });
@@ -504,6 +523,35 @@ namespace FitTracker.Api.Migrations
                     b.HasIndex("WorkoutExerciseId");
 
                     b.ToTable("ScheduledWorkoutExercises");
+                });
+
+            modelBuilder.Entity("FitTracker.Api.Models.SyncTombstone", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("EntityId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("EntityType")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "DeletedAt");
+
+                    b.HasIndex("UserId", "EntityId");
+
+                    b.ToTable("SyncTombstones");
                 });
 
             modelBuilder.Entity("FitTracker.Api.Models.TrainerClient", b =>
@@ -778,6 +826,9 @@ namespace FitTracker.Api.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
 
@@ -801,6 +852,9 @@ namespace FitTracker.Api.Migrations
                     b.Property<string>("Note")
                         .HasColumnType("text");
 
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
 
@@ -809,7 +863,7 @@ namespace FitTracker.Api.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("UserId", "UpdatedAt");
 
                     b.ToTable("WeightTrackings");
                 });
@@ -848,12 +902,15 @@ namespace FitTracker.Api.Migrations
                     b.Property<DateTime?>("ScheduledDate")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("UserId", "UpdatedAt");
 
                     b.ToTable("Workouts");
                 });
@@ -924,12 +981,15 @@ namespace FitTracker.Api.Migrations
                     b.Property<DateTime>("StartDate")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("UserId", "UpdatedAt");
 
                     b.ToTable("WorkoutPlans");
                 });
@@ -1219,6 +1279,17 @@ namespace FitTracker.Api.Migrations
                     b.Navigation("ScheduledWorkout");
 
                     b.Navigation("WorkoutExercise");
+                });
+
+            modelBuilder.Entity("FitTracker.Api.Models.SyncTombstone", b =>
+                {
+                    b.HasOne("FitTracker.Api.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("FitTracker.Api.Models.TrainerClient", b =>

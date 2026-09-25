@@ -8,7 +8,9 @@ public interface IScheduledWorkoutRepository
 {
     /// <summary>Returns all scheduled workouts belonging to the specified user.</summary>
     /// <param name="userId">The user's ID.</param>
-    Task<List<ScheduledWorkout>> GetUserScheduledWorkoutsAsync(Guid userId);
+    /// <param name="changedSince">Only those whose aggregate changed at or after this instant, for the sync
+    /// changes feed (docs/sync-architecture.md, part three); all of them when null.</param>
+    Task<List<ScheduledWorkout>> GetUserScheduledWorkoutsAsync(Guid userId, DateTime? changedSince = null);
 
     /// <summary>Returns the specified user's scheduled workouts falling in <c>[from, to)</c>,
     /// including their exercises and sets.</summary>

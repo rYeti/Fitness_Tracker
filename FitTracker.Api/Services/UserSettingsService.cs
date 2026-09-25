@@ -9,9 +9,9 @@ namespace FitTracker.Api.Services;
 public class UserSettingsService(IUserSettingsRepository repository) : IUserSettingsService
 {
     /// <inheritdoc/>
-    public async Task<UserSettingsResponseDto?> GetSettingsAsync(Guid userId)
+    public async Task<UserSettingsResponseDto?> GetSettingsAsync(Guid userId, DateTime? changedSince = null)
     {
-        var settings = await repository.GetByUserIdAsync(userId);
+        var settings = await repository.GetByUserIdAsync(userId, changedSince);
         return settings is null ? null : ToDto(settings);
     }
 

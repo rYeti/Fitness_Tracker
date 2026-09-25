@@ -6,7 +6,7 @@ using FitTracker.Api.Services.Interfaces;
 namespace FitTracker.Api.Services;
 
 /// <summary>Implementation of <see cref="IMealService"/>.</summary>
-public class MealService(IMealRepository repository) : IMealService
+public class MealService(IMealRepository repository, ISyncTombstoneRepository tombstones) : IMealService
 {
     /// <inheritdoc/>
     public async Task<List<MealResponseDto>> GetMealsForDateAsync(Guid userId, DateTime date)
@@ -53,6 +53,7 @@ public class MealService(IMealRepository repository) : IMealService
             dto.Id,
             userId,
             repository.GetOwnerAsync,
+            id => tombstones.WasDeletedAsync(userId, id),
             id => UpdateMealAsync(id, userId, dto),
             async id =>
             {
@@ -109,9 +110,9 @@ public class MealService(IMealRepository repository) : IMealService
         repository.RemoveFoodFromMealAsync(mealId, userId, id);
 
     /// <inheritdoc/>
-    public async Task<List<MealResponseDto>> GetAllMealsAsync(Guid userId)
+    public async Task<List<MealResponseDto>> GetAllMealsAsync(Guid userId, DateTime? changedSince = null)
     {
-        var meals = await repository.GetAllMealsAsync(userId);
+        var meals = await repository.GetAllMealsAsync(userId, changedSince);
         return meals.Select(ToDto).ToList();
     }
 

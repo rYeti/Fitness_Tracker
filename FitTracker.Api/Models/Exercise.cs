@@ -1,10 +1,14 @@
 namespace FitTracker.Api.Models;
 
 /// <summary>Represents an exercise definition, either system-provided or user-created.</summary>
-public class Exercise
+public class Exercise : ISyncRoot
 {
     /// <summary>The unique identifier of the exercise.</summary>
     public Guid Id { get; set; }
+
+    /// <summary>When this aggregate last changed on the server, in UTC. Stamped by
+    /// <c>SyncChangeInterceptor</c>; never set by hand. See <see cref="ISyncRoot"/>.</summary>
+    public DateTime UpdatedAt { get; set; }
 
     /// <summary>The English name of the exercise.</summary>
     public string Name { get; set; } = "";

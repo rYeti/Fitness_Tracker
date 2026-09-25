@@ -24,7 +24,8 @@ import 'package:logger/logger.dart';
 /// - **again after a failure**, backing off from [retryBase] to ten minutes,
 ///   while the app is in the foreground.
 ///
-/// The pull keeps its own, much longer throttle in `main.dart`.
+/// The pull is not scheduled here. It runs on launch and resume, at most every
+/// two minutes (`main.dart`), and from the background task.
 class SyncScheduler {
   SyncScheduler({
     required AppDatabase db,

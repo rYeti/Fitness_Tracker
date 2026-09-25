@@ -77,3 +77,24 @@ class SyncLeaseTable extends Table {
   @override
   Set<Column> get primaryKey => {id};
 }
+
+/// What the sync engine remembers between pulls: where the changes feed
+/// (`GET api/Sync/changes`) left off.
+///
+/// One row (id 1), or none before the first pull has applied a whole answer.
+/// It lives in the database, beside the data it describes, so that the one
+/// call that empties the data — `AppDatabase.clearAllUserData`, at sign-out —
+/// empties it too. A cursor that outlived its data would tell the next pull
+/// that this device already holds everything up to it, and the next account
+/// to sign in would start from someone else's position in someone else's
+/// history. See `docs/sync-architecture.md`, part three.
+class SyncMeta extends Table {
+  IntColumn get id => integer()();
+
+  /// The `cursor` of the last changes-feed answer this device applied whole,
+  /// exactly as the server sent it; the next pull sends it back as `since`.
+  TextColumn get changesCursor => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
