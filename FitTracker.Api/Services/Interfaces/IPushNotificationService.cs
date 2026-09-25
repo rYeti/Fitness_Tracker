@@ -22,4 +22,15 @@ public interface IPushNotificationService
     /// Travels in the payload so a tap can open the right conversation.
     /// </param>
     Task SendChatMessageAsync(Guid recipientId, string senderName, Guid messageId, EncryptedChatBody body, Guid threadId);
+
+    /// <summary>
+    /// Asks every device <paramref name="userId"/> has registered to pull, because someone
+    /// else — their trainer — changed their data.
+    /// </summary>
+    /// <remarks>
+    /// Data only, <c>{ "type": "sync_requested" }</c> and nothing else, collapsed under one
+    /// key, at normal priority. The app pulls if it is open and ignores it otherwise; it
+    /// never shows a notification. See docs/sync-architecture.md, part four.
+    /// </remarks>
+    Task SendSyncRequestedAsync(Guid userId);
 }

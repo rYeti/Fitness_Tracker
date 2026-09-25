@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using FitTracker.Api.DTOs;
+using FitTracker.Api.Repositories.Interfaces;
 using FitTracker.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
@@ -11,13 +12,64 @@ public class ChatHub(
     ITrainerClientService trainerClientService,
     IChatService chatService,
     IChatPushDispatcher pushDispatcher,
-    IChatAttachmentService attachmentService) : Hub
+    IChatAttachmentService attachmentService,
+    ITrainerLicenceRepository licences,
+    ILogger<ChatHub> logger) : Hub
 {
     private ITrainerClientService TrainerClientService { get; } = trainerClientService;
     private IChatService ChatService { get; } = chatService;
     private IChatPushDispatcher PushDispatcher { get; } = pushDispatcher;
     private IChatAttachmentService AttachmentService { get; } = attachmentService;
+    private ITrainerLicenceRepository Licences { get; } = licences;
+    private ILogger<ChatHub> Logger { get; } = logger;
     private static string GroupName(Guid trainerId, Guid clientId) => $"chat:{trainerId}:{clientId}";
+
+    /// <summary>The group every connection of trainer <paramref name="trainerId"/> joins,
+    /// which <c>ClientDataChanged</c> is sent to. See docs/sync-architecture.md, part four.</summary>
+    public static string TrainerGroup(Guid trainerId) => $"trainer:{trainerId}";
+
+    /// <summary>
+    /// Puts a trainer's connection in their own group, <see cref="TrainerGroup"/>, where the
+    /// live updates about their clients' data arrive.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The console already holds this socket for chat while it is open, so live updates ride
+    /// it rather than a second hub: a second socket would be a second connection holding a
+    /// Cloud Run instance awake for as long as the console is open.
+    /// </para>
+    /// <para>
+    /// Holding a licence is what makes someone a trainer (docs/trainer-licensing.md), so that
+    /// is the check — not having clients, and not any role claim. The group says nothing
+    /// about which clients: that is decided per event, against Active relationships, when one
+    /// is sent (<c>LiveUpdateNotifier</c>). A connection in the group can only be the
+    /// trainer's own, because the id comes from their token.
+    /// </para>
+    /// <para>
+    /// A failure here is logged and the connection goes on without the group. Chat worked
+    /// before this existed and must not start depending on it; the console fetches again
+    /// when it regains focus or reconnects, so a missing group costs freshness, not data.
+    /// </para>
+    /// </remarks>
+    public override async Task OnConnectedAsync()
+    {
+        if (TryGetUserId() is { } userId)
+        {
+            try
+            {
+                if (await Licences.GetByTrainerAsync(userId) != null)
+                {
+                    await Groups.AddToGroupAsync(Context.ConnectionId, TrainerGroup(userId));
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Could not add trainer {UserId}'s connection to their group.", userId);
+            }
+        }
+
+        await base.OnConnectedAsync();
+    }
 
     /// <summary>
     /// Adds the caller's connection to the SignalR group for their chat with
@@ -145,17 +197,17 @@ public class ChatHub(
     // reading only the latter left the hub throwing NullReferenceException on a
     // token the controller accepted happily — one entry point working and the
     // other not, for the same signed-in user.
-    private Guid GetUserId()
+    private Guid GetUserId() =>
+        // A HubException reaches the client as a readable message; the parse
+        // failure it replaces surfaced as an opaque "an unexpected error occurred".
+        TryGetUserId() ?? throw new HubException("Not authorized for this chat.");
+
+    private Guid? TryGetUserId()
     {
         var claim = Context.User?.FindFirst(ClaimTypes.NameIdentifier)
                     ?? Context.User?.FindFirst("sub");
 
-        // A HubException reaches the client as a readable message; the parse
-        // failure it replaces surfaced as an opaque "an unexpected error occurred".
-        if (claim == null || !Guid.TryParse(claim.Value, out var userId))
-            throw new HubException("Not authorized for this chat.");
-
-        return userId;
+        return claim != null && Guid.TryParse(claim.Value, out var userId) ? userId : null;
     }
 
 }

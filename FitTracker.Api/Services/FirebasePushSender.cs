@@ -28,32 +28,7 @@ public class FirebasePushSender(FirebaseApp app, ILogger<FirebasePushSender> log
     {
         if (tokens.Count == 0) return new PushSendResult([]);
 
-        var multicast = new MulticastMessage
-        {
-            Tokens = tokens.ToList(),
-            // Data-only, with no `notification` block at all. This used to be the
-            // other way round, and the comment here used to explain that a
-            // notification payload is what lets the OS draw the message while the
-            // app is closed. That is still true, and it is no longer available:
-            // drawing it requires reading it, and the body is now ciphertext this
-            // server has no key for. So the payload is handed to the app instead,
-            // and the app decrypts it and raises the notification itself.
-            //
-            // The cost is real and belongs in the open. A data message is
-            // delivered to the *app*, so Android may hold it under Doze or App
-            // Standby, and a force-stopped app receives nothing at all. High
-            // priority is what buys back most of that gap -- see
-            // docs/chat-encryption.md.
-            Data = new Dictionary<string, string>(message.Data),
-            Android = new AndroidConfig
-            {
-                // A chat message is time-sensitive; normal priority lets Android
-                // hold it until the next maintenance window, which can be
-                // minutes on a dozing device. With no notification block to fall
-                // back on, that delay would be the whole notification.
-                Priority = Priority.High,
-            },
-        };
+        var multicast = ToMulticast(tokens, message);
 
         // SendEachForMulticastAsync, not the retired batch endpoint: one request
         // per token under the hood, and a per-token result, which is what makes
@@ -87,4 +62,44 @@ public class FirebasePushSender(FirebaseApp app, ILogger<FirebasePushSender> log
 
         return new PushSendResult(dead);
     }
+
+    /// <summary>What FCM is sent for <paramref name="message"/>: public so a test can pin
+    /// the mapping without a Firebase project.</summary>
+    public static MulticastMessage ToMulticast(IReadOnlyList<string> tokens, PushMessage message) =>
+        new()
+        {
+            Tokens = tokens.ToList(),
+            // Data-only, with no `notification` block at all. This used to be the
+            // other way round, and the comment here used to explain that a
+            // notification payload is what lets the OS draw the message while the
+            // app is closed. That is still true, and it is no longer available:
+            // drawing it requires reading it, and the body is now ciphertext this
+            // server has no key for. So the payload is handed to the app instead,
+            // and the app decrypts it and raises the notification itself.
+            //
+            // The cost is real and belongs in the open. A data message is
+            // delivered to the *app*, so Android may hold it under Doze or App
+            // Standby, and a force-stopped app receives nothing at all. High
+            // priority is what buys back most of that gap -- see
+            // docs/chat-encryption.md.
+            Data = new Dictionary<string, string>(message.Data),
+            Android = new AndroidConfig
+            {
+                // A chat message is time-sensitive; normal priority lets Android
+                // hold it until the next maintenance window, which can be
+                // minutes on a dozing device. With no notification block to fall
+                // back on, that delay would be the whole notification. A push that
+                // never ends in a notification (a sync request) asks for normal:
+                // Android deprioritises an app whose high-priority messages show
+                // nothing, and chat would be what paid.
+                Priority = message.HighPriority ? Priority.High : Priority.Normal,
+                CollapseKey = message.CollapseKey,
+            },
+            // The same collapse on iOS, where it is an APNs header. iOS isn't built
+            // yet (docs/push-notifications.md); what a data-only message needs
+            // there beyond this is part of setting it up.
+            Apns = message.CollapseKey is { } key
+                ? new ApnsConfig { Headers = new Dictionary<string, string> { ["apns-collapse-id"] = key } }
+                : null,
+        };
 }

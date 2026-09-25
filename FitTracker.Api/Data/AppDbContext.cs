@@ -8,7 +8,18 @@ public class AppDbContext : DbContext
 {
     /// <summary>Initialises a new instance of <see cref="AppDbContext"/> with the given options.</summary>
     /// <param name="options">The options used to configure the context.</param>
-    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
+    /// <param name="changedData">The request's record of whose data it changed, which the
+    /// live updates are sent from once the request is done (docs/sync-architecture.md, part
+    /// four). The API's contexts get the request's own from DI; a context built without one —
+    /// a test's, or one opened for work off the request — records nothing.</param>
+    public AppDbContext(DbContextOptions<AppDbContext> options, ChangedDataLog? changedData = null) : base(options)
+    {
+        ChangedData = changedData;
+    }
+
+    /// <summary>Where this context's writes record whose data they changed; null when
+    /// nobody is listening.</summary>
+    internal ChangedDataLog? ChangedData { get; }
 
     /// <summary>The users table.</summary>
     public DbSet<User> Users { get; set; }

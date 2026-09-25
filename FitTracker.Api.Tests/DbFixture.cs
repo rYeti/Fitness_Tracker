@@ -53,6 +53,11 @@ public sealed class DbFixture : IDisposable
             .AddInterceptors(interceptors)
             .Options);
 
+    /// <summary>A second context on the same database that records whose data its writes
+    /// change in <paramref name="log"/>, as a request's context does.</summary>
+    public AppDbContext NewContext(ChangedDataLog log) =>
+        new(new DbContextOptionsBuilder<AppDbContext>().UseSqlite(_connection).Options, log);
+
     /// <summary>Adds a user and returns it. Names are only ever used in DTO
     /// assertions, so callers that don't care can leave them defaulted.</summary>
     public User AddUser(string firstName = "Sam", string lastName = "Reyes")

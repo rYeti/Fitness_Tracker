@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using FitTracker.Api.DTOs;
 using FitTracker.Api.Hubs;
+using FitTracker.Api.Models;
 using FitTracker.Api.Repositories;
 using FitTracker.Api.Services;
 using FitTracker.Api.Services.Interfaces;
@@ -55,7 +56,9 @@ public class ChatHubTests
             trainerClientService,
             new ChatService(trainerClientRepo, new ChatRepository(ctx.Db)),
             pushes,
-            NewAttachmentService(ctx, trainerClientService))
+            NewAttachmentService(ctx, trainerClientService),
+            new TrainerLicenceRepository(ctx.Db),
+            NullLogger<ChatHub>.Instance)
         {
             Context = new FakeHubCallerContext(callerId),
             Clients = clients,
@@ -163,7 +166,9 @@ public class ChatHubTests
             trainerClientService,
             new ChatService(trainerClientRepo, new ChatRepository(ctx.Db)),
             new RecordingPushDispatcher(),
-            NewAttachmentService(ctx, trainerClientService))
+            NewAttachmentService(ctx, trainerClientService),
+            new TrainerLicenceRepository(ctx.Db),
+            NullLogger<ChatHub>.Instance)
         {
             // ChatController already falls back to "sub"; the hub read only
             // NameIdentifier and threw on exactly the tokens the controller
@@ -191,7 +196,9 @@ public class ChatHubTests
             trainerClientService,
             new ChatService(trainerClientRepo, new ChatRepository(ctx.Db)),
             new RecordingPushDispatcher(),
-            NewAttachmentService(ctx, trainerClientService))
+            NewAttachmentService(ctx, trainerClientService),
+            new TrainerLicenceRepository(ctx.Db),
+            NullLogger<ChatHub>.Instance)
         {
             Context = new FakeHubCallerContext(userId: null),
             Clients = new RecordingClients(),
@@ -220,7 +227,9 @@ public class ChatHubTests
             trainerClientService,
             new ChatService(trainerClientRepo, new ChatRepository(ctx.Db)),
             new RecordingPushDispatcher(),
-            NewAttachmentService(ctx, trainerClientService))
+            NewAttachmentService(ctx, trainerClientService),
+            new TrainerLicenceRepository(ctx.Db),
+            NullLogger<ChatHub>.Instance)
         {
             Context = new FakeHubCallerContext(callerId),
             Clients = new RecordingClients(),
@@ -360,6 +369,53 @@ public class ChatHubTests
         var ack = await hub.SendMessage(ctx.ClientId, "still five args", Guid.NewGuid(), iv: "iv-1", encryptionVersion: 1);
 
         Assert.Equal("still five args", ack.Body);
+    }
+
+    [Fact]
+    public async Task A_trainers_connection_joins_its_trainer_group()
+    {
+        // Live updates (docs/sync-architecture.md, part four) ride the socket the console
+        // already holds for chat, so a trainer's connection has to be in their group from the
+        // moment it opens — the console never asks to join it.
+        using var ctx = new ChatScenario();
+        ctx.Db.TrainerLicences.Add(new TrainerLicence { TrainerId = ctx.TrainerId });
+        ctx.Db.SaveChanges();
+        var groups = new RecordingGroups();
+        var hub = NewHub(ctx, ctx.TrainerId, out _);
+        hub.Groups = groups;
+
+        await hub.OnConnectedAsync();
+
+        Assert.Equal([("test-connection", $"trainer:{ctx.TrainerId}")], groups.Added);
+    }
+
+    [Fact]
+    public async Task A_non_trainers_connection_joins_no_group()
+    {
+        // The client has an Active trainer, and chats over the same hub; holding a licence is
+        // what makes someone a trainer, not having a relationship.
+        using var ctx = new ChatScenario();
+        var groups = new RecordingGroups();
+        var hub = NewHub(ctx, ctx.ClientId, out _);
+        hub.Groups = groups;
+
+        await hub.OnConnectedAsync();
+
+        Assert.Empty(groups.Added);
+    }
+
+    [Fact]
+    public async Task A_trainer_without_a_licence_joins_no_group()
+    {
+        // ChatScenario's trainer has a client and no licence: only a licence makes a trainer.
+        using var ctx = new ChatScenario();
+        var groups = new RecordingGroups();
+        var hub = NewHub(ctx, ctx.TrainerId, out _);
+        hub.Groups = groups;
+
+        await hub.OnConnectedAsync();
+
+        Assert.Empty(groups.Added);
     }
 
     // ── Minimal SignalR harness ───────────────────────────────────────────────

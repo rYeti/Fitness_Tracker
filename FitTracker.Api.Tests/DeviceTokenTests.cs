@@ -176,6 +176,75 @@ public class DeviceTokenTests
         Assert.Empty(sender.Sent);
     }
 
+    [Fact]
+    public async Task A_sync_request_is_data_only_collapsed_and_not_urgent()
+    {
+        using var ctx = new ChatScenario();
+        var repo = new DeviceTokenRepository(ctx.Db);
+        await repo.UpsertAsync(ctx.ClientId, "phone", DevicePlatform.Android);
+        await repo.UpsertAsync(ctx.ClientId, "tablet", DevicePlatform.Android);
+
+        var sender = new RecordingPushSender();
+        var service = new PushNotificationService(repo, sender, NullLogger<PushNotificationService>.Instance);
+
+        await service.SendSyncRequestedAsync(ctx.ClientId);
+
+        var (tokens, message) = Assert.Single(sender.Sent);
+        Assert.Equal(["phone", "tablet"], tokens.Order());
+        // Nothing but the type. The app answers by pulling through endpoints that check who
+        // is asking; a payload carrying data would be a way round them.
+        Assert.Equal(new Dictionary<string, string> { ["type"] = "sync_requested" }, message.Data);
+        // A trainer's burst of edits reaches a dozing phone as one message.
+        Assert.Equal("sync_requested", message.CollapseKey);
+        // It never shows a notification, and Android lowers the priority of an app whose
+        // high-priority messages don't — which chat would pay for.
+        Assert.False(message.HighPriority);
+    }
+
+    [Fact]
+    public async Task A_sync_request_prunes_dead_tokens_like_a_chat_push()
+    {
+        using var ctx = new ChatScenario();
+        var repo = new DeviceTokenRepository(ctx.Db);
+        await repo.UpsertAsync(ctx.ClientId, "uninstalled", DevicePlatform.Android);
+        await repo.UpsertAsync(ctx.ClientId, "still-here", DevicePlatform.Android);
+        var sender = new RecordingPushSender { Dead = ["uninstalled"] };
+        var service = new PushNotificationService(repo, sender, NullLogger<PushNotificationService>.Instance);
+
+        await service.SendSyncRequestedAsync(ctx.ClientId);
+
+        Assert.Equal("still-here", Assert.Single(await repo.GetForUserAsync(ctx.ClientId)).Token);
+    }
+
+    [Fact]
+    public void Fcm_is_given_the_collapse_key_for_both_platforms()
+    {
+        var message = new PushMessage(new Dictionary<string, string> { ["type"] = "sync_requested" })
+        {
+            CollapseKey = "sync_requested",
+            HighPriority = false,
+        };
+
+        var fcm = FirebasePushSender.ToMulticast(["phone"], message);
+
+        Assert.Null(fcm.Notification);
+        Assert.Equal("sync_requested", fcm.Android.CollapseKey);
+        Assert.Equal(FirebaseAdmin.Messaging.Priority.Normal, fcm.Android.Priority);
+        Assert.Equal("sync_requested", fcm.Apns.Headers["apns-collapse-id"]);
+    }
+
+    [Fact]
+    public void A_chat_push_to_fcm_is_unchanged()
+    {
+        var fcm = FirebasePushSender.ToMulticast(["phone"], new PushMessage(new Dictionary<string, string> { ["type"] = "chat_message" }));
+
+        // Every message kept, at once: each is its own content, and a notification.
+        Assert.Null(fcm.Notification);
+        Assert.Null(fcm.Android.CollapseKey);
+        Assert.Equal(FirebaseAdmin.Messaging.Priority.High, fcm.Android.Priority);
+        Assert.Null(fcm.Apns);
+    }
+
     private sealed class RecordingPushSender : IPushSender
     {
         public List<(IReadOnlyList<string> tokens, PushMessage message)> Sent { get; } = [];

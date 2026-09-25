@@ -26,6 +26,12 @@ namespace FitTracker.Api.Data;
 /// replace that stamps before its delete and then saves its inserts, would otherwise write
 /// the same root row once per save; inside one transaction the first stamp is already the
 /// one every later reader sees, since none of them sees anything before the commit.
+///
+/// The same two helpers record whose data they changed, for the live updates (part four):
+/// <see cref="TouchAsync{TRoot}(AppDbContext, IReadOnlyCollection{Guid})"/> by the roots'
+/// ids, and <see cref="TouchWhereAsync{TRoot}"/> by the owner its caller names, because a
+/// predicate's roots aren't known here. <see cref="Bury"/> needs nothing extra: its
+/// tombstones are rows of the next save, which records them like its own.
 /// </remarks>
 internal static class SyncChanges
 {
@@ -40,9 +46,12 @@ internal static class SyncChanges
 
     /// <summary>Marks the given roots changed now, in one statement that writes only their
     /// <c>UpdatedAt</c> — skipping any this transaction has already stamped.</summary>
-    public static Task TouchAsync<TRoot>(this AppDbContext context, IReadOnlyCollection<Guid> ids)
-        where TRoot : class, ISyncRoot =>
-        StampAsync<TRoot>(context, ids, DateTime.UtcNow, async: true, default);
+    public static async Task TouchAsync<TRoot>(this AppDbContext context, IReadOnlyCollection<Guid> ids)
+        where TRoot : class, ISyncRoot
+    {
+        await StampAsync<TRoot>(context, ids, DateTime.UtcNow, async: true, default);
+        foreach (var id in ids) Recorded(context, ChangedData.OfRoot<TRoot>(id));
+    }
 
     /// <summary>Marks changed now every root <paramref name="which"/> matches when the
     /// statement runs.</summary>
@@ -56,14 +65,31 @@ internal static class SyncChanges
     ///
     /// The roots it stamps aren't known here, so the once-per-transaction record can't
     /// include them; a later save in the same transaction may stamp one of them again.
+    ///
+    /// For the same reason the caller names their owner. Every call site has it — the user
+    /// whose row it is deleting or replacing — and the stamped roots are that user's too. It is
+    /// a required parameter because a bulk statement that records nobody commits, answers 200,
+    /// and is never told to anyone watching; the one thing the compiler can hold here is
+    /// that nobody calls this without saying whose it is.
     /// </remarks>
-    public static Task TouchWhereAsync<TRoot>(this AppDbContext context, Expression<Func<TRoot, bool>> which)
+    public static async Task TouchWhereAsync<TRoot>(this AppDbContext context, Expression<Func<TRoot, bool>> which, Guid owner)
         where TRoot : class, ISyncRoot
     {
         var now = DateTime.UtcNow;
-        return context.Set<TRoot>()
+        var stamped = await context.Set<TRoot>()
             .Where(which)
             .ExecuteUpdateAsync(s => s.SetProperty(r => EF.Property<DateTime>(r, nameof(ISyncRoot.UpdatedAt)), now));
+        if (stamped > 0 && DataAreas.Of(typeof(TRoot)) is { } area) Recorded(context, ChangedData.Owned(owner, area));
+    }
+
+    /// <summary>Records in the request's log that a statement changed
+    /// <paramref name="change"/>; it counts once the statement's transaction commits.</summary>
+    private static void Recorded(AppDbContext context, ChangedData? change)
+    {
+        if (context.ChangedData is { } log && change is { } c)
+        {
+            log.RecordStatement(context.Database.CurrentTransaction?.TransactionId, c);
+        }
     }
 
     /// <summary>Records that <paramref name="userId"/>'s rows <paramref name="ids"/> were

@@ -7,7 +7,8 @@ namespace FitTracker.Api.Services;
 
 /// <summary>
 /// Turns "user X was sent a message" into notifications on their devices, and
-/// keeps the token table honest while doing it.
+/// "someone else changed user X's data" into a request that they pull, and keeps
+/// the token table honest while doing either.
 /// </summary>
 /// <remarks>
 /// This class used to write the notification. It cannot any more: the body is
@@ -47,15 +48,6 @@ public class PushNotificationService(
         EncryptedChatBody body,
         Guid threadId)
     {
-        if (!_sender.IsConfigured) return;
-
-        var devices = await _deviceTokens.GetForUserAsync(recipientId);
-        // Nothing installed, or nothing signed in. Not an error — most users of
-        // any messaging app are reachable on some devices and not others.
-        if (devices.Count == 0) return;
-
-        var tokens = devices.Select(d => d.Token).ToList();
-
         var data = new Dictionary<string, string>
         {
             // The client switches on this to tell a chat notification apart
@@ -79,7 +71,42 @@ public class PushNotificationService(
             if (body.Iv != null) data["iv"] = body.Iv;
         }
 
-        var result = await _sender.SendAsync(tokens, new PushMessage(data));
+        await SendToDevicesAsync(recipientId, new PushMessage(data));
+    }
+
+    /// <inheritdoc/>
+    /// <remarks>
+    /// The payload is the type and nothing else: the device answers it by pulling through the
+    /// endpoints, which check who is asking, and a payload with data in it would be a way
+    /// round them. Collapsed, because a trainer's Workout Builder save is a burst of requests
+    /// and a phone that was offline for it needs one pull, not twenty. Normal priority,
+    /// because it never ends in a notification: Android deprioritises an app whose
+    /// high-priority messages don't, and chat is what would be held back. The app acts on it
+    /// only while open, when a normal-priority message arrives at once anyway.
+    /// </remarks>
+    public Task SendSyncRequestedAsync(Guid userId) =>
+        SendToDevicesAsync(userId, new PushMessage(new Dictionary<string, string> { ["type"] = SyncRequested })
+        {
+            CollapseKey = SyncRequested,
+            HighPriority = false,
+        });
+
+    /// <summary>The type of a sync request, and the key its messages collapse under.</summary>
+    private const string SyncRequested = "sync_requested";
+
+    /// <summary>Sends <paramref name="message"/> to every device <paramref name="userId"/> has
+    /// registered, and forgets the tokens FCM says are dead.</summary>
+    private async Task SendToDevicesAsync(Guid userId, PushMessage message)
+    {
+        if (!_sender.IsConfigured) return;
+
+        var devices = await _deviceTokens.GetForUserAsync(userId);
+        // Nothing installed, or nothing signed in. Not an error — most users of
+        // any messaging app are reachable on some devices and not others.
+        if (devices.Count == 0) return;
+
+        var tokens = devices.Select(d => d.Token).ToList();
+        var result = await _sender.SendAsync(tokens, message);
 
         if (result.DeadTokens.Count == 0) return;
 
@@ -89,7 +116,7 @@ public class PushNotificationService(
         await _deviceTokens.DeleteManyAsync(result.DeadTokens);
         _logger.LogInformation(
             "Removed {Count} dead push token(s) for user {UserId}.",
-            result.DeadTokens.Count, recipientId);
+            result.DeadTokens.Count, userId);
     }
 
     private static bool Fits(string? ciphertext) =>

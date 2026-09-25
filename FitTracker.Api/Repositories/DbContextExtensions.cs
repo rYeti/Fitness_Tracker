@@ -78,6 +78,8 @@ internal static class DbContextExtensions
     /// ships the list in.</param>
     /// <param name="rootOf">The id of a row's sync root.</param>
     /// <param name="loadedList">The parent's list navigation, if the context has it loaded.</param>
+    /// <param name="owner">Whose list it is. Every root the replace stamps is theirs:
+    /// <paramref name="ownedByCaller"/> keeps the delete to their rows.</param>
     public static async Task ReplaceListAsync<T, TRoot>(
         this AppDbContext context,
         List<T> rows,
@@ -86,7 +88,8 @@ internal static class DbContextExtensions
         Expression<Func<T, bool>> ownedByCaller,
         Guid listRoot,
         Expression<Func<T, Guid>> rootOf,
-        Func<ICollection<T>?> loadedList)
+        Func<ICollection<T>?> loadedList,
+        Guid owner)
         where T : class
         where TRoot : class, ISyncRoot
     {
@@ -118,7 +121,7 @@ internal static class DbContextExtensions
         var rootsOfReplaced = replaced.Select(rootOf);
         await context.TouchWhereAsync<TRoot>(r =>
             EF.Property<Guid>(r, nameof(ISyncRoot.Id)) == listRoot
-            || rootsOfReplaced.Contains(EF.Property<Guid>(r, nameof(ISyncRoot.Id))));
+            || rootsOfReplaced.Contains(EF.Property<Guid>(r, nameof(ISyncRoot.Id))), owner);
         context.MarkStamped<TRoot>(listRoot);
         await replaced.ExecuteDeleteAsync();
 

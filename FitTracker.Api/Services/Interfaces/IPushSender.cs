@@ -11,7 +11,18 @@ namespace FitTracker.Api.Services.Interfaces;
 /// data the recipient's own device decrypts and renders. See
 /// docs/chat-encryption.md for what that costs.
 /// </remarks>
-public record PushMessage(IReadOnlyDictionary<string, string> Data);
+public record PushMessage(IReadOnlyDictionary<string, string> Data)
+{
+    /// <summary>Messages sharing a key replace one another while they wait for a device
+    /// that is offline or dozing, so a burst reaches it as one. Null keeps every message:
+    /// right for chat, where each one is its own content.</summary>
+    public string? CollapseKey { get; init; }
+
+    /// <summary>Delivered at once even to a dozing device. Only for a push that ends in
+    /// something the user sees: Android lowers the priority of an app whose high-priority
+    /// messages don't, and chat is what would pay for it.</summary>
+    public bool HighPriority { get; init; } = true;
+}
 
 /// <param name="DeadTokens">
 /// Tokens the transport rejected as permanently invalid — an uninstalled app or a
