@@ -1,9 +1,25 @@
 import 'package:drift/drift.dart';
+import 'package:uuid/uuid.dart';
+
+/// A new row's global id: the `server_id` every synced table gives a row the
+/// moment it is inserted on this device.
+///
+/// The server used to mint every id, and the device learned it only from the
+/// response to its POST — so a response lost on the way back, a retry, or two
+/// sync runs at once each created the row on the server again. With the id
+/// minted here, before the first attempt, every attempt carries the same one
+/// and the server can answer a repeat with the row it already made. A row
+/// pulled from the server still takes the server's id. See
+/// `docs/sync-architecture.md`, part two.
+///
+/// Having an id no longer means the server has the row: "not pushed yet" is
+/// `sync_status = 0` (`SyncStatus.pending`), and nothing else.
+String newSyncId() => const Uuid().v4();
 
 /// Tables the sync engine keeps for itself. None of them holds user data; see
 /// `lib/core/sync/sync_triggers.dart` and `docs/sync-architecture.md` §3.
 
-/// A row the server still has but this device has deleted.
+/// A row this device has deleted that the server may still have.
 ///
 /// Written only by the database, by an `AFTER DELETE` trigger on each synced
 /// table, whenever a row that has a `server_id` is deleted outside
@@ -25,8 +41,9 @@ class SyncDeletionTable extends Table {
   /// have one (a meal's food entry is removed through its meal).
   TextColumn get parentServerId => text().nullable()();
 
-  /// A second route id, for kinds that address a row by what it links (a
-  /// plan's workout, a meal's food item).
+  /// A second route id. Only entries an older build queued carry one (a meal
+  /// food's food item, which its DELETE was addressed by); nothing reads it
+  /// now that a meal's food is removed by its own id.
   TextColumn get extraServerId => text().nullable()();
 }
 

@@ -64,23 +64,30 @@ public class ScheduledWorkoutService : IScheduledWorkoutService
     }
 
     /// <inheritdoc/>
-    public async Task<ScheduledWorkoutResponseDto?> CreateScheduledWorkoutAsync(ScheduledWorkoutRequestDto dto, Guid userId)
-    {
-        var sw = new ScheduledWorkout
-        {
-            Id = Guid.NewGuid(),
-            WorkoutId = dto.WorkoutId,
-            WorkoutPlanId = dto.WorkoutPlanId,
-            ScheduledDate = dto.ScheduledDate,
-            CreatedAt = DateTime.UtcNow,
-            Notes = dto.Notes,
-            IsCompleted = dto.IsCompleted,
-            IsSkipped = dto.IsSkipped,
-        };
-
-        var created = await _scheduledRepository.CreateScheduledWorkoutAsync(sw, userId);
-        return created == null ? null : ToDto(created);
-    }
+    public Task<ScheduledWorkoutResponseDto?> CreateScheduledWorkoutAsync(ScheduledWorkoutRequestDto dto, Guid userId) =>
+        // An id the server has never seen still meets the same-day check in the repository,
+        // which answers with the session already there — under that session's id, which is
+        // the one the app must keep.
+        ClientIds.CreateOrResolveAsync(
+            dto.Id,
+            userId,
+            _scheduledRepository.GetOwnerAsync,
+            id => UpdateScheduledWorkoutAsync(id, userId, dto),
+            async id =>
+            {
+                var created = await _scheduledRepository.CreateScheduledWorkoutAsync(new ScheduledWorkout
+                {
+                    Id = id,
+                    WorkoutId = dto.WorkoutId,
+                    WorkoutPlanId = dto.WorkoutPlanId,
+                    ScheduledDate = dto.ScheduledDate,
+                    CreatedAt = DateTime.UtcNow,
+                    Notes = dto.Notes,
+                    IsCompleted = dto.IsCompleted,
+                    IsSkipped = dto.IsSkipped,
+                }, userId);
+                return created == null ? null : ToDto(created);
+            });
 
     /// <inheritdoc/>
     public async Task<ScheduledWorkoutResponseDto?> UpdateScheduledWorkoutAsync(Guid id, Guid userId, ScheduledWorkoutRequestDto dto)
@@ -119,7 +126,7 @@ public class ScheduledWorkoutService : IScheduledWorkoutService
     }
 
     /// <inheritdoc/>
-    public async Task<List<WorkoutSetResponseDto>> AddSetsBatchAsync(Guid scheduledWorkoutExerciseId, Guid userId, List<WorkoutSetRequestDto> dtos)
+    public async Task<List<WorkoutSetResponseDto>?> AddSetsBatchAsync(Guid scheduledWorkoutExerciseId, Guid userId, List<WorkoutSetRequestDto> dtos)
     {
         // The batch is the exercise's whole log, not an addition to it — the same
         // correction AddSetTemplatesBatchAsync needed one table over. The client's active
@@ -127,11 +134,21 @@ public class ScheduledWorkoutService : IScheduledWorkoutService
         // id, and the sync pushes those. Appending meant every save that followed a push
         // added another copy of the exercise: a session reviewed in the Trainer Console
         // listed "set 1" eight times. See docs/sync-concurrent-runs.md.
-        if (dtos.Count == 0) return [];
+        //
+        // An empty batch changes nothing, but still answers 404 for someone else's exercise.
+        // A non-empty one leaves the owner check to the replace, which makes it anyway: this
+        // used to check here first, and so twice for every batch on the push's hot path.
+        if (dtos.Count == 0)
+        {
+            return await _scheduledRepository.GetExerciseOwnerAsync(scheduledWorkoutExerciseId) == userId ? [] : null;
+        }
 
+        // Each set keeps the id the app sent: a replace that minted fresh ones left the app
+        // holding ids the server had just deleted. An id sent twice keeps it only once.
+        var seen = new HashSet<Guid>();
         var sets = dtos.Select(dto => new WorkoutSet
         {
-            Id = Guid.NewGuid(),
+            Id = ClientIds.Requested(dto.Id) is { } id && seen.Add(id) ? id : Guid.NewGuid(),
             ScheduledWorkoutExerciseId = scheduledWorkoutExerciseId,
             SetNumber = dto.SetNumber,
             Reps = dto.Reps,
@@ -146,7 +163,7 @@ public class ScheduledWorkoutService : IScheduledWorkoutService
         }).ToList();
 
         var replaced = await _scheduledRepository.ReplaceSetsAsync(scheduledWorkoutExerciseId, userId, sets);
-        return replaced == null ? [] : [.. replaced.Select(ToSetDto)];
+        return replaced?.Select(ToSetDto).ToList();
     }
 
     /// <inheritdoc/>
@@ -181,10 +198,15 @@ public class ScheduledWorkoutService : IScheduledWorkoutService
     }
 
     /// <inheritdoc/>
-    public async Task<List<ScheduledWorkoutExerciseResponseDto>?> CreateExercisesBatchAsync(Guid scheduledWorkoutId, Guid userId, List<Guid> workoutExerciseIds)
+    public async Task<List<ScheduledWorkoutExerciseResponseDto>?> CreateExercisesBatchAsync(Guid scheduledWorkoutId, Guid userId, List<ScheduledExerciseBatchItemDto> items)
     {
-        var created = await _scheduledRepository.CreateExercisesBatchAsync(scheduledWorkoutId, userId, workoutExerciseIds);
-        return created == null ? null : [.. created.Select(ToExerciseDto)];
+        var created = await _scheduledRepository.CreateExercisesBatchAsync(scheduledWorkoutId, userId, items);
+        return created?.Select(c =>
+        {
+            var dto = ToExerciseDto(c.Entry);
+            dto.RequestedId = c.RequestedId;
+            return dto;
+        }).ToList();
     }
 
     private static ScheduledWorkoutResponseDto ToDto(ScheduledWorkout sw) => new()

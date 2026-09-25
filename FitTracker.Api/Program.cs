@@ -18,7 +18,10 @@ var builder = WebApplication.CreateBuilder(args);
 
 // ── Services ────────────────────────────────────────────────
 builder.Services.AddDbContext<AppDbContext>(options => options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
-builder.Services.AddControllers();
+// A create given an id that belongs to someone else answers 409 from every controller
+// (see Services/ClientIds.cs).
+builder.Services.AddControllers(options =>
+    options.Filters.Add<FitTracker.Api.Filters.ClientIdConflictFilter>());
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {

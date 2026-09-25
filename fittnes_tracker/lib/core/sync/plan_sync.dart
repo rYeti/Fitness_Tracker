@@ -35,58 +35,56 @@ extension PlanSync on SyncService {
   }
 
   Future<void> _syncNewPlan(WorkoutPlanTableData p) async {
-    final durationDays = await _getPlanDurationDays(p.id);
-    final response = await _apiClient.post(
+    final response = await _create(
       'api/WorkoutPlan',
-      data: {
-        'name': p.name,
-        'description': p.description,
-        'startDate': p.startDate.toUtc().toIso8601String(),
-        'cyclePatternJson': p.cyclePatternJson,
-        'isFreeChoice': p.isFreeChoice,
-        'durationDays': durationDays,
-      },
+      {'id': p.serverId, ...await _planBody(p)},
+      _db.workoutPlanTable,
+      [p.id],
     );
+    if (response == null) return;
     final serverId = response.data['id'] as String;
-    await _markSent(_db.workoutPlanTable, p.id, serverId, p.localRev);
-
-    // Link workouts to the plan (batch).
-    final links = await _db.workoutPlanDao.getPlanWorkoutsForPlan(p.id);
-    await _syncNewPlanWorkoutsBatch(
-      links.where((l) => l.syncStatus != 1).toList(),
-      serverId,
-    );
+    // Out of `pending` the moment the server has it, and still dirty until its
+    // workouts are across. Marked after the list instead, a list that failed
+    // left a plan the server held at `pending` — and the sessions pushed next
+    // in the same run, reading that as "the server has no such plan", went
+    // up without it, for good.
+    await _markSent(_db.workoutPlanTable, p.id, serverId, -1);
+    if (await _putPlanWorkouts(p.id, serverId)) {
+      await _markSent(_db.workoutPlanTable, p.id, serverId, p.localRev);
+    }
     _logger.i('Synced new plan ${p.id} → server $serverId');
   }
+
+  Future<Map<String, dynamic>> _planBody(WorkoutPlanTableData p) async => {
+    'name': p.name,
+    'description': p.description,
+    'startDate': p.startDate.toUtc().toIso8601String(),
+    'cyclePatternJson': p.cyclePatternJson,
+    'isFreeChoice': p.isFreeChoice,
+    'durationDays': await _getPlanDurationDays(p.id),
+  };
 
   Future<void> _syncUpdatePlan(WorkoutPlanTableData p) async {
     if (p.serverId == null) {
       await _syncNewPlan(p);
       return;
     }
-    final durationDays = await _getPlanDurationDays(p.id);
     await _apiClient.put(
       'api/WorkoutPlan/${p.serverId}',
-      data: {
-        'name': p.name,
-        'description': p.description,
-        'startDate': p.startDate.toUtc().toIso8601String(),
-        'cyclePatternJson': p.cyclePatternJson,
-        'isFreeChoice': p.isFreeChoice,
-        'durationDays': durationDays,
-      },
+      data: await _planBody(p),
     );
 
-    // The links before the plan is marked synced: a new link is what dirtied
-    // the plan (the database marks the owner), so marking it first and then
-    // failing on the links left them behind a plan that no longer looked like
-    // it had anything to send.
-    final links = await _db.workoutPlanDao.getPlanWorkoutsForPlan(p.id);
-    await _syncNewPlanWorkoutsBatch(
-      links.where((l) => l.syncStatus != 1).toList(),
+    // The list before the plan is marked synced: a changed list is what
+    // dirtied the plan (the database marks the owner), so marking it first
+    // and then failing on the list left it behind a plan that no longer
+    // looked like it had anything to send.
+    final complete = await _putPlanWorkouts(p.id, p.serverId!);
+    await _markSent(
+      _db.workoutPlanTable,
+      p.id,
       p.serverId!,
+      complete ? p.localRev : -1,
     );
-    await _markSent(_db.workoutPlanTable, p.id, p.serverId!, p.localRev);
     _logger.i('Updated plan ${p.id} on server ${p.serverId}');
   }
 
@@ -102,28 +100,57 @@ extension PlanSync on SyncService {
     _logger.i('Deleted plan ${p.id} (server ${p.serverId})');
   }
 
-  Future<void> _syncNewPlanWorkoutsBatch(
-    List<WorkoutPlanWorkoutTableData> links,
-    String planServerId,
-  ) async {
-    final serverIds = <String>[];
-    final valid = <WorkoutPlanWorkoutTableData>[];
+  /// Sends the plan's whole list of workouts, which the server makes the
+  /// plan's list: links it lacks are added, and links not in it removed.
+  ///
+  /// This replaced adding new links in a batch and removing each dropped one
+  /// with its own DELETE, which needed the database to record every removal.
+  /// A removal now only has to dirty the plan (`sync_triggers.dart`), and the
+  /// list says the rest. A link has no id of its own, so there is nothing to
+  /// upsert it by, as a meal's foods are; the cost is last-writer-wins for
+  /// the list (`docs/sync-architecture.md` §18).
+  ///
+  /// Returns false, sending nothing, while a workout in the plan is not on
+  /// the server yet; the plan stays dirty and goes when the workout has. It
+  /// used to send the list without that workout — but "not on the server" is
+  /// only what this device has heard: a create whose answer was lost, or a
+  /// workout kept for its history, is `pending` on a server that has it, and
+  /// the list without it unlinked it there.
+  Future<bool> _putPlanWorkouts(int localPlanId, String planServerId) async {
+    final links = await _db.workoutPlanDao.getPlanWorkoutsForPlan(localPlanId);
+    final workoutServerIds = <String>[];
     for (final link in links) {
-      final workoutRow =
+      final workout =
           await ((_db.select(_db.workoutTable))
             ..where((w) => w.id.equals(link.workoutId))).getSingleOrNull();
-      if (workoutRow?.serverId == null) continue;
-      serverIds.add(workoutRow!.serverId!);
-      valid.add(link);
+      if (workout == null) continue; // a dangling link names nothing to send
+      final id = SyncService._serverIdIfPushed(
+        workout.serverId,
+        workout.syncStatus,
+      );
+      if (id == null) {
+        _logger.i(
+          'Plan $localPlanId: workout ${workout.id} is not on the server yet; '
+          'its list waits for it',
+        );
+        return false;
+      }
+      workoutServerIds.add(id);
     }
-    if (serverIds.isEmpty) return;
-    await _apiClient.post(
-      'api/WorkoutPlan/$planServerId/workouts/batch',
-      data: serverIds,
+    await _apiClient.put(
+      'api/WorkoutPlan/$planServerId/workouts',
+      data: workoutServerIds,
     );
-    for (final link in valid) {
-      await _db.workoutPlanDao.markPlanWorkoutSynced(link.id, planServerId);
-    }
+    await _db.untracked(
+      () => (_db.update(_db.workoutPlanWorkoutTable)
+            ..where((l) => l.planId.equals(localPlanId)))
+          .write(
+            WorkoutPlanWorkoutTableCompanion(
+              syncStatus: Value(SyncStatus.synced.index),
+            ),
+          ),
+    );
+    return true;
   }
 
   Future<void> _pullWorkoutPlans() async {
@@ -135,8 +162,12 @@ extension PlanSync on SyncService {
       what: 'plans',
       serverIds: {for (final p in list) p['id'] as String},
       locals:
-          await (_db.select(_db.workoutPlanTable)
-            ..where((t) => t.serverId.isNotNull())).get(),
+          await (_db.select(_db.workoutPlanTable)..where(
+                (t) =>
+                    t.serverId.isNotNull() &
+                    t.syncStatus.isNotValue(SyncStatus.pending.index),
+              ))
+              .get(),
       serverIdOf: (r) => r.serverId!,
       syncStatusOf: (r) => r.syncStatus,
       // Deleting a plan never touches its days server-side (only the
@@ -153,16 +184,10 @@ extension PlanSync on SyncService {
       planServerId,
     );
     if (existingPlan != null) {
-      // A trainer building a client's plan from the console adds workouts
-      // to it after the plan itself already exists, so a device that
-      // pulled the plan before that happened needs to pick the new
-      // membership up on a later sync — this pull otherwise only ever
-      // runs the insert path below, which nothing here reaches a second
-      // time. Additive only: there's no path in this method (or in
-      // `_pullScheduledWorkouts`) for removing a link, so trying to
-      // reconcile a workout *out* of the plan here would have nothing to
-      // undo the schedule it already generated on the device.
-      await _addMissingPlanWorkoutLinks(existingPlan.id, p);
+      // A trainer building a client's plan from the console adds workouts to
+      // it after the plan itself exists, so a device that already pulled the
+      // plan picks the new membership up here.
+      await _mirrorPlanWorkoutLinks(existingPlan, p);
       return;
     }
     final localPlanId = await _db
@@ -205,35 +230,58 @@ extension PlanSync on SyncService {
     _logger.i('Pulled plan $planServerId');
   }
 
-  /// Adds whatever workout-plan links the server reports that this device
-  /// doesn't have yet. Never removes one — see the call site's note on why
-  /// there's nothing downstream that could safely absorb a removal.
-  Future<void> _addMissingPlanWorkoutLinks(
-    int localPlanId,
+  /// Makes a clean plan's workouts match the server's list; leaves a dirty
+  /// one alone.
+  ///
+  /// This used to only ever add, and it didn't need to remove: the push added
+  /// links a batch at a time and never re-sent one the server already had. It
+  /// now sends the plan's whole list, so a link left here after it went on the
+  /// server — removed there by another device — would go back up with the
+  /// next edit to the plan. A clean plan holds nothing the server hasn't seen,
+  /// so its list is the server's to set; a dirty one holds this device's
+  /// unsent change to it, which the push sends whole.
+  ///
+  /// The schedule the plan already generated on this device is not touched.
+  Future<void> _mirrorPlanWorkoutLinks(
+    WorkoutPlanTableData plan,
     Map<String, dynamic> p,
   ) async {
+    if (SyncStatus.fromDb(plan.syncStatus) != SyncStatus.synced) return;
+
+    final wanted = <int>{};
     for (final workoutServerId in (p['workoutIds'] as List).cast<String>()) {
+      // Removed here by an older build and not yet removed on the server.
       if (_linksRemovedHere.contains('${p['id']}|$workoutServerId')) continue;
       final localWorkout = await _db.workoutDao.getWorkoutByServerId(
         workoutServerId,
       );
-      if (localWorkout == null) continue;
+      if (localWorkout != null) wanted.add(localWorkout.id);
+    }
 
-      final alreadyLinked =
-          await (_db.select(_db.workoutPlanWorkoutTable)..where(
-                (t) =>
-                    t.planId.equals(localPlanId) &
-                    t.workoutId.equals(localWorkout.id),
-              ))
-              .getSingleOrNull();
-      if (alreadyLinked != null) continue;
-
+    final links = await _db.workoutPlanDao.getPlanWorkoutsForPlan(plan.id);
+    final linked = links.map((l) => l.workoutId).toSet();
+    for (final link in links) {
+      if (wanted.contains(link.workoutId)) continue;
+      // A workout the server doesn't hold stays linked: it may just not have
+      // arrived, and the server can't have removed what it never had.
+      final workout =
+          await ((_db.select(_db.workoutTable))
+            ..where((w) => w.id.equals(link.workoutId))).getSingleOrNull();
+      if (workout == null ||
+          SyncService._serverIdIfPushed(workout.serverId, workout.syncStatus) ==
+              null) {
+        continue;
+      }
+      await (_db.delete(_db.workoutPlanWorkoutTable)
+        ..where((l) => l.id.equals(link.id))).go();
+    }
+    for (final workoutId in wanted.difference(linked)) {
       await _db
           .into(_db.workoutPlanWorkoutTable)
           .insert(
             WorkoutPlanWorkoutTableCompanion(
-              planId: Value(localPlanId),
-              workoutId: Value(localWorkout.id),
+              planId: Value(plan.id),
+              workoutId: Value(workoutId),
               syncStatus: const Value(1),
             ),
           );

@@ -16,10 +16,21 @@ public class ExerciseRepository : IExerciseRepository
     }
 
     /// <inheritdoc/>
+    public async Task<Guid?> GetOwnerAsync(Guid id)
+    {
+        // A system exercise has no owner; it is nobody's to create again.
+        var row = await _context.Exercise.AsNoTracking()
+            .Where(e => e.Id == id)
+            .Select(e => new { e.UserId })
+            .FirstOrDefaultAsync();
+        return row == null ? null : row.UserId ?? Guid.Empty;
+    }
+
+    /// <inheritdoc/>
     public async Task<Exercise> CreateExercisesAsync(Exercise exercise)
     {
         _context.Exercise.Add(exercise);
-        await _context.SaveChangesAsync();
+        await _context.SaveNewAsync();
         return exercise;
     }
 

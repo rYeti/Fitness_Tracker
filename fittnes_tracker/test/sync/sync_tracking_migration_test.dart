@@ -4,6 +4,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ForgeForm/core/app_database.dart';
+import 'package:ForgeForm/core/sync/sync_triggers.dart';
 
 /// Schema 41: `local_rev` on every synced table, the sync bookkeeping tables,
 /// and the triggers installed from code on open — on a real upgrade, not only
@@ -113,5 +114,46 @@ void main() {
     addTearDown(second.close);
     expect(await triggerSql(second), before);
     expect(before, isNotEmpty);
+  });
+
+  test('a trigger an earlier build installed is replaced on open, with no '
+      'schema bump', () async {
+    // What an install that ran the first build of part two holds: a delete
+    // trigger that skipped every row still pending, at today's schema.
+    final old = AppDatabase.test(NativeDatabase(file));
+    await old.customStatement('DROP TRIGGER sync_weight_record_delete');
+    await old.customStatement(
+      'CREATE TRIGGER sync_weight_record_delete AFTER DELETE ON weight_record '
+      'WHEN (SELECT active FROM sync_apply_guard_table WHERE id = 1) IS NOT 1 '
+      'AND OLD.sync_status != 0 AND OLD.server_id IS NOT NULL '
+      "BEGIN INSERT INTO sync_deletion_table (kind, server_id) "
+      "VALUES ('weight', OLD.server_id); END",
+    );
+    await old.close();
+
+    final db = AppDatabase.test(NativeDatabase(file));
+    addTearDown(db.close);
+    final sql =
+        (await db
+                .customSelect(
+                  "SELECT sql FROM sqlite_master WHERE type = 'trigger' "
+                  "AND name = 'sync_weight_record_delete'",
+                )
+                .getSingle())
+            .read<String>('sql');
+    expect(sql, syncTriggerDdl()['sync_weight_record_delete']);
+
+    // A record the device never heard back about is now reported deleted.
+    await db.customStatement(
+      "INSERT INTO weight_record (date, weight, server_id, sync_status) "
+      "VALUES (0, 80.4, 'minted-wt1', 0)",
+    );
+    await db.customStatement(
+      "DELETE FROM weight_record WHERE server_id = 'minted-wt1'",
+    );
+    expect(
+      (await db.select(db.syncDeletionTable).get()).map((d) => d.serverId),
+      ['minted-wt1'],
+    );
   });
 }

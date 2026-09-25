@@ -5,6 +5,14 @@ namespace FitTracker.Api.DTOs;
 /// <summary>Payload for creating or updating a workout plan.</summary>
 public class WorkoutPlanRequestDto
 {
+    /// <summary>
+    /// The id the app minted for this row. Only a create reads it: a repeat of the
+    /// same id updates and returns the row it already made, and an id that names
+    /// someone else's row is refused with 409. Apps older than client-minted ids send
+    /// none, and the server mints one. See <see cref="Services.ClientIds"/>.
+    /// </summary>
+    public Guid? Id { get; set; }
+
     /// <summary>The name of the workout plan.</summary>
     [Required, MaxLength(200)]
     public string Name { get; set; } = "";

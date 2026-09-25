@@ -67,7 +67,8 @@ public interface IScheduledWorkoutService
     /// <summary>Replaces the performed sets of a scheduled workout exercise owned by the specified
     /// user with <paramref name="dtos"/>, which is the exercise's whole log. An empty batch
     /// changes nothing.</summary>
-    Task<List<WorkoutSetResponseDto>> AddSetsBatchAsync(Guid scheduledWorkoutExerciseId, Guid userId, List<WorkoutSetRequestDto> dtos);
+    /// <returns>The stored sets, or <c>null</c> if the exercise isn't found/owned.</returns>
+    Task<List<WorkoutSetResponseDto>?> AddSetsBatchAsync(Guid scheduledWorkoutExerciseId, Guid userId, List<WorkoutSetRequestDto> dtos);
 
     /// <summary>Updates an existing performed set owned by the specified user.</summary>
     /// <param name="setId">The ID of the set to update.</param>
@@ -105,7 +106,10 @@ public interface IScheduledWorkoutService
     /// <summary>Creates scheduled workout exercise entries for the given workout exercise IDs, if the scheduled workout is owned by the specified user.</summary>
     /// <param name="scheduledWorkoutId">The scheduled workout to attach exercises to.</param>
     /// <param name="userId">The ID of the user who must own the scheduled workout.</param>
-    /// <param name="workoutExerciseIds">The workout exercise template IDs to link.</param>
-    /// <returns>The newly created scheduled exercise DTOs, or <c>null</c> if the scheduled workout isn't found/owned.</returns>
-    Task<List<ScheduledWorkoutExerciseResponseDto>?> CreateExercisesBatchAsync(Guid scheduledWorkoutId, Guid userId, List<Guid> workoutExerciseIds);
+    /// <param name="items">The workout exercises to link, each with the id the app minted for
+    /// its entry, if any.</param>
+    /// <returns>Every entry the session holds afterwards — an entry that answers an item
+    /// carrying, as <c>RequestedId</c>, the id that item was sent with — or <c>null</c> if the
+    /// scheduled workout isn't found/owned.</returns>
+    Task<List<ScheduledWorkoutExerciseResponseDto>?> CreateExercisesBatchAsync(Guid scheduledWorkoutId, Guid userId, List<ScheduledExerciseBatchItemDto> items);
 }

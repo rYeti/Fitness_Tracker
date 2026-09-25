@@ -25,19 +25,22 @@ public class MealTemplateService(IMealTemplateRepository repository) : IMealTemp
     /// <inheritdoc/>
     public async Task<MealTemplateResponseDto> CreateAsync(MealTemplateRequestDto dto, Guid userId)
     {
-        var template = new MealTemplate
-        {
-            Id = Guid.NewGuid(),
-            UserId = userId,
-            Name = dto.Name,
-            Description = dto.Description,
-            Category = dto.Category,
-            TotalWeightGrams = dto.TotalWeightGrams,
-            Items = dto.Items.Select(i => ToItemModel(i)).ToList(),
-        };
-
-        var created = await repository.CreateAsync(template);
-        return ToDto(created);
+        var result = await ClientIds.CreateOrResolveAsync(
+            dto.Id,
+            userId,
+            repository.GetOwnerAsync,
+            id => UpdateAsync(id, userId, dto),
+            async id => ToDto(await repository.CreateAsync(new MealTemplate
+            {
+                Id = id,
+                UserId = userId,
+                Name = dto.Name,
+                Description = dto.Description,
+                Category = dto.Category,
+                TotalWeightGrams = dto.TotalWeightGrams,
+                Items = dto.Items.Select(i => ToItemModel(i)).ToList(),
+            })));
+        return result!;
     }
 
     /// <inheritdoc/>

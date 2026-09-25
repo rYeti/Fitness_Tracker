@@ -2,6 +2,7 @@ using FitTracker.Api.Data;
 using FitTracker.Api.Models;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace FitTracker.Api.Tests;
 
@@ -43,6 +44,14 @@ public sealed class DbFixture : IDisposable
         Db = new AppDbContext(options);
         Db.Database.EnsureCreated();
     }
+
+    /// <summary>A second context on the same database, with extra interceptors — for a test
+    /// that needs to act between two of the commands a call under test issues.</summary>
+    public AppDbContext NewContext(params IInterceptor[] interceptors) =>
+        new(new DbContextOptionsBuilder<AppDbContext>()
+            .UseSqlite(_connection)
+            .AddInterceptors(interceptors)
+            .Options);
 
     /// <summary>Adds a user and returns it. Names are only ever used in DTO
     /// assertions, so callers that don't care can leave them defaulted.</summary>

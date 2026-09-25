@@ -38,23 +38,26 @@ public class WorkoutPlanService : IWorkoutPlanService
     /// <inheritdoc/>
     public async Task<WorkoutPlanResponseDto> CreatePlanAsync(WorkoutPlanRequestDto dto, Guid userId, Guid? assignedByTrainerId = null)
     {
-        var plan = new WorkoutPlan
-        {
-            Id = Guid.NewGuid(),
-            UserId = userId,
-            Name = dto.Name,
-            Description = dto.Description,
-            StartDate = dto.StartDate,
-            CreatedAt = DateTime.UtcNow,
-            IsActive = true,
-            CyclePatternJson = dto.CyclePatternJson,
-            IsFreeChoice = dto.IsFreeChoice,
-            DurationDays = dto.DurationDays,
-            AssignedByTrainerId = assignedByTrainerId,
-        };
-
-        var created = await _planRepository.CreatePlanAsync(plan);
-        return ToDto(created);
+        var result = await ClientIds.CreateOrResolveAsync(
+            dto.Id,
+            userId,
+            _planRepository.GetOwnerAsync,
+            id => UpdatePlanAsync(id, userId, dto),
+            async id => ToDto(await _planRepository.CreatePlanAsync(new WorkoutPlan
+            {
+                Id = id,
+                UserId = userId,
+                Name = dto.Name,
+                Description = dto.Description,
+                StartDate = dto.StartDate,
+                CreatedAt = DateTime.UtcNow,
+                IsActive = true,
+                CyclePatternJson = dto.CyclePatternJson,
+                IsFreeChoice = dto.IsFreeChoice,
+                DurationDays = dto.DurationDays,
+                AssignedByTrainerId = assignedByTrainerId,
+            })));
+        return result!;
     }
 
     /// <inheritdoc/>
@@ -84,10 +87,20 @@ public class WorkoutPlanService : IWorkoutPlanService
     }
 
     /// <inheritdoc/>
-    public async Task AddWorkoutsToPlanBatchAsync(Guid planId, List<Guid> workoutIds, Guid userId)
+    public async Task<bool> AddWorkoutsToPlanBatchAsync(Guid planId, List<Guid> workoutIds, Guid userId)
     {
+        if (await _planRepository.GetOwnerAsync(planId) != userId) return false;
+
         foreach (var workoutId in workoutIds)
             await AddWorkoutToPlanAsync(planId, workoutId, userId);
+        return true;
+    }
+
+    /// <inheritdoc/>
+    public async Task<WorkoutPlanResponseDto?> ReplacePlanWorkoutsAsync(Guid planId, List<Guid> workoutIds, Guid userId)
+    {
+        var plan = await _planRepository.ReplacePlanWorkoutsAsync(planId, userId, workoutIds);
+        return plan == null ? null : ToDto(plan);
     }
 
     /// <inheritdoc/>

@@ -20,6 +20,11 @@ public interface IFoodItemRepository
     /// <summary>Creates a new food item.</summary>
     Task<FoodItem> CreateFoodItemAsync(FoodItem item);
 
+    /// <summary>Who owns the food item stored under <paramref name="id"/>, or null when there is
+    /// none. Lets a create tell a repeat of its own id from someone else's (see
+    /// <c>ClientIds</c>).</summary>
+    Task<Guid?> GetOwnerAsync(Guid id);
+
     /// <summary>Updates an existing food item. Returns null if not found.</summary>
     Task<FoodItem?> UpdateFoodItemAsync(Guid id, Guid userId, FoodItem item);
 

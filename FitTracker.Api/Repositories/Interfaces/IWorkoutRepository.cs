@@ -32,6 +32,16 @@ public interface IWorkoutRepository
     /// <returns>The newly created workout.</returns>
     Task<Workout> CreateWorkoutAsync(Workout workout);
 
+    /// <summary>Who owns the workout stored under <paramref name="id"/>, or null when there is
+    /// none. Lets a create tell a repeat of its own id from someone else's (see
+    /// <c>ClientIds</c>).</summary>
+    Task<Guid?> GetWorkoutOwnerAsync(Guid id);
+
+    /// <summary>Who owns the workout exercise stored under <paramref name="id"/>, or null when there is
+    /// none. Lets a create tell a repeat of its own id from someone else's (see
+    /// <c>ClientIds</c>).</summary>
+    Task<Guid?> GetWorkoutExerciseOwnerAsync(Guid id);
+
     /// <summary>Updates an existing workout owned by the specified user.</summary>
     /// <param name="id">The ID of the workout to update.</param>
     /// <param name="userId">The ID of the user who owns the workout.</param>

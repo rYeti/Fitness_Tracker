@@ -234,8 +234,15 @@ class AppDatabase extends _$AppDatabase {
   /// bookkeeping tables in `sync_tables.dart`. The triggers that use them are
   /// not part of any migration: [installSyncTriggers] reinstalls them from code
   /// on every open. See `docs/sync-architecture.md` §3.
+  ///
+  /// 42 adds `id_backfilled` to `meal_food_table` and changes no other
+  /// table's shape. The device now mints every row's `server_id` on insert
+  /// (`newSyncId`), so every existing row that has none is given one, and "not
+  /// pushed yet" becomes `sync_status = 0` alone; a meal food given one is
+  /// flagged, because the server may hold it under another. See
+  /// `if (from < 42)` and `docs/sync-architecture.md` part two.
   @override
-  int get schemaVersion => 41;
+  int get schemaVersion => 42;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -528,8 +535,93 @@ class AppDatabase extends _$AppDatabase {
           } catch (_) {}
         }
       }
+
+      if (from < 42) {
+        // Until now a null `server_id` was how a row said it had never been
+        // pushed. From here every row carries an id from the moment it is
+        // inserted, so that fact moves to the status. In order:
+        //
+        // 1. A meal or plan whose list holds a food or workout the server
+        //    never got is dirtied: its push is what sends a meal's foods and a
+        //    plan's workouts now, so the missing one goes with it. Left
+        //    synced, the pull — which now makes a clean meal's or plan's list
+        //    match the server's — would delete it.
+        await customStatement(
+          'UPDATE meal_table SET sync_status = 2 WHERE sync_status = 1 AND id '
+          'IN (SELECT meal_id FROM meal_food_table WHERE server_id IS NULL)',
+        );
+        await customStatement(
+          'UPDATE workout_plan_table SET sync_status = 2 WHERE sync_status = 1 '
+          'AND id IN (SELECT plan_id FROM workout_plan_workout_table '
+          'WHERE sync_status != 1)',
+        );
+        // 2. A meal food with no id is flagged before it gets one. An older
+        //    build's foods batch could commit and lose its answer, leaving the
+        //    server holding the entry under an id this device never heard;
+        //    sent under the new id, it would be stored a second time. The
+        //    flag is what lets the push adopt the server's id first
+        //    (`_healBackfilledEntries`). The column is new here; `createAll()`
+        //    above already made it on an install that had no such table.
+        try {
+          await m.addColumn(mealFoodTable, mealFoodTable.idBackfilled);
+        } catch (_) {}
+        await customStatement(
+          'UPDATE meal_food_table SET id_backfilled = 1 '
+          'WHERE server_id IS NULL',
+        );
+        // 3. A row with no id that is marked edited was never created on the
+        //    server — the push used to catch that by the null id and POST
+        //    it — so it is pending, which is what will now POST it.
+        //    Built-in exercises are the server's rows and keep no id until
+        //    they are linked to one by name.
+        for (final (table, onlyWhere) in _tablesWithDeviceIds) {
+          await customStatement(
+            'UPDATE $table SET sync_status = 0 WHERE server_id IS NULL '
+            'AND sync_status IN (1, 2)$onlyWhere',
+          );
+        }
+        // 4. Every row without an id gets one. The same expression runs per
+        //    row, so each gets its own.
+        for (final (table, onlyWhere) in [
+          ..._tablesWithDeviceIds,
+          ('meal_food_table', ''),
+        ]) {
+          await customStatement(
+            'UPDATE $table SET server_id = $_sqlNewSyncId '
+            'WHERE server_id IS NULL$onlyWhere',
+          );
+        }
+      }
     },
   );
+
+  /// Tables whose rows get their `server_id` from the device, with any
+  /// condition on which rows. The meal-food table gets one too, but has no
+  /// `sync_status` of its own (its meal's stands for it), so step 3 above
+  /// adds it by hand. A plan link has no id at all: the server never names
+  /// one.
+  static const _tablesWithDeviceIds = [
+    ('exercise_table', ' AND is_custom = 1'),
+    ('workout_table', ''),
+    ('workout_exercise_table', ''),
+    ('workout_set_template_table', ''),
+    ('workout_set_table', ''),
+    ('scheduled_workout_table', ''),
+    ('scheduled_workout_exercise_table', ''),
+    ('workout_plan_table', ''),
+    ('food_item', ''),
+    ('meal_table', ''),
+    ('weight_record', ''),
+  ];
+
+  /// A random version-4 UUID in SQL, the same shape `newSyncId` returns, for
+  /// the migration to give existing rows one without a round trip per row.
+  static const _sqlNewSyncId =
+      "(lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || "
+      "'-4' || substr(lower(hex(randomblob(2))), 2) || '-' || "
+      "substr('89ab', 1 + (abs(random()) % 4), 1) || "
+      "substr(lower(hex(randomblob(2))), 2) || '-' || "
+      'lower(hex(randomblob(6))))';
 
   // Workout planning DAOs
   late final exerciseDao = ExerciseDao(this);

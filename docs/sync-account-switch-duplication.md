@@ -210,6 +210,13 @@ that actually pulled sets it.
   occupying `(WorkoutId, ExerciseId, OrderPosition)` instead of inserting a
   second. Every caller is a sync push, so a repeat POST is always a retry.
 
+*Since then:* the device mints every row's id and the API's creates are
+idempotent on it, so asking first is no longer needed and
+`_stampWorkoutExercisesFromServer` is gone; the slot check above stays, and the
+device keeps whatever id it answers with — paired with its request by the id
+the request carried, which the answer echoes, never by the slot. See
+`docs/sync-architecture.md` part two (§14–§17, §20).
+
 `OrderPosition` is in both keys deliberately. A workout may legitimately contain
 the same movement twice — a superset pairing it with itself, which
 `saveCompleteWorkout` has its own comment about — and those instances differ only

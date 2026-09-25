@@ -130,6 +130,8 @@ public class WorkoutController : ControllerBase
         if (userId == Guid.Empty) return NotFound("User not found");
 
         var result = await _workoutService.AddExercisesToWorkoutBatchAsync(workoutId, userId, dtos);
+        if (result == null) return NotFound("Workout not found");
+
         return Ok(result);
     }
 
@@ -141,6 +143,8 @@ public class WorkoutController : ControllerBase
         if (userId == Guid.Empty) return NotFound("User not found");
 
         var result = await _workoutService.AddSetTemplatesBatchAsync(workoutExerciseId, userId, dtos);
+        if (result == null) return NotFound("Workout exercise not found");
+
         return Ok(result);
     }
 

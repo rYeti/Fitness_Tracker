@@ -78,14 +78,6 @@ class FoodItemDao extends DatabaseAccessor<AppDatabase>
 
   // ── Sync helpers ────────────────────────────────────────────────────────────
 
-  Future<int> countCustomFoodItems() async {
-    final items =
-        await (select(foodItem)..where(
-          (t) => t.serverId.isNull() & t.extendedNutrientsJson.isNull(),
-        )).get();
-    return items.length;
-  }
-
   Future<List<FoodItemData>> getUnsyncedItems() =>
       (select(foodItem)
         ..where((t) => t.syncStatus.isNotValue(1))).get(); // not synced

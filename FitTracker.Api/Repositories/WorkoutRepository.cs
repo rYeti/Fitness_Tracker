@@ -2,6 +2,7 @@ using FitTracker.Api.Data;
 using FitTracker.Api.DTOs;
 using FitTracker.Api.Models;
 using FitTracker.Api.Repositories.Interfaces;
+using FitTracker.Api.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace FitTracker.Api.Repositories;
@@ -71,9 +72,23 @@ public class WorkoutRepository : IWorkoutRepository
     public async Task<Workout> CreateWorkoutAsync(Workout workout)
     {
         _context.Workouts.Add(workout);
-        await _context.SaveChangesAsync();
+        await _context.SaveNewAsync();
         return workout;
     }
+
+    /// <inheritdoc/>
+    public async Task<Guid?> GetWorkoutOwnerAsync(Guid id) =>
+        (await _context.Workouts.AsNoTracking()
+            .Where(w => w.Id == id)
+            .Select(w => new { w.UserId })
+            .FirstOrDefaultAsync())?.UserId;
+
+    /// <inheritdoc/>
+    public async Task<Guid?> GetWorkoutExerciseOwnerAsync(Guid id) =>
+        (await _context.WorkoutExercises.AsNoTracking()
+            .Where(e => e.Id == id)
+            .Select(e => new { e.Workout.UserId })
+            .FirstOrDefaultAsync())?.UserId;
 
     /// <inheritdoc/>
     public async Task<Workout?> UpdateWorkoutAsync(Guid id, Guid userId, WorkoutRequestDto dto)
@@ -172,7 +187,7 @@ public class WorkoutRepository : IWorkoutRepository
         if (existing != null) return existing;
 
         _context.WorkoutExercises.Add(we);
-        await _context.SaveChangesAsync();
+        await _context.SaveNewAsync();
         return we;
     }
 
@@ -265,25 +280,26 @@ public class WorkoutRepository : IWorkoutRepository
             .AnyAsync(e => e.Id == workoutExerciseId && e.Workout.UserId == userId);
         if (!ownsExercise) return null;
 
-        await _context.WorkoutSetTemplates
-            .Where(t => t.WorkoutExerciseId == workoutExerciseId)
-            .ExecuteDeleteAsync();
-        DetachTracked<WorkoutSetTemplate>(t => t.WorkoutExerciseId == workoutExerciseId);
-
-        // DetachTracked only drops the stale rows from the change tracker's entry list —
-        // it never reaches into a WorkoutExercise's already-loaded SetTemplates
-        // navigation, which still holds direct object references to them. Within one
-        // request that reads the workout, replaces its sets, and reads it again (exactly
-        // what the Workout Builder's update path does), the second read reuses that same
-        // tracked WorkoutExercise: an Include always re-runs the SQL join, but fixup only
-        // adds newly-tracked matches, it never prunes a collection that's already loaded —
-        // so the deleted rows would still be sitting in it, now alongside the new ones.
-        var trackedParent = _context.ChangeTracker.Entries<WorkoutExercise>()
-            .FirstOrDefault(e => e.Entity.Id == workoutExerciseId);
-        trackedParent?.Entity.SetTemplates.Clear();
-
-        _context.WorkoutSetTemplates.AddRange(templates);
-        await _context.SaveChangesAsync();
+        // The templates keep the ids they were sent with (the app mints them), so an id may
+        // already be stored: under this exercise, which the replace removes anyway; under
+        // another of the caller's exercises, which means the app moved it, so it goes from
+        // there too; or under someone else's, which is not the caller's to take. One
+        // transaction, as ReplaceSetsAsync has always had: without it a failed insert left
+        // the exercise with no prescription at all, and two requests replacing the same list
+        // at once could interleave their deletes and inserts into both lists.
+        //
+        // The loaded list matters here in particular: the Workout Builder's update path reads
+        // the workout, replaces its sets and reads it again in one request, and the second
+        // read reuses the same tracked WorkoutExercise, whose SetTemplates would otherwise
+        // still hold the deleted rows beside the new ones.
+        await _context.ReplaceListAsync(
+            templates,
+            t => t.Id,
+            inList: t => t.WorkoutExerciseId == workoutExerciseId,
+            ownedByCaller: t => t.WorkoutExercise.Workout.UserId == userId,
+            loadedList: () => _context.ChangeTracker.Entries<WorkoutExercise>()
+                .FirstOrDefault(e => e.Entity.Id == workoutExerciseId)
+                ?.Entity.SetTemplates);
         return templates;
     }
 

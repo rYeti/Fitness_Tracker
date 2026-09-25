@@ -20,6 +20,10 @@ import 'package:drift/drift.dart';
 /// | `sync_<t>_owner_*`       | a row of an owned list changes       | the same, applied to its owner          |
 /// | `sync_<t>_delete`        | a row with a server id is deleted    | an entry in `sync_deletion_table`       |
 ///
+/// An owned list whose members the server removes one at a time (a meal's
+/// foods) gets `sync_<t>_delete` in place of `sync_<t>_owner_delete`: taking
+/// a member out is a DELETE of that member, not a change to its owner.
+///
 /// None of them fires inside `AppDatabase.untracked`, which is how the sync
 /// engine writes what the server sent without it looking like a local edit.
 ///
@@ -46,8 +50,15 @@ class _Entity {
 }
 
 /// Rows the push sends as part of their owner — a workout exercise's set
-/// templates, a session exercise's logged sets. The server replaces the whole
-/// list, so any change to one of them is a change to the owner.
+/// templates, a session exercise's logged sets, a meal's foods, a plan's
+/// workouts. Adding one, or changing one, is a change to the owner: its push
+/// is what sends them.
+///
+/// Removing one depends on how the server takes the list. Where it replaces
+/// the whole list, removing a member leaves no row behind to find, so that is
+/// a change to the owner too. Where it takes members one at a time — a meal's
+/// foods, upserted by id — removing one is its own DELETE ([deletion]):
+/// a list sent whole would also remove whatever this device has never seen.
 class _OwnedList {
   const _OwnedList(
     this.table, {
@@ -61,34 +72,31 @@ class _OwnedList {
   final String owner;
   final String foreignKey;
   final List<String> pushed;
-
-  /// For a list the server can only append to, removing a row needs its own
-  /// DELETE rather than a dirty owner.
   final _Deletion? deletion;
 }
 
 class _Deletion {
-  const _Deletion(
-    this.kind, {
-    this.serverId = 'OLD.server_id',
-    this.parent,
-    this.extra,
-    this.onlyWhen,
-  });
+  const _Deletion(this.kind, {this.parent, this.onlyWhen});
 
   /// A [SyncDeletionKind] name.
   final String kind;
 
-  /// SQL over `OLD` for each id the DELETE route needs.
-  final String serverId;
+  /// SQL over `OLD` for the server id of the row the DELETE route is nested
+  /// under. A deletion needing one is recorded only when it resolves.
   final String? parent;
-  final String? extra;
 
-  /// Replaces the default "has a server id" condition.
+  /// A further condition on the deleted row, on top of its having a server id.
   final String? onlyWhen;
 }
 
 /// Where a `sync_deletion_table` entry's DELETE goes.
+///
+/// [planWorkout] is no longer recorded: a plan's workouts are sent as the
+/// whole list (`PUT api/WorkoutPlan/{id}/workouts`), so removing one only has
+/// to dirty the plan. It stays so entries an older build queued are still
+/// sent. [mealFood] was retired the same way and is recorded again: a meal's
+/// foods are upserted by id, and a whole-list replace of them deleted the
+/// foods another device had added (`docs/sync-architecture.md` §18).
 enum SyncDeletionKind {
   exercise,
   workout,
@@ -197,9 +205,12 @@ const _ownedLists = [
       'side',
     ],
   ),
-  // The server can add a food to a meal but not replace the list, so taking
-  // one out is its own DELETE — addressed by meal and food item, which is what
-  // `DELETE api/Meal/{mealId}/foods/{foodItemId}` takes.
+  // A meal's foods are upserted by id, so taking one out is its own DELETE —
+  // by the entry's id, which tells two portions of one food apart. Sent as
+  // the whole list instead, the meal's foods would replace the server's, and
+  // every food another device had added and this one hadn't pulled yet went
+  // with them. A dangling entry — its food row gone here — records nothing:
+  // this device can't say what it was, and must not take it off the server.
   _OwnedList(
     'meal_food_table',
     owner: 'meal_table',
@@ -208,25 +219,17 @@ const _ownedLists = [
     deletion: _Deletion(
       'mealFood',
       parent: '(SELECT server_id FROM meal_table WHERE id = OLD.meal_id)',
-      extra: '(SELECT server_id FROM food_item WHERE id = OLD.food_entry_id)',
+      onlyWhen:
+          'EXISTS (SELECT 1 FROM food_item WHERE id = OLD.food_entry_id)',
     ),
   ),
-  // A plan link's `server_id` holds the *plan's* server id (the server has no
-  // id of its own for a link), so "known to the server" is its status, and the
-  // DELETE is addressed by plan and workout.
+  // A plan's workouts go as the whole list, like the first two: taking one
+  // out dirties the plan. A link has no id of its own to address a DELETE by.
   _OwnedList(
     'workout_plan_workout_table',
     owner: 'workout_plan_table',
     foreignKey: 'plan_id',
     pushed: ['workout_id'],
-    deletion: _Deletion(
-      'planWorkout',
-      serverId:
-          '(SELECT server_id FROM workout_table WHERE id = OLD.workout_id)',
-      parent:
-          '(SELECT server_id FROM workout_plan_table WHERE id = OLD.plan_id)',
-      onlyWhen: 'OLD.sync_status = 1',
-    ),
   ),
 ];
 
@@ -243,24 +246,28 @@ String _dirty(String table, String where) =>
 String _changed(List<String> columns) =>
     '(${columns.map((c) => 'NEW.$c IS NOT OLD.$c').join(' OR ')})';
 
-String _recordDeletion(_Deletion d) {
-  final values = [
-    "'${d.kind}'",
-    d.serverId,
-    d.parent ?? 'NULL',
-    d.extra ?? 'NULL',
-  ];
-  return 'INSERT INTO sync_deletion_table '
-      '(kind, server_id, parent_server_id, extra_server_id) '
-      'VALUES (${values.join(', ')});';
-}
+String _recordDeletion(_Deletion d) =>
+    'INSERT INTO sync_deletion_table (kind, server_id, parent_server_id) '
+    "VALUES ('${d.kind}', OLD.server_id, ${d.parent ?? 'NULL'});";
 
+/// Whether the server may have the deleted row, and so needs telling.
+///
+/// Any row with a `server_id` may. The device mints that id on insert and
+/// every create sends it, so a create that reached the server but whose answer
+/// was lost has stored the row under that id while this device still calls it
+/// `pending` (0). A status test here used to skip those rows, and the server
+/// kept one the user had deleted, for the next pull to bring back. A DELETE
+/// for a row the server never got costs one 404, which the push treats as
+/// done. See `docs/sync-architecture.md` §15.
+///
+/// A null id still means the server can't have it: a built-in exercise until
+/// it is linked by name, which is the server's row and never the user's to
+/// delete.
 String _deletionCondition(_Deletion d) {
   final parts = [
-    d.onlyWhen ?? 'OLD.server_id IS NOT NULL',
-    if (d.serverId != 'OLD.server_id') '${d.serverId} IS NOT NULL',
+    'OLD.server_id IS NOT NULL',
     if (d.parent != null) '${d.parent} IS NOT NULL',
-    if (d.extra != null) '${d.extra} IS NOT NULL',
+    if (d.onlyWhen != null) d.onlyWhen!,
   ];
   return parts.join(' AND ');
 }

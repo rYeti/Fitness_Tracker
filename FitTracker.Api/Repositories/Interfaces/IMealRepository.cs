@@ -31,6 +31,20 @@ public interface IMealRepository
     /// <summary>Creates a new meal log entry.</summary>
     Task<Meal> CreateMealAsync(Meal meal);
 
+    /// <summary>Who owns the meal stored under <paramref name="id"/>, or null when there is
+    /// none. Lets a create tell a repeat of its own id from someone else's (see
+    /// <c>ClientIds</c>).</summary>
+    Task<Guid?> GetOwnerAsync(Guid id);
+
+    /// <summary>Puts each of <paramref name="entries"/> in a meal owned by
+    /// <paramref name="userId"/>: under the id it carries, which may already name one of the
+    /// caller's entries (that entry is given the food sent and moved into this meal), or under
+    /// a fresh id when it carries none. Removes nothing.</summary>
+    /// <returns>The stored entries in the order sent, or <c>null</c> if the meal isn't
+    /// found/owned — whether or not <paramref name="entries"/> is empty.</returns>
+    /// <exception cref="Services.ClientIdConflictException">An id names someone else's entry.</exception>
+    Task<List<MealFoodEntry>?> UpsertFoodEntriesAsync(Guid mealId, Guid userId, IReadOnlyList<MealFoodEntryRequestDto> entries);
+
     /// <summary>Updates an existing meal entry. Returns null if not found.</summary>
     Task<Meal?> UpdateMealAsync(Guid id, Guid userId, MealRequestDto dto);
 
@@ -40,8 +54,11 @@ public interface IMealRepository
     /// <summary>Adds a food item to a meal via the join table.</summary>
     Task<MealFoodEntry> AddFoodToMealAsync(Guid mealId, Guid foodItemId);
 
-    /// <summary>Removes a food item from a meal. Returns false if not found.</summary>
-    Task<bool> RemoveFoodFromMealAsync(Guid mealId, Guid foodItemId);
+    /// <summary>Removes one of the caller's meal entries: the one stored under
+    /// <paramref name="id"/>, else (for shipped apps, which name the food) the first entry of
+    /// food item <paramref name="id"/> in meal <paramref name="mealId"/>. Returns false if
+    /// there is neither.</summary>
+    Task<bool> RemoveFoodFromMealAsync(Guid mealId, Guid userId, Guid id);
 
     /// <summary>Returns all meal entries for the specified user across all dates.</summary>
     Task<List<Meal>> GetAllMealsAsync(Guid userId);

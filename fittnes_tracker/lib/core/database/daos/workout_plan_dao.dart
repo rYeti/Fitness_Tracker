@@ -142,8 +142,9 @@ class WorkoutPlanDao extends DatabaseAccessor<AppDatabase>
   /// complete. The plan itself is marked `pendingDelete` so the push can tell
   /// the server; once it has, [deleteWorkoutPlan] detaches the sessions that
   /// were kept. The untrained ones are deleted outright, which the database
-  /// records as server DELETEs for any the server already has
-  /// (`lib/core/sync/sync_triggers.dart`), and which takes them off the
+  /// records as server DELETEs — for every one with an id, pushed or not, since
+  /// a lost create answer can leave one on the server
+  /// (`lib/core/sync/sync_triggers.dart`) — and which takes them off the
   /// calendar at once rather than after the next sync.
   ///
   /// The workouts list used to mark *every* session of the plan for deletion,
@@ -227,15 +228,6 @@ class WorkoutPlanDao extends DatabaseAccessor<AppDatabase>
   Future<List<WorkoutPlanWorkoutTableData>> getUnsyncedPlanWorkouts() =>
       (select(workoutPlanWorkoutTable)
         ..where((pw) => pw.syncStatus.isNotValue(1))).get();
-
-  Future<void> markPlanWorkoutSynced(int localId, String serverId) =>
-      (update(workoutPlanWorkoutTable)
-        ..where((pw) => pw.id.equals(localId))).write(
-        WorkoutPlanWorkoutTableCompanion(
-          syncStatus: const Value(1),
-          serverId: Value(serverId),
-        ),
-      );
 
   Future<WorkoutPlanTableData?> getPlanByServerId(String serverId) =>
       (select(workoutPlanTable)

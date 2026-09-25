@@ -92,6 +92,15 @@ gets its second entry created. `LoggedMealDto.Foods` already documents that
 repeats inside one meal are real; a fix that collapsed them would silently
 under-report what somebody ate, which is worse than showing an extra row.
 
+*Since then:* every food entry carries an id the device minted, and a meal's
+foods are upserted by it (`POST api/Meal/{id}/foods/batch`, each entry under
+its own id), so matching by food item is gone — except once, for the entries
+schema 42 gave ids after the fact, which may be the very entries this section
+is about (`docs/sync-architecture.md` §21). The lesson of this section still
+decides what replaced it: when a meal create answers with an existing meal,
+the device only adds its own foods to that meal, and never sends anything that
+could replace what it holds. See `docs/sync-architecture.md` §17–§18.
+
 ### The read side still needed its own fix, twice
 
 Idempotent writes stop new duplicates. They do nothing for the ones already

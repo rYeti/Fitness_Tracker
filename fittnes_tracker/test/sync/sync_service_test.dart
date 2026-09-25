@@ -580,7 +580,7 @@ void main() {
   });
 
   group('pushing exercises the server already has', () {
-    test('links to the existing row instead of creating a second', () async {
+    test('takes the id of the row the server answers with', () async {
       final exerciseId = await insertSyncedExercise(serverId: 'server-e1');
       final workoutId = await db.workoutDao.saveCompleteWorkout(
         Workout(
@@ -595,37 +595,47 @@ void main() {
           ],
         ),
       );
-      // The workout synced, but the exercise's serverId never made it back —
-      // the response was lost after the server had already committed the row.
+      // The workout synced; the server already holds an entry for this
+      // exercise in this position, made before this device minted its own
+      // ids (or by another device). The server keeps one entry per exercise
+      // and position, and answers a create for that slot with the entry
+      // already there.
       await db.workoutDao.markWorkoutSynced(workoutId, 'server-w1');
-
       api.stubEmptyPull();
-      api.getResponses['api/Workout'] = [
-        serverWorkout(id: 'server-w1', name: 'Push Day'),
-      ];
-      api.getResponses['api/Workout/server-w1'] = serverWorkout(
-        id: 'server-w1',
-        name: 'Push Day',
-        exercises: [
-          serverWorkoutExercise(
+      final sent =
+          (await (db.select(db.workoutExerciseTable)
+                ..where((t) => t.workoutId.equals(workoutId))).getSingle())
+              .serverId;
+      api.postResponses['api/Workout/server-w1/exercises/batch'] = [
+        {
+          ...serverWorkoutExercise(
             id: 'server-we1',
             exerciseId: 'server-e1',
             orderPosition: 0,
           ),
-        ],
-      );
+          // Which item this answers: the id it was sent with.
+          'requestedId': sent,
+        },
+      ];
 
       await sync.syncAll();
 
       expect(
-        api.posts.where((p) => p.path.contains('/exercises/batch')),
-        isEmpty,
-        reason: 'the server already has this exercise',
+        api.gets,
+        isNot(contains('api/Workout/server-w1')),
+        reason: 'the create is the question; nothing to ask first',
       );
       final we =
           await (db.select(db.workoutExerciseTable)
             ..where((t) => t.workoutId.equals(workoutId))).getSingle();
       expect(we.serverId, 'server-we1');
+      // The server returned its entry as it was, not with this device's
+      // fields: they follow as an update of that entry.
+      expect(
+        api.puts.map((p) => p.path),
+        contains('api/Workout/exercises/server-we1'),
+      );
+      expect(we.syncStatus, SyncStatus.synced.index);
     });
 
     test('creates one the server genuinely does not have', () async {
@@ -644,25 +654,24 @@ void main() {
         ),
       );
       await db.workoutDao.markWorkoutSynced(workoutId, 'server-w1');
+      final minted =
+          (await (db.select(db.workoutExerciseTable)
+                ..where((t) => t.workoutId.equals(workoutId))).getSingle())
+              .serverId;
 
       api.stubEmptyPull();
-      api.getResponses['api/Workout'] = [
-        serverWorkout(id: 'server-w1', name: 'Push Day'),
-      ];
-      api.getResponses['api/Workout/server-w1'] = serverWorkout(
-        id: 'server-w1',
-        name: 'Push Day',
-      );
-      api.postResponses['api/Workout/server-w1/exercises/batch'] = [
-        {'id': 'server-we-new'},
-      ];
-
       await sync.syncAll();
 
-      expect(
-        api.posts.map((p) => p.path),
-        contains('api/Workout/server-w1/exercises/batch'),
+      final batch = api.posts.singleWhere(
+        (p) => p.path == 'api/Workout/server-w1/exercises/batch',
       );
+      // Under the id the device minted when the row was made, which it keeps.
+      expect(((batch.data as List).single as Map)['id'], minted);
+      final we =
+          await (db.select(db.workoutExerciseTable)
+            ..where((t) => t.workoutId.equals(workoutId))).getSingle();
+      expect(we.serverId, minted);
+      expect(we.syncStatus, SyncStatus.synced.index);
     });
   });
 
@@ -782,11 +791,6 @@ void main() {
       api.getResponses['api/Workout'] = [
         serverWorkout(id: 'server-w1', name: 'Push Day'),
       ];
-      api.postResponses['api/Workout/exercises/server-we1/sets/batch'] = [
-        {'id': 'st-new1'},
-        {'id': 'st-new2'},
-      ];
-
       await sync.syncAll();
 
       final templates = await db.select(db.workoutSetTemplateTable).get();
@@ -885,10 +889,6 @@ void main() {
         expect(sets.every((s) => s.syncStatus == 0), isTrue,
             reason: 're-queued so the replace push clears the copies');
 
-        api.postResponses[batchPath] = [
-          {'id': 'n1'},
-          {'id': 'n2'},
-        ];
         await sync.syncAll();
 
         final push = api.posts.singleWhere((p) => p.path == batchPath);
@@ -896,6 +896,8 @@ void main() {
           (push.data as List).map((s) => (s as Map)['reps']).toList(),
           [5, 8],
         );
+        // Under the ids they already had: the replace keeps them.
+        expect((push.data as List).map((s) => (s as Map)['id']), ['a', 'b']);
       },
     );
 
@@ -916,19 +918,19 @@ void main() {
             ),
           );
 
-      api.postResponses[batchPath] = [
-        {'id': 'n1'},
-        {'id': 'n2'},
-        {'id': 'n3'},
-      ];
       await sync.syncAll();
 
       final push = api.posts.singleWhere((p) => p.path == batchPath);
       expect((push.data as List).length, 3);
+      // Each set under its own id, which the server keeps: the ids the device
+      // holds afterwards are the ids it sent, not ones the answer handed back.
+      final sets = await localSets();
       expect(
-        (await localSets()).map((s) => s.serverId),
-        ['n1', 'n2', 'n3'],
+        (push.data as List).map((s) => (s as Map)['id']),
+        sets.map((s) => s.serverId),
       );
+      expect(sets.take(2).map((s) => s.serverId), ['a', 'b']);
+      expect(sets.every((s) => s.syncStatus == 1), isTrue);
     });
 
     test('duplicates already on the device are folded before a push', () async {
@@ -951,10 +953,6 @@ void main() {
             ),
           );
 
-      api.postResponses[batchPath] = [
-        {'id': 'n1'},
-        {'id': 'n2'},
-      ];
       await sync.syncAll();
 
       expect((await localSets()).map((s) => s.reps), [5, 8]);
@@ -1262,9 +1260,6 @@ void main() {
       };
       const batchPath =
           'api/ScheduledWorkout/server-sw1/exercises/server-se1/sets/batch';
-      api.postResponses[batchPath] = [
-        {'id': 'server-set1'},
-      ];
 
       await sync.syncScheduledWorkouts();
 

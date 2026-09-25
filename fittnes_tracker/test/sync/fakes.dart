@@ -13,8 +13,28 @@ class FakeApiClient extends ApiClient {
   /// 404 would, so a test that forgets to stub something fails loudly.
   final Map<String, dynamic> getResponses = {};
 
-  /// Response bodies for POSTs, keyed by path. Missing entries return `{}`.
+  /// Response bodies for POSTs, keyed by path. A missing entry answers the
+  /// way the API does for a create it accepts: with what it was sent — so a
+  /// create comes back under the id the app minted, and a batch comes back as
+  /// the rows it was given, each naming the id it was sent with
+  /// (`requestedId`), as the API's batch answers do.
   final Map<String, dynamic> postResponses = {};
+
+  /// Status codes POSTs fail with, keyed by path — a 409 for an id the server
+  /// refuses, say. A missing entry is a success.
+  final Map<String, int> postStatuses = {};
+
+  /// Bodies of the failures in [postStatuses], keyed by path — the API's 409
+  /// names the id it refused (`{error: id_in_use, id: …}`).
+  final Map<String, dynamic> postErrorBodies = {};
+
+  /// Status codes PUTs fail with, keyed by path. A missing entry is a success.
+  final Map<String, int> putStatuses = {};
+
+  /// Paths whose next POST reaches the server but whose response never comes
+  /// back: the request is recorded, then the call fails as a dropped
+  /// connection does, with no response at all. Each path loses one response.
+  final Set<String> postsLosingResponse = {};
 
   /// Status codes DELETEs answer with, keyed by path. A missing entry is a
   /// success.
@@ -28,6 +48,10 @@ class FakeApiClient extends ApiClient {
   final List<({String path, dynamic data})> posts = [];
   final List<({String path, dynamic data})> puts = [];
   final List<String> deletes = [];
+
+  /// Every request, in the order made, as `METHOD path` — for a test about
+  /// what goes before what.
+  final List<String> requests = [];
 
   /// Stubs every endpoint `pullAll` touches with an empty result, so a test only
   /// has to describe the one it cares about.
@@ -59,6 +83,7 @@ class FakeApiClient extends ApiClient {
     Options? options,
   }) async {
     gets.add(path);
+    requests.add('GET $path');
     if (!getResponses.containsKey(path)) {
       throw DioException(
         requestOptions: RequestOptions(path: path),
@@ -76,7 +101,40 @@ class FakeApiClient extends ApiClient {
     Options? options,
   }) async {
     posts.add((path: path, data: data));
-    return _ok(path, postResponses[path] ?? <String, dynamic>{});
+    requests.add('POST $path');
+    if (postsLosingResponse.remove(path)) {
+      throw DioException(
+        requestOptions: RequestOptions(path: path),
+        type: DioExceptionType.connectionError,
+        message: 'FakeApiClient: response to POST $path lost',
+      );
+    }
+    _failIfStubbed(path, postStatuses[path], postErrorBodies[path]);
+    return _ok(path, postResponses[path] ?? _echo(data));
+  }
+
+  static dynamic _echo(dynamic data) => switch (data) {
+    final Map m => Map<String, dynamic>.from(m),
+    final List l => [
+      for (final e in l)
+        e is Map
+            ? {...Map<String, dynamic>.from(e), 'requestedId': e['id']}
+            : e,
+    ],
+    _ => <String, dynamic>{},
+  };
+
+  void _failIfStubbed(String path, int? status, [dynamic body]) {
+    if (status == null) return;
+    final options = RequestOptions(path: path);
+    throw DioException(
+      requestOptions: options,
+      response: Response<dynamic>(
+        requestOptions: options,
+        statusCode: status,
+        data: body,
+      ),
+    );
   }
 
   @override
@@ -87,7 +145,9 @@ class FakeApiClient extends ApiClient {
     Options? options,
   }) async {
     puts.add((path: path, data: data));
+    requests.add('PUT $path');
     await duringPut?.call(path);
+    _failIfStubbed(path, putStatuses[path]);
     return _ok(path, <String, dynamic>{});
   }
 
@@ -99,6 +159,7 @@ class FakeApiClient extends ApiClient {
     Options? options,
   }) async {
     deletes.add(path);
+    requests.add('DELETE $path');
     final status = deleteStatuses[path];
     if (status != null) {
       final options = RequestOptions(path: path);

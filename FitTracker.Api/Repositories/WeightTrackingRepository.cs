@@ -37,9 +37,16 @@ public class WeightTrackingRepository(AppDbContext context) : IWeightTrackingRep
     public async Task<WeightTracking> CreateWeightTrackingAsync(WeightTracking weightTracking)
     {
         _context.WeightTrackings.Add(weightTracking);
-        await _context.SaveChangesAsync();
+        await _context.SaveNewAsync();
         return weightTracking;
     }
+
+    /// <inheritdoc/>
+    public async Task<Guid?> GetOwnerAsync(Guid id) =>
+        (await _context.WeightTrackings.AsNoTracking()
+            .Where(w => w.Id == id)
+            .Select(w => new { w.UserId })
+            .FirstOrDefaultAsync())?.UserId;
 
     /// <inheritdoc/>
     public async Task<WeightTracking?> UpdateWeightAsync(Guid id, Guid userId, WeightTrackingRequestDto dto)

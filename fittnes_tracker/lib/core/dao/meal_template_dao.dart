@@ -122,6 +122,13 @@ class MealTemplateDao {
       if (!template.containsKey('items')) {
         template['items'] = [];
       }
+      // Its id on the server, minted here so every attempt to create it
+      // carries the same one — see [newSyncId]. One pulled from the server
+      // arrives with the server's.
+      if ((template['serverId'] as String?)?.isNotEmpty != true) {
+        template['serverId'] = newSyncId();
+        template['pending'] = true;
+      }
 
       templates.add(template);
       await _saveTemplates(templates);
@@ -193,7 +200,7 @@ class MealTemplateDao {
         // server id here made every edited template look new, so the push
         // created a second copy on the server and the next pull brought the
         // first back beside it.
-        for (final key in const ['serverId', 'rev']) {
+        for (final key in const ['serverId', 'rev', 'pending']) {
           if (!template.containsKey(key) &&
               templates[index].containsKey(key)) {
             template[key] = templates[index][key];
@@ -252,7 +259,10 @@ class MealTemplateDao {
         final removed = templates.removeAt(index);
         await _saveTemplates(templates);
         // Remembered until the push has told the server — without it the next
-        // pull found the template still there and put it back.
+        // pull found the template still there and put it back. Remembered even
+        // if it was never marked pushed: a create whose answer was lost left
+        // the template on the server under this id, and a DELETE for one the
+        // server never got is answered 404, which the push treats as done.
         final serverId = removed['serverId'] as String?;
         if (serverId != null && serverId.isNotEmpty) {
           final prefs = await SharedPreferences.getInstance();
@@ -277,35 +287,55 @@ class MealTemplateDao {
   // two facts by hand: `dirty`, set on every edit to one the server has, and
   // `rev`, bumped on every edit so a push can tell whether what it sent is
   // still what's stored.
+  //
+  // A third fact is `pending`: set on a template this device made until the
+  // server has it. Every template has a `serverId` from the moment it is made,
+  // so the id no longer says that; a template from before ids were minted
+  // here has none, and counts as pending too.
   static void _markEdited(Map<String, dynamic> template) {
     template['rev'] = ((template['rev'] as int?) ?? 0) + 1;
-    final serverId = template['serverId'] as String?;
-    if (serverId != null && serverId.isNotEmpty) template['dirty'] = true;
+    if (_isOnServer(template)) template['dirty'] = true;
   }
 
-  /// Returns all templates that have not yet been synced (no serverId).
+  /// Whether this device knows the server has this template — what
+  /// `SyncStatus.isOnServer` says for a database row. A template has no
+  /// status column, so the `pending` flag stands in for `sync_status = 0`.
+  static bool _isOnServer(Map template) =>
+      template['pending'] != true &&
+      ((template['serverId'] as String?)?.isNotEmpty ?? false);
+
+  /// Templates the server doesn't have yet.
   Future<List<Map<String, dynamic>>> getUnsyncedTemplates() async {
     final templates = await _loadTemplates();
-    return templates
-        .where((t) => t['serverId'] == null || (t['serverId'] as String).isEmpty)
-        .toList();
+    return templates.where((t) => !_isOnServer(t)).toList();
   }
 
   /// Templates the server has that were edited here since.
   Future<List<Map<String, dynamic>>> getEditedTemplates() async {
     final templates = await _loadTemplates();
     return templates
-        .where(
-          (t) =>
-              t['dirty'] == true &&
-              t['serverId'] is String &&
-              (t['serverId'] as String).isNotEmpty,
-        )
+        .where((t) => t['dirty'] == true && _isOnServer(t))
         .toList();
   }
 
-  /// Stores the server-assigned UUID on the template and records that the
-  /// server has it as of [sentRev] — unless it was edited while the request
+  /// Gives a template the server doesn't have a fresh id and returns it: one
+  /// made before ids were minted here, or one whose id the server refused
+  /// (409 — it names a row that isn't this account's).
+  Future<String> assignServerId(int localId) async {
+    final templates = await _loadTemplates();
+    final id = newSyncId();
+    final index = templates.indexWhere((t) => t['id'] == localId);
+    if (index >= 0 && !_isOnServer(templates[index])) {
+      templates[index]['serverId'] = id;
+      templates[index]['pending'] = true;
+      await _saveTemplates(templates);
+    }
+    return id;
+  }
+
+  /// Stores the server's id for the template — the one it was sent with,
+  /// unless the server answered with another — and records that the server
+  /// has it as of [sentRev] — unless it was edited while the request
   /// was in flight, in which case it stays marked for the next push.
   Future<void> markTemplateSynced(
     int localId,
@@ -317,6 +347,7 @@ class MealTemplateDao {
     if (index >= 0) {
       final template = templates[index];
       template['serverId'] = serverId;
+      template.remove('pending');
       final unchanged = ((template['rev'] as int?) ?? 0) == (sentRev ?? 0);
       if (unchanged) {
         template.remove('dirty');
@@ -339,10 +370,7 @@ class MealTemplateDao {
     if (json == null || json.isEmpty) return false;
     try {
       for (final t in (jsonDecode(json) as List).cast<Map>()) {
-        final serverId = t['serverId'] as String?;
-        if (serverId == null || serverId.isEmpty || t['dirty'] == true) {
-          return true;
-        }
+        if (!_isOnServer(t) || t['dirty'] == true) return true;
       }
     } catch (_) {}
     return false;

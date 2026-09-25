@@ -152,7 +152,7 @@ class SyncService {
 
     // Phase 5: scheduled workouts depend on plans and workouts.
     await syncScheduledWorkouts();
-    await _syncMissingScheduledExerciseSets();
+    await _syncSessionExercises();
     _logger.i('syncAll: complete');
   }
 
@@ -189,8 +189,95 @@ class SyncService {
     updates: {table},
   );
 
+  /// The server id of a row another row refers to — a workout exercise's
+  /// exercise, a session's workout, a meal's food — if the server has that row
+  /// yet, else null.
+  ///
+  /// Every row has a server id from the moment it is inserted, so a non-null
+  /// one no longer means the server has the row; [SyncStatus.isOnServer]
+  /// does. Sending a reference to a row the server doesn't hold would, for
+  /// most of these, be refused (a session's workout is a foreign key) or
+  /// quietly point at nothing until the row arrived.
+  ///
+  /// A null here is never sent in the reference's place: the row that refers
+  /// waits instead, dirty, for a push after its target's (see
+  /// `_scheduledWorkoutBody`, `_putPlanWorkouts`). Sending null *says*
+  /// something — "this session belongs to no plan" — and the server believes
+  /// it.
+  static String? _serverIdIfPushed(String? serverId, int syncStatus) =>
+      serverId != null && SyncStatus.fromDb(syncStatus).isOnServer
+          ? serverId
+          : null;
+
+  /// Whether a request failed because the server refused the id it was sent:
+  /// 409 from a create means the id names a row that belongs to someone else.
+  static bool _isIdConflict(Object error) =>
+      error is DioException && error.response?.statusCode == 409;
+
+  /// The id a 409 refused, which the server names in its answer
+  /// (`{ "error": "id_in_use", "id": … }`) — for a batch, where only that one
+  /// row needs a new id.
+  static String? _refusedId(Object error) {
+    if (!_isIdConflict(error)) return null;
+    final body = (error as DioException).response?.data;
+    return body is Map ? body['id'] as String? : null;
+  }
+
+  /// Gives never-pushed rows fresh ids after the server refused theirs (409).
+  ///
+  /// A v4 UUID colliding with another account's is not something that happens
+  /// by chance, but if it ever did the row would be refused on every push for
+  /// good. A new id costs nothing: nothing the server holds refers to one it
+  /// never accepted. Only `pending` rows are touched — an id the server already
+  /// holds for this row is never the one it refused.
+  Future<void> _mintNewIds(TableInfo table, Iterable<int> localIds) async {
+    for (final id in localIds) {
+      await _db.customUpdate(
+        'UPDATE ${table.actualTableName} SET server_id = ? '
+        'WHERE id = ? AND sync_status = 0',
+        variables: [Variable.withString(newSyncId()), Variable.withInt(id)],
+        updates: {table},
+      );
+    }
+    _logger.w(
+      'Server refused the id of ${localIds.length} ${table.actualTableName} '
+      'row(s) (409); minted new ones for the next push',
+    );
+  }
+
+  /// Marks a clean row changed, for the sync engine's own writes that change
+  /// what its push would send — a fold that moves a meal's foods onto the meal
+  /// it keeps, say. The database tracks no write inside
+  /// [AppDatabase.untracked], so without this the moved foods would sit on a
+  /// row that looks sent, and the next pull, which makes a clean meal's list
+  /// match the server's, would take them out.
+  Future<void> _dirtyIfClean(TableInfo table, int localId) => _db.customUpdate(
+    'UPDATE ${table.actualTableName} SET sync_status = 2 '
+    'WHERE id = ? AND sync_status = 1',
+    variables: [Variable.withInt(localId)],
+    updates: {table},
+  );
+
+  /// Sends a create — a POST carrying the id this device minted — and returns
+  /// the response, or null if the server refused the id (409), in which case
+  /// the rows in [localIds] of [table] get fresh ones and try again next push.
+  Future<Response?> _create(
+    String path,
+    Object data,
+    TableInfo table,
+    Iterable<int> localIds,
+  ) async {
+    try {
+      return await _apiClient.post(path, data: data);
+    } catch (e) {
+      if (!_isIdConflict(e)) rethrow;
+      await _mintNewIds(table, localIds);
+      return null;
+    }
+  }
+
   /// Sends the DELETEs the database recorded in `sync_deletion_table` — every
-  /// synced row deleted locally outside the sync engine.
+  /// row with an id deleted locally outside the sync engine, pushed or not.
   ///
   /// A 404 or 410 means the row is already gone, and a 403 that it was never
   /// this account's to delete; either way there is nothing left to send. A 409
@@ -242,7 +329,10 @@ class SyncService {
       case SyncDeletionKind.meal:
         return 'api/Meal/${d.serverId}';
       case SyncDeletionKind.mealFood:
-        return 'api/Meal/${d.parentServerId}/foods/${d.extraServerId}';
+        // By the entry's own id, which tells two portions of one food apart.
+        // An entry an older build queued names the entry too; the food item
+        // it also recorded is what that build sent, and is no longer needed.
+        return 'api/Meal/${d.parentServerId}/foods/${d.serverId}';
       case SyncDeletionKind.weight:
         return 'api/WeightTracking/TrackWeight/${d.serverId}';
       case null:
@@ -319,14 +409,13 @@ class SyncService {
     await step('workouts', _pullWorkouts);
     await step('plans', _pullWorkoutPlans);
     await step('sessions', _pullScheduledWorkouts);
-    // Second pass: re-link any scheduled exercises that were skipped because
-    // the workout exercise wasn't created yet on the first pass.
-    await step('session links', _relinkMissingScheduledExercises);
     await step('food items', _pullFoodItems);
     await step('meals', _pullMeals); // food items must exist before meals
     await step('weights', _pullWeightLogs);
     await step('meal templates', _pullMealTemplates);
-    // Clean up any content-based duplicates the pull may have created.
+    // Fold the twins a pull brings down from a server that earlier builds
+    // wrote them to: two sessions of one workout on one day, two meals of
+    // one category on one day. New ones aren't made (see _deduplicateAll).
     await step(
       'dedup',
       () => _db.untracked(() async {

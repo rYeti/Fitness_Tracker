@@ -5,6 +5,14 @@ namespace FitTracker.Api.DTOs;
 /// <summary>Payload for creating or updating a performed set within a scheduled workout exercise.</summary>
 public class WorkoutSetRequestDto
 {
+    /// <summary>
+    /// The id the app minted for this row. Read by the batch, which replaces the whole
+    /// list and keeps each id it is given, so the row the app holds and the row the
+    /// server stores are the same row. Absent from older apps, in which case the server
+    /// mints one. The single-row create ignores it.
+    /// </summary>
+    public Guid? Id { get; set; }
+
     /// <summary>The ordinal number of this set within the exercise (e.g. 1, 2, 3).</summary>
     [Range(1, 100)]
     public int SetNumber { get; set; }

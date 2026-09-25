@@ -20,22 +20,25 @@ public class ExerciseService : IExerciseService
     {
         if (userId == Guid.Empty || exercise == null) return null!;
 
-        var exerciseModel = new Exercise
-        {
-            Id = Guid.NewGuid(),
-            UserId = userId,
-            Name = exercise.Name,
-            NameDe = exercise.NameDe,
-            Description = exercise.Description,
-            DescriptionDe = exercise.DescriptionDe,
-            ImageUrl = exercise.ImageUrl,
-            IsCustom = exercise.IsCustom,
-            TargetMuscleGroups = exercise.TargetMuscleGroups,
-            Type = exercise.Type,
-        };
-
-        var created = await _exerciseRepository.CreateExercisesAsync(exerciseModel);
-        return ToResponseDto(created);
+        var result = await ClientIds.CreateOrResolveAsync(
+            exercise.Id,
+            userId,
+            _exerciseRepository.GetOwnerAsync,
+            id => UpdateExercise(id, userId, exercise),
+            async id => ToResponseDto(await _exerciseRepository.CreateExercisesAsync(new Exercise
+            {
+                Id = id,
+                UserId = userId,
+                Name = exercise.Name,
+                NameDe = exercise.NameDe,
+                Description = exercise.Description,
+                DescriptionDe = exercise.DescriptionDe,
+                ImageUrl = exercise.ImageUrl,
+                IsCustom = exercise.IsCustom,
+                TargetMuscleGroups = exercise.TargetMuscleGroups,
+                Type = exercise.Type,
+            })));
+        return result!;
     }
 
     /// <inheritdoc/>

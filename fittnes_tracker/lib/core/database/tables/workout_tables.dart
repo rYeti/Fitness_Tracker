@@ -1,12 +1,17 @@
 import 'package:drift/drift.dart';
 
+import 'sync_tables.dart';
+
 // Workout planning tables
 
 /// Sync state of a row in any table that syncs with the remote API, stored in
 /// its `sync_status` column by [index].
 ///
-/// - [pending]       New record, never pushed to the API.
-/// - [synced]        The server has exactly this; [serverId] is set.
+/// - [pending]       New record, never pushed to the API. It already has its
+///                   `serverId` — the device mints it on insert
+///                   (`newSyncId`) — so this status, not a null id, is what
+///                   says the server has not got it.
+/// - [synced]        The server has exactly this.
 /// - [pendingUpdate] Edited locally after a successful sync.
 /// - [pendingDelete] Deleted locally; must be removed on the API before the
 ///                   local row is dropped.
@@ -36,6 +41,19 @@ enum SyncStatus {
   /// Whether this row holds a change the server has not seen yet.
   bool get isDirty =>
       this == pending || this == pendingUpdate || this == pendingDelete;
+
+  /// Whether this device knows the server has the row: its create was
+  /// answered, or it came from the server.
+  ///
+  /// Every row has a `server_id` from the moment it is inserted, so the id no
+  /// longer says this; the status is the only thing that does. And a row
+  /// leaves [pending] the moment its create is answered — before whatever the
+  /// push sends after it — so that a row the server holds is never taken for
+  /// one it doesn't (`docs/sync-architecture.md` §19).
+  ///
+  /// It is not the converse of "the server doesn't have it": a create whose
+  /// answer was lost leaves the row [pending] on a server that stored it.
+  bool get isOnServer => this != pending;
 }
 
 /// Table for storing exercise definitions
@@ -49,7 +67,7 @@ class ExerciseTable extends Table {
   TextColumn get targetMuscleGroups => text()();
   TextColumn get imageUrl => text().nullable()();
   BoolColumn get isCustom => boolean().withDefault(const Constant(false))();
-  TextColumn get serverId => text().nullable()();
+  TextColumn get serverId => text().nullable().clientDefault(newSyncId)();
   IntColumn get syncStatus => integer().withDefault(const Constant(0))();
 
   /// Bumped by the database on every local change — see [SyncStatus] and
@@ -70,7 +88,7 @@ class WorkoutTable extends Table {
   DateTimeColumn get scheduledDate => dateTime().nullable()();
   DateTimeColumn get completedDate => dateTime().nullable()();
   IntColumn get color => integer().nullable()();
-  TextColumn get serverId => text().nullable()();
+  TextColumn get serverId => text().nullable().clientDefault(newSyncId)();
   IntColumn get syncStatus => integer().withDefault(const Constant(0))();
 
   /// Bumped by the database on every local change — see [SyncStatus] and
@@ -101,7 +119,7 @@ class WorkoutExerciseTable extends Table {
   IntColumn get orderPosition => integer()();
   TextColumn get notes => text().nullable()();
   IntColumn get supersetGroupId => integer().nullable()();
-  TextColumn get serverId => text().nullable()();
+  TextColumn get serverId => text().nullable().clientDefault(newSyncId)();
   IntColumn get syncStatus => integer().withDefault(const Constant(0))();
 
   /// Bumped by the database on every local change — see [SyncStatus] and
@@ -132,7 +150,7 @@ class ScheduledWorkoutExerciseTable extends Table {
   /// Exercise override for this specific day only. Null = use the template exercise.
   IntColumn get overrideExerciseId => integer().nullable()();
 
-  TextColumn get serverId => text().nullable()();
+  TextColumn get serverId => text().nullable().clientDefault(newSyncId)();
   IntColumn get syncStatus => integer().withDefault(const Constant(0))();
 
   /// Bumped by the database on every local change — see [SyncStatus] and
@@ -156,7 +174,7 @@ class WorkoutSetTable extends Table {
   IntColumn get durationSeconds => integer().nullable()();
   BoolColumn get isCompleted => boolean().withDefault(const Constant(false))();
   TextColumn get notes => text().nullable()();
-  TextColumn get serverId => text().nullable()();
+  TextColumn get serverId => text().nullable().clientDefault(newSyncId)();
   IntColumn get syncStatus => integer().withDefault(const Constant(0))();
 
   /// Rate of Perceived Exertion (6-10). Null when the user didn't log one.
@@ -181,7 +199,7 @@ class WorkoutPlanTable extends Table {
   TextColumn get cyclePatternJson => text()();
   BoolColumn get isFreeChoice => boolean().withDefault(const Constant(false))();
   IntColumn get durationDays => integer().nullable()();
-  TextColumn get serverId => text().nullable()();
+  TextColumn get serverId => text().nullable().clientDefault(newSyncId)();
   IntColumn get syncStatus => integer().withDefault(const Constant(0))();
 
   /// Bumped by the database on every local change — see [SyncStatus] and
@@ -194,6 +212,9 @@ class WorkoutPlanWorkoutTable extends Table {
   IntColumn get id => integer().autoIncrement()();
   IntColumn get planId => integer().references(WorkoutPlanTable, #id)();
   IntColumn get workoutId => integer().references(WorkoutTable, #id)();
+  /// Not an id of its own: the server never names a link, which is one plan
+  /// and one workout (`PUT api/WorkoutPlan/{id}/workouts` takes the plan's
+  /// whole list). Older builds stored the plan's server id here.
   TextColumn get serverId => text().nullable()();
   IntColumn get syncStatus => integer().withDefault(const Constant(0))();
 }
@@ -227,7 +248,7 @@ class ScheduledWorkoutTable extends Table {
   BoolColumn get isCompleted => boolean().withDefault(const Constant(false))();
   BoolColumn get isSkipped => boolean().withDefault(const Constant(false))();
 
-  TextColumn get serverId => text().nullable()();
+  TextColumn get serverId => text().nullable().clientDefault(newSyncId)();
   IntColumn get syncStatus => integer().withDefault(const Constant(0))();
 
   /// Bumped by the database on every local change — see [SyncStatus] and
@@ -256,6 +277,6 @@ class WorkoutSetTemplateTable extends Table {
   // Order position for sorting
   IntColumn get orderPosition => integer()();
 
-  TextColumn get serverId => text().nullable()();
+  TextColumn get serverId => text().nullable().clientDefault(newSyncId)();
   IntColumn get syncStatus => integer().withDefault(const Constant(0))();
 }

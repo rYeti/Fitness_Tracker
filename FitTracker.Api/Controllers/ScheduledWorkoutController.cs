@@ -93,17 +93,18 @@ public class ScheduledWorkoutController : ControllerBase
         return NoContent();
     }
 
-    /// <summary>Creates scheduled workout exercise entries for the given workout exercise IDs.</summary>
+    /// <summary>Creates scheduled workout exercise entries for the given workout exercises.</summary>
     /// <param name="scheduledWorkoutId">The ID of the scheduled workout.</param>
-    /// <param name="workoutExerciseIds">The list of workout exercise template IDs to link.</param>
-    /// <returns>The newly created scheduled exercise DTOs.</returns>
+    /// <param name="items">The workout exercises to link: bare ids from older apps, or
+    /// <c>{ id, workoutExerciseId }</c> from apps that mint their own ids.</param>
+    /// <returns>Every entry the session holds afterwards.</returns>
     [HttpPost("{scheduledWorkoutId}/exercises/batch")]
-    public async Task<IActionResult> CreateExercisesBatch([FromRoute] Guid scheduledWorkoutId, [FromBody] List<Guid> workoutExerciseIds)
+    public async Task<IActionResult> CreateExercisesBatch([FromRoute] Guid scheduledWorkoutId, [FromBody] List<ScheduledExerciseBatchItemDto> items)
     {
         var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
         if (userId == Guid.Empty) return NotFound("User not found");
 
-        var result = await _scheduledService.CreateExercisesBatchAsync(scheduledWorkoutId, userId, workoutExerciseIds);
+        var result = await _scheduledService.CreateExercisesBatchAsync(scheduledWorkoutId, userId, items);
         if (result == null) return NotFound("Scheduled workout not found");
 
         return Ok(result);
@@ -134,6 +135,8 @@ public class ScheduledWorkoutController : ControllerBase
         if (userId == Guid.Empty) return NotFound("User not found");
 
         var result = await _scheduledService.AddSetsBatchAsync(workoutExerciseId, userId, dtos);
+        if (result == null) return NotFound("Scheduled workout exercise not found");
+
         return Ok(result);
     }
 

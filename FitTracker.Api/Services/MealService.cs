@@ -44,20 +44,31 @@ public class MealService(IMealRepository repository) : IMealService
     {
         var date = DateTime.SpecifyKind(dto.Date, DateTimeKind.Utc);
 
-        var existing = await repository.FindSameDayMealAsync(userId, date, dto.Category);
-        if (existing is not null) return ToDto(existing);
+        // The id comes first, then the day. A repeat of the app's own id is its own meal;
+        // an id the server has never seen may still name a day and category that already
+        // has one — a second device's, or this device's before a reinstall — and that meal
+        // is the answer, under its id, which is the one the app must keep. The app then
+        // merges its foods with the ones that meal already holds rather than replacing them.
+        var result = await ClientIds.CreateOrResolveAsync(
+            dto.Id,
+            userId,
+            repository.GetOwnerAsync,
+            id => UpdateMealAsync(id, userId, dto),
+            async id =>
+            {
+                var existing = await repository.FindSameDayMealAsync(userId, date, dto.Category);
+                if (existing is not null) return ToDto(existing);
 
-        var meal = new Meal
-        {
-            Id = Guid.NewGuid(),
-            UserId = userId,
-            Date = date,
-            Category = dto.Category,
-            FoodItemId = dto.FoodItemId,
-        };
-
-        var created = await repository.CreateMealAsync(meal);
-        return ToDto(created);
+                return ToDto(await repository.CreateMealAsync(new Meal
+                {
+                    Id = id,
+                    UserId = userId,
+                    Date = date,
+                    Category = dto.Category,
+                    FoodItemId = dto.FoodItemId,
+                }));
+            });
+        return result!;
     }
 
     /// <inheritdoc/>
@@ -78,35 +89,24 @@ public class MealService(IMealRepository repository) : IMealService
         var meal = await repository.GetMealByIdAsync(mealId, userId);
         if (meal is null) return null;
 
-        var entry = await repository.AddFoodToMealAsync(mealId, foodItemId);
-        return new MealFoodEntryResponseDto
-        {
-            Id = entry.Id,
-            MealId = entry.MealId,
-            FoodItemId = entry.FoodItemId,
-        };
+        return ToEntryDto(await repository.AddFoodToMealAsync(mealId, foodItemId));
     }
 
     /// <inheritdoc/>
-    public async Task<List<MealFoodEntryResponseDto>> AddFoodsToMealBatchAsync(Guid mealId, Guid userId, List<Guid> foodItemIds)
+    /// <remarks>
+    /// The meal's owner is checked once, by the repository, which answers null for a meal
+    /// that isn't the caller's — an empty batch included. This used to check here first and
+    /// then again for every entry, loading the meal and all its entries each time.
+    /// </remarks>
+    public async Task<List<MealFoodEntryResponseDto>?> AddFoodsToMealBatchAsync(Guid mealId, Guid userId, List<MealFoodEntryRequestDto> entries)
     {
-        var results = new List<MealFoodEntryResponseDto>();
-        foreach (var foodItemId in foodItemIds)
-        {
-            var entry = await AddFoodToMealAsync(mealId, userId, foodItemId);
-            if (entry is not null) results.Add(entry);
-        }
-        return results;
+        var stored = await repository.UpsertFoodEntriesAsync(mealId, userId, entries);
+        return stored?.Select(ToEntryDto).ToList();
     }
 
     /// <inheritdoc/>
-    public async Task<bool> RemoveFoodFromMealAsync(Guid mealId, Guid userId, Guid foodItemId)
-    {
-        var meal = await repository.GetMealByIdAsync(mealId, userId);
-        if (meal is null) return false;
-
-        return await repository.RemoveFoodFromMealAsync(mealId, foodItemId);
-    }
+    public Task<bool> RemoveFoodFromMealAsync(Guid mealId, Guid userId, Guid id) =>
+        repository.RemoveFoodFromMealAsync(mealId, userId, id);
 
     /// <inheritdoc/>
     public async Task<List<MealResponseDto>> GetAllMealsAsync(Guid userId)
@@ -121,11 +121,13 @@ public class MealService(IMealRepository repository) : IMealService
         Date = m.Date,
         Category = m.Category,
         FoodItemId = m.FoodItemId,
-        FoodEntries = m.FoodEntries.Select(e => new MealFoodEntryResponseDto
-        {
-            Id = e.Id,
-            MealId = e.MealId,
-            FoodItemId = e.FoodItemId,
-        }).ToList(),
+        FoodEntries = m.FoodEntries.Select(ToEntryDto).ToList(),
+    };
+
+    private static MealFoodEntryResponseDto ToEntryDto(MealFoodEntry e) => new()
+    {
+        Id = e.Id,
+        MealId = e.MealId,
+        FoodItemId = e.FoodItemId,
     };
 }
