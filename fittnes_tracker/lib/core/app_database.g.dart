@@ -2684,7 +2684,7 @@ class MealFoodTableData extends DataClass
   /// could commit and lose its answer. Before the meal's foods are next sent,
   /// the entry takes the id of an unclaimed server entry of the same meal and
   /// food, if there is one, and the flag is cleared either way. See
-  /// `_healBackfilledEntries` and `docs/sync-architecture.md` §18.
+  /// `_healBackfilledEntries` and `docs/sync-architecture.md` §21.
   final bool idBackfilled;
   const MealFoodTableData({
     required this.id,

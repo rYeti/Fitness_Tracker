@@ -49,7 +49,7 @@ enum SyncStatus {
   /// longer says this; the status is the only thing that does. And a row
   /// leaves [pending] the moment its create is answered — before whatever the
   /// push sends after it — so that a row the server holds is never taken for
-  /// one it doesn't (`docs/sync-architecture.md`, part two).
+  /// one it doesn't (`docs/sync-architecture.md` §19).
   ///
   /// It is not the converse of "the server doesn't have it": a create whose
   /// answer was lost leaves the row [pending] on a server that stored it.
