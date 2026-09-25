@@ -2789,9 +2789,11 @@ is written up in §50 onwards.
 Both halves were written at once, against this:
 
 - **Where.** The console's existing chat connection, `/hubs/chat` (token in
-  `?access_token=`, as for chat). When a connection opens, `ChatHub.OnConnectedAsync`
-  puts it in the group `trainer:{trainerId}` if its user holds a trainer licence
-  (`ChatHub.TrainerGroup`). The console joins nothing itself.
+  `?access_token=`, as for chat). After every connect and every reconnect the
+  console invokes `JoinTrainerGroup()`, a hub method with no arguments. It puts
+  the calling connection in the group `trainer:{trainerId}`
+  (`ChatHub.TrainerGroup`) if its user holds a trainer licence, and otherwise
+  does nothing. Nothing is joined when a connection opens (§46).
 - **What.** One hub event, `ClientDataChanged`, with one argument. On the wire
   (SignalR's JSON protocol, which camel-cases):
 
@@ -2825,7 +2827,30 @@ thing the console does with it is decide which panes to fetch again:
 | a scheduled workout (its exercises and logged sets) | `sessions` |
 | a meal (its foods), a food item, a meal template (its items) | `nutrition` |
 | a weight entry | `weight` |
-| settings | none — no event |
+| settings, which hold the calorie goal | `nutrition` |
+
+Settings were first given no area, on the reasoning that no pane shows them.
+One does. The Nutrition pane's calorie ring and Client Detail's intake are
+measured against the client's calorie goal, and the goal is a setting. A client
+who changed it on their phone pushed it, the push committed, and no event went
+out. The trainer went on reading the old goal, and a wrong "kcal remaining",
+until the tab next regained focus. Every other change to the same pane arrived
+within a second or so, which made this one look like a bug in the console
+rather than a gap in a table on the server.
+
+Nothing caught it because the one test that looked at settings asserted the
+gap. `EachKindOfDataIsReportedInItsArea` listed `["settings"] = ""`, with a
+comment saying no pane showed them. A test written to pin a decision can't tell
+you the decision was wrong. It only guarantees the decision is kept. The row
+now reads `nutrition`. `EverySyncedRootHasAnArea` walks every `ISyncRoot` in the
+assembly and fails for any without an area, so the next root can't be left out
+by the same reasoning unless someone deletes a test to do it.
+
+A change to any setting now refetches the Nutrition pane, the theme and the
+display name included. That is one read for a change the trainer can't see, and
+settings rarely change. Splitting them by field would put knowledge of which
+columns each console pane reads into the server's change tracking, which is a
+second copy of the console's layout that nothing would keep in step.
 
 ### Why the event carries nothing
 
@@ -2865,22 +2890,62 @@ The console already holds a `ChatHub` connection for as long as it is open.
 hub would mean a second socket per open console. On Cloud Run an open socket is
 an in-flight request, which keeps an instance allocated. That is the one real
 running cost of SignalR here, and a second hub would double it for the same
-people. The group is joined in `OnConnectedAsync` rather than by a hub method
-the console calls, so an old console build, or one that reconnects, is in the
-group without doing anything.
+people. The console asks to join a group on that socket, rather than being put
+in one when it connects. §46 says why.
 
 ---
 
 ## 46. Who hears of it
 
+### Only the console joins
+
+The first version joined at connect. `ChatHub.OnConnectedAsync` looked up the
+caller's licence and, if there was one, added the connection to
+`trainer:{trainerId}`. The argument for it was that the console never had to
+remember to ask: an old console build, or one that had just reconnected, was in
+the group without doing anything. Review found that it cost more than that
+bought, in two ways no test was looking at:
+
+- **Every connection paid for it.** `OnConnectedAsync` runs for every socket the
+  hub accepts, and again on every automatic reconnect. That includes every
+  trainee's coach-chat connection. Each one ran a licence query, and a trainee
+  holds no licence, so nearly every one of those queries was asked to find
+  nothing.
+- **The wrong socket of the right person joined.** A trainer is also a ForgeForm
+  user (CLAUDE.md, "Web support"), and their trainee app opens the same hub for
+  their own coach chat. That connection's user held the licence too, so it
+  joined, and their phone received every `ClientDataChanged` about every client
+  and threw each one away.
+
+`JoinTrainerGroup()` replaces it. It takes no arguments and reads the caller's id
+from their token, as every other hub method does. It checks the licence and adds
+the calling connection, and only that one. The console calls it after every
+connect and every reconnect, because a reconnect is a new connection id and
+SignalR forgets a connection's groups along with the old one. Connecting alone
+joins nothing and reads nothing (`Connecting_joins_no_group_and_reads_nothing`).
+
+The argument for joining at connect doesn't hold up either. No old console
+build needs protecting, because the console that reads these events and the call
+that joins the group ship in the same change. And a reconnect was never
+something the console could ignore, since it refetches every pane shown when
+its socket comes back (§55).
+
+A failure inside `JoinTrainerGroup` is logged and the call returns normally, as
+the connect-time join did. Chat rides the same socket and must never come to
+depend on live updates. The console's refetch on focus and on reconnect covers a
+group it failed to join.
+
 ### Only an Active relationship, checked when the event is sent
 
 CLAUDE.md's rule for this codebase is to tie SignalR group membership and any
-trainer-facing data access to an Active relationship, not to a role. At first
-sight `trainer:{trainerId}` breaks it: a connection joins because its user holds
-a licence, which is a role, whoever their clients are.
+trainer-facing data access to an Active relationship, not to a role.
+`trainer:{trainerId}` is joined on a licence, which is a role, whoever the
+trainer's clients are. It is the one exception to that rule. CLAUDE.md now
+records it next to the rule, with its reason. An exception argued only in a
+design document reads as a breach to anyone who reads the rule first, and the
+review that found it read it exactly that way.
 
-It doesn't, because the group grants nothing. It is an address, one per trainer,
+The reason is that the group grants nothing. It is an address, one per trainer,
 that only that trainer's own connections can be in: the id comes from their
 token, not from anything they send. What reaches the address is decided per
 event. `LiveUpdateNotifier` looks up, when it sends, the trainers whose
@@ -2899,8 +2964,14 @@ the relationships at connect, and it goes stale for exactly as long as the
 socket lives, which for a console is all day. Checked at send, the first event
 after a relationship ends goes nowhere.
 
+The rule is there so that access can't outlive the relationship it was granted
+for. A membership check meets that once, when the connection joins. A filter on
+every send meets it every time an event is sent, which is strictly more often,
+so the exception keeps what the rule protects more tightly than following the
+rule would.
+
 Being a trainer is holding a licence (`docs/trainer-licensing.md`), so that is
-what `OnConnectedAsync` checks — not having clients, which would leave a new
+what `JoinTrainerGroup` checks — not having clients, which would leave a new
 trainer's console deaf until the first invite was accepted. A lapsed licence
 still joins: a read-only trainer can still read, so they can still be told
 something changed.
@@ -2911,8 +2982,21 @@ reads the `NameIdentifier` claim, and a token minted by the OAuth path carries
 the user's id as a bare `sub`. The hub already had to learn that once
 (`ChatHub.GetUserId`, and `A_token_carrying_only_sub_is_accepted` in the chat
 tests). Addressed by user, a trainer who signed in with Google would never have
-received an event. The group is joined with the hub's own reading of the id,
-which handles both.
+received an event. The group is joined with the same reading of the id that
+every controller uses, which handles both.
+
+That reading had been copied thirteen times, two lines each: into the hub,
+eight controllers (one of them three times), `RequireEntitledLicenceFilter` and
+the live-update middleware.
+One copy had already drifted once, which is the hub bug above. It is now one
+extension, `ClaimsPrincipal.TryGetUserId(out Guid id)` in
+`ClaimsPrincipalExtensions`. It reads `NameIdentifier`, then `sub`, and parses the
+first one it finds as a GUID, exactly as every copy did. A `NameIdentifier` that
+isn't a GUID fails rather than falling back to `sub`, which is also what every
+copy did (`The_id_is_read_from_NameIdentifier_then_sub_and_must_be_a_guid`). The
+sync controllers' one-line `Guid.Parse(…NameIdentifier…)` is a different parse:
+it throws where these return 401. It was left alone, because changing what those
+endpoints answer is not a refactor.
 
 ### The push goes only to someone else's change
 
@@ -2922,7 +3006,7 @@ the phone that just wrote, to pull what it just pushed. The server can't tell
 which of the owner's devices made the request, so it can't leave that one out.
 The push is therefore for the case the owner could not otherwise learn of: a
 change somebody else made. In practice that is a trainer, and the actor is the
-signed-in caller, read from the same claims the controllers read, `sub`
+signed-in caller, read by the same `TryGetUserId` the controllers use, `sub`
 included. A client's second device learns of the client's own edit on its next
 pull, as it always has. A request with no signed-in caller asks for no pull.
 Nobody made it, so it isn't somebody else's change.
@@ -2981,21 +3065,68 @@ queries through.
 ### Through the change tracker
 
 `SyncChangeInterceptor` records, for every save, the same three things it stamps
-and buries (§27, §29):
+and buries (§27, §29). Each is recorded as `ChangedData(Owner, Area)`, with the
+owner already found:
 
-| What the save does | What is recorded |
+| What the save does | Whose change it records |
 |---|---|
-| adds or changes a root with an owner column | the owner and the root's area, read off the row |
-| adds or changes a session | the session's id: its owner is its workout's, which the save may not hold |
-| adds, changes or removes a child | its root's id, the one the interceptor stamps |
-| deletes a root, or a meal food | the tombstone's owner and the area of its type |
+| adds or changes a root with an owner column | the owner, read off the row |
+| adds or changes a session | its workout's owner: from the tracker if it holds the workout, otherwise one query |
+| adds, changes or removes a child | its root's owner (the root the interceptor stamps): from the tracker if it holds the root, otherwise one query per kind of root |
+| deletes a root, or a meal food | the tombstone's owner, in the area of its type |
 
-A change recorded by id has its owner looked up later, after the request, in one
-query per kind of root (`LiveUpdateNotifier.OwnersOf`). Doing it in the save
-would have put a query into every write's transaction to find out something
-nobody needs until after the commit. A root deleted since it was recorded has no
-owner left to find, and needs none: its delete was recorded from its tombstone,
-which names one.
+### Owners are found when the write happens
+
+The first version didn't find them there. A root reached through a child was
+recorded by its id, and `LiveUpdateNotifier.OwnersOf` looked its owner up after
+the request, one query per kind of root. The reasoning was that a query in the
+save runs inside the write's transaction, to find out something nobody needs
+until after the commit. Review showed what that saving cost.
+
+**A third switch to keep in step, and the one that failed in the worst place.**
+`DataAreas.Of` gave a root its area, `DataAreas.OfTombstone` gave a deleted row
+its area, and `OwnersOf` gave a root its owner. They were three type switches,
+each correct on its own, kept in step by hand. The first two answer null for a
+type they don't know, because they run inside a save and a missing area must
+never cost a write. `OwnersOf` threw instead, and it threw in the notifier, while
+the request's changes were being grouped by owner, before anything had been sent.
+The dispatcher caught the exception, logged it and gave up on the request. So a
+root added to `DataAreas.Of` and not to `OwnersOf` would have cost more than its
+own event. It would have cost every event and every push the request made, for
+every owner, including owners already known from rows that named them. No test
+could fail, because every root that reached `OwnersOf` at the time had an entry.
+The hazard was real only for the next root, which is the one nobody tests.
+
+**A second round of queries after every write.** The notifier ran one owner
+query per kind of root the request had reached by id, one after another, and
+only then asked for trainers. A trainee's sets batch, which reaches its session
+only through the sets, cost two queries after the request, the first of them to
+learn an owner the request had already checked.
+
+Now the interceptor finds each owner as the save is written. `ChangedData` holds
+an owner and an area and nothing else, so it can't say "owner unknown", and the
+notifier has nothing to look up. A root the tracker holds costs nothing, and
+a write that checked ownership by loading the root holds it. A root the tracker
+doesn't hold costs one query per kind of root. That is the query `OwnersAsync`
+already ran for tombstones, and for a sets batch it is the same query the
+notifier used to run, moved into the save. A root that isn't found is left out
+on its own, and no other owner's record depends on it. `TouchAsync`, the one
+bulk helper that recorded by id, now takes its owner the way `TouchWhereAsync`
+does (below).
+
+`EveryOwnerIsKnownByTheTimeTheRequestEnds` plays four writes that each reach
+their owner only through a root the tracker doesn't hold: a set template, a
+logged set, a meal food and a plan link. Then it counts what the notifier asks
+the database. It was five queries. It is one.
+
+The switches collapsed as well. `OwnersOf` is gone. `DataAreas` is now one table
+instead of two switches: each row names a synced type, the tombstone type its
+deletes are buried under, and its area, and `Of` and `OfTombstone` both look it
+up. A new root is one row, so it can no longer be given an area for its changes
+and forgotten for its deletes. Two things are still kept by hand, because each
+does a different job per type. `CollectRoots` says which root each child
+belongs to. The tombstone switch in `BuryAsync` reads each type's owner, which
+for a session or a meal food is someone else's column.
 
 ### What the change tracker doesn't see
 
@@ -3010,7 +3141,7 @@ sessions under it, commits, answers 200, and is never told to anyone.
 | `ReplaceListAsync` (sets, set templates) | its list's owner, which the caller now passes (`owner:`), in the area of the list's root: `TouchWhereAsync` records it |
 | `WorkoutRepository.DeleteWorkoutAsync`, plans losing a link | the workout's owner, `workouts`: `TouchWhereAsync` |
 | the same, placeholder sessions deleted in bulk | the tombstones it writes by hand (`Bury`) are rows of the next save, and are recorded like the save's own |
-| `WorkoutRepository.DeleteWorkoutExerciseAsync`, sessions losing placeholder entries | the sessions' ids, owner looked up later: `TouchAsync` records the ids it stamps |
+| `WorkoutRepository.DeleteWorkoutExerciseAsync`, sessions losing placeholder entries | the workout's owner, `sessions`: `TouchAsync` |
 | `WorkoutPlanRepository.DeletePlanAsync`, sessions detached by `SET NULL` | the plan's owner, `sessions`: `TouchWhereAsync` |
 | `MealRepository.DeleteMealAsync` | the meal's owner, twice over: the stamp, and the meal's tombstone |
 
@@ -3024,8 +3155,14 @@ the compiler can hold. A new bulk statement can't be written without saying
 whose data it changes, though it can still say the wrong user, which only a test
 will notice.
 
-It records only when the statement stamped at least one row. A plan with no
-sessions under it, deleted, says `workouts` and not `sessions`.
+`TouchAsync` is given its roots' ids, so it could look their owners up. It takes
+the owner as a required parameter anyway. Its one caller already had the owner,
+since it had just checked that the workout was the caller's, and a lookup would
+have been a query inside the write's transaction to learn what the caller
+already knew.
+
+`TouchWhereAsync` records only when the statement stamped at least one row. A
+plan with no sessions under it, deleted, says `workouts` and not `sessions`.
 
 ### Why nothing would catch the next one
 
@@ -3122,9 +3259,8 @@ still reported (`ARequestThatFailsAfterCommittingStillQueuesWhatItCommitted`).
 
 The notifying itself runs after the request, on a detached task with its own DI
 scope (`LiveUpdateDispatcher`). It is chat's pattern (`ChatPushDispatcher`, and
-`docs/chat-architecture.md` §18). Waiting would put an owner lookup, a
-relationship query, a hub send and a round trip to Google in front of every
-write's answer. Failures are logged there, one send at a time. A hub that throws
+`docs/chat-architecture.md` §18). Waiting would put a relationship query, a
+hub send and a round trip to Google in front of every write's answer. Failures are logged there, one send at a time. A hub that throws
 doesn't stop the push (`AFailedSendStillAsksForThePull`), a push that throws
 doesn't stop the next owner (`AFailedPushStopsNothingElse`), and the request
 finished before any of it began.
@@ -3143,6 +3279,32 @@ request, and the warning applies. It applies less than it looks:
   does that from the console, which holds such a socket. On a single instance,
   the usual case at this size, that is this instance.
 - **Either one lost** is an update that arrives later, never a wrong one (below).
+
+### The common case returns early
+
+Nearly every write is a user changing their own data: a trainee's phone pushing
+its sync, and most trainees have no trainer at all. For a request like that
+there is nobody to send an event to and nobody to ask to pull. The notifier
+finds that out with the one query it has to make, for the owners' Active
+trainers. It makes that query first, and returns as soon as it finds none and
+the caller owns everything the request changed
+(`AUserWithNoTrainerChangingTheirOwnDataCostsOneQueryAndNothingElse`).
+
+Both halves of the condition matter. Take a trainer's write to a client whose
+relationship ended between the commit and the notification. There is no
+trainer left to tell, but the client's data changed under them, and their
+devices still have to be asked to pull
+(`SomebodyElsesChangeStillAsksForThePullWhenNoTrainerIsLeftToTell`).
+
+The review asked for more than that: to return before the detached task and its
+scope are created at all. That would need the trainers query answered without a
+new scope, and the only context that exists without one is the request's own.
+Asking it there, in the middleware, puts a database round trip between the
+controller's last write and the end of the response, because the response
+isn't finished until the middleware returns. Keeping that round trip off the
+request is the reason this section exists. The task and the scope cost a work
+item and a few allocations, microseconds next to the round trip they carry. So
+they stay, and that query is all the common case does.
 
 ### No backplane, and what a missed event costs
 
@@ -3177,7 +3339,7 @@ costs very little.
 |---|---|
 | The SignalR events | Nothing per message: the hub is part of the API, not a paid SignalR service. The real cost of SignalR here is an instance kept allocated while a socket is open, and the console already held that socket for chat. The events add a few hundred bytes to it. A second hub would have doubled the sockets, which is why there isn't one. |
 | FCM `sync_requested` | Free: FCM has no per-message charge. It is sent only for a change someone other than the owner made, and collapsed. |
-| The database | Per request that committed a change, after the request: one query per kind of root recorded by id (usually none or one), and one indexed query for the owners' Active trainers (`TrainerClients.ClientId`). A request that commits nothing, which covers every read, costs nothing but an empty log. |
+| The database | Per request that committed a change, after the request: one indexed query for the owners' Active trainers (`TrainerClients.ClientId`), and nothing else when there are none and the caller changed only their own data. Inside the write: one owner query per kind of root reached through a child the tracker doesn't hold, usually none. A request that commits nothing, which covers every read, costs nothing but an empty log. Opening a connection costs nothing. Only the console asks to join, at one licence query per connect and reconnect. |
 | Not added | A Redis backplane (Memorystore is a fixed monthly cost). The focus and reconnect refetches cover what it would. |
 
 The rework as a whole still lowers the server's load. Parts one to three replaced
@@ -3185,8 +3347,9 @@ nine full-list downloads on every sync with one delta.
 
 ### What the tests pin
 
-In `FitTracker.Api.Tests/LiveUpdateTests.cs` (26), `ChatHubTests.cs` (3 more)
-and `DeviceTokenTests.cs` (4 more). Each test was written first and run against a
+In `FitTracker.Api.Tests/LiveUpdateTests.cs` (30), `ChatHubTests.cs` (4 more),
+`DeviceTokenTests.cs` (4 more) and `ClaimsPrincipalExtensionsTests.cs` (1). Each
+test in the first version was written first and run against a
 skeleton: the types and signatures in place, nothing recorded, nothing sent,
 nothing joined. The ones that describe an absence (no event for a client with no
 trainer, no group for a non-trainer) and the ones that pin a shape (the JSON, chat's FCM
@@ -3200,7 +3363,11 @@ failure back:
 | *AClientWithNoActiveTrainerIsNobodysEvent* | §46 | an event is sent with no group to send it to |
 | *ATrainersWriteToAClientsDataAsksTheClientsDevicesToPull*, *ATrainersDeleteOfAClientsWorkoutReachesTheClient*, *ATrainersRequestTouchingTwoClientsIsOneEventAndOnePullEach* | §46: the owner's devices, when somebody else changed the data | nothing is pushed; the push goes to the actor |
 | *AUsersWriteToTheirOwnDataAsksForNoPull*, *ARequestWithNoSignedInUserAsksForNoPull* | §46: only somebody else's change | every change is pushed; a request with no caller counts as somebody else |
-| *EachKindOfDataIsReportedInItsArea*, *AChildsChangeIsReportedInItsRootsArea*, *EveryTombstoneTypeHasAnArea* | §45: the areas; §47: a root's own change, a child's through its root, a delete through its tombstone | a root is moved to another area; a tombstone type has none; a changed root isn't recorded; a root reached through a child isn't, or its owner isn't looked up |
+| *EachKindOfDataIsReportedInItsArea*, *AChildsChangeIsReportedInItsRootsArea*, *EveryTombstoneTypeHasAnArea* | §45: the areas, settings in `nutrition`; §47: a root's own change, a child's through its root, a delete through its tombstone | a root is moved to another area, or settings lose theirs; a tombstone type has none; a changed root isn't recorded; a root reached through a child isn't, or its owner isn't found |
+| *EverySyncedRootHasAnArea* | §45: every `ISyncRoot` has a row in `DataAreas` | a root's row is missing |
+| *EveryOwnerIsKnownByTheTimeTheRequestEnds* | §47: owners found in the write; the notifier's one query | an owner is looked up after the request; a session the tracker doesn't hold isn't found |
+| *AUserWithNoTrainerChangingTheirOwnDataCostsOneQueryAndNothingElse* | §48: the early return | the notifier asks anything more |
+| *SomebodyElsesChangeStillAsksForThePullWhenNoTrainerIsLeftToTell* | §48: the early return needs both halves | the return ignores who made the change |
 | *ManyChangesInOneRequestAreOneEventPerOwner* | §48: once per request, naming every area, in order | an event goes per change; the areas aren't ordered |
 | *ARolledBackTransactionNotifiesNobodyAndLeavesWhatCommittedBeforeIt* | §48 | a save counts once it returns, whatever its transaction then does |
 | *AFailedSaveIsNotReportedByTheSaveAfterIt*, *AFailedSaveInsideATransactionIsNotReportedWhenTheTransactionCommits* | §48: a failed save takes back what it recorded, and only that | nothing is taken back; where the save began isn't marked |
@@ -3212,11 +3379,24 @@ failure back:
 | *WhatARequestCommittedIsQueuedWhenItEnds*, *ARequestThatFailsAfterCommittingStillQueuesWhatItCommitted*, *ARequestThatCommitsNothingQueuesNothing*, *TheActorIsReadFromAnOAuthTokensSubClaimToo* | §48: the middleware; §46: the actor | the queue isn't in a `finally`; an empty log is queued; the actor is read from `NameIdentifier` only |
 | *AContextBuiltByDependencyInjectionRecordsIntoTheRequestsLog* | §47: the request's context records into the request's log | the context ignores the log it is given |
 | *TheEventReachesTheConsoleAsCamelCaseJson* | §45: the wire format the console reads | the payload gains a field |
-| *A_trainers_connection_joins_its_trainer_group*, *A_non_trainers_connection_joins_no_group*, *A_trainer_without_a_licence_joins_no_group* | §46: a licence makes a trainer | nothing is joined; the licence isn't checked |
+| *A_trainer_who_asks_joins_their_trainer_group*, *A_non_trainer_who_asks_joins_no_group*, *A_trainer_without_a_licence_who_asks_joins_no_group* | §46: a licence makes a trainer | nothing is joined; the licence isn't checked |
+| *Connecting_joins_no_group_and_reads_nothing* | §46: only the console joins | a connection is joined, or anything is read, when it opens |
+| *The_id_is_read_from_NameIdentifier_then_sub_and_must_be_a_guid* | §46: one reading of the caller | `sub` is read first; a bad `NameIdentifier` falls back to `sub` |
 | *A_sync_request_is_data_only_collapsed_and_not_urgent*, *Fcm_is_given_the_collapse_key_for_both_platforms*, *A_chat_push_to_fcm_is_unchanged* | §46: the push, and chat's untouched | it is sent at high priority, or not collapsed; Android isn't given the key; chat gains an APNs block, or loses high priority |
 
 *A_sync_request_prunes_dead_tokens_like_a_chat_push* shares chat's pruning,
 and fails with it.
+
+The tests added in review were run against the code the review was of. Four
+failed there, as they should: `EachKindOfDataIsReportedInItsArea` and
+`EverySyncedRootHasAnArea` (settings had no area),
+`EveryOwnerIsKnownByTheTimeTheRequestEnds` (five queries, not one), and
+`Connecting_joins_no_group_and_reads_nothing` (the connection joined). Two pass
+there by design. The old notifier also made one query for a trainee with no
+trainer, because a weight and a setting name their owner, and it had no early
+return to take wrongly. Those two pin the early return against its mutations
+instead: a query added before it, and a return that ignores the actor. Every
+test in the table was checked against a mutation that puts its failure back.
 
 Two mutations survived the first run, and both taught something.
 
@@ -3247,9 +3427,14 @@ and the comment at that line says why.
   them. A row it deletes gets a tombstone through `Bury`, which the next save
   records. A new bulk path gets a test that ends the request and checks the
   areas, because nothing else will notice it doesn't.
-- **A new synced root needs an area** in `DataAreas.Of`, a tombstone type in
-  `DataAreas.OfTombstone` (a test checks every type has one), and an owner lookup
-  in `LiveUpdateNotifier.OwnersOf` if anything records it by id.
+- **A new synced root is one row in `DataAreas`' table**: its type, the tombstone
+  type its deletes are buried under, and its area. Tests check that every
+  `ISyncRoot` and every tombstone type has a row. A new child goes in
+  `CollectRoots`, and its root's owner is found there, as the save is written.
+- **A change is recorded with its owner.** Find it where the write happens: from
+  the row, from the tracker, or from the caller, who has already checked it.
+  Never look it up after the request. A change whose owner can't be found is
+  left out on its own, and never costs anyone else their event.
 - **Nothing is sent before the commit, and nothing more than once a request.**
   Don't send from a save, an interceptor or a transaction hook. Record, and let
   the middleware hand on what committed. The middleware only sees HTTP requests:
@@ -3260,7 +3445,16 @@ and the comment at that line says why.
   endpoint that checks the relationship itself.
 - **Who hears of a change is decided when it is sent**, against Active
   relationships. A group is an address, never a permission, and membership is
-  never computed from relationships at connect.
+  never computed from relationships at connect. `trainer:{trainerId}` is the one
+  group joined on a role, a licence, and CLAUDE.md records it as the exception.
+- **Only the console joins.** Nothing is joined, and nothing is read, when a
+  connection opens. The console calls `JoinTrainerGroup()` after each connect
+  and reconnect.
+- **The common case costs one query.** The notifier asks for the owners' Active
+  trainers first, and returns when there are none and the caller changed only
+  their own data. Nothing may be added in front of that return.
+- **A caller's id is read one way**: `ClaimsPrincipal.TryGetUserId`. A new
+  controller, filter, hub or middleware doesn't write its own.
 - **The push is for somebody else's change.** It carries only its type, is
   collapsed, and is never sent at high priority, since it never shows a
   notification.
@@ -3726,10 +3920,6 @@ way back when the change it should have carried is committed.
   can't tell which of the owner's devices made a request, so a push for the
   owner's own write would wake the phone that made it. Their other devices see
   it on their next pull, as before.
-- **An area for settings** (§45). The contract gives settings none, but the
-  console's Nutrition pane shows the client's calorie goal, which lives there.
-  A client changing it is seen at the console's next refetch, not at once.
-  Mapping `UserSettings` to `nutrition` in `DataAreas.Of` is the whole fix.
 - **`sync_requested` on iOS** (§46). The collapse header is set. What else a
   data-only message needs to reach an iOS app belongs to building iOS at all
   (`docs/push-notifications.md`).
