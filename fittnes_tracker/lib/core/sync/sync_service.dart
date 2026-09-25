@@ -303,6 +303,17 @@ class SyncService {
     return named ?? (sent is Map ? sent['id'] as String? : null);
   }
 
+  /// Every id a 410 refused. A batch carrying deleted ids applies nothing and
+  /// names all of them in `ids`, so they can be dropped in one pass instead of
+  /// one retry each; an answer without `ids` falls back to [_goneId].
+  static List<String> _goneIds(Object error) {
+    final one = _goneId(error);
+    if (one == null) return const [];
+    final body = (error as DioException).response?.data;
+    final ids = body is Map ? body['ids'] : null;
+    return ids is List ? ids.whereType<String>().toList() : [one];
+  }
+
   /// The changes feed's name for what a row of [table] is, for the tables
   /// whose rows the server records a deletion of (a tombstone). A table not
   /// listed has none, and so no create of it is ever answered 410.

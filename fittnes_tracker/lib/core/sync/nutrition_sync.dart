@@ -397,15 +397,23 @@ extension NutritionSync on SyncService {
     try {
       await _apiClient.post('api/Meal/$mealServerId/foods/batch', data: body);
     } catch (e) {
-      final gone = SyncService._goneId(e);
-      // Only an entry this request named — which is also what makes the
-      // retry end: each one removes an entry from a finite list.
-      if (gone != null && body.any((b) => b['id'] == gone)) {
+      // Only entries this request named — which is also what makes the
+      // retry end: each pass removes at least one entry from a finite list.
+      // The batch applied nothing, so the rest are sent again.
+      final gone = [
+        for (final id in SyncService._goneIds(e))
+          if (body.any((b) => b['id'] == id)) id,
+      ];
+      if (gone.isNotEmpty) {
         _logger.w(
-          'Meal $localMealId: food $gone was removed elsewhere (410); '
+          'Meal $localMealId: foods $gone were removed elsewhere (410); '
           'dropped here, sending the rest again',
         );
-        await _db.untracked(() => _mealFoodGone(gone));
+        await _db.untracked(() async {
+          for (final id in gone) {
+            await _mealFoodGone(id);
+          }
+        });
         return _upsertMealFoods(localMealId, mealServerId);
       }
       // One entry's id names a row that isn't this account's (409). That

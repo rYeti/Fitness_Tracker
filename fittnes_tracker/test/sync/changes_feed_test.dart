@@ -556,6 +556,33 @@ void main() {
       expect(api.deletes, isEmpty);
       expect(await db.select(db.syncDeletionTable).get(), isEmpty);
     });
+    test('drops every deleted food a refused batch names, in one retry',
+        () async {
+      final oats = await syncedFood('server-f1');
+      final banana = await syncedFood('server-f2');
+      final apple = await syncedFood('server-f3');
+      final meal = await syncedMeal('server-m1', oats);
+      await db.untracked(() async {
+        await db.mealDao.addFoodToMeal(oats, meal, 'server-e1');
+        await db.mealDao.addFoodToMeal(banana, meal, 'server-e2');
+      });
+      // Another device took both out; the server remembers.
+      api.deletedIds.addAll({'server-e1', 'server-e2'});
+
+      await db.mealDao.addFoodToMeal(apple, meal, 'server-e3');
+      await sync.syncAll();
+
+      final batches = [
+        for (final p in api.posts)
+          if (p.path == 'api/Meal/server-m1/foods/batch')
+            {for (final e in (p.data as List).cast<Map>()) e['id']},
+      ];
+      // The refused batch, then one carrying only what is left.
+      expect(batches, hasLength(2));
+      expect(batches.last, {'server-e3'});
+      final entries = await db.mealDao.getAllFoodEntriesForMeal(meal);
+      expect(entries.map((e) => e.serverId).toSet(), {'server-e3'});
+    });
   });
 
   group('a DELETE the server refuses', () {

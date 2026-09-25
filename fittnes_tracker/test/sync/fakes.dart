@@ -64,8 +64,9 @@ class FakeApiClient extends ApiClient {
   final List<String?> changesSince = [];
 
   /// Ids the server holds a deletion of: a POST naming one — as a create, or
-  /// as an entry of a batch — is refused with 410 `{error: id_deleted, id}`,
-  /// as the API refuses to create a deleted id again.
+  /// as an entry of a batch — is refused with 410 `{error: id_deleted, id,
+  /// ids}`, as the API refuses to create a deleted id again: a batch applies
+  /// nothing and `ids` names every deleted entry, `id` the first.
   final Set<String> deletedIds = {};
 
   /// A changes answer holding nothing, with [cursor] as its cursor.
@@ -138,22 +139,22 @@ class FakeApiClient extends ApiClient {
         message: 'FakeApiClient: response to POST $path lost',
       );
     }
-    final deleted = _deletedIdIn(data);
-    if (deleted != null) {
-      _failIfStubbed(path, 410, {'error': 'id_deleted', 'id': deleted});
+    final deleted = _deletedIdsIn(data);
+    if (deleted.isNotEmpty) {
+      _failIfStubbed(path, 410, {
+        'error': 'id_deleted',
+        'id': deleted.first,
+        'ids': deleted,
+      });
     }
     _failIfStubbed(path, postStatuses[path], postErrorBodies[path]);
     return _ok(path, postResponses[path] ?? _echo(data));
   }
 
-  String? _deletedIdIn(dynamic data) {
-    for (final item in data is List ? data : [data]) {
-      if (item is Map && deletedIds.contains(item['id'])) {
-        return item['id'] as String;
-      }
-    }
-    return null;
-  }
+  List<String> _deletedIdsIn(dynamic data) => [
+    for (final item in data is List ? data : [data])
+      if (item is Map && deletedIds.contains(item['id'])) item['id'] as String,
+  ];
 
   static dynamic _echo(dynamic data) => switch (data) {
     final Map m => Map<String, dynamic>.from(m),
