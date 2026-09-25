@@ -7,10 +7,10 @@ behind it that aren't obvious from the diff, and the rules to keep.
 
 The rework is staged. Part one (§1–§13) changes only the app. Part two
 (§14–§25) changes the API as well: the device mints every row's id, and a
-create can tell a repeat from a new request. Part three (§26 onwards) makes the
+create can tell a repeat from a new request. Part three (§26–§44) makes the
 pull fetch only what changed, and tells a device about deletes instead of
-leaving it to infer them. A later part tells each side when the other changes
-something; it will be added here when it lands.
+leaving it to infer them. Part four (§45 onwards) tells each side when the
+other changes something, so neither has to wait for its next sync to see it.
 
 Line references are to the commit that introduces each part.
 
@@ -2753,11 +2753,544 @@ from, not of what they say. Five in `sync_rework_test.dart` changed in meaning:
 
 ---
 
+# Part four: live updates
+
+Parts one to three made the data right and the pull cheap. Neither side learned
+of a change any sooner, though. The phone pulled when it was opened, and the
+Trainer Console read a client's data when the trainer navigated to it. A client
+finishing a session at the gym reached the server within seconds (§9), and then
+sat there until the trainer happened to click. A trainer editing a client's
+programme reached the client's phone the next time it was opened.
+
+Part four has the server say *something changed* to whoever should know, and
+each side fetches the change straight away through the paths it already had.
+The server says it two ways:
+
+| | To a trainer's console | To a client's phone |
+|---|---|---|
+| When | anyone changes a client of theirs' data: the client, or a trainer | somebody other than the client changes the client's data |
+| How | `ClientDataChanged` on the SignalR socket the console already holds | a data-only FCM message, `sync_requested` |
+| Carries | whose data, and which panes it touches | nothing but its type |
+| Answered by | refetching those panes through the console's endpoints | a pull (§36) |
+| When it is missed | the console refetches on focus and on reconnect | the app pulls when it is next opened |
+
+This part lands in one pull request in two halves, like part three. The
+server's half (§45–§49) deploys first; with no console listening, it sends
+events to empty groups and pushes a type no shipped app acts on, which costs
+nothing. The console's and the app's half follows in the same pull request and
+is written up in §50 onwards.
+
+---
+
+## 45. A signal, not the data
+
+### The contract
+
+Both halves were written at once, against this:
+
+- **Where.** The console's existing chat connection, `/hubs/chat` (token in
+  `?access_token=`, as for chat). When a connection opens, `ChatHub.OnConnectedAsync`
+  puts it in the group `trainer:{trainerId}` if its user holds a trainer licence
+  (`ChatHub.TrainerGroup`). The console joins nothing itself.
+- **What.** One hub event, `ClientDataChanged`, with one argument. On the wire
+  (SignalR's JSON protocol, which camel-cases):
+
+  ```json
+  { "type": 1, "target": "ClientDataChanged",
+    "arguments": [ { "clientId": "5b1e7c2a-3f0d-4c1e-9a55-0c2f6d8e4b71", "areas": ["sessions", "workouts"] } ] }
+  ```
+
+  `clientId` is the owner of the data, formatted exactly as the console's own
+  endpoints format a client's id: a lower-case, hyphenated GUID, the same
+  string the roster's `clientId` holds. `areas` is a non-empty subset of
+  `workouts`, `sessions`, `nutrition` and `weight`, sorted ordinally, so
+  `nutrition` comes before `sessions`, `weight` and `workouts`
+  (`DataAreas`, `ClientDataChangedDto`).
+- **To whom.** The groups of the trainers with an **Active** relationship to
+  that client, and nobody else (§46).
+- **The push.** When the person who made the change is not the data's owner, the
+  owner's devices get `{ "type": "sync_requested" }` and nothing more, collapsed
+  under the key `sync_requested` (§46).
+- **When.** Once per request, after it has committed, never inside a
+  transaction (§48).
+- **Failure.** A send or a push that fails is logged. The request never hears
+  of it (§48).
+
+An area is a pane of the console, not a table on the server, because the one
+thing the console does with it is decide which panes to fetch again:
+
+| The change is to… (a child's change is its root's, as in §27) | Area |
+|---|---|
+| an exercise, a workout (its entries and set templates), a plan (its workout links) | `workouts` |
+| a scheduled workout (its exercises and logged sets) | `sessions` |
+| a meal (its foods), a food item, a meal template (its items) | `nutrition` |
+| a weight entry | `weight` |
+| settings | none — no event |
+
+### Why the event carries nothing
+
+The obvious event carries the change: the session that was logged, the meal
+that was added. The console would apply it and never make a request. This one
+says only *whose* data changed and roughly where, and the console answers it by
+fetching the affected panes through the endpoints it already uses. That costs a
+round trip per event. It buys three things, and the first is the reason.
+
+**Every read of a client's data goes through one door.** Each Trainer Console
+endpoint checks, on every call, that the caller has an Active relationship with
+the client (`IsActiveTrainerOfAsync`), and CLAUDE.md is explicit that this check
+is the security boundary and the app's gate is not. An event carrying data would
+be a second way for a client's data to reach a trainer, with its own access
+check to keep in step with the first. `docs/trainer-console-duplicate-rows.md`
+§5 is about exactly that shape of mistake: two definitions of one thing, each
+right on the day it was written, drifting apart. An event with nothing in it
+has nothing to protect. The worst a wrongly delivered one could leak is that a
+named user's data changed.
+
+**The console keeps one way of building a pane.** Session Review, the nutrition
+summary and the roster KPIs are aggregates the server computes. An event that
+carried a changed set would have the console recompute them from fragments, and
+get them subtly different from what the endpoint returns.
+
+**A missed event costs nothing but time.** This is §48's subject, and it
+decides the design as much as the first reason does. An event that carries data
+is an update to a copy, and a lost one leaves the copy wrong. Nothing will
+correct it until something replaces the whole copy. An event that carries
+nothing is a hint that the copy is stale. Every such hint means the same thing,
+so a refetch after ten missed hints is as good as receiving all ten.
+
+### Why one hub
+
+The console already holds a `ChatHub` connection for as long as it is open.
+`TrainerConsoleHome` owns it so that it survives switching sections. A second
+hub would mean a second socket per open console. On Cloud Run an open socket is
+an in-flight request, which keeps an instance allocated. That is the one real
+running cost of SignalR here, and a second hub would double it for the same
+people. The group is joined in `OnConnectedAsync` rather than by a hub method
+the console calls, so an old console build, or one that reconnects, is in the
+group without doing anything.
+
+---
+
+## 46. Who hears of it
+
+### Only an Active relationship, checked when the event is sent
+
+CLAUDE.md's rule for this codebase is to tie SignalR group membership and any
+trainer-facing data access to an Active relationship, not to a role. At first
+sight `trainer:{trainerId}` breaks it: a connection joins because its user holds
+a licence, which is a role, whoever their clients are.
+
+It doesn't, because the group grants nothing. It is an address, one per trainer,
+that only that trainer's own connections can be in: the id comes from their
+token, not from anything they send. What reaches the address is decided per
+event. `LiveUpdateNotifier` looks up, when it sends, the trainers whose
+relationship with that client is `Active`, and sends to their groups and no
+others. A Pending invite, a relationship the client or the trainer has ended,
+and a trainer of somebody else get nothing
+(`AClientsWriteReachesOnlyTheirActiveTrainer`).
+
+The alternative keeps membership per client: at connect, the trainer's
+connection joins `client:{id}` for each Active client, and events go to the
+client's group. It is the same query, run at the wrong time. A relationship that
+ends while the console is open leaves the connection in the group, still
+receiving, until it reconnects. A client who accepts an invite during that time
+is not in it until then either. Membership computed at connect is a snapshot of
+the relationships at connect, and it goes stale for exactly as long as the
+socket lives, which for a console is all day. Checked at send, the first event
+after a relationship ends goes nowhere.
+
+Being a trainer is holding a licence (`docs/trainer-licensing.md`), so that is
+what `OnConnectedAsync` checks — not having clients, which would leave a new
+trainer's console deaf until the first invite was accepted. A lapsed licence
+still joins: a read-only trainer can still read, so they can still be told
+something changed.
+
+**Why a group, and not `Clients.User`.** SignalR can address a user directly by
+the id its `IUserIdProvider` reads from the connection. The default provider
+reads the `NameIdentifier` claim, and a token minted by the OAuth path carries
+the user's id as a bare `sub`. The hub already had to learn that once
+(`ChatHub.GetUserId`, and `A_token_carrying_only_sub_is_accepted` in the chat
+tests). Addressed by user, a trainer who signed in with Google would never have
+received an event. The group is joined with the hub's own reading of the id,
+which handles both.
+
+### The push goes only to someone else's change
+
+A client who logs a meal on their phone already has the meal on that phone.
+Pushing `sync_requested` to every device they own after every write would wake
+the phone that just wrote, to pull what it just pushed. The server can't tell
+which of the owner's devices made the request, so it can't leave that one out.
+The push is therefore for the case the owner could not otherwise learn of: a
+change somebody else made. In practice that is a trainer, and the actor is the
+signed-in caller, read from the same claims the controllers read, `sub`
+included. A client's second device learns of the client's own edit on its next
+pull, as it always has. A request with no signed-in caller asks for no pull.
+Nobody made it, so it isn't somebody else's change.
+
+The trainer who made the change still gets the event on their own console,
+because they are the client's Active trainer like any other. That is
+deliberate: the console refetches what it just wrote, which costs one read, and
+any second console the trainer has open is brought up to date by it.
+
+### Data-only, collapsed, and not urgent
+
+The message is `{ "type": "sync_requested" }`: no notification block and no
+data. The app pulls through endpoints that check who is asking. It shows
+nothing, so there is nothing to render, and data in the payload would be
+another way round the endpoints (§45).
+
+It is **collapsed**, with Android's `collapse_key` and iOS's `apns-collapse-id`
+both set to `sync_requested` (`FirebasePushSender.ToMulticast`). A trainer
+saving a workout in the Workout Builder makes a burst of requests, and each
+one that changes the client's data queues a push. While a phone is offline or
+dozing, FCM keeps only the latest message under one key, so the phone wakes
+to one message, not twenty. Chat messages are not collapsed. Each one is its
+own content, and the key is null for them.
+
+It is sent at **normal priority**, where chat is sent at high. This is the one
+property of the message the contract didn't fix, and it protects chat. FCM
+starts delivering an app's high-priority messages at normal priority once it
+sees that they don't lead to a visible notification, and a `sync_requested`
+never does. Sent at high priority,
+it would teach Android that this app's high-priority messages are noise, and
+the messages that would then arrive late are chat's. Normal priority costs
+nothing here. The app acts on the message only while it is open, and a device
+in use receives a normal-priority message at once.
+
+iOS has never been built (`docs/push-notifications.md`). The collapse header is
+set anyway, so the server's half of the contract holds for both platforms. What
+else a data-only message needs to reach an iOS app, `content-available` among
+it, belongs to setting iOS up.
+
+---
+
+## 47. Whose data a write changed
+
+The server already knew which aggregates each write changed. Part three's
+interceptor stamps every root a save touches, and §27 recorded that it stamps
+the owner's row, not the actor's, "because part four will hang the trainer's
+live notifications off exactly this". So recording what changed is not a second
+analysis of each write. It is the same one, written down.
+
+Each request has one `ChangedDataLog` (`FitTracker.Api/Data/ChangedDataLog.cs`),
+registered per scope and given to the request's `AppDbContext` through its
+constructor. The same instance is what the middleware later reads. A context
+built without one records nothing: a test's, or the one the notifier itself
+queries through.
+
+### Through the change tracker
+
+`SyncChangeInterceptor` records, for every save, the same three things it stamps
+and buries (§27, §29):
+
+| What the save does | What is recorded |
+|---|---|
+| adds or changes a root with an owner column | the owner and the root's area, read off the row |
+| adds or changes a session | the session's id: its owner is its workout's, which the save may not hold |
+| adds, changes or removes a child | its root's id, the one the interceptor stamps |
+| deletes a root, or a meal food | the tombstone's owner and the area of its type |
+
+A change recorded by id has its owner looked up later, after the request, in one
+query per kind of root (`LiveUpdateNotifier.OwnersOf`). Doing it in the save
+would have put a query into every write's transaction to find out something
+nobody needs until after the commit. A root deleted since it was recorded has no
+owner left to find, and needs none: its delete was recorded from its tombstone,
+which names one.
+
+### What the change tracker doesn't see
+
+§28 listed the writes the interceptor can't see: `ExecuteDelete`,
+`ExecuteUpdate` and the database's cascades. Each already had to stamp by hand,
+and each now has to say whose data it changed. Otherwise a trainer clearing a
+prescription (a replace with nothing), or a client deleting a plan with
+sessions under it, commits, answers 200, and is never told to anyone.
+
+| Call site | What it records, and how |
+|---|---|
+| `ReplaceListAsync` (sets, set templates) | its list's owner, which the caller now passes (`owner:`), in the area of the list's root: `TouchWhereAsync` records it |
+| `WorkoutRepository.DeleteWorkoutAsync`, plans losing a link | the workout's owner, `workouts`: `TouchWhereAsync` |
+| the same, placeholder sessions deleted in bulk | the tombstones it writes by hand (`Bury`) are rows of the next save, and are recorded like the save's own |
+| `WorkoutRepository.DeleteWorkoutExerciseAsync`, sessions losing placeholder entries | the sessions' ids, owner looked up later: `TouchAsync` records the ids it stamps |
+| `WorkoutPlanRepository.DeletePlanAsync`, sessions detached by `SET NULL` | the plan's owner, `sessions`: `TouchWhereAsync` |
+| `MealRepository.DeleteMealAsync` | the meal's owner, twice over: the stamp, and the meal's tombstone |
+
+`TouchWhereAsync` stamps whatever roots a predicate matches when it runs (§28),
+so it can't know their ids, and can't look their owners up. Its caller names the
+owner instead, and the parameter is **required**. Every call site already had
+the owner at hand: it is the user whose row is being deleted or replaced, and
+the roots a predicate stamps there are that user's too. A default of "nobody"
+would have compiled everywhere and notified nobody. That is the one part of this
+the compiler can hold. A new bulk statement can't be written without saying
+whose data it changes, though it can still say the wrong user, which only a test
+will notice.
+
+It records only when the statement stamped at least one row. A plan with no
+sessions under it, deleted, says `workouts` and not `sessions`.
+
+### Why nothing would catch the next one
+
+This is §28's argument again, with a smaller failure attached. A write that
+records nobody is invisible to everything but a test that asks for the event:
+
+- the compiler sees an `ExecuteUpdateAsync` returning a count;
+- the write's own tests check the rows, and the rows are right;
+- the feed is right too, because the stamp is separate from the record;
+- the console still shows the change the next time the trainer looks, so even
+  a person testing by hand sees it work, just late.
+
+Nothing fails. The console is merely slower than it should be for one kind of
+write, and nobody has a reason to suspect which. That is why each bulk path in
+the table has its own test in `LiveUpdateTests`, which ends the request and
+checks the areas. For the replace that is `AReplaceWithNothingIsStillReported`;
+a replace that inserts rows would pass on the inserts alone, the same trap §28
+fell into with stamps.
+
+---
+
+## 48. After the commit, once per request
+
+### Held until it commits
+
+A change is recorded when it is written, which is before anyone knows whether it
+will commit. The log holds each one with the transaction it was written in, and
+counts it only once that transaction has committed:
+
+| Written by… | Counts when… |
+|---|---|
+| a save outside any transaction | the save succeeds. If EF opened a transaction of its own for it, that has committed by then |
+| a save or a statement inside a transaction | that transaction commits. If it rolls back, or is disposed without a commit, never |
+| a statement outside any transaction | at once: it committed by itself |
+| a save that fails | never. What it recorded is taken back, even inside a transaction that goes on: EF rolls a failed save back to a savepoint, and the transaction continues |
+
+The interceptor follows the save to its end (`SavedChanges`, `SaveChangesFailed`)
+and the transaction to its commit (`TransactionCommitted`). It records last,
+after the stamps and tombstones, because EF reports a save as failed only from
+its statements on. A record made before a stamp that threw would never be taken
+back, and the next successful save would commit it.
+
+The foods batch shows why this can't be simpler. It runs in one transaction and
+saves once per food, so its first food's save succeeds before its second food
+is refused (§30). A log that counted a save as done when the save returned
+would announce a meal that the rollback then took back.
+`ARolledBackTransactionNotifiesNobodyAndLeavesWhatCommittedBeforeIt` plays that
+request after a weight logged on its own. The event names the weight, and not
+the meal.
+
+### Why never before
+
+An event sent from inside a transaction can announce a change that a rollback
+then takes back, as above. That only costs a wasted refetch. The worse case is
+a change that does commit, because the event can still arrive too early:
+
+| Time | A client's phone logs a set | The trainer's console |
+|---|---|---|
+| t0 | the sets batch writes the set, in its transaction | |
+| t1 | (if the event were sent here) | receives `ClientDataChanged` |
+| t2 | | refetches Session Review; its read runs on another connection and can't see an uncommitted row |
+| t3 | commits | |
+| | | shows the session without the set, and has been told everything it will be told |
+
+An event is a promise that a read will now see something new. Sent before the
+commit, it breaks the promise for exactly the reader it was sent to. Nothing
+retries: the console has done what it was asked, and the change sits unseen
+until the tab next regains focus. Nothing tests this by accident either. In a
+test, the read and the write share one connection, where the uncommitted row is
+visible.
+
+### Why once per request
+
+A transaction commit is not the unit either. A trainer saving a workout in the
+Workout Builder makes one request, and that request is a dozen saves, several
+in transactions of their own: the workout, each exercise entry, each list of set
+templates.
+Sent at each commit, it would be a dozen events for one click, each asking the
+console to refetch the same pane. The console debounces, but the server has no
+reason to make it.
+
+So nothing is sent at a commit. `LiveUpdateMiddleware` runs around every
+request. When the request is done it takes what the log holds as committed, and
+hands it on once, with the caller. `LiveUpdateNotifier` sends one event per
+owner, naming every area the request changed for them
+(`ManyChangesInOneRequestAreOneEventPerOwner`). A trainer's request touching two
+clients is two events and two pushes, one each.
+
+The middleware takes the log in a `finally`. A request that commits and then
+fails, say while writing its answer, still changed the data, and the change is
+still reported (`ARequestThatFailsAfterCommittingStillQueuesWhatItCommitted`).
+
+### After the answer, off the request
+
+The notifying itself runs after the request, on a detached task with its own DI
+scope (`LiveUpdateDispatcher`). It is chat's pattern (`ChatPushDispatcher`, and
+`docs/chat-architecture.md` §18). Waiting would put an owner lookup, a
+relationship query, a hub send and a round trip to Google in front of every
+write's answer. Failures are logged there, one send at a time. A hub that throws
+doesn't stop the push (`AFailedSendStillAsksForThePull`), a push that throws
+doesn't stop the next owner (`AFailedPushStopsNothingElse`), and the request
+finished before any of it began.
+
+§18 also warns against exactly this. Cloud Run only guarantees CPU to an
+instance while a request is in flight, and work detached from a request that
+has answered is throttled. The chat push is safe because it is queued from a
+hub, whose socket is itself a request in flight. This is queued from an ordinary
+request, and the warning applies. It applies less than it looks:
+
+- **The SignalR event** can only reach connections on this instance (see below).
+  An instance holding a console's socket has a request in flight for as long as
+  the console is open, so it keeps its CPU. An instance holding none has nobody
+  to send to. Throttling can only delay an event that was going nowhere.
+- **The push** goes out when a trainer changes a client's data, and a trainer
+  does that from the console, which holds such a socket. On a single instance,
+  the usual case at this size, that is this instance.
+- **Either one lost** is an update that arrives later, never a wrong one (below).
+
+### No backplane, and what a missed event costs
+
+Cloud Run may run several instances of the API, and SignalR's groups live in
+each instance's memory. An event sent on one instance reaches only the sockets
+held on that one. A backplane (Redis, which on Google Cloud is Memorystore)
+would fan every event out to every instance. It is also a fixed monthly cost
+and a second piece of infrastructure to run, for a deployment that is usually
+one instance. Chat has lived with the same limit since it shipped.
+
+So an event can be missed. A write lands on instance B while the trainer's
+socket is on instance A; a socket drops and reconnects between a commit and its
+event; the detached task is lost when an instance shuts down. Each costs
+**freshness, never correctness**, and §45 is why. The console never applies
+anything from an event. Everything it shows comes from a read of the database,
+so the worst a missed event can do is leave a pane showing what was true a
+moment ago. To bound how long, the console also refetches when it regains focus
+and when its socket reconnects, and the app pulls whenever it is opened. That
+refetch is the guarantee. The event makes it sooner.
+
+The same reasoning is why there is no acknowledgement, no retry and no queue of
+unsent events. Each would make a hint more reliable, and a hint that is late
+costs very little.
+
+---
+
+## 49. What it costs, what the tests pin, and the rules (server)
+
+### Running cost
+
+| What | Cost |
+|---|---|
+| The SignalR events | Nothing per message: the hub is part of the API, not a paid SignalR service. The real cost of SignalR here is an instance kept allocated while a socket is open, and the console already held that socket for chat. The events add a few hundred bytes to it. A second hub would have doubled the sockets, which is why there isn't one. |
+| FCM `sync_requested` | Free: FCM has no per-message charge. It is sent only for a change someone other than the owner made, and collapsed. |
+| The database | Per request that committed a change, after the request: one query per kind of root recorded by id (usually none or one), and one indexed query for the owners' Active trainers (`TrainerClients.ClientId`). A request that commits nothing, which covers every read, costs nothing but an empty log. |
+| Not added | A Redis backplane (Memorystore is a fixed monthly cost). The focus and reconnect refetches cover what it would. |
+
+The rework as a whole still lowers the server's load. Parts one to three replaced
+nine full-list downloads on every sync with one delta.
+
+### What the tests pin
+
+In `FitTracker.Api.Tests/LiveUpdateTests.cs` (26), `ChatHubTests.cs` (3 more)
+and `DeviceTokenTests.cs` (4 more). Each test was written first and run against a
+skeleton: the types and signatures in place, nothing recorded, nothing sent,
+nothing joined. The ones that describe an absence (no event for a client with no
+trainer, no group for a non-trainer) and the ones that pin a shape (the JSON, chat's FCM
+mapping, every tombstone type's area) passed there, as they should. Each of
+those, like every other, was then checked against a mutation that puts the
+failure back:
+
+| Test | Pins | Fails when… |
+|---|---|---|
+| *AClientsWriteReachesOnlyTheirActiveTrainer* | §46: Active only, and only trainer groups | the status filter is dropped |
+| *AClientWithNoActiveTrainerIsNobodysEvent* | §46 | an event is sent with no group to send it to |
+| *ATrainersWriteToAClientsDataAsksTheClientsDevicesToPull*, *ATrainersDeleteOfAClientsWorkoutReachesTheClient*, *ATrainersRequestTouchingTwoClientsIsOneEventAndOnePullEach* | §46: the owner's devices, when somebody else changed the data | nothing is pushed; the push goes to the actor |
+| *AUsersWriteToTheirOwnDataAsksForNoPull*, *ARequestWithNoSignedInUserAsksForNoPull* | §46: only somebody else's change | every change is pushed; a request with no caller counts as somebody else |
+| *EachKindOfDataIsReportedInItsArea*, *AChildsChangeIsReportedInItsRootsArea*, *EveryTombstoneTypeHasAnArea* | §45: the areas; §47: a root's own change, a child's through its root, a delete through its tombstone | a root is moved to another area; a tombstone type has none; a changed root isn't recorded; a root reached through a child isn't, or its owner isn't looked up |
+| *ManyChangesInOneRequestAreOneEventPerOwner* | §48: once per request, naming every area, in order | an event goes per change; the areas aren't ordered |
+| *ARolledBackTransactionNotifiesNobodyAndLeavesWhatCommittedBeforeIt* | §48 | a save counts once it returns, whatever its transaction then does |
+| *AFailedSaveIsNotReportedByTheSaveAfterIt*, *AFailedSaveInsideATransactionIsNotReportedWhenTheTransactionCommits* | §48: a failed save takes back what it recorded, and only that | nothing is taken back; where the save began isn't marked |
+| *AReplaceWithNothingIsStillReported*, *DeletingAPlanReportsTheSessionsItDetaches* | §47: `TouchWhereAsync` | it records nothing |
+| *RemovingAnExerciseReportsTheSessionsWhosePlaceholdersGo* | §47: `TouchAsync` | it records nothing |
+| *DeletingAWorkoutReportsThePlaceholderSessionsItRemoves* | §47: `Bury` | tombstones written by hand aren't recorded |
+| the five above, *AChildsChange…* and *ManyChanges…* | §48: a transaction's changes count at its commit | the commit is ignored |
+| *AFailedSendStillAsksForThePull*, *AFailedPushStopsNothingElse* | §48: each send on its own | a failed send or push isn't caught |
+| *WhatARequestCommittedIsQueuedWhenItEnds*, *ARequestThatFailsAfterCommittingStillQueuesWhatItCommitted*, *ARequestThatCommitsNothingQueuesNothing*, *TheActorIsReadFromAnOAuthTokensSubClaimToo* | §48: the middleware; §46: the actor | the queue isn't in a `finally`; an empty log is queued; the actor is read from `NameIdentifier` only |
+| *AContextBuiltByDependencyInjectionRecordsIntoTheRequestsLog* | §47: the request's context records into the request's log | the context ignores the log it is given |
+| *TheEventReachesTheConsoleAsCamelCaseJson* | §45: the wire format the console reads | the payload gains a field |
+| *A_trainers_connection_joins_its_trainer_group*, *A_non_trainers_connection_joins_no_group*, *A_trainer_without_a_licence_joins_no_group* | §46: a licence makes a trainer | nothing is joined; the licence isn't checked |
+| *A_sync_request_is_data_only_collapsed_and_not_urgent*, *Fcm_is_given_the_collapse_key_for_both_platforms*, *A_chat_push_to_fcm_is_unchanged* | §46: the push, and chat's untouched | it is sent at high priority, or not collapsed; Android isn't given the key; chat gains an APNs block, or loses high priority |
+
+*A_sync_request_prunes_dead_tokens_like_a_chat_push* shares chat's pruning,
+and fails with it.
+
+Two mutations survived the first run, and both taught something.
+
+The first took out the line that makes a failed save take back what it had
+recorded. The test for a failed save still passed. It checked that the failed
+save sent nothing, and nothing had committed after it, so its leftover record
+never had a chance to be counted by anything. The failure the line prevents is
+the *next* save committing it. The test now does exactly that: it fails a save,
+then logs a weight in the same request, and expects only the weight. A second
+test does it inside a transaction, with a record made *before* the failure too,
+so that taking back too much fails as well. The general form is the one §31
+learned about the cursor: a test of "nothing happens" can pass because nothing
+could have happened. It has to give the bug its way out and check it wasn't
+taken.
+
+The second took out a guard in the interceptor. It took back the save's records
+if the interceptor itself threw before EF ran the save's statements, which EF
+doesn't report as a failed save. No test could make it throw there. And on
+another look, nothing had been recorded by then either: the records were written
+after the stamps. The guard is gone, the records are written last on purpose,
+and the comment at that line says why.
+
+### The rules part four leaves behind (server)
+
+- **A write to synced data says whose it changed.** Through the change tracker
+  that is automatic. A bulk statement stamps through `TouchAsync`, which records
+  the roots it stamps, or `TouchWhereAsync`, which takes the owner and records
+  them. A row it deletes gets a tombstone through `Bury`, which the next save
+  records. A new bulk path gets a test that ends the request and checks the
+  areas, because nothing else will notice it doesn't.
+- **A new synced root needs an area** in `DataAreas.Of`, a tombstone type in
+  `DataAreas.OfTombstone` (a test checks every type has one), and an owner lookup
+  in `LiveUpdateNotifier.OwnersOf` if anything records it by id.
+- **Nothing is sent before the commit, and nothing more than once a request.**
+  Don't send from a save, an interceptor or a transaction hook. Record, and let
+  the middleware hand on what committed. The middleware only sees HTTP requests:
+  a hub method or a background job has its own scope and its own log, and one
+  that ever writes synced data must hand that log to `ILiveUpdateDispatcher`
+  itself. None does today; chat writes nothing synced.
+- **The event carries no data.** A pane that needs something new gets it from an
+  endpoint that checks the relationship itself.
+- **Who hears of a change is decided when it is sent**, against Active
+  relationships. A group is an address, never a permission, and membership is
+  never computed from relationships at connect.
+- **The push is for somebody else's change.** It carries only its type, is
+  collapsed, and is never sent at high priority, since it never shows a
+  notification.
+- **A failure to notify is logged and goes no further.** Nothing in the request
+  waits on a notification.
+- **An event is a hint, and may be lost.** Anything the console relies on must
+  also arrive by the refetch on focus or reconnect. With no backplane, a lost
+  event is normal operation, not a fault.
+
+The device's half follows in §50.
+
+---
+
 ## What is deliberately not here yet
 
-- **Live updates to the Trainer Console and to the trainee's phone** (part
-  four). It will hang off §27's interceptor, which already knows whose data a
-  save changed.
+- **A SignalR backplane** (§48). An event reaches only the sockets on the
+  instance that sent it. The console's refetch on focus and on reconnect covers
+  what a missed one costs. A backplane is worth its fixed cost only once
+  someone measures trainers waiting on it.
+- **Telling a user's other devices about their own change** (§46). The server
+  can't tell which of the owner's devices made a request, so a push for the
+  owner's own write would wake the phone that made it. Their other devices see
+  it on their next pull, as before.
+- **An area for settings** (§45). The contract gives settings none, but the
+  console's Nutrition pane shows the client's calorie goal, which lives there.
+  A client changing it is seen at the console's next refetch, not at once.
+  Mapping `UserSettings` to `nutrition` in `DataAreas.Of` is the whole fix.
+- **`sync_requested` on iOS** (§46). The collapse header is set. What else a
+  data-only message needs to reach an iOS app belongs to building iOS at all
+  (`docs/push-notifications.md`).
 - **Anything finer than last-writer-wins for a plan's workouts or a row's
   fields.** A plan's list is replaced as a whole (§18), and part three keeps the
   same rule for whole aggregates. Merging concurrent edits needs a version on
