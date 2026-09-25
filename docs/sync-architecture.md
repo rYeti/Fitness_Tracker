@@ -7,9 +7,10 @@ behind it that aren't obvious from the diff, and the rules to keep.
 
 The rework is staged. Part one (§1–§13) changes only the app. Part two
 (§14–§25) changes the API as well: the device mints every row's id, and a
-create can tell a repeat from a new request. Later parts make the pull fetch
-only what changed and tell each side when the other changes something; they
-will be added here as they land.
+create can tell a repeat from a new request. Part three (§26 onwards) makes the
+pull fetch only what changed, and tells a device about deletes instead of
+leaving it to infer them. A later part tells each side when the other changes
+something; it will be added here when it lands.
 
 Line references are to the commit that introduces each part.
 
@@ -1548,19 +1549,587 @@ and the dedup folds' `_onServer` is `SyncStatus.isOnServer`.
 
 ---
 
+# Part three: pull only what changed, with explicit deletes
+
+Parts one and two made both ends honest about identity and about what changed
+on the device. The pull was still the old one: every step downloaded every row
+the account had ever written, and a row missing from that download was read as
+"deleted somewhere else". That is expensive, which is why the pull still ran at
+most every six hours, and it is a guess, which is why §5 needed a guard for the
+day the guess is wrong.
+
+Part three replaces the guess with a record and the full download with a
+delta. The server keeps two facts it never had: when each aggregate last
+changed, and which rows it deleted. A new endpoint, `GET api/Sync/changes`,
+sends a device what changed since the last time it asked and what was deleted
+since, and a create naming a deleted id is refused.
+
+This part lands in one pull request in two halves. The server's half (§26–§34)
+is written first and deploys first, ahead of any app that uses it; every list
+endpoint stays as it was, for shipped apps and the Trainer Console. The device's
+half follows in the same pull request and is written up in §35 onwards.
+
+---
+
+## 26. Why deleted things kept coming back
+
+Of the four symptoms in §1, "deleted things come back" is the one that survived
+the most fixes. Each earlier fix closed one road back, and each road was a
+different way of not knowing about a delete:
+
+| How a deleted row came back | Closed by |
+|---|---|
+| The device saw a row missing from a full list, took it for lost, and pushed it again | Part one §5: a clean row missing from a list is deleted here instead |
+| A row deleted on the device while its create's answer was still lost left no DELETE behind | Part two §15: every row with an id records its DELETE |
+| A device that hasn't pulled yet still holds the row, and sends it: an edit to a meal upserts every food it holds, the one removed elsewhere included (§18); a retried create re-sends a row whose answer it never heard | This part: the server refuses to re-create an id it deleted (§30) |
+| The pull can only learn of a delete by noticing an absence | This part: the server records the delete and says so (§29) |
+
+The last row is the one that matters for everything else. Part one's §5 already
+said it: "absent from a list" is an inference. It rests on the list being
+complete, and a list can be short for reasons that have nothing to do with
+deletes — a server fault, an endpoint that filters, a response cut off. Part
+one guarded the worst of it (an empty list deletes nothing) and admitted the
+rest.
+
+It also blocks the delta. A pull that only fetches what changed does not list
+the rows that didn't, so in a delta *every* unchanged row is absent. The moment
+the pull stops downloading everything, absence stops meaning anything at all.
+An incremental pull needs deletes to be positive facts — a row the server
+writes when it deletes something, which says what and when. That row is a
+**tombstone**.
+
+### Why nothing caught it
+
+- **The compiler couldn't.** An absent row is not a value. There is no
+  expression in either codebase whose type is "the row the server no longer
+  has"; there is only a list that is one element shorter than it used to be,
+  and a list of any length type-checks.
+- **The tests couldn't.** A pull test stubs the server's list, so "deleted
+  elsewhere" is a list the test itself wrote one element shorter. The test and
+  the pull share the inference, and neither can check it: the question — did the
+  server delete this, or just not send it? — is about another machine.
+
+---
+
+## 27. Every aggregate knows when it last changed
+
+### What is stamped
+
+Nine tables are **aggregate roots**: the rows the feed ships, each with
+everything that hangs off it, exactly as the list endpoints already return
+them. Each gained `UpdatedAt` (UTC) and implements `ISyncRoot`
+(`FitTracker.Api/Models/ISyncRoot.cs`):
+
+| Root | Owner column | Its children |
+|---|---|---|
+| `Exercise` (the user's own) | `UserId` (null for built-ins) | — |
+| `Workout` | `UserId` | exercise entries (`WorkoutExercise`), their set templates |
+| `WorkoutPlan` | `UserId` | its workout links (`WorkoutPlanWorkout`) |
+| `ScheduledWorkout` | none — its workout's `UserId` | exercise entries (`ScheduledWorkoutExercise`), their logged sets |
+| `Meal` | `UserId` | food entries (`MealFoodEntry`) |
+| `FoodItem` | `UserId` | — |
+| `MealTemplate` | `UserId` | items |
+| `WeightTracking` | `UserId` | — |
+| `UserSettings` | `UserId` | — |
+
+The stamp lives on the root, not on every row, because the root is what the
+feed sends: a device receiving a session replaces its exercises and sets by id
+in one go, so it never needs to know which set changed, only that the session
+did. That is also why a child's change has to reach its root. A logged set that
+changes without its session changing is a set the feed never sends.
+
+### Who stamps it
+
+Nobody by hand. `SyncChangeInterceptor` (`FitTracker.Api/Data/`) runs before
+every save, reads the change tracker, and:
+
+1. stamps every root the save adds or changes;
+2. stamps the root of every child the save adds, changes or removes — and when
+   a change *moves* a child (a meal food upserted into another of the caller's
+   meals, which is how part two's dedup folds reach the server), both roots,
+   the one it left as much as the one it joined;
+3. writes the tombstones (§29).
+
+A root the save isn't already holding is loaded and stamped in the same save,
+so the stamp commits or fails with the change it describes.
+
+This is part one's argument about triggers, on the other side of the wire. A
+rule every repository must remember ("set `UpdatedAt` when you change a root,
+and when you change a child, find its root and set that") is a rule the next
+repository forgets, and forgetting it compiles, saves, answers 200 and loses
+nothing anybody can see — until a device never receives the change. The
+interceptor is registered in `AppDbContext.OnConfiguring`, not in
+`Program.cs`, so no context can be built without it: the API's, the test
+fixture's, a second one a test opens mid-call.
+
+**Rejected:**
+
+- **Setting `UpdatedAt` in each repository method.** The discipline this whole
+  rework has been removing, one table at a time. Part one moved it into the
+  device's database for the same reason.
+- **Postgres triggers.** They would see bulk statements too (§28), which is
+  their one real advantage. But the tests run on SQLite, built from the model
+  with `EnsureCreated()`, so a trigger written in a migration would be
+  invisible to every test in the suite. That is exactly how three indexes once
+  drifted from the model for months (`.github/workflows/api.yml` says so), and a
+  change-tracking rule nothing tests is worse than an index nothing tests.
+- **Postgres's `xmin`, or a row version per table.** A version per row answers
+  "did this row change", not "did this aggregate change". `xmin` in particular
+  is a transaction counter that wraps around and has no index, so it can't be
+  the cursor.
+
+### The trainer's writes are the client's changes
+
+The owner is the row's owner, not whoever saved. A trainer editing a client's
+workout from the Workout Builder writes rows whose `UserId` is the client's,
+through the same services the client's own app uses
+(`docs/trainer-workout-builder.md` §1), so the client's workout is stamped and
+arrives in the client's feed, and a trainer deleting it writes the client's
+tombstone. Nothing special happens for trainers; it falls out of stamping the
+row that changed. The tests pin it anyway
+(`ATrainersEditBumpsTheClientsWorkout`, `ATrainersDeleteWritesTheClientsTombstone`,
+`ATrainersEditReachesTheClientsFeedAndNotTheTrainers`), because part four will
+hang the trainer's live notifications off exactly this.
+
+### A write that changes nothing stamps nothing
+
+EF marks an entity modified only when a value actually differs. So an update
+that writes back what was already stored — a repeat of a create carrying the
+same fields, a PUT of an unchanged meal — stamps nothing, and the feed does not
+send the row again. A repeat that *does* carry a change is an update like any
+other and is stamped (`ARepeatedCreateThatAppliesAChangeStampsTheRoot`). Part
+two's reason a repeat applies its fields (§16) is also why it must be stamped:
+the device's other installs only hear of that edit through the feed.
+
+That is correct for the server, and it puts one obligation on the device,
+which §35 has to meet: a device that skips an aggregate in a delta because its
+own copy is dirty cannot count on the push to bring it back. If the push turns
+out to change nothing on the server, there is no echo.
+
+### Indexes
+
+Each root has `(UserId, UpdatedAt)`, which is the feed's whole query: this
+user's rows changed since the cursor. EF dropped six single-column `UserId`
+indexes in the same migration, since the composite serves both. Two roots
+differ:
+
+- **`ScheduledWorkout`** has no owner column; it belongs to whoever owns its
+  workout. Its index is `(WorkoutId, UpdatedAt)`: the feed joins the user's
+  workouts, then range-scans each one's sessions by when they changed.
+- **`UserSettings`** has none. Its unique index on `UserId` already narrows a
+  user to one row, and a second index would be pure write cost.
+
+### Existing rows
+
+Migration `AddSyncChangeTracking` backfills `UpdatedAt = now()` on all nine
+tables. The column default would otherwise be year 1, which hides every
+existing row from every cursor; with the backfill, the first delta any device
+asks for after the deploy, from any cursor earlier than it, is a full pull.
+
+---
+
+## 28. What the interceptor can't see
+
+The interceptor sees the change tracker, and the change tracker sees what goes
+through it. Three kinds of write don't:
+
+- `ExecuteDelete` and `ExecuteUpdate`, which translate straight to SQL;
+- the database's own `ON DELETE CASCADE` and `ON DELETE SET NULL`, which delete
+  or change rows of *other tables* that EF never loaded;
+- raw SQL, of which there is none on synced tables.
+
+Every one of these on synced data has to say what it did by hand, with two
+helpers in `SyncChanges` (`FitTracker.Api/Data/SyncChanges.cs`): `TouchAsync`
+stamps roots in one statement, and `Bury` adds tombstones to the next save.
+These are all of them:
+
+| Call site | What EF doesn't see | What it now does |
+|---|---|---|
+| `ReplaceListAsync` (`DbContextExtensions.cs`), behind the set and set-template replaces | the bulk delete of the list — and of the caller's rows stored under the sent ids in *other* lists, which the app moved there | stamps the root of every row the delete removes, in the replace's transaction (`rootOf`) |
+| `WorkoutRepository.DeleteWorkoutAsync` | the bulk delete of the workout's placeholder sessions | a tombstone for each |
+| the same | the cascade deleting links in plans that list the workout | stamps those plans |
+| `WorkoutRepository.DeleteWorkoutExerciseAsync` | the bulk delete of the placeholder entries sessions hold for the exercise | stamps those sessions |
+| `WorkoutPlanRepository.DeletePlanAsync` | `SET NULL` on each of the plan's sessions | stamps those sessions |
+| a meal delete (any) | the cascade deleting the meal's foods | the interceptor queries them and writes their tombstones (§29) |
+| `UserRepository.DeleteUserAsync` | everything, by cascade | nothing: the account's tombstones go with it, and there is no device left to tell |
+
+The ones that were not already in a transaction now run in one, so the stamp or
+the tombstone commits if and only if the write it describes does.
+
+### Why nothing would catch the next one
+
+This section is the one most likely to be wrong again, and it is worth being
+exact about why.
+
+- **The compiler can't tell you.** `ExecuteDeleteAsync()` returns the number of
+  rows it deleted; the method compiles and the rows are gone. `Remove(workout)`
+  compiles to a delete of one row in one table, and nothing in its type says
+  that `AppDbContext`, in another folder, told Postgres to delete rows of another
+  table with it. What the interceptor can see is a property of a
+  runtime object — the change tracker's contents at the moment of a save — and
+  no type describes it.
+- **The ordinary test can't either.** The replace tests from part two replace a
+  list with a non-empty list. The inserted rows are tracked, the interceptor
+  stamps their root, and the test passes whether or not the bulk delete said
+  anything. The bulk delete is only on its own when the list is replaced with
+  *nothing*, or when a row moves in from another parent, and those are the two
+  cases the tests had to be written for (`AReplaceThatOnlyDeletesBumpsItsRoot`,
+  `ARowAReplaceMovesBumpsTheRootItLeft`).
+
+So the rule is a rule, and the test is how it is kept: **a new `ExecuteDelete`
+or `ExecuteUpdate` on a synced table, or a new `ON DELETE` rule between them,
+stamps or buries at the call site, and gets a test that backdates every root
+(`DbFixture.Backdate`) and checks the one it should have moved.**
+
+---
+
+## 29. Tombstones
+
+A `SyncTombstone` (`FitTracker.Api/Models/SyncTombstone.cs`) is five columns:
+its own id, the owner's `UserId`, an `EntityType` (`exercise`, `workout`,
+`workoutPlan`, `scheduledWorkout`, `meal`, `mealFood`, `foodItem`,
+`mealTemplate`, `weight`), the deleted row's `EntityId`, and `DeletedAt`. The
+interceptor writes one in the same save as every root delete, so a delete that
+commits has its record and one that fails has none.
+
+### Why meal foods, and only meal foods
+
+Children don't need tombstones. The feed ships an aggregate whole, and a
+device replaces its children with the ones it received, so a set template or a
+logged set that is gone from the session is gone from the device. A meal's
+foods are the exception because of what part two made them: the only list
+**upserted by id from several writers** (§18). Every other list is sent whole by
+the one device that owns it (sets, set templates) or has no ids (plan links).
+A food's id is therefore one a device that hasn't pulled can send again, into
+this meal or — after its dedup folds moved it — into another, and refusing
+that (§30) needs a record of the id.
+
+For the same reason a deleted meal's foods get tombstones too. The database
+cascades them without EF ever loading them, so the interceptor asks for them
+before the save. Without that, a device that had folded the deleted meal's twin
+into another could upsert the deleted meal's foods into the survivor.
+
+Workout exercises are the nearest case: the device creates them by id, and
+both the trainee and a trainer's Workout Builder remove them. A deleted one is
+not tombstoned. That is left for now: a removed entry with history is retired
+rather than deleted, the workout it left is re-sent whole, and the trade-off is
+written down in "What is deliberately not here yet".
+
+### Never pruned
+
+Tombstones are kept for ever, deliberately:
+
+- a device's cursor can be any age — a phone left in a drawer for a year — and a
+  pruned tombstone is a delete that device never hears of, which is the bug
+  this part exists to end;
+- the 410 in §30 refuses a deleted id for as long as the tombstone exists, and
+  a device holding the row is exactly as old as its cursor;
+- a tombstone is five narrow columns. A heavy user deleting a hundred rows a
+  week writes about a megabyte a year, indexes included.
+
+Pruning is a job with a cut-off that has to be chosen, a rule for what a device
+older than the cut-off does, and a test for both. None of it is needed yet.
+
+### Why not a `DeletedAt` column on each table
+
+Soft-delete would have given the feed the same fact without a new table. It
+would also have put a filter in every read in the API: every list endpoint,
+every Trainer Console aggregate, every ownership check, every content
+de-duplication. `docs/trainer-session-review.md` §3 is what one such column cost
+— `RemovedAt` on workout exercises — and its rule, that every query answering
+"what is in this workout" must exclude it and every query resolving history
+must not, is one every new query has to remember. Nine such columns would be
+nine such rules. A tombstone keeps deletion out of every read but the one that
+asks about it.
+
+---
+
+## 30. A deleted id can't come back
+
+`ClientIds.CreateOrResolveAsync` gained one row in its table
+(`FitTracker.Api/Services/ClientIds.cs`):
+
+| The id… | The create… |
+|---|---|
+| names one of the caller's rows | applies the sent fields and returns it |
+| names someone else's row | 409 (`id_in_use`) |
+| **names a row the caller deleted** | **410 (`id_deleted`)** |
+| is new | inserts under it |
+| was not sent | mints one — shipped apps are unaffected |
+
+### Why refuse rather than re-create
+
+The only device that sends a deleted id is one that hasn't heard of the delete.
+Here is §18's open window, which part two named and left for this part:
+
+| Time | Device A | Server | Device B (hasn't pulled) |
+|---|---|---|---|
+| t0 | removes the oats from lunch; DELETE by the entry's id | entry deleted | lunch holds the oats |
+| t1 | | | adds a banana to lunch; the dirty meal upserts every food it holds, oats included |
+| *before* | | the oats are created again, under their old id | |
+| *now* | | 410, naming the oats' id | deletes its oats |
+
+Re-creating would be the server agreeing with whichever device spoke last,
+which is last-writer-wins for the row's *existence* — and the writer that speaks
+last after a delete is, by construction, the one that didn't know about it. A
+lost create answer (§15) ends the same way: a retry after the row was deleted
+elsewhere would bring it back.
+
+The 410 names the id, as the 409 does (`ClientIdGoneFilter`), because a foods
+batch can be refused for one of its entries and the device has to know which.
+It is registered globally for the 409's reason: a controller that forgot a
+catch would turn a deleted id into a 500 the app retries for ever.
+
+### Before the content check
+
+Meal and session creates also de-duplicate by content (§17): a meal for a day
+and category that already has one is answered with that meal. The tombstone is
+checked first, before `insert` runs, and this ordering is the point of a test
+(`ADeletedMealIsGoneEvenWhenItsDayHasAnotherMeal`). Checked after, a stale
+device's create of a deleted lunch would be answered with the day's *other*
+lunch — logged since, on another device — and the stale device would then move
+the deleted lunch's foods into it.
+
+### Scoped to the caller
+
+The check asks whether *this caller's* tombstone names the id. Another
+account's tombstone says nothing about this caller's rows, and refusing on it
+would tell the caller that the id had once existed.
+`SomeoneElsesDeleteDoesNotStopACreate` pins it: with the owner taken out of the
+lookup, it fails.
+
+### What it costs
+
+Delete wins over a concurrent edit. A food added, offline, to a meal another
+device has since deleted is lost with the meal. That is the usual rule for
+tombstones, and the alternative — the edit resurrects the meal — is the bug.
+
+Every create that sends an id pays one indexed lookup, `(UserId, EntityId)`,
+and only when the id isn't already stored: a repeat is resolved before it.
+
+---
+
+## 31. The changes feed
+
+`GET api/Sync/changes?since=<ISO-8601 instant>` (`SyncController`,
+`SyncFeedService`), authorized, for the caller's data only:
+
+| Field | Holds |
+|---|---|
+| `exercises` | the caller's own exercises, as `GET api/Exercise/UserExercise` returns them |
+| `workouts` | as `GET api/Workout`: every exercise entry — retired ones with `removedAt` set — and their set templates |
+| `workoutPlans` | as `GET api/WorkoutPlan`, with the whole `workoutIds` list |
+| `scheduledWorkouts` | as `GET api/ScheduledWorkout`, with every exercise and its logged sets |
+| `foodItems` | as `GET api/FoodItem` |
+| `meals` | as `GET api/Meal/all`, with every `foodEntries` entry |
+| `mealTemplates` | as `GET api/MealTemplate`, with every item |
+| `weights` | as `GET api/WeightTracking/TrackWeight` |
+| `settings` | as `GET api/UserSettings`, or null when unchanged or never saved |
+| `deleted` | `[{ entityType, entityId, deletedAt }]`, every delete of the caller's since the cursor |
+| `cursor` | the `since` to send next time |
+
+Each list holds the aggregates whose root was stamped at or after `since`.
+Without `since`, every list holds everything and `deleted` is empty: a device
+starting from nothing holds nothing a tombstone could remove. Built-in
+exercises are not the caller's data and are never in it; linking them to the
+device's seeded copies still goes through `GET api/Exercise/AllExercises`.
+
+### Why the existing DTOs
+
+Every list in the answer comes from the service behind the matching list
+endpoint, asked with a filter (`ChangedSince`, `SyncChanges.cs`). There is no
+second query and no second mapper, and that is the design, not a shortcut:
+
+- The device already parses these shapes: its pull reads exactly these lists
+  today. The client half changes where they come from, not how they're read.
+- The feed can't drift from the list endpoints. A field added to a DTO reaches
+  both, and so does a fold, a filter or a bug fix. That is
+  `docs/trainer-console-duplicate-rows.md` §5's lesson — use the one definition
+  rather than keep a second in step with it — applied to a mapper.
+- It keeps the list endpoints honest for the readers that stay on them —
+  shipped apps and the Trainer Console — because they are the same code.
+
+### Why the cursor overlaps
+
+The cursor is the server's clock when the answer began, taken before the first
+query, minus two minutes. The subtraction is for a race that nothing else
+covers. A save stamps `UpdatedAt` when it starts, and its rows become visible
+when it commits; between the two, a feed can run:
+
+| Time | A client's save (one set logged) | A feed for another device |
+|---|---|---|
+| 12:00:00.000 | stamps the session 12:00:00.000 | |
+| 12:00:00.050 | | cursor taken; the queries don't see the uncommitted session |
+| 12:00:00.200 | commits | |
+| next pull | | `since` = the cursor. *Without the overlap* it is 12:00:00.050, the session's stamp is earlier, and the set is never sent. *With it*, `since` is 11:58:00.050 and it is. |
+
+Cloud Run can run more than one instance, and their clocks are close but not
+identical, which is the same race with the stamp taken on one clock and the
+cursor on another. Two minutes is far wider than either needs; the price is
+that whatever changed in the last two minutes is sent twice, and applying a row
+twice is harmless by construction. The cursor is the server's clock and never
+the device's, because a phone's clock is whatever its owner set it to.
+`ARowStampedJustBeforeTheLastAnswerArrivesWithTheNextOne` pins the overlap.
+
+### No paging
+
+An answer without `since` is the same data today's full pull downloads over ten
+requests, and every later answer is smaller. Paging would need a stable order
+across requests and a cursor that points inside one, for a volume nobody has
+yet shown to be a problem.
+
+### Not a snapshot
+
+The lists are read one after another, not in one transaction. A write that
+commits between two of the reads can leave the answer referring to a row it
+doesn't include — a session whose new workout was created just after the
+workouts were read. The row is not lost: it was stamped after the cursor was
+taken, so the next answer carries it. For the same reason one answer can list a
+row as changed *and* deleted, when the delete commits between the read of that
+list and the read of the tombstones. Applying the deletes after the
+aggregates, as §35 asks of the device, makes that case come out right.
+
+---
+
+## 32. An edit that had never worked
+
+The test for a meal template's items (`ATemplateItemBumpsItsTemplate`) failed
+the first time it ran, and not on its assertion.
+`MealTemplateRepository.UpdateAsync` replaced a template's items by assigning
+the navigation, `template.Items = incoming.Items`. The new items already had
+their ids, and a row EF discovers through a navigation with its key already set
+is taken for a stored one: it was saved as an `UPDATE`, which matched nothing,
+and EF threw a concurrency exception. Every `PUT api/MealTemplate/{id}` that
+carried items has failed like this since the service was written, and the app
+has been sending those PUTs since part one (§4). The items now go through the
+`DbSet`, the fix `WorkoutPlanRepository.ReplacePlanWorkoutsAsync` already
+carries a comment about.
+
+Nothing had caught it because no test had ever updated a template that had
+items; the part-two test for the same PUT saved its batch weight with an empty
+list. It is a small instance of this part's subject: a write can fail, or
+succeed without saying what it did, and only a test that reads back the state
+another reader will see can tell.
+
+---
+
+## 33. What the tests pin (server)
+
+In `FitTracker.Api.Tests/SyncChangeTrackingTests.cs` (27) and
+`SyncFeedTests.cs` (10). Each was run against a skeleton — the columns and
+the endpoint in place, no stamping, no tombstones, a feed that returned
+everything — and failed there, except the ones that describe what a full answer
+already did (everything without a cursor, only the caller's rows, retired
+entries included, a whole aggregate for a changed child), which are there so
+the delta keeps doing it. *ASessionExercisesNote…* was added after the mutation
+run below found a rule no test held, and fails with that rule taken out.
+
+| Test | Pins |
+|---|---|
+| *ACreateStampsTheRoot*, *AnUpdateStampsTheRoot*, *ARepeatedCreateThatAppliesAChangeStampsTheRoot* | §27 |
+| *ASetTemplateChange…*, *ALoggedSet…*, *ASessionExercisesNote…*, *AMealFood…*, *APlanLink…*, *ATemplateItemBumpsItsTemplate* | §27: each child reaches its root; §32 |
+| *AMealFoodMovedToAnotherMealBumpsBoth* | §27: both ends of a move |
+| *AReplaceThatOnlyDeletesBumpsItsRoot*, *ARowAReplaceMovesBumpsTheRootItLeft* | §28: `ReplaceListAsync` |
+| *RemovingAnExerciseBumpsTheSessionsWhosePlaceholdersGoWithIt*, *DeletingAPlanBumpsTheSessionsItDetaches*, *DeletingAWorkoutBumpsThePlansThatListedIt*, *DeletingAWorkoutWritesTombstonesForThePlaceholderSessionsItRemoves* | §28: each bulk statement and cascade |
+| *ATrainersEditBumpsTheClientsWorkout*, *ATrainersDeleteWritesTheClientsTombstone* | §27: the owner, not the actor |
+| *DeletingEachRootWritesItsTombstone*, *RemovingAFoodFromAMeal…*, *DeletingAMealWritesTombstonesForItsFoods*, *DeletingAnAccountLeavesNoTombstonesBehind* | §29 |
+| *ACreateOfAnIdTheCallerDeletedIsGone*, *AFoodRemovedFromAMealCannotBeUpsertedBack*, *ADeletedMealIsGoneEvenWhenItsDayHasAnotherMeal*, *SomeoneElsesDeleteDoesNotStopACreate*, *TheRefusalReachesTheAppAs410* | §30 |
+| *WithoutACursor…*, *ItReturnsOnlyWhatChangedSinceTheCursor*, *AChildsChangeShipsItsWholeAggregate*, *ItReturnsTheDeletesSinceTheCursor*, *ItReturnsOnlyTheCallersData*, *ARetiredExerciseStillShipsInsideItsWorkout*, *ATrainersEditReachesTheClientsFeedAndNotTheTrainers* | §31 |
+| *TheCursorIsWhenTheAnswerBeganLessTwoMinutes*, *ARowStampedJustBeforeTheLastAnswerArrivesWithTheNextOne*, *TheEndpointAnswersForTheCallerAndReadsTheCursorAsAnInstant* | §31: the cursor, and `since` read as an instant whatever its offset |
+
+Then each rule was taken out on its own and the suite run again. Each of these
+failed at least one test: every explicit stamp and tombstone in §28's table; each
+child in the interceptor's map; the original parent of a move; the cascaded meal
+foods; stamping added and changed roots; the tombstone check, and moving it
+after a meal's content check; the owner in the tombstone lookup and in the
+feed's tombstone query; a session's owner in its tombstone; the overlap; the
+filter; tombstones on a full answer. One did not: without the guard that skips
+tombstones for an account deleted in the same save, the tombstones are written
+and then cascaded away with the account, which the test can't tell apart. The
+guard stays, because it keeps account deletion from depending on the order EF
+chooses for an insert and a delete in one save.
+
+---
+
+## 34. The rules part three leaves behind (server)
+
+- **`UpdatedAt` is never set by hand.** The interceptor stamps it; a bulk write
+  stamps through `SyncChanges.TouchAsync`. A child table added under a synced
+  root goes in the interceptor's map (`CollectRoots`), or its changes never
+  leave the server.
+- **A bulk write, or a database cascade, on a synced table says what it did.**
+  `TouchAsync` for the roots it changed, `Bury` for the roots it deleted, in the
+  same transaction as the write — and a test that backdates and checks, because
+  nothing else will notice (§28).
+- **Every root delete, and every meal food delete, leaves a tombstone,** written
+  by the save that deletes it. Tombstones are never pruned.
+- **A create resolves a client id through `ClientIds.CreateOrResolveAsync`,**
+  which now needs `deletedByCaller` — the repository's `WasDeletedAsync` — and
+  refuses a deleted id with 410 before any content check runs.
+- **The feed reuses the list endpoints' own services.** A new synced list is a
+  list endpoint with a `changedSince` parameter, and a field in the feed is a
+  field in that endpoint's DTO.
+- **The cursor is the server's, taken before the first query, minus the
+  overlap.** Don't shorten the overlap below the time a save can take between
+  stamping and committing.
+
+---
+
+## 35. The device's half
+
+*Written with the client half of this part, which lands in the same pull
+request.*
+
+What the server's half assumes of it, for whoever writes it:
+
+- **One path in today's app re-creates a deleted row under its old id on
+  purpose, and will now be refused.** In `_syncDeleteWorkout`
+  (`workout_sync.dart`) the server has accepted a workout's DELETE, then a set
+  logged mid-delete makes the device keep the workout, re-created "under the
+  ids it already has — the server deleted those rows, so a create under them
+  makes them afresh". The server now holds a tombstone for that workout, and for
+  each placeholder session its delete removed, so those creates answer 410.
+  Deleting the local row on that 410 would delete the history it is being kept
+  for. The workout, and any of its sessions the server buried, want fresh ids,
+  as a 409 already gets them (`_mintNewIds`); its exercise entries, set
+  templates and sets have no tombstones and can keep theirs. The same holds for
+  a tombstone arriving in the feed for a row this device's history hangs on.
+- Send `since` back exactly as the last answer's `cursor` (URL-encoded: an
+  offset's `+` is a space in a query string), and store it with the data it
+  describes, so that clearing one clears the other.
+- Apply `deleted` after the aggregates of the same answer (§31, "Not a
+  snapshot").
+- A row can arrive twice, and can refer to a row that only arrives in the next
+  answer.
+- A write that changes nothing on the server stamps nothing (§27), so a device
+  that skips an aggregate because its own copy is dirty can't rely on its push
+  to bring the server's copy back. It has to ask for it again — for instance by
+  not moving its cursor past an answer it skipped part of until the skipped
+  rows are clean.
+- A 410 answers a create (or a batch entry) naming a row that was deleted
+  elsewhere, and names the id.
+
+---
+
 ## What is deliberately not here yet
 
-- **An incremental pull with tombstones** (part three). The pull still
-  downloads everything, which is why it keeps its throttle, and it still infers
-  a deletion from a row's absence from a full list (§5). Tombstones are also
-  what closes the window §18 leaves: a food removed on one device and sent back
-  by another that edited the meal before pulling.
+- **The device's half of part three** (§35): until it lands the app still pulls
+  full lists every six hours and infers deletes from absence.
 - **Live updates to the Trainer Console and to the trainee's phone** (part
-  four).
+  four). It will hang off §27's interceptor, which already knows whose data a
+  save changed.
 - **Anything finer than last-writer-wins for a plan's workouts or a row's
   fields.** A plan's list is replaced as a whole (§18), and part three keeps the
   same rule for whole aggregates. Merging concurrent edits needs a version on
   every row.
+- **Tombstones for workout exercises.** They are the one other child a device
+  creates by id and someone else — a trainer's Workout Builder — can remove
+  (§29). A removed entry with history is retired, not deleted, and its workout is re-sent
+  whole; one without history is deleted and leaves no record, so a device that
+  hasn't pulled the removal could create it again under its id. Closing it is
+  the meal-food treatment — a tombstone and the 410 — if it is ever seen.
+- **Pruning tombstones** (§29), **paging the feed**, and **a snapshot-consistent
+  feed** (§31). Each is a cost nobody has yet shown is worth paying.
 - **Removing the dedup folds.** They heal what earlier builds left on devices
   and on the server (§22), and go when that data does.
-- **Foreign-key enforcement** — see §6 for why not.
+- **Foreign-key enforcement** on the device — see §6 for why not.
