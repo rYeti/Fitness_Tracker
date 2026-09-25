@@ -230,8 +230,10 @@ public class LiveUpdateTests : IDisposable
             ["meal"] = DataAreas.Nutrition,
             ["meal template"] = DataAreas.Nutrition,
             ["weight"] = DataAreas.Weight,
-            // No pane shows settings, so a change to them is nobody's event.
-            ["settings"] = "",
+            // The calorie goal is a setting, and the Nutrition pane and Client Detail's intake
+            // are measured against it. With no area, a client's new goal left the trainer
+            // looking at the old one, and a wrong kcal remaining, until the tab lost focus.
+            ["settings"] = DataAreas.Nutrition,
         }, reported);
     }
 
@@ -273,6 +275,19 @@ public class LiveUpdateTests : IDisposable
             ["plan link"] = DataAreas.Workouts,
             ["template item"] = DataAreas.Nutrition,
         }, reported);
+    }
+
+    [Fact]
+    public void EverySyncedRootHasAnArea()
+    {
+        // A root with no area is written, stamped, fed to every device, and never told to a
+        // trainer. Settings were exactly that until they were given the calorie goal's pane.
+        var roots = typeof(ISyncRoot).Assembly.GetTypes()
+            .Where(t => typeof(ISyncRoot).IsAssignableFrom(t) && t is { IsClass: true, IsAbstract: false })
+            .ToList();
+
+        Assert.Contains(typeof(UserSettings), roots);
+        Assert.All(roots, root => Assert.NotNull(DataAreas.Of(root)));
     }
 
     [Fact]
@@ -470,6 +485,76 @@ public class LiveUpdateTests : IDisposable
         Assert.Equal([DataAreas.Workouts], sent.Only().Areas);
     }
 
+    // ── What it costs ────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task EveryOwnerIsKnownByTheTimeTheRequestEnds()
+    {
+        // Four writes that touch no root, each reaching its owner only through a root the
+        // tracker doesn't hold. The owners were looked up after the request, one query per
+        // kind of root, and then the trainers were asked for: five queries to learn what the
+        // writes had already had in front of them. Resolved as each write happens, what is
+        // left after the request is the one query for the owners' Active trainers.
+        var workout = _fx.AddWorkout(_client.Id);
+        var entry = _fx.AddWorkoutExercise(workout.Id, Guid.NewGuid());
+        var session = _fx.AddSession(workout.Id, Monday);
+        var set = _fx.AddLoggedSet(session.Id, entry.Id, weight: 60);
+        var meal = _fx.AddMeal(_client.Id, Monday);
+        var plan = _fx.AddPlan(_client.Id, "Block 1", isActive: true);
+        _db.ChangeTracker.Clear();
+
+        await Workouts.AddSetTemplateAsync(entry.Id, _client.Id, new WorkoutSetTemplateRequestDto { SetNumber = 1, TargetReps = "8" });
+        _db.ChangeTracker.Clear();
+        await Sessions.UpdateSetAsync(set.Id, _client.Id, new WorkoutSetRequestDto { SetNumber = 1, Reps = 8, Weight = 62.5, IsCompleted = true });
+        _db.ChangeTracker.Clear();
+        await Meals.AddFoodsToMealBatchAsync(meal.Id, _client.Id, [new MealFoodEntryRequestDto { Id = Guid.NewGuid(), FoodItemId = Guid.NewGuid() }]);
+        _db.ChangeTracker.Clear();
+        await Plans.ReplacePlanWorkoutsAsync(plan.Id, [workout.Id], _client.Id);
+
+        _fx.Queries.Reset();
+        var sent = await EndRequestAsync(actor: _client.Id);
+
+        Assert.Equal(1, _fx.Queries.Count);
+        var payload = sent.Only();
+        Assert.Equal(_client.Id, payload.ClientId);
+        Assert.Equal([DataAreas.Nutrition, DataAreas.Sessions, DataAreas.Workouts], payload.Areas);
+    }
+
+    [Fact]
+    public async Task AUserWithNoTrainerChangingTheirOwnDataCostsOneQueryAndNothingElse()
+    {
+        // Nearly every write: a trainee with no trainer, or with one, syncing their own data.
+        // The trainers are asked for first, and with none and nobody else's data changed there
+        // is nothing to send and nobody to ask to pull.
+        var loner = _fx.AddUser("Mara", "Vogel");
+        await LogWeightAsync(loner.Id);
+        await Settings.UpsertSettingsAsync(loner.Id, new UserSettingsRequestDto { DailyCalorieGoal = 2100 });
+
+        _fx.Queries.Reset();
+        var sent = await EndRequestAsync(actor: loner.Id);
+
+        Assert.Equal(1, _fx.Queries.Count);
+        Assert.Empty(sent.Events);
+        Assert.Empty(sent.Pulls);
+    }
+
+    [Fact]
+    public async Task SomebodyElsesChangeStillAsksForThePullWhenNoTrainerIsLeftToTell()
+    {
+        // The trainer's write committed while the relationship was Active; the client ended it
+        // before the notification ran. Nobody is left to tell, but the client's data still
+        // changed under them, so the early return for "nobody to tell" can't be taken.
+        await Console(_trainer).CreateClientWorkoutAsync(_trainer.Id, _client.Id, new ClientWorkoutRequestDto { Name = "Leg Day" });
+        var relationship = _fx.Db.TrainerClients.Single(r => r.TrainerId == _trainer.Id && r.ClientId == _client.Id);
+        relationship.Status = TrainerClientStatus.Revoked;
+        _fx.Db.SaveChanges();
+
+        var sent = await EndRequestAsync(actor: _trainer.Id);
+
+        Assert.Empty(sent.Events);
+        Assert.Equal([_client.Id], sent.Pulls);
+    }
+
     // ── Failures ─────────────────────────────────────────────────────────────
 
     [Fact]
@@ -586,7 +671,7 @@ public class LiveUpdateTests : IDisposable
         await db.SaveChangesAsync();
 
         var change = Assert.Single(scope.ServiceProvider.GetRequiredService<ChangedDataLog>().TakeCommitted());
-        Assert.Equal(ChangedData.Owned(user.Id, DataAreas.Weight), change);
+        Assert.Equal(new ChangedData(user.Id, DataAreas.Weight), change);
     }
 
     // ── On the wire ──────────────────────────────────────────────────────────

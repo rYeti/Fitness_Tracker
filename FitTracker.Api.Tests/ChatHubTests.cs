@@ -372,11 +372,11 @@ public class ChatHubTests
     }
 
     [Fact]
-    public async Task A_trainers_connection_joins_its_trainer_group()
+    public async Task A_trainer_who_asks_joins_their_trainer_group()
     {
         // Live updates (docs/sync-architecture.md, part four) ride the socket the console
-        // already holds for chat, so a trainer's connection has to be in their group from the
-        // moment it opens — the console never asks to join it.
+        // already holds for chat. The console asks to join after every connect and reconnect;
+        // the licence is what the hub checks.
         using var ctx = new ChatScenario();
         ctx.Db.TrainerLicences.Add(new TrainerLicence { TrainerId = ctx.TrainerId });
         ctx.Db.SaveChanges();
@@ -384,13 +384,34 @@ public class ChatHubTests
         var hub = NewHub(ctx, ctx.TrainerId, out _);
         hub.Groups = groups;
 
-        await hub.OnConnectedAsync();
+        await hub.JoinTrainerGroup();
 
         Assert.Equal([("test-connection", $"trainer:{ctx.TrainerId}")], groups.Added);
     }
 
     [Fact]
-    public async Task A_non_trainers_connection_joins_no_group()
+    public async Task Connecting_joins_no_group_and_reads_nothing()
+    {
+        // A licensed trainer, so a join made at connect would show here. It used to be made
+        // there, for every connection: a licence query on each connect and reconnect of every
+        // trainee's coach chat, and a trainer's own trainee-app socket in the group, receiving
+        // every event about their clients. Only the console asks.
+        using var ctx = new ChatScenario();
+        ctx.Db.TrainerLicences.Add(new TrainerLicence { TrainerId = ctx.TrainerId });
+        ctx.Db.SaveChanges();
+        var groups = new RecordingGroups();
+        var hub = NewHub(ctx, ctx.TrainerId, out _);
+        hub.Groups = groups;
+        ctx.Queries.Reset();
+
+        await hub.OnConnectedAsync();
+
+        Assert.Empty(groups.Added);
+        Assert.Equal(0, ctx.Queries.Count);
+    }
+
+    [Fact]
+    public async Task A_non_trainer_who_asks_joins_no_group()
     {
         // The client has an Active trainer, and chats over the same hub; holding a licence is
         // what makes someone a trainer, not having a relationship.
@@ -399,13 +420,13 @@ public class ChatHubTests
         var hub = NewHub(ctx, ctx.ClientId, out _);
         hub.Groups = groups;
 
-        await hub.OnConnectedAsync();
+        await hub.JoinTrainerGroup();
 
         Assert.Empty(groups.Added);
     }
 
     [Fact]
-    public async Task A_trainer_without_a_licence_joins_no_group()
+    public async Task A_trainer_without_a_licence_who_asks_joins_no_group()
     {
         // ChatScenario's trainer has a client and no licence: only a licence makes a trainer.
         using var ctx = new ChatScenario();
@@ -413,7 +434,7 @@ public class ChatHubTests
         var hub = NewHub(ctx, ctx.TrainerId, out _);
         hub.Groups = groups;
 
-        await hub.OnConnectedAsync();
+        await hub.JoinTrainerGroup();
 
         Assert.Empty(groups.Added);
     }

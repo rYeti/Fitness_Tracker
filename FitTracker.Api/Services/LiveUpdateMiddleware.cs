@@ -36,11 +36,7 @@ public class LiveUpdateMiddleware(RequestDelegate next)
         }
     }
 
-    /// <summary>The signed-in caller: the same claims the controllers read, including the
-    /// bare <c>sub</c> an OAuth token carries.</summary>
-    private static Guid? ActorOf(ClaimsPrincipal user)
-    {
-        var claim = user.FindFirst(ClaimTypes.NameIdentifier) ?? user.FindFirst("sub");
-        return Guid.TryParse(claim?.Value, out var id) ? id : null;
-    }
+    /// <summary>The signed-in caller, read as the controllers read it, including the bare
+    /// <c>sub</c> an OAuth token carries.</summary>
+    private static Guid? ActorOf(ClaimsPrincipal user) => user.TryGetUserId(out var id) ? id : null;
 }

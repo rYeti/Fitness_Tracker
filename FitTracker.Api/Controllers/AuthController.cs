@@ -1,6 +1,6 @@
-using System.Security.Claims;
 using FitTracker.Api.DTOs;
 using FitTracker.Api.Models;
+using FitTracker.Api.Services;
 using FitTracker.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -80,8 +80,7 @@ public class AuthController : ControllerBase
     [HttpPut("profile")]
     public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequestDto request)
     {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub");
-        if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
+        if (!User.TryGetUserId(out var userId))
             return Unauthorized();
 
         var result = await _authService.UpdateProfileAsync(userId, request.FirstName, request.LastName, request.Email, request.DateOfBirth, request.ProfileImageUrl);
@@ -97,8 +96,7 @@ public class AuthController : ControllerBase
     [HttpPut("change-password")]
     public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequestDto request)
     {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub");
-        if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
+        if (!User.TryGetUserId(out var userId))
             return Unauthorized();
 
         var success = await _authService.ChangePasswordAsync(userId, request.CurrentPassword, request.NewPassword);
@@ -114,8 +112,7 @@ public class AuthController : ControllerBase
     [HttpDelete("account")]
     public async Task<IActionResult> DeleteAccount([FromBody] DeleteAccountRequestDto request)
     {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub");
-        if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
+        if (!User.TryGetUserId(out var userId))
             return Unauthorized();
 
         var success = await _authService.DeleteAccountAsync(userId, request.Password);

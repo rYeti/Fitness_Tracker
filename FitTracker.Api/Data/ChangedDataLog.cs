@@ -3,20 +3,16 @@ using FitTracker.Api.Models;
 namespace FitTracker.Api.Data;
 
 /// <summary>
-/// One aggregate a write changed, as far as the write knew: its area, and either its owner
-/// or — when the write had only the root's id — the root to find the owner by once the
-/// write has committed.
+/// A change a write made to <paramref name="Owner"/>'s data, in <paramref name="Area"/> (one of
+/// <see cref="DataAreas"/>).
 /// </summary>
-public readonly record struct ChangedData(string Area, Guid? Owner, Type? Root, Guid? RootId)
-{
-    /// <summary>A change to <paramref name="owner"/>'s data in <paramref name="area"/>.</summary>
-    public static ChangedData Owned(Guid owner, string area) => new(area, owner, null, null);
-
-    /// <summary>A change to the aggregate <paramref name="id"/>, whoever owns it; null for a
-    /// root no area shows.</summary>
-    public static ChangedData? OfRoot<TRoot>(Guid id) where TRoot : class, ISyncRoot =>
-        DataAreas.Of(typeof(TRoot)) is { } area ? new(area, null, typeof(TRoot), id) : null;
-}
+/// <remarks>
+/// The owner is resolved when the write happens, where the write already knows or can cheaply
+/// find it (<see cref="SyncChangeInterceptor"/>, <see cref="SyncChanges"/>). A change whose owner
+/// can't be found there is never recorded, so what reaches the notifier is only ever owners:
+/// nothing is left to look up after the commit, and nothing unresolved can hold up anyone else.
+/// </remarks>
+public readonly record struct ChangedData(Guid Owner, string Area);
 
 /// <summary>
 /// Whose data one request changed, held until the change commits. See

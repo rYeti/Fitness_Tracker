@@ -17,7 +17,7 @@ namespace FitTracker.Api.Data;
 /// removes. It does not see <c>ExecuteDelete</c>/<c>ExecuteUpdate</c>, which go straight to
 /// the database, or what the database itself does on a delete (<c>ON DELETE CASCADE</c>,
 /// <c>SET NULL</c>). A call site doing either to synced data bumps the roots it changed
-/// (<see cref="TouchAsync{TRoot}(AppDbContext, IReadOnlyCollection{Guid})"/>, or
+/// (<see cref="TouchAsync{TRoot}(AppDbContext, IReadOnlyCollection{Guid}, Guid)"/>, or
 /// <see cref="TouchWhereAsync{TRoot}"/> when the roots are whichever ones a predicate
 /// matches at that moment) and records the roots it deleted (<see cref="Bury"/>) — inside
 /// the same transaction as the write, or the feed can see one without the other.
@@ -27,11 +27,11 @@ namespace FitTracker.Api.Data;
 /// the same root row once per save; inside one transaction the first stamp is already the
 /// one every later reader sees, since none of them sees anything before the commit.
 ///
-/// The same two helpers record whose data they changed, for the live updates (part four):
-/// <see cref="TouchAsync{TRoot}(AppDbContext, IReadOnlyCollection{Guid})"/> by the roots'
-/// ids, and <see cref="TouchWhereAsync{TRoot}"/> by the owner its caller names, because a
-/// predicate's roots aren't known here. <see cref="Bury"/> needs nothing extra: its
-/// tombstones are rows of the next save, which records them like its own.
+/// The same two helpers record whose data they changed, for the live updates (part four), by
+/// the owner their caller names: every call site already has it, and looking it up from the
+/// roots would be a query in the write's transaction to learn what the caller knew.
+/// <see cref="Bury"/> needs nothing extra: its tombstones are rows of the next save, which
+/// records them like its own.
 /// </remarks>
 internal static class SyncChanges
 {
@@ -46,11 +46,14 @@ internal static class SyncChanges
 
     /// <summary>Marks the given roots changed now, in one statement that writes only their
     /// <c>UpdatedAt</c> — skipping any this transaction has already stamped.</summary>
-    public static async Task TouchAsync<TRoot>(this AppDbContext context, IReadOnlyCollection<Guid> ids)
+    /// <param name="owner">Whose roots they are. Required for the reason
+    /// <see cref="TouchWhereAsync{TRoot}"/>'s is.</param>
+    public static async Task TouchAsync<TRoot>(this AppDbContext context, IReadOnlyCollection<Guid> ids, Guid owner)
         where TRoot : class, ISyncRoot
     {
+        if (ids.Count == 0) return;
         await StampAsync<TRoot>(context, ids, DateTime.UtcNow, async: true, default);
-        foreach (var id in ids) Recorded(context, ChangedData.OfRoot<TRoot>(id));
+        Recorded<TRoot>(context, owner);
     }
 
     /// <summary>Marks changed now every root <paramref name="which"/> matches when the
@@ -79,16 +82,16 @@ internal static class SyncChanges
         var stamped = await context.Set<TRoot>()
             .Where(which)
             .ExecuteUpdateAsync(s => s.SetProperty(r => EF.Property<DateTime>(r, nameof(ISyncRoot.UpdatedAt)), now));
-        if (stamped > 0 && DataAreas.Of(typeof(TRoot)) is { } area) Recorded(context, ChangedData.Owned(owner, area));
+        if (stamped > 0) Recorded<TRoot>(context, owner);
     }
 
-    /// <summary>Records in the request's log that a statement changed
-    /// <paramref name="change"/>; it counts once the statement's transaction commits.</summary>
-    private static void Recorded(AppDbContext context, ChangedData? change)
+    /// <summary>Records in the request's log that a statement changed <paramref name="owner"/>'s
+    /// <typeparamref name="TRoot"/>s; it counts once the statement's transaction commits.</summary>
+    private static void Recorded<TRoot>(AppDbContext context, Guid owner)
     {
-        if (context.ChangedData is { } log && change is { } c)
+        if (context.ChangedData is { } log && DataAreas.Of(typeof(TRoot)) is { } area)
         {
-            log.RecordStatement(context.Database.CurrentTransaction?.TransactionId, c);
+            log.RecordStatement(context.Database.CurrentTransaction?.TransactionId, new ChangedData(owner, area));
         }
     }
 

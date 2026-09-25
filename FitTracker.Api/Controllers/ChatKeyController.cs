@@ -1,7 +1,7 @@
-using System.Security.Claims;
 using FitTracker.Api.DTOs;
 using FitTracker.Api.Models;
 using FitTracker.Api.Repositories.Interfaces;
+using FitTracker.Api.Services;
 using FitTracker.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -143,11 +143,7 @@ public class ChatKeyController(
         })],
     };
 
-    private Guid? GetUserId()
-    {
-        var claim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub");
-        return claim != null && Guid.TryParse(claim.Value, out var id) ? id : null;
-    }
+    private Guid? GetUserId() => User.TryGetUserId(out var id) ? id : null;
 
     // Same two-probe resolution ChatController and ChatHub use: the caller may
     // be either side of the pair, and one code path has to serve both.

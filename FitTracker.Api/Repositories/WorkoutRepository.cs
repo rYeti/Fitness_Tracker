@@ -302,7 +302,7 @@ public class WorkoutRepository : IWorkoutRepository
             // The change tracking the sync feed reads never saw that delete either, and each
             // of those sessions just lost an exercise. One that kept its entry is stamped
             // for nothing and sent again unchanged, which is harmless.
-            await _context.TouchAsync<ScheduledWorkout>(emptyEntries.Select(e => e.ScheduledWorkoutId).ToList());
+            await _context.TouchAsync<ScheduledWorkout>(emptyEntries.Select(e => e.ScheduledWorkoutId).ToList(), owner: userId);
         }
 
         if (scheduledEntries.Count == emptyEntryIds.Count && allEmptyGone)

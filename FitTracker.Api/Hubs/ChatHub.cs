@@ -1,6 +1,6 @@
-using System.Security.Claims;
 using FitTracker.Api.DTOs;
 using FitTracker.Api.Repositories.Interfaces;
+using FitTracker.Api.Services;
 using FitTracker.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
@@ -24,51 +24,59 @@ public class ChatHub(
     private ILogger<ChatHub> Logger { get; } = logger;
     private static string GroupName(Guid trainerId, Guid clientId) => $"chat:{trainerId}:{clientId}";
 
-    /// <summary>The group every connection of trainer <paramref name="trainerId"/> joins,
+    /// <summary>The group a trainer's console connections join (<see cref="JoinTrainerGroup"/>),
     /// which <c>ClientDataChanged</c> is sent to. See docs/sync-architecture.md, part four.</summary>
     public static string TrainerGroup(Guid trainerId) => $"trainer:{trainerId}";
 
     /// <summary>
-    /// Puts a trainer's connection in their own group, <see cref="TrainerGroup"/>, where the
-    /// live updates about their clients' data arrive.
+    /// Puts the calling connection in its user's own group, <see cref="TrainerGroup"/>, where
+    /// the live updates about their clients' data arrive — if its user holds a trainer licence.
+    /// For anyone else it does nothing.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// The console already holds this socket for chat while it is open, so live updates ride
-    /// it rather than a second hub: a second socket would be a second connection holding a
-    /// Cloud Run instance awake for as long as the console is open.
+    /// Live updates ride the socket the console already holds for chat, rather than a second
+    /// hub: a second socket would be a second connection holding a Cloud Run instance awake
+    /// for as long as the console is open.
+    /// </para>
+    /// <para>
+    /// The Trainer Console calls this after every connect and every reconnect. A reconnect is
+    /// a new connection, and SignalR forgets a connection's groups with it. Nothing joins at
+    /// connect: that cost a licence query on every connection and every automatic reconnect,
+    /// including every trainee's coach-chat socket, which could never match. It also put a
+    /// trainer's own trainee-app socket in the group, so their phone received every event about
+    /// their clients and ignored it. The console is the only reader of these events, so only
+    /// the console joins.
     /// </para>
     /// <para>
     /// Holding a licence is what makes someone a trainer (docs/trainer-licensing.md), so that
-    /// is the check — not having clients, and not any role claim. The group says nothing
-    /// about which clients: that is decided per event, against Active relationships, when one
-    /// is sent (<c>LiveUpdateNotifier</c>). A connection in the group can only be the
-    /// trainer's own, because the id comes from their token.
+    /// is the check, not having clients and not any role claim. The group says nothing about
+    /// which clients. That is decided per event, against the client's Active relationships at
+    /// the moment it is sent (<c>LiveUpdateNotifier</c>). The group is an address, not a
+    /// permission, and a connection in it can only be the trainer's own, because the id comes
+    /// from their token. CLAUDE.md records this as the one exception to tying group membership
+    /// to Active relationships.
     /// </para>
     /// <para>
-    /// A failure here is logged and the connection goes on without the group. Chat worked
-    /// before this existed and must not start depending on it; the console fetches again
-    /// when it regains focus or reconnects, so a missing group costs freshness, not data.
+    /// A failure here is logged and the connection goes on without the group. The console
+    /// fetches again when it regains focus or reconnects, so a missing group costs freshness,
+    /// not data. Chat on the same socket never depends on it.
     /// </para>
     /// </remarks>
-    public override async Task OnConnectedAsync()
+    public async Task JoinTrainerGroup()
     {
-        if (TryGetUserId() is { } userId)
+        if (!Context.User.TryGetUserId(out var userId)) return;
+        try
         {
-            try
+            if (await Licences.GetByTrainerAsync(userId) != null)
             {
-                if (await Licences.GetByTrainerAsync(userId) != null)
-                {
-                    await Groups.AddToGroupAsync(Context.ConnectionId, TrainerGroup(userId));
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.LogWarning(ex, "Could not add trainer {UserId}'s connection to their group.", userId);
+                await Groups.AddToGroupAsync(Context.ConnectionId, TrainerGroup(userId));
             }
         }
-
-        await base.OnConnectedAsync();
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Could not add trainer {UserId}'s connection to their group.", userId);
+        }
     }
 
     /// <summary>
@@ -192,22 +200,11 @@ public class ChatHub(
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, GroupName(trainerId, actualClientId));
     }
 
-    // Same claim handling as ChatController.GetUserId. Tokens minted by the OAuth
-    // path carry the caller's id as a bare "sub" rather than as NameIdentifier, so
-    // reading only the latter left the hub throwing NullReferenceException on a
-    // token the controller accepted happily — one entry point working and the
-    // other not, for the same signed-in user.
+    // The same reading of the caller as every controller (ClaimsPrincipalExtensions), `sub`
+    // included: reading only NameIdentifier once left the hub throwing on a token the
+    // controllers accepted.
     private Guid GetUserId() =>
-        // A HubException reaches the client as a readable message; the parse
-        // failure it replaces surfaced as an opaque "an unexpected error occurred".
-        TryGetUserId() ?? throw new HubException("Not authorized for this chat.");
-
-    private Guid? TryGetUserId()
-    {
-        var claim = Context.User?.FindFirst(ClaimTypes.NameIdentifier)
-                    ?? Context.User?.FindFirst("sub");
-
-        return claim != null && Guid.TryParse(claim.Value, out var userId) ? userId : null;
-    }
-
+        // A HubException reaches the client as a readable message; the parse failure it
+        // replaces surfaced as an opaque "an unexpected error occurred".
+        Context.User.TryGetUserId(out var userId) ? userId : throw new HubException("Not authorized for this chat.");
 }
