@@ -142,7 +142,10 @@ class _TrainerConsoleHomeState extends State<TrainerConsoleHome> {
       _chat = ChatProvider(repository: injected);
       _attachments = ChatAttachmentProvider();
     } else if (sl.isRegistered<AppDatabase>()) {
-      final signalR = SignalRHubChatClient();
+      // The console's socket, and only the console's, joins the trainer's
+      // live-updates group — on every connect, since a group is joined per
+      // connection id (`docs/sync-architecture.md`, part four).
+      final signalR = SignalRHubChatClient(joinTrainerGroup: true);
       _signalR = signalR;
       final repository = ChatRepository(db: sl<AppDatabase>(), signalR: signalR);
       _chat = ChatProvider(repository: repository);
@@ -178,8 +181,8 @@ class _TrainerConsoleHomeState extends State<TrainerConsoleHome> {
     _licence = widget.licenceProvider ?? TrainerLicenceProvider();
 
     // The same socket as chat, not a second one: the server sends
-    // `ClientDataChanged` to this connection's trainer group. Without chat
-    // there is no socket, and focus is the only thing that refreshes.
+    // `ClientDataChanged` to the trainer group this connection joins. Without
+    // chat there is no socket, and focus is the only thing that refreshes.
     _ownsLive = widget.liveUpdates == null;
     final signalR = _signalR;
     _live = widget.liveUpdates ??
