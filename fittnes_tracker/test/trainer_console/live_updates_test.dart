@@ -138,6 +138,44 @@ void main() {
       await hub.close(tester);
     });
 
+    testWidgets('in a steady stream still refetches, within a ceiling', (
+      tester,
+    ) async {
+      final repository = _repository();
+      final hub = await _pump(tester, repository);
+
+      // A trainer with clients mid-session: an event every half second, from
+      // this client and others, and never a quiet second for the debounce.
+      repository.nutrition = fakeNutrition(totalCalories: 2050, goal: 2200);
+      Future<void> stream(int events) async {
+        for (var i = 0; i < events; i++) {
+          hub.changed(
+            i.isEven ? 'client-1' : 'client-2',
+            {ClientDataArea.nutrition},
+          );
+          await tester.pump(const Duration(milliseconds: 500));
+        }
+      }
+
+      await stream(12);
+      expect(
+        repository.calls['nutrition'],
+        2,
+        reason: 'the pane reads within five seconds of the first event',
+      );
+      expect(_ring(2050), findsOneWidget);
+      expect(repository.calls['roster'], 1, reason: 'still inside its ceiling');
+
+      await stream(20);
+      expect(
+        repository.calls['roster'],
+        2,
+        reason: 'the roster reads within fifteen seconds of the first event',
+      );
+
+      await hub.close(tester);
+    });
+
     testWidgets('for another client refreshes only the roster', (
       tester,
     ) async {
@@ -278,6 +316,51 @@ void main() {
       expect(repository.calls['nutrition'], 2);
       expect(repository.calls['roster'], 2);
 
+      await hub.close(tester);
+    });
+
+    testWidgets('refetches on focus at most once a cooldown', (tester) async {
+      final repository = _repository();
+      final hub = await _pump(tester, repository);
+
+      // Alt-tabbing: five returns to the window, two seconds apart.
+      for (var i = 0; i < 5; i++) {
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.inactive,
+        );
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await tester.pump(const Duration(seconds: 2));
+      }
+      expect(repository.calls['nutrition'], 2);
+      expect(repository.calls['roster'], 2);
+
+      // Once more when the cooldown is over, for the last return inside it.
+      await tester.pump(const Duration(seconds: 30));
+      await tester.pump(const Duration(seconds: 4));
+      expect(repository.calls['nutrition'], 3);
+      expect(repository.calls['roster'], 3);
+
+      await hub.close(tester);
+    });
+
+    testWidgets('shares one cooldown between focus and reconnect', (
+      tester,
+    ) async {
+      final repository = _repository();
+      final hub = await _pump(tester, repository);
+
+      hub.reconnected();
+      await tester.pump(const Duration(seconds: 2));
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump(const Duration(seconds: 4));
+
+      expect(repository.calls['nutrition'], 2);
+      expect(repository.calls['roster'], 2);
+
+      await tester.pump(const Duration(seconds: 30));
       await hub.close(tester);
     });
 
