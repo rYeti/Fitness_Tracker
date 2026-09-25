@@ -6,6 +6,7 @@ import 'package:ForgeForm/feature/trainer_console/data/trainer_console_repositor
 import 'package:ForgeForm/feature/trainer_console/domain/models/console_error.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_console_models.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/active_client_provider.dart';
+import 'package:ForgeForm/feature/trainer_console/presentation/providers/console_live_updates.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/trainer_console_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/trainer_licence_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/view/invite_client_sheet.dart';
@@ -42,10 +43,21 @@ class TrainerDashboardScreen extends StatefulWidget {
   State<TrainerDashboardScreen> createState() => _TrainerDashboardScreenState();
 }
 
-class _TrainerDashboardScreenState extends State<TrainerDashboardScreen> {
+class _TrainerDashboardScreenState extends State<TrainerDashboardScreen>
+    with LiveRefreshPane<TrainerDashboardScreen> {
   late final TrainerConsoleProvider _provider;
   late final TrainerLicenceProvider _licence;
   late final bool _ownsLicenceProvider;
+
+  /// The KPIs summarise every client, not one.
+  @override
+  String? get liveClientId => null;
+
+  @override
+  bool concernsLive(ConsoleRefresh refresh) => refresh is RosterRefresh;
+
+  @override
+  void refreshLive() => _provider.load(keepShown: true);
 
   @override
   void initState() {

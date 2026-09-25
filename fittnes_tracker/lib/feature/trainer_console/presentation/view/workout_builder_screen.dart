@@ -6,6 +6,8 @@ import 'package:ForgeForm/feature/trainer_console/data/trainer_console_repositor
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_console_models.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/active_client_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/workout_builder_provider.dart';
+import 'package:ForgeForm/feature/trainer_console/domain/models/client_data_change.dart';
+import 'package:ForgeForm/feature/trainer_console/presentation/providers/console_live_updates.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/client_switcher.dart';
 import 'package:ForgeForm/core/forge_motion.dart';
 import 'package:ForgeForm/core/widgets/app_widgets.dart';
@@ -25,8 +27,23 @@ class WorkoutBuilderScreen extends StatefulWidget {
   State<WorkoutBuilderScreen> createState() => _WorkoutBuilderScreenState();
 }
 
-class _WorkoutBuilderScreenState extends State<WorkoutBuilderScreen> {
+class _WorkoutBuilderScreenState extends State<WorkoutBuilderScreen>
+    with LiveRefreshPane<WorkoutBuilderScreen> {
   late final WorkoutBuilderProvider _provider;
+
+  @override
+  String? get liveClientId => _provider.loadedClientId;
+
+  @override
+  bool concernsLive(ConsoleRefresh refresh) =>
+      refresh is ClientRefresh &&
+      refresh.concerns(liveClientId, const {ClientDataArea.workouts});
+
+  @override
+  void refreshLive() {
+    final clientId = liveClientId;
+    if (clientId != null) _provider.refresh(clientId);
+  }
 
   @override
   void initState() {
@@ -792,7 +809,12 @@ class _DaysEditor extends StatelessWidget {
             onAddFirstDay: () => _selectDay(context, null),
           )
         : _DayEditorForm(
-            key: ValueKey(builder.selectedWorkoutId ?? 'new-day'),
+            // The revision too: a refresh that gives a clean day the
+            // server's copy has to rebuild the fields built from the old one.
+            key: ValueKey(
+              '${builder.selectedWorkoutId ?? 'new-day'}'
+              '@${builder.draftRevision}',
+            ),
             builder: builder,
             clientId: clientId,
           );
@@ -904,7 +926,8 @@ class _NoDaySelected extends StatelessWidget {
 /// Edits one day's name, metadata and exercises. Keyed by the selected day id
 /// in the parent so Flutter tears this state down and rebuilds it fresh
 /// whenever the trainer switches days, instead of one controller set being
-/// reused across different drafts.
+/// reused across different drafts — and by the draft revision, so it does the
+/// same when a refresh replaces a clean day with the server's copy.
 class _DayEditorForm extends StatefulWidget {
   final WorkoutBuilderProvider builder;
   final String clientId;

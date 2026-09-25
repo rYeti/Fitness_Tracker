@@ -35,24 +35,54 @@ class NutritionProvider extends ChangeNotifier {
     return selected.isBefore(DateTime(today.year, today.month, today.day));
   }
 
-  Future<void> load(String clientId) async {
-    _isLoading = true;
-    _error = null;
-    // Drop the old client's numbers immediately — showing one client's intake
-    // under another's name is worse than a skeleton.
-    _summary = null;
-    _loadedClientId = clientId;
+  /// Which read of the summary is the latest; only its answer is applied.
+  int _request = 0;
+
+  /// Bumped when a pin write starts and when it ends, with [_pinWrites]
+  /// counting those in flight. A read that overlapped a write can't tell
+  /// whether its pins are from before the write or after, so it keeps the
+  /// pins on screen and takes everything else — the write's own outcome is
+  /// what settles them.
+  int _pinEpoch = 0;
+  int _pinWrites = 0;
+
+  /// Loads [clientId]'s summary for the selected day.
+  ///
+  /// [keepShown] is a refresh of the client and day already on screen — the
+  /// console heard that their data changed. The summary stays up while it
+  /// reads, and a failed read keeps it rather than replacing it with an error
+  /// (`docs/sync-architecture.md`, part four). For another client, or before
+  /// the first load has settled, it is an ordinary load.
+  Future<void> load(String clientId, {bool keepShown = false}) async {
+    final request = ++_request;
+    final keep = keepShown && _loadedClientId == clientId && !_isLoading;
     final requestedDate = _selectedDate;
-    notifyListeners();
+    final pinEpoch = _pinEpoch;
+    final pinWritesAtStart = _pinWrites;
+    if (!keep) {
+      _isLoading = true;
+      _error = null;
+      // Drop the old client's numbers immediately — showing one client's
+      // intake under another's name is worse than a skeleton.
+      _summary = null;
+      _loadedClientId = clientId;
+      notifyListeners();
+    }
 
     try {
       final summary = await _repository.getClientNutritionSummary(
         clientId,
         requestedDate,
       );
-      // Ignore a slow response the trainer has already navigated away from.
-      if (!_isCurrentRequest(clientId, requestedDate)) return;
-      _summary = summary;
+      // Ignore a slow response the trainer has already navigated away from,
+      // or one a later read has overtaken.
+      if (!_isCurrentRequest(request, clientId, requestedDate)) return;
+      final shown = _summary;
+      final pinsOverlapped = pinEpoch != _pinEpoch || pinWritesAtStart > 0;
+      _summary = shown != null && pinsOverlapped
+          ? _withPins(summary, shown.pinnedNutrients)
+          : summary;
+      _error = null;
     } catch (e, stackTrace) {
       // The trainer only ever sees "could not load"; without this the cause
       // never surfaced anywhere, which is how a server-side 500 went unnoticed.
@@ -61,17 +91,20 @@ class NutritionProvider extends ChangeNotifier {
         error: e,
         stackTrace: stackTrace,
       );
-      if (!_isCurrentRequest(clientId, requestedDate)) return;
+      if (!_isCurrentRequest(request, clientId, requestedDate) || keep) return;
       _error = ConsoleError.loadNutrition;
     } finally {
-      if (_isCurrentRequest(clientId, requestedDate)) {
+      if (_isCurrentRequest(request, clientId, requestedDate)) {
         _isLoading = false;
         notifyListeners();
       }
     }
   }
 
-  bool _isCurrentRequest(String clientId, DateTime date) =>
+  bool _isCurrentRequest(int request, String clientId, DateTime date) =>
+      request == _request && _isShowing(clientId, date);
+
+  bool _isShowing(String clientId, DateTime date) =>
       _loadedClientId == clientId && _selectedDate == date;
 
   void previousDay(String clientId) {
@@ -106,6 +139,8 @@ class NutritionProvider extends ChangeNotifier {
 
     _pinError = null;
     _summary = _withPins(current, after);
+    _pinEpoch++;
+    _pinWrites++;
     notifyListeners();
 
     try {
@@ -119,10 +154,13 @@ class NutritionProvider extends ChangeNotifier {
       // Only revert if this is still the client/day being shown — a slow
       // failure for a pin toggle on a screen the trainer has since navigated
       // away from must not silently rewrite what they're looking at now.
-      if (!_isCurrentRequest(clientId, _selectedDate)) return;
+      if (!_isShowing(clientId, _selectedDate)) return;
       _summary = _withPins(_summary ?? current, before);
       _pinError = ConsoleError.saveNutrientPins;
       notifyListeners();
+    } finally {
+      _pinEpoch++;
+      _pinWrites--;
     }
   }
 

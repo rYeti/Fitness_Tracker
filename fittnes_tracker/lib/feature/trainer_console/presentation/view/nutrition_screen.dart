@@ -6,6 +6,8 @@ import 'package:ForgeForm/feature/trainer_console/data/trainer_console_repositor
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_console_models.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/active_client_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/nutrition_provider.dart';
+import 'package:ForgeForm/feature/trainer_console/domain/models/client_data_change.dart';
+import 'package:ForgeForm/feature/trainer_console/presentation/providers/console_live_updates.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/calorie_ring.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/client_switcher.dart';
 import 'package:ForgeForm/core/widgets/app_widgets.dart';
@@ -29,8 +31,23 @@ class NutritionScreen extends StatefulWidget {
   State<NutritionScreen> createState() => _NutritionScreenState();
 }
 
-class _NutritionScreenState extends State<NutritionScreen> {
+class _NutritionScreenState extends State<NutritionScreen>
+    with LiveRefreshPane<NutritionScreen> {
   late final NutritionProvider _provider;
+
+  @override
+  String? get liveClientId => _provider.loadedClientId;
+
+  @override
+  bool concernsLive(ConsoleRefresh refresh) =>
+      refresh is ClientRefresh &&
+      refresh.concerns(liveClientId, const {ClientDataArea.nutrition});
+
+  @override
+  void refreshLive() {
+    final clientId = liveClientId;
+    if (clientId != null) _provider.load(clientId, keepShown: true);
+  }
 
   @override
   void initState() {
