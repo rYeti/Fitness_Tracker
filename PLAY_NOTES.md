@@ -26,7 +26,7 @@ See `docs/android-release.md`.
 
 Trainer Console: the Attendance by week chart now lines up on phones. Week labels no longer wrap onto two lines or push their bar out of line.
 
-Sync is more reliable: no more duplicates, edits no longer revert, things you delete stay deleted, and data from your other devices keeps arriving. Workouts you log now reach your coach within seconds instead of hours later. Deleting a plan keeps the workouts you already trained.
+Sync is more reliable: no more duplicates, edits no longer revert, things you delete stay deleted, and data from your other devices keeps arriving. Workouts you log now reach your coach within seconds instead of hours later, and your coach's changes arrive when you open the app. Deleting a plan keeps the workouts you already trained.
 
 ## 1.0.2+28
 

@@ -557,7 +557,7 @@ changes nothing else.
 
 | File | Holds |
 |---|---|
-| `sync_service.dart` | the class: entry points (`syncAll`, `pullAll`), the lease and step isolation, `_markSent`, the deletion outbox drain, `_applyEach`, `_removeDeletedElsewhere` |
+| `sync_service.dart` | the class: entry points (`syncAll`, `pullAll`), the lease and step isolation, `_markSent`, the deletion outbox drain, `_applyEach`, and since part three the changes cursor, `_applyTombstones` and `_goneElsewhere` (which replaced `_removeDeletedElsewhere`) |
 | `exercise_sync.dart` | custom exercises; linking built-in exercises to their server ids |
 | `workout_sync.dart` | workouts, their exercise entries, set templates |
 | `plan_sync.dart` | plans and the workouts in them |
@@ -2077,44 +2077,481 @@ chooses for an insert and a delete in one save.
 
 ## 35. The device's half
 
-*Written with the client half of this part, which lands in the same pull
-request.*
+The server's half gave the device two facts it never had — which aggregates
+changed since a given moment, and which rows were deleted — and one new answer,
+410. This half is what the device does with them. Put shortly: the pull stopped
+downloading the account and started asking a question, *what changed since I
+last asked?*, and it stopped guessing what had been deleted.
 
-What the server's half assumes of it, for whoever writes it:
+| | Before | Now |
+|---|---|---|
+| What a pull fetches | nine GETs of the account's data, every list in full, plus the built-in exercise catalogue | one `GET api/Sync/changes?since=<cursor>`; the catalogue only when something needs it (§36) |
+| How a delete elsewhere is learned | a row missing from its list, guarded against a list that came back empty | the server says so: a tombstone in the answer (§39), or a 410 answering a create (§40) |
+| A clean row the server lists | mostly left alone — only a workout, a plan's list and a meal's list were reconciled | takes the server's copy |
+| A dirty row the server lists | skipped | skipped, and the cursor stays where it was (§37) |
+| When it runs | launch and resume, at most every six hours | launch and resume, at most every two minutes, and in the background task (§42) |
 
-- **One path in today's app re-creates a deleted row under its old id on
-  purpose, and will now be refused.** In `_syncDeleteWorkout`
-  (`workout_sync.dart`) the server has accepted a workout's DELETE, then a set
-  logged mid-delete makes the device keep the workout, re-created "under the
-  ids it already has — the server deleted those rows, so a create under them
-  makes them afresh". The server now holds a tombstone for that workout, and for
-  each placeholder session its delete removed, so those creates answer 410.
-  Deleting the local row on that 410 would delete the history it is being kept
-  for. The workout, and any of its sessions the server buried, want fresh ids,
-  as a 409 already gets them (`_mintNewIds`); its exercise entries, set
-  templates and sets have no tombstones and can keep theirs. The same holds for
-  a tombstone arriving in the feed for a row this device's history hangs on.
-- Send `since` back exactly as the last answer's `cursor` (URL-encoded: an
-  offset's `+` is a space in a query string), and store it with the data it
-  describes, so that clearing one clears the other.
-- Apply `deleted` after the aggregates of the same answer (§31, "Not a
-  snapshot").
-- A row can arrive twice, and can refer to a row that only arrives in the next
-  answer.
-- A write that changes nothing on the server stamps nothing (§27), so a device
-  that skips an aggregate because its own copy is dirty can't rely on its push
-  to bring the server's copy back. It has to ask for it again — for instance by
-  not moving its cursor past an answer it skipped part of until the skipped
-  rows are clean.
-- A 410 answers a create (or a batch entry) naming a row that was deleted
-  elsewhere, and names the id.
+The apply code did not change shape. Each `_pull…` method used to fetch its
+list and then apply it; it now takes its list from the answer and applies it
+with the same code — `_applyServerWorkout`, `_applyServerScheduledWorkout`,
+`_applyServerMeal` and the rest. The feed was built to send exactly the DTOs
+those methods already read (§31), so this half changes where the lists come
+from, not how they are read. There is one apply path, not a second one for the
+feed that would drift from the first.
+
+What did change inside them is that a clean row now takes the server's copy
+wherever it used to be insert-only: a custom exercise, a food item, a weight's
+value and note, a plan's name, dates and cycle. Under the full pull those were
+written once and never again, so an edit made on another device, or by a
+trainer, never reached a device that already had the row. With a delta that
+gap would have been the whole point of the answer: the answer lists the row
+*because* it changed.
+
+Two things deliberately keep their old rule. Settings have no sync status, so
+the pull can't tell a local edit it hasn't sent from a clean copy; they still
+only fill in a device that has none, and the push sends them whole. And a
+weight's *date* is not overwritten: the push sends a record's local wall-clock
+time with no offset and the server stamps it UTC as it stands, so the date it
+echoes back is this device's moved by its time-zone offset. Written over a
+record logged west of Greenwich, it would move the weigh-in to the day before.
+That round trip is its own bug, older than this part, and is listed below.
+
+Two properties of the answer the apply code already had to live with, and now
+relies on. A row can arrive twice — the cursor overlaps by two minutes (§31) —
+so applying one is idempotent: an insert of a row already held becomes an
+update of it. And a row can refer to one that only arrives in the next answer:
+a session whose workout isn't here yet is skipped, as it always was. That is
+safe only because the two were stamped after the cursor this answer returns,
+so the next answer carries both; it is also why the order of the steps — a
+row's references before the row — matters for the common case and not for
+correctness.
+
+---
+
+## 36. The cursor
+
+`sync_meta` (drift schema 43, `lib/core/database/tables/sync_tables.dart`)
+holds one row: the `cursor` of the last answer this device applied whole,
+exactly as the server wrote it. The next pull sends it back as `since`
+(`ApiClient.getChanges`; Dio encodes it, so an offset's `+` survives).
+
+It lives in the database, not in SharedPreferences beside the pull's
+timestamp, because it describes the data and has to go when the data goes.
+`clearAllUserData` — sign-out — deletes it in the same `untracked` transaction
+that empties the tables. A cursor that outlived its data would tell the next
+account's first pull that this device already held everything up to the last
+account's position; that pull would fetch nothing, and the new account would
+open to an empty app. `clearPerAccountPrefs` removes the pull timestamp for the
+same reason, and says so.
+
+### A pull with no cursor
+
+A pull with no cursor sends no `since`, and the server answers with
+everything. There are three ways to have no cursor, and they differ in what
+the device already holds:
+
+| No cursor because… | The device already holds |
+|---|---|
+| a fresh install, or a new sign-in | nothing |
+| an install upgraded from schema 42 | whatever its last full pull brought down — including rows another device has deleted since |
+| the server refused one of this device's DELETEs (§41), or the user pressed "Restore from server" | everything |
+
+The server's half was first written for the first row only: an answer without
+`since` listed everything and no deletions, on the reasoning that a device
+holding nothing has nothing a deletion could remove. The second row is not
+that case. An upgraded install's last full pull ran up to six hours before the
+upgrade, and whatever was deleted elsewhere in between is still on it. Before
+this part, the next full pull's absence inference would have removed it; that
+inference is gone, and the only thing left that can is a tombstone. So the
+device treats `deleted` the same in every answer — applied after the
+aggregates, with the same protections for history — and a cursorless answer has
+to carry every deletion the server has recorded for the account.
+*an install upgraded from schema 42 … applies what was deleted meanwhile*
+pins the device's side of that.
+
+### When it moves
+
+The cursor is stored only after the whole answer applied: every step ran
+without failing, and no row was held back (§37). Anything less, and the next
+pull asks for the same changes again. Applying a row twice is harmless by
+construction (§31), so asking again costs bandwidth, never correctness.
+
+That made one old kindness wrong. `_applyEach` applied each record in its own
+savepoint, and a record that failed was logged, skipped and forgotten — "one
+record the device can't take costs that record, not the step". Under the full
+pull that was true, because the record came back on the next pull and was
+tried again. With a cursor, a skipped record would be behind the cursor and
+never be sent again. So a record that fails still doesn't stop the rest of its
+step, but the step now reports failure once the rest are applied, and the
+cursor stays.
+
+### The built-in catalogue
+
+Built-in exercises are the server's catalogue, not the account's data, so
+they are not in the feed; linking the device's seeded copies to the server's
+ids still goes through `GET api/Exercise/AllExercises` (`_syncSystemExerciseIds`).
+The catalogue is several hundred exercises, with descriptions in two
+languages. The full pull fetched it every time, which was affordable once
+every six hours and is not on every resume. It is now fetched only when
+something needs it (`_needsCatalogue`): a pull without a cursor; an answer
+whose workout names an exercise this device holds under no id (a built-in the
+server added since the last link, in a workout a trainer assigned); or a
+workout here using a built-in that isn't linked yet, whose entry waits, unsent,
+for the link (§20).
+
+---
+
+## 37. A row held back holds the cursor
+
+The pull has always skipped the server's copy of a row this device holds an
+unsent change to: the change is the push's to send, and overwriting it would
+lose it. Skipping is still the rule. What changed is an assumption that used to
+come with it for free, and is now false:
+
+> The push will send this device's copy, the server will stamp it, and the next
+> answer will bring the result back.
+
+§27 is why not. The server stamps a root only when a value actually changes,
+so a push that writes back what the server already holds leaves no trace in
+the feed. That is not exotic:
+
+| Time | This phone | Server | Tablet |
+|---|---|---|---|
+| t0 | lunch: oats, clean | lunch: oats | |
+| t1 | | lunch: oats, banana — stamped | adds a banana |
+| t2 | logs a yoghurt in lunch by mistake and takes it out again: lunch is marked changed, and its list is what it was | | |
+| t3 | pull: lunch is in the answer, and changed here too → skipped | | |
+| t4 | push: the yoghurt's DELETE (404), lunch's fields and its oats — all already there, so nothing is stamped | lunch: oats, banana | |
+| t5 | *had t3 stored its cursor:* the next answer starts after t1 and doesn't list lunch. The banana never arrives. | | |
+
+Holding the cursor at t3 means t5 asks from before t1 again, finds lunch clean,
+and takes the banana. `_holdBack` counts every such skip, and `pullAll` stores
+the answer's cursor only when the count is zero.
+
+A skip counts wherever the pull makes one, at every level of an aggregate: a
+root; a workout's exercise entry, or an entry's set templates; a session's own
+fields, an exercise's note or its log; a meal, a food item, a weight, a custom
+exercise, a plan, a meal template. A retired workout exercise is not dirty and
+holds nothing: it is history, kept as it is. A row the pull itself marks
+changed — a meal it adopts, a log it re-queues to overwrite stale copies on the
+server — is not a skip either: the pull applied the server's copy, and the push
+that follows does change the server.
+
+### What it costs
+
+Every answer until the held row is clean repeats what the held one carried.
+Usually that is one answer: the push runs straight before every launch and
+resume pull, so a row is rarely still dirty when the pull arrives. A row the
+push can never send would hold the cursor for good, and the one such row the
+pull could meet — a workout that isn't a template, which the push never sends —
+is not held back for that reason. A row the server keeps refusing does hold it,
+and the answers grow until that is fixed. That trade is deliberate: an answer
+that grows costs bandwidth, and a cursor that moves past a row it skipped costs
+the row.
+
+### Why nothing caught it
+
+- **The compiler couldn't.** A skip is a `return`. A return with a consequence
+  somewhere else — "and now the next answer must carry this again" — looks
+  exactly like a return with none.
+- **The tests couldn't have, as written.** The fake API answers whatever the
+  test put in it, whatever the device pushed. "The push's echo will come back"
+  is true in every test that doesn't set out to make it false. The test for it
+  (*is left for the push, and the cursor stays until it is clean*) asserts the
+  cursor itself, not an outcome that a lenient fake would supply anyway.
+- It was found at design time, not in production, only because §27 wrote the
+  obligation down before this half was written. That is the argument for a
+  server change ending with a list of what it assumes of its client, as the
+  server's half of this part did.
+
+---
+
+## 38. Deletions after aggregates
+
+An answer is not a snapshot (§31): its lists are read one after another, so a
+row deleted while the answer is being put together can be listed as changed
+*and* as deleted. The order the device applies them in decides the outcome:
+
+| Order | What happens to the row | And then |
+|---|---|---|
+| deletions, then aggregates | deleted, then inserted again from the list | the cursor moves past the tombstone, and nothing will ever say it was deleted again — it is back for good |
+| aggregates, then deletions | inserted or updated, then deleted | gone, as it is on the server |
+
+So `pullAll` applies `deleted` last, as its own step (`_applyTombstones`).
+
+Within the deletions, rows go before the rows they hang on: a meal's foods
+before meals, sessions before workouts, and so on. A workout is kept when a
+session here logged sets against it (§39), and that question has to see the
+sessions as the server left them. If the same answer deletes a session and then
+its workout, deciding about the workout first would find the session still
+there, keep the workout, and create it again on the server — and then delete
+the session that was the reason.
+
+Neither order is wrong in any one step: each step is correct on its own. The
+failure is in the order two correct steps run in, which is the kind of thing a
+test only finds when it builds the one answer that shows it. *is applied after
+the answer's aggregates, which can list the same row as changed* is that
+answer.
+
+---
+
+## 39. A deletion is a fact now
+
+Every deletion reaches the same method, `_goneElsewhere(entityType, id)`,
+whether it came as a tombstone in an answer or as a 410 answering a create
+(§40). Each runs under `untracked`: the server already deleted the row, so
+recording a DELETE for it would only buy a 404.
+
+| Deleted elsewhere | Here |
+|---|---|
+| a meal's food | that entry goes; its meal is not marked changed — this is the server's list, not an edit to send back |
+| a meal | goes, with its foods — whatever unsent change it holds |
+| a session | goes, with its exercises and sets — unless it holds logged work not sent yet: then it takes a fresh id and is created again |
+| a plan | goes; the sessions it scheduled stay, detached, as the server's `SET NULL` left them |
+| a workout | goes, with its entries, templates, plan links and unlogged sessions — unless a session here logged sets against it: then it and the sessions the server had take fresh ids and are created again |
+| a custom exercise | goes — unless a workout here uses it: then kept as it is, taking a fresh id only if it holds an edit not sent yet |
+| a food item | goes — unless a meal logged it: then kept the same way |
+| a weight | goes |
+| a meal template | goes, and nothing is remembered to tell the server |
+
+### Deletion wins over an unsent edit
+
+The old sweep left a row with an unsent change alone, for the push. A
+tombstone can't be treated that way, for two reasons. The edit could never
+land: a PUT of the row finds nothing (404), and a create of its id is refused
+(410), so the row would sit dirty for good, sent on every push, keeping the
+sign-out warning up. And a deletion skipped for a dirty row would come back in
+the next answer, find the row still dirty, and be skipped again — so the cursor
+could never move past it. A tombstone always resolves the row, one way or the
+other; it never holds the cursor. §30 already made the same call on the
+server: a food added offline to a meal another device deleted is lost with the
+meal, because the alternative is the addition bringing the meal back.
+
+### Unless history hangs on it — two kinds
+
+The exceptions are the history protections the old sweep had, now applied to a
+fact instead of a guess. They come in two kinds, and they are handled
+differently on purpose.
+
+**History that needs the row on the server.** A set can only be sent under a
+session the server holds, and a session under a workout. A workout the server
+deleted can't have had logged sets there — it refuses that delete with 409 — so
+if sessions here logged sets against it, those sets are this device's and have
+not been sent. Kept under the old id, they never could be: the id is refused
+for good. So the workout takes a fresh id and goes `pending`
+(`_recreateWorkout`), and so does each session of it the server had
+(`_recreateSession`); their exercise entries, set templates, session exercises
+and sets keep their ids — the server keeps no tombstone for those — and go
+`pending`, so they are created again under the new rows. Sessions nothing was
+logged in were deleted on the server with the workout, and go here too. A
+session deleted on its own is kept only for logged work not sent yet: sets the
+server already had don't keep it, because whoever deleted it did so knowing
+what was in it.
+
+**History that only reads the row.** A workout entry refers to its exercise,
+and a meal's food to its food item, and on the server both references are
+opaque ids with no foreign key behind them (`WorkoutExercise.ExerciseId`,
+`MealFoodEntry.FoodItemId`). Nothing there needs the row to exist; this device
+needs it to show a name and macros. So it is kept as it is. Creating it again,
+as a workout is, would be worse than it looks: every device that kept it would
+create its own copy under its own fresh id — the duplicates part two ended.
+Only one holding an edit not sent yet takes a fresh id, because that edit needs
+somewhere to land.
+
+### What absence inference cost
+
+Removing `_removeDeletedElsewhere` removed one guess, and it is worth listing
+what that one guess had been costing, because none of it looked like a cost at
+the time:
+
+- **Every pull was a full download.** In a delta every unchanged row is
+  absent, so a pull that infers deletes from absence can't be a delta. Hence
+  the six-hour throttle, hence data that arrived hours late (§42).
+- **It needed a guard for its own failure** — an empty list deletes nothing —
+  and the guard was a second guess: "an empty answer is far likelier to be a
+  server fault". A list that was short rather than empty, from a filter or a
+  cut-off response, had no guard at all.
+- **It could only see roots.** A food removed from a meal elsewhere was noticed
+  only when this device's copy of the meal was clean; a dirty one sent the food
+  back with its next upsert (§18's open window).
+- **It left every dirty row alone,** so a row edited here and deleted elsewhere
+  was pushed back up — the original "deleted things come back" — and part one
+  had to be careful to make that only an update, never a create.
+
+A tombstone has none of these properties, because it isn't read out of
+anything. It is a row the server wrote when it deleted something.
+
+---
+
+## 40. A 410 is a tombstone delivered on the push
+
+A device learns of a deletion from whichever of its two conversations with the
+server gets there first. Often that is the push: it runs before every launch
+and resume pull, and ten seconds after an edit. A device that hasn't pulled
+since another device's delete will send a create naming the deleted id, and
+the server answers 410 (§30). That answer carries exactly the fact a tombstone
+does, so it is handled by exactly the same code: `_create` hands it to
+`_goneElsewhere`, and the row is deleted or created again under a fresh id as
+the tombstone would have made it. There is no second set of rules for "the
+push found out first".
+
+| Where a 410 arrives | What it names | The device |
+|---|---|---|
+| a create of a root (`_create`) | the row sent | `_goneElsewhere` for the row's type |
+| a meal's foods batch (`_upsertMealFoods`) | one entry of the batch | drops that entry, as the tombstone would, and sends the rest again |
+| a meal template's create | the template | removes it, remembering nothing to send |
+
+The foods batch is the window part two named and left open (§18, "What it
+still can't do"): an edit to a meal on a device that hadn't pulled a food's
+removal sent the food back. From the device's side, §30's table ends like this:
+the tablet removes the oats; the phone, not having pulled, adds a banana; its
+upsert names the oats; the server answers 410 for them; the phone drops its
+oats and sends the banana again. *a food removed from a meal on one device is
+not put back by an edit to the meal on another device that has not pulled
+yet* is that sequence.
+
+One path no longer waits to be told. `_syncDeleteWorkout` sends a workout's
+DELETE, the server accepts it, and then the local delete refuses because a set
+was logged against the workout in the moment between — an active workout open
+on it. It used to create the workout again "under the ids it already has — the
+server deleted those rows, so a create under them makes them afresh". The
+server now keeps a tombstone for that workout and every placeholder session its
+delete removed, so that create would be answered 410. It goes straight to
+`_recreateWorkout`.
+
+A PUT is not a create and doesn't go through `ClientIds`, so an update of a
+deleted row answers 404, not 410. That is left to the tombstone: the row stays
+dirty until the pull brings the deletion, which is now at most one resume away.
+
+---
+
+## 41. A DELETE the server refuses
+
+Part one's `_pushDeletions` dropped a DELETE the server refused — 409 for a
+workout that sessions elsewhere logged sets against, 403 for one a trainer
+assigned — on the grounds that "the next pull brings the row back, which is the
+server's answer". The device had already deleted the row; the full pull would
+list it again and restore it.
+
+A delta doesn't. The refused row hasn't changed on the server, so no answer
+after the cursor lists it, and the device would be missing a row the server
+kept for good. So a refused DELETE now drops the cursor, and the next pull asks
+for everything, as the full pull always did. It is rare, and it costs exactly
+what every pull used to.
+
+The general shape is worth naming. The full pull was a safety net nobody had
+written down: anything the device got wrong about which rows exist was put
+right within six hours, by accident. Every comment that said "the next pull
+brings it back" was relying on it. Removing the full pull meant reading every
+such comment again and asking whether the delta still brings it back — this
+was the one where it didn't.
+
+---
+
+## 42. When the pull runs
+
+The pull runs on launch and on resume, at most every two minutes
+(`_runInitialSync`, `main.dart`), and in the background task after its push.
+Settings' "Restore from server" asks for everything, whatever the cursor says
+(`pullAll(everything: true)`): it is what someone presses when this device's
+copy looks wrong. Every pull still goes through the in-flight join, the lease
+and `SyncBusyException` (§8).
+
+The six-hour throttle could go because the reason for it went. It existed
+because a pull downloaded the whole account, every list, plus the catalogue;
+run on every resume, that is megabytes for a long-time user on every glance at
+the phone. It cost more than bandwidth: a trainer's edit to a client's
+workout, or a session logged on the client's tablet, reached the phone up to
+six hours late. A delta answer is the size of what changed — on most resumes,
+nearly nothing — so the pull can run whenever the app comes to the front. The
+two-minute interval is not a throttle on data; it only stops a burst of
+resumes — a permission dialog, a glance at the notification shade — from
+pulling once each. It keeps the old key, `last_pull_timestamp`, which
+sign-out clears, so a new account's first launch never waits for it.
+
+The background task pulls too. That used to be unthinkable for the same
+reason: a background task that downloads the account daily is a background
+task the OS kills. Now it asks for a day's changes, so a trainer's edits are
+often already on the phone when it is next opened.
+
+---
+
+## 43. What the tests pin (device)
+
+In `test/sync/changes_feed_test.dart` (15 tests). Each was run with the one
+rule it pins taken out, and failed there — the code had no cursor, feed or
+tombstone to run them against before.
+
+| Test | Pins | Taken out, it failed with |
+|---|---|---|
+| *the pull asks for everything the first time, and after that only for what changed since the last answer* | §36; §35: a clean row takes the server's copy; a row absent from an answer is not deleted | the cursor never stored; food items insert-only again |
+| *… asks for everything when the user restores from the server* | §42 | `everything` ignored |
+| *… no longer asks for the list endpoints* | §35, §36: after the first, a pull fetches only the feed | a list GET put back; the catalogue fetched on every pull |
+| *… fetches the built-in catalogue when an answer names an exercise this device has not linked* | §36 | the catalogue fetched only without a cursor |
+| *the built-in catalogue is fetched when a workout here waits on a built-in not linked yet* | §36 | the waiting check removed |
+| *a row this device holds an unsent change to is left for the push, and the cursor stays until it is clean* | §37 | the hold ignored |
+| *a deletion in the answer removes a clean row with what hangs only on it, and tells the server nothing* | §39 | tombstones not applied |
+| *… keeps a workout that a session here logged unsent sets against, and creates it again under a fresh id* | §39 | the workout kept under its old id |
+| *… is applied after the answer's aggregates, which can list the same row as changed* | §38 | deletions applied first |
+| *a create the server answers 410 deletes the row when nothing hangs on it* | §40; the deletion is `untracked` | the 410 not handled; the deletion tracked |
+| *… gives the row a fresh id when history hangs on it, and creates it under that* | §39, §40 | the workout re-created under its old id |
+| *a food removed from a meal on one device is not put back by an edit to the meal on another device that has not pulled yet* | §40, closing §18's window | the batch's 410 not handled |
+| *a DELETE the server refuses drops the cursor, so the next pull asks for everything and the row comes back* | §41 | the cursor kept |
+| *signing out forgets the cursor with the data it describes* | §36 | `clearAllUserData` leaving `sync_meta` |
+| *an install upgraded from schema 42 gains the cursor table, and its first pull asks for everything and applies what was deleted meanwhile* | §36: schema 43 on a real upgrade; a cursorless answer's deletions applied | the schema not bumped |
+
+Existing tests changed where they had encoded the list GETs or absence. The
+fake API answers `GET api/Sync/changes` from a map a test fills in
+(`FakeApiClient.changes`), records each `since`, and refuses a POST naming an
+id in `deletedIds` with 410, as the server does; `stubEmptyPull` now stubs the
+catalogue and an empty answer. Every test that stubbed a list endpoint for a
+pull now puts the same rows in the answer instead — a change of where they come
+from, not of what they say. Five in `sync_rework_test.dart` changed in meaning:
+
+- *a pull step that fails* used to fail the workouts step by leaving its GET
+  unstubbed; there is no such GET, so it now gives the answer a workout this
+  build can't read, and also checks that the cursor stays.
+- *a row deleted elsewhere* — *is deleted here, not pushed back to the server*
+  and *a session: goes with its exercises and sets* now deliver the deletion as
+  a tombstone instead of leaving the row out of a list, and check that nothing
+  is sent back; *is not assumed from an empty list* became *is not assumed from
+  a row missing from the answer*; and *is kept while it holds an edit this
+  device has not sent* became *is deleted even while it holds an edit this
+  device has not sent: the edit could never land* — the one assertion that
+  turned round, for §39's reason.
+
+---
+
+## 44. The rules part three leaves behind (device)
+
+- **A deletion is known only from the server saying so** — a tombstone in an
+  answer, or a 410 answering a create. Never from a row being absent: in a
+  delta, every unchanged row is.
+- **Both reach `_goneElsewhere`, and nothing else decides.** A new synced type
+  gets a case there, with its history rule: history that needs the row on the
+  server gets a fresh id and is created again; history that only reads it
+  keeps it as it is.
+- **Deletions are applied after the answer's aggregates,** and within them
+  children before parents.
+- **A row the pull skips because it is dirty holds the cursor** (`_holdBack`).
+  So does a record that fails to apply, and a step that fails. The cursor is
+  stored only when the whole answer applied.
+- **A tombstone never holds the cursor.** It always resolves the row.
+- **The cursor lives in `sync_meta`, and is cleared with the data** — by
+  `clearAllUserData`, and by a refused DELETE, after which the next pull asks
+  for everything.
+- **A pull without a cursor applies `deleted` like any other answer.** It may
+  be an upgraded install that holds rows deleted elsewhere.
+- **Anything that relied on "the next pull brings it back" has to be read
+  again.** Only an answer after the cursor comes back.
+- **A new synced root needs, on the server, `UpdatedAt` and a tombstone on
+  delete (§34), and a place in the feed; on the device, an apply method fed
+  from the answer, a hold for a dirty copy, and a case in `_goneElsewhere`.**
 
 ---
 
 ## What is deliberately not here yet
 
-- **The device's half of part three** (§35): until it lands the app still pulls
-  full lists every six hours and infers deletes from absence.
 - **Live updates to the Trainer Console and to the trainee's phone** (part
   four). It will hang off §27's interceptor, which already knows whose data a
   save changed.
@@ -2133,3 +2570,14 @@ What the server's half assumes of it, for whoever writes it:
 - **Removing the dedup folds.** They heal what earlier builds left on devices
   and on the server (§22), and go when that data does.
 - **Foreign-key enforcement** on the device — see §6 for why not.
+- **Settings taking the server's copy on pull.** They have no sync status, so
+  the pull can't tell an unsent edit from a clean copy; they only fill in a
+  device that has none (§35). Giving them one is the fix.
+- **A weight's date round trip.** The push sends local wall-clock time with no
+  offset and the server stamps it UTC, so the pull can't write the date it
+  echoes over a record logged here (§35). Sending the date as an instant, as
+  meals and sessions do, is the fix — on both sides, since shipped apps send
+  the other form.
+- **Anything to bound a held cursor.** A row the server keeps refusing holds
+  the cursor until it is fixed, and each answer until then repeats the last
+  (§37). Nobody has yet shown one that does.
