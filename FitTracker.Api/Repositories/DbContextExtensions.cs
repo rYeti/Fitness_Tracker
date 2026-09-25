@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using FitTracker.Api.Data;
+using FitTracker.Api.Models;
 using FitTracker.Api.Services;
 using Microsoft.EntityFrameworkCore;
 
@@ -56,10 +57,15 @@ internal static class DbContextExtensions
     ///    duplicate — never a row <paramref name="ownedByCaller"/> doesn't select, so a row
     ///    another account stored under one of those ids after step 1 survives, and the
     ///    insert below fails on its key rather than taking it;
-    /// 3. stops tracking the deleted rows, including in the parent's already-loaded list
+    /// 3. marks changed the root (<typeparamref name="TRoot"/>) of every row step 2 deleted —
+    ///    the bulk delete goes straight to the database, so the change tracking the sync feed
+    ///    reads never sees it, and a list replaced with nothing, or a row moved away from
+    ///    another parent, would otherwise never reach another device
+    ///    (docs/sync-architecture.md, part three);
+    /// 4. stops tracking the deleted rows, including in the parent's already-loaded list
     ///    (<paramref name="loadedList"/>), which fixup never prunes — a request that read the
     ///    parent, replaced its list and read it again would see both generations;
-    /// 4. inserts <paramref name="rows"/> and commits.
+    /// 5. inserts <paramref name="rows"/> and commits.
     ///
     /// The caller checks that the parent is the caller's before calling this.
     /// </remarks>
@@ -67,15 +73,18 @@ internal static class DbContextExtensions
     /// <param name="idOf">A row's id.</param>
     /// <param name="inList">Selects the rows currently in the list.</param>
     /// <param name="ownedByCaller">Selects the rows that belong to the caller.</param>
+    /// <param name="rootOf">The id of a row's sync root — the aggregate the feed ships it in.</param>
     /// <param name="loadedList">The parent's list navigation, if the context has it loaded.</param>
-    public static async Task ReplaceListAsync<T>(
+    public static async Task ReplaceListAsync<T, TRoot>(
         this AppDbContext context,
         List<T> rows,
         Func<T, Guid> idOf,
         Expression<Func<T, bool>> inList,
         Expression<Func<T, bool>> ownedByCaller,
+        Expression<Func<T, Guid>> rootOf,
         Func<ICollection<T>?> loadedList)
         where T : class
+        where TRoot : class, ISyncRoot
     {
         var ids = rows.Select(idOf).ToList();
         Expression<Func<T, bool>> sentId = e => ids.Contains(EF.Property<Guid>(e, "Id"));
@@ -91,10 +100,12 @@ internal static class DbContextExtensions
             .FirstOrDefaultAsync();
         if (foreign != Guid.Empty) throw new ClientIdConflictException(foreign);
 
-        await context.Set<T>()
+        var replaced = context.Set<T>()
             .Where(ownedByCaller)
-            .Where(OrElse(inList, sentId))
-            .ExecuteDeleteAsync();
+            .Where(OrElse(inList, sentId));
+        var emptied = await replaced.Select(rootOf).Distinct().ToListAsync();
+        await replaced.ExecuteDeleteAsync();
+        await context.TouchAsync<TRoot>(emptied);
 
         // The bulk delete bypasses the change tracker, so its copies of the deleted rows go
         // by hand; left tracked, the insert below would clash with them on the key.

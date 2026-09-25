@@ -20,8 +20,26 @@ public sealed class ClientIdConflictException(Guid id)
 }
 
 /// <summary>
+/// A create carried an id the caller's own data once held and has since deleted.
+/// Mapped to 410 Gone by <see cref="Filters.ClientIdGoneFilter"/>.
+/// </summary>
+/// <remarks>
+/// A device that hasn't pulled a delete made elsewhere still holds the row, and a create
+/// is how it sends a row it believes the server may not have. Inserting it would undo the
+/// delete. The app answers 410 by deleting its own copy, unless history on the device
+/// still hangs on the row, which then needs a fresh id. See docs/sync-architecture.md,
+/// part three (§30, §35).
+/// </remarks>
+public sealed class ClientIdGoneException(Guid id)
+    : Exception($"The id {id} was deleted.")
+{
+    /// <summary>The id the caller asked for.</summary>
+    public Guid Id { get; } = id;
+}
+
+/// <summary>
 /// Creates that take the row's id from the caller. See docs/sync-architecture.md,
-/// part two.
+/// parts two and three.
 /// </summary>
 /// <remarks>
 /// The app used to learn a new row's id only from the POST response, so a response
@@ -34,6 +52,7 @@ public sealed class ClientIdConflictException(Guid id)
 /// |--------------------------------|-----------------------------------------------|
 /// | names one of the caller's rows | applies the sent fields to it and returns it  |
 /// | names someone else's row       | throws <see cref="ClientIdConflictException"/> |
+/// | names a row the caller deleted | throws <see cref="ClientIdGoneException"/>    |
 /// | is new                         | inserts under it                              |
 /// | was not sent                   | mints one, as before — shipped apps send none |
 ///
@@ -42,6 +61,13 @@ public sealed class ClientIdConflictException(Guid id)
 /// whose response was lost goes out on the retry, and a create that returned the
 /// stored row unchanged would have let the device mark that edit sent when it
 /// never landed.
+///
+/// A deleted id is refused rather than inserted again because the only device that
+/// sends one is a device that hasn't heard of the delete: its create would bring back
+/// what another device, or a trainer, removed. It is checked before <c>insert</c> runs,
+/// so before a create's own content check (a meal per day and category, a session per
+/// workout and day) can answer it with a different row and have the stale device move
+/// the deleted row's contents into that one.
 /// </remarks>
 public static class ClientIds
 {
@@ -54,6 +80,8 @@ public static class ClientIds
     /// <param name="callerId">The user the row must belong to.</param>
     /// <param name="ownerOf">The owner of the row stored under an id: null when there is no
     /// such row, <see cref="Guid.Empty"/> when it exists but belongs to no user.</param>
+    /// <param name="deletedByCaller">Whether the caller's data held a row under an id and
+    /// deleted it — whether a <c>SyncTombstone</c> of the caller's names it.</param>
     /// <param name="updateExisting">Applies the request to the caller's existing row.</param>
     /// <param name="insert">Inserts the row under the given id.</param>
     /// <remarks>
@@ -67,6 +95,7 @@ public static class ClientIds
         Guid? requestedId,
         Guid callerId,
         Func<Guid, Task<Guid?>> ownerOf,
+        Func<Guid, Task<bool>> deletedByCaller,
         Func<Guid, Task<T?>> updateExisting,
         Func<Guid, Task<T?>> insert)
         where T : class
@@ -82,6 +111,8 @@ public static class ClientIds
                 if (ownerId != callerId) throw new ClientIdConflictException(id);
                 return await updateExisting(id);
             }
+
+            if (await deletedByCaller(id)) throw new ClientIdGoneException(id);
 
             try
             {

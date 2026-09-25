@@ -18,9 +18,9 @@ public class WorkoutService : IWorkoutService
     }
 
     /// <inheritdoc/>
-    public async Task<List<WorkoutResponseDto>> GetUserWorkoutsAsync(Guid userId)
+    public async Task<List<WorkoutResponseDto>> GetUserWorkoutsAsync(Guid userId, DateTime? changedSince = null)
     {
-        var workouts = await _workoutRepository.GetUserWorkoutsAsync(userId);
+        var workouts = await _workoutRepository.GetUserWorkoutsAsync(userId, changedSince);
         return [.. workouts.Select(ToDto)];
     }
 
@@ -49,6 +49,7 @@ public class WorkoutService : IWorkoutService
             dto.Id,
             userId,
             _workoutRepository.GetWorkoutOwnerAsync,
+            id => _workoutRepository.WasDeletedAsync(userId, id),
             id => UpdateWorkoutAsync(id, userId, dto),
             async id => ToDto(await _workoutRepository.CreateWorkoutAsync(new Workout
             {
@@ -88,6 +89,7 @@ public class WorkoutService : IWorkoutService
             dto.Id,
             userId,
             _workoutRepository.GetWorkoutExerciseOwnerAsync,
+            id => _workoutRepository.WasDeletedAsync(userId, id),
             id => UpdateWorkoutExerciseAsync(id, userId, dto),
             async id =>
             {

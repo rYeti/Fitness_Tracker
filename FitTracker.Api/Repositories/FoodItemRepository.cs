@@ -9,8 +9,8 @@ namespace FitTracker.Api.Repositories;
 public class FoodItemRepository(AppDbContext context) : IFoodItemRepository
 {
     /// <inheritdoc/>
-    public Task<List<FoodItem>> GetUserFoodItemsAsync(Guid userId) =>
-        context.FoodItems.AsNoTracking().Where(f => f.UserId == userId).ToListAsync();
+    public Task<List<FoodItem>> GetUserFoodItemsAsync(Guid userId, DateTime? changedSince = null) =>
+        context.FoodItems.AsNoTracking().Where(f => f.UserId == userId).ChangedSince(changedSince).ToListAsync();
 
     /// <inheritdoc/>
     public Task<List<FoodItem>> GetFoodItemsByIdsAsync(Guid userId, IReadOnlyCollection<Guid> ids)
@@ -35,6 +35,9 @@ public class FoodItemRepository(AppDbContext context) : IFoodItemRepository
         await context.SaveNewAsync();
         return item;
     }
+
+    /// <inheritdoc/>
+    public Task<bool> WasDeletedAsync(Guid userId, Guid id) => context.WasDeletedAsync(userId, id);
 
     /// <inheritdoc/>
     public async Task<Guid?> GetOwnerAsync(Guid id) =>

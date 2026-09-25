@@ -36,7 +36,9 @@ public interface IExerciseService
 
     /// <summary>Returns exercises created by the specified user.</summary>
     /// <param name="id">The user's ID.</param>
-    Task<List<ExerciseResponseDto>> GetUserExercisesAsync(Guid id);
+    /// <param name="changedSince">Only those whose aggregate changed at or after this instant, for the sync
+    /// changes feed (docs/sync-architecture.md, part three); all of them when null.</param>
+    Task<List<ExerciseResponseDto>> GetUserExercisesAsync(Guid id, DateTime? changedSince = null);
 
     /// <summary>Gives <paramref name="targetUserId"/> their own copy of
     /// <paramref name="sourceExerciseId"/>, or returns their existing one if this pair has

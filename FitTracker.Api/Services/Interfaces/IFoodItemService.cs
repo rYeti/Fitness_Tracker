@@ -6,7 +6,9 @@ namespace FitTracker.Api.Services.Interfaces;
 public interface IFoodItemService
 {
     /// <summary>Returns all food items belonging to the specified user.</summary>
-    Task<List<FoodItemResponseDto>> GetUserFoodItemsAsync(Guid userId);
+    /// <param name="changedSince">Only those whose aggregate changed at or after this instant, for the sync
+    /// changes feed (docs/sync-architecture.md, part three); all of them when null.</param>
+    Task<List<FoodItemResponseDto>> GetUserFoodItemsAsync(Guid userId, DateTime? changedSince = null);
 
     /// <summary>Returns the user's food items with the given ids. Ids that don't resolve are
     /// absent from the result.</summary>

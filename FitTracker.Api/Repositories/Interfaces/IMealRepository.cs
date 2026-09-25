@@ -4,7 +4,7 @@ using FitTracker.Api.Models;
 namespace FitTracker.Api.Repositories.Interfaces;
 
 /// <summary>Data-access contract for meal log management.</summary>
-public interface IMealRepository
+public interface IMealRepository : IDeletedIdLookup
 {
     /// <summary>Returns all meal entries for the specified user on the given calendar day.</summary>
     Task<List<Meal>> GetMealsForDateAsync(Guid userId, DateTime date);
@@ -61,5 +61,7 @@ public interface IMealRepository
     Task<bool> RemoveFoodFromMealAsync(Guid mealId, Guid userId, Guid id);
 
     /// <summary>Returns all meal entries for the specified user across all dates.</summary>
-    Task<List<Meal>> GetAllMealsAsync(Guid userId);
+    /// <param name="changedSince">Only those whose aggregate changed at or after this instant, for the sync
+    /// changes feed (docs/sync-architecture.md, part three); all of them when null.</param>
+    Task<List<Meal>> GetAllMealsAsync(Guid userId, DateTime? changedSince = null);
 }

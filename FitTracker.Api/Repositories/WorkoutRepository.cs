@@ -20,11 +20,14 @@ public class WorkoutRepository : IWorkoutRepository
     }
 
     /// <inheritdoc/>
-    public async Task<List<Workout>> GetUserWorkoutsAsync(Guid userId)
+    public async Task<List<Workout>> GetUserWorkoutsAsync(Guid userId, DateTime? changedSince = null)
     {
+        // Every exercise entry, retired ones included: logged sets resolve through them, and
+        // the sync feed ships this same list for the workouts that changed.
         return await _context.Workouts
             .AsNoTracking()
             .Where(w => w.UserId == userId)
+            .ChangedSince(changedSince)
             .Include(w => w.Exercises)
                 .ThenInclude(e => e.SetTemplates)
             .ToListAsync();
@@ -75,6 +78,9 @@ public class WorkoutRepository : IWorkoutRepository
         await _context.SaveNewAsync();
         return workout;
     }
+
+    /// <inheritdoc/>
+    public Task<bool> WasDeletedAsync(Guid userId, Guid id) => _context.WasDeletedAsync(userId, id);
 
     /// <inheritdoc/>
     public async Task<Guid?> GetWorkoutOwnerAsync(Guid id) =>
@@ -142,6 +148,20 @@ public class WorkoutRepository : IWorkoutRepository
             return WorkoutDeleteResult.HasLoggedHistory;
         }
 
+        // Plans listing the workout lose it to the database's cascade on their links, which
+        // the change tracking never sees; they changed, so they are marked here.
+        var listedIn = await _context.WorkoutPlanWorkouts
+            .Where(l => l.WorkoutId == id)
+            .Select(l => l.PlanId)
+            .Distinct()
+            .ToListAsync();
+
+        // One transaction: the bulk delete below commits on its own otherwise, and a failure
+        // after it would leave sessions gone with no tombstone to tell a device so.
+        await using var transaction = _context.Database.CurrentTransaction == null
+            ? await _context.Database.BeginTransactionAsync()
+            : null;
+
         // Everything left is a placeholder — a date the plan generated, or one still in
         // the future, that nobody ever performed. Nothing is lost by dropping it, and
         // dropping it is what releases the foreign key.
@@ -153,12 +173,16 @@ public class WorkoutRepository : IWorkoutRepository
                 .ExecuteDeleteAsync();
 
             // ExecuteDelete bypasses the change tracker, which would otherwise re-assert
-            // these rows during the SaveChanges below.
+            // these rows during the SaveChanges below — and it bypasses the change
+            // tracking the sync feed reads, so the sessions' tombstones are written by hand.
             DetachTracked<ScheduledWorkout>(sw => emptySessionIds.Contains(sw.Id));
+            _context.Bury(userId, SyncEntityTypes.ScheduledWorkout, emptySessionIds);
         }
+        await _context.TouchAsync<WorkoutPlan>(listedIn);
 
         _context.Workouts.Remove(workout);
         await _context.SaveChangesAsync();
+        if (transaction != null) await transaction.CommitAsync();
         return WorkoutDeleteResult.Deleted;
     }
 
@@ -225,12 +249,19 @@ public class WorkoutRepository : IWorkoutRepository
         // again as an entry nobody logged anything against.
         var scheduledEntries = await _context.ScheduledWorkoutExercises
             .Where(e => e.WorkoutExerciseId == weId)
-            .Select(e => new { e.Id, HasLoggedSets = e.Sets.Any() })
+            .Select(e => new { e.Id, e.ScheduledWorkoutId, HasLoggedSets = e.Sets.Any() })
             .ToListAsync();
+
+        // One transaction, so the sessions below are marked changed if and only if they
+        // lose their entries.
+        await using var transaction = _context.Database.CurrentTransaction == null
+            ? await _context.Database.BeginTransactionAsync()
+            : null;
 
         // Entries with nothing logged are placeholders for a session that was never
         // performed, or one still in the future. Nothing is lost by dropping them.
-        var emptyEntryIds = scheduledEntries.Where(e => !e.HasLoggedSets).Select(e => e.Id).ToList();
+        var emptyEntries = scheduledEntries.Where(e => !e.HasLoggedSets).ToList();
+        var emptyEntryIds = emptyEntries.Select(e => e.Id).ToList();
         if (emptyEntryIds.Count > 0)
         {
             await _context.ScheduledWorkoutExercises
@@ -242,6 +273,10 @@ public class WorkoutRepository : IWorkoutRepository
             // otherwise take part in the SaveChanges below and re-assert a row that no
             // longer exists.
             DetachTracked<ScheduledWorkoutExercise>(e => emptyEntryIds.Contains(e.Id));
+
+            // The change tracking the sync feed reads never saw that delete either, and each
+            // of those sessions just lost an exercise.
+            await _context.TouchAsync<ScheduledWorkout>(emptyEntries.Select(e => e.ScheduledWorkoutId).ToList());
         }
 
         if (scheduledEntries.Count == emptyEntryIds.Count)
@@ -258,6 +293,7 @@ public class WorkoutRepository : IWorkoutRepository
         }
 
         await _context.SaveChangesAsync();
+        if (transaction != null) await transaction.CommitAsync();
         return true;
     }
 
@@ -292,11 +328,12 @@ public class WorkoutRepository : IWorkoutRepository
         // the workout, replaces its sets and reads it again in one request, and the second
         // read reuses the same tracked WorkoutExercise, whose SetTemplates would otherwise
         // still hold the deleted rows beside the new ones.
-        await _context.ReplaceListAsync(
+        await _context.ReplaceListAsync<WorkoutSetTemplate, Workout>(
             templates,
             t => t.Id,
             inList: t => t.WorkoutExerciseId == workoutExerciseId,
             ownedByCaller: t => t.WorkoutExercise.Workout.UserId == userId,
+            rootOf: t => t.WorkoutExercise.WorkoutId,
             loadedList: () => _context.ChangeTracker.Entries<WorkoutExercise>()
                 .FirstOrDefault(e => e.Entity.Id == workoutExerciseId)
                 ?.Entity.SetTemplates);

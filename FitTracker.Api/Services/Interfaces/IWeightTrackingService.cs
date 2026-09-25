@@ -14,7 +14,9 @@ public interface IWeightTrackingService
 
     /// <summary>Returns all weight entries belonging to the specified user.</summary>
     /// <param name="userId">The user's ID.</param>
-    Task<List<WeightTrackingResponseDto>?> GetWeightLogs(Guid userId);
+    /// <param name="changedSince">Only those whose aggregate changed at or after this instant, for the sync
+    /// changes feed (docs/sync-architecture.md, part three); all of them when null.</param>
+    Task<List<WeightTrackingResponseDto>?> GetWeightLogs(Guid userId, DateTime? changedSince = null);
 
     /// <summary>The user's weigh-ins on or after <paramref name="from"/>, oldest first.</summary>
     Task<List<WeightTrackingResponseDto>?> GetWeightLogsSince(Guid userId, DateTime from);

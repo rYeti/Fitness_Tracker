@@ -24,6 +24,7 @@ public class ExerciseService : IExerciseService
             exercise.Id,
             userId,
             _exerciseRepository.GetOwnerAsync,
+            id => _exerciseRepository.WasDeletedAsync(userId, id),
             id => UpdateExercise(id, userId, exercise),
             async id => ToResponseDto(await _exerciseRepository.CreateExercisesAsync(new Exercise
             {
@@ -63,9 +64,9 @@ public class ExerciseService : IExerciseService
         _exerciseRepository.GetNamesByWorkoutExerciseIdsAsync(workoutExerciseIds);
 
     /// <inheritdoc/>
-    public async Task<List<ExerciseResponseDto>> GetUserExercisesAsync(Guid id)
+    public async Task<List<ExerciseResponseDto>> GetUserExercisesAsync(Guid id, DateTime? changedSince = null)
     {
-        var exercises = await _exerciseRepository.GetUserExercisesAsync(id);
+        var exercises = await _exerciseRepository.GetUserExercisesAsync(id, changedSince);
         return [.. exercises.Select(ToResponseDto)];
     }
 

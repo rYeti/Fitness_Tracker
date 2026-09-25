@@ -19,11 +19,12 @@ public class WorkoutPlanRepository : IWorkoutPlanRepository
     }
 
     /// <inheritdoc/>
-    public async Task<List<WorkoutPlan>> GetUserPlansAsync(Guid userId)
+    public async Task<List<WorkoutPlan>> GetUserPlansAsync(Guid userId, DateTime? changedSince = null)
     {
         return await _context.WorkoutPlans
             .AsNoTracking()
             .Where(p => p.UserId == userId)
+            .ChangedSince(changedSince)
             .Include(p => p.PlanWorkouts)
             .ToListAsync();
     }
@@ -64,6 +65,9 @@ public class WorkoutPlanRepository : IWorkoutPlanRepository
         await _context.SaveNewAsync();
         return plan;
     }
+
+    /// <inheritdoc/>
+    public Task<bool> WasDeletedAsync(Guid userId, Guid id) => _context.WasDeletedAsync(userId, id);
 
     /// <inheritdoc/>
     public async Task<Guid?> GetOwnerAsync(Guid id) =>
@@ -140,8 +144,21 @@ public class WorkoutPlanRepository : IWorkoutPlanRepository
             return PlanDeleteResult.AssignedByTrainer;
         }
 
+        // The database detaches the plan's sessions itself (ON DELETE SET NULL), out of
+        // sight of the change tracking the sync feed reads. They changed, so they are
+        // marked here, in the same transaction as the delete that changes them.
+        await using var transaction = _context.Database.CurrentTransaction == null
+            ? await _context.Database.BeginTransactionAsync()
+            : null;
+        var detached = await _context.ScheduledWorkouts
+            .Where(sw => sw.WorkoutPlanId == id)
+            .Select(sw => sw.Id)
+            .ToListAsync();
+        await _context.TouchAsync<ScheduledWorkout>(detached);
+
         _context.WorkoutPlans.Remove(plan);
         await _context.SaveChangesAsync();
+        if (transaction != null) await transaction.CommitAsync();
         return PlanDeleteResult.Deleted;
     }
 

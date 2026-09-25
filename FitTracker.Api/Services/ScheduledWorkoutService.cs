@@ -19,9 +19,9 @@ public class ScheduledWorkoutService : IScheduledWorkoutService
     }
 
     /// <inheritdoc/>
-    public async Task<List<ScheduledWorkoutResponseDto>> GetUserScheduledWorkoutsAsync(Guid userId)
+    public async Task<List<ScheduledWorkoutResponseDto>> GetUserScheduledWorkoutsAsync(Guid userId, DateTime? changedSince = null)
     {
-        var items = await _scheduledRepository.GetUserScheduledWorkoutsAsync(userId);
+        var items = await _scheduledRepository.GetUserScheduledWorkoutsAsync(userId, changedSince);
         return [.. items.Select(ToDto)];
     }
 
@@ -72,6 +72,7 @@ public class ScheduledWorkoutService : IScheduledWorkoutService
             dto.Id,
             userId,
             _scheduledRepository.GetOwnerAsync,
+            id => _scheduledRepository.WasDeletedAsync(userId, id),
             id => UpdateScheduledWorkoutAsync(id, userId, dto),
             async id =>
             {

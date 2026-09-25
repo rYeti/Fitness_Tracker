@@ -9,8 +9,8 @@ namespace FitTracker.Api.Repositories;
 public class UserSettingsRepository(AppDbContext context) : IUserSettingsRepository
 {
     /// <inheritdoc/>
-    public Task<UserSettings?> GetByUserIdAsync(Guid userId) =>
-        context.UserSettings.FirstOrDefaultAsync(s => s.UserId == userId);
+    public Task<UserSettings?> GetByUserIdAsync(Guid userId, DateTime? changedSince = null) =>
+        context.UserSettings.Where(s => s.UserId == userId).ChangedSince(changedSince).FirstOrDefaultAsync();
 
     /// <inheritdoc/>
     public async Task<UserSettings> UpsertAsync(Guid userId, UserSettings settings)

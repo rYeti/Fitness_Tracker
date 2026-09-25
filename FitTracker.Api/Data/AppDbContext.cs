@@ -97,6 +97,21 @@ public class AppDbContext : DbContext
     /// <summary>A user's own app-store subscription, as reported by RevenueCat.</summary>
     public DbSet<RevenueCatSubscription> RevenueCatSubscriptions { get; set; }
 
+    /// <summary>The server's record of every synced row it deleted, for the changes feed.
+    /// See docs/sync-architecture.md, part three.</summary>
+    public DbSet<SyncTombstone> SyncTombstones { get; set; }
+
+    /// <summary>Registers the change tracking the sync feed relies on.</summary>
+    /// <remarks>
+    /// Here rather than in <c>Program.cs</c> so that every context gets it, however it was
+    /// built — the app's, the test fixture's, a second one a test opens mid-call. A context
+    /// without it saves changes the feed then never sends, and nothing would fail.
+    /// </remarks>
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    {
+        optionsBuilder.AddInterceptors(SyncChangeInterceptor.Instance);
+    }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<User>(entity =>
@@ -113,12 +128,16 @@ public class AppDbContext : DbContext
                   .WithMany()
                   .HasForeignKey(w => w.UserId)
                   .OnDelete(DeleteBehavior.Cascade);
+            // The changes feed: this user's rows changed since a cursor.
+            entity.HasIndex(w => new { w.UserId, w.UpdatedAt });
         });
 
         modelBuilder.Entity<Exercise>(entity =>
         {
             entity.HasKey(e => e.Id);
             entity.HasOne(e => e.User).WithMany().HasForeignKey(e => e.UserId).IsRequired(false).OnDelete(DeleteBehavior.Cascade);
+            // The changes feed: this user's rows changed since a cursor.
+            entity.HasIndex(e => new { e.UserId, e.UpdatedAt });
         });
 
         modelBuilder.Entity<Workout>(entity =>
@@ -128,6 +147,8 @@ public class AppDbContext : DbContext
                   .WithMany()
                   .HasForeignKey(w => w.UserId)
                   .OnDelete(DeleteBehavior.Cascade);
+            // The changes feed: this user's rows changed since a cursor.
+            entity.HasIndex(w => new { w.UserId, w.UpdatedAt });
         });
 
         modelBuilder.Entity<WorkoutExercise>(entity =>
@@ -157,6 +178,8 @@ public class AppDbContext : DbContext
                   .WithMany()
                   .HasForeignKey(p => p.UserId)
                   .OnDelete(DeleteBehavior.Cascade);
+            // The changes feed: this user's rows changed since a cursor.
+            entity.HasIndex(p => new { p.UserId, p.UpdatedAt });
         });
 
         modelBuilder.Entity<WorkoutPlanWorkout>(entity =>
@@ -188,6 +211,10 @@ public class AppDbContext : DbContext
             // alone, which leaves the date range filtering every session the client has ever
             // logged.
             entity.HasIndex(sw => new { sw.WorkoutId, sw.ScheduledDate });
+            // The changes feed. A session has no owner column of its own — it belongs to
+            // whoever owns its workout — so the feed joins the user's workouts and then
+            // range-scans each one's sessions by when they changed.
+            entity.HasIndex(sw => new { sw.WorkoutId, sw.UpdatedAt });
         });
 
         modelBuilder.Entity<ScheduledWorkoutExercise>(entity =>
@@ -219,6 +246,8 @@ public class AppDbContext : DbContext
                   .WithMany()
                   .HasForeignKey(f => f.UserId)
                   .OnDelete(DeleteBehavior.Cascade);
+            // The changes feed: this user's rows changed since a cursor.
+            entity.HasIndex(f => new { f.UserId, f.UpdatedAt });
         });
 
         modelBuilder.Entity<Meal>(entity =>
@@ -231,6 +260,8 @@ public class AppDbContext : DbContext
             // The nutrition summary reads a seven-day window for one user; this is exactly
             // the pair it filters on.
             entity.HasIndex(m => new { m.UserId, m.Date });
+            // The changes feed: this user's rows changed since a cursor.
+            entity.HasIndex(m => new { m.UserId, m.UpdatedAt });
             // FoodItemId is an opaque client-side reference — no FK enforced
         });
 
@@ -252,6 +283,9 @@ public class AppDbContext : DbContext
                   .HasForeignKey(s => s.UserId)
                   .OnDelete(DeleteBehavior.Cascade);
             entity.HasIndex(s => s.UserId).IsUnique(); // one settings row per user
+            // No (UserId, UpdatedAt) index for the changes feed: the unique index above
+            // already narrows a user's settings to one row, so a second would be pure
+            // write cost.
         });
 
         modelBuilder.Entity<MealTemplate>(entity =>
@@ -261,6 +295,8 @@ public class AppDbContext : DbContext
                   .WithMany()
                   .HasForeignKey(t => t.UserId)
                   .OnDelete(DeleteBehavior.Cascade);
+            // The changes feed: this user's rows changed since a cursor.
+            entity.HasIndex(t => new { t.UserId, t.UpdatedAt });
         });
 
         modelBuilder.Entity<MealTemplateItem>(entity =>
@@ -405,6 +441,22 @@ public class AppDbContext : DbContext
             // statement, so this is what stops a re-applied write from ever
             // producing two rows for the same nutrient.
             entity.HasIndex(p => new { p.UserId, p.NutrientKey }).IsUnique();
+        });
+
+        modelBuilder.Entity<SyncTombstone>(entity =>
+        {
+            entity.HasKey(t => t.Id);
+            // Deleting an account deletes its tombstones with everything else; there is
+            // no device left to tell.
+            entity.HasOne(t => t.User)
+                  .WithMany()
+                  .HasForeignKey(t => t.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+            entity.Property(t => t.EntityType).HasMaxLength(32);
+            // The changes feed: this user's deletes since a cursor.
+            entity.HasIndex(t => new { t.UserId, t.DeletedAt });
+            // A create refusing an id this user deleted (ClientIds, 410).
+            entity.HasIndex(t => new { t.UserId, t.EntityId });
         });
 
         modelBuilder.Entity<RevenueCatSubscription>(entity =>

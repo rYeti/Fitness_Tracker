@@ -4,7 +4,7 @@ using FitTracker.Api.Models;
 namespace FitTracker.Api.Repositories.Interfaces;
 
 /// <summary>Data-access contract for weight tracking entries.</summary>
-public interface IWeightTrackingRepository
+public interface IWeightTrackingRepository : IDeletedIdLookup
 {
     /// <summary>Returns a single weight tracking entry by its ID.</summary>
     /// <param name="id">The ID of the entry to retrieve.</param>
@@ -13,7 +13,9 @@ public interface IWeightTrackingRepository
 
     /// <summary>Returns all weight tracking entries belonging to the specified user.</summary>
     /// <param name="id">The user's ID.</param>
-    Task<List<WeightTracking>> GetWeightTrackingsAsync(Guid id);
+    /// <param name="changedSince">Only those whose aggregate changed at or after this instant, for the sync
+    /// changes feed (docs/sync-architecture.md, part three); all of them when null.</param>
+    Task<List<WeightTracking>> GetWeightTrackingsAsync(Guid id, DateTime? changedSince = null);
 
     /// <summary>The user's weigh-ins on or after <paramref name="from"/>, oldest first.</summary>
     /// <remarks>The unbounded version returns every weigh-in ever recorded, in whatever order

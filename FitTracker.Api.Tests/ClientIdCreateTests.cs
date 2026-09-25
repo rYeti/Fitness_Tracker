@@ -169,6 +169,7 @@ public class ClientIdCreateTests : IDisposable
             id,
             _me.Id,
             _ => Task.FromResult<Guid?>(lookups++ == 0 ? null : _me.Id),
+            _ => Task.FromResult(false),
             _ => Task.FromResult<string?>("the stored row"),
             _ => throw new DbUpdateException("duplicate key"));
 

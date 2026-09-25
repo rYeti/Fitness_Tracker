@@ -9,9 +9,9 @@ namespace FitTracker.Api.Services;
 public class MealTemplateService(IMealTemplateRepository repository) : IMealTemplateService
 {
     /// <inheritdoc/>
-    public async Task<List<MealTemplateResponseDto>> GetAllAsync(Guid userId)
+    public async Task<List<MealTemplateResponseDto>> GetAllAsync(Guid userId, DateTime? changedSince = null)
     {
-        var templates = await repository.GetAllAsync(userId);
+        var templates = await repository.GetAllAsync(userId, changedSince);
         return templates.Select(ToDto).ToList();
     }
 
@@ -29,6 +29,7 @@ public class MealTemplateService(IMealTemplateRepository repository) : IMealTemp
             dto.Id,
             userId,
             repository.GetOwnerAsync,
+            id => repository.WasDeletedAsync(userId, id),
             id => UpdateAsync(id, userId, dto),
             async id => ToDto(await repository.CreateAsync(new MealTemplate
             {

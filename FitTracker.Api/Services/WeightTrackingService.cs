@@ -23,6 +23,7 @@ public class WeightTrackingService : IWeightTrackingService
             weightTrackingRequestDto.Id,
             userId,
             _weightRepository.GetOwnerAsync,
+            id => _weightRepository.WasDeletedAsync(userId, id),
             id => UpdateWeightAsync(id, userId, weightTrackingRequestDto),
             async id =>
             {
@@ -46,14 +47,14 @@ public class WeightTrackingService : IWeightTrackingService
     }
 
     /// <inheritdoc/>
-    public async Task<List<WeightTrackingResponseDto>?> GetWeightLogs(Guid userId)
+    public async Task<List<WeightTrackingResponseDto>?> GetWeightLogs(Guid userId, DateTime? changedSince = null)
     {
         if (Guid.Empty == userId)
         {
             return null;
         }
 
-        var weightLogs = await _weightRepository.GetWeightTrackingsAsync(userId);
+        var weightLogs = await _weightRepository.GetWeightTrackingsAsync(userId, changedSince);
 
         return weightLogs.Select(w => new WeightTrackingResponseDto
         {

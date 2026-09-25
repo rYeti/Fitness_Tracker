@@ -1,10 +1,14 @@
 namespace FitTracker.Api.Models;
 
 /// <summary>Represents a structured plan that groups workouts into a repeating schedule for a user.</summary>
-public class WorkoutPlan
+public class WorkoutPlan : ISyncRoot
 {
     /// <summary>The unique identifier of this workout plan.</summary>
     public Guid Id { get; set; }
+
+    /// <summary>When this aggregate last changed on the server, in UTC. Stamped by
+    /// <c>SyncChangeInterceptor</c>; never set by hand. See <see cref="ISyncRoot"/>.</summary>
+    public DateTime UpdatedAt { get; set; }
 
     /// <summary>The unique identifier of the user who owns this plan.</summary>
     public Guid UserId { get; set; }

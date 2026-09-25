@@ -18,9 +18,9 @@ public class WeightTrackingRepository(AppDbContext context) : IWeightTrackingRep
     }
 
     /// <inheritdoc/>
-    public async Task<List<WeightTracking>> GetWeightTrackingsAsync(Guid id)
+    public async Task<List<WeightTracking>> GetWeightTrackingsAsync(Guid id, DateTime? changedSince = null)
     {
-        return await _context.WeightTrackings.AsNoTracking().Where(w => w.UserId == id).ToListAsync();
+        return await _context.WeightTrackings.AsNoTracking().Where(w => w.UserId == id).ChangedSince(changedSince).ToListAsync();
     }
 
     /// <inheritdoc/>
@@ -40,6 +40,9 @@ public class WeightTrackingRepository(AppDbContext context) : IWeightTrackingRep
         await _context.SaveNewAsync();
         return weightTracking;
     }
+
+    /// <inheritdoc/>
+    public Task<bool> WasDeletedAsync(Guid userId, Guid id) => _context.WasDeletedAsync(userId, id);
 
     /// <inheritdoc/>
     public async Task<Guid?> GetOwnerAsync(Guid id) =>

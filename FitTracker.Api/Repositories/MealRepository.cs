@@ -57,6 +57,9 @@ public class MealRepository(AppDbContext context) : IMealRepository
     }
 
     /// <inheritdoc/>
+    public Task<bool> WasDeletedAsync(Guid userId, Guid id) => context.WasDeletedAsync(userId, id);
+
+    /// <inheritdoc/>
     public async Task<Guid?> GetOwnerAsync(Guid id) =>
         (await context.Meals.AsNoTracking()
             .Where(m => m.Id == id)
@@ -78,6 +81,7 @@ public class MealRepository(AppDbContext context) : IMealRepository
                 e.Id,
                 userId,
                 GetFoodEntryOwnerAsync,
+                id => context.WasDeletedAsync(userId, id),
                 id => PlaceFoodEntryAsync(id, mealId, e.FoodItemId),
                 async id =>
                 {
@@ -147,9 +151,10 @@ public class MealRepository(AppDbContext context) : IMealRepository
     }
 
     /// <inheritdoc/>
-    public Task<List<Meal>> GetAllMealsAsync(Guid userId) =>
+    public Task<List<Meal>> GetAllMealsAsync(Guid userId, DateTime? changedSince = null) =>
         context.Meals
             .Where(m => m.UserId == userId)
+            .ChangedSince(changedSince)
             .Include(m => m.FoodEntries)
             .ToListAsync();
 

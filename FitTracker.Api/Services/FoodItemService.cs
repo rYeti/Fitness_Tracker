@@ -9,9 +9,9 @@ namespace FitTracker.Api.Services;
 public class FoodItemService(IFoodItemRepository repository) : IFoodItemService
 {
     /// <inheritdoc/>
-    public async Task<List<FoodItemResponseDto>> GetUserFoodItemsAsync(Guid userId)
+    public async Task<List<FoodItemResponseDto>> GetUserFoodItemsAsync(Guid userId, DateTime? changedSince = null)
     {
-        var items = await repository.GetUserFoodItemsAsync(userId);
+        var items = await repository.GetUserFoodItemsAsync(userId, changedSince);
         return items.Select(ToDto).ToList();
     }
 
@@ -36,6 +36,7 @@ public class FoodItemService(IFoodItemRepository repository) : IFoodItemService
             dto.Id,
             userId,
             repository.GetOwnerAsync,
+            id => repository.WasDeletedAsync(userId, id),
             id => UpdateFoodItemAsync(id, userId, dto),
             async id => ToDto(await repository.CreateFoodItemAsync(new FoodItem
             {
