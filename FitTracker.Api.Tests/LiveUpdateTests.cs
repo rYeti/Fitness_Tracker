@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Data.Common;
 using System.Security.Claims;
 using System.Text.Json;
 using FitTracker.Api.Data;
@@ -13,6 +14,7 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.SignalR.Protocol;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
@@ -521,6 +523,57 @@ public class LiveUpdateTests : IDisposable
     }
 
     [Fact]
+    public async Task ASaveReadsTheOwnersOfItsWorkoutsInOneQuery()
+    {
+        // One save that reaches workouts two ways: through an exercise entry, and through a
+        // session. The tracker holds the entry and one session, never a workout, as a write
+        // that checked ownership through a join would. A second session isn't held at all.
+        // Each way asked the workouts table on its own, inside the write: two reads of the
+        // same table in one save. The workouts' owners are one read, and the session the
+        // tracker doesn't hold is one more, joined to its workout.
+        var legDay = _fx.AddWorkout(_client.Id, "Leg Day");
+        var pushDay = _fx.AddWorkout(_client.Id, "Push Day");
+        var squat = _fx.AddWorkoutExercise(legDay.Id, Guid.NewGuid());
+        var tuesday = _fx.AddSession(pushDay.Id, Monday.AddDays(1));
+        var thursday = _fx.AddSession(legDay.Id, Monday.AddDays(3));
+        var reads = new SelectLog();
+        using var db = _fx.NewContext(_log, reads);
+        db.WorkoutExercises.Single(e => e.Id == squat.Id).OrderPosition = 1;
+        db.ScheduledWorkouts.Single(s => s.Id == tuesday.Id).Notes = "Moved to the evening";
+        db.ScheduledWorkoutExercises.Add(new ScheduledWorkoutExercise
+        {
+            Id = Guid.NewGuid(),
+            ScheduledWorkoutId = thursday.Id,
+            WorkoutExerciseId = squat.Id,
+        });
+        reads.Clear();
+
+        await db.SaveChangesAsync();
+
+        Assert.Single(reads.From("Workouts"));
+        Assert.Equal(2, reads.Count);
+        Assert.Equal([DataAreas.Sessions, DataAreas.Workouts], (await EndRequestAsync(actor: _client.Id)).Areas());
+    }
+
+    [Fact]
+    public async Task RemovingAFoodReadsItsMealsOwnerOnce()
+    {
+        // The removal loads the entry and not its meal. The meal's owner is needed twice, by
+        // the entry's tombstone and by the record of the meal it changed, and each asked the
+        // meals table for it.
+        var meal = _fx.AddMeal(_client.Id, Monday);
+        var entry = _fx.AddFoodToMeal(meal.Id, _fx.AddFoodItem(_client.Id).Id);
+        var reads = new SelectLog();
+        using var db = _fx.NewContext(_log, reads);
+
+        await new MealService(new MealRepository(db), new SyncTombstoneRepository(db))
+            .RemoveFoodFromMealAsync(meal.Id, _client.Id, entry.Id);
+
+        Assert.Single(reads.From("Meals"));
+        Assert.Equal([DataAreas.Nutrition], (await EndRequestAsync(actor: _client.Id)).Areas());
+    }
+
+    [Fact]
     public async Task AUserWithNoTrainerChangingTheirOwnDataCostsOneQueryAndNothingElse()
     {
         // Nearly every write: a trainee with no trainer, or with one, syncing their own data.
@@ -716,6 +769,40 @@ public class LiveUpdateTests : IDisposable
     {
         User = new ClaimsPrincipal(new ClaimsIdentity([new Claim(claimType, userId.ToString())], authenticationType: "Test")),
     };
+
+    /// <summary>The <c>SELECT</c>s a context sends. On SQLite a save's own writes come back
+    /// through a reader too, which is why reads are told apart by their first word.</summary>
+    private sealed class SelectLog : DbCommandInterceptor
+    {
+        private readonly List<string> _reads = [];
+
+        public int Count => _reads.Count;
+
+        /// <summary>The reads whose <c>FROM</c> is <paramref name="table"/>; a table only
+        /// joined in doesn't count.</summary>
+        public List<string> From(string table) => [.. _reads.Where(sql => sql.Contains($"FROM \"{table}\""))];
+
+        public void Clear() => _reads.Clear();
+
+        public override InterceptionResult<DbDataReader> ReaderExecuting(
+            DbCommand command, CommandEventData eventData, InterceptionResult<DbDataReader> result)
+        {
+            Read(command);
+            return result;
+        }
+
+        public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(
+            DbCommand command, CommandEventData eventData, InterceptionResult<DbDataReader> result, CancellationToken cancellationToken = default)
+        {
+            Read(command);
+            return ValueTask.FromResult(result);
+        }
+
+        private void Read(DbCommand command)
+        {
+            if (command.CommandText.TrimStart().StartsWith("SELECT", StringComparison.OrdinalIgnoreCase)) _reads.Add(command.CommandText);
+        }
+    }
 
     private sealed class RecordingDispatcher : ILiveUpdateDispatcher
     {

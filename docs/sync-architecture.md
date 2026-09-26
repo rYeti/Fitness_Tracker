@@ -3106,8 +3106,8 @@ owner already found:
 | What the save does | Whose change it records |
 |---|---|
 | adds or changes a root with an owner column | the owner, read off the row |
-| adds or changes a session | its workout's owner: from the tracker if it holds the workout, otherwise one query |
-| adds, changes or removes a child | its root's owner (the root the interceptor stamps): from the tracker if it holds the root, otherwise one query per kind of root |
+| adds or changes a session | its workout's owner: from the tracker if it holds the workout, otherwise read with the save's other workouts; a session the tracker doesn't hold is read with its workout's owner, in one query |
+| adds, changes or removes a child | its root's owner (the root the interceptor stamps): from the tracker if it holds the root, otherwise read once per kind of root for the whole save |
 | deletes a root, or a meal food | the tombstone's owner, in the area of its type |
 
 ### Owners are found when the write happens
@@ -3162,6 +3162,56 @@ and forgotten for its deletes. Two things are still kept by hand, because each
 does a different job per type. `CollectRoots` says which root each child
 belongs to. The tombstone switch in `BuryAsync` reads each type's owner, which
 for a session or a meal food is someone else's column.
+
+### One read per table, per save
+
+Finding owners in the save moved their reads into the write. That was the
+point, and it has a cost the first version didn't count carefully enough. The
+interceptor runs in `SavingChanges`, before EF sends any of the save's
+statements. A save outside an explicit transaction runs these reads on their
+own, before EF opens the transaction it wraps the save in, and they hold
+nothing. A save inside a caller's transaction, which is every batch and every
+replace, runs them inside it. On Postgres a plain `SELECT` takes no row locks
+and blocks no writer. What it does cost is a round trip, and the caller's
+transaction stays open that much longer, holding whatever locks its earlier
+saves took.
+
+Review found the reads were also repeated. Two parts of the interceptor want
+owners, the tombstones and the record, and each asked for its own. A session
+has no owner column, so its owner is its workout's, and it was found through a
+second read of the workouts table. So a save that reached workouts both
+directly, through a changed exercise entry, and through a session read the
+workouts table twice. Removing a food from a meal read the meals table twice,
+for the same id: once for the food's tombstone and once for the record of the
+meal. That is a trainee editing their diary, not a contrived case.
+
+Now `ReadOwnersAsync` gathers every workout id and every meal id the
+tombstones and the record will ask about, and reads each table once. It runs
+before the save's stamps, so no lock this save takes is held across the reads.
+A session the tracker holds adds its workout's id to the one read of
+`Workouts`. A session the tracker doesn't hold is still read on its own, joined
+to its workout, because until it has been read there is no workout id to add.
+Plans and templates are reached only one way, and were already read once.
+
+| The save | Reads before | Reads now |
+|---|---|---|
+| an exercise entry changed, a session it holds changed, a session it doesn't hold gained an entry, no workout held | 3, two of them of `Workouts` | 2: `Workouts` once, and the session joined to its workout |
+| a food removed from a meal the tracker doesn't hold | 2, both of `Meals` | 1 |
+| a write that loaded the roots it changed to check who owns them, which is most | 0 | 0 |
+
+Nothing noticed the second read, because every test of owners asked whether the
+right owner was found, and a second read finds the same owner. A repeated
+query is correct code, like the roster's N+1 (`QueryCounter`), and only
+counting sees it. `ASaveReadsTheOwnersOfItsWorkoutsInOneQuery` and
+`RemovingAFoodReadsItsMealsOwnerOnce` count a save's `SELECT`s by the table
+they read from. Both fail against the version that asked twice.
+
+The lookups did not move back out of the save, to the notifier after the
+commit. The reasons for finding owners where the write happens, given above,
+stand: one place that knows how each root reaches its owner, bulk writes that
+say whose data they changed, and nothing for the notifier to look up. What that
+costs is now at most one read per table the tracker doesn't cover, plus one for
+sessions it doesn't hold, and usually nothing.
 
 ### What the change tracker doesn't see
 
@@ -3374,7 +3424,7 @@ costs very little.
 |---|---|
 | The SignalR events | Nothing per message: the hub is part of the API, not a paid SignalR service. The real cost of SignalR here is an instance kept allocated while a socket is open, and the console already held that socket for chat. The events add a few hundred bytes to it. A second hub would have doubled the sockets, which is why there isn't one. |
 | FCM `sync_requested` | Free: FCM has no per-message charge. It is sent only for a change someone other than the owner made, and collapsed. |
-| The database | Per request that committed a change, after the request: one indexed query for the owners' Active trainers (`TrainerClients.ClientId`), and nothing else when there are none and the caller changed only their own data. Inside the write: one owner query per kind of root reached through a child the tracker doesn't hold, usually none. A request that commits nothing, which covers every read, costs nothing but an empty log. Opening a connection costs nothing. Only the console asks to join, at one licence query per connect and reconnect. |
+| The database | Per request that committed a change, after the request: one indexed query for the owners' Active trainers (`TrainerClients.ClientId`), and nothing else when there are none and the caller changed only their own data. Inside the save, before its statements and its stamps: at most one owner read per table (workouts, meals, plans, templates) for the roots the tracker doesn't hold, and one for the sessions it doesn't hold. Usually none (§47). A request that commits nothing, which covers every read, costs nothing but an empty log. Opening a connection costs nothing. Only the console asks to join, at one licence query per connect and reconnect. |
 | Not added | A Redis backplane (Memorystore is a fixed monthly cost). The focus and reconnect refetches cover what it would. |
 
 The rework as a whole still lowers the server's load. Parts one to three replaced
@@ -3382,7 +3432,7 @@ nine full-list downloads on every sync with one delta.
 
 ### What the tests pin
 
-In `FitTracker.Api.Tests/LiveUpdateTests.cs` (30), `ChatHubTests.cs` (7 more),
+In `FitTracker.Api.Tests/LiveUpdateTests.cs` (32), `ChatHubTests.cs` (7 more),
 `DeviceTokenTests.cs` (4 more) and `ClaimsPrincipalExtensionsTests.cs` (1). Each
 test in the first version was written first and run against a
 skeleton: the types and signatures in place, nothing recorded, nothing sent,
@@ -3401,6 +3451,7 @@ failure back:
 | *EachKindOfDataIsReportedInItsArea*, *AChildsChangeIsReportedInItsRootsArea*, *EveryTombstoneTypeHasAnArea* | §45: the areas, settings in `nutrition`; §47: a root's own change, a child's through its root, a delete through its tombstone | a root is moved to another area, or settings lose theirs; a tombstone type has none; a changed root isn't recorded; a root reached through a child isn't, or its owner isn't found |
 | *EverySyncedRootHasAnArea* | §45: every `ISyncRoot` has a row in `DataAreas` | a root's row is missing |
 | *EveryOwnerIsKnownByTheTimeTheRequestEnds* | §47: owners found in the write; the notifier's one query | an owner is looked up after the request; a session the tracker doesn't hold isn't found |
+| *ASaveReadsTheOwnersOfItsWorkoutsInOneQuery*, *RemovingAFoodReadsItsMealsOwnerOnce* | §47: each table read for owners at most once per save | the tombstones and the record each read their own; a session's workout is read apart from the save's other workouts |
 | *AUserWithNoTrainerChangingTheirOwnDataCostsOneQueryAndNothingElse* | §48: the early return | the notifier asks anything more |
 | *SomebodyElsesChangeStillAsksForThePullWhenNoTrainerIsLeftToTell* | §48: the early return needs both halves | the return ignores who made the change |
 | *ManyChangesInOneRequestAreOneEventPerOwner* | §48: once per request, naming every area, in order | an event goes per change; the areas aren't ordered |
@@ -3471,7 +3522,9 @@ and the comment at that line says why.
 - **A change is recorded with its owner.** Find it where the write happens: from
   the row, from the tracker, or from the caller, who has already checked it.
   Never look it up after the request. A change whose owner can't be found is
-  left out on its own, and never costs anyone else their event.
+  left out on its own, and never costs anyone else their event. A save reads
+  each table for owners at most once: a new route to a workout's or a meal's
+  owner adds its ids to `ReadOwnersAsync`, never a read of its own.
 - **Nothing is sent before the commit, and nothing more than once a request.**
   Don't send from a save, an interceptor or a transaction hook. Record, and let
   the middleware hand on what committed. The middleware only sees HTTP requests:

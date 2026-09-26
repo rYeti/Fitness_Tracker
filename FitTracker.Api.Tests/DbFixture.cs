@@ -54,9 +54,10 @@ public sealed class DbFixture : IDisposable
             .Options);
 
     /// <summary>A second context on the same database that records whose data its writes
-    /// change in <paramref name="log"/>, as a request's context does.</summary>
-    public AppDbContext NewContext(ChangedDataLog log) =>
-        new(new DbContextOptionsBuilder<AppDbContext>().UseSqlite(_connection).Options, log);
+    /// change in <paramref name="log"/>, as a request's context does, with any extra
+    /// interceptors.</summary>
+    public AppDbContext NewContext(ChangedDataLog log, params IInterceptor[] interceptors) =>
+        new(new DbContextOptionsBuilder<AppDbContext>().UseSqlite(_connection).AddInterceptors(interceptors).Options, log);
 
     /// <summary>Adds a user and returns it. Names are only ever used in DTO
     /// assertions, so callers that don't care can leave them defaulted.</summary>
