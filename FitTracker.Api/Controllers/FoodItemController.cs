@@ -1,4 +1,5 @@
 using FitTracker.Api.DTOs;
+using FitTracker.Api.Services;
 using FitTracker.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -11,14 +12,12 @@ namespace FitTracker.Api.Controllers;
 [Authorize]
 public class FoodItemController(IFoodItemService foodItemService) : ControllerBase
 {
-    private Guid UserId =>
-        Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
-
     /// <summary>Returns all food items belonging to the authenticated user.</summary>
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var result = await foodItemService.GetUserFoodItemsAsync(UserId);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
+        var result = await foodItemService.GetUserFoodItemsAsync(userId);
         return Ok(result);
     }
 
@@ -27,7 +26,8 @@ public class FoodItemController(IFoodItemService foodItemService) : ControllerBa
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById([FromRoute] Guid id)
     {
-        var result = await foodItemService.GetFoodItemByIdAsync(id, UserId);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
+        var result = await foodItemService.GetFoodItemByIdAsync(id, userId);
         if (result is null) return NotFound();
         return Ok(result);
     }
@@ -37,7 +37,8 @@ public class FoodItemController(IFoodItemService foodItemService) : ControllerBa
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] FoodItemRequestDto dto)
     {
-        var result = await foodItemService.CreateFoodItemAsync(dto, UserId);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
+        var result = await foodItemService.CreateFoodItemAsync(dto, userId);
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 
@@ -47,7 +48,8 @@ public class FoodItemController(IFoodItemService foodItemService) : ControllerBa
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> Update([FromRoute] Guid id, [FromBody] FoodItemRequestDto dto)
     {
-        var result = await foodItemService.UpdateFoodItemAsync(id, UserId, dto);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
+        var result = await foodItemService.UpdateFoodItemAsync(id, userId, dto);
         if (result is null) return NotFound();
         return Ok(result);
     }
@@ -57,7 +59,8 @@ public class FoodItemController(IFoodItemService foodItemService) : ControllerBa
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete([FromRoute] Guid id)
     {
-        var deleted = await foodItemService.DeleteFoodItemAsync(id, UserId);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
+        var deleted = await foodItemService.DeleteFoodItemAsync(id, userId);
         if (!deleted) return NotFound();
         return NoContent();
     }

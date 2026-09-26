@@ -1,4 +1,5 @@
 using FitTracker.Api.DTOs;
+using FitTracker.Api.Services;
 using FitTracker.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -27,7 +28,7 @@ public class ExerciseController : ControllerBase
     [Authorize]
     public async Task<IActionResult> CreateExercise([FromBody] ExerciseRequestDto exercise)
     {
-        var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
 
         if (Guid.Empty == userId)
         {
@@ -51,7 +52,7 @@ public class ExerciseController : ControllerBase
     [Authorize]
     public async Task<IActionResult> GetExercises()
     {
-        var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
 
         if (Guid.Empty == userId)
         {
@@ -75,7 +76,7 @@ public class ExerciseController : ControllerBase
     [Authorize]
     public async Task<IActionResult> GetUserExercisesAsync()
     {
-        var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
 
         if (Guid.Empty == userId)
         {
@@ -99,7 +100,7 @@ public class ExerciseController : ControllerBase
     [Authorize]
     public async Task<IActionResult> DeleteExercise([FromRoute] Guid id)
     {
-        var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
 
         if (Guid.Empty == userId)
         {
@@ -124,7 +125,7 @@ public class ExerciseController : ControllerBase
     [Authorize]
     public async Task<IActionResult> UpdateExercises([FromRoute] Guid id, [FromBody] ExerciseRequestDto exercise)
     {
-        var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
 
         if (Guid.Empty == userId)
         {

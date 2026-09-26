@@ -3028,10 +3028,43 @@ extension, `ClaimsPrincipal.TryGetUserId(out Guid id)` in
 `ClaimsPrincipalExtensions`. It reads `NameIdentifier`, then `sub`, and parses the
 first one it finds as a GUID, exactly as every copy did. A `NameIdentifier` that
 isn't a GUID fails rather than falling back to `sub`, which is also what every
-copy did (`The_id_is_read_from_NameIdentifier_then_sub_and_must_be_a_guid`). The
-sync controllers' one-line `Guid.Parse(…NameIdentifier…)` is a different parse:
-it throws where these return 401. It was left alone, because changing what those
-endpoints answer is not a refactor.
+copy did (`The_id_is_read_from_NameIdentifier_then_sub_and_must_be_a_guid`).
+
+The sync controllers' one-line `Guid.Parse(…NameIdentifier…)` was a different
+parse, and at first it was left alone, on the grounds that changing what those
+endpoints answer is not a refactor. Review pointed out what that left. CLAUDE.md
+said a caller's id is read only through `TryGetUserId`, and 49 copies of the old
+parse in ten controllers said otherwise: Sync, Workout, WorkoutPlan,
+ScheduledWorkout, Meal, MealTemplate, FoodItem, Exercise, WeightTracking and
+UserSettings. That parse reads `NameIdentifier` alone. A token carrying only a
+bare `sub`, the OAuth case the extension exists for, gave it null, and
+`Guid.Parse` threw. Every sync endpoint answered 500 while the hub and the
+console accepted the same token. The rule written down was not the rule in the
+code, and a reader who trusted it would have been wrong about exactly the
+endpoints the app syncs through.
+
+They have all moved over. Each action now begins
+`if (!User.TryGetUserId(out var userId)) return Unauthorized();`, the form
+`AuthController` already used, and the rest of each action is unchanged:
+
+| The token carries | Before | Now |
+|---|---|---|
+| `NameIdentifier`: every token `AuthService` mints, because the bearer handler maps its `sub` to it | the user | the user |
+| a bare `sub` and no `NameIdentifier` | 500 | the user |
+| neither | 500 | 401, as every other controller already answered |
+
+Shipped apps send the first kind and see no change.
+`ATokenCarryingOnlySubReadsTheFeed` and `ATokenWithoutAUserIdIsUnauthorized` pin
+the other two rows on `GET api/Sync/changes`, and both fail against the old
+parse. The five controllers that answered an all-zero id with 404 (Workout,
+WorkoutPlan, ScheduledWorkout, Exercise, WeightTracking) still do. That check is
+about something else, and stays with them.
+
+Nothing noticed the contradiction, because every copy worked for every token
+the app sends. A rule that nothing checks only describes the day it was
+written. `Nothing_else_in_the_api_reads_a_callers_claims` reads the API's
+source and fails if any file but `ClaimsPrincipalExtensions` calls `FindFirst`,
+so the next copy fails a test instead of waiting for a review to find it.
 
 ### The push goes only to someone else's change
 
@@ -3433,7 +3466,8 @@ nine full-list downloads on every sync with one delta.
 ### What the tests pin
 
 In `FitTracker.Api.Tests/LiveUpdateTests.cs` (32), `ChatHubTests.cs` (7 more),
-`DeviceTokenTests.cs` (4 more) and `ClaimsPrincipalExtensionsTests.cs` (1). Each
+`DeviceTokenTests.cs` (4 more), `ClaimsPrincipalExtensionsTests.cs` (2) and
+`SyncFeedTests.cs` (2 more). Each
 test in the first version was written first and run against a
 skeleton: the types and signatures in place, nothing recorded, nothing sent,
 nothing joined. The ones that describe an absence (no event for a client with no
@@ -3470,6 +3504,8 @@ failure back:
 | *A_join_whose_licence_read_fails_asks_to_be_retried*, *A_join_whose_group_add_fails_asks_to_be_retried* | §46: a failed join throws `HubException`, whose message carries no detail | the failure is logged and the call returns normally; the exception's detail is sent to the caller |
 | *A_caller_whose_id_cant_be_read_is_not_asked_to_retry* | §46: a normal return for what asking again can't change | the hub throws for a token it can't read |
 | *The_id_is_read_from_NameIdentifier_then_sub_and_must_be_a_guid* | §46: one reading of the caller | `sub` is read first; a bad `NameIdentifier` falls back to `sub` |
+| *Nothing_else_in_the_api_reads_a_callers_claims* | §46: that reading is the only one | any file but the extension calls `FindFirst` |
+| *ATokenCarryingOnlySubReadsTheFeed*, *ATokenWithoutAUserIdIsUnauthorized* | §46: the sync controllers read the caller like every other | the old `Guid.Parse(…NameIdentifier…)`, which throws on both |
 | *A_sync_request_is_data_only_collapsed_and_not_urgent*, *Fcm_is_given_the_collapse_key_for_both_platforms*, *A_chat_push_to_fcm_is_unchanged* | §46: the push, and chat's untouched | it is sent at high priority, or not collapsed; Android isn't given the key; chat gains an APNs block, or loses high priority |
 
 *A_sync_request_prunes_dead_tokens_like_a_chat_push* shares chat's pruning,
@@ -3546,8 +3582,9 @@ and the comment at that line says why.
 - **The common case costs one query.** The notifier asks for the owners' Active
   trainers first, and returns when there are none and the caller changed only
   their own data. Nothing may be added in front of that return.
-- **A caller's id is read one way**: `ClaimsPrincipal.TryGetUserId`. A new
-  controller, filter, hub or middleware doesn't write its own.
+- **A caller's id is read one way**: `ClaimsPrincipal.TryGetUserId`, and a
+  controller that can't read it answers 401. A new controller, filter, hub or
+  middleware doesn't write its own, and a test fails if it does.
 - **The push is for somebody else's change.** It carries only its type, is
   collapsed, and is never sent at high priority, since it never shows a
   notification.

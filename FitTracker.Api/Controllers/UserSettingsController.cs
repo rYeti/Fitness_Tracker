@@ -1,4 +1,5 @@
 using FitTracker.Api.DTOs;
+using FitTracker.Api.Services;
 using FitTracker.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -11,14 +12,12 @@ namespace FitTracker.Api.Controllers;
 [Authorize]
 public class UserSettingsController(IUserSettingsService userSettingsService) : ControllerBase
 {
-    private Guid UserId =>
-        Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
-
     /// <summary>Returns the settings for the authenticated user, or 404 if not yet created.</summary>
     [HttpGet]
     public async Task<IActionResult> Get()
     {
-        var result = await userSettingsService.GetSettingsAsync(UserId);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
+        var result = await userSettingsService.GetSettingsAsync(userId);
         if (result is null) return NotFound();
         return Ok(result);
     }
@@ -28,7 +27,8 @@ public class UserSettingsController(IUserSettingsService userSettingsService) : 
     [HttpPut]
     public async Task<IActionResult> Upsert([FromBody] UserSettingsRequestDto dto)
     {
-        var result = await userSettingsService.UpsertSettingsAsync(UserId, dto);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
+        var result = await userSettingsService.UpsertSettingsAsync(userId, dto);
         return Ok(result);
     }
 }

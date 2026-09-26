@@ -281,17 +281,7 @@ public class SyncFeedTests : IDisposable
         _fx.AddWorkout(_someoneElse.Id);
         await _fx.Db.Workouts.Where(w => w.Id == workout.Id)
             .ExecuteUpdateAsync(s => s.SetProperty(w => w.UpdatedAt, new DateTime(2026, 3, 1, 12, 0, 0, DateTimeKind.Utc)));
-        var controller = new SyncController(Feed)
-        {
-            ControllerContext = new ControllerContext
-            {
-                HttpContext = new DefaultHttpContext
-                {
-                    User = new ClaimsPrincipal(new ClaimsIdentity(
-                        [new Claim(ClaimTypes.NameIdentifier, _me.Id.ToString())], authenticationType: "Test")),
-                },
-            },
-        };
+        var controller = SyncControllerFor(new Claim(ClaimTypes.NameIdentifier, _me.Id.ToString()));
 
         // 13:30 at +02:00 is 11:30 UTC: before the workout's 12:00.
         var included = (SyncChangesDto)Assert.IsType<OkObjectResult>(await controller.GetChanges(
@@ -303,4 +293,38 @@ public class SyncFeedTests : IDisposable
         Assert.Equal(workout.Id, Assert.Single(included.Workouts).Id);
         Assert.Empty(excluded.Workouts);
     }
+
+    [Fact]
+    public async Task ATokenCarryingOnlySubReadsTheFeed()
+    {
+        // The OAuth case ClaimsPrincipal.TryGetUserId exists for. The sync controllers parsed
+        // NameIdentifier alone, so this token made every one of them throw, a 500, while the
+        // hub and the console accepted it.
+        var workout = _fx.AddWorkout(_me.Id);
+
+        var answer = await SyncControllerFor(new Claim("sub", _me.Id.ToString())).GetChanges(since: null);
+
+        var changes = (SyncChangesDto)Assert.IsType<OkObjectResult>(answer).Value!;
+        Assert.Equal(workout.Id, Assert.Single(changes.Workouts).Id);
+    }
+
+    [Fact]
+    public async Task ATokenWithoutAUserIdIsUnauthorized()
+    {
+        // Not a 500: nothing went wrong on the server.
+        var answer = await SyncControllerFor(new Claim("scope", "sync")).GetChanges(since: null);
+
+        Assert.IsType<UnauthorizedResult>(answer);
+    }
+
+    private SyncController SyncControllerFor(Claim claim) => new(Feed)
+    {
+        ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext
+            {
+                User = new ClaimsPrincipal(new ClaimsIdentity([claim], authenticationType: "Test")),
+            },
+        },
+    };
 }

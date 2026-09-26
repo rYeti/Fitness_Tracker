@@ -1,4 +1,5 @@
 using FitTracker.Api.DTOs;
+using FitTracker.Api.Services;
 using FitTracker.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -25,7 +26,7 @@ public class ScheduledWorkoutController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetUserScheduledWorkouts()
     {
-        var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
         if (userId == Guid.Empty) return NotFound("User not found");
 
         var result = await _scheduledService.GetUserScheduledWorkoutsAsync(userId);
@@ -38,7 +39,7 @@ public class ScheduledWorkoutController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> CreateScheduledWorkout([FromBody] ScheduledWorkoutRequestDto dto)
     {
-        var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
         if (userId == Guid.Empty) return NotFound("User not found");
 
         var result = await _scheduledService.CreateScheduledWorkoutAsync(dto, userId);
@@ -53,7 +54,7 @@ public class ScheduledWorkoutController : ControllerBase
     [HttpGet("{id}")]
     public async Task<IActionResult> GetScheduledWorkoutById([FromRoute] Guid id)
     {
-        var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
         if (userId == Guid.Empty) return NotFound("User not found");
 
         var result = await _scheduledService.GetScheduledWorkoutByIdAsync(id, userId);
@@ -69,7 +70,7 @@ public class ScheduledWorkoutController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> UpdateScheduledWorkout([FromRoute] Guid id, [FromBody] ScheduledWorkoutRequestDto dto)
     {
-        var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
         if (userId == Guid.Empty) return NotFound("User not found");
 
         var result = await _scheduledService.UpdateScheduledWorkoutAsync(id, userId, dto);
@@ -84,7 +85,7 @@ public class ScheduledWorkoutController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteScheduledWorkout([FromRoute] Guid id)
     {
-        var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
         if (userId == Guid.Empty) return NotFound("User not found");
 
         var result = await _scheduledService.DeleteScheduledWorkoutAsync(id, userId);
@@ -101,7 +102,7 @@ public class ScheduledWorkoutController : ControllerBase
     [HttpPost("{scheduledWorkoutId}/exercises/batch")]
     public async Task<IActionResult> CreateExercisesBatch([FromRoute] Guid scheduledWorkoutId, [FromBody] List<ScheduledExerciseBatchItemDto> items)
     {
-        var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
         if (userId == Guid.Empty) return NotFound("User not found");
 
         var result = await _scheduledService.CreateExercisesBatchAsync(scheduledWorkoutId, userId, items);
@@ -118,7 +119,7 @@ public class ScheduledWorkoutController : ControllerBase
     [HttpPost("{scheduledWorkoutId}/exercises/{workoutExerciseId}/sets")]
     public async Task<IActionResult> AddSet([FromRoute] Guid scheduledWorkoutId, [FromRoute] Guid workoutExerciseId, [FromBody] WorkoutSetRequestDto dto)
     {
-        var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
         if (userId == Guid.Empty) return NotFound("User not found");
 
         var result = await _scheduledService.AddSetAsync(workoutExerciseId, userId, dto);
@@ -131,7 +132,7 @@ public class ScheduledWorkoutController : ControllerBase
     [HttpPost("{scheduledWorkoutId}/exercises/{workoutExerciseId}/sets/batch")]
     public async Task<IActionResult> AddSetsBatch([FromRoute] Guid scheduledWorkoutId, [FromRoute] Guid workoutExerciseId, [FromBody] List<WorkoutSetRequestDto> dtos)
     {
-        var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
         if (userId == Guid.Empty) return NotFound("User not found");
 
         var result = await _scheduledService.AddSetsBatchAsync(workoutExerciseId, userId, dtos);
@@ -147,7 +148,7 @@ public class ScheduledWorkoutController : ControllerBase
     [HttpPut("exercises/sets/{setId}")]
     public async Task<IActionResult> UpdateSet([FromRoute] Guid setId, [FromBody] WorkoutSetRequestDto dto)
     {
-        var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
         if (userId == Guid.Empty) return NotFound("User not found");
 
         var result = await _scheduledService.UpdateSetAsync(setId, userId, dto);
@@ -162,7 +163,7 @@ public class ScheduledWorkoutController : ControllerBase
     [HttpDelete("exercises/sets/{setId}")]
     public async Task<IActionResult> DeleteSet([FromRoute] Guid setId)
     {
-        var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
         if (userId == Guid.Empty) return NotFound("User not found");
 
         var result = await _scheduledService.DeleteSetAsync(setId, userId);
@@ -180,7 +181,7 @@ public class ScheduledWorkoutController : ControllerBase
     [HttpPut("exercises/{scheduledExerciseId}/notes")]
     public async Task<IActionResult> UpdateExerciseNotes([FromRoute] Guid scheduledExerciseId, [FromBody] ScheduledExerciseNotesRequestDto dto)
     {
-        var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
         if (userId == Guid.Empty) return NotFound("User not found");
 
         var result = await _scheduledService.UpdateExerciseNotesAsync(scheduledExerciseId, userId, dto.Notes);
@@ -195,7 +196,7 @@ public class ScheduledWorkoutController : ControllerBase
     [HttpPatch("exercises/{scheduledExerciseId}/complete")]
     public async Task<IActionResult> CompleteExercise([FromRoute] Guid scheduledExerciseId)
     {
-        var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
         if (userId == Guid.Empty) return NotFound("User not found");
 
         var result = await _scheduledService.CompleteExerciseAsync(scheduledExerciseId, userId);
@@ -210,7 +211,7 @@ public class ScheduledWorkoutController : ControllerBase
     [HttpPatch("{id}/complete")]
     public async Task<IActionResult> CompleteWorkout([FromRoute] Guid id)
     {
-        var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
         if (userId == Guid.Empty) return NotFound("User not found");
 
         var result = await _scheduledService.CompleteWorkoutAsync(id, userId);

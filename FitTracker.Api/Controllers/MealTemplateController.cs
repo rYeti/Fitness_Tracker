@@ -1,4 +1,5 @@
 using FitTracker.Api.DTOs;
+using FitTracker.Api.Services;
 using FitTracker.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -11,14 +12,12 @@ namespace FitTracker.Api.Controllers;
 [Authorize]
 public class MealTemplateController(IMealTemplateService mealTemplateService) : ControllerBase
 {
-    private Guid UserId =>
-        Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
-
     /// <summary>Returns all meal templates for the authenticated user.</summary>
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var result = await mealTemplateService.GetAllAsync(UserId);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
+        var result = await mealTemplateService.GetAllAsync(userId);
         return Ok(result);
     }
 
@@ -27,7 +26,8 @@ public class MealTemplateController(IMealTemplateService mealTemplateService) : 
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById([FromRoute] Guid id)
     {
-        var result = await mealTemplateService.GetByIdAsync(id, UserId);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
+        var result = await mealTemplateService.GetByIdAsync(id, userId);
         if (result is null) return NotFound();
         return Ok(result);
     }
@@ -37,7 +37,8 @@ public class MealTemplateController(IMealTemplateService mealTemplateService) : 
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] MealTemplateRequestDto dto)
     {
-        var result = await mealTemplateService.CreateAsync(dto, UserId);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
+        var result = await mealTemplateService.CreateAsync(dto, userId);
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 
@@ -47,7 +48,8 @@ public class MealTemplateController(IMealTemplateService mealTemplateService) : 
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> Update([FromRoute] Guid id, [FromBody] MealTemplateRequestDto dto)
     {
-        var result = await mealTemplateService.UpdateAsync(id, UserId, dto);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
+        var result = await mealTemplateService.UpdateAsync(id, userId, dto);
         if (result is null) return NotFound();
         return Ok(result);
     }
@@ -57,7 +59,8 @@ public class MealTemplateController(IMealTemplateService mealTemplateService) : 
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete([FromRoute] Guid id)
     {
-        var deleted = await mealTemplateService.DeleteAsync(id, UserId);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
+        var deleted = await mealTemplateService.DeleteAsync(id, userId);
         if (!deleted) return NotFound();
         return NoContent();
     }

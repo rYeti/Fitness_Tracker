@@ -1,5 +1,6 @@
 using FitTracker.Api.DTOs;
 using FitTracker.Api.Models;
+using FitTracker.Api.Services;
 using FitTracker.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -26,7 +27,7 @@ public class WorkoutPlanController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetUserPlans()
     {
-        var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
         if (userId == Guid.Empty) return NotFound("User not found");
 
         var result = await _planService.GetUserPlansAsync(userId);
@@ -39,7 +40,7 @@ public class WorkoutPlanController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> CreatePlan([FromBody] WorkoutPlanRequestDto dto)
     {
-        var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
         if (userId == Guid.Empty) return NotFound("User not found");
 
         var result = await _planService.CreatePlanAsync(dto, userId);
@@ -52,7 +53,7 @@ public class WorkoutPlanController : ControllerBase
     [HttpGet("{id}")]
     public async Task<IActionResult> GetPlanById([FromRoute] Guid id)
     {
-        var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
         if (userId == Guid.Empty) return NotFound("User not found");
 
         var result = await _planService.GetPlanByIdAsync(id, userId);
@@ -68,7 +69,7 @@ public class WorkoutPlanController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> UpdatePlan([FromRoute] Guid id, [FromBody] WorkoutPlanRequestDto dto)
     {
-        var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
         if (userId == Guid.Empty) return NotFound("User not found");
 
         var result = await _planService.UpdatePlanAsync(id, userId, dto);
@@ -83,7 +84,7 @@ public class WorkoutPlanController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeletePlan([FromRoute] Guid id)
     {
-        var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
         if (userId == Guid.Empty) return NotFound("User not found");
 
         var result = await _planService.DeletePlanAsync(id, userId);
@@ -106,7 +107,7 @@ public class WorkoutPlanController : ControllerBase
     [HttpPost("{planId}/workouts/{workoutId}")]
     public async Task<IActionResult> AddWorkoutToPlan([FromRoute] Guid planId, [FromRoute] Guid workoutId)
     {
-        var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
         if (userId == Guid.Empty) return NotFound("User not found");
 
         var added = await _planService.AddWorkoutToPlanAsync(planId, workoutId, userId);
@@ -119,7 +120,7 @@ public class WorkoutPlanController : ControllerBase
     [HttpPost("{planId}/workouts/batch")]
     public async Task<IActionResult> AddWorkoutsBatch([FromRoute] Guid planId, [FromBody] List<Guid> workoutIds)
     {
-        var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
         if (userId == Guid.Empty) return NotFound("User not found");
 
         var added = await _planService.AddWorkoutsToPlanBatchAsync(planId, workoutIds, userId);
@@ -141,7 +142,7 @@ public class WorkoutPlanController : ControllerBase
     [HttpPut("{planId}/workouts")]
     public async Task<IActionResult> ReplaceWorkouts([FromRoute] Guid planId, [FromBody] List<Guid> workoutIds)
     {
-        var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
         if (userId == Guid.Empty) return NotFound("User not found");
 
         var result = await _planService.ReplacePlanWorkoutsAsync(planId, workoutIds, userId);
@@ -157,7 +158,7 @@ public class WorkoutPlanController : ControllerBase
     [HttpDelete("{planId}/workouts/{workoutId}")]
     public async Task<IActionResult> RemoveWorkoutFromPlan([FromRoute] Guid planId, [FromRoute] Guid workoutId)
     {
-        var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
         if (userId == Guid.Empty) return NotFound("User not found");
 
         var result = await _planService.RemoveWorkoutFromPlanAsync(planId, workoutId, userId);

@@ -1,4 +1,5 @@
 using FitTracker.Api.DTOs;
+using FitTracker.Api.Services;
 using FitTracker.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -11,14 +12,12 @@ namespace FitTracker.Api.Controllers;
 [Authorize]
 public class MealController(IMealService mealService) : ControllerBase
 {
-    private Guid UserId =>
-        Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
-
     /// <summary>Returns all meals for the authenticated user across all dates.</summary>
     [HttpGet("all")]
     public async Task<IActionResult> GetAll()
     {
-        var result = await mealService.GetAllMealsAsync(UserId);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
+        var result = await mealService.GetAllMealsAsync(userId);
         return Ok(result);
     }
 
@@ -28,7 +27,8 @@ public class MealController(IMealService mealService) : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetForDate([FromQuery] DateTime date)
     {
-        var result = await mealService.GetMealsForDateAsync(UserId, date);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
+        var result = await mealService.GetMealsForDateAsync(userId, date);
         return Ok(result);
     }
 
@@ -37,7 +37,8 @@ public class MealController(IMealService mealService) : ControllerBase
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById([FromRoute] Guid id)
     {
-        var result = await mealService.GetMealByIdAsync(id, UserId);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
+        var result = await mealService.GetMealByIdAsync(id, userId);
         if (result is null) return NotFound();
         return Ok(result);
     }
@@ -47,7 +48,8 @@ public class MealController(IMealService mealService) : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] MealRequestDto dto)
     {
-        var result = await mealService.CreateMealAsync(dto, UserId);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
+        var result = await mealService.CreateMealAsync(dto, userId);
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 
@@ -57,7 +59,8 @@ public class MealController(IMealService mealService) : ControllerBase
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> Update([FromRoute] Guid id, [FromBody] MealRequestDto dto)
     {
-        var result = await mealService.UpdateMealAsync(id, UserId, dto);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
+        var result = await mealService.UpdateMealAsync(id, userId, dto);
         if (result is null) return NotFound();
         return Ok(result);
     }
@@ -67,7 +70,8 @@ public class MealController(IMealService mealService) : ControllerBase
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete([FromRoute] Guid id)
     {
-        var deleted = await mealService.DeleteMealAsync(id, UserId);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
+        var deleted = await mealService.DeleteMealAsync(id, userId);
         if (!deleted) return NotFound();
         return NoContent();
     }
@@ -78,7 +82,8 @@ public class MealController(IMealService mealService) : ControllerBase
     [HttpPost("{mealId:guid}/foods/{foodItemId:guid}")]
     public async Task<IActionResult> AddFood([FromRoute] Guid mealId, [FromRoute] Guid foodItemId)
     {
-        var result = await mealService.AddFoodToMealAsync(mealId, UserId, foodItemId);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
+        var result = await mealService.AddFoodToMealAsync(mealId, userId, foodItemId);
         if (result is null) return NotFound();
         return Ok(result);
     }
@@ -103,7 +108,8 @@ public class MealController(IMealService mealService) : ControllerBase
     [HttpPost("{mealId:guid}/foods/batch")]
     public async Task<IActionResult> AddFoodsBatch([FromRoute] Guid mealId, [FromBody] List<MealFoodEntryRequestDto> entries)
     {
-        var result = await mealService.AddFoodsToMealBatchAsync(mealId, UserId, entries);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
+        var result = await mealService.AddFoodsToMealBatchAsync(mealId, userId, entries);
         if (result is null) return NotFound();
         return Ok(result);
     }
@@ -120,7 +126,8 @@ public class MealController(IMealService mealService) : ControllerBase
     [HttpDelete("{mealId:guid}/foods/{id:guid}")]
     public async Task<IActionResult> RemoveFood([FromRoute] Guid mealId, [FromRoute] Guid id)
     {
-        var removed = await mealService.RemoveFoodFromMealAsync(mealId, UserId, id);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
+        var removed = await mealService.RemoveFoodFromMealAsync(mealId, userId, id);
         if (!removed) return NotFound();
         return NoContent();
     }

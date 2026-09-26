@@ -1,4 +1,5 @@
 using FitTracker.Api.DTOs;
+using FitTracker.Api.Services;
 using FitTracker.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -22,7 +23,7 @@ public class WeightTrackingController : ControllerBase
     [Authorize]
     public async Task<IActionResult> TrackWeight([FromBody] WeightTrackingRequestDto weightTrackingRequestDto)
     {
-        var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
 
         if (Guid.Empty == userId)
         {
@@ -43,7 +44,7 @@ public class WeightTrackingController : ControllerBase
     [Authorize]
     public async Task<IActionResult> GetTrackedWeights()
     {
-        var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
 
         if (Guid.Empty == userId)
         {
@@ -64,7 +65,7 @@ public class WeightTrackingController : ControllerBase
     [Authorize]
     public async Task<IActionResult> ChangeTrackingWeight([FromRoute] Guid id)
     {
-        var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
 
         if (Guid.Empty == userId)
         {
@@ -85,7 +86,7 @@ public class WeightTrackingController : ControllerBase
     [Authorize]
     public async Task<IActionResult> UpdateWeight([FromRoute] Guid id, [FromBody] WeightTrackingRequestDto weight)
     {
-        var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value!);
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
 
         if (Guid.Empty == userId)
         {
