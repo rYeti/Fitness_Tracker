@@ -54,15 +54,16 @@ class ClientRefresh extends ConsoleRefresh {
 ///
 /// - a pane showing that client reads again [paneDelay] after the last event
 ///   of a burst — one push from a phone is several requests, each its own
-///   event, and they should cost one refetch, not one each;
+///   event, and they should cost one refetch, not one each — but never more
+///   than [paneMaxWait] after the first event it hasn't read for yet;
 /// - the roster and the Dashboard's figures read again [rosterDelay] after the
-///   last event for *any* client;
+///   last event for *any* client, and at most [rosterMaxWait] after the first;
 /// - when the tab or window comes back into focus ([focusRegained]) or the
 ///   socket comes back after a drop, everything shown reads again. Events are
 ///   sent only to connections on the instance that made the change, so one can
 ///   be missed; this is what makes a missed one cost freshness and not
-///   correctness. A socket that keeps dropping refetches at most once per
-///   [reconnectCooldown], and once more after it if it dropped meanwhile.
+///   correctness. Either refetches at most once per [fallbackCooldown], and
+///   once more when it ends if either was asked for meanwhile.
 ///
 /// It only says *when*. What a refetch keeps on screen meanwhile is each
 /// provider's business, and a pane nobody can see waits until it is shown
@@ -72,18 +73,28 @@ class ConsoleLiveUpdates {
     Stream<ClientDataChange> changes = const Stream.empty(),
     Stream<void> reconnected = const Stream.empty(),
     this.paneDelay = const Duration(seconds: 1),
+    this.paneMaxWait = const Duration(seconds: 5),
     this.rosterDelay = const Duration(seconds: 3),
-    this.reconnectCooldown = const Duration(seconds: 30),
+    this.rosterMaxWait = const Duration(seconds: 15),
+    this.fallbackCooldown = const Duration(seconds: 30),
   }) {
+    _panes = _Debounce(paneDelay, paneMaxWait, _flushPanes);
+    _roster = _Debounce(
+      rosterDelay,
+      rosterMaxWait,
+      () => _emit(const RosterRefresh()),
+    );
     _subscriptions = [
       changes.listen(_onChange),
-      reconnected.listen((_) => _onReconnected()),
+      reconnected.listen((_) => _refetchEverything()),
     ];
   }
 
   final Duration paneDelay;
+  final Duration paneMaxWait;
   final Duration rosterDelay;
-  final Duration reconnectCooldown;
+  final Duration rosterMaxWait;
+  final Duration fallbackCooldown;
 
   final _refreshes = StreamController<ConsoleRefresh>.broadcast();
   late final List<StreamSubscription<Object?>> _subscriptions;
@@ -94,10 +105,10 @@ class ConsoleLiveUpdates {
   /// Areas changed per client since the last pane refetch.
   final Map<String, Set<ClientDataArea>> _pendingClients = {};
   bool _everythingPending = false;
-  Timer? _paneTimer;
-  Timer? _rosterTimer;
+  late final _Debounce _panes;
+  late final _Debounce _roster;
   Timer? _cooldown;
-  bool _reconnectedInCooldown = false;
+  bool _askedInCooldown = false;
 
   /// Turns a connection's status into the moments it came back.
   ///
@@ -119,42 +130,40 @@ class ConsoleLiveUpdates {
   }
 
   /// The tab or window came back into focus.
-  void focusRegained() {
-    _everythingPending = true;
-    _schedule(panes: true);
-  }
+  ///
+  /// On web and desktop that is every alt-tab and every click back into the
+  /// window, so it shares the reconnect path's cooldown: a trainer switching
+  /// apps many times an hour would otherwise pay for the roster and KPI
+  /// aggregates every time.
+  void focusRegained() => _refetchEverything();
 
   void _onChange(ClientDataChange change) {
     // An event with no area this build knows still moves the roster.
     if (change.areas.isNotEmpty) {
       (_pendingClients[change.clientId] ??= {}).addAll(change.areas);
+      _panes.poke();
     }
-    _schedule(panes: change.areas.isNotEmpty);
+    _roster.poke();
   }
 
-  void _onReconnected() {
+  /// Everything shown reads again, at most once per [fallbackCooldown] —
+  /// and once more when the cooldown ends if it was asked for meanwhile,
+  /// since the last focus or drop inside the cooldown is exactly the one no
+  /// refetch has covered yet.
+  void _refetchEverything() {
     if (_cooldown != null) {
-      _reconnectedInCooldown = true;
+      _askedInCooldown = true;
       return;
     }
     _everythingPending = true;
-    _schedule(panes: true);
-    _cooldown = Timer(reconnectCooldown, () {
+    _panes.poke();
+    _roster.poke();
+    _cooldown = Timer(fallbackCooldown, () {
       _cooldown = null;
-      if (!_reconnectedInCooldown) return;
-      _reconnectedInCooldown = false;
-      _onReconnected();
+      if (!_askedInCooldown) return;
+      _askedInCooldown = false;
+      _refetchEverything();
     });
-  }
-
-  /// Restarts both timers: a refetch waits for the burst to end.
-  void _schedule({required bool panes}) {
-    if (panes) {
-      _paneTimer?.cancel();
-      _paneTimer = Timer(paneDelay, _flushPanes);
-    }
-    _rosterTimer?.cancel();
-    _rosterTimer = Timer(rosterDelay, () => _emit(const RosterRefresh()));
   }
 
   void _flushPanes() {
@@ -177,13 +186,51 @@ class ConsoleLiveUpdates {
   /// Stops every timer and closes [refreshes]. Nothing to wait for: the
   /// console has stopped listening by the time it calls this.
   void dispose() {
-    _paneTimer?.cancel();
-    _rosterTimer?.cancel();
+    _panes.cancel();
+    _roster.cancel();
     _cooldown?.cancel();
     for (final subscription in _subscriptions) {
       unawaited(subscription.cancel());
     }
     unawaited(_refreshes.close());
+  }
+}
+
+/// A trailing debounce with a ceiling: [fire] runs [delay] after the last
+/// [poke], but never later than [maxWait] after the first poke it hasn't run
+/// for yet.
+///
+/// The ceiling is what a plain trailing debounce lacks. Events for every
+/// client share one timer, and a trainer with a dozen clients mid-session
+/// sees them less than a second apart all afternoon; a timer every event
+/// restarts would never run at all while that lasted. A steady stream now
+/// costs freshness up to [maxWait], and a burst still costs one refetch.
+class _Debounce {
+  _Debounce(this.delay, this.maxWait, this.fire);
+
+  final Duration delay;
+  final Duration maxWait;
+  final void Function() fire;
+
+  Timer? _quiet;
+  Timer? _ceiling;
+
+  void poke() {
+    _quiet?.cancel();
+    _quiet = Timer(delay, _run);
+    _ceiling ??= Timer(maxWait, _run);
+  }
+
+  void _run() {
+    cancel();
+    fire();
+  }
+
+  void cancel() {
+    _quiet?.cancel();
+    _ceiling?.cancel();
+    _quiet = null;
+    _ceiling = null;
   }
 }
 

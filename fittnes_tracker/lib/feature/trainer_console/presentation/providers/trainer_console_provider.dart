@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:ForgeForm/feature/trainer_console/data/trainer_console_repository.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_console_models.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/console_error.dart';
+import 'package:ForgeForm/feature/trainer_console/presentation/providers/pane_reads.dart';
 
 enum RosterLayout { grid, table }
 
@@ -21,14 +22,18 @@ class TrainerConsoleProvider extends ChangeNotifier {
     : _repository = repository ?? TrainerConsoleRepository();
 
   TrainerDashboardKpis? _kpis;
-  bool _isLoading = false;
   ConsoleError? _error;
   RosterLayout _layout = RosterLayout.grid;
+  final _reads = PaneReads();
 
   TrainerDashboardKpis? get kpis => _kpis;
-  bool get isLoading => _isLoading;
+  bool get isLoading => _reads.isLoading;
   ConsoleError? get error => _error;
   RosterLayout get layout => _layout;
+
+  /// Whether the last refresh of the KPIs failed, so the figures shown are
+  /// older than they could be.
+  bool get refreshFailed => _reads.refreshFailed && _error == null;
 
   void setLayout(RosterLayout layout) {
     if (_layout == layout) return;
@@ -36,34 +41,26 @@ class TrainerConsoleProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Which [load] call is the latest; only its answer is applied.
-  int _request = 0;
-
   /// Loads the KPI row. [keepShown] is a refresh: no loading state, and a
   /// failure keeps the figures already shown instead of swapping them for the
-  /// error strip — see [ActiveClientProvider.loadClients].
+  /// error strip, and sets [refreshFailed] — see
+  /// [ActiveClientProvider.loadClients].
   Future<void> load({bool keepShown = false}) async {
-    final request = ++_request;
-    final keep = keepShown && !_isLoading;
-    if (!keep) {
-      _isLoading = true;
+    final read = _reads.start(keepShown: keepShown);
+    if (read.isLoad) {
       _error = null;
       notifyListeners();
     }
 
     try {
       final kpis = await _repository.getDashboardKpis();
-      if (request != _request) return;
+      if (!read.settle()) return;
       _kpis = kpis;
       _error = null;
     } catch (_) {
-      if (request != _request || keep) return;
-      _error = ConsoleError.loadDashboard;
-    } finally {
-      if (request == _request) {
-        _isLoading = false;
-        notifyListeners();
-      }
+      if (!read.settle(failed: true)) return;
+      if (read.isLoad) _error = ConsoleError.loadDashboard;
     }
+    notifyListeners();
   }
 }

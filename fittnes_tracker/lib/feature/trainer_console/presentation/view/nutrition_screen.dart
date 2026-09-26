@@ -10,6 +10,7 @@ import 'package:ForgeForm/feature/trainer_console/domain/models/client_data_chan
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/console_live_updates.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/calorie_ring.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/client_switcher.dart';
+import 'package:ForgeForm/feature/trainer_console/presentation/widgets/refresh_failed_notice.dart';
 import 'package:ForgeForm/core/widgets/app_widgets.dart';
 import 'package:ForgeForm/core/widgets/tracked_nutrients_card.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/macro_summary.dart';
@@ -101,6 +102,7 @@ class _NutritionScreenState extends State<NutritionScreen>
                       isDesktop: isDesktop,
                       nutrition: nutrition,
                       clientId: client?.clientId,
+                      onRetry: refreshLive,
                     ),
                     const SizedBox(height: 24),
                     Expanded(
@@ -126,12 +128,14 @@ class _Header extends StatelessWidget {
   final bool isDesktop;
   final NutritionProvider nutrition;
   final String? clientId;
+  final VoidCallback onRetry;
 
   const _Header({
     required this.clientName,
     required this.isDesktop,
     required this.nutrition,
     required this.clientId,
+    required this.onRetry,
   });
 
   @override
@@ -162,6 +166,10 @@ class _Header extends StatelessWidget {
             fontSize: 13,
             color: colors.onSurface.withValues(alpha: 0.65),
           ),
+        ),
+        RefreshFailedNotice(
+          failed: nutrition.refreshFailed,
+          onRetry: onRetry,
         ),
       ],
     );

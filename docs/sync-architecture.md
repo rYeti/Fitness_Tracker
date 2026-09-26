@@ -3516,7 +3516,7 @@ happened to change would be a second read path, and the two would drift the
 way every second read path in this repo has. An event with no data can't
 drift from anything.
 
-**It can be missed anyway (§54).** A client that must refetch whenever it
+**It can be missed anyway (§55).** A client that must refetch whenever it
 might have missed an event needs the refetch path to be complete on its own.
 Once it is, data in the event only duplicates it.
 
@@ -3531,6 +3531,39 @@ event up as JSON rather than parsing it: it is chat's transport, the console
 depends on chat and not the other way round, and the meaning of the event is
 the console's.
 
+### Only the console's socket asks to hear it
+
+The first version had the server put every licensed trainer's connection in
+their group as it opened. A trainer is also a ForgeForm user, and their own
+trainee app holds the same kind of socket for coach chat, so it joined too and
+received every one of their clients' events only to ignore them. The server
+now joins nothing when a connection opens (§46). A connection hears
+`ClientDataChanged` only after it calls `JoinTrainerGroup()`, and only the
+console's does: `TrainerConsoleHome` builds its `SignalRHubChatClient` with
+`joinTrainerGroup: true`, and the trainee app builds its own without.
+
+What makes this easy to get wrong is that a SignalR group belongs to a
+*connection id*, not to a user and not to the `HubConnection` object. Every
+connect gets a new id, and a new id is in no group:
+
+| Connect | Same `HubConnection`? | New connection id? | Joins again |
+|---|---|---|---|
+| the first `start()` | — | yes | yes |
+| SignalR's own automatic reconnect (`onreconnected`) | yes | yes | yes |
+| a fresh start after the connection closed for good (§55) | no | yes | yes |
+
+A join made once, after the first `start()`, passes every test that never
+drops the connection. In production it would stop live updates at the first
+Wi-Fi blip, with chat still working and nothing on screen to say anything was
+missing. So `SignalRHubChatClient` joins after each of the three.
+
+It also joins *before* it says the connection is up. The console refetches when
+the socket comes back (§55); reporting `connected` first would let that
+refetch read while the connection was still outside the group, and an event
+for a change committed in between would go to nobody. A join that fails is
+logged, and costs live updates rather than the socket: chat works without it,
+and the focus and reconnect refetches still run.
+
 ---
 
 ## 51. One refetch per burst
@@ -3543,9 +3576,9 @@ second, and the last of those five reads is the only one anyone sees.
 `ConsoleLiveUpdates` (`presentation/providers/console_live_updates.dart`)
 collects events per client and emits one `ClientRefresh` per client a second
 after the last event of a burst, and one `RosterRefresh` three seconds after
-the last event for any client. The timer restarts on every event: a window
-that opened on the first event and closed a second later would split a push
-that takes two seconds into two refetches.
+the last event for any client. The quiet period restarts on every event: a
+window that opened on the first event and closed a second later would split a
+push that takes two seconds into two refetches.
 
 The two delays are different because the two refreshes are different. A pane
 shows one client, and a trainer watching it wants the set they just saw logged;
@@ -3555,10 +3588,37 @@ whole roster moves them, and an event for any of twenty clients would otherwise
 refetch them twenty times; three seconds folds more of that together, and a
 roster figure a few seconds behind is not something anyone watches for.
 
-A restarting timer can in principle be starved by events that never stop
-arriving, and here that is the intended behaviour: the only realistic source is
-one long push — a phone's first sync after a reinstall — and the useful refetch
-is the one after it.
+### A debounce needs a ceiling
+
+A timer that every event restarts waits for quiet. The first version of this
+section argued that only one long push — a phone's first sync after a
+reinstall — could keep it from ever getting any, and called that starvation
+intended. The argument missed what the timer is shared by. There is one pane
+timer and one roster timer for the whole console, not one per client, and an
+event for *any* client restarts them. A trainer with a dozen clients training
+at once sees events less than a second apart for the whole afternoon, since
+every set logged is several requests. The pane showing the one client the
+trainer is watching never refetched until the entire roster went quiet, and
+the roster, on its three-second timer, starved sooner. The events meant to
+keep the console fresh were what kept it stale.
+
+Each debounce (`_Debounce`) now has a ceiling as well as a quiet period. It
+fires a quiet period after the last event, or `maxWait` after the first event
+it hasn't fired for yet, whichever comes first: five seconds for panes
+(`paneMaxWait`) and fifteen for the roster and KPIs (`rosterMaxWait`). A burst
+still costs one refetch. A stream that never stops costs one every few
+seconds, which is what a trainer watching a busy afternoon should get.
+
+A timer per client was the rejected alternative. It fixes the pane, because
+another client's events no longer postpone this one's. It doesn't fix the
+roster, which summarises every client and so has only one timer to give, and
+it leaves the same starvation for a single client whose own push runs long.
+The ceiling fixes all three with one rule.
+
+The shape of the mistake outlives this timer: *a trailing debounce waits for
+quiet, and quiet is a property of everything that restarts it, not of the one
+thing you care about.* Any debounce fed by more than one source needs a
+ceiling, or it is a promise to do nothing for as long as the sources are busy.
 
 Client ids are compared without case. Both sides are the server's GUIDs,
 which it writes in lower case today; a pane that stopped refreshing because one
@@ -3595,39 +3655,178 @@ including the one asked first.
 So each loader grew one parameter rather than a second fetch path:
 `load(clientId, keepShown: true)` on `NutritionProvider` and
 `SessionReviewProvider`, `load(keepShown: true)` on `TrainerConsoleProvider`
-and `ClientDetailProvider`, and `loadClients(keepShown: true)` on
-`ActiveClientProvider`. With it, the loader:
+and `ClientDetailProvider`, `loadClients(keepShown: true)` on
+`ActiveClientProvider`, and `refresh`, which is `load(clientId, keepShown:
+true)`, on `WorkoutBuilderProvider` (§53). With it, the loader:
 
 - leaves the data, the selection and the loading flag alone while it reads;
 - on success, replaces the data and clears any error — a refresh is also how a
   pane that failed earlier recovers;
-- on failure, changes nothing. The data stays up, and nothing is set that a
-  screen would turn into an error or an empty state.
+- on failure, keeps the data up and sets nothing a screen would turn into an
+  error or an empty state. It sets `refreshFailed`, which the pane shows as a
+  small notice ("Said, not hidden", below).
 
 It is only a refresh when there is something of that client's on screen to
-keep. For another client, or while the first load is still in flight, it is an
+keep. For another client, or while a load is still in flight, it is an
 ordinary load — including clearing what's there. A refresh that arrives during
-a pane's first load therefore issues a second read and drops the first one's
-answer, which costs a request and is the only way to be sure: the first read
-may have reached the server before the change was committed.
+a load therefore issues a second read and drops the first one's answer, which
+costs a request and is the only way to be sure: the first read may have
+reached the server before the change was committed.
 
-Every loader also numbers its reads, and applies an answer only if it is the
-latest one asked (`_request`). The old guard compared client ids, which tells a
-slow answer for the previous client from one for this client, but not two
-answers for the same client.
+### One helper for the order of reads
 
-Two providers needed more than that.
+The first version spelled those rules out in every provider, two different
+ways. Five providers carried the same `_request` counter, the same `keepShown
+&& !_isLoading` and the same "swallow the failure on a refresh" block. The
+Workout Builder carried a different scheme: an `_epoch` that its two loads and
+five writes bumped by hand, and a refresh that returned early whenever one of
+the builder's own busy flags was set. Review found the builder's scheme wrong
+in three ways.
 
-`NutritionProvider` also writes: pinning a nutrient updates the summary
-optimistically and then saves. A refresh that read the summary before the save
-landed would put the old pins back on screen, and nothing would put them right
-again. A read that overlapped a pin write — started before one, or during —
-keeps the pins on screen and takes everything else (`_pinEpoch`,
-`_pinWrites`); the write's own outcome is what settles them.
+- **Two refreshes weren't ordered.** The builder's refresh read `_epoch` but
+  never bumped it, and its busy check didn't count a refresh in flight. Refresh
+  A and a later refresh B could read together, and if A's answer arrived last
+  it passed the epoch check and put the older plan, days and library back.
+  The open day being clean, it also replaced the day with the older copy and
+  rebuilt the editor. All it takes is three GETs slower than the one-second
+  debounce: a cold Cloud Run instance, a slow link, or a focus refetch landing
+  on top of an event.
+- **A refresh during a read was dropped.** The busy check included the
+  builder's own loads, on the reasoning that whatever the refresh overlapped
+  "shows data at least as new". That holds only for a read that started after
+  the change committed. Take a `loadDays` the server has answered, a change the
+  phone commits next, and its event arriving while the answer is still on its
+  way back: the refresh returned, the read applied the answer from before the
+  change, and nothing brought the change in until the next event or focus.
+- **The next write could forget.** A write that didn't bump `_epoch` let a
+  refresh started before it overwrite what it had just written, and no test
+  fails when a line is missing.
+
+`PaneReads` (`presentation/providers/pane_reads.dart`) now holds the rules
+once, and all six providers read through it:
+
+| Rule | Where it lives |
+|---|---|
+| Only the latest read asked for is applied | `start()` numbers every read; `settle()` refuses any but the latest |
+| A refresh keeps what is shown | `start(keepShown: true, shown: …)` is a refresh only for the client on screen, with no load in flight |
+| A refresh during a load supersedes it | the same check: with a load in flight it becomes a load itself, and the older read is no longer the latest |
+| A refresh can't undo a write | `write(body)`: a refresh that started before a write and answered after it, or started during one, is dropped and read again once no write is in flight (`onRefreshOwed`) |
+| A failed refresh is said | `settle(failed: true)` on a refresh sets `refreshFailed`; the next read that succeeds clears it, and so does any load, at once |
+
+A provider's read has this shape:
+
+```dart
+final read = _reads.start(keepShown: keepShown, shown: sameClient);
+if (read.isLoad) { /* clear what's shown */ notifyListeners(); }
+try {
+  final value = await fetch();
+  if (!read.settle()) return;          // overtaken: drop it
+  /* apply value, clear the error */
+} catch (_) {
+  if (!read.settle(failed: true)) return;
+  if (read.isLoad) /* set the error */;
+}
+notifyListeners();
+```
+
+The builder's saves, deletes and creates are `_reads.write(() => …)`. There is
+no counter left to bump by hand, and a write that isn't wrapped shows in review
+as a write that isn't wrapped.
+
+Two decisions in it are not obvious.
+
+**A refresh a write overlapped is read again, not just dropped.** Dropping it
+is enough when the write succeeds, because a write that succeeds brings its
+own event, and so its own refresh. When the write fails there is no event.
+The change the refresh was asked for — say, the client renaming their other
+day while the trainer's save was failing — would wait for the next event or
+focus. So a dropped refresh is owed, and runs as the last write in flight
+settles.
+
+**A load is never overtaken by a write.** Loads are the trainer's own
+navigation, to another client or a first visit, and the pane shows a skeleton
+rather than a form while one runs. Nothing on screen could have been changed
+by a write that the load's answer would then put back.
+
+### Said, not hidden
+
+The first version's refresh kept the data and set nothing when it failed. That
+was right for the data and wrong for the trainer. With the API unreachable, the
+console went on showing figures that got older by the minute, and nothing said
+so. It was exactly the silent failure CLAUDE.md's "States every screen must
+handle" rules out. It arrived by the one path that has no error state, because
+that path mustn't have one.
+
+`refreshFailed`, on every console provider, is what a screen reads.
+`RefreshFailedNotice` (`presentation/widgets/refresh_failed_notice.dart`) is
+the one thing a screen shows for it: a small warn-toned pill reading
+"Couldn't refresh", with a Retry button, beside the data it kept.
+
+- Client Detail, Nutrition, Session Review and the Workout Builder show it
+  under their header.
+- The Dashboard shows it when the roster or the KPIs failed, and its Retry
+  reads again whichever did.
+
+Retry runs the pane's own refresh, so the data stays up while it reads, and
+the notice goes with the next read that succeeds. A load clears it at once. A
+day switch on Nutrition reads another day, and "Couldn't refresh" over that
+day's skeleton would be about a day that is no longer shown.
+
+It is deliberately small. Nothing the trainer did has gone wrong, and what is
+shown is still the last thing the server said; a banner across the pane would
+claim more than that. Its accessibility decisions are these:
+
+- **Colour is not the signal.** An icon and two words carry the meaning; the
+  amber wash only reinforces it.
+- **The words are not amber.** They and Retry are `onSurface`, because amber
+  text on its own tint over the light page measures 4.35:1, under the 4.5:1
+  that twelve-pixel text needs. The icon keeps the tone, at 4.35:1 against a
+  3:1 bar. `contrast_test.dart` names each pair, in both themes.
+- **The target fits the pointer.** Retry is 44×44 on a phone and 32×32 on a
+  desktop.
+- **A screen reader hears it arrive.** The notice is one live region labelled
+  "Couldn't refresh. What's shown may be out of date.", with Retry as a button
+  inside it.
+
+Where a pane is already showing its own full-page error, the notice stays
+away: that state has its own Retry, and two would compete.
+
+### Two providers needed more
+
+`NutritionProvider` also writes. Pinning a nutrient updates the summary
+optimistically, then saves the whole set. A read that overlapped a pin write,
+by starting before one or during one, can't tell whether its pins are from
+before the write or after (`_pinEpoch`, `_pinWrites`). The first version kept
+"the pins on screen" and took everything else from the read.
+
+It read those pins off `_summary`, and a day or client switch sets `_summary`
+to null before it reads. So the read that most needed the guard found nothing
+to keep. The trainer pins a nutrient and presses "previous day" at once. The
+GET for that day is served before the PUT commits, so it carries the old pins,
+and the read takes them. The PUT then succeeds, but `togglePin` only rewrote
+the summary when a write failed, so nothing put the pin back. It looked lost
+although it had saved, until the next load.
+
+The pins the latest write sent now live in a field of their own,
+`_pinsWritten`, beside the client they belong to. They are optimistic while
+the write is in flight, what the server holds once it succeeds, and the set
+from before it if it fails. A read that overlapped a write lays them over
+whatever it returns. That holds on any day of that client's, since pins are
+per client and not per day, and whether or not a summary was on screen when
+the read started.
+
+A failed write puts its "before" back only if no later toggle has been sent
+since. Each write sends the whole set, so the later write's outcome is the one
+that settles them. Before, a slow failure of the first toggle undid the second
+on screen.
+
+The general form is worth keeping: *state a read must preserve has to live
+somewhere the read's own preparation doesn't clear.*
 
 `ClientDetailProvider` loads three sections independently. Its refresh keeps
-each: a section whose read fails keeps what it showed, and no error is set that
-could blank the screen.
+each: a section whose read fails keeps what it showed, and `refreshFailed` is
+set if any did. A refresh that reads all three clears the error a failed first
+load left behind.
 
 ---
 
@@ -3644,11 +3843,14 @@ the pull has with a dirty row (§37), and gets the same answer:
   save is what reaches the server next, as it always was;
 - a new day that was never saved counts as unsaved.
 
-`WorkoutBuilderProvider.refresh` is its own method rather than `load` with a
-flag, because `load` resets the day state and lands on the first day, which is
-exactly what a refresh must not do. It reads what `load` and `loadDays` read —
-the client's current plan, workouts and exercise library — except the
-trainer's own templates, which no change of the client's can move.
+`WorkoutBuilderProvider.refresh` is `load(clientId, keepShown: true)`, so it
+takes its place in the order of reads like every other pane (§52). A refresh
+then goes on to its own path, `_refreshInPlace`, rather than through `load`'s
+body, because `load` resets the day state and lands on the first day, which is
+exactly what a refresh must not do. It reads what `load` and `loadDays` read:
+the client's current plan, workouts and exercise library. The trainer's own
+templates, which no change of the client's can move, are read only by a
+refresh that follows a failed first load (below).
 
 Two details made it work in the screen and not only in the provider.
 
@@ -3662,15 +3864,45 @@ last saved, so the echo of the trainer's own save — the server sends the event
 for that too — doesn't rebuild the form and take their cursor away.
 
 **The builder writes as well as reads.** A refresh that started before a save
-could answer after it with the day as it was before the save — and, the draft
-being clean again after saving, replace it. So a refresh doesn't start while
-any of the builder's own reads or writes is in flight, and it drops its answer
-if one started while it was reading (`_epoch`). Whatever it overlapped either
-shows data at least as new, or is a save that brings its own event.
+could answer after it with the day as it was before the save. The draft being
+clean again after saving, the refresh would then replace it. Every save,
+delete and create runs through `PaneReads.write` (§52), so a refresh that
+overlapped one is dropped and read again once the write settles. The first
+version got part of the same effect another way. It didn't start a refresh
+while anything was in flight, and bumped an `_epoch` in every write. That
+dropped refreshes it should have run, and ordered none of them against each
+other.
 
-A plan deleted elsewhere lands the pane where deleting it here would have —
-the create flow — unless a draft holds unsaved edits, in which case the
-refresh is dropped rather than taking the draft's context away.
+### When the plan itself changed
+
+A refresh reads the client's current plan as well as their days, and the plan
+can change under the builder in four ways. The first version handled one, a
+plan deleted elsewhere. The other three left the builder in states `load`
+never produces:
+
+| What happened elsewhere | The first version | Now |
+|---|---|---|
+| The plan was deleted | the create flow, unless a draft had unsaved edits | unchanged |
+| A client with no plan got one, made on their phone | set the plan but left `isNew` true: the create flow, over a plan that now existed | ends the create flow and opens the plan's first day, as `load` would (`isNew = currentPlan == null`) |
+| The first load had failed, and a refresh succeeded | never cleared `error` or fetched the templates, so the error state never recovered, by refresh or by focus | clears the error, and reads the templates the failed load never fetched (`_planLoaded`) |
+| Another plan was assigned | checked the open day against every workout the client has, so the editor kept a day the list beside it didn't show | measures the open day against the new plan's days (`planWorkouts`), and lands on the new plan's first day when it isn't there |
+
+Days that failed to load recover the same way, landing where `loadDays` would
+have.
+
+In every case the exception is the rule the whole refresh keeps. An open day
+with unsaved edits stays open as the trainer's draft, while the plan card and
+the list of days move on around it. So does a create flow the trainer opened
+over an existing plan; it is theirs, the way a draft is. The create flow that
+`load` puts a client with no plan in is the builder's own, and it ends when a
+plan appears.
+
+Nothing caught these because each is a transition between two states that the
+tests only ever reached through `load`. A refresh that sets fields one at a
+time can reach combinations `load` never sets together — `isNew` beside a
+current plan, an error beside a plan that loaded — and every one of them
+type-checks. The tests for them now start from each state `load` leaves, and
+refresh into the next.
 
 ---
 
@@ -3728,21 +3960,72 @@ without one at the two moments a missed one is most likely to matter:
 - **when the tab or window regains focus.** `TrainerConsoleHome` listens with
   an `AppLifecycleListener`; on web, Flutter reports a window losing focus as
   `inactive` and regaining it as `resumed`, so `onResume` covers a browser tab
-  the trainer comes back to as well as the desktop and mobile apps. It goes
-  through the same debounce, so a flurry of focus changes reads once.
+  the trainer comes back to as well as the desktop and mobile apps.
 - **when the socket comes back.** `ConsoleLiveUpdates.reconnectsOf` watches the
   connection's status and counts a return to `connected` after anything else —
-  SignalR's own reconnect, and also a fresh start after it gave up and closed,
-  which `onreconnected` never reports — but not the first connect, which lands
-  while the panes make their first reads anyway. A socket that keeps dropping
-  refetches at most once per 30 seconds (`reconnectCooldown`), and once more
-  when the cooldown ends if it dropped again meanwhile: the last drop's gap is
-  exactly the one no refetch has covered yet.
+  SignalR's own reconnect, and a fresh start after it gave up and closed
+  (below), which `onreconnected` never reports — but not the first connect,
+  which lands while the panes make their first reads anyway.
 
 Either refetches everything shown: every pane's areas, whatever client it
 shows, and the roster. That is the trade the design makes on purpose: without
 a backplane an event can be missed, and when one is, the console is stale
 until the trainer next looks away and back — never wrong, and never stuck.
+
+### One cooldown for both
+
+The two triggers share one cooldown, `fallbackCooldown`, of 30 seconds. At
+most one refetch of everything runs per cooldown, from either trigger. If
+either is asked for again inside it, one more runs when it ends, because the
+last focus or drop inside the cooldown is exactly the one no refetch has
+covered yet.
+
+The first version throttled only the reconnect. It sent focus through the pane
+debounce, which folds a flurry of focus changes into one refetch but does
+nothing about focus changes a minute apart. On web and desktop, focus is every
+alt-tab and every click back into the window. A trainer moving between the
+console and their inbox many times an hour paid for every visible pane, then
+the roster and KPI aggregates, each time. That is the load
+`docs/trainer-console-loading.md` works to keep down. A cooldown costs one
+thing: a change missed by the event and made within 30 seconds of the last
+refetch is seen when the cooldown ends, not at the moment of focus.
+
+### A socket that gave up stayed down
+
+SignalR's automatic reconnect tries at 0, 2, 10 and 30 seconds, and then
+closes the connection. The first version's `onclose` only reported
+`disconnected`, and left the dead connection in `_connection`. `connect()`
+returns early when `_connection` is set, so once the retries ran out nothing
+ever opened a new socket. A laptop waking from sleep, on Wi-Fi that took more
+than about 42 seconds to come back, lost every `ClientDataChanged` and every
+chat send for the rest of the session, with nothing to tell the trainer. The
+comment on `reconnectsOf` described "a fresh start after a close", and no code
+path made one; the only thing still refreshing the console was focus.
+
+`SignalRHubChatClient._onClosed` now lets go of the connection, reports
+`disconnected`, and schedules a fresh start (`_scheduleRestart`):
+
+- **when:** after 5 seconds, then doubling up to a minute (`restartDelayFor`).
+  That picks up where SignalR's own attempts leave off, and keeps a console
+  left open through a long outage at one handshake a minute;
+- **after a failure:** a start that fails schedules the next;
+- **sooner:** a `connect()` while one is waiting starts it at once, because
+  someone needs the connection now;
+- **never behind the caller's back:** `disconnect()` and `dispose()` stop the
+  retries, so a connection closed on purpose stays closed.
+
+A fresh start that succeeds is reported as a reconnect, once it has joined the
+trainer group again (§50). The status goes `disconnected` → `connected`, which
+the console refetches on, and `onReconnected` fires, which chat replays its
+outbox on. From outside it is indistinguishable from SignalR's own reconnect,
+which is the point: everything that already knew how to recover from one now
+recovers from the other.
+
+The lesson is about what a nullable field means. `_connection != null` stood
+for "connected" to every method that read it, and nothing wrote "closed" back
+into it. A field that caches a live resource has to be cleared by the event
+that ends the resource, or it goes on meaning something that stopped being
+true.
 
 ---
 
@@ -3828,17 +4111,53 @@ is one the code would have broken silently if written the obvious way.
   concurrency. It is also a way to answer a request with an answer from before
   it, and no test about duplicates would notice.
 
+Review of the first version found six more, and none of them could have
+failed a build or a test that existed:
+
+- **A group belongs to a connection id (§50).** Nothing in the type of
+  `HubConnection` says its groups don't survive a reconnect. A join after the
+  first connect passes every test that never drops the connection.
+- **A closed connection looked open (§55).** `_connection != null` meant
+  "connected" to `connect()`, and nothing wrote "closed" back into it. The one
+  state that needed a test, SignalR's retries running out, takes 42 seconds of
+  real time and a hub that can be told to give up.
+- **Every test's burst ended (§51).** The debounce was tested with one client
+  at a time, so the quiet it waits for always came. A stream that never goes
+  quiet is the normal state of a busy console, and only a test with events
+  from another client arriving throughout draws it.
+- **Two versioning schemes, and a missing line (§52).** Neither `_request` nor
+  `_epoch` fails to compile when it is forgotten, and the builder's never
+  ordered its own refreshes against each other. Overlapping refreshes go wrong
+  only when the older answer arrives last, and the fakes answered in the order
+  they were asked. The ordering tests hold each read and release them in the
+  wrong order (`_HeldRepository`).
+- **State read off the screen is gone when the screen is cleared (§52).** The
+  pin guard worked for every read that found a summary on screen, and every
+  pin test had one there. The day switch that empties it first was the case
+  that needed the guard.
+- **A flag with no reader (§52).** A refresh that set nothing on failure was
+  invisible by construction; there was nothing for a test, or a trainer, to
+  see. The fix gave the failure a flag first, and then a screen to show it.
+
 ---
 
 ## 58. What the tests pin (device and console)
 
-In `test/trainer_console/live_updates_test.dart` (14 tests),
-`test/push/push_messages_test.dart` (6) and `test/sync/foreground_pull_test.dart`
-(3). Each was run with the rule it pins taken out, and failed there.
+In `test/trainer_console/live_updates_test.dart` (23 tests),
+`test/trainer_console/pane_reads_test.dart` (17),
+`test/trainer_console/refresh_ordering_test.dart` (14),
+`test/trainer_console/refresh_failed_notice_test.dart` (5),
+`test/chat/signalr_hub_chat_client_test.dart` (9), two in
+`test/core/contrast_test.dart`, `test/push/push_messages_test.dart` (6) and
+`test/sync/foreground_pull_test.dart` (3). Each was run with the rule it pins
+taken out, and failed there; the few that held before a fix too say so.
+
+The events, the debounce and the fallback:
 
 | Test | Pins | Taken out, it failed with |
 |---|---|---|
 | *an event for the active client refetches its pane once for a burst* | §51 | the pane debounce removed; the pane ignoring refreshes |
+| *… in a steady stream still refetches, within a ceiling* | §51: the ceiling | the ceiling timer removed |
 | *… for another client refreshes only the roster* | §50, §54: a pane refreshes for its own client | the client id not compared |
 | *… for an area the pane does not show leaves it alone* | §54's table | the pane's area filter widened to every area |
 | *… for a section nobody is looking at waits until it is shown* | §54 | the visibility check removed |
@@ -3846,11 +4165,60 @@ In `test/trainer_console/live_updates_test.dart` (14 tests),
 | *a refresh keeps what is shown on screen while it reads* | §52 | `keepShown` ignored |
 | *… that fails keeps what is shown instead of an error* | §52, for a pane and for the roster | the pane's failure setting its error; the roster's |
 | *the fallback refetches when the window comes back into focus* | §55 | the lifecycle listener removed |
+| *… refetches on focus at most once a cooldown* / *… shares one cooldown between focus and reconnect* | §55 | focus sent straight to the debounce, outside the cooldown |
 | *… when the socket comes back, at most once a cooldown* | §55 | the cooldown removed; the trailing refetch removed |
 | *reconnects are a connection coming back, not the first connect* | §55 | the first connect counted |
 | *the event drops an area this build does not know, and keeps the rest* / *… with no client … is ignored* | §50 | an unknown area throwing |
-| *the Workout Builder gives a clean open day the server copy* | §53 | the copy not taken; the revision not bumped |
-| *… never overwrites a day with unsaved edits* | §53 | the dirty check removed |
+
+The connection (`signalr_hub_chat_client_test.dart`, against a fake
+`HubConnection` that can be told to reconnect or give up):
+
+| Test | Pins | Taken out, it failed with |
+|---|---|---|
+| *the trainer group is joined once the connection is up* / *… on the fresh connection after a close* | §50 | the join removed |
+| *… is joined again after SignalR reconnects, before it says so* | §50: a new connection id is in no group | the join on reconnect removed |
+| *… is never joined by a connection that is not the console's* | §50: only the console opts in | `joinTrainerGroup` ignored |
+| *after automatic reconnect gives up, a fresh connection is started, and counts as a reconnect* | §55 | the restart not scheduled; `_connection` not cleared on close |
+| *a failing fresh start backs off and tries again* / *the backoff starts at five seconds and is capped at a minute* | §55: the backoff | a failed start not scheduling the next; the attempt count not reset once up; the cap raised |
+| *dispose stops the retries* / *a disconnect is not undone behind the caller's back* | §55 | the waiting restart not cancelled; a disconnect that lets go of the connection only after `stop()`, with `_stopped` removed as well (either guard alone holds it) |
+
+The order of reads, the plan and the pins (`pane_reads_test.dart`,
+`refresh_ordering_test.dart`):
+
+| Test | Pins | Taken out, it failed with |
+|---|---|---|
+| *PaneReads applies only the latest read* / *the Workout Builder orders its reads: two refreshes in flight, the later answer stands* | §52 | the latest-read check; on the old builder, the older answer won |
+| *… makes a refresh during a load a load of its own* / *a refresh during a read reads again instead of being dropped* | §52 | `!_loading` in `start`; on the old builder, the refresh returned early |
+| *… makes a refresh with nothing of its own on screen a load* | §52 | the `shown` check |
+| *… marks a failed refresh, and clears it on the next success* / *… clears a failed refresh as soon as a load starts* / *… leaves a failed load to the pane's own error* | §52: said, not hidden | each assignment in `start` and `settle` |
+| *… drops a refresh a write overlapped, and owes it once the write settles* / *… owes a refresh asked for during a write* / *… lets a load run across a write* | §52: `write` | the overlap check; `_startedDuringWrite`; owing at once; the `keep` in the overlap check |
+| *a refresh that started before a save never puts the old day back* | §53 | `saveDraft` not wrapped in `write`. It held before too, by the `_epoch` the rule replaces |
+| *a refresh a failed save overlapped is read again after it* / *a refresh asked for during a save runs once the save settles* | §52: owed, not just dropped | the owed refresh; on the old builder, both were dropped |
+| *a failed refresh is said, not hidden, by* the roster, the KPIs, Session Review, Nutrition, Client Detail and the Workout Builder / *… nobody while the pane shows its own error* | §52 | each provider's `refreshFailed`; its `_error == null` |
+| *clears the error of a Client Detail whose first load failed a section* | §52 | the error left set |
+| *a plan that appears ends the create flow, as a load would* | §53 | `isNew` left alone; the first day not opened |
+| *a first load that failed recovers on a refresh* | §53 | the error not cleared; the templates not read |
+| *days that failed to load recover on a refresh, on the first day* | §53 | the first day not opened |
+| *a new plan opens a day that is in it* | §53 | the open day measured against every workout |
+| *a new plan leaves a day with unsaved edits open* / *a create flow the trainer opened stays open* | §53: the exceptions | the dirty hold; the trainer's create flow ended. Both held before too |
+| *a nutrient pin being saved stays pinned when the day changes and the read answers after the write* / *… and the read answers first* | §52: the pins | the overlay; `_pinsWritten` not recorded. On the old provider, both lost the pin |
+| *… a failed write does not undo a later one on screen* | §52 | the `identical` check |
+
+The notice (`refresh_failed_notice_test.dart`, the "says so" group in
+`live_updates_test.dart`, `contrast_test.dart`):
+
+| Test | Pins | Taken out, it failed with |
+|---|---|---|
+| *a refresh that fails says so, and Retry reads again, on* Nutrition, Session Review, the Workout Builder, Client Detail, and the Dashboard for the roster and for the KPIs | §52 | the notice on each screen; the roster's and Client Detail's Retry doing nothing |
+| *says nothing while the last refresh succeeded* / *says it in words and an icon, not a tint alone* | §52 | shown regardless; the icon |
+| *tells a screen reader what it means, and announces it* | §52 | the label; the live region |
+| *is a 44×44 target on a phone* / *is at least 32×32 on a desktop* | §52 | a 32 target on a phone |
+| *the refresh-failed notice reads on its tint (light, dark)* | §52 | amber words, at 4.35 and 4.42:1 |
+
+The phone's half:
+
+| Test | Pins | Taken out, it failed with |
+|---|---|---|
 | *a sync_requested in the foreground asks for a pull and shows nothing* | §56 | the request not made; a notification drawn as well |
 | *… in the background shows nothing* | §56 | the type check removed |
 | *a chat message, as before, in the foreground is shown, and asks for no pull* / *… in the background is shown* | §56: chat unchanged | chat not shown |
@@ -3859,12 +4227,25 @@ In `test/trainer_console/live_updates_test.dart` (14 tests),
 | *a resume inside the interval does not pull* / *a sync_requested pulls even inside the interval* | §56 | `requested` not skipping the interval |
 | *a sync_requested during a pull already running waits for it, then pulls again* | §56 | `whenIdle` removed — the request joins the older pull, and the trainer's row never arrives |
 
-The fakes grew three seams: `FakeTrainerConsoleRepository`'s nutrition
-fixture, its `throwOnNutrition`/`throwOnRoster` and its `gate` can be changed
-after the first load, and it counts weight-history reads; `FakeApiClient`'s
-`holdChanges` answers a changes request with what the server held when the
-request arrived, but only once released — a pull whose answer is still on its
-way back when the change it should have carried is committed.
+The fakes grew these seams:
+
+- `FakeTrainerConsoleRepository` holds a changeable server. Its nutrition
+  fixture and workout summary can be changed after the first load, and every
+  `throwOn…` flag but the exercise library's can be flipped either way, to
+  fail a refresh of something on screen or let one succeed after a load that
+  failed. Its `gate` holds reads open, `pinGate` holds pin writes open, and it
+  counts calls per endpoint.
+- `_HeldRepository` (`refresh_ordering_test.dart`) answers each held workouts
+  read with what the server held when the request arrived, released one by
+  one, so a test can make the older answer arrive last. `_PinWrites` settles
+  each pin write on its own.
+- `SignalRHubChatClient` takes `buildConnection` and `restartDelay`
+  (`@visibleForTesting`), and `_FakeHub` stands in for a `HubConnection`
+  that can reconnect, give up, fail to start, or hold a hub call open.
+- `FakeApiClient`'s `holdChanges` answers a changes request with what the
+  server held when the request arrived, but only once released — a pull whose
+  answer is still on its way back when the change it should have carried is
+  committed.
 
 ---
 
@@ -3873,20 +4254,37 @@ way back when the change it should have carried is committed.
 - **An event says only "go and look".** It never carries data; the console
   reads through the endpoints that check access and fold duplicates. A new
   kind of live update gets an area name, not a payload.
+- **Only the console's socket hears it, and it asks again on every connect.**
+  `JoinTrainerGroup()` runs after the first connect, after SignalR's own
+  reconnect and after a fresh start, because a group belongs to a connection
+  id. It finishes before the connection is reported up.
+- **A connection that closes is started again.** A field caching a live
+  connection is cleared by the event that ends it; a fresh start backs off to
+  a minute, counts as a reconnect, and is stopped only by the caller.
+- **A debounce fed by many sources has a ceiling.** Quiet is a property of
+  everything that restarts the timer; without `maxWait`, a busy console never
+  refetches.
 - **A refresh is a load that keeps what is shown** — `keepShown`, on the one
   loader, never a second fetch path. It raises no loading state, keeps the data
-  and sets no error on failure, and applies only the latest answer asked for.
-- **A read that overlaps a write of the same thing keeps what the write set.**
-  The nutrition pins, the builder's saves: whichever side can overwrite the
-  other has to know the other was in flight.
+  and sets no error on failure. A refresh during a load becomes a load.
+- **Every console read goes through `PaneReads`, and every write through
+  `PaneReads.write`.** No provider keeps a counter of its own. A refresh a
+  write overlapped is read again once the write settles, never just dropped.
+- **A refresh that fails says so.** `refreshFailed`, shown by the one
+  `RefreshFailedNotice` beside the data it kept, never by an error or an empty
+  state. A new pane shows it too.
+- **A read that overlaps a write of the same thing keeps what the write set,
+  from a field of its own** — never read off what is on screen, which the
+  read's own preparation may have cleared.
 - **An open draft with unsaved edits is the trainer's.** Only a clean one takes
   the server's copy, and an editor built from a draft once is keyed on its
-  revision.
+  revision. A refresh that finds the plan changed lands where `load` would,
+  around that draft.
 - **A pane nobody can see doesn't fetch; it catches up when shown.** New panes
   mix in `LiveRefreshPane`, and a pushed route is handed the source.
 - **An event can be missed, so it is never the only trigger.** Focus and
-  reconnect read everything shown again; a reconnect refetch is throttled with a
-  trailing run, not dropped.
+  reconnect read everything shown again, sharing one cooldown with a trailing
+  run: throttled, never dropped.
 - **Whether a push draws anything is decided by type, on the device, in one
   place per path** (`push_messages.dart`). An unknown type draws nothing and
   does nothing.
@@ -3907,6 +4305,12 @@ way back when the change it should have carried is committed.
   first read but before the socket joined the trainer's group is missed until
   the next event for that client or the next focus. The window is one
   handshake long, and closing it would add a refetch to every console open.
+- **The name typed into the create-plan form, when a plan appears.** The
+  form's fields belong to the screen, not the provider, so a refresh can't
+  tell a half-typed name from an empty form. A plan made on the phone while
+  the trainer types one ends the create flow, as `load` would. Two people
+  creating a first plan for the same client in the same minute is rare, and
+  the trainer sees the plan that was made.
 
 ---
 

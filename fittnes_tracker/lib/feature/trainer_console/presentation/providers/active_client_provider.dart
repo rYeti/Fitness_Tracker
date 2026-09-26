@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:ForgeForm/feature/trainer_console/data/trainer_console_repository.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_console_models.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/console_error.dart';
+import 'package:ForgeForm/feature/trainer_console/presentation/providers/pane_reads.dart';
 
 /// Shared "client-switcher" state used by Workout Builder, Nutrition, Session
 /// Review (and future Chat) — NOT Client Detail, which takes an explicit
@@ -29,14 +30,18 @@ class ActiveClientProvider extends ChangeNotifier {
   String? _activeClientId;
   bool _pickerOpen = false;
   List<TrainerRosterEntry> _clients = [];
-  bool _isLoading = false;
   ConsoleError? _error;
+  final _reads = PaneReads();
 
   String? get activeClientId => _activeClientId;
   bool get pickerOpen => _pickerOpen;
   List<TrainerRosterEntry> get clients => _clients;
-  bool get isLoading => _isLoading;
+  bool get isLoading => _reads.isLoading;
   ConsoleError? get error => _error;
+
+  /// Whether the last refresh of the roster failed, so the clients shown
+  /// are older than they could be. The Dashboard says so, with a retry.
+  bool get refreshFailed => _reads.refreshFailed && _error == null;
 
   /// The selected client, or null when the roster is empty or still loading.
   TrainerRosterEntry? get activeClient {
@@ -45,9 +50,6 @@ class ActiveClientProvider extends ChangeNotifier {
     if (id == null) return _clients.first;
     return _clients.where((c) => c.clientId == id).firstOrNull ?? _clients.first;
   }
-
-  /// Which [loadClients] call is the latest; only its answer is applied.
-  int _request = 0;
 
   /// Loads the trainer's roster and defaults the selection to the first
   /// client. Safe to call more than once; a reload keeps the current
@@ -58,20 +60,19 @@ class ActiveClientProvider extends ChangeNotifier {
   /// the roster as it was rather than replacing it with an error: every
   /// client-scoped pane renders a full-page error while [error] is set, so a
   /// failed background read would otherwise blank whatever the trainer was
-  /// looking at. Until the first load has settled there is nothing shown to
-  /// keep, and it is an ordinary load.
+  /// looking at. It sets [refreshFailed] instead. Until the first load has
+  /// settled there is nothing shown to keep, and it is an ordinary load
+  /// ([PaneReads]).
   Future<void> loadClients({bool keepShown = false}) async {
-    final request = ++_request;
-    final keep = keepShown && !_isLoading;
-    if (!keep) {
-      _isLoading = true;
+    final read = _reads.start(keepShown: keepShown);
+    if (read.isLoad) {
       _error = null;
       notifyListeners();
     }
     try {
       final clients = await _repository.getRosterWithStats();
       // A slower, older answer must not overwrite a newer one.
-      if (request != _request) return;
+      if (!read.settle()) return;
       _clients = clients;
       _error = null;
       final stillPresent =
@@ -80,14 +81,10 @@ class ActiveClientProvider extends ChangeNotifier {
         _activeClientId = _clients.isEmpty ? null : _clients.first.clientId;
       }
     } catch (_) {
-      if (request != _request || keep) return;
-      _error = ConsoleError.loadRoster;
-    } finally {
-      if (request == _request) {
-        _isLoading = false;
-        notifyListeners();
-      }
+      if (!read.settle(failed: true)) return;
+      if (read.isLoad) _error = ConsoleError.loadRoster;
     }
+    notifyListeners();
   }
 
   void setActiveClient(String clientId) {

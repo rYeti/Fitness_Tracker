@@ -12,22 +12,25 @@ class FakeTrainerConsoleRepository implements TrainerConsoleRepository {
   final List<ClientSessionSummary> sessions;
   final TrainerDashboardKpis? kpis;
   /// Not final, so a test can change what the server holds between two
-  /// reads — a client logging a meal while the console is open.
+  /// reads — a client logging a meal while the console is open, or being
+  /// given a plan.
   ClientNutritionSummary? nutrition;
-  final ClientWorkoutSummary? workoutSummary;
+  ClientWorkoutSummary? workoutSummary;
   final List<ClientWeightEntry> weightHistory;
   final List<WorkoutPlanTemplateSummary> templates;
   final List<ClientWorkout> clientWorkouts;
   final List<ClientExerciseOption> exerciseLibrary;
 
-  /// Set to make the matching call throw, for error-state tests. The
-  /// nutrition and roster ones can be flipped after the first load, to fail a
-  /// refresh of something already on screen.
-  final bool throwOnSessions;
-  final bool throwOnDashboard;
+  /// Set to make the matching call throw, for error-state tests. All but the
+  /// exercise library's can be flipped after the first load, to fail a
+  /// refresh of something already on screen — or to let one succeed after a
+  /// load that failed.
+  bool throwOnSessions;
+  bool throwOnDashboard;
   bool throwOnNutrition;
   bool throwOnRoster;
-  final bool throwOnClientWorkouts;
+  bool throwOnClientWorkouts;
+  bool throwOnWorkoutSummary = false;
   final bool throwOnExerciseLibrary;
 
   /// Set to make the next `createClientWorkout`/`updateClientWorkout` call
@@ -144,9 +147,14 @@ class FakeTrainerConsoleRepository implements TrainerConsoleRepository {
   /// pin-toggle-failure/revert test.
   bool throwOnSetNutrientPins = false;
 
+  /// Holds a pin write open, so a test can read the summary while one is in
+  /// flight.
+  Completer<void>? pinGate;
+
   @override
   Future<void> setClientNutrientPins(String clientId, List<String> nutrientKeys) async {
     _record('setNutrientPins');
+    if (pinGate != null) await pinGate!.future;
     if (throwOnSetNutrientPins) throw Exception('boom');
     savedNutrientPins.add((clientId: clientId, nutrientKeys: nutrientKeys));
   }
@@ -155,6 +163,7 @@ class FakeTrainerConsoleRepository implements TrainerConsoleRepository {
   Future<ClientWorkoutSummary> getClientWorkoutSummary(String clientId) async {
     _record('workoutSummary');
     if (gate != null) await gate!.future;
+    if (throwOnWorkoutSummary) throw Exception('boom');
     return workoutSummary ??
         const ClientWorkoutSummary(attendance: [], strengthProgression: []);
   }

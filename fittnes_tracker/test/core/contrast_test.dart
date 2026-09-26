@@ -8,6 +8,7 @@ import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/core/providers/theme_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/status_badge.dart';
+import 'package:ForgeForm/feature/trainer_console/presentation/widgets/refresh_failed_notice.dart';
 
 /// Contrast is a property of a **pair**, and nothing in this codebase used to
 /// hold both halves at once: the theme declares a background, a widget
@@ -230,6 +231,40 @@ void main() {
             because: '$tone at $label',
           );
         });
+      });
+    }
+  });
+
+  group('the refresh-failed notice', () {
+    // The notice sits on the page; a card behind it is measured too, so it
+    // can move into one. Its words are onSurface, not amber: amber on its
+    // own tint over the light page is 4.35:1, short of 4.5 at 12px. The icon
+    // keeps the tone, against 3:1.
+    for (final brightness in Brightness.values) {
+      final isDark = brightness == Brightness.dark;
+      final behind = isDark
+          ? [ForgeColors.backgroundDark, ForgeColors.cardDark]
+          : [ForgeColors.backgroundLight, ForgeColors.surfaceLight];
+
+      test('reads on its tint (${brightness.name})', () {
+        final scheme = isDark
+            ? themeProvider.darkTheme.colorScheme
+            : themeProvider.lightTheme.colorScheme;
+        for (final page in behind) {
+          final fill = Color.alphaBlend(refreshFailedTint(brightness), page);
+          expectContrast(
+            scheme.onSurface,
+            fill,
+            atLeast: 4.5,
+            because: '"Couldn\'t refresh" and Retry are 12px text',
+          );
+          expectContrast(
+            ForgeColors.statusWarnFor(brightness),
+            fill,
+            atLeast: 3.0,
+            because: 'the warning icon',
+          );
+        }
       });
     }
   });

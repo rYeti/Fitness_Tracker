@@ -5035,6 +5035,18 @@ abstract class AppLocalizations {
   /// **'Loading summary'**
   String get kpisLoading;
 
+  /// Trainer Console: shown beside data that is still on screen when reading it again in the background failed. Paired with a Retry button.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t refresh'**
+  String get consoleRefreshFailed;
+
+  /// Trainer Console: screen-reader label for the 'Couldn't refresh' notice.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t refresh. What\'s shown may be out of date.'**
+  String get consoleRefreshFailedDetail;
+
   /// No description provided for @clientsHeading.
   ///
   /// In en, this message translates to:

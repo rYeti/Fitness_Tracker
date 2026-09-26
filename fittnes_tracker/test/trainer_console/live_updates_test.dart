@@ -138,6 +138,44 @@ void main() {
       await hub.close(tester);
     });
 
+    testWidgets('in a steady stream still refetches, within a ceiling', (
+      tester,
+    ) async {
+      final repository = _repository();
+      final hub = await _pump(tester, repository);
+
+      // A trainer with clients mid-session: an event every half second, from
+      // this client and others, and never a quiet second for the debounce.
+      repository.nutrition = fakeNutrition(totalCalories: 2050, goal: 2200);
+      Future<void> stream(int events) async {
+        for (var i = 0; i < events; i++) {
+          hub.changed(
+            i.isEven ? 'client-1' : 'client-2',
+            {ClientDataArea.nutrition},
+          );
+          await tester.pump(const Duration(milliseconds: 500));
+        }
+      }
+
+      await stream(12);
+      expect(
+        repository.calls['nutrition'],
+        2,
+        reason: 'the pane reads within five seconds of the first event',
+      );
+      expect(_ring(2050), findsOneWidget);
+      expect(repository.calls['roster'], 1, reason: 'still inside its ceiling');
+
+      await stream(20);
+      expect(
+        repository.calls['roster'],
+        2,
+        reason: 'the roster reads within fifteen seconds of the first event',
+      );
+
+      await hub.close(tester);
+    });
+
     testWidgets('for another client refreshes only the roster', (
       tester,
     ) async {
@@ -255,12 +293,171 @@ void main() {
       expect(repository.calls['roster'], 2);
 
       // Neither the pane's own failure nor the roster's — which every
-      // client-scoped pane turns into a full-page error — replaces it.
+      // client-scoped pane turns into a full-page error — replaces it. The
+      // pane says it couldn't refresh instead (see below).
       expect(find.byType(ErrorStateView), findsNothing);
-      expect(find.text('Retry'), findsNothing);
+      expect(find.byType(LoadingSkeleton), findsNothing);
       expect(_ring(1850), findsOneWidget);
 
       await hub.close(tester);
+    });
+  });
+
+  group('a refresh that fails says so, and Retry reads again,', () {
+    final notice = find.text("Couldn't refresh");
+    final retry = find.widgetWithText(TextButton, 'Retry');
+
+    /// Fails the next refresh of what [route] shows, checks the pane keeps
+    /// it and says so, then lets Retry read it again and checks the notice
+    /// goes. [shown] finds something of the data on screen.
+    Future<void> failThenRetry(
+      WidgetTester tester, {
+      required FakeTrainerConsoleRepository repository,
+      required TrainerConsoleRoute route,
+      required Set<ClientDataArea> areas,
+      required void Function(bool failing) failing,
+      required String read,
+      required Finder shown,
+      Future<void> Function()? open,
+    }) async {
+      final hub = await _pump(tester, repository, initialRoute: route);
+      await open?.call();
+      expect(notice, findsNothing);
+
+      failing(true);
+      hub.changed('client-1', areas);
+      await tester.pump(const Duration(seconds: 4));
+      await tester.pumpAndSettle();
+      final reads = repository.calls[read];
+
+      expect(notice, findsOneWidget);
+      expect(find.byType(ErrorStateView), findsNothing);
+      expect(shown, findsWidgets, reason: 'what was shown stays up');
+
+      failing(false);
+      await tester.tap(retry);
+      await tester.pumpAndSettle();
+
+      expect(repository.calls[read], reads! + 1);
+      expect(notice, findsNothing);
+      expect(shown, findsWidgets);
+
+      await hub.close(tester);
+    }
+
+    testWidgets('on Nutrition', (tester) async {
+      final repository = _repository();
+      await failThenRetry(
+        tester,
+        repository: repository,
+        route: TrainerConsoleRoute.nutrition,
+        areas: {ClientDataArea.nutrition},
+        failing: (on) => repository.throwOnNutrition = on,
+        read: 'nutrition',
+        shown: _ring(1850),
+      );
+    });
+
+    testWidgets('on Session Review', (tester) async {
+      final repository = FakeTrainerConsoleRepository(
+        rosterWithStats: [fakeRosterEntry()],
+        sessions: [fakeSession()],
+      );
+      await failThenRetry(
+        tester,
+        repository: repository,
+        route: TrainerConsoleRoute.sessionReview,
+        areas: {ClientDataArea.sessions},
+        failing: (on) => repository.throwOnSessions = on,
+        read: 'sessions',
+        shown: find.text(fakeSession().workoutName),
+      );
+    });
+
+    testWidgets('on the Workout Builder', (tester) async {
+      final repository = FakeTrainerConsoleRepository(
+        rosterWithStats: [fakeRosterEntry()],
+        workoutSummary: ClientWorkoutSummary(
+          currentPlan: WorkoutPlanSummary(
+            id: 'plan-1',
+            name: 'Push / Pull / Legs',
+            isActive: true,
+            startDate: DateTime(2026, 7, 1),
+          ),
+          attendance: const [],
+          strengthProgression: const [],
+        ),
+        clientWorkouts: const [
+          ClientWorkout(
+            id: 'workout-1',
+            name: 'Push Day',
+            difficulty: 1,
+            estimatedDurationMinutes: 60,
+            planIds: ['plan-1'],
+            exercises: [],
+          ),
+        ],
+      );
+      await failThenRetry(
+        tester,
+        repository: repository,
+        route: TrainerConsoleRoute.builder,
+        areas: {ClientDataArea.workouts},
+        failing: (on) => repository.throwOnClientWorkouts = on,
+        read: 'clientWorkouts',
+        shown: find.text('Push / Pull / Legs'),
+      );
+    });
+
+    testWidgets('on the Dashboard, for the roster', (tester) async {
+      final repository = _repository();
+      await failThenRetry(
+        tester,
+        repository: repository,
+        route: TrainerConsoleRoute.dashboard,
+        areas: {ClientDataArea.weight},
+        failing: (on) => repository.throwOnRoster = on,
+        read: 'roster',
+        shown: find.text('Ana Silva'),
+      );
+    });
+
+    testWidgets('on the Dashboard, for the KPIs', (tester) async {
+      final repository = FakeTrainerConsoleRepository(
+        rosterWithStats: [fakeRosterEntry()],
+        kpis: const TrainerDashboardKpis(
+          activeClientCount: 7,
+          avgAdherencePercent: 86,
+          sessionsThisWeek: 19,
+          alertCount: 0,
+        ),
+      );
+      await failThenRetry(
+        tester,
+        repository: repository,
+        route: TrainerConsoleRoute.dashboard,
+        areas: {ClientDataArea.sessions},
+        failing: (on) => repository.throwOnDashboard = on,
+        read: 'kpis',
+        shown: find.text('19'),
+      );
+    });
+
+    testWidgets('on Client Detail', (tester) async {
+      final repository = _repository();
+      await failThenRetry(
+        tester,
+        repository: repository,
+        route: TrainerConsoleRoute.dashboard,
+        open: () async {
+          await tester.tap(find.text('Robert Meyer').first);
+          await tester.pumpAndSettle();
+        },
+        areas: {ClientDataArea.nutrition},
+        failing: (on) => repository.throwOnNutrition = on,
+        read: 'nutrition',
+        shown: find.byType(ClientDetailScreen),
+      );
     });
   });
 
@@ -278,6 +475,51 @@ void main() {
       expect(repository.calls['nutrition'], 2);
       expect(repository.calls['roster'], 2);
 
+      await hub.close(tester);
+    });
+
+    testWidgets('refetches on focus at most once a cooldown', (tester) async {
+      final repository = _repository();
+      final hub = await _pump(tester, repository);
+
+      // Alt-tabbing: five returns to the window, two seconds apart.
+      for (var i = 0; i < 5; i++) {
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.inactive,
+        );
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await tester.pump(const Duration(seconds: 2));
+      }
+      expect(repository.calls['nutrition'], 2);
+      expect(repository.calls['roster'], 2);
+
+      // Once more when the cooldown is over, for the last return inside it.
+      await tester.pump(const Duration(seconds: 30));
+      await tester.pump(const Duration(seconds: 4));
+      expect(repository.calls['nutrition'], 3);
+      expect(repository.calls['roster'], 3);
+
+      await hub.close(tester);
+    });
+
+    testWidgets('shares one cooldown between focus and reconnect', (
+      tester,
+    ) async {
+      final repository = _repository();
+      final hub = await _pump(tester, repository);
+
+      hub.reconnected();
+      await tester.pump(const Duration(seconds: 2));
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump(const Duration(seconds: 4));
+
+      expect(repository.calls['nutrition'], 2);
+      expect(repository.calls['roster'], 2);
+
+      await tester.pump(const Duration(seconds: 30));
       await hub.close(tester);
     });
 
