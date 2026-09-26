@@ -147,9 +147,14 @@ class FakeTrainerConsoleRepository implements TrainerConsoleRepository {
   /// pin-toggle-failure/revert test.
   bool throwOnSetNutrientPins = false;
 
+  /// Holds a pin write open, so a test can read the summary while one is in
+  /// flight.
+  Completer<void>? pinGate;
+
   @override
   Future<void> setClientNutrientPins(String clientId, List<String> nutrientKeys) async {
     _record('setNutrientPins');
+    if (pinGate != null) await pinGate!.future;
     if (throwOnSetNutrientPins) throw Exception('boom');
     savedNutrientPins.add((clientId: clientId, nutrientKeys: nutrientKeys));
   }

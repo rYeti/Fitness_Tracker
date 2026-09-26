@@ -40,11 +40,24 @@ class NutritionProvider extends ChangeNotifier {
     return selected.isBefore(DateTime(today.year, today.month, today.day));
   }
 
+  /// The pin set the latest pin write sent, and whose it is: optimistic
+  /// while the write is in flight, what the server holds once it succeeds,
+  /// and put back to the set before it if it fails.
+  ///
+  /// Pins are the trainer's per client, not per day, so every day's summary
+  /// carries them — and a read that overlapped a write can't tell whether its
+  /// pins are from before the write or after. This is laid over what such a
+  /// read returns, so the write's own outcome is what settles the pins.
+  ///
+  /// It used to be read off the summary on screen instead. A day switch
+  /// clears the summary before it reads, so the one read that most needed
+  /// the guard — pin, then page to another day at once — found nothing to
+  /// keep, took the old pins from a GET served before the PUT committed, and
+  /// showed the pin as lost although it had saved.
+  ({String clientId, List<String> keys})? _pinsWritten;
+
   /// Bumped when a pin write starts and when it ends, with [_pinWrites]
-  /// counting those in flight. A read that overlapped a write can't tell
-  /// whether its pins are from before the write or after, so it keeps the
-  /// pins on screen and takes everything else — the write's own outcome is
-  /// what settles them.
+  /// counting those in flight: a read overlapped a write if either moved.
   int _pinEpoch = 0;
   int _pinWrites = 0;
 
@@ -81,10 +94,10 @@ class NutritionProvider extends ChangeNotifier {
       // Ignore a slow response the trainer has already navigated away from,
       // or one a later read has overtaken.
       if (!read.settle()) return;
-      final shown = _summary;
+      final pins = _pinsWritten;
       final pinsOverlapped = pinEpoch != _pinEpoch || pinWritesAtStart > 0;
-      _summary = shown != null && pinsOverlapped
-          ? _withPins(summary, shown.pinnedNutrients)
+      _summary = pinsOverlapped && pins != null && pins.clientId == clientId
+          ? _withPins(summary, pins.keys)
           : summary;
       _error = null;
     } catch (e, stackTrace) {
@@ -100,9 +113,6 @@ class NutritionProvider extends ChangeNotifier {
     }
     notifyListeners();
   }
-
-  bool _isShowing(String clientId, DateTime date) =>
-      _loadedClientId == clientId && _selectedDate == date;
 
   void previousDay(String clientId) {
     _selectedDate = _selectedDate.subtract(const Duration(days: 1));
@@ -136,6 +146,8 @@ class NutritionProvider extends ChangeNotifier {
 
     _pinError = null;
     _summary = _withPins(current, after);
+    final written = (clientId: clientId, keys: after);
+    _pinsWritten = written;
     _pinEpoch++;
     _pinWrites++;
     notifyListeners();
@@ -148,11 +160,21 @@ class NutritionProvider extends ChangeNotifier {
         error: e,
         stackTrace: stackTrace,
       );
-      // Only revert if this is still the client/day being shown — a slow
-      // failure for a pin toggle on a screen the trainer has since navigated
-      // away from must not silently rewrite what they're looking at now.
-      if (!_isShowing(clientId, _selectedDate)) return;
-      _summary = _withPins(_summary ?? current, before);
+      // A later toggle has sent the whole set again since, and its own
+      // outcome settles the pins; putting this one's "before" back would
+      // undo it on screen.
+      if (identical(_pinsWritten, written)) {
+        _pinsWritten = (clientId: clientId, keys: before);
+      }
+      // Only on screen if this is still the client being shown — a slow
+      // failure for a client the trainer has since left must not rewrite
+      // what they're looking at now. Any day of theirs: pins aren't per day.
+      if (_loadedClientId != clientId) return;
+      final shown = _summary;
+      final pins = _pinsWritten;
+      if (shown != null && pins != null && pins.clientId == clientId) {
+        _summary = _withPins(shown, pins.keys);
+      }
       _pinError = ConsoleError.saveNutrientPins;
       notifyListeners();
     } finally {

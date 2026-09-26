@@ -4,13 +4,14 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ForgeForm/feature/trainer_console/data/trainer_console_repository.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_console_models.dart';
+import 'package:ForgeForm/feature/trainer_console/presentation/providers/nutrition_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/workout_builder_provider.dart';
 
 import 'fakes.dart';
 
 /// A refresh against a pane that also loads and writes: which answer wins,
-/// and what a changed plan does to the Workout Builder.
-/// `docs/sync-architecture.md` §52–§53.
+/// what a changed plan does to the Workout Builder, and what a day switch
+/// does to a pin still being saved. `docs/sync-architecture.md` §52–§53.
 ///
 /// Every test here uses only what the providers exposed before the fixes,
 /// and each was run against the code before them and failed there — except
@@ -106,6 +107,23 @@ ClientWorkout _day(
 Future<void> _settle() async {
   for (var i = 0; i < 20; i++) {
     await Future<void>.delayed(Duration.zero);
+  }
+}
+
+/// Holds each pin write until the test settles it, one by one.
+class _PinWrites extends FakeTrainerConsoleRepository {
+  _PinWrites() : super(nutrition: fakeNutrition(micronutrientsLocked: false));
+
+  final writes = <Completer<void>>[];
+
+  @override
+  Future<void> setClientNutrientPins(
+    String clientId,
+    List<String> nutrientKeys,
+  ) {
+    final write = Completer<void>();
+    writes.add(write);
+    return write.future;
   }
 }
 
@@ -376,6 +394,80 @@ void main() {
       await builder.refresh('client-1');
 
       expect(builder.isNew, isTrue);
+    });
+  });
+
+  group('a nutrient pin being saved', () {
+    NutritionProvider nutritionOf(FakeTrainerConsoleRepository repository) =>
+        NutritionProvider(repository: repository);
+
+    FakeTrainerConsoleRepository repositoryWithNoPins() =>
+        FakeTrainerConsoleRepository(
+          nutrition: fakeNutrition(micronutrientsLocked: false),
+        );
+
+    test('stays pinned when the day changes and the read answers after the write', () async {
+      final repository = repositoryWithNoPins();
+      final nutrition = nutritionOf(repository);
+      await nutrition.load('client-1');
+
+      final write = Completer<void>();
+      repository.pinGate = write;
+      final pinning = nutrition.togglePin('client-1', 'vitaminD');
+      expect(nutrition.summary?.pinnedNutrients, ['vitaminD']);
+
+      // The trainer pages to the previous day at once. Its GET is served
+      // before the PUT commits, so it carries the old pins.
+      final read = Completer<void>();
+      repository.gate = read;
+      nutrition.previousDay('client-1');
+      await _settle();
+
+      write.complete();
+      await pinning;
+      read.complete();
+      await _settle();
+
+      expect(nutrition.summary?.pinnedNutrients, ['vitaminD']);
+    });
+
+    test('stays pinned when the day changes and the read answers first', () async {
+      final repository = repositoryWithNoPins();
+      final nutrition = nutritionOf(repository);
+      await nutrition.load('client-1');
+
+      final write = Completer<void>();
+      repository.pinGate = write;
+      final pinning = nutrition.togglePin('client-1', 'vitaminD');
+      nutrition.previousDay('client-1');
+      await _settle();
+
+      write.complete();
+      await pinning;
+      await _settle();
+
+      expect(nutrition.summary?.pinnedNutrients, ['vitaminD']);
+    });
+
+    test('a failed write does not undo a later one on screen', () async {
+      final repository = _PinWrites();
+      final nutrition = nutritionOf(repository);
+      await nutrition.load('client-1');
+
+      final first = nutrition.togglePin('client-1', 'vitaminD');
+      final second = nutrition.togglePin('client-1', 'iron');
+      expect(nutrition.summary?.pinnedNutrients, ['vitaminD', 'iron']);
+
+      // Each write sends the whole set, so the second one's outcome is the
+      // one that settles the pins — not the first one's "before".
+      repository.writes[0].completeError(Exception('boom'));
+      await first;
+      expect(nutrition.summary?.pinnedNutrients, ['vitaminD', 'iron']);
+      expect(nutrition.pinError, isNotNull);
+
+      repository.writes[1].complete();
+      await second;
+      expect(nutrition.summary?.pinnedNutrients, ['vitaminD', 'iron']);
     });
   });
 }
