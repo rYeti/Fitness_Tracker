@@ -2962,8 +2962,8 @@ exception ends one invocation, not the connection, so chat on the same socket
 is untouched whichever way the join ends.
 
 Nothing caught the swallowed failure, because every test of the join asked what
-happens when it works. A test of failure has to make the join fail, and none
-did. `A_join_whose_licence_read_fails_asks_to_be_retried` now gives the hub a
+happens when nothing goes wrong. A test of failure has to make the join fail,
+and none did. `A_join_whose_licence_read_fails_asks_to_be_retried` now gives the hub a
 licence table that throws, and `A_join_whose_group_add_fails_asks_to_be_retried`
 a group store that does. Both fail against the version that logged and
 returned. The general form: a method a client calls in order to be told
@@ -3218,13 +3218,15 @@ workouts table twice. Removing a food from a meal read the meals table twice,
 for the same id: once for the food's tombstone and once for the record of the
 meal. That is a trainee editing their diary, not a contrived case.
 
-Now `ReadOwnersAsync` gathers every workout id and every meal id the
-tombstones and the record will ask about, and reads each table once. It runs
-before the save's stamps, so no lock this save takes is held across the reads.
-A session the tracker holds adds its workout's id to the one read of
-`Workouts`. A session the tracker doesn't hold is still read on its own, joined
-to its workout, because until it has been read there is no workout id to add.
-Plans and templates are reached only one way, and were already read once.
+Now `ReadOwnersAsync` is the only place a save reads owners. It gathers every
+workout id and every meal id the tombstones and the record will ask about, and
+reads each table once. A session the tracker holds adds its workout's id to the
+one read of `Workouts`. A session the tracker doesn't hold is still read on its
+own, joined to its workout, because until it has been read there is no workout
+id to add. Plans and templates are reached only one way, and are read there
+too. It all runs before the save's stamps, so inside a caller's transaction no
+lock this save takes is held across the reads, and the record that follows
+makes no queries at all.
 
 | The save | Reads before | Reads now |
 |---|---|---|
