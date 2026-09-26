@@ -149,7 +149,7 @@ public class WorkoutPlanRepository : IWorkoutPlanRepository
         await using var transaction = _context.Database.CurrentTransaction == null
             ? await _context.Database.BeginTransactionAsync()
             : null;
-        await _context.TouchWhereAsync<ScheduledWorkout>(sw => sw.WorkoutPlanId == id);
+        await _context.TouchWhereAsync<ScheduledWorkout>(sw => sw.WorkoutPlanId == id, owner: userId);
 
         _context.WorkoutPlans.Remove(plan);
         await _context.SaveChangesAsync();

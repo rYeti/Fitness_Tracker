@@ -2750,6 +2750,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get kpisLoading => 'Loading summary';
 
   @override
+  String get consoleRefreshFailed => 'Couldn\'t refresh';
+
+  @override
+  String get consoleRefreshFailedDetail =>
+      'Couldn\'t refresh. What\'s shown may be out of date.';
+
+  @override
   String get clientsHeading => 'Clients';
 
   @override

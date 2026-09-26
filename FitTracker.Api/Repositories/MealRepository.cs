@@ -173,7 +173,7 @@ public class MealRepository(AppDbContext context) : IMealRepository
         var meal = await context.Meals.FirstOrDefaultAsync(m => m.Id == id && m.UserId == userId);
         if (meal == null) return false;
 
-        await context.TouchWhereAsync<Meal>(m => m.Id == id);
+        await context.TouchWhereAsync<Meal>(m => m.Id == id, owner: userId);
 
         context.Meals.Remove(meal);
         await context.SaveChangesAsync();

@@ -65,6 +65,13 @@ class ChatRepository {
   /// Every thread whose hub group this connection has joined — the open one plus
   /// all the conversations being watched for the inbox. Kept so a re-open or a
   /// second [watchConversations] doesn't re-join a group needlessly.
+  ///
+  /// Joined once here and never again, which is only true to the server
+  /// because the transport keeps it true: a group belongs to a connection id,
+  /// every reconnect is a new one, and `SignalRHubChatClient` joins each of
+  /// these again after every connect. Before it did, a reconnect left this set
+  /// claiming groups the new connection was not in, and incoming messages
+  /// stopped for the rest of the session.
   final Set<String> _watchedThreads = {};
 
   /// Peers whose device list has already been re-fetched once after a

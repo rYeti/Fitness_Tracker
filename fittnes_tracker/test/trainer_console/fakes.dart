@@ -11,19 +11,26 @@ class FakeTrainerConsoleRepository implements TrainerConsoleRepository {
   final List<TrainerRosterEntry> rosterWithStats;
   final List<ClientSessionSummary> sessions;
   final TrainerDashboardKpis? kpis;
-  final ClientNutritionSummary? nutrition;
-  final ClientWorkoutSummary? workoutSummary;
+  /// Not final, so a test can change what the server holds between two
+  /// reads — a client logging a meal while the console is open, or being
+  /// given a plan.
+  ClientNutritionSummary? nutrition;
+  ClientWorkoutSummary? workoutSummary;
   final List<ClientWeightEntry> weightHistory;
   final List<WorkoutPlanTemplateSummary> templates;
   final List<ClientWorkout> clientWorkouts;
   final List<ClientExerciseOption> exerciseLibrary;
 
-  /// Set to make the matching call throw, for error-state tests.
-  final bool throwOnSessions;
-  final bool throwOnDashboard;
-  final bool throwOnNutrition;
-  final bool throwOnRoster;
-  final bool throwOnClientWorkouts;
+  /// Set to make the matching call throw, for error-state tests. All but the
+  /// exercise library's can be flipped after the first load, to fail a
+  /// refresh of something already on screen — or to let one succeed after a
+  /// load that failed.
+  bool throwOnSessions;
+  bool throwOnDashboard;
+  bool throwOnNutrition;
+  bool throwOnRoster;
+  bool throwOnClientWorkouts;
+  bool throwOnWorkoutSummary = false;
   final bool throwOnExerciseLibrary;
 
   /// Set to make the next `createClientWorkout`/`updateClientWorkout` call
@@ -41,7 +48,9 @@ class FakeTrainerConsoleRepository implements TrainerConsoleRepository {
   /// `_pump` **awaits** `ActiveClientProvider.loadClients()` before pumping the widget,
   /// since there is nothing to render until an active client exists. A gate covering both
   /// deadlocks those tests — the completer is only completed after `_pump` returns.
-  final Completer<void>? gate;
+  ///
+  /// [gate] can be set after the first load, to hold a refresh open.
+  Completer<void>? gate;
   final Completer<void>? rosterGate;
   final Completer<void>? kpiGate;
 
@@ -57,6 +66,14 @@ class FakeTrainerConsoleRepository implements TrainerConsoleRepository {
   savedWorkouts = [];
 
   final List<String> deletedWorkoutIds = [];
+
+  /// Records every deleteClientWorkoutPlan call's plan id.
+  final List<String> deletedPlanIds = [];
+
+  /// Holds every Workout Builder write — a plan or day created, saved or
+  /// deleted, an exercise created — until it completes. Completing it with an
+  /// error fails the writes it held.
+  Completer<void>? writeGate;
 
   /// Records what createTrainerExercise was called with.
   final List<({String clientId, String name})> createdExercises = [];
@@ -138,9 +155,14 @@ class FakeTrainerConsoleRepository implements TrainerConsoleRepository {
   /// pin-toggle-failure/revert test.
   bool throwOnSetNutrientPins = false;
 
+  /// Holds a pin write open, so a test can read the summary while one is in
+  /// flight.
+  Completer<void>? pinGate;
+
   @override
   Future<void> setClientNutrientPins(String clientId, List<String> nutrientKeys) async {
     _record('setNutrientPins');
+    if (pinGate != null) await pinGate!.future;
     if (throwOnSetNutrientPins) throw Exception('boom');
     savedNutrientPins.add((clientId: clientId, nutrientKeys: nutrientKeys));
   }
@@ -149,13 +171,16 @@ class FakeTrainerConsoleRepository implements TrainerConsoleRepository {
   Future<ClientWorkoutSummary> getClientWorkoutSummary(String clientId) async {
     _record('workoutSummary');
     if (gate != null) await gate!.future;
+    if (throwOnWorkoutSummary) throw Exception('boom');
     return workoutSummary ??
         const ClientWorkoutSummary(attendance: [], strengthProgression: []);
   }
 
   @override
-  Future<List<ClientWeightEntry>> getClientWeightHistory(String clientId) async =>
-      weightHistory;
+  Future<List<ClientWeightEntry>> getClientWeightHistory(String clientId) async {
+    _record('weightHistory');
+    return weightHistory;
+  }
 
   @override
   Future<List<WorkoutPlanTemplateSummary>> getWorkoutPlanTemplates() async {
@@ -170,6 +195,7 @@ class FakeTrainerConsoleRepository implements TrainerConsoleRepository {
     String? description,
     DateTime? startDate,
   }) async {
+    if (writeGate != null) await writeGate!.future;
     createdPlans.add((clientId: clientId, name: name));
     return WorkoutPlanSummary(
       id: 'plan-new',
@@ -202,6 +228,7 @@ class FakeTrainerConsoleRepository implements TrainerConsoleRepository {
     required String name,
     String? description,
   }) async {
+    if (writeGate != null) await writeGate!.future;
     createdExercises.add((clientId: clientId, name: name));
     return ClientExerciseOption(
       id: 'exercise-${createdExercises.length}',
@@ -221,6 +248,7 @@ class FakeTrainerConsoleRepository implements TrainerConsoleRepository {
     String? planId,
     required List<ClientWorkoutExerciseDraft> exercises,
   }) async {
+    if (writeGate != null) await writeGate!.future;
     if (saveWorkoutFailure != null) throw saveWorkoutFailure!;
     savedWorkouts.add((
       clientId: clientId,
@@ -251,6 +279,7 @@ class FakeTrainerConsoleRepository implements TrainerConsoleRepository {
     required int estimatedDurationMinutes,
     required List<ClientWorkoutExerciseDraft> exercises,
   }) async {
+    if (writeGate != null) await writeGate!.future;
     if (saveWorkoutFailure != null) throw saveWorkoutFailure!;
     savedWorkouts.add((
       clientId: clientId,
@@ -276,9 +305,16 @@ class FakeTrainerConsoleRepository implements TrainerConsoleRepository {
 
   @override
   Future<void> deleteClientWorkout(String clientId, String workoutId) async {
+    if (writeGate != null) await writeGate!.future;
     if (saveWorkoutFailure != null) throw saveWorkoutFailure!;
     deletedWorkoutIds.add(workoutId);
     clientWorkouts.removeWhere((w) => w.id == workoutId);
+  }
+
+  @override
+  Future<void> deleteClientWorkoutPlan(String clientId, String planId) async {
+    if (writeGate != null) await writeGate!.future;
+    deletedPlanIds.add(planId);
   }
 
   @override

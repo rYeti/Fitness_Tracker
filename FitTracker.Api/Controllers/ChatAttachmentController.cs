@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using FitTracker.Api.DTOs;
 using FitTracker.Api.Services;
 using FitTracker.Api.Services.Interfaces;
@@ -119,9 +118,5 @@ public class ChatAttachmentController(IChatAttachmentService attachmentService, 
         return File(stream, "application/octet-stream");
     }
 
-    private Guid? GetUserId()
-    {
-        var claim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub");
-        return claim != null && Guid.TryParse(claim.Value, out var id) ? id : null;
-    }
+    private Guid? GetUserId() => User.TryGetUserId(out var id) ? id : null;
 }

@@ -1,5 +1,6 @@
-using System.Security.Claims;
 using FitTracker.Api.DTOs;
+using FitTracker.Api.Repositories.Interfaces;
+using FitTracker.Api.Services;
 using FitTracker.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
@@ -11,13 +12,79 @@ public class ChatHub(
     ITrainerClientService trainerClientService,
     IChatService chatService,
     IChatPushDispatcher pushDispatcher,
-    IChatAttachmentService attachmentService) : Hub
+    IChatAttachmentService attachmentService,
+    ITrainerLicenceRepository licences,
+    ILogger<ChatHub> logger) : Hub
 {
     private ITrainerClientService TrainerClientService { get; } = trainerClientService;
     private IChatService ChatService { get; } = chatService;
     private IChatPushDispatcher PushDispatcher { get; } = pushDispatcher;
     private IChatAttachmentService AttachmentService { get; } = attachmentService;
+    private ITrainerLicenceRepository Licences { get; } = licences;
+    private ILogger<ChatHub> Logger { get; } = logger;
     private static string GroupName(Guid trainerId, Guid clientId) => $"chat:{trainerId}:{clientId}";
+
+    /// <summary>The group a trainer's console connections join (<see cref="JoinTrainerGroup"/>),
+    /// which <c>ClientDataChanged</c> is sent to. See docs/sync-architecture.md, part four.</summary>
+    public static string TrainerGroup(Guid trainerId) => $"trainer:{trainerId}";
+
+    /// <summary>
+    /// Puts the calling connection in its user's own group, <see cref="TrainerGroup"/>, where
+    /// the live updates about their clients' data arrive — if its user holds a trainer licence.
+    /// For anyone else it does nothing.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Live updates ride the socket the console already holds for chat, rather than a second
+    /// hub: a second socket would be a second connection holding a Cloud Run instance awake
+    /// for as long as the console is open.
+    /// </para>
+    /// <para>
+    /// The Trainer Console calls this after every connect and every reconnect. A reconnect is
+    /// a new connection, and SignalR forgets a connection's groups with it. Nothing joins at
+    /// connect: that cost a licence query on every connection and every automatic reconnect,
+    /// including every trainee's coach-chat socket, which could never match. It also put a
+    /// trainer's own trainee-app socket in the group, so their phone received every event about
+    /// their clients and ignored it. The console is the only reader of these events, so only
+    /// the console joins.
+    /// </para>
+    /// <para>
+    /// Holding a licence is what makes someone a trainer (docs/trainer-licensing.md), so that
+    /// is the check, not having clients and not any role claim. The group says nothing about
+    /// which clients. That is decided per event, against the client's Active relationships at
+    /// the moment it is sent (<c>LiveUpdateNotifier</c>). The group is an address, not a
+    /// permission, and a connection in it can only be the trainer's own, because the id comes
+    /// from their token. CLAUDE.md records this as the one exception to tying group membership
+    /// to Active relationships.
+    /// </para>
+    /// <para>
+    /// How it ends tells the console what to do next. A normal return means there is nothing
+    /// more to do: the connection joined, or its user holds no licence and has nothing to
+    /// join, or its id can't be read, which asking again won't change. A
+    /// <see cref="HubException"/> means the join failed because the licence read or the group
+    /// add threw, and the console asks again, with backoff. This used to log the failure and
+    /// return normally, which the console read as a join, so a transient database error as it
+    /// connected left it outside the group for the life of the connection: hours, for a
+    /// console left open. The exception says only that the join failed. What went wrong is
+    /// logged here and never sent to the caller. Chat on the same socket doesn't depend on
+    /// this call, whichever way it ends.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="HubException">The join failed and should be asked for again.</exception>
+    public async Task JoinTrainerGroup()
+    {
+        if (!Context.User.TryGetUserId(out var userId)) return;
+        try
+        {
+            if (await Licences.GetByTrainerAsync(userId) == null) return;
+            await Groups.AddToGroupAsync(Context.ConnectionId, TrainerGroup(userId));
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Could not add trainer {UserId}'s connection to their group.", userId);
+            throw new HubException("Could not join live updates. Try again.");
+        }
+    }
 
     /// <summary>
     /// Adds the caller's connection to the SignalR group for their chat with
@@ -140,22 +207,11 @@ public class ChatHub(
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, GroupName(trainerId, actualClientId));
     }
 
-    // Same claim handling as ChatController.GetUserId. Tokens minted by the OAuth
-    // path carry the caller's id as a bare "sub" rather than as NameIdentifier, so
-    // reading only the latter left the hub throwing NullReferenceException on a
-    // token the controller accepted happily — one entry point working and the
-    // other not, for the same signed-in user.
-    private Guid GetUserId()
-    {
-        var claim = Context.User?.FindFirst(ClaimTypes.NameIdentifier)
-                    ?? Context.User?.FindFirst("sub");
-
-        // A HubException reaches the client as a readable message; the parse
-        // failure it replaces surfaced as an opaque "an unexpected error occurred".
-        if (claim == null || !Guid.TryParse(claim.Value, out var userId))
-            throw new HubException("Not authorized for this chat.");
-
-        return userId;
-    }
-
+    // The same reading of the caller as every controller (ClaimsPrincipalExtensions), `sub`
+    // included: reading only NameIdentifier once left the hub throwing on a token the
+    // controllers accepted.
+    private Guid GetUserId() =>
+        // A HubException reaches the client as a readable message; the parse failure it
+        // replaces surfaced as an opaque "an unexpected error occurred".
+        Context.User.TryGetUserId(out var userId) ? userId : throw new HubException("Not authorized for this chat.");
 }

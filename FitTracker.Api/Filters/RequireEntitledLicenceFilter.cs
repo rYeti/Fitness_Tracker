@@ -1,7 +1,7 @@
 using FitTracker.Api.Repositories.Interfaces;
+using FitTracker.Api.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
-using System.Security.Claims;
 
 namespace FitTracker.Api.Filters;
 
@@ -23,10 +23,7 @@ public class RequireEntitledLicenceFilter(ITrainerLicenceRepository licences) : 
     public async Task OnActionExecutionAsync(
         ActionExecutingContext context, ActionExecutionDelegate next)
     {
-        var claim = context.HttpContext.User.FindFirst(ClaimTypes.NameIdentifier)
-                 ?? context.HttpContext.User.FindFirst("sub");
-
-        if (claim == null || !Guid.TryParse(claim.Value, out var trainerId))
+        if (!context.HttpContext.User.TryGetUserId(out var trainerId))
         {
             context.Result = new UnauthorizedResult();
             return;

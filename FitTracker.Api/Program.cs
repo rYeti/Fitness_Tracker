@@ -248,6 +248,15 @@ builder.Services.AddHostedService<ChatAttachmentReaper>();
 // outlive the hub invocation that queues work on it, which is the entire point.
 builder.Services.AddSingleton<IChatPushDispatcher, ChatPushDispatcher>();
 
+// Live updates (docs/sync-architecture.md, part four). The log is per request, and the
+// request's AppDbContext is given it, so every write the request commits is recorded in it;
+// LiveUpdateMiddleware hands what committed to the dispatcher, which — like the chat push
+// above, and a singleton for the same reason — runs the notifier on a scope of its own after
+// the request.
+builder.Services.AddScoped<ChangedDataLog>();
+builder.Services.AddScoped<LiveUpdateNotifier>();
+builder.Services.AddSingleton<ILiveUpdateDispatcher, LiveUpdateDispatcher>();
+
 // Push transport. Configured or not, the API serves every request identically --
 // the same posture as the Stripe and CORS blocks below: log loudly, keep serving.
 // Without credentials chat still works end to end; it just doesn't notify.
@@ -430,6 +439,9 @@ app.UseCors("AllowFlutter");
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseRateLimiter();
+// After authentication, so the request's caller is known; around the endpoints, so it runs
+// once the controller is done.
+app.UseMiddleware<LiveUpdateMiddleware>();
 app.MapControllers();
 app.MapHub<ChatHub>("/hubs/chat").RequireAuthorization();
 

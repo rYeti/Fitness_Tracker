@@ -7,10 +7,10 @@ behind it that aren't obvious from the diff, and the rules to keep.
 
 The rework is staged. Part one (§1–§13) changes only the app. Part two
 (§14–§25) changes the API as well: the device mints every row's id, and a
-create can tell a repeat from a new request. Part three (§26 onwards) makes the
+create can tell a repeat from a new request. Part three (§26–§44) makes the
 pull fetch only what changed, and tells a device about deletes instead of
-leaving it to infer them. A later part tells each side when the other changes
-something; it will be added here when it lands.
+leaving it to infer them. Part four (§45 onwards) tells each side when the
+other changes something, so neither has to wait for its next sync to see it.
 
 Line references are to the commit that introduces each part.
 
@@ -2753,11 +2753,1979 @@ from, not of what they say. Five in `sync_rework_test.dart` changed in meaning:
 
 ---
 
+# Part four: live updates
+
+Parts one to three made the data right and the pull cheap. Neither side learned
+of a change any sooner, though. The phone pulled when it was opened, and the
+Trainer Console read a client's data when the trainer navigated to it. A client
+finishing a session at the gym reached the server within seconds (§9), and then
+sat there until the trainer happened to click. A trainer editing a client's
+programme reached the client's phone the next time it was opened.
+
+Part four has the server say *something changed* to whoever should know, and
+each side fetches the change straight away through the paths it already had.
+The server says it two ways:
+
+| | To a trainer's console | To a client's phone |
+|---|---|---|
+| When | anyone changes a client of theirs' data: the client, or a trainer | somebody other than the client changes the client's data |
+| How | `ClientDataChanged` on the SignalR socket the console already holds | a data-only FCM message, `sync_requested` |
+| Carries | whose data, and which panes it touches | nothing but its type |
+| Answered by | refetching those panes through the console's endpoints | a pull (§36) |
+| When it is missed | the console refetches on focus and on reconnect | the app pulls when it is next opened |
+
+This part lands in one pull request in two halves, like part three. The
+server's half (§45–§49) deploys first; with no console listening, it sends
+events to empty groups and pushes a type no shipped app acts on, which costs
+nothing. The console's and the app's half follows in the same pull request and
+is written up in §50 onwards.
+
+---
+
+## 45. A signal, not the data
+
+### The contract
+
+Both halves were written at once, against this:
+
+- **Where.** The console's existing chat connection, `/hubs/chat` (token in
+  `?access_token=`, as for chat). After every connect and every reconnect the
+  console invokes `JoinTrainerGroup()`, a hub method with no arguments. It puts
+  the calling connection in the group `trainer:{trainerId}`
+  (`ChatHub.TrainerGroup`) if its user holds a trainer licence, and otherwise
+  does nothing. Nothing is joined when a connection opens (§46). It returns
+  normally when there is nothing more to do: the connection joined, its user
+  holds no licence, or its id can't be read. It throws a `HubException` when
+  the join failed, and the console calls it again, with backoff (§46).
+- **What.** One hub event, `ClientDataChanged`, with one argument. On the wire
+  (SignalR's JSON protocol, which camel-cases):
+
+  ```json
+  { "type": 1, "target": "ClientDataChanged",
+    "arguments": [ { "clientId": "5b1e7c2a-3f0d-4c1e-9a55-0c2f6d8e4b71", "areas": ["sessions", "workouts"] } ] }
+  ```
+
+  `clientId` is the owner of the data, formatted exactly as the console's own
+  endpoints format a client's id: a lower-case, hyphenated GUID, the same
+  string the roster's `clientId` holds. `areas` is a non-empty subset of
+  `workouts`, `sessions`, `nutrition` and `weight`, sorted ordinally, so
+  `nutrition` comes before `sessions`, `weight` and `workouts`
+  (`DataAreas`, `ClientDataChangedDto`).
+- **To whom.** The groups of the trainers with an **Active** relationship to
+  that client, and nobody else (§46).
+- **The push.** When the person who made the change is not the data's owner, the
+  owner's devices get `{ "type": "sync_requested" }` and nothing more, collapsed
+  under the key `sync_requested` (§46).
+- **When.** Once per request, after it has committed, never inside a
+  transaction (§48).
+- **Failure.** A send or a push that fails is logged. The request never hears
+  of it (§48).
+
+An area is a pane of the console, not a table on the server, because the one
+thing the console does with it is decide which panes to fetch again:
+
+| The change is to… (a child's change is its root's, as in §27) | Area |
+|---|---|
+| an exercise, a workout (its entries and set templates), a plan (its workout links) | `workouts` |
+| a scheduled workout (its exercises and logged sets) | `sessions` |
+| a meal (its foods), a food item, a meal template (its items) | `nutrition` |
+| a weight entry | `weight` |
+| settings, which hold the calorie goal | `nutrition` |
+
+Settings were first given no area, on the reasoning that no pane shows them.
+One does. The Nutrition pane's calorie ring and Client Detail's intake are
+measured against the client's calorie goal, and the goal is a setting. A client
+who changed it on their phone pushed it, the push committed, and no event went
+out. The trainer went on reading the old goal, and a wrong "kcal remaining",
+until the tab next regained focus. Every other change to the same pane arrived
+within a second or so, which made this one look like a bug in the console
+rather than a gap in a table on the server.
+
+Nothing caught it because the one test that looked at settings asserted the
+gap. `EachKindOfDataIsReportedInItsArea` listed `["settings"] = ""`, with a
+comment saying no pane showed them. A test written to pin a decision can't tell
+you the decision was wrong. It only guarantees the decision is kept. The row
+now reads `nutrition`. `EverySyncedRootHasAnArea` walks every `ISyncRoot` in the
+assembly and fails for any without an area, so the next root can't be left out
+by the same reasoning unless someone deletes a test to do it.
+
+A change to any setting now refetches the Nutrition pane, the theme and the
+display name included. That is one read for a change the trainer can't see, and
+settings rarely change. Splitting them by field would put knowledge of which
+columns each console pane reads into the server's change tracking, which is a
+second copy of the console's layout that nothing would keep in step.
+
+### Why the event carries nothing
+
+The obvious event carries the change: the session that was logged, the meal
+that was added. The console would apply it and never make a request. This one
+says only *whose* data changed and roughly where, and the console answers it by
+fetching the affected panes through the endpoints it already uses. That costs a
+round trip per event. It buys three things, and the first is the reason.
+
+**Every read of a client's data goes through one door.** Each Trainer Console
+endpoint checks, on every call, that the caller has an Active relationship with
+the client (`IsActiveTrainerOfAsync`), and CLAUDE.md is explicit that this check
+is the security boundary and the app's gate is not. An event carrying data would
+be a second way for a client's data to reach a trainer, with its own access
+check to keep in step with the first. `docs/trainer-console-duplicate-rows.md`
+§5 is about exactly that shape of mistake: two definitions of one thing, each
+right on the day it was written, drifting apart. An event with nothing in it
+has nothing to protect. The worst a wrongly delivered one could leak is that a
+named user's data changed.
+
+**The console keeps one way of building a pane.** Session Review, the nutrition
+summary and the roster KPIs are aggregates the server computes. An event that
+carried a changed set would have the console recompute them from fragments, and
+get them subtly different from what the endpoint returns.
+
+**A missed event costs nothing but time.** This is §48's subject, and it
+decides the design as much as the first reason does. An event that carries data
+is an update to a copy, and a lost one leaves the copy wrong. Nothing will
+correct it until something replaces the whole copy. An event that carries
+nothing is a hint that the copy is stale. Every such hint means the same thing,
+so a refetch after ten missed hints is as good as receiving all ten.
+
+### Why one hub
+
+The console already holds a `ChatHub` connection for as long as it is open.
+`TrainerConsoleHome` owns it so that it survives switching sections. A second
+hub would mean a second socket per open console. On Cloud Run an open socket is
+an in-flight request, which keeps an instance allocated. That is the one real
+running cost of SignalR here, and a second hub would double it for the same
+people. The console asks to join a group on that socket, rather than being put
+in one when it connects. §46 says why.
+
+---
+
+## 46. Who hears of it
+
+### Only the console joins
+
+The first version joined at connect. `ChatHub.OnConnectedAsync` looked up the
+caller's licence and, if there was one, added the connection to
+`trainer:{trainerId}`. The argument for it was that the console never had to
+remember to ask: an old console build, or one that had just reconnected, was in
+the group without doing anything. Review found that it cost more than that
+bought, in two ways no test was looking at:
+
+- **Every connection paid for it.** `OnConnectedAsync` runs for every socket the
+  hub accepts, and again on every automatic reconnect. That includes every
+  trainee's coach-chat connection. Each one ran a licence query, and a trainee
+  holds no licence, so nearly every one of those queries was asked to find
+  nothing.
+- **The wrong socket of the right person joined.** A trainer is also a ForgeForm
+  user (CLAUDE.md, "Web support"), and their trainee app opens the same hub for
+  their own coach chat. That connection's user held the licence too, so it
+  joined, and their phone received every `ClientDataChanged` about every client
+  and threw each one away.
+
+`JoinTrainerGroup()` replaces it. It takes no arguments and reads the caller's id
+from their token, as every other hub method does. It checks the licence and adds
+the calling connection, and only that one. The console calls it after every
+connect and every reconnect, because a reconnect is a new connection id and
+SignalR forgets a connection's groups along with the old one. Connecting alone
+joins nothing and reads nothing (`Connecting_joins_no_group_and_reads_nothing`).
+
+The argument for joining at connect doesn't hold up either. No old console
+build needs protecting, because the console that reads these events and the call
+that joins the group ship in the same change. And a reconnect was never
+something the console could ignore, since it refetches every pane shown when
+its socket comes back (§55).
+
+### A join that fails says so
+
+A failure inside `JoinTrainerGroup` was at first logged, and the call returned
+normally, as the connect-time join had done. In `OnConnectedAsync` that was
+right: an exception there refuses the connection, chat included. In a method the
+console calls it was wrong, because a normal return is how the console learns
+that it joined. Review traced what followed. The licence query throws on a
+transient database error just as the console connects. The hub logs a warning
+and returns. The console takes that for a join and never asks again, so it sits
+outside `trainer:{id}` for as long as that connection lives, which for a console
+left open is hours, and hears no `ClientDataChanged` in that time. The refetch on
+focus (§55) still bounds how stale a pane can get once the trainer clicks back
+in, but a console the trainer is only watching never regains focus.
+
+Now the way the call ends is the console's instruction:
+
+| `JoinTrainerGroup()`… | when | and the console |
+|---|---|---|
+| returns normally | the connection joined; its user holds no licence; its id can't be read | stops. Asking again would get the same answer |
+| throws `HubException` | the licence read threw, or the group add did | asks again, with backoff |
+
+The exception's message says only that the join failed. What went wrong is
+logged on the server. `HubException` is the exception SignalR hands to the
+caller with its message intact; any other reaches the client as a generic error,
+and its detail would be a database's error text in a browser console. The
+exception ends one invocation, not the connection, so chat on the same socket
+is untouched whichever way the join ends.
+
+Nothing caught the swallowed failure, because every test of the join asked what
+happens when nothing goes wrong. A test of failure has to make the join fail,
+and none did. `A_join_whose_licence_read_fails_asks_to_be_retried` now gives the hub a
+licence table that throws, and `A_join_whose_group_add_fails_asks_to_be_retried`
+a group store that does. Both fail against the version that logged and
+returned. The general form: a method a client calls in order to be told
+something has to report its failure. Logging and returning is right only where
+nobody is waiting for the answer, and a hub method always has someone waiting.
+
+### Only an Active relationship, checked when the event is sent
+
+CLAUDE.md's rule for this codebase is to tie SignalR group membership and any
+trainer-facing data access to an Active relationship, not to a role.
+`trainer:{trainerId}` is joined on a licence, which is a role, whoever the
+trainer's clients are. It is the one exception to that rule. CLAUDE.md now
+records it next to the rule, with its reason. An exception argued only in a
+design document reads as a breach to anyone who reads the rule first, and the
+review that found it read it exactly that way.
+
+The reason is that the group grants nothing. It is an address, one per trainer,
+that only that trainer's own connections can be in: the id comes from their
+token, not from anything they send. What reaches the address is decided per
+event. `LiveUpdateNotifier` looks up, when it sends, the trainers whose
+relationship with that client is `Active`, and sends to their groups and no
+others. A Pending invite, a relationship the client or the trainer has ended,
+and a trainer of somebody else get nothing
+(`AClientsWriteReachesOnlyTheirActiveTrainer`).
+
+The alternative keeps membership per client: at connect, the trainer's
+connection joins `client:{id}` for each Active client, and events go to the
+client's group. It is the same query, run at the wrong time. A relationship that
+ends while the console is open leaves the connection in the group, still
+receiving, until it reconnects. A client who accepts an invite during that time
+is not in it until then either. Membership computed at connect is a snapshot of
+the relationships at connect, and it goes stale for exactly as long as the
+socket lives, which for a console is all day. Checked at send, the first event
+after a relationship ends goes nowhere.
+
+The rule is there so that access can't outlive the relationship it was granted
+for. A membership check meets that once, when the connection joins. A filter on
+every send meets it every time an event is sent, which is strictly more often,
+so the exception keeps what the rule protects more tightly than following the
+rule would.
+
+Being a trainer is holding a licence (`docs/trainer-licensing.md`), so that is
+what `JoinTrainerGroup` checks — not having clients, which would leave a new
+trainer's console deaf until the first invite was accepted. A lapsed licence
+still joins: a read-only trainer can still read, so they can still be told
+something changed.
+
+**Why a group, and not `Clients.User`.** SignalR can address a user directly by
+the id its `IUserIdProvider` reads from the connection. The default provider
+reads the `NameIdentifier` claim, and a token minted by the OAuth path carries
+the user's id as a bare `sub`. The hub already had to learn that once
+(`ChatHub.GetUserId`, and `A_token_carrying_only_sub_is_accepted` in the chat
+tests). Addressed by user, a trainer who signed in with Google would never have
+received an event. The group is joined with the same reading of the id that
+every controller uses, which handles both.
+
+That reading had been copied thirteen times, two lines each: into the hub,
+eight controllers (one of them three times), `RequireEntitledLicenceFilter` and
+the live-update middleware.
+One copy had already drifted once, which is the hub bug above. It is now one
+extension, `ClaimsPrincipal.TryGetUserId(out Guid id)` in
+`ClaimsPrincipalExtensions`. It reads `NameIdentifier`, then `sub`, and parses the
+first one it finds as a GUID, exactly as every copy did. A `NameIdentifier` that
+isn't a GUID fails rather than falling back to `sub`, which is also what every
+copy did (`The_id_is_read_from_NameIdentifier_then_sub_and_must_be_a_guid`).
+
+The sync controllers' one-line `Guid.Parse(…NameIdentifier…)` was a different
+parse, and at first it was left alone, on the grounds that changing what those
+endpoints answer is not a refactor. Review pointed out what that left. CLAUDE.md
+said a caller's id is read only through `TryGetUserId`, and 49 copies of the old
+parse in ten controllers said otherwise: Sync, Workout, WorkoutPlan,
+ScheduledWorkout, Meal, MealTemplate, FoodItem, Exercise, WeightTracking and
+UserSettings. That parse reads `NameIdentifier` alone. A token carrying only a
+bare `sub`, the OAuth case the extension exists for, gave it null, and
+`Guid.Parse` threw. Every sync endpoint answered 500 while the hub and the
+console accepted the same token. The rule written down was not the rule in the
+code, and a reader who trusted it would have been wrong about exactly the
+endpoints the app syncs through.
+
+They have all moved over. Each action now begins
+`if (!User.TryGetUserId(out var userId)) return Unauthorized();`, the form
+`AuthController` already used, and the rest of each action is unchanged:
+
+| The token carries | Before | Now |
+|---|---|---|
+| `NameIdentifier`: every token `AuthService` mints, because the bearer handler maps its `sub` to it | the user | the user |
+| a bare `sub` and no `NameIdentifier` | 500 | the user |
+| neither | 500 | 401, as every other controller already answered |
+
+Shipped apps send the first kind and see no change.
+`ATokenCarryingOnlySubReadsTheFeed` and `ATokenWithoutAUserIdIsUnauthorized` pin
+the other two rows on `GET api/Sync/changes`, and both fail against the old
+parse. The five controllers that answered an all-zero id with 404 (Workout,
+WorkoutPlan, ScheduledWorkout, Exercise, WeightTracking) still do. That check is
+about something else, and stays with them.
+
+Nothing noticed the contradiction, because every copy worked for every token
+the app sends. A rule that nothing checks only describes the day it was
+written. `Nothing_else_in_the_api_reads_a_callers_claims` reads the API's
+source and fails if any file but `ClaimsPrincipalExtensions` calls `FindFirst`,
+so the next copy fails a test instead of waiting for a review to find it.
+
+### The push goes only to someone else's change
+
+A client who logs a meal on their phone already has the meal on that phone.
+Pushing `sync_requested` to every device they own after every write would wake
+the phone that just wrote, to pull what it just pushed. The server can't tell
+which of the owner's devices made the request, so it can't leave that one out.
+The push is therefore for the case the owner could not otherwise learn of: a
+change somebody else made. In practice that is a trainer, and the actor is the
+signed-in caller, read by the same `TryGetUserId` the controllers use, `sub`
+included. A client's second device learns of the client's own edit on its next
+pull, as it always has. A request with no signed-in caller asks for no pull.
+Nobody made it, so it isn't somebody else's change.
+
+The trainer who made the change still gets the event on their own console,
+because they are the client's Active trainer like any other. That is
+deliberate: the console refetches what it just wrote, which costs one read, and
+any second console the trainer has open is brought up to date by it.
+
+### Data-only, collapsed, and not urgent
+
+The message is `{ "type": "sync_requested" }`: no notification block and no
+data. The app pulls through endpoints that check who is asking. It shows
+nothing, so there is nothing to render, and data in the payload would be
+another way round the endpoints (§45).
+
+It is **collapsed**, with Android's `collapse_key` and iOS's `apns-collapse-id`
+both set to `sync_requested` (`FirebasePushSender.ToMulticast`). A trainer
+saving a workout in the Workout Builder makes a burst of requests, and each
+one that changes the client's data queues a push. While a phone is offline or
+dozing, FCM keeps only the latest message under one key, so the phone wakes
+to one message, not twenty. Chat messages are not collapsed. Each one is its
+own content, and the key is null for them.
+
+It is sent at **normal priority**, where chat is sent at high. This is the one
+property of the message the contract didn't fix, and it protects chat. FCM
+starts delivering an app's high-priority messages at normal priority once it
+sees that they don't lead to a visible notification, and a `sync_requested`
+never does. Sent at high priority,
+it would teach Android that this app's high-priority messages are noise, and
+the messages that would then arrive late are chat's. Normal priority costs
+nothing here. The app acts on the message only while it is open, and a device
+in use receives a normal-priority message at once.
+
+iOS has never been built (`docs/push-notifications.md`). The collapse header is
+set anyway, so the server's half of the contract holds for both platforms. What
+else a data-only message needs to reach an iOS app, `content-available` among
+it, belongs to setting iOS up.
+
+---
+
+## 47. Whose data a write changed
+
+The server already knew which aggregates each write changed. Part three's
+interceptor stamps every root a save touches, and §27 recorded that it stamps
+the owner's row, not the actor's, "because part four will hang the trainer's
+live notifications off exactly this". So recording what changed is not a second
+analysis of each write. It is the same one, written down.
+
+Each request has one `ChangedDataLog` (`FitTracker.Api/Data/ChangedDataLog.cs`),
+registered per scope and given to the request's `AppDbContext` through its
+constructor. The same instance is what the middleware later reads. A context
+built without one records nothing: a test's, or the one the notifier itself
+queries through.
+
+### Through the change tracker
+
+`SyncChangeInterceptor` records, for every save, the same three things it stamps
+and buries (§27, §29). Each is recorded as `ChangedData(Owner, Area)`, with the
+owner already found:
+
+| What the save does | Whose change it records |
+|---|---|
+| adds or changes a root with an owner column | the owner, read off the row |
+| adds or changes a session | its workout's owner: from the tracker if it holds the workout, otherwise read with the save's other workouts; a session the tracker doesn't hold is read with its workout's owner, in one query |
+| adds, changes or removes a child | its root's owner (the root the interceptor stamps): from the tracker if it holds the root, otherwise read once per kind of root for the whole save |
+| deletes a root, or a meal food | the tombstone's owner, in the area of its type |
+
+### Owners are found when the write happens
+
+The first version didn't find them there. A root reached through a child was
+recorded by its id, and `LiveUpdateNotifier.OwnersOf` looked its owner up after
+the request, one query per kind of root. The reasoning was that a query in the
+save runs inside the write's transaction, to find out something nobody needs
+until after the commit. Review showed what that saving cost.
+
+**A third switch to keep in step, and the one that failed in the worst place.**
+`DataAreas.Of` gave a root its area, `DataAreas.OfTombstone` gave a deleted row
+its area, and `OwnersOf` gave a root its owner. They were three type switches,
+each correct on its own, kept in step by hand. The first two answer null for a
+type they don't know, because they run inside a save and a missing area must
+never cost a write. `OwnersOf` threw instead, and it threw in the notifier, while
+the request's changes were being grouped by owner, before anything had been sent.
+The dispatcher caught the exception, logged it and gave up on the request. So a
+root added to `DataAreas.Of` and not to `OwnersOf` would have cost more than its
+own event. It would have cost every event and every push the request made, for
+every owner, including owners already known from rows that named them. No test
+could fail, because every root that reached `OwnersOf` at the time had an entry.
+The hazard was real only for the next root, which is the one nobody tests.
+
+**A second round of queries after every write.** The notifier ran one owner
+query per kind of root the request had reached by id, one after another, and
+only then asked for trainers. A trainee's sets batch, which reaches its session
+only through the sets, cost two queries after the request, the first of them to
+learn an owner the request had already checked.
+
+Now the interceptor finds each owner as the save is written. `ChangedData` holds
+an owner and an area and nothing else, so it can't say "owner unknown", and the
+notifier has nothing to look up. A root the tracker holds costs nothing, and
+a write that checked ownership by loading the root holds it. A root the tracker
+doesn't hold costs one query per kind of root. That is the query `OwnersAsync`
+already ran for tombstones, and for a sets batch it is the same query the
+notifier used to run, moved into the save. A root that isn't found is left out
+on its own, and no other owner's record depends on it. `TouchAsync`, the one
+bulk helper that recorded by id, now takes its owner the way `TouchWhereAsync`
+does (below).
+
+`EveryOwnerIsKnownByTheTimeTheRequestEnds` plays four writes that each reach
+their owner only through a root the tracker doesn't hold: a set template, a
+logged set, a meal food and a plan link. Then it counts what the notifier asks
+the database. It was five queries. It is one.
+
+The switches collapsed as well. `OwnersOf` is gone. `DataAreas` is now one table
+instead of two switches: each row names a synced type, the tombstone type its
+deletes are buried under, and its area, and `Of` and `OfTombstone` both look it
+up. A new root is one row, so it can no longer be given an area for its changes
+and forgotten for its deletes. Two things are still kept by hand, because each
+does a different job per type. `CollectRoots` says which root each child
+belongs to. The tombstone switch in `BuryAsync` reads each type's owner, which
+for a session or a meal food is someone else's column.
+
+### One read per table, per save
+
+Finding owners in the save moved their reads into the write. That was the
+point, and it has a cost the first version didn't count carefully enough. The
+interceptor runs in `SavingChanges`, before EF sends any of the save's
+statements. A save outside an explicit transaction runs these reads on their
+own, before EF opens the transaction it wraps the save in, and they hold
+nothing. A save inside a caller's transaction, which is every batch and every
+replace, runs them inside it. On Postgres a plain `SELECT` takes no row locks
+and blocks no writer. What it does cost is a round trip, and the caller's
+transaction stays open that much longer, holding whatever locks its earlier
+saves took.
+
+Review found the reads were also repeated. Two parts of the interceptor want
+owners, the tombstones and the record, and each asked for its own. A session
+has no owner column, so its owner is its workout's, and it was found through a
+second read of the workouts table. So a save that reached workouts both
+directly, through a changed exercise entry, and through a session read the
+workouts table twice. Removing a food from a meal read the meals table twice,
+for the same id: once for the food's tombstone and once for the record of the
+meal. That is a trainee editing their diary, not a contrived case.
+
+Now `ReadOwnersAsync` is the only place a save reads owners. It gathers every
+workout id and every meal id the tombstones and the record will ask about, and
+reads each table once. A session the tracker holds adds its workout's id to the
+one read of `Workouts`. A session the tracker doesn't hold is still read on its
+own, joined to its workout, because until it has been read there is no workout
+id to add. Plans and templates are reached only one way, and are read there
+too. It all runs before the save's stamps, so inside a caller's transaction no
+lock this save takes is held across the reads, and the record that follows
+makes no queries at all.
+
+| The save | Reads before | Reads now |
+|---|---|---|
+| an exercise entry changed, a session it holds changed, a session it doesn't hold gained an entry, no workout held | 3, two of them of `Workouts` | 2: `Workouts` once, and the session joined to its workout |
+| a food removed from a meal the tracker doesn't hold | 2, both of `Meals` | 1 |
+| a write that loaded the roots it changed to check who owns them, which is most | 0 | 0 |
+
+Nothing noticed the second read, because every test of owners asked whether the
+right owner was found, and a second read finds the same owner. A repeated
+query is correct code, like the roster's N+1 (`QueryCounter`), and only
+counting sees it. `ASaveReadsTheOwnersOfItsWorkoutsInOneQuery` and
+`RemovingAFoodReadsItsMealsOwnerOnce` count a save's `SELECT`s by the table
+they read from. Both fail against the version that asked twice.
+
+The lookups did not move back out of the save, to the notifier after the
+commit. The reasons for finding owners where the write happens, given above,
+stand: one place that knows how each root reaches its owner, bulk writes that
+say whose data they changed, and nothing for the notifier to look up. What that
+costs is now at most one read per table the tracker doesn't cover, plus one for
+sessions it doesn't hold, and usually nothing.
+
+### What the change tracker doesn't see
+
+§28 listed the writes the interceptor can't see: `ExecuteDelete`,
+`ExecuteUpdate` and the database's cascades. Each already had to stamp by hand,
+and each now has to say whose data it changed. Otherwise a trainer clearing a
+prescription (a replace with nothing), or a client deleting a plan with
+sessions under it, commits, answers 200, and is never told to anyone.
+
+| Call site | What it records, and how |
+|---|---|
+| `ReplaceListAsync` (sets, set templates) | its list's owner, which the caller now passes (`owner:`), in the area of the list's root: `TouchWhereAsync` records it |
+| `WorkoutRepository.DeleteWorkoutAsync`, plans losing a link | the workout's owner, `workouts`: `TouchWhereAsync` |
+| the same, placeholder sessions deleted in bulk | the tombstones it writes by hand (`Bury`) are rows of the next save, and are recorded like the save's own |
+| `WorkoutRepository.DeleteWorkoutExerciseAsync`, sessions losing placeholder entries | the workout's owner, `sessions`: `TouchAsync` |
+| `WorkoutPlanRepository.DeletePlanAsync`, sessions detached by `SET NULL` | the plan's owner, `sessions`: `TouchWhereAsync` |
+| `MealRepository.DeleteMealAsync` | the meal's owner, twice over: the stamp, and the meal's tombstone |
+
+`TouchWhereAsync` stamps whatever roots a predicate matches when it runs (§28),
+so it can't know their ids, and can't look their owners up. Its caller names the
+owner instead, and the parameter is **required**. Every call site already had
+the owner at hand: it is the user whose row is being deleted or replaced, and
+the roots a predicate stamps there are that user's too. A default of "nobody"
+would have compiled everywhere and notified nobody. That is the one part of this
+the compiler can hold. A new bulk statement can't be written without saying
+whose data it changes, though it can still say the wrong user, which only a test
+will notice.
+
+`TouchAsync` is given its roots' ids, so it could look their owners up. It takes
+the owner as a required parameter anyway. Its one caller already had the owner,
+since it had just checked that the workout was the caller's, and a lookup would
+have been a query inside the write's transaction to learn what the caller
+already knew.
+
+`TouchWhereAsync` records only when the statement stamped at least one row. A
+plan with no sessions under it, deleted, says `workouts` and not `sessions`.
+
+### Why nothing would catch the next one
+
+This is §28's argument again, with a smaller failure attached. A write that
+records nobody is invisible to everything but a test that asks for the event:
+
+- the compiler sees an `ExecuteUpdateAsync` returning a count;
+- the write's own tests check the rows, and the rows are right;
+- the feed is right too, because the stamp is separate from the record;
+- the console still shows the change the next time the trainer looks, so even
+  a person testing by hand sees it work, just late.
+
+Nothing fails. The console is merely slower than it should be for one kind of
+write, and nobody has a reason to suspect which. That is why each bulk path in
+the table has its own test in `LiveUpdateTests`, which ends the request and
+checks the areas. For the replace that is `AReplaceWithNothingIsStillReported`;
+a replace that inserts rows would pass on the inserts alone, the same trap §28
+fell into with stamps.
+
+---
+
+## 48. After the commit, once per request
+
+### Held until it commits
+
+A change is recorded when it is written, which is before anyone knows whether it
+will commit. The log holds each one with the transaction it was written in, and
+counts it only once that transaction has committed:
+
+| Written by… | Counts when… |
+|---|---|
+| a save outside any transaction | the save succeeds. If EF opened a transaction of its own for it, that has committed by then |
+| a save or a statement inside a transaction | that transaction commits. If it rolls back, or is disposed without a commit, never |
+| a statement outside any transaction | at once: it committed by itself |
+| a save that fails | never. What it recorded is taken back, even inside a transaction that goes on: EF rolls a failed save back to a savepoint, and the transaction continues |
+
+The interceptor follows the save to its end (`SavedChanges`, `SaveChangesFailed`)
+and the transaction to its commit (`TransactionCommitted`). It records last,
+after the stamps and tombstones, because EF reports a save as failed only from
+its statements on. A record made before a stamp that threw would never be taken
+back, and the next successful save would commit it.
+
+The foods batch shows why this can't be simpler. It runs in one transaction and
+saves once per food, so its first food's save succeeds before its second food
+is refused (§30). A log that counted a save as done when the save returned
+would announce a meal that the rollback then took back.
+`ARolledBackTransactionNotifiesNobodyAndLeavesWhatCommittedBeforeIt` plays that
+request after a weight logged on its own. The event names the weight, and not
+the meal.
+
+### Why never before
+
+An event sent from inside a transaction can announce a change that a rollback
+then takes back, as above. That only costs a wasted refetch. The worse case is
+a change that does commit, because the event can still arrive too early:
+
+| Time | A client's phone logs a set | The trainer's console |
+|---|---|---|
+| t0 | the sets batch writes the set, in its transaction | |
+| t1 | (if the event were sent here) | receives `ClientDataChanged` |
+| t2 | | refetches Session Review; its read runs on another connection and can't see an uncommitted row |
+| t3 | commits | |
+| | | shows the session without the set, and has been told everything it will be told |
+
+An event is a promise that a read will now see something new. Sent before the
+commit, it breaks the promise for exactly the reader it was sent to. Nothing
+retries: the console has done what it was asked, and the change sits unseen
+until the tab next regains focus. Nothing tests this by accident either. In a
+test, the read and the write share one connection, where the uncommitted row is
+visible.
+
+### Why once per request
+
+A transaction commit is not the unit either. A trainer saving a workout in the
+Workout Builder makes one request, and that request is a dozen saves, several
+in transactions of their own: the workout, each exercise entry, each list of set
+templates.
+Sent at each commit, it would be a dozen events for one click, each asking the
+console to refetch the same pane. The console debounces, but the server has no
+reason to make it.
+
+So nothing is sent at a commit. `LiveUpdateMiddleware` runs around every
+request. When the request is done it takes what the log holds as committed, and
+hands it on once, with the caller. `LiveUpdateNotifier` sends one event per
+owner, naming every area the request changed for them
+(`ManyChangesInOneRequestAreOneEventPerOwner`). A trainer's request touching two
+clients is two events and two pushes, one each.
+
+The middleware takes the log in a `finally`. A request that commits and then
+fails, say while writing its answer, still changed the data, and the change is
+still reported (`ARequestThatFailsAfterCommittingStillQueuesWhatItCommitted`).
+
+### After the answer, off the request
+
+The notifying itself runs after the request, on a detached task with its own DI
+scope (`LiveUpdateDispatcher`). It is chat's pattern (`ChatPushDispatcher`, and
+`docs/chat-architecture.md` §18). Waiting would put a relationship query, a
+hub send and a round trip to Google in front of every write's answer. Failures are logged there, one send at a time. A hub that throws
+doesn't stop the push (`AFailedSendStillAsksForThePull`), a push that throws
+doesn't stop the next owner (`AFailedPushStopsNothingElse`), and the request
+finished before any of it began.
+
+§18 also warns against exactly this. Cloud Run only guarantees CPU to an
+instance while a request is in flight, and work detached from a request that
+has answered is throttled. The chat push is safe because it is queued from a
+hub, whose socket is itself a request in flight. This is queued from an ordinary
+request, and the warning applies. It applies less than it looks:
+
+- **The SignalR event** can only reach connections on this instance (see below).
+  An instance holding a console's socket has a request in flight for as long as
+  the console is open, so it keeps its CPU. An instance holding none has nobody
+  to send to. Throttling can only delay an event that was going nowhere.
+- **The push** goes out when a trainer changes a client's data, and a trainer
+  does that from the console, which holds such a socket. On a single instance,
+  the usual case at this size, that is this instance.
+- **Either one lost** is an update that arrives later, never a wrong one (below).
+
+### The common case returns early
+
+Nearly every write is a user changing their own data: a trainee's phone pushing
+its sync, and most trainees have no trainer at all. For a request like that
+there is nobody to send an event to and nobody to ask to pull. The notifier
+finds that out with the one query it has to make, for the owners' Active
+trainers. It makes that query first, and returns as soon as it finds none and
+the caller owns everything the request changed
+(`AUserWithNoTrainerChangingTheirOwnDataCostsOneQueryAndNothingElse`).
+
+Both halves of the condition matter. Take a trainer's write to a client whose
+relationship ended between the commit and the notification. There is no
+trainer left to tell, but the client's data changed under them, and their
+devices still have to be asked to pull
+(`SomebodyElsesChangeStillAsksForThePullWhenNoTrainerIsLeftToTell`).
+
+The review asked for more than that: to return before the detached task and its
+scope are created at all. That would need the trainers query answered without a
+new scope, and the only context that exists without one is the request's own.
+Asking it there, in the middleware, puts a database round trip between the
+controller's last write and the end of the response, because the response
+isn't finished until the middleware returns. Keeping that round trip off the
+request is the reason this section exists. The task and the scope cost a work
+item and a few allocations, microseconds next to the round trip they carry. So
+they stay, and that query is all the common case does.
+
+### No backplane, and what a missed event costs
+
+Cloud Run may run several instances of the API, and SignalR's groups live in
+each instance's memory. An event sent on one instance reaches only the sockets
+held on that one. A backplane (Redis, which on Google Cloud is Memorystore)
+would fan every event out to every instance. It is also a fixed monthly cost
+and a second piece of infrastructure to run, for a deployment that is usually
+one instance. Chat has lived with the same limit since it shipped.
+
+So an event can be missed. A write lands on instance B while the trainer's
+socket is on instance A; a socket drops and reconnects between a commit and its
+event; the detached task is lost when an instance shuts down. Each costs
+**freshness, never correctness**, and §45 is why. The console never applies
+anything from an event. Everything it shows comes from a read of the database,
+so the worst a missed event can do is leave a pane showing what was true a
+moment ago. To bound how long, the console also refetches when it regains focus
+and when its socket reconnects, and the app pulls whenever it is opened. That
+refetch is the guarantee. The event makes it sooner.
+
+The same reasoning is why there is no acknowledgement, no retry and no queue of
+unsent events. Each would make a hint more reliable, and a hint that is late
+costs very little.
+
+---
+
+## 49. What it costs, what the tests pin, and the rules (server)
+
+### Running cost
+
+| What | Cost |
+|---|---|
+| The SignalR events | Nothing per message: the hub is part of the API, not a paid SignalR service. The real cost of SignalR here is an instance kept allocated while a socket is open, and the console already held that socket for chat. The events add a few hundred bytes to it. A second hub would have doubled the sockets, which is why there isn't one. |
+| FCM `sync_requested` | Free: FCM has no per-message charge. It is sent only for a change someone other than the owner made, and collapsed. |
+| The database | Per request that committed a change, after the request: one indexed query for the owners' Active trainers (`TrainerClients.ClientId`), and nothing else when there are none and the caller changed only their own data. Inside the save, before its statements and its stamps: at most one owner read per table (workouts, meals, plans, templates) for the roots the tracker doesn't hold, and one for the sessions it doesn't hold. Usually none (§47). A request that commits nothing, which covers every read, costs nothing but an empty log. Opening a connection costs nothing. Only the console asks to join, at one licence query per connect and reconnect. |
+| Not added | A Redis backplane (Memorystore is a fixed monthly cost). The focus and reconnect refetches cover what it would. |
+
+The rework as a whole still lowers the server's load. Parts one to three replaced
+nine full-list downloads on every sync with one delta.
+
+### What the tests pin
+
+In `FitTracker.Api.Tests/LiveUpdateTests.cs` (32), `ChatHubTests.cs` (7 more),
+`DeviceTokenTests.cs` (4 more), `ClaimsPrincipalExtensionsTests.cs` (2) and
+`SyncFeedTests.cs` (2 more). Each
+test in the first version was written first and run against a
+skeleton: the types and signatures in place, nothing recorded, nothing sent,
+nothing joined. The ones that describe an absence (no event for a client with no
+trainer, no group for a non-trainer) and the ones that pin a shape (the JSON, chat's FCM
+mapping, every tombstone type's area) passed there, as they should. Each of
+those, like every other, was then checked against a mutation that puts the
+failure back:
+
+| Test | Pins | Fails when… |
+|---|---|---|
+| *AClientsWriteReachesOnlyTheirActiveTrainer* | §46: Active only, and only trainer groups | the status filter is dropped |
+| *AClientWithNoActiveTrainerIsNobodysEvent* | §46 | an event is sent with no group to send it to |
+| *ATrainersWriteToAClientsDataAsksTheClientsDevicesToPull*, *ATrainersDeleteOfAClientsWorkoutReachesTheClient*, *ATrainersRequestTouchingTwoClientsIsOneEventAndOnePullEach* | §46: the owner's devices, when somebody else changed the data | nothing is pushed; the push goes to the actor |
+| *AUsersWriteToTheirOwnDataAsksForNoPull*, *ARequestWithNoSignedInUserAsksForNoPull* | §46: only somebody else's change | every change is pushed; a request with no caller counts as somebody else |
+| *EachKindOfDataIsReportedInItsArea*, *AChildsChangeIsReportedInItsRootsArea*, *EveryTombstoneTypeHasAnArea* | §45: the areas, settings in `nutrition`; §47: a root's own change, a child's through its root, a delete through its tombstone | a root is moved to another area, or settings lose theirs; a tombstone type has none; a changed root isn't recorded; a root reached through a child isn't, or its owner isn't found |
+| *EverySyncedRootHasAnArea* | §45: every `ISyncRoot` has a row in `DataAreas` | a root's row is missing |
+| *EveryOwnerIsKnownByTheTimeTheRequestEnds* | §47: owners found in the write; the notifier's one query | an owner is looked up after the request; a session the tracker doesn't hold isn't found |
+| *ASaveReadsTheOwnersOfItsWorkoutsInOneQuery*, *RemovingAFoodReadsItsMealsOwnerOnce* | §47: each table read for owners at most once per save | the tombstones and the record each read their own; a session's workout is read apart from the save's other workouts |
+| *AUserWithNoTrainerChangingTheirOwnDataCostsOneQueryAndNothingElse* | §48: the early return | the notifier asks anything more |
+| *SomebodyElsesChangeStillAsksForThePullWhenNoTrainerIsLeftToTell* | §48: the early return needs both halves | the return ignores who made the change |
+| *ManyChangesInOneRequestAreOneEventPerOwner* | §48: once per request, naming every area, in order | an event goes per change; the areas aren't ordered |
+| *ARolledBackTransactionNotifiesNobodyAndLeavesWhatCommittedBeforeIt* | §48 | a save counts once it returns, whatever its transaction then does |
+| *AFailedSaveIsNotReportedByTheSaveAfterIt*, *AFailedSaveInsideATransactionIsNotReportedWhenTheTransactionCommits* | §48: a failed save takes back what it recorded, and only that | nothing is taken back; where the save began isn't marked |
+| *AReplaceWithNothingIsStillReported*, *DeletingAPlanReportsTheSessionsItDetaches* | §47: `TouchWhereAsync` | it records nothing |
+| *RemovingAnExerciseReportsTheSessionsWhosePlaceholdersGo* | §47: `TouchAsync` | it records nothing |
+| *DeletingAWorkoutReportsThePlaceholderSessionsItRemoves* | §47: `Bury` | tombstones written by hand aren't recorded |
+| the five above, *AChildsChange…* and *ManyChanges…* | §48: a transaction's changes count at its commit | the commit is ignored |
+| *AFailedSendStillAsksForThePull*, *AFailedPushStopsNothingElse* | §48: each send on its own | a failed send or push isn't caught |
+| *WhatARequestCommittedIsQueuedWhenItEnds*, *ARequestThatFailsAfterCommittingStillQueuesWhatItCommitted*, *ARequestThatCommitsNothingQueuesNothing*, *TheActorIsReadFromAnOAuthTokensSubClaimToo* | §48: the middleware; §46: the actor | the queue isn't in a `finally`; an empty log is queued; the actor is read from `NameIdentifier` only |
+| *AContextBuiltByDependencyInjectionRecordsIntoTheRequestsLog* | §47: the request's context records into the request's log | the context ignores the log it is given |
+| *TheEventReachesTheConsoleAsCamelCaseJson* | §45: the wire format the console reads | the payload gains a field |
+| *A_trainer_who_asks_joins_their_trainer_group*, *A_non_trainer_who_asks_joins_no_group*, *A_trainer_without_a_licence_who_asks_joins_no_group* | §46: a licence makes a trainer | nothing is joined; the licence isn't checked |
+| *Connecting_joins_no_group_and_reads_nothing* | §46: only the console joins | a connection is joined, or anything is read, when it opens |
+| *A_join_whose_licence_read_fails_asks_to_be_retried*, *A_join_whose_group_add_fails_asks_to_be_retried* | §46: a failed join throws `HubException`, whose message carries no detail | the failure is logged and the call returns normally; the exception's detail is sent to the caller |
+| *A_caller_whose_id_cant_be_read_is_not_asked_to_retry* | §46: a normal return for what asking again can't change | the hub throws for a token it can't read |
+| *The_id_is_read_from_NameIdentifier_then_sub_and_must_be_a_guid* | §46: one reading of the caller | `sub` is read first; a bad `NameIdentifier` falls back to `sub` |
+| *Nothing_else_in_the_api_reads_a_callers_claims* | §46: that reading is the only one | any file but the extension calls `FindFirst` |
+| *ATokenCarryingOnlySubReadsTheFeed*, *ATokenWithoutAUserIdIsUnauthorized* | §46: the sync controllers read the caller like every other | the old `Guid.Parse(…NameIdentifier…)`, which throws on both |
+| *A_sync_request_is_data_only_collapsed_and_not_urgent*, *Fcm_is_given_the_collapse_key_for_both_platforms*, *A_chat_push_to_fcm_is_unchanged* | §46: the push, and chat's untouched | it is sent at high priority, or not collapsed; Android isn't given the key; chat gains an APNs block, or loses high priority |
+
+*A_sync_request_prunes_dead_tokens_like_a_chat_push* shares chat's pruning,
+and fails with it.
+
+The tests added in review were run against the code the review was of. Four
+failed there, as they should: `EachKindOfDataIsReportedInItsArea` and
+`EverySyncedRootHasAnArea` (settings had no area),
+`EveryOwnerIsKnownByTheTimeTheRequestEnds` (five queries, not one), and
+`Connecting_joins_no_group_and_reads_nothing` (the connection joined). Two pass
+there by design. The old notifier also made one query for a trainee with no
+trainer, because a weight and a setting name their owner, and it had no early
+return to take wrongly. Those two pin the early return against its mutations
+instead: a query added before it, and a return that ignores the actor. Every
+test in the table was checked against a mutation that puts its failure back.
+
+Two mutations survived the first run, and both taught something.
+
+The first took out the line that makes a failed save take back what it had
+recorded. The test for a failed save still passed. It checked that the failed
+save sent nothing, and nothing had committed after it, so its leftover record
+never had a chance to be counted by anything. The failure the line prevents is
+the *next* save committing it. The test now does exactly that: it fails a save,
+then logs a weight in the same request, and expects only the weight. A second
+test does it inside a transaction, with a record made *before* the failure too,
+so that taking back too much fails as well. The general form is the one §31
+learned about the cursor: a test of "nothing happens" can pass because nothing
+could have happened. It has to give the bug its way out and check it wasn't
+taken.
+
+The second took out a guard in the interceptor. It took back the save's records
+if the interceptor itself threw before EF ran the save's statements, which EF
+doesn't report as a failed save. No test could make it throw there. And on
+another look, nothing had been recorded by then either: the records were written
+after the stamps. The guard is gone, the records are written last on purpose,
+and the comment at that line says why.
+
+### The rules part four leaves behind (server)
+
+- **A write to synced data says whose it changed.** Through the change tracker
+  that is automatic. A bulk statement stamps through `TouchAsync`, which records
+  the roots it stamps, or `TouchWhereAsync`, which takes the owner and records
+  them. A row it deletes gets a tombstone through `Bury`, which the next save
+  records. A new bulk path gets a test that ends the request and checks the
+  areas, because nothing else will notice it doesn't.
+- **A new synced root is one row in `DataAreas`' table**: its type, the tombstone
+  type its deletes are buried under, and its area. Tests check that every
+  `ISyncRoot` and every tombstone type has a row. A new child goes in
+  `CollectRoots`, and its root's owner is found there, as the save is written.
+- **A change is recorded with its owner.** Find it where the write happens: from
+  the row, from the tracker, or from the caller, who has already checked it.
+  Never look it up after the request. A change whose owner can't be found is
+  left out on its own, and never costs anyone else their event. A save reads
+  each table for owners at most once: a new route to a workout's or a meal's
+  owner adds its ids to `ReadOwnersAsync`, never a read of its own.
+- **Nothing is sent before the commit, and nothing more than once a request.**
+  Don't send from a save, an interceptor or a transaction hook. Record, and let
+  the middleware hand on what committed. The middleware only sees HTTP requests:
+  a hub method or a background job has its own scope and its own log, and one
+  that ever writes synced data must hand that log to `ILiveUpdateDispatcher`
+  itself. None does today; chat writes nothing synced.
+- **The event carries no data.** A pane that needs something new gets it from an
+  endpoint that checks the relationship itself.
+- **Who hears of a change is decided when it is sent**, against Active
+  relationships. A group is an address, never a permission, and membership is
+  never computed from relationships at connect. `trainer:{trainerId}` is the one
+  group joined on a role, a licence, and CLAUDE.md records it as the exception.
+- **Only the console joins.** Nothing is joined, and nothing is read, when a
+  connection opens. The console calls `JoinTrainerGroup()` after each connect
+  and reconnect. A normal return means there is nothing more to do. A join
+  that failed throws a `HubException` carrying no detail, and the console asks
+  again. A hub method never logs a failure and returns as though it worked,
+  because the caller reads the return as the answer.
+- **The common case costs one query.** The notifier asks for the owners' Active
+  trainers first, and returns when there are none and the caller changed only
+  their own data. Nothing may be added in front of that return.
+- **A caller's id is read one way**: `ClaimsPrincipal.TryGetUserId`, and a
+  controller that can't read it answers 401. A new controller, filter, hub or
+  middleware doesn't write its own, and a test fails if it does.
+- **The push is for somebody else's change.** It carries only its type, is
+  collapsed, and is never sent at high priority, since it never shows a
+  notification.
+- **A failure to notify is logged and goes no further.** Nothing in the request
+  waits on a notification.
+- **An event is a hint, and may be lost.** Anything the console relies on must
+  also arrive by the refetch on focus or reconnect. With no backplane, a lost
+  event is normal operation, not a fault.
+
+The device's half follows in §50.
+
+---
+
+# Part four, continued: the device and the console
+
+Part three made the pull cheap enough to run whenever the app comes to the
+front. It did not make anyone *know* when to run it. A trainer watching a
+client's session in the console saw it only when they next navigated; a
+trainee whose trainer had just rewritten tomorrow's workout saw it only when
+they next resumed the app. Part four has the server say "something changed",
+and each side fetch it straight away.
+
+The server's half (§45–§49) decides when to say it and to whom. This half is
+what the two clients do when they hear it:
+
+| | Hears | Does |
+|---|---|---|
+| **Trainer Console** | `ClientDataChanged {clientId, areas}` on the `ChatHub` socket it already holds | refetches the panes showing that client's changed areas, about a second after a burst ends; the roster and the Dashboard's figures about three seconds after any client's event; everything shown when the tab regains focus or the socket comes back |
+| **Trainee app** | a data-only, collapsed FCM message `{type: "sync_requested"}` | in the foreground, pulls now, skipping the two-minute interval but not the lease; in the background, nothing |
+
+Neither message carries data, and neither side trusts that it will hear every
+one. Those two decisions shape everything below.
+
+---
+
+## 50. An event that says only "go and look"
+
+`ClientDataChanged` names a client and the parts of their data that changed —
+`workouts`, `sessions`, `nutrition`, `weight` — and nothing else. The console
+turns it into `ClientDataChange` (`domain/models/client_data_change.dart`) and
+then reads what it shows again, through the endpoints it already reads it
+from. It would have been easy to put the changed rows in the event and save the
+round trip. Three things make that the wrong trade.
+
+**The endpoints are where the access checks are.** Every Trainer Console
+endpoint re-checks the caller against an Active relationship (CLAUDE.md, "Web
+support": the console's gate is a UX guard, not a security boundary). An event
+that carried data would be a second way for a client's data to reach a
+trainer, decided at the moment the server sent it rather than the moment the
+trainer reads it. A relationship ended between the save and the event would
+still deliver the save. A refetch asks again, and is refused.
+
+**The endpoints are where the shape is.** Session Review folds duplicate rows,
+the nutrition summary folds meals per day and category, and the builder reads
+retired exercises differently from live ones — each of those rules lives in
+one read path on the server (`docs/trainer-console-duplicate-rows.md`,
+`docs/trainer-session-review.md`). A payload built from whatever the save
+happened to change would be a second read path, and the two would drift the
+way every second read path in this repo has. An event with no data can't
+drift from anything.
+
+**It can be missed anyway (§55).** A client that must refetch whenever it
+might have missed an event needs the refetch path to be complete on its own.
+Once it is, data in the event only duplicates it.
+
+What the event costs is one request per pane per burst, against endpoints
+`docs/trainer-console-loading.md` §5 already bounded.
+
+The parse is lenient in one direction only. An area this build doesn't know is
+dropped and the others kept, so a server that adds an area doesn't silence an
+older console; an event with no client id is dropped whole, since there is
+nothing to attribute it to. The hub client (`SignalRHubChatClient`) hands the
+event up as JSON rather than parsing it: it is chat's transport, the console
+depends on chat and not the other way round, and the meaning of the event is
+the console's.
+
+### Only the console's socket asks to hear it
+
+The first version had the server put every licensed trainer's connection in
+their group as it opened. A trainer is also a ForgeForm user, and their own
+trainee app holds the same kind of socket for coach chat, so it joined too and
+received every one of their clients' events only to ignore them. The server
+now joins nothing when a connection opens (§46). A connection hears
+`ClientDataChanged` only after it calls `JoinTrainerGroup()`, and only the
+console's does: `TrainerConsoleHome` builds its `SignalRHubChatClient` with
+`joinTrainerGroup: true`, and the trainee app builds its own without.
+
+What makes this easy to get wrong is that a SignalR group belongs to a
+*connection id*, not to a user and not to the `HubConnection` object. Every
+connect gets a new id, and a new id is in no group:
+
+| Connect | Same `HubConnection`? | New connection id? | Joins again |
+|---|---|---|---|
+| the first `start()` | — | yes | yes |
+| SignalR's own automatic reconnect (`onreconnected`) | yes | yes | yes |
+| a fresh start after the connection closed for good (§55) | no | yes | yes |
+
+A join made once, after the first `start()`, passes every test that never
+drops the connection. In production it would stop live updates at the first
+Wi-Fi blip, with chat still working and nothing on screen to say anything was
+missing. So `SignalRHubChatClient` joins after each of the three.
+
+### Every group, not only the new one
+
+The first version of this section applied that rule to the one group it
+added. Review found the rule was older than the group. Chat has joined a group
+per conversation (`JoinClientGroup`) since it was built: `ChatRepository`
+joins each one once, records it in `_watchedThreads`, and skips the join
+whenever it is asked again. Nothing ever joined those groups again after a
+reconnect. SignalR's own reconnect had been losing them since before part
+four — every client's `ReceiveMessage` went to a connection id that no longer
+existed — and the fresh start of §55 lost them the same way. Sends recovered,
+because a send carries its own answer. Receives never did, for the rest of the
+session, so a trainer could reply in a thread whose replies they no longer
+saw.
+
+The fix sits where the knowledge is. The transport is the layer that knows a
+reconnect is a new id, so `joinGroup` now remembers each conversation it is
+asked for (`_conversations`), and every connect joins all of them again,
+together with the trainer group. `ChatRepository` keeps its rule, join once,
+and the transport makes it true. The trainee app's coach chat joins its one
+thread through the same transport, and is fixed by the same change. Two
+details keep the set honest:
+
+- a conversation is remembered once the connection is up and before its call
+  is sent, so a reconnect during the call joins it on the new id as well;
+- it is forgotten if the call fails, so the caller's own retry, which already
+  existed, is what joins it, as before.
+
+### Chat doesn't wait for the joins
+
+The first version also joined *before* it said the connection was up, and
+`connect()` resolved only after the join. The console refetches when the
+socket comes back (§55), and reporting `connected` first would have let that
+refetch read while the connection was still outside the group. But putting the
+status after the join made every chat call pay for it. `send` and `joinGroup`
+wait on `connect()`, and `JoinTrainerGroup` is a round trip plus the server's
+licence query. Nothing about sending a message depends on the trainer's group.
+
+So the two needs are now met separately:
+
+- `connect()` resolves, and `connected` is reported, as soon as the handshake
+  succeeds. Chat goes ahead.
+- The groups are joined after that, and nothing on the chat path awaits them.
+- The one reader that does need the join — the console's refetch — waits for
+  the join itself. `SignalRHubChatClient.trainerGroupRejoined` fires once the
+  trainer group has been joined after a gap, and `ConsoleLiveUpdates`
+  refetches on it rather than on the status.
+
+That closes the window the old ordering was protecting, and more tightly. A
+change committed before the join is in the refetch, and one committed after it
+arrives as an event, so nothing can fall between the two.
+
+### A join that fails is tried again
+
+`JoinTrainerGroup` used to log a failure on the server and return normally,
+so the console couldn't tell "joined" from "not joined". The client logged its
+own failures and went on. Either way, one transient database error left the
+console out of its group until the socket next happened to reconnect: no live
+updates, with chat working and nothing to say so. The server now throws when
+it could not add the connection. It returns normally when it did, or when the
+caller holds no licence, since then there is nothing to add. A throw means try
+again, and a return means done.
+
+The client retries on the same backoff as a fresh start (`restartDelayFor`:
+five seconds, doubling, capped at a minute), until the join succeeds or the
+connection id it was for has gone. A conversation join that fails on a
+reconnect is retried the same way. Each connect starts its own round of joins.
+A reconnect beginning, a close and a `disconnect()` end the old round
+(`_stopJoins`), so a retry is never sent for an id that no longer exists; the
+new connection's own round joins it instead.
+
+A join that succeeded only on a retry is reported on `trainerGroupRejoined`,
+even on the first connection. It came late, and whatever was sent before it is
+read then.
+
+---
+
+## 51. One refetch per burst
+
+A push from a phone is several requests — the session, then its exercises, then
+each exercise's log — and each commits separately, so each is its own event.
+Without a debounce a finished set would refetch Session Review five times in a
+second, and the last of those five reads is the only one anyone sees.
+
+`ConsoleLiveUpdates` (`presentation/providers/console_live_updates.dart`)
+collects events per client and emits one `ClientRefresh` per client a second
+after the last event of a burst, and one `RosterRefresh` three seconds after
+the last event for any client. The quiet period restarts on every event: a
+window that opened on the first event and closed a second later would split a
+push that takes two seconds into two refetches.
+
+The two delays are different because the two refreshes are different. A pane
+shows one client, and a trainer watching it wants the set they just saw logged;
+a second is short enough to feel live and long enough to cover a push. The
+roster and the KPIs summarise every client, so every event in the console's
+whole roster moves them, and an event for any of twenty clients would otherwise
+refetch them twenty times; three seconds folds more of that together, and a
+roster figure a few seconds behind is not something anyone watches for.
+
+### A debounce needs a ceiling
+
+A timer that every event restarts waits for quiet. The first version of this
+section argued that only one long push — a phone's first sync after a
+reinstall — could keep it from ever getting any, and called that starvation
+intended. The argument missed what the timer is shared by. There is one pane
+timer and one roster timer for the whole console, not one per client, and an
+event for *any* client restarts them. A trainer with a dozen clients training
+at once sees events less than a second apart for the whole afternoon, since
+every set logged is several requests. The pane showing the one client the
+trainer is watching never refetched until the entire roster went quiet, and
+the roster, on its three-second timer, starved sooner. The events meant to
+keep the console fresh were what kept it stale.
+
+Each debounce (`_Debounce`) now has a ceiling as well as a quiet period. It
+fires a quiet period after the last event, or `maxWait` after the first event
+it hasn't fired for yet, whichever comes first: five seconds for panes
+(`paneMaxWait`) and fifteen for the roster and KPIs (`rosterMaxWait`). A burst
+still costs one refetch. A stream that never stops costs one every few
+seconds, which is what a trainer watching a busy afternoon should get.
+
+A timer per client was the rejected alternative. It fixes the pane, because
+another client's events no longer postpone this one's. It doesn't fix the
+roster, which summarises every client and so has only one timer to give, and
+it leaves the same starvation for a single client whose own push runs long.
+The ceiling fixes all three with one rule.
+
+The shape of the mistake outlives this timer: *a trailing debounce waits for
+quiet, and quiet is a property of everything that restarts it, not of the one
+thing you care about.* Any debounce fed by more than one source needs a
+ceiling, or it is a promise to do nothing for as long as the sources are busy.
+
+Client ids are compared without case. Both sides are the server's GUIDs,
+which it writes in lower case today; a pane that stopped refreshing because one
+serializer changed its mind would fail silently, and the comparison costs
+nothing.
+
+---
+
+## 52. A refresh keeps what is shown
+
+A refresh is not a load, and treating it as one fails in three separate ways,
+all of which the existing loaders would have produced if they had simply been
+called again.
+
+**It flashes the skeleton.** Every `load` in the console set `isLoading`,
+cleared the data it was replacing, and let the screen draw its skeleton —
+right for switching to another client, whose data must not show under the new
+name. For the same client, a second after the trainer watched a set arrive, it
+blanks the pane they were reading.
+
+**A failure becomes an error — or worse, empty.** The loaders set `error` on a
+failure, and every client-scoped pane renders a full-page `ErrorStateView`
+while `ActiveClientProvider.error` is set. A roster refresh that failed once in
+the background would have replaced whatever pane the trainer had open with
+"could not load clients". `docs/app-chrome-and-insets.md` records the other way
+this goes wrong — a `finally` that restores the loading flag and drops the
+reason, so a failure reads as "nothing here". Neither is acceptable for a read
+nobody asked for.
+
+**An older answer lands on a newer one.** A refresh and a load, or two
+refreshes, can be in flight together; whichever answers last used to win,
+including the one asked first.
+
+So each loader grew one parameter rather than a second fetch path:
+`load(clientId, keepShown: true)` on `NutritionProvider` and
+`SessionReviewProvider`, `load(keepShown: true)` on `TrainerConsoleProvider`
+and `ClientDetailProvider`, `loadClients(keepShown: true)` on
+`ActiveClientProvider`, and `refresh`, which is `load(clientId, keepShown:
+true)`, on `WorkoutBuilderProvider` (§53). With it, the loader:
+
+- leaves the data, the selection and the loading flag alone while it reads;
+- on success, replaces the data and clears any error — a refresh is also how a
+  pane that failed earlier recovers;
+- on failure, keeps the data up and sets nothing a screen would turn into an
+  error or an empty state. It sets `refreshFailed`, which the pane shows as a
+  small notice ("Said, not hidden", below).
+
+It is only a refresh when there is something of that client's on screen to
+keep. For another client, or while a load is still in flight, it is an
+ordinary load — including clearing what's there. A refresh that arrives during
+a load therefore issues a second read and drops the first one's answer, which
+costs a request and is the only way to be sure: the first read may have
+reached the server before the change was committed. The Workout Builder has a
+load that clears nothing, and there "a load" and "clear what's there" had to
+be told apart (§53).
+
+### One helper for the order of reads
+
+The first version spelled those rules out in every provider, two different
+ways. Five providers carried the same `_request` counter, the same `keepShown
+&& !_isLoading` and the same "swallow the failure on a refresh" block. The
+Workout Builder carried a different scheme: an `_epoch` that its two loads and
+five writes bumped by hand, and a refresh that returned early whenever one of
+the builder's own busy flags was set. Review found the builder's scheme wrong
+in three ways.
+
+- **Two refreshes weren't ordered.** The builder's refresh read `_epoch` but
+  never bumped it, and its busy check didn't count a refresh in flight. Refresh
+  A and a later refresh B could read together, and if A's answer arrived last
+  it passed the epoch check and put the older plan, days and library back.
+  The open day being clean, it also replaced the day with the older copy and
+  rebuilt the editor. All it takes is three GETs slower than the one-second
+  debounce: a cold Cloud Run instance, a slow link, or a focus refetch landing
+  on top of an event.
+- **A refresh during a read was dropped.** The busy check included the
+  builder's own loads, on the reasoning that whatever the refresh overlapped
+  "shows data at least as new". That holds only for a read that started after
+  the change committed. Take a `loadDays` the server has answered, a change the
+  phone commits next, and its event arriving while the answer is still on its
+  way back: the refresh returned, the read applied the answer from before the
+  change, and nothing brought the change in until the next event or focus.
+- **The next write could forget.** A write that didn't bump `_epoch` let a
+  refresh started before it overwrite what it had just written, and no test
+  fails when a line is missing.
+
+`PaneReads` (`presentation/providers/pane_reads.dart`) now holds the rules
+once, and all six providers read through it:
+
+| Rule | Where it lives |
+|---|---|
+| Only the latest read asked for is applied | `start()` numbers every read; `settle()` refuses any but the latest |
+| A refresh keeps what is shown | `start(keepShown: true, shown: …)` is a refresh only for the client on screen, with no load in flight |
+| A refresh during a load supersedes it | the same check: with a load in flight it becomes a load itself, and the older read is no longer the latest |
+| A refresh can't undo a write | `write(body)`: a refresh that started before a write and answered after it, or started during one, is dropped and read again once no write is in flight (`onRefreshOwed`) |
+| A load a write overlapped knows it | `PaneRead.overlappedWrite` and `isWriting`, for a pane whose loads read what its writes change (the pins, below) |
+| A failed refresh is said | `settle(failed: true)` on a refresh sets `refreshFailed`; the next read that succeeds clears it, and so does any load, at once |
+
+A provider's read has this shape:
+
+```dart
+final read = _reads.start(keepShown: keepShown, shown: sameClient);
+if (read.isLoad) { /* clear what's shown */ notifyListeners(); }
+try {
+  final value = await fetch();
+  if (!read.settle()) return;          // overtaken: drop it
+  /* apply value, clear the error */
+} catch (_) {
+  if (!read.settle(failed: true)) return;
+  if (read.isLoad) /* set the error */;
+}
+notifyListeners();
+```
+
+The builder's saves, deletes and creates run through `_reads.write`, by way of
+the builder's own `_write` (§53), and the nutrition pins through
+`_reads.write` directly. There is no counter left to bump by hand, and a write
+that isn't wrapped shows in review as a write that isn't wrapped.
+
+Two decisions in it are not obvious.
+
+**A refresh a write overlapped is read again, not just dropped.** Dropping it
+is enough when the write succeeds, because a write that succeeds brings its
+own event, and so its own refresh. When the write fails there is no event.
+The change the refresh was asked for — say, the client renaming their other
+day while the trainer's save was failing — would wait for the next event or
+focus. So a dropped refresh is owed, and runs as the last write in flight
+settles.
+
+**A load is never overtaken by a write.** Loads are the trainer's own
+navigation, to another client or a first visit, and the pane shows a skeleton
+rather than a form while one runs. Nothing on screen could have been changed
+by a write that the load's answer would then put back.
+
+### Said, not hidden
+
+The first version's refresh kept the data and set nothing when it failed. That
+was right for the data and wrong for the trainer. With the API unreachable, the
+console went on showing figures that got older by the minute, and nothing said
+so. It was exactly the silent failure CLAUDE.md's "States every screen must
+handle" rules out. It arrived by the one path that has no error state, because
+that path mustn't have one.
+
+`refreshFailed`, on every console provider, is what a screen reads.
+`RefreshFailedNotice` (`presentation/widgets/refresh_failed_notice.dart`) is
+the one thing a screen shows for it: a small warn-toned pill reading
+"Couldn't refresh", with a Retry button, beside the data it kept.
+
+- Client Detail, Nutrition, Session Review and the Workout Builder show it
+  under their header.
+- The Dashboard shows it when the roster or the KPIs failed, and its Retry
+  reads again whichever did.
+
+Retry runs the pane's own refresh, so the data stays up while it reads, and
+the notice goes with the next read that succeeds. A load clears it at once. A
+day switch on Nutrition reads another day, and "Couldn't refresh" over that
+day's skeleton would be about a day that is no longer shown.
+
+It is deliberately small. Nothing the trainer did has gone wrong, and what is
+shown is still the last thing the server said; a banner across the pane would
+claim more than that. Its accessibility decisions are these:
+
+- **Colour is not the signal.** An icon and two words carry the meaning; the
+  amber wash only reinforces it.
+- **The words are not amber.** They and Retry are `onSurface`, because amber
+  text on its own tint over the light page measures 4.35:1, under the 4.5:1
+  that twelve-pixel text needs. The icon keeps the tone, at 4.35:1 against a
+  3:1 bar. `contrast_test.dart` names each pair, in both themes.
+- **The target fits the pointer.** Retry is 44×44 on a phone and 32×32 on a
+  desktop.
+- **A screen reader hears it arrive.** The notice is one live region labelled
+  "Couldn't refresh. What's shown may be out of date.", with Retry as a button
+  inside it.
+
+Where a pane is already showing its own full-page error, the notice stays
+away: that state has its own Retry, and two would compete.
+
+### Two providers needed more
+
+`NutritionProvider` also writes. Pinning a nutrient updates the summary
+optimistically, then saves the whole set. A read that overlapped a pin write,
+by starting before one or during one, can't tell whether its pins are from
+before the write or after. The first version kept "the pins on screen" and
+took everything else from the read.
+
+It read those pins off `_summary`, and a day or client switch sets `_summary`
+to null before it reads. So the read that most needed the guard found nothing
+to keep. The trainer pins a nutrient and presses "previous day" at once. The
+GET for that day is served before the PUT commits, so it carries the old pins,
+and the read takes them. The PUT then succeeds, but `togglePin` only rewrote
+the summary when a write failed, so nothing put the pin back. It looked lost
+although it had saved, until the next load.
+
+The pins the latest toggle sent now live in a field of their own,
+`_pinsSent`, beside the client they belong to. A load that overlapped a pin
+write lays pins over whatever it returns, on any day of that client's, since
+pins are per client and not per day, and whether or not a summary was on screen
+when the read started.
+
+`ClientDetailProvider` loads three sections independently. Its refresh keeps
+each: a section whose read fails keeps what it showed, and `refreshFailed` is
+set if any did. A refresh that reads all three clears the error a failed first
+load left behind.
+
+### What a failed pin write puts back
+
+The first fix restored, when a write failed, the set that had been on screen
+when that write was sent — its "before" — unless a later toggle had been sent
+since. Review found that "before" was not something the server had ever held.
+Start from no pins and toggle A, then B. The first write sends `[A]` and the
+second `[A, B]`, and the second's "before" is the first's optimistic `[A]`. If
+both fail, the server still holds `[]`, and in either order the screen was left
+showing A:
+
+- when the second failed first, it put back `[A]`, and the first's failure
+  then found a later toggle and left it;
+- when the first failed first, it left `[A, B]`, and the second then put back
+  `[A]`.
+
+What a failed write should put back is what the server is known to hold. So
+the provider keeps, per client, the last set the server confirmed
+(`_pinsConfirmed`): the last write that succeeded, or what a read that no write
+overlapped returned. And nothing is settled until the last write in flight has.
+Each write sends the whole set, so it is the latest toggle's outcome that
+matters, and only once no earlier write can still land. If the latest toggle's
+write failed, the confirmed set then goes back on screen with the error:
+
+| From no pins, A then B | Server holds | Screen, first fix | Screen now |
+|---|---|---|---|
+| both fail, B's first | `[]` | `[A]` | `[]` |
+| both fail, A's first | `[]` | `[A]` | `[]` |
+| A's fails, B's succeeds | `[A, B]` | `[A, B]`, with an error | `[A, B]` |
+| A's succeeds, B's fails | `[A]` | `[A]` | `[A]` |
+| B's fails, A's succeeds | `[A]` | `[A]` | `[A]` |
+
+An earlier write that fails while a later one is in flight no longer shows an
+error either. The later one sent the same pins again, and an error about a
+write that has been superseded is noise.
+
+### Pin writes go through `PaneReads` too
+
+The first fix tracked the overlap itself, with a `_pinEpoch` bumped at each
+write's start and end and a `_pinWrites` count. That is the hand-rolled
+request counter `PaneReads` was written to end, back again in the one other
+provider that writes. Pin writes now run through `PaneReads.write`, like the
+builder's. A refresh one overlapped is dropped and read again once no write is
+in flight, and its second answer carries the pins the server now holds.
+
+A day switch is a load, and a write doesn't overtake a load, so `PaneReads`
+grew two small readings for it rather than a second scheme:
+`PaneRead.overlappedWrite` says whether a write overlapped this read, and
+`isWriting` says whether one is still in flight. A load a pin write
+overlapped shows the latest toggle's set while writes are in flight, and the
+confirmed set once none is.
+
+Two general forms are worth keeping. *State a read must preserve has to live
+somewhere the read's own preparation doesn't clear.* And *what a failure
+restores has to be something the server was known to hold*, not whatever was
+on screen when the request left.
+
+---
+
+## 53. The Workout Builder: an open day is the trainer's
+
+The builder is an editor, and the day it has open is a draft the trainer may
+be halfway through. Reading the plan again underneath it has the same problem
+the pull has with a dirty row (§37), and gets the same answer:
+
+- a **clean** open day takes the server's copy — the trainee reordered their
+  exercises, and the trainer should see it before they start editing;
+- a day with **unsaved edits** is left exactly as it is, while the rest of the
+  pane — the plan card, the list of days — updates around it. The trainer's
+  save is what reaches the server next, as it always was;
+- a new day that was never saved counts as unsaved.
+
+`WorkoutBuilderProvider.refresh` is `load(clientId, keepShown: true)`, so it
+takes its place in the order of reads like every other pane (§52). A refresh
+then goes on to its own path, `_refreshInPlace`, rather than through `load`'s
+body, because `load` resets the day state and lands on the first day, which is
+exactly what a refresh must not do. It reads what `load` and `loadDays` read:
+the client's current plan, workouts and exercise library. The trainer's own
+templates, which no change of the client's can move, are read only by a
+refresh that follows a failed first load (below).
+
+Two details made it work in the screen and not only in the provider.
+
+**The editor's fields are built once.** `_DayEditorForm` makes its text
+controllers from the draft in `initState` and is keyed by the selected day's
+id, so a new draft for the *same* day left the old name in the name field —
+and the next keystroke wrote the old name back into the new draft. A refresh
+that replaces the draft bumps `draftRevision`, and the editor is keyed on that
+too. It is bumped only when the server's copy differs from what the trainer
+last saved, so the echo of the trainer's own save — the server sends the event
+for that too — doesn't rebuild the form and take their cursor away.
+
+**The builder writes as well as reads.** A refresh that started before a save
+could answer after it with the day as it was before the save. The draft being
+clean again after saving, the refresh would then replace it. Every save,
+delete and create runs through `PaneReads.write` (§52), by way of the
+builder's `_write` (below), so a refresh that overlapped one is dropped and
+read again once the write settles. The first version got part of the same
+effect another way. It didn't start a refresh while anything was in flight,
+and bumped an `_epoch` in every write. That dropped refreshes it should have
+run, and ordered none of them against each other.
+
+### When the plan itself changed
+
+A refresh reads the client's current plan as well as their days, and the plan
+can change under the builder in four ways. The first version handled one, a
+plan deleted elsewhere. The other three left the builder in states `load`
+never produces:
+
+| What happened elsewhere | The first version | Now |
+|---|---|---|
+| The plan was deleted | the create flow, unless a draft had unsaved edits | unchanged |
+| A client with no plan got one, made on their phone | set the plan but left `isNew` true: the create flow, over a plan that now existed | ends the create flow and opens the plan's first day, as `load` would (`isNew = currentPlan == null`) |
+| The first load had failed, and a refresh succeeded | never cleared `error` or fetched the templates, so the error state never recovered, by refresh or by focus | clears the error, and reads the templates the failed load never fetched (`_planLoaded`) |
+| Another plan was assigned | checked the open day against every workout the client has, so the editor kept a day the list beside it didn't show | measures the open day against the new plan's days (`planWorkouts`), and lands on the new plan's first day when it isn't there |
+
+Days that failed to load recover the same way, landing where `loadDays` would
+have.
+
+In every case the exception is the rule the whole refresh keeps. An open day
+with unsaved edits stays open as the trainer's draft, while the plan card and
+the list of days move on around it. So does a create flow the trainer opened
+over an existing plan; it is theirs, the way a draft is. The create flow that
+`load` puts a client with no plan in is the builder's own, and it ends when a
+plan appears.
+
+Nothing caught these because each is a transition between two states that the
+tests only ever reached through `load`. A refresh that sets fields one at a
+time can reach combinations `load` never sets together — `isNew` beside a
+current plan, an error beside a plan that loaded — and every one of them
+type-checks. The tests for them now start from each state `load` leaves, and
+refresh into the next.
+
+### A read that takes over another finishes its job
+
+`load(keepShown: true)` becomes a load when a read is in flight, and
+supersedes it (§52). The first version then ran `load`'s body, which clears
+the plan and the open day and shows the skeleton over the whole builder. That
+is harmless when the read it supersedes is itself a `load`, which had cleared
+the same things already. But the builder has a second kind of load,
+`loadDays`, which clears nothing: it raises the day list's loading state, and
+keeps the plan and whatever day is open.
+
+Review found the path that reached it. A trainer has a day open with unsaved
+edits and presses New plan; `startNewPlan` keeps the draft, as it should. They
+create the plan, and `createPlan` calls `loadDays` for the new plan's days.
+Creating the plan sends an event, and its refresh, a second later, arrives
+while `loadDays` is still reading the exercise library. It supersedes that
+read, runs `load`'s body, and the edits are gone without a confirmation — the
+one thing this section's rule exists to prevent.
+
+A refresh that overtakes a `loadDays` of the client on screen now reads in
+place, like any other refresh, and finishes the job of the read it replaced:
+
+- it clears the day list's loading state;
+- when no day is open, it lands on the first day, where `loadDays` would have;
+- when it fails, it sets the error `loadDays` would have set, rather than
+  leaving that read's skeleton up for good.
+
+It still supersedes the read, since the answer in flight may predate the
+change, so §52's rule holds. What changes is only what superseding costs:
+nothing beyond what the replaced read had already done. A refresh that
+overtakes a `load` of the same client still runs the load's body, which clears
+nothing that load hadn't.
+
+The lesson is in the word "becomes". *A read that takes over another takes
+over its job, not a bigger one.* `PaneReads` decides whose answer is applied. What applying it may clear is the pane's to decide, and
+that depends on which read was running, not on what the new one is called.
+
+### A write belongs to the client it was made for
+
+Every builder write already ran through `PaneReads.write`, so a refresh it
+overlapped was read again. None of them checked *whose* builder it was
+writing into when the answer came. The console switches client without
+navigating anywhere, and the builder is one provider across clients, so a
+write's answer landed on whichever client was loaded by then:
+
+| For client A, then switched to B | What A's answer did to B's builder |
+|---|---|
+| deleted the plan | cleared B's plan and opened the create flow; a plan created there was B's second |
+| saved a day | put A's day in B's list, and opened it in B's editor |
+| created an exercise | added it to B's library |
+| created a plan | made it B's plan, and read A's days as a load over B |
+| any of them, and it failed | showed A's error on B's screen |
+
+The fix is in one place. All five writes go through `_write`, which takes the
+client id the write was made for, runs the request through `PaneReads.write`
+as before, and applies the answer, or the error, only if the builder still
+shows that client. Otherwise the write returns its "nothing happened here"
+value (`false`, or no exercise), which also keeps the screen from confirming
+it. Its busy flag is reset either way. The pull request had listed the day
+save as found and not fixed; it was the same mistake as the other four, and
+the same check closes it.
+
+A check in each method would have covered these five and not the sixth. The
+helper puts the capture and the comparison where a write added later can't
+leave them out. It compares client ids, rather than asking whether any load
+has started since, because a load of the same client — `loadDays` after
+`createPlan` — must not drop a save that belongs to it. For the same reason, a
+write that answers after the trainer went to B and came back to A is applied:
+it is A's, and the builder shows A again.
+
+---
+
+## 54. A pane nobody can see waits
+
+The console keeps every section it has shown mounted (`LazyIndexedStack`), so
+a trainer who has opened all five has five panes listening. An event for the
+client they are looking at would refetch every one, most of them behind the
+one on screen — the thing `docs/trainer-console-loading.md` §7 took apart,
+and the rule its §12 draws from it: *a screen nobody can see should not be
+fetching*.
+
+`LiveRefreshPane` is the one place that rule is kept. A pane's `State` mixes it
+in and says three things: whose data it shows (`liveClientId`), which refreshes
+concern it (`concernsLive`), and how to read again (`refreshLive`). The mixin
+subscribes, and asks `Visibility.of(context)` whether the pane is shown —
+`IndexedStack` reports its hidden children as not visible, and the dependency
+calls `didChangeDependencies` again when that changes. A refresh for a hidden
+pane is remembered, and run when the pane is next shown, unless the pane has
+switched to another client in the meantime (and so read that client since).
+
+| Pane | Refreshes on |
+|---|---|
+| Dashboard (KPIs) | any `RosterRefresh` |
+| Nutrition | its client's `nutrition` |
+| Session Review | its client's `sessions` or `workouts` — a session shows under its workout's name, against its prescription |
+| Workout Builder | its client's `workouts` |
+| Client Detail | any of its client's areas |
+| the roster (`ActiveClientProvider`) | any `RosterRefresh`, from the shell — every pane shows it in the client switcher, so it is never hidden |
+
+Client Detail is pushed as a route, and a route isn't under the console's
+providers; `_openClientDetail` hands the `ConsoleLiveUpdates` across in a
+`Provider` of its own. A pane mounted with none — alone, in a test — never
+refreshes, and says so rather than failing.
+
+A pane refreshes for the client *it* shows, not for "the active client". The
+two are the same for the four sections, which follow the switcher; Client
+Detail shows the client whose row was tapped, and refreshes for them.
+
+---
+
+## 55. Focus and reconnect: a missed event costs freshness, never correctness
+
+The server sends `ClientDataChanged` to a SignalR group, and a group reaches
+only the connections on the instance that sends to it. Cloud Run runs more than
+one instance when it needs to, and there is no backplane (Redis would be a
+fixed monthly cost; chat already lives with the same limit). A trainer whose
+socket landed on instance A never hears about a save handled by instance B.
+Events are also lost while the socket is down, and a browser tab in the
+background can have its socket closed under it.
+
+So the event is an accelerator, never the mechanism. The console reads again
+without one at the two moments a missed one is most likely to matter:
+
+- **when the tab or window regains focus.** `TrainerConsoleHome` listens with
+  an `AppLifecycleListener`; on web, Flutter reports a window losing focus as
+  `inactive` and regaining it as `resumed`, so `onResume` covers a browser tab
+  the trainer comes back to as well as the desktop and mobile apps.
+- **when the socket is back in the trainer's group.**
+  `SignalRHubChatClient.trainerGroupRejoined` fires once the trainer group has
+  been joined after a gap: SignalR's own reconnect, a fresh start after it gave
+  up and closed (below), or a join that failed and then succeeded on a retry
+  (§50). It doesn't fire for the first connection's first join, which lands
+  while the panes make their first reads anyway. It is the join, not the status
+  coming back, because a read made before the join could miss a change
+  committed in between, and no event would bring that change.
+
+Either refetches everything shown: every pane's areas, whatever client it
+shows, and the roster. That is the trade the design makes on purpose: without
+a backplane an event can be missed, and when one is, the console is stale
+until the trainer next looks away and back — never wrong, and never stuck.
+
+### One cooldown for both
+
+The two triggers share one cooldown, `fallbackCooldown`, of 30 seconds. At
+most one refetch of everything runs per cooldown, from either trigger. If
+either is asked for again inside it, one more runs when it ends, because the
+last focus or drop inside the cooldown is exactly the one no refetch has
+covered yet.
+
+The first version throttled only the reconnect. It sent focus through the pane
+debounce, which folds a flurry of focus changes into one refetch but does
+nothing about focus changes a minute apart. On web and desktop, focus is every
+alt-tab and every click back into the window. A trainer moving between the
+console and their inbox many times an hour paid for every visible pane, then
+the roster and KPI aggregates, each time. That is the load
+`docs/trainer-console-loading.md` works to keep down. A cooldown costs one
+thing: a change missed by the event and made within 30 seconds of the last
+refetch is seen when the cooldown ends, not at the moment of focus.
+
+### A socket that gave up stayed down
+
+SignalR's automatic reconnect tries at 0, 2, 10 and 30 seconds, and then
+closes the connection. The first version's `onclose` only reported
+`disconnected`, and left the dead connection in `_connection`. `connect()`
+returns early when `_connection` is set, so once the retries ran out nothing
+ever opened a new socket. A laptop waking from sleep, on Wi-Fi that took more
+than about 42 seconds to come back, lost every `ClientDataChanged` and every
+chat send for the rest of the session, with nothing to tell the trainer. The
+comment on `reconnectsOf` (since replaced, §50) described "a fresh start after
+a close", and no code path made one; the only thing still refreshing the
+console was focus.
+
+`SignalRHubChatClient._onClosed` now lets go of the connection, reports
+`disconnected`, and schedules a fresh start (`_scheduleRestart`):
+
+- **when:** after 5 seconds, then doubling up to a minute (`restartDelayFor`).
+  That picks up where SignalR's own attempts leave off, and keeps a console
+  left open through a long outage at one handshake a minute;
+- **after a failure:** a start that fails schedules the next;
+- **sooner:** a `connect()` while one is waiting starts it at once, because
+  someone needs the connection now;
+- **never behind the caller's back:** `disconnect()` and `dispose()` stop the
+  retries, so a connection closed on purpose stays closed.
+
+A fresh start that succeeds is reported as a reconnect. The status goes
+`disconnected` → `connected`, and `onReconnected` fires, which chat replays its
+outbox on. Its groups are then joined again (§50), and once the trainer group
+is, the console refetches. From outside it is indistinguishable from SignalR's
+own reconnect, which is the point.
+
+The first version of this section went on to say that everything that already
+knew how to recover from SignalR's reconnect now recovered from a fresh start
+too. That was not true of incoming chat. Neither path had ever joined the
+conversation groups again, so neither recovered them, and the fresh start only
+added a second way to lose them (§50 has the fix). "Behaves exactly like X" is
+a claim about X as well, and X is worth checking before it is copied.
+
+The lesson is about what a nullable field means. `_connection != null` stood
+for "connected" to every method that read it, and nothing wrote "closed" back
+into it. A field that caches a live resource has to be cleared by the event
+that ends the resource, or it goes on meaning something that stopped being
+true.
+
+---
+
+## 56. The phone's half: `sync_requested`
+
+When someone other than a row's owner changes it — a trainer editing a
+client's workout — the server sends the client's devices a data-only FCM
+message, `{type: "sync_requested"}`, with a collapse key, so a burst of edits
+reaches a phone as one message.
+
+**In the foreground it pulls, now.** `handleForegroundPush`
+(`lib/core/services/push_messages.dart`) routes it to
+`PushService.requestSync`, and `HomeScreen` — which owns the pull — hears it on
+`onSyncRequested` and runs `ForegroundPull.run(requested: true)`
+(`lib/core/sync/foreground_pull.dart`). It's a stream rather than a call
+because `HomeScreen` may not be mounted; a request nobody hears is dropped, and
+the next launch or resume pulls anyway.
+
+**It skips the interval.** A launch or resume pulls at most every two minutes
+(§42). That interval exists to stop pulls nobody asked for — a resume after a
+permission dialog, a glance at the notification shade. A `sync_requested` is
+the server saying there is something to fetch, which is the one case the
+interval was never meant for.
+
+**It does not skip the lease.** It goes through `pullAll`, which takes the
+lease (§8) and joins a pull already running in this isolate. Everything the
+lease protects — a push and a pull interleaving, the background task running
+alongside — is as true for a pull the server asked for as for any other.
+
+**But it doesn't join a pull already running.** It first waits for this
+isolate's runs to finish (`SyncService.whenIdle`), then pulls. A pull already
+in flight may have asked the server before the announced change was committed;
+joining it would answer the request with the older answer, and the change
+would wait for the next resume, which could be hours. Waiting costs the rest
+of that run. It is still never two pulls at once: the second starts after the
+first ends, and a pull that starts in between is one that asked after the
+message, which it then joins.
+
+**In the background it does nothing** — no notification, and no pull. Both
+paths go through the same decision by type, `PushMessageType.of`, and
+`handleBackgroundPush` passes on only chat. A pull in the FCM background
+isolate would have to build everything the WorkManager task builds — locator,
+database connection, API client — inside a handler the OS gives a short
+window it doesn't promise to keep; one killed halfway leaves the lease held
+until it expires, and the app's own sync then waits behind it on the next
+launch. And nothing would be gained: the app pulls when it next comes to the
+front, and the daily background task pulls too. The message exists to save a
+wait while someone is looking.
+
+**Chat is unchanged.** Chat push was already data-only, and the device writes
+the notification (`docs/push-notifications.md`, `docs/chat-encryption.md`).
+That made "does a new type show a notification?" a question the device
+answers, and before this part it answered it with a `type != 'chat_message'`
+check repeated in two places in `main.dart`. The check is now one function per
+path, beside the enum, where a test can hold it; `main.dart` only supplies what
+"show a chat notification" means in each isolate.
+
+---
+
+## 57. Why nothing caught it
+
+Most of this part adds behaviour rather than fixing a bug, but each rule above
+is one the code would have broken silently if written the obvious way.
+
+- **The compiler couldn't tell a refresh from a load.** Both are
+  `Future<void> load(String clientId)`. A refresh written as a second call to
+  the existing loader type-checks, runs, and flashes the skeleton, clears the
+  data on failure, and lets an older answer win — three regressions no type
+  describes.
+- **The fakes answer at once.** `FakeTrainerConsoleRepository` returns
+  synchronously unless a test holds it, so "the refresh is in flight" is a
+  state no existing test ever drew. The tests for §52 hold the fake open with a
+  gate, and flip it to failing after the first load, to draw the states a real
+  network produces.
+- **A missed event looks like nothing.** No test can observe an event that
+  was never sent. The fallback is pinned by its triggers — focus, reconnect —
+  not by an event going missing.
+- **A notification is decided by type, and types are strings.** A new push
+  type fell through the existing checks only because both happened to test for
+  `chat_message` exactly. A check written as `type != 'sync_requested'` in one
+  place would have drawn an empty notification for every future type.
+- **"Joins a pull in flight" reads as a safety property.** It is, for
+  concurrency. It is also a way to answer a request with an answer from before
+  it, and no test about duplicates would notice.
+
+Review of the first version found six more, and none of them could have
+failed a build or a test that existed:
+
+- **A group belongs to a connection id (§50).** Nothing in the type of
+  `HubConnection` says its groups don't survive a reconnect. A join after the
+  first connect passes every test that never drops the connection.
+- **A closed connection looked open (§55).** `_connection != null` meant
+  "connected" to `connect()`, and nothing wrote "closed" back into it. The one
+  state that needed a test, SignalR's retries running out, takes 42 seconds of
+  real time and a hub that can be told to give up.
+- **Every test's burst ended (§51).** The debounce was tested with one client
+  at a time, so the quiet it waits for always came. A stream that never goes
+  quiet is the normal state of a busy console, and only a test with events
+  from another client arriving throughout draws it.
+- **Two versioning schemes, and a missing line (§52).** Neither `_request` nor
+  `_epoch` fails to compile when it is forgotten, and the builder's never
+  ordered its own refreshes against each other. Overlapping refreshes go wrong
+  only when the older answer arrives last, and the fakes answered in the order
+  they were asked. The ordering tests hold each read and release them in the
+  wrong order (`_HeldRepository`).
+- **State read off the screen is gone when the screen is cleared (§52).** The
+  pin guard worked for every read that found a summary on screen, and every
+  pin test had one there. The day switch that empties it first was the case
+  that needed the guard.
+- **A flag with no reader (§52).** A refresh that set nothing on failure was
+  invisible by construction; there was nothing for a test, or a trainer, to
+  see. The fix gave the failure a flag first, and then a screen to show it.
+
+The second review found six more, and again none of them could have failed a
+build or a test that existed:
+
+- **A rule applied only to the group it was written for (§50).** The
+  connection-id rule was written for the trainer group, and its tests checked
+  the trainer group. Chat's own groups had been lost on every SignalR
+  reconnect since chat was built. `ChatRepository`'s tests run over a fake
+  transport that has no connection ids to lose, so only a test that joins a
+  conversation over the real transport and then reconnects draws it.
+- **An ordering that protected one reader taxed every other (§50).** Joining
+  before reporting `connected` was right for the console's refetch, and
+  invisible to tests whose fake hub answers at once. What it cost was a round
+  trip on every chat call, and no test measures latency.
+- **"Supersede" meant two things (§53).** `PaneReads` supersedes a read the
+  same way whichever read it is. The builder's two loads clear different
+  things, and the tests of a refresh during a read only ever held a `load`,
+  never a `loadDays` with an edited day open.
+- **A write's answer had no owner (§53).** The fakes answer at once, so no test
+  switched client while a write was in flight, and every write type-checks
+  against whichever client it lands on.
+- **"Before" looked like server state (§52).** One failing toggle restores the
+  right set, and the tests had one failing toggle. Two in flight that both
+  fail is the case where the set on screen at send time is one the server
+  never held.
+- **A copy doesn't fail (§52).** Two copies of the tint formula agree until
+  one of them is edited. The notice's test now compares what the notice paints
+  with what a warn badge paints, rather than checking either against numbers.
+
+---
+
+## 58. What the tests pin (device and console)
+
+In `test/trainer_console/live_updates_test.dart` (24 tests),
+`test/trainer_console/pane_reads_test.dart` (19),
+`test/trainer_console/refresh_ordering_test.dart` (27),
+`test/trainer_console/refresh_failed_notice_test.dart` (7),
+`test/chat/signalr_hub_chat_client_test.dart` (20), two in
+`test/core/contrast_test.dart`, `test/push/push_messages_test.dart` (6) and
+`test/sync/foreground_pull_test.dart` (3). Each was run with the rule it pins
+taken out, and failed there; the few that held before a fix too say so.
+
+The events, the debounce and the fallback:
+
+| Test | Pins | Taken out, it failed with |
+|---|---|---|
+| *an event for the active client refetches its pane once for a burst* | §51 | the pane debounce removed; the pane ignoring refreshes |
+| *… in a steady stream still refetches, within a ceiling* | §51: the ceiling | the ceiling timer removed |
+| *… for another client refreshes only the roster* | §50, §54: a pane refreshes for its own client | the client id not compared |
+| *… for an area the pane does not show leaves it alone* | §54's table | the pane's area filter widened to every area |
+| *… for a section nobody is looking at waits until it is shown* | §54 | the visibility check removed |
+| *… refetches a client detail opened from the roster* | §54: the route is handed the source | the route's `Provider` removed |
+| *a refresh keeps what is shown on screen while it reads* | §52 | `keepShown` ignored |
+| *… that fails keeps what is shown instead of an error* | §52, for a pane and for the roster | the pane's failure setting its error; the roster's |
+| *the fallback refetches when the window comes back into focus* | §55 | the lifecycle listener removed |
+| *… refetches on focus at most once a cooldown* / *… shares one cooldown between focus and a rejoin* | §55 | focus sent straight to the debounce, outside the cooldown |
+| *… when the socket is back in its group, at most once a cooldown* | §55 | the cooldown removed; the trailing refetch removed |
+| *the rejoin refetches only once the socket is back in the trainer group* | §50, §55: the refetch waits for the join | the rejoin announced on the status coming back |
+| *the rejoin refetches after a join that failed once is tried again and succeeds* | §50: the retry | the retry removed |
+| *the event drops an area this build does not know, and keeps the rest* / *… with no client … is ignored* | §50 | an unknown area throwing |
+
+The connection (`signalr_hub_chat_client_test.dart`, against a fake
+`HubConnection` that can be told to reconnect or give up, and to hold or fail
+a hub call):
+
+| Test | Pins | Taken out, it failed with |
+|---|---|---|
+| *the trainer group is joined once the connection is up* / *… on the fresh connection after a close* / *… again after SignalR reconnects* | §50 | the join removed; the join on reconnect removed |
+| *… is never joined by a connection that is not the console's* | §50: only the console opts in | `joinTrainerGroup` ignored |
+| *… is announced as rejoined after a gap, not on the first connect* | §55 | every join announced |
+| *… is announced as rejoined only once the join has succeeded* | §50 | the rejoin announced when the connection came back |
+| *chat does not wait for the trainer group to be joined* / *… says it is back after a reconnect without waiting for the join* | §50: chat waits for nothing | the joins awaited before `connected`, as the first version did |
+| *a conversation group is joined again after SignalR reconnects* / *… on the fresh connection after a close* | §50: every group | the conversations left out of the joins after a connect |
+| *… that was left, or never joined, is not joined again* | §50 | a failed join remembered; a left group remembered |
+| *a join that fails is tried again until it succeeds, and then announced* / *… for a conversation too* | §50: the retry | the retry removed; a failed join not marking events as missed |
+| *… is not tried again once its connection has closed* / *… after a disconnect* | §50 | the round not ended on a close; on a disconnect |
+| *after automatic reconnect gives up, a fresh connection is started, and counts as a reconnect* | §55 | the restart not scheduled; `_connection` not cleared on close |
+| *a failing fresh start backs off and tries again* / *the backoff starts at five seconds and is capped at a minute* | §55: the backoff | a failed start not scheduling the next; the attempt count not reset once up; the cap raised |
+| *dispose stops the retries* / *a disconnect is not undone behind the caller's back* | §55 | the waiting restart not cancelled; a disconnect that lets go of the connection only after `stop()`, with `_stopped` removed as well (either guard alone holds it) |
+
+The order of reads, the plan and the pins (`pane_reads_test.dart`,
+`refresh_ordering_test.dart`):
+
+| Test | Pins | Taken out, it failed with |
+|---|---|---|
+| *PaneReads applies only the latest read* / *the Workout Builder orders its reads: two refreshes in flight, the later answer stands* | §52 | the latest-read check; on the old builder, the older answer won |
+| *PaneReads says whether a write is still in flight* / *… tells a load a write overlapped it, and one that did not* | §52: the readings the pins use | `isWriting` always false; `overlappedWrite` missing a write started after the read |
+| *… makes a refresh during a load a load of its own* / *a refresh during a read reads again instead of being dropped* | §52 | `!_loading` in `start`; on the old builder, the refresh returned early |
+| *… makes a refresh with nothing of its own on screen a load* | §52 | the `shown` check |
+| *… marks a failed refresh, and clears it on the next success* / *… clears a failed refresh as soon as a load starts* / *… leaves a failed load to the pane's own error* | §52: said, not hidden | each assignment in `start` and `settle` |
+| *… drops a refresh a write overlapped, and owes it once the write settles* / *… owes a refresh asked for during a write* / *… lets a load run across a write* | §52: `write` | the overlap check; `_startedDuringWrite`; owing at once; the `keep` in the overlap check |
+| *a refresh that started before a save never puts the old day back* | §53 | `saveDraft` not wrapped in `write`. It held before too, by the `_epoch` the rule replaces |
+| *a refresh a failed save overlapped is read again after it* / *a refresh asked for during a save runs once the save settles* | §52: owed, not just dropped | the owed refresh; on the old builder, both were dropped |
+| *a failed refresh is said, not hidden, by* the roster, the KPIs, Session Review, Nutrition, Client Detail and the Workout Builder / *… nobody while the pane shows its own error* | §52 | each provider's `refreshFailed`; its `_error == null` |
+| *clears the error of a Client Detail whose first load failed a section* | §52 | the error left set |
+| *a plan that appears ends the create flow, as a load would* | §53 | `isNew` left alone; the first day not opened |
+| *a first load that failed recovers on a refresh* | §53 | the error not cleared; the templates not read |
+| *days that failed to load recover on a refresh, on the first day* | §53 | the first day not opened |
+| *a new plan opens a day that is in it* | §53 | the open day measured against every workout |
+| *a new plan leaves a day with unsaved edits open* / *a create flow the trainer opened stays open* | §53: the exceptions | the dirty hold; the trainer's create flow ended. Both held before too |
+| *a refresh that overtakes a days read keeps a day with unsaved edits, and shows no skeleton* | §53 | the refresh running `load`'s body, as it did; the days' loading state left up |
+| *… lands on the first day, as the days read would have* / *… fails the way the days read would have* | §53: it finishes the job | the first day not opened; the days error not set |
+| *a Workout Builder write that answers after a client switch*: *a plan delete leaves the new client's plan alone*, *a saved day stays out of the new client's editor*, *a created plan reads no days over the new client*, *a created exercise stays out of the new client's library* | §53 | the answer applied to whichever client is loaded |
+| *… a plan delete that fails says nothing on the new client* | §53 | the error applied to whichever client is loaded |
+| *a nutrient pin being saved stays pinned when the day changes and the read answers after the write* / *… and the read answers first* | §52: the pins | the overlay; a success not recorded as confirmed. On the provider before part four's first review, both lost the pin |
+| *… a refresh it overlapped is read again once it settles* | §52: pin writes through `PaneReads.write` | the owed refresh not run. Held before too, when the refresh was applied with the pins laid over it |
+| *… two toggles in flight, from no pins: both fail, the later first* / *… both fail, the earlier first* | §52: what a failed write puts back | the toggle's "before" put back, as the first fix did; the last write in flight not waited for |
+| *… the earlier fails and the later succeeds* | §52 | an earlier write's failure counted |
+| *… the earlier succeeds and the later fails* / *… the later fails, then the earlier succeeds* | §52 | a success not recorded as confirmed. Both held before too |
+
+The notice (`refresh_failed_notice_test.dart`, the "says so" group in
+`live_updates_test.dart`, `contrast_test.dart`):
+
+| Test | Pins | Taken out, it failed with |
+|---|---|---|
+| *a refresh that fails says so, and Retry reads again, on* Nutrition, Session Review, the Workout Builder, Client Detail, and the Dashboard for the roster and for the KPIs | §52 | the notice on each screen; the roster's and Client Detail's Retry doing nothing |
+| *says nothing while the last refresh succeeded* / *says it in words and an icon, not a tint alone* | §52 | shown regardless; the icon |
+| *tells a screen reader what it means, and announces it* | §52 | the label; the live region |
+| *wears a warn badge's wash and icon colour (light, dark)* | §52: one tint | the notice working out a wash of its own while the badge's is retuned; the icon's colour before this review, in the dark theme |
+| *is a 44×44 target on a phone* / *is at least 32×32 on a desktop* | §52 | a 32 target on a phone |
+| *the refresh-failed notice reads on its tint (light, dark)* | §52 | amber words, at 4.35 and 4.42:1 |
+
+The phone's half:
+
+| Test | Pins | Taken out, it failed with |
+|---|---|---|
+| *a sync_requested in the foreground asks for a pull and shows nothing* | §56 | the request not made; a notification drawn as well |
+| *… in the background shows nothing* | §56 | the type check removed |
+| *a chat message, as before, in the foreground is shown, and asks for no pull* / *… in the background is shown* | §56: chat unchanged | chat not shown |
+| *a type this build does not know does nothing anywhere* | §56 | an unknown type shown as chat |
+| *PushService hands a requested pull to whoever is listening* | §56 | `requestSync` emitting nothing |
+| *a resume inside the interval does not pull* / *a sync_requested pulls even inside the interval* | §56 | `requested` not skipping the interval |
+| *a sync_requested during a pull already running waits for it, then pulls again* | §56 | `whenIdle` removed — the request joins the older pull, and the trainer's row never arrives |
+
+The fakes grew these seams:
+
+- `FakeTrainerConsoleRepository` holds a changeable server. Its nutrition
+  fixture and workout summary can be changed after the first load, and every
+  `throwOn…` flag but the exercise library's can be flipped either way, to
+  fail a refresh of something on screen or let one succeed after a load that
+  failed. Its `gate` holds reads open, `pinGate` holds pin writes open, and it
+  counts calls per endpoint.
+- `_HeldRepository` (`refresh_ordering_test.dart`) answers each held workouts
+  read with what the server held when the request arrived, released one by
+  one, so a test can make the older answer arrive last. `_PinWrites` settles
+  each pin write on its own.
+- `SignalRHubChatClient` takes `buildConnection` and `restartDelay`
+  (`@visibleForTesting`). `FakeHubConnection` (`test/chat/fakes.dart`, shared
+  so the console's tests can drive the real transport too) stands in for a
+  `HubConnection` that can reconnect, give up or fail to start, and
+  `FakeHubServer` holds or fails any hub method by name.
+- `FakeTrainerConsoleRepository`'s `writeGate` holds every Workout Builder
+  write until it completes, or fails them all when it completes with an error.
+  `_SavesPins` (`refresh_ordering_test.dart`) keeps the pins a write saves, so
+  a read made after it carries them.
+- `FakeApiClient`'s `holdChanges` answers a changes request with what the
+  server held when the request arrived, but only once released — a pull whose
+  answer is still on its way back when the change it should have carried is
+  committed.
+
+---
+
+## 59. The rules part four leaves behind (device and console)
+
+- **An event says only "go and look".** It never carries data; the console
+  reads through the endpoints that check access and fold duplicates. A new
+  kind of live update gets an area name, not a payload.
+- **Only the console's socket hears it, and every group is joined again on
+  every connect.** A group belongs to a connection id, so the trainer group,
+  the console's alone, and every conversation group are joined after the first
+  connect, after SignalR's own reconnect and after a fresh start. A group a
+  layer above joined once is the transport's to keep joined.
+- **Chat waits for no join.** `connected` is reported when the handshake
+  succeeds. A reader that needs a group joined waits for the join
+  (`trainerGroupRejoined`), never for the status. A join that throws is tried
+  again with backoff until it succeeds or its connection id has gone.
+- **A connection that closes is started again.** A field caching a live
+  connection is cleared by the event that ends it; a fresh start backs off to
+  a minute, counts as a reconnect, and is stopped only by the caller.
+- **A debounce fed by many sources has a ceiling.** Quiet is a property of
+  everything that restarts the timer; without `maxWait`, a busy console never
+  refetches.
+- **A refresh is a load that keeps what is shown** — `keepShown`, on the one
+  loader, never a second fetch path. It raises no loading state, keeps the data
+  and sets no error on failure. A refresh during a load becomes a load.
+- **Every console read goes through `PaneReads`, and every write through
+  `PaneReads.write`**, the nutrition pins included. No provider keeps a
+  counter of its own. A refresh a write overlapped is read again once the
+  write settles, never just dropped.
+- **A write's answer is applied to the client it was made for, or dropped.**
+  The builder's writes go through `_write`, and a new one goes through it too.
+- **A read that takes over another finishes its job.** It never clears more
+  than the read it superseded had cleared.
+- **A refresh that fails says so.** `refreshFailed`, shown by the one
+  `RefreshFailedNotice` beside the data it kept, never by an error or an empty
+  state. A new pane shows it too. The notice's tone comes from `StatusBadge`
+  (`tintOf`, `foregroundOf`), and so does any other surface toned like a badge.
+- **A read that overlaps a write of the same thing keeps what the write set,
+  from a field of its own** — never read off what is on screen, which the
+  read's own preparation may have cleared. **A failed write restores what the
+  server was known to hold**, once the last write in flight has settled, never
+  the set on screen when it was sent.
+- **An open draft with unsaved edits is the trainer's.** Only a clean one takes
+  the server's copy, and an editor built from a draft once is keyed on its
+  revision. A refresh that finds the plan changed lands where `load` would,
+  around that draft.
+- **A pane nobody can see doesn't fetch; it catches up when shown.** New panes
+  mix in `LiveRefreshPane`, and a pushed route is handed the source.
+- **An event can be missed, so it is never the only trigger.** Focus and
+  reconnect read everything shown again, sharing one cooldown with a trailing
+  run: throttled, never dropped.
+- **Whether a push draws anything is decided by type, on the device, in one
+  place per path** (`push_messages.dart`). An unknown type draws nothing and
+  does nothing.
+- **`sync_requested` bypasses the interval, never the lease.** It waits for a
+  run in flight and then pulls, rather than joining an answer that may predate
+  it. In the background it does nothing.
+
+### What this half deliberately leaves out
+
+- **Push to the console when it isn't open.** The console is a browser app, and
+  web push needs a service worker and a VAPID key (`docs/push-notifications.md`).
+  A trainer who opens the console reads everything fresh anyway.
+- **A pull in the background on `sync_requested`**, for the reasons in §56.
+- **Refetching only the changed section of a pane.** Every pane reads its one
+  endpoint whole; Client Detail reads its three. Finer would need the event to
+  say more, which §50 argues against.
+- **A refetch on the very first connect.** A change committed after a pane's
+  first read but before the socket joined the trainer's group is missed until
+  the next event for that client or the next focus. The window is a handshake
+  and one join long, and closing it would add a refetch to every console open.
+  A first join that fails and succeeds on a retry is late, and so it is
+  reported as a rejoin and does refetch.
+- **Telling a refused conversation join from a transient one.** The server
+  refuses `JoinClientGroup` for a pair with no Active relationship, and the
+  client can't tell that from a passing failure, so a relationship ended while
+  the console is open is asked about once a minute until the connection
+  closes. It is one cheap query a minute, for a case the next reload ends.
+- **The name typed into the create-plan form, when a plan appears.** The
+  form's fields belong to the screen, not the provider, so a refresh can't
+  tell a half-typed name from an empty form. A plan made on the phone while
+  the trainer types one ends the create flow, as `load` would. Two people
+  creating a first plan for the same client in the same minute is rare, and
+  the trainer sees the plan that was made.
+
+---
+
 ## What is deliberately not here yet
 
-- **Live updates to the Trainer Console and to the trainee's phone** (part
-  four). It will hang off §27's interceptor, which already knows whose data a
-  save changed.
+- **A SignalR backplane** (§48). An event reaches only the sockets on the
+  instance that sent it. The console's refetch on focus and on reconnect covers
+  what a missed one costs. A backplane is worth its fixed cost only once
+  someone measures trainers waiting on it.
+- **Telling a user's other devices about their own change** (§46). The server
+  can't tell which of the owner's devices made a request, so a push for the
+  owner's own write would wake the phone that made it. Their other devices see
+  it on their next pull, as before.
+- **`sync_requested` on iOS** (§46). The collapse header is set. What else a
+  data-only message needs to reach an iOS app belongs to building iOS at all
+  (`docs/push-notifications.md`).
 - **Anything finer than last-writer-wins for a plan's workouts or a row's
   fields.** A plan's list is replaced as a whole (§18), and part three keeps the
   same rule for whole aggregates. Merging concurrent edits needs a version on

@@ -6,7 +6,10 @@ import 'package:ForgeForm/feature/trainer_console/data/trainer_console_repositor
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_console_models.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/active_client_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/session_review_provider.dart';
+import 'package:ForgeForm/feature/trainer_console/domain/models/client_data_change.dart';
+import 'package:ForgeForm/feature/trainer_console/presentation/providers/console_live_updates.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/client_switcher.dart';
+import 'package:ForgeForm/feature/trainer_console/presentation/widgets/refresh_failed_notice.dart';
 import 'package:ForgeForm/core/widgets/app_widgets.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/status_badge.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/console_error.dart';
@@ -31,8 +34,28 @@ class SessionReviewScreen extends StatefulWidget {
   State<SessionReviewScreen> createState() => _SessionReviewScreenState();
 }
 
-class _SessionReviewScreenState extends State<SessionReviewScreen> {
+class _SessionReviewScreenState extends State<SessionReviewScreen>
+    with LiveRefreshPane<SessionReviewScreen> {
   late final SessionReviewProvider _provider;
+
+  @override
+  String? get liveClientId => _provider.loadedClientId;
+
+  /// Workouts as well as sessions: a session is shown under its workout's
+  /// name and against its prescription.
+  @override
+  bool concernsLive(ConsoleRefresh refresh) =>
+      refresh is ClientRefresh &&
+      refresh.concerns(liveClientId, const {
+        ClientDataArea.sessions,
+        ClientDataArea.workouts,
+      });
+
+  @override
+  void refreshLive() {
+    final clientId = liveClientId;
+    if (clientId != null) _provider.load(clientId, keepShown: true);
+  }
 
   @override
   void initState() {
@@ -92,6 +115,7 @@ class _SessionReviewScreenState extends State<SessionReviewScreen> {
                       client: client,
                       review: review,
                       isDesktop: isDesktop,
+                      onRetry: refreshLive,
                     ),
                     const SizedBox(height: 24),
                     Expanded(
@@ -121,11 +145,13 @@ class _Header extends StatelessWidget {
   final TrainerRosterEntry? client;
   final SessionReviewProvider review;
   final bool isDesktop;
+  final VoidCallback onRetry;
 
   const _Header({
     required this.client,
     required this.review,
     required this.isDesktop,
+    required this.onRetry,
   });
 
   String _subtitle(AppLocalizations l10n) {
@@ -174,6 +200,7 @@ class _Header extends StatelessWidget {
             color: colors.onSurface.withValues(alpha: 0.65),
           ),
         ),
+        RefreshFailedNotice(failed: review.refreshFailed, onRetry: onRetry),
       ],
     );
 

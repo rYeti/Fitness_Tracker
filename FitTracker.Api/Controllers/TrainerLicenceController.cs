@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using FitTracker.Api.Models;
 using FitTracker.Api.Services;
 using FitTracker.Api.Services.Interfaces;
@@ -104,9 +103,5 @@ public class TrainerLicenceController(ITrainerLicenceService service) : Controll
             message = "This account isn't a trainer account.",
         });
 
-    private Guid? GetUserId()
-    {
-        var claim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub");
-        return claim != null && Guid.TryParse(claim.Value, out var id) ? id : null;
-    }
+    private Guid? GetUserId() => User.TryGetUserId(out var id) ? id : null;
 }

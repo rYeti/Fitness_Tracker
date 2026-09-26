@@ -6,12 +6,15 @@ import 'package:provider/provider.dart';
 import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/feature/trainer_console/data/trainer_console_repository.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_console_models.dart';
+import 'package:ForgeForm/feature/trainer_console/domain/models/client_data_change.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/client_detail_provider.dart';
+import 'package:ForgeForm/feature/trainer_console/presentation/providers/console_live_updates.dart';
 import 'package:ForgeForm/core/widgets/client_avatar.dart';
 import 'package:ForgeForm/core/widgets/app_widgets.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/macro_summary.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/stat_tile.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/console_error.dart';
+import 'package:ForgeForm/feature/trainer_console/presentation/widgets/refresh_failed_notice.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 
 /// Deep dive on one client: adherence, weight trend, attendance, strength
@@ -38,8 +41,22 @@ class ClientDetailScreen extends StatefulWidget {
   State<ClientDetailScreen> createState() => _ClientDetailScreenState();
 }
 
-class _ClientDetailScreenState extends State<ClientDetailScreen> {
+class _ClientDetailScreenState extends State<ClientDetailScreen>
+    with LiveRefreshPane<ClientDetailScreen> {
   late final ClientDetailProvider _provider;
+
+  @override
+  String? get liveClientId => widget.clientId;
+
+  /// Every area: this screen shows the client's plan, attendance, weight and
+  /// today's intake together.
+  @override
+  bool concernsLive(ConsoleRefresh refresh) =>
+      refresh is ClientRefresh &&
+      refresh.concerns(liveClientId, ClientDataArea.values.toSet());
+
+  @override
+  void refreshLive() => _provider.load(keepShown: true);
 
   @override
   void initState() {
@@ -139,6 +156,11 @@ class _Body extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          RefreshFailedNotice(
+            failed: provider.refreshFailed,
+            onRetry: () => provider.load(keepShown: true),
+            padding: const EdgeInsets.only(bottom: 16),
+          ),
           for (final card in cards) ...[
             card,
             if (card != cards.last) const SizedBox(height: 14),

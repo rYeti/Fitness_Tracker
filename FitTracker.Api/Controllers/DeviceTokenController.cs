@@ -1,6 +1,6 @@
-using System.Security.Claims;
 using FitTracker.Api.Models;
 using FitTracker.Api.Repositories.Interfaces;
+using FitTracker.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -59,11 +59,5 @@ public class DeviceTokenController(IDeviceTokenRepository deviceTokens) : Contro
         return NoContent();
     }
 
-    // Same two-step as ChatController: tokens minted by the OAuth path carry the
-    // id as a bare "sub" rather than as NameIdentifier.
-    private Guid? GetUserId()
-    {
-        var claim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub");
-        return claim != null && Guid.TryParse(claim.Value, out var id) ? id : null;
-    }
+    private Guid? GetUserId() => User.TryGetUserId(out var id) ? id : null;
 }

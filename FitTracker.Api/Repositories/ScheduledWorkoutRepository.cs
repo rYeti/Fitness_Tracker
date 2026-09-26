@@ -420,7 +420,8 @@ public class ScheduledWorkoutRepository : IScheduledWorkoutRepository
             rootOf: s => s.ScheduledWorkoutExercise.ScheduledWorkoutId,
             loadedList: () => _context.ChangeTracker.Entries<ScheduledWorkoutExercise>()
                 .FirstOrDefault(e => e.Entity.Id == scheduledWorkoutExerciseId)
-                ?.Entity.Sets);
+                ?.Entity.Sets,
+            owner: userId);
         return sets;
     }
 

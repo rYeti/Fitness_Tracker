@@ -3,6 +3,7 @@ import 'package:logger/logger.dart';
 import 'package:ForgeForm/feature/trainer_console/data/trainer_console_repository.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_console_models.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/console_error.dart';
+import 'package:ForgeForm/feature/trainer_console/presentation/providers/pane_reads.dart';
 
 class ClientDetailProvider extends ChangeNotifier {
   final TrainerConsoleRepository _repository;
@@ -17,14 +18,18 @@ class ClientDetailProvider extends ChangeNotifier {
   ClientWorkoutSummary? _workoutSummary;
   List<ClientWeightEntry> _weightHistory = [];
   ClientNutritionSummary? _nutrition;
-  bool _isLoading = false;
   ConsoleError? _error;
+  final _reads = PaneReads();
 
   ClientWorkoutSummary? get workoutSummary => _workoutSummary;
   List<ClientWeightEntry> get weightHistory => _weightHistory;
   ClientNutritionSummary? get nutrition => _nutrition;
-  bool get isLoading => _isLoading;
+  bool get isLoading => _reads.isLoading;
   ConsoleError? get error => _error;
+
+  /// Whether any section of the last refresh failed, so what it shows is
+  /// older than it could be.
+  bool get refreshFailed => _reads.refreshFailed;
 
   /// Whether any of the three sections came back. Lets the screen show what did load
   /// instead of blanking on a single failed endpoint.
@@ -38,43 +43,68 @@ class ClientDetailProvider extends ChangeNotifier {
   /// else. A single `Future.wait` with one try/catch used to mean any one of the three
   /// blanked the whole screen — a nutrition outage hid the client's training — and left
   /// the log as the only record of which had failed.
-  Future<void> load() async {
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
+  ///
+  /// [keepShown] is a refresh — the console heard that this client's data
+  /// changed. It raises no loading state, and a section whose read fails keeps
+  /// what it showed and sets [refreshFailed] (`docs/sync-architecture.md`,
+  /// part four).
+  Future<void> load({bool keepShown = false}) async {
+    final read = _reads.start(keepShown: keepShown);
+    if (read.isLoad) {
+      _error = null;
+      notifyListeners();
+    }
 
-    await Future.wait([
+    final failed = await Future.wait([
       _loadSection(
+        read,
         'workout summary',
-        () async => _workoutSummary = await _repository.getClientWorkoutSummary(clientId),
+        () => _repository.getClientWorkoutSummary(clientId),
+        (summary) => _workoutSummary = summary,
       ),
       _loadSection(
+        read,
         'weight history',
-        () async => _weightHistory = await _repository.getClientWeightHistory(clientId),
+        () => _repository.getClientWeightHistory(clientId),
+        (history) => _weightHistory = history,
       ),
       _loadSection(
+        read,
         'nutrition summary',
-        () async => _nutrition =
-            await _repository.getClientNutritionSummary(clientId, DateTime.now()),
+        () => _repository.getClientNutritionSummary(clientId, DateTime.now()),
+        (nutrition) => _nutrition = nutrition,
       ),
     ]);
 
-    _isLoading = false;
+    // A later read has overtaken this one; its answers are the ones to show.
+    final anyFailed = failed.contains(true);
+    if (!read.settle(failed: anyFailed)) return;
+    // A refresh is also how a screen that failed earlier recovers.
+    if (!anyFailed) _error = null;
     notifyListeners();
   }
 
   /// Runs one section's fetch, recording a failure without letting it take the others
-  /// down. [what] only ever reaches the log — the trainer sees the screen's error state.
-  Future<void> _loadSection(String what, Future<void> Function() fetch) async {
+  /// down, and returns whether it failed. [what] only ever reaches the log — the trainer
+  /// sees the screen's error state, or on a refresh the "couldn't refresh" notice.
+  Future<bool> _loadSection<T>(
+    PaneRead read,
+    String what,
+    Future<T> Function() fetch,
+    void Function(T value) apply,
+  ) async {
     try {
-      await fetch();
+      final value = await fetch();
+      if (read.isCurrent) apply(value);
+      return false;
     } catch (e, stackTrace) {
       _logger.e(
         'Client detail $what failed for client $clientId',
         error: e,
         stackTrace: stackTrace,
       );
-      _error = ConsoleError.loadClientDetail;
+      if (read.isCurrent && read.isLoad) _error = ConsoleError.loadClientDetail;
+      return true;
     }
   }
 

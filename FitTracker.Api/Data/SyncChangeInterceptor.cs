@@ -1,3 +1,4 @@
+using System.Data.Common;
 using FitTracker.Api.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
@@ -40,8 +41,14 @@ namespace FitTracker.Api.Data;
 ///
 /// The owner of a row is its owner, not whoever saved: a trainer editing a client's workout
 /// stamps the client's workout, and deleting it writes the client's tombstone.
+///
+/// Part four hangs the live updates off the same save. When the context has a
+/// <see cref="ChangedDataLog"/> — the API's always do — the interceptor also records whose data
+/// the save changed and in which area, from the roots it stamps and the tombstones it writes,
+/// each resolved to its owner before it is recorded. It follows the save and its transaction
+/// to the end, so the log holds a change as committed only once it is.
 /// </remarks>
-public sealed class SyncChangeInterceptor : SaveChangesInterceptor
+public sealed class SyncChangeInterceptor : SaveChangesInterceptor, IDbTransactionInterceptor
 {
     /// <summary>The one instance every context registers (see <c>AppDbContext.OnConfiguring</c>).
     /// It holds no state.</summary>
@@ -66,6 +73,64 @@ public sealed class SyncChangeInterceptor : SaveChangesInterceptor
         return result;
     }
 
+    // ── Part four: the save's changes count once it has committed ────────────
+
+    /// <inheritdoc/>
+    public override int SavedChanges(SaveChangesCompletedEventData eventData, int result)
+    {
+        Saved(eventData.Context);
+        return result;
+    }
+
+    /// <inheritdoc/>
+    public override ValueTask<int> SavedChangesAsync(
+        SaveChangesCompletedEventData eventData, int result, CancellationToken cancellationToken = default)
+    {
+        Saved(eventData.Context);
+        return ValueTask.FromResult(result);
+    }
+
+    /// <inheritdoc/>
+    public override void SaveChangesFailed(DbContextErrorEventData eventData) => Log(eventData.Context)?.SaveFailed();
+
+    /// <inheritdoc/>
+    public override Task SaveChangesFailedAsync(DbContextErrorEventData eventData, CancellationToken cancellationToken = default)
+    {
+        Log(eventData.Context)?.SaveFailed();
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc/>
+    public override void SaveChangesCanceled(DbContextEventData eventData) => Log(eventData.Context)?.SaveFailed();
+
+    /// <inheritdoc/>
+    public override Task SaveChangesCanceledAsync(DbContextEventData eventData, CancellationToken cancellationToken = default)
+    {
+        Log(eventData.Context)?.SaveFailed();
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc/>
+    public void TransactionCommitted(DbTransaction transaction, TransactionEndEventData eventData) =>
+        Log(eventData.Context)?.Committed(eventData.TransactionId);
+
+    /// <inheritdoc/>
+    public Task TransactionCommittedAsync(
+        DbTransaction transaction, TransactionEndEventData eventData, CancellationToken cancellationToken = default)
+    {
+        Log(eventData.Context)?.Committed(eventData.TransactionId);
+        return Task.CompletedTask;
+    }
+
+    private static ChangedDataLog? Log(DbContext? context) => (context as AppDbContext)?.ChangedData;
+
+    /// <summary>A save that ran inside a transaction commits with it; one that didn't has
+    /// committed now.</summary>
+    private static void Saved(DbContext? context)
+    {
+        if (context is AppDbContext { ChangedData: { } log } db) log.SaveSucceeded(db.Database.CurrentTransaction?.TransactionId);
+    }
+
     private static async Task RecordAsync(AppDbContext db, bool async, CancellationToken ct)
     {
         // One snapshot of the tracker for the whole save. Entries() runs DetectChanges, so
@@ -75,6 +140,7 @@ public sealed class SyncChangeInterceptor : SaveChangesInterceptor
         var changed = tracked
             .Where(e => e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
             .ToList();
+        db.ChangedData?.SaveStarting();
         if (changed.Count == 0) return;
 
         var now = DateTime.UtcNow;
@@ -84,6 +150,11 @@ public sealed class SyncChangeInterceptor : SaveChangesInterceptor
             (WorkoutExercise e) => e.WorkoutId, ids => db.WorkoutExercises.Where(e => ids.Contains(e.Id)).Select(e => e.WorkoutId), async, ct));
         roots.Sessions.UnionWith(await ParentsAsync(tracked, roots.SessionExercises,
             (ScheduledWorkoutExercise e) => e.ScheduledWorkoutId, ids => db.ScheduledWorkoutExercises.Where(e => ids.Contains(e.Id)).Select(e => e.ScheduledWorkoutId), async, ct));
+
+        // Every owner the save needs, read before the stamps, so that inside a caller's
+        // transaction no lock this save takes is held across those reads.
+        var sessions = db.ChangedData == null ? SessionsReached.None : SessionsOf(tracked, changed, roots);
+        var owners = await ReadOwnersAsync(db, tracked, changed, roots, sessions, recording: db.ChangedData != null, async, ct);
 
         foreach (var entry in changed)
         {
@@ -99,8 +170,179 @@ public sealed class SyncChangeInterceptor : SaveChangesInterceptor
         await SyncChanges.StampAsync<WorkoutPlan>(db, roots.Plans, now, async, ct, OfType<WorkoutPlan>(tracked));
         await SyncChanges.StampAsync<MealTemplate>(db, roots.Templates, now, async, ct, OfType<MealTemplate>(tracked));
 
-        await BuryAsync(db, tracked, changed, now, async, ct);
+        var buried = await BuryAsync(db, tracked, changed, owners, now, async, ct);
+
+        if (db.ChangedData is not { } log) return;
+        var changes = ChangedDataOf(changed, roots, sessions, owners, buried);
+
+        // Last, after everything above that can throw: EF reports a save as failed only from
+        // its statements on, so a record made before a stamp or an owner lookup that threw
+        // would never be taken back, and the request's next successful save would commit it.
+        var transaction = db.Database.CurrentTransaction?.TransactionId;
+        foreach (var change in changes) log.Record(transaction, change);
     }
+
+    /// <summary>Whose data this save changes, and in which area.</summary>
+    /// <remarks>
+    /// <para>
+    /// Every change is resolved to its owner here, while the save is being written, and not
+    /// after the request: whatever the notifier is handed is already an owner and an area.
+    /// </para>
+    /// <list type="bullet">
+    ///   <item>A root the save adds or changes names its owner itself: its <c>UserId</c>. A
+    ///   session has none; its owner is its workout's.</item>
+    ///   <item>A root reached through a child is known here by its id. Its owner is read from
+    ///   the tracker when the tracker holds the root, as it does whenever the write loaded it to
+    ///   check who owns it, and otherwise from the database, once per kind of root, in
+    ///   <see cref="ReadOwnersAsync"/>. Nothing here queries.</item>
+    ///   <item>A root the save deletes is recorded from its tombstone, which already names its
+    ///   owner. So is a row deleted by a bulk statement, whose tombstone was written by hand
+    ///   (<see cref="SyncChanges.Bury"/>) and reaches this save as one of its own rows.</item>
+    /// </list>
+    /// <para>
+    /// A root whose owner can't be found is left out on its own; it never costs another owner
+    /// their record. Owners are read for exactly the roots <see cref="CollectRoots"/> found, in
+    /// the same save, so there is no separate table of owner lookups to fall out of step with it.
+    /// </para>
+    /// </remarks>
+    private static List<ChangedData> ChangedDataOf(
+        List<EntityEntry> changed,
+        TouchedRoots roots,
+        SessionsReached sessions,
+        SaveOwners owners,
+        List<SyncTombstone> buried)
+    {
+        var changes = new List<ChangedData>();
+        void Add<TRoot>(IEnumerable<Guid> owners)
+        {
+            if (DataAreas.Of(typeof(TRoot)) is not { } area) return;
+            foreach (var owner in owners) changes.Add(new ChangedData(owner, area));
+        }
+
+        foreach (var entry in changed)
+        {
+            // A session has no owner column; SessionsOf has already counted it.
+            if (entry.State is not (EntityState.Added or EntityState.Modified)
+                || entry.Entity is not ISyncRoot root || root is ScheduledWorkout) continue;
+
+            if (DataAreas.Of(root.GetType()) is { } area
+                && entry.Metadata.FindProperty("UserId") != null
+                // A built-in exercise has no owner, and no trainer to tell.
+                && entry.Property("UserId").CurrentValue is Guid owner)
+            {
+                changes.Add(new ChangedData(owner, area));
+            }
+        }
+
+        Add<Workout>(OwnersOf(owners.Workouts, roots.Workouts));
+        Add<Meal>(OwnersOf(owners.Meals, roots.Meals));
+        Add<WorkoutPlan>(OwnersOf(owners.Plans, roots.Plans));
+        Add<MealTemplate>(OwnersOf(owners.Templates, roots.Templates));
+        Add<ScheduledWorkout>(OwnersOf(owners.Workouts, sessions.Workouts));
+        Add<ScheduledWorkout>(owners.UntrackedSessions);
+
+        var buriedByHand = changed
+            .Where(e => e.State == EntityState.Added)
+            .Select(e => e.Entity)
+            .OfType<SyncTombstone>();
+        foreach (var tombstone in buried.Concat(buriedByHand))
+        {
+            if (DataAreas.OfTombstone(tombstone.EntityType) is { } area) changes.Add(new ChangedData(tombstone.UserId, area));
+        }
+        return changes;
+    }
+
+    /// <summary>The sessions this save changes, or whose children it changes, split by where
+    /// their owners will come from.</summary>
+    /// <remarks>
+    /// A session has no owner column: its owner is its workout's. A session the tracker holds
+    /// gives its workout's id, and that workout's owner is read with every other workout's
+    /// (<see cref="ReadOwnersAsync"/>). A session this save adds isn't stored yet, which is why
+    /// the tracker is asked first. One the tracker doesn't hold has no workout id to add to
+    /// that read until it is read itself, so it is read with its workout's owner, joined, in
+    /// a query of its own (<see cref="UntrackedSessionOwnersAsync"/>).
+    /// </remarks>
+    private static SessionsReached SessionsOf(List<EntityEntry> tracked, List<EntityEntry> changed, TouchedRoots roots)
+    {
+        var unresolved = new HashSet<Guid>(roots.Sessions);
+        foreach (var entry in changed)
+        {
+            if (entry.State is EntityState.Added or EntityState.Modified && entry.Entity is ScheduledWorkout session) unresolved.Add(session.Id);
+        }
+        if (unresolved.Count == 0) return SessionsReached.None;
+
+        var workouts = new HashSet<Guid>();
+        foreach (var entry in tracked)
+        {
+            if (entry.Entity is ScheduledWorkout session && unresolved.Remove(session.Id)) workouts.Add(session.WorkoutId);
+        }
+        return new SessionsReached(workouts, [.. unresolved]);
+    }
+
+    /// <summary>The owners of the stored sessions <paramref name="ids"/>, which the tracker
+    /// doesn't hold: each one's workout's, in one query.</summary>
+    private static async Task<IEnumerable<Guid>> UntrackedSessionOwnersAsync(
+        AppDbContext db, List<Guid> ids, bool async, CancellationToken ct)
+    {
+        if (ids.Count == 0) return [];
+
+        var query = db.ScheduledWorkouts.AsNoTracking()
+            .Where(s => ids.Contains(s.Id))
+            .Select(s => s.Workout.UserId)
+            .Distinct();
+        return async ? await query.ToListAsync(ct) : query.ToList();
+    }
+
+    /// <summary>The owners of the roots this save reaches through another row, each table
+    /// read at most once. The only place a save reads owners.</summary>
+    /// <remarks>
+    /// Two things need them. The tombstones do, on every save: a deleted session is its
+    /// workout's owner's, and a deleted meal food its meal's. The record does, when there is a
+    /// log: every root whose children the save changed, and the workout of every session it
+    /// reached (<see cref="SessionsOf"/>). Each used to ask for its own, and a save that
+    /// reached one kind of root by two routes read that table twice while it was being
+    /// written: removing a meal food read the meals table once for its tombstone and again
+    /// for its record. So every id either will want is gathered here first, and each table
+    /// is asked once, for all of them. A row the tracker holds costs nothing. A new route to
+    /// an owner adds its ids here, never a read of its own.
+    /// </remarks>
+    private static async Task<SaveOwners> ReadOwnersAsync(
+        AppDbContext db,
+        List<EntityEntry> tracked,
+        List<EntityEntry> changed,
+        TouchedRoots roots,
+        SessionsReached sessions,
+        bool recording,
+        bool async,
+        CancellationToken ct)
+    {
+        var workouts = new HashSet<Guid>();
+        var meals = new HashSet<Guid>();
+        foreach (var entry in changed)
+        {
+            if (entry.State != EntityState.Deleted) continue;
+            // What BuryAsync reads each tombstone's owner through.
+            if (entry.Entity is ScheduledWorkout) workouts.Add(Original<Guid>(entry, nameof(ScheduledWorkout.WorkoutId)));
+            else if (entry.Entity is MealFoodEntry) meals.Add(Original<Guid>(entry, nameof(MealFoodEntry.MealId)));
+        }
+        if (recording)
+        {
+            workouts.UnionWith(roots.Workouts);
+            workouts.UnionWith(sessions.Workouts);
+            meals.UnionWith(roots.Meals);
+        }
+
+        return new SaveOwners(
+            await OwnersAsync<Workout>(db, tracked, workouts, async, ct),
+            await OwnersAsync<Meal>(db, tracked, meals, async, ct),
+            await OwnersAsync<WorkoutPlan>(db, tracked, recording ? roots.Plans : [], async, ct),
+            await OwnersAsync<MealTemplate>(db, tracked, recording ? roots.Templates : [], async, ct),
+            await UntrackedSessionOwnersAsync(db, sessions.Untracked, async, ct));
+    }
+
+    /// <summary>The owners of those of <paramref name="ids"/> that were found.</summary>
+    private static IEnumerable<Guid> OwnersOf(Dictionary<Guid, Guid> owners, IEnumerable<Guid> ids) =>
+        ids.Where(owners.ContainsKey).Select(id => owners[id]);
 
     private static IEnumerable<EntityEntry> OfType<T>(List<EntityEntry> tracked) =>
         tracked.Where(e => e.Entity is T);
@@ -161,12 +403,17 @@ public sealed class SyncChangeInterceptor : SaveChangesInterceptor
         return parents;
     }
 
-    /// <summary>Adds a tombstone for every root and meal food entry this save deletes.</summary>
-    private static async Task BuryAsync(
-        AppDbContext db, List<EntityEntry> tracked, List<EntityEntry> changed, DateTime now, bool async, CancellationToken ct)
+    /// <summary>Adds a tombstone for every root and meal food entry this save deletes, and
+    /// returns them.</summary>
+    /// <remarks>A tombstone's owner, when it isn't on the deleted row itself, comes from
+    /// <paramref name="owners"/>, which <see cref="ReadOwnersAsync"/> filled for exactly these
+    /// rows. A new kind of tombstone owned through another row adds that row's id there.</remarks>
+    private static async Task<List<SyncTombstone>> BuryAsync(
+        AppDbContext db, List<EntityEntry> tracked, List<EntityEntry> changed, SaveOwners owners, DateTime now, bool async, CancellationToken ct)
     {
+        var tombstones = new List<SyncTombstone>();
         var deleted = changed.Where(e => e.State == EntityState.Deleted).ToList();
-        if (deleted.Count == 0) return;
+        if (deleted.Count == 0) return tombstones;
 
         // An account being deleted takes its tombstones with it; there is nobody to tell.
         var leaving = deleted.Where(e => e.Entity is User).Select(e => ((User)e.Entity).Id).ToHashSet();
@@ -200,28 +447,31 @@ public sealed class SyncChangeInterceptor : SaveChangesInterceptor
 
         if (mealOwners.Count > 0) foodsByMeal.AddRange(await DeleteFoodsOfAsync(db, tracked, mealOwners.Keys.ToList(), async, ct));
 
-        var workoutOwners = await OwnersAsync<Workout>(db, tracked, sessionsByWorkout.Select(s => s.WorkoutId), async, ct);
         buried.AddRange(sessionsByWorkout.Select(s =>
-            (workoutOwners.TryGetValue(s.WorkoutId, out var o) ? o : (Guid?)null, SyncEntityTypes.ScheduledWorkout, s.Id)));
+            (owners.Workouts.TryGetValue(s.WorkoutId, out var o) ? o : (Guid?)null, SyncEntityTypes.ScheduledWorkout, s.Id)));
 
-        var foodMealOwners = await OwnersAsync<Meal>(db, tracked, foodsByMeal.Select(f => f.MealId).Where(id => !mealOwners.ContainsKey(id)), async, ct);
-        foreach (var (id, owner) in mealOwners) foodMealOwners[id] = owner;
+        // A food of a meal this save deletes is the meal's owner's, read off the meal's row;
+        // any other deleted food's meal was read with the rest.
         buried.AddRange(foodsByMeal.Select(f =>
-            (foodMealOwners.TryGetValue(f.MealId, out var o) ? o : (Guid?)null, SyncEntityTypes.MealFood, f.Id)));
+            (mealOwners.TryGetValue(f.MealId, out var o) || owners.Meals.TryGetValue(f.MealId, out o) ? o : (Guid?)null,
+             SyncEntityTypes.MealFood, f.Id)));
 
         foreach (var (owner, type, id) in buried.DistinctBy(b => b.Id))
         {
             // A built-in exercise has no owner, and no device holds it as its own.
             if (owner is not { } userId || userId == Guid.Empty || leaving.Contains(userId)) continue;
-            db.SyncTombstones.Add(new SyncTombstone
+            var tombstone = new SyncTombstone
             {
                 Id = Guid.NewGuid(),
                 UserId = userId,
                 EntityType = type,
                 EntityId = id,
                 DeletedAt = now,
-            });
+            };
+            db.SyncTombstones.Add(tombstone);
+            tombstones.Add(tombstone);
         }
+        return tombstones;
     }
 
     /// <summary>Makes the save delete the foods of the meals <paramref name="mealIds"/> by
@@ -290,6 +540,23 @@ public sealed class SyncChangeInterceptor : SaveChangesInterceptor
     /// <summary>A property's value as it was loaded — what a delete removes, whatever the
     /// entity was changed to before it.</summary>
     private static T Original<T>(EntityEntry entry, string property) => (T)entry.Property(property).OriginalValue!;
+
+    /// <summary>The owners of the roots a save reaches through another row
+    /// (<see cref="ReadOwnersAsync"/>): by id for each kind of root, and, for the sessions the
+    /// tracker doesn't hold, just the owners.</summary>
+    private sealed record SaveOwners(
+        Dictionary<Guid, Guid> Workouts,
+        Dictionary<Guid, Guid> Meals,
+        Dictionary<Guid, Guid> Plans,
+        Dictionary<Guid, Guid> Templates,
+        IEnumerable<Guid> UntrackedSessions);
+
+    /// <summary>The sessions a save reaches (<see cref="SessionsOf"/>): the workouts of those
+    /// the tracker holds, and the ids of those it doesn't.</summary>
+    private sealed record SessionsReached(HashSet<Guid> Workouts, List<Guid> Untracked)
+    {
+        public static SessionsReached None => new([], []);
+    }
 
     /// <summary>What a save's children point at, one set per root type (and one per middle
     /// level, resolved to its root before anything is stamped).</summary>

@@ -21,6 +21,9 @@ public sealed class ChatScenario : IDisposable
 
     public AppDbContext Db => _fixture.Db;
 
+    /// <summary>Counts the SQL commands <see cref="Db"/> issues.</summary>
+    public QueryCounter Queries => _fixture.Queries;
+
     public User Trainer { get; }
     public User Client { get; }
     public TrainerClient Relationship { get; }

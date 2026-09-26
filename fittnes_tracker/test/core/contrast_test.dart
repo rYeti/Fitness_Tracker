@@ -197,39 +197,62 @@ void main() {
   });
 
   group('StatusBadge foregrounds', () {
-    // Mirrors the widget's own computation (status_badge.dart). Kept in step
-    // with it deliberately: if the lerp there changes, this fails.
-    Color foregroundFor(StatusTone tone, Color base, {required bool isDark}) =>
-        isDark
-            ? Color.lerp(base, Colors.white, 0.45)!
-            : Color.lerp(
-                base,
-                Colors.black,
-                tone == StatusTone.warn ? 0.40 : 0.30,
-              )!;
-
-    const tones = {
-      StatusTone.ok: ForgeColors.statusOk,
-      StatusTone.warn: ForgeColors.statusWarn,
-      StatusTone.bad: ForgeColors.statusBad,
-    };
-
+    // Measures the colours the badge paints, through the helpers it paints
+    // them with — the same ones RefreshFailedNotice takes its tone from.
     for (final isDark in [false, true]) {
       final label = isDark ? 'dark' : 'light';
+      final brightness = isDark ? Brightness.dark : Brightness.light;
       test('every tone reads on its own tint ($label)', () {
-        tones.forEach((tone, base) {
+        for (final tone in StatusTone.values) {
           final background = Color.alphaBlend(
-            base.withValues(alpha: isDark ? 0.22 : 0.14),
+            StatusBadge.tintOf(tone, brightness),
             isDark ? ForgeColors.cardDark : ForgeColors.surfaceLight,
           );
           expectContrast(
-            foregroundFor(tone, base, isDark: isDark),
+            StatusBadge.foregroundOf(tone, brightness),
             background,
             // The badge label is 11px, so it is body text, not large text.
             atLeast: 4.5,
             because: '$tone at $label',
           );
-        });
+        }
+      });
+    }
+  });
+
+  group('the refresh-failed notice', () {
+    // The notice sits on the page; a card behind it is measured too, so it
+    // can move into one. Its words are onSurface, not amber: amber on its
+    // own tint over the light page is 4.35:1, short of 4.5 at 12px. The icon
+    // keeps the tone, against 3:1.
+    for (final brightness in Brightness.values) {
+      final isDark = brightness == Brightness.dark;
+      final behind = isDark
+          ? [ForgeColors.backgroundDark, ForgeColors.cardDark]
+          : [ForgeColors.backgroundLight, ForgeColors.surfaceLight];
+
+      test('reads on its tint (${brightness.name})', () {
+        final scheme = isDark
+            ? themeProvider.darkTheme.colorScheme
+            : themeProvider.lightTheme.colorScheme;
+        for (final page in behind) {
+          final fill = Color.alphaBlend(
+            StatusBadge.tintOf(StatusTone.warn, brightness),
+            page,
+          );
+          expectContrast(
+            scheme.onSurface,
+            fill,
+            atLeast: 4.5,
+            because: '"Couldn\'t refresh" and Retry are 12px text',
+          );
+          expectContrast(
+            StatusBadge.foregroundOf(StatusTone.warn, brightness),
+            fill,
+            atLeast: 3.0,
+            because: 'the warning icon',
+          );
+        }
       });
     }
   });

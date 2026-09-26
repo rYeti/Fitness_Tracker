@@ -29,7 +29,9 @@ import 'core/widgets/forge_nav_bar.dart';
 import 'core/widgets/lazy_indexed_stack.dart';
 import 'core/services/chat_push_decoder.dart';
 import 'core/services/notification_service.dart';
+import 'core/services/push_messages.dart';
 import 'core/services/push_service.dart';
+import 'core/sync/foreground_pull.dart';
 import 'feature/chat/data/chat_key_store.dart';
 import 'feature/chat/presentation/view/coach_chat_entry.dart';
 import 'feature/trainer_console/presentation/widgets/trainer_console_shell.dart';
@@ -355,15 +357,19 @@ class MyApp extends StatefulWidget {
 /// starts empty: no service locator, no open database, no providers, no widget
 /// tree. Everything below either reads the platform keystore or constructs what
 /// it needs on the spot. See docs/chat-encryption.md.
+///
+/// Which pushes draw anything is [handleBackgroundPush]'s decision, not this
+/// function's: a `sync_requested` arrives here too, and must draw nothing.
 @pragma('vm:entry-point')
-Future<void> _firebaseBackgroundHandler(RemoteMessage message) async {
-  if (message.data['type'] != 'chat_message') return;
+Future<void> _firebaseBackgroundHandler(RemoteMessage message) =>
+    handleBackgroundPush(message.data, showChat: _showChatInBackground);
 
+Future<void> _showChatInBackground(Map<String, dynamic> data) async {
   // Required before any Firebase API is touched in this isolate — it has none
   // of the initialisation main() did.
   await Firebase.initializeApp();
 
-  final content = await decodeChatPush(message.data, allowNetwork: false);
+  final content = await decodeChatPush(data, allowNetwork: false);
 
   final plugin = FlutterLocalNotificationsPlugin();
   await plugin.initialize(
@@ -411,22 +417,28 @@ void _wirePushNotifications() {
   // Foreground: the OS does not display a notification for an app that is
   // already open, so if this device is not on the relevant screen we draw one
   // ourselves. A user staring at the thread gets nothing extra -- the bubble and
-  // the tab badge already told them.
+  // the tab badge already told them. A `sync_requested` draws nothing and asks
+  // HomeScreen to pull (docs/sync-architecture.md, part four).
   FirebaseMessaging.onMessage.listen((message) {
-    if (message.data['type'] != 'chat_message') return;
-
-    // Read out of `data`, not `notification`. There is no notification block on
-    // a chat push any more: the server sends ciphertext and this device is the
-    // only thing that can turn it into words. The old `if (notification == null)
-    // return` guard would now drop every chat notification there is.
-    unawaited(() async {
-      final content = await decodeChatPush(message.data, allowNetwork: true);
-      await notifications.showChatMessage(
-        title: content.title,
-        body: content.body,
-        threadId: content.threadId,
-      );
-    }());
+    unawaited(
+      handleForegroundPush(
+        message.data,
+        // Read out of `data`, not `notification`. There is no notification
+        // block on a chat push any more: the server sends ciphertext and this
+        // device is the only thing that can turn it into words. The old
+        // `if (notification == null) return` guard would now drop every chat
+        // notification there is.
+        showChat: (data) async {
+          final content = await decodeChatPush(data, allowNetwork: true);
+          await notifications.showChatMessage(
+            title: content.title,
+            body: content.body,
+            threadId: content.threadId,
+          );
+        },
+        requestSync: push.requestSync,
+      ),
+    );
   });
 
   // A tap on one we drew ourselves comes back through the plugin instead of
@@ -705,6 +717,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     service: _syncService,
   );
 
+  /// Pulls what changed elsewhere, on launch, resume and request.
+  late final ForegroundPull _foregroundPull = ForegroundPull(
+    service: _syncService,
+  );
+
+  /// `sync_requested` pushes received while the app is open.
+  StreamSubscription<void>? _syncRequests;
+
   // Builders rather than widgets: LazyIndexedStack mounts a tab the first time
   // it is selected. Building all five up front meant every tab ran its
   // initState database loads on the first frame — the Progress tab's
@@ -727,6 +747,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _switchToGymTabIfWorkoutInProgress();
     _syncScheduler.start();
     _runInitialSync();
+    // Someone else changed this account's data — a trainer editing a
+    // workout, say — and the server said so. Pull now rather than on the next
+    // resume, which could be hours away for someone already in the app.
+    _syncRequests = sl<PushService>().onSyncRequested.listen(
+      (_) => unawaited(_pull(requested: true)),
+    );
 
     // Publishes this device's chat key, if it hasn't been already -- not
     // conditional on ever opening Coach Chat. `CoachChatEntry` only builds a
@@ -748,6 +774,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _syncScheduler.stop();
+    unawaited(_syncRequests?.cancel() ?? Future<void>.value());
     super.dispose();
   }
 
@@ -847,48 +874,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  /// The shortest time between two pulls on launch and resume. Resume fires
-  /// for a permission dialog or a glance at the notification shade.
-  static const _pullInterval = Duration(minutes: 2);
-
   /// Launch and resume: push now, then pull what changed elsewhere.
-  ///
-  /// The pull asks the server only for what changed since the last one
-  /// (`docs/sync-architecture.md`, part three), so it no longer needs the
-  /// six-hour throttle it had while it downloaded the whole account every
-  /// time: that throttle is why a trainer's edit could take hours to reach
-  /// the phone. [_pullInterval] only keeps a burst of resumes from pulling
-  /// once each.
   Future<void> _runInitialSync() async {
     await _syncScheduler.onResumed();
+    await _pull();
+  }
 
-    final prefs = await SharedPreferences.getInstance();
-    final lastPullMs = prefs.getInt(lastPullPrefsKey);
-    if (lastPullMs != null) {
-      final lastPull = DateTime.fromMillisecondsSinceEpoch(lastPullMs);
-      if (DateTime.now().difference(lastPull) < _pullInterval) return;
-    }
-
-    final syncService = await _syncService();
-    if (syncService == null) return; // not logged in
-
-    try {
-      await syncService.pullAll();
-      // Only a pull that finished every step counts: pullAll throws
-      // SyncIncompleteException otherwise, and is tried again on the next
-      // launch or resume.
-      await prefs.setInt(
-        lastPullPrefsKey,
-        DateTime.now().millisecondsSinceEpoch,
-      );
-      if (mounted) {
-        globalFoodTrackingKey.currentState?.loadNutritionData();
-        globalProgressKey.currentState?.reloadGymData();
-        provider.Provider.of<WeightProvider>(context, listen: false).reload();
-      }
-    } catch (_) {
-      // silent — no network or server down, try again next time
-    }
+  /// Pulls — see [ForegroundPull] for when a pull is skipped — and shows what
+  /// it brought on the tabs that don't reload themselves.
+  Future<void> _pull({bool requested = false}) async {
+    if (!await _foregroundPull.run(requested: requested)) return;
+    if (!mounted) return;
+    globalFoodTrackingKey.currentState?.loadNutritionData();
+    globalProgressKey.currentState?.reloadGymData();
+    provider.Provider.of<WeightProvider>(context, listen: false).reload();
   }
 }
 

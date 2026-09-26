@@ -41,6 +41,18 @@ class PushService {
   final _taps = StreamController<ChatNotificationTarget>.broadcast();
   Stream<ChatNotificationTarget> get onNotificationTap => _taps.stream;
 
+  /// Emits when a `sync_requested` push arrives while the app is open: this
+  /// account's data changed on the server, made by someone else. `HomeScreen`
+  /// listens and pulls. A stream rather than a call because the pull belongs
+  /// to that screen, which may not be mounted; a request nobody hears is
+  /// dropped, and the next launch or resume pulls anyway.
+  final _syncRequests = StreamController<void>.broadcast();
+  Stream<void> get onSyncRequested => _syncRequests.stream;
+
+  void requestSync() {
+    if (!_syncRequests.isClosed) _syncRequests.add(null);
+  }
+
   StreamSubscription<String>? _tokenRefreshSub;
   StreamSubscription<RemoteMessage>? _tapSub;
 
@@ -196,5 +208,6 @@ class PushService {
     await _tokenRefreshSub?.cancel();
     await _tapSub?.cancel();
     await _taps.close();
+    await _syncRequests.close();
   }
 }

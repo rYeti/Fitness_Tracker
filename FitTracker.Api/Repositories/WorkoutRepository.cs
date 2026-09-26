@@ -197,7 +197,7 @@ public class WorkoutRepository : IWorkoutRepository
         // the change tracking never sees; they changed, so they are marked here — by
         // predicate, immediately before the delete, so a plan that linked the workout after
         // anything above was read is marked too.
-        await _context.TouchWhereAsync<WorkoutPlan>(p => p.PlanWorkouts.Any(l => l.WorkoutId == id));
+        await _context.TouchWhereAsync<WorkoutPlan>(p => p.PlanWorkouts.Any(l => l.WorkoutId == id), owner: userId);
 
         _context.Workouts.Remove(workout);
         await _context.SaveChangesAsync();
@@ -302,7 +302,7 @@ public class WorkoutRepository : IWorkoutRepository
             // The change tracking the sync feed reads never saw that delete either, and each
             // of those sessions just lost an exercise. One that kept its entry is stamped
             // for nothing and sent again unchanged, which is harmless.
-            await _context.TouchAsync<ScheduledWorkout>(emptyEntries.Select(e => e.ScheduledWorkoutId).ToList());
+            await _context.TouchAsync<ScheduledWorkout>(emptyEntries.Select(e => e.ScheduledWorkoutId).ToList(), owner: userId);
         }
 
         if (scheduledEntries.Count == emptyEntryIds.Count && allEmptyGone)
@@ -365,7 +365,8 @@ public class WorkoutRepository : IWorkoutRepository
             rootOf: t => t.WorkoutExercise.WorkoutId,
             loadedList: () => _context.ChangeTracker.Entries<WorkoutExercise>()
                 .FirstOrDefault(e => e.Entity.Id == workoutExerciseId)
-                ?.Entity.SetTemplates);
+                ?.Entity.SetTemplates,
+            owner: userId);
         return templates;
     }
 

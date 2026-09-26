@@ -1538,6 +1538,8 @@
   "dashboardLoading": "Dashboard wird geladen",
   "rosterLoading": "Kunden werden geladen",
   "kpisLoading": "Übersicht wird geladen",
+  "consoleRefreshFailed": "Aktualisierung fehlgeschlagen",
+  "consoleRefreshFailedDetail": "Aktualisierung fehlgeschlagen. Die Anzeige ist möglicherweise nicht aktuell.",
   "clientsHeading": "Kunden",
   "kpiActiveClients": "Aktive Kunden",
   "kpiAvgAdherence": "Ø Planerfüllung",
