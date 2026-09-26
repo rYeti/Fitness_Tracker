@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:ForgeForm/feature/trainer_console/data/trainer_console_repository.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_console_models.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/console_error.dart';
+import 'package:ForgeForm/feature/trainer_console/presentation/providers/pane_reads.dart';
 
 /// One prescribed set as the editor holds it — just enough to render a row
 /// and re-serialize it. Reps are edited free-text ("8-12", "10", …).
@@ -104,6 +105,15 @@ class WorkoutBuilderProvider extends ChangeNotifier {
   WorkoutBuilderProvider({TrainerConsoleRepository? repository})
     : _repository = repository ?? TrainerConsoleRepository();
 
+  /// Every read and write the builder makes of the client's plan and days.
+  /// A refresh a write overlapped is read again once the write settles.
+  late final PaneReads _reads = PaneReads(
+    onRefreshOwed: () {
+      final clientId = _loadedClientId;
+      if (clientId != null) unawaited(refresh(clientId));
+    },
+  );
+
   bool _isNew = false;
   List<WorkoutPlanTemplateSummary> _templates = [];
   WorkoutPlanSummary? _currentPlan;
@@ -123,6 +133,10 @@ class WorkoutBuilderProvider extends ChangeNotifier {
   String? get loadedClientId => _loadedClientId;
   bool get isDeletingPlan => _isDeletingPlan;
   ConsoleError? get planError => _planError;
+
+  /// Whether the last refresh failed, so the plan and days shown are older
+  /// than they could be.
+  bool get refreshFailed => _reads.refreshFailed && _error == null;
 
   // ── Days (workouts) under the current plan ──────────────────────────────
 
@@ -164,10 +178,21 @@ class WorkoutBuilderProvider extends ChangeNotifier {
   }
 
   /// Loads the templates for the create flow plus the client's active plan for
-  /// the read-only view.
-  Future<void> load(String clientId) async {
-    _epoch++;
+  /// the read-only view, then the plan's days.
+  ///
+  /// [keepShown] is a refresh ([refresh]). One that arrives while a load or
+  /// [loadDays] is still reading becomes a load itself and supersedes it
+  /// ([PaneReads.start]): the read in flight may have been answered before the
+  /// change was committed.
+  Future<void> load(String clientId, {bool keepShown = false}) async {
+    final read = _reads.start(
+      keepShown: keepShown,
+      shown: _loadedClientId == clientId,
+    );
+    if (read.keep) return _refreshInPlace(clientId, read);
+
     _isLoading = true;
+    _isLoadingDays = false;
     _error = null;
     _currentPlan = null;
     _loadedClientId = clientId;
@@ -179,21 +204,18 @@ class WorkoutBuilderProvider extends ChangeNotifier {
         _repository.getWorkoutPlanTemplates(),
         _repository.getClientWorkoutSummary(clientId),
       ]);
-      if (_loadedClientId != clientId) return;
+      if (!read.settle()) return;
       _templates = results[0] as List<WorkoutPlanTemplateSummary>;
       _currentPlan = (results[1] as ClientWorkoutSummary).currentPlan;
       // A client with no plan lands straight in the create flow — there's
       // nothing to show them otherwise.
       _isNew = _currentPlan == null;
     } catch (_) {
-      if (_loadedClientId != clientId) return;
+      if (!read.settle(failed: true)) return;
       _error = ConsoleError.loadWorkoutPlans;
-    } finally {
-      if (_loadedClientId == clientId) {
-        _isLoading = false;
-        notifyListeners();
-      }
     }
+    _isLoading = false;
+    notifyListeners();
 
     if (_currentPlan != null) {
       await loadDays(clientId);
@@ -203,7 +225,7 @@ class WorkoutBuilderProvider extends ChangeNotifier {
   /// Loads the client's workouts and exercise library — everything the day
   /// editor needs. Called once a plan exists to show its days against.
   Future<void> loadDays(String clientId) async {
-    _epoch++;
+    final read = _reads.start();
     _isLoadingDays = true;
     _daysError = null;
     notifyListeners();
@@ -213,32 +235,24 @@ class WorkoutBuilderProvider extends ChangeNotifier {
         _repository.getClientWorkouts(clientId),
         _repository.getClientExerciseLibrary(clientId),
       ]);
-      if (_loadedClientId != clientId) return;
+      if (!read.settle()) return;
       _allWorkouts = results[0] as List<ClientWorkout>;
       _exerciseLibrary = results[1] as List<ClientExerciseOption>;
       // Land on the first existing day rather than an empty editor — "no day
       // selected" and "no days yet" are different states, and only the second
       // one is actually empty.
       if (_draft == null && planWorkouts.isNotEmpty) {
-        selectDay(planWorkouts.first);
+        _open(planWorkouts.first);
       }
     } catch (_) {
-      if (_loadedClientId != clientId) return;
+      if (!read.settle(failed: true)) return;
       _daysError = ConsoleError.loadClientWorkouts;
-    } finally {
-      if (_loadedClientId == clientId) {
-        _isLoadingDays = false;
-        notifyListeners();
-      }
     }
+    _isLoadingDays = false;
+    notifyListeners();
   }
 
   // ── Refreshing in place ──────────────────────────────────────────────────
-
-  /// Bumped by every read or write that sets what the builder shows from the
-  /// server, so a [refresh] that overlapped one knows its answer may be older
-  /// than what is on screen.
-  int _epoch = 0;
 
   /// Bumped when a [refresh] replaces the open day's draft with the server's
   /// copy. The editor builds its text fields from the draft once, when the day
@@ -247,32 +261,23 @@ class WorkoutBuilderProvider extends ChangeNotifier {
   int _draftRevision = 0;
   int get draftRevision => _draftRevision;
 
-  bool get _busy =>
-      _isLoading ||
-      _isLoadingDays ||
-      _isSaving ||
-      _isSavingDay ||
-      _isDeletingDay ||
-      _isDeletingPlan ||
-      _isCreatingExercise;
-
   /// Re-reads the client's plan and days in place — the console heard that
   /// their workouts changed (`docs/sync-architecture.md`, part four).
   ///
   /// Nothing is taken off screen while it reads, and a read that fails
-  /// changes nothing. A read or write of the builder's own already in flight
-  /// wins, and so does one that starts meanwhile: this one is dropped, since
-  /// whatever it overlapped either shows data at least as new or is a save
-  /// whose own event brings another refresh.
+  /// changes nothing but [refreshFailed]. Reads are ordered like every
+  /// console pane's ([PaneReads]): the latest one asked wins, and one that
+  /// arrives during a load supersedes it. A refresh a save, delete or create
+  /// overlapped is read again once that write settles, since its answer may
+  /// be from before it.
   ///
   /// The open day is the trainer's. A draft with unsaved edits is left exactly
   /// as it is while the rest of the pane — the plan, the list of days —
   /// updates around it; only a clean draft takes the server's copy. It is the
   /// same rule the device's pull keeps for a row with an unsent change.
-  Future<void> refresh(String clientId) async {
-    if (_loadedClientId != clientId || _busy) return;
-    final epoch = _epoch;
+  Future<void> refresh(String clientId) => load(clientId, keepShown: true);
 
+  Future<void> _refreshInPlace(String clientId, PaneRead read) async {
     final List<Object> results;
     try {
       results = await Future.wait<Object>([
@@ -281,9 +286,10 @@ class WorkoutBuilderProvider extends ChangeNotifier {
         _repository.getClientExerciseLibrary(clientId),
       ]);
     } catch (_) {
+      if (read.settle(failed: true)) notifyListeners();
       return;
     }
-    if (epoch != _epoch || _loadedClientId != clientId) return;
+    if (!read.settle()) return;
 
     final plan = (results[0] as ClientWorkoutSummary).currentPlan;
     final dirty = isDraftDirty;
@@ -345,6 +351,11 @@ class WorkoutBuilderProvider extends ChangeNotifier {
   /// is null. Callers must confirm with the trainer first when
   /// [isDraftDirty] is true — this always discards whatever draft exists.
   void selectDay(ClientWorkout? workout) {
+    _open(workout);
+    notifyListeners();
+  }
+
+  void _open(ClientWorkout? workout) {
     _dayError = null;
     if (workout == null) {
       _selectedWorkoutId = null;
@@ -355,7 +366,6 @@ class WorkoutBuilderProvider extends ChangeNotifier {
       _draft = WorkoutDraft.fromExisting(workout);
       _savedSnapshot = WorkoutDraft.fromExisting(workout);
     }
-    notifyListeners();
   }
 
   void closeDayEditor() {
@@ -460,7 +470,10 @@ class WorkoutBuilderProvider extends ChangeNotifier {
       return false;
     }
 
-    _epoch++;
+    return _reads.write(() => _save(clientId, draft, planId));
+  }
+
+  Future<bool> _save(String clientId, WorkoutDraft draft, String? planId) async {
     _isSavingDay = true;
     _dayError = null;
     notifyListeners();
@@ -532,7 +545,10 @@ class WorkoutBuilderProvider extends ChangeNotifier {
     final workoutId = _selectedWorkoutId;
     if (workoutId == null) return false;
 
-    _epoch++;
+    return _reads.write(() => _deleteDay(clientId, workoutId));
+  }
+
+  Future<bool> _deleteDay(String clientId, String workoutId) async {
     _isDeletingDay = true;
     _dayError = null;
     notifyListeners();
@@ -575,26 +591,27 @@ class WorkoutBuilderProvider extends ChangeNotifier {
       return null;
     }
 
-    _epoch++;
-    _isCreatingExercise = true;
-    _dayError = null;
-    notifyListeners();
-
-    try {
-      final created = await _repository.createTrainerExercise(
-        clientId,
-        name: name.trim(),
-        description: _trimmedOrNull(description),
-      );
-      _exerciseLibrary = [created, ..._exerciseLibrary];
-      return created;
-    } catch (_) {
-      _dayError = ConsoleError.createExercise;
-      return null;
-    } finally {
-      _isCreatingExercise = false;
+    return _reads.write(() async {
+      _isCreatingExercise = true;
+      _dayError = null;
       notifyListeners();
-    }
+
+      try {
+        final created = await _repository.createTrainerExercise(
+          clientId,
+          name: name.trim(),
+          description: _trimmedOrNull(description),
+        );
+        _exerciseLibrary = [created, ..._exerciseLibrary];
+        return created;
+      } catch (_) {
+        _dayError = ConsoleError.createExercise;
+        return null;
+      } finally {
+        _isCreatingExercise = false;
+        notifyListeners();
+      }
+    });
   }
 
   // ── Plan create/assign flow (unchanged) ──────────────────────────────────
@@ -625,28 +642,32 @@ class WorkoutBuilderProvider extends ChangeNotifier {
       return false;
     }
 
-    _epoch++;
-    _isSaving = true;
-    _error = null;
-    notifyListeners();
-
-    try {
-      final plan = await _repository.createClientWorkoutPlan(
-        clientId: clientId,
-        name: name.trim(),
-        description: description?.trim(),
-      );
-      _currentPlan = plan;
-      _isNew = false;
-      unawaited(loadDays(clientId));
-      return true;
-    } catch (_) {
-      _error = ConsoleError.createPlan;
-      return false;
-    } finally {
-      _isSaving = false;
+    final created = await _reads.write(() async {
+      _isSaving = true;
+      _error = null;
       notifyListeners();
-    }
+
+      try {
+        final plan = await _repository.createClientWorkoutPlan(
+          clientId: clientId,
+          name: name.trim(),
+          description: description?.trim(),
+        );
+        _currentPlan = plan;
+        _isNew = false;
+        return true;
+      } catch (_) {
+        _error = ConsoleError.createPlan;
+        return false;
+      } finally {
+        _isSaving = false;
+        notifyListeners();
+      }
+    });
+    // After the write has settled, not inside it: a refresh it owes runs as
+    // it settles, and the days read, started after, is the one that wins.
+    if (created) unawaited(loadDays(clientId));
+    return created;
   }
 
   /// Deletes the current plan. The plan's days stay with the client — only the
@@ -656,24 +677,25 @@ class WorkoutBuilderProvider extends ChangeNotifier {
     final plan = _currentPlan;
     if (plan == null) return false;
 
-    _epoch++;
-    _isDeletingPlan = true;
-    _planError = null;
-    notifyListeners();
-
-    try {
-      await _repository.deleteClientWorkoutPlan(clientId, plan.id);
-      _currentPlan = null;
-      _isNew = true;
-      _resetDayState();
-      return true;
-    } catch (_) {
-      _planError = ConsoleError.deletePlan;
-      return false;
-    } finally {
-      _isDeletingPlan = false;
+    return _reads.write(() async {
+      _isDeletingPlan = true;
+      _planError = null;
       notifyListeners();
-    }
+
+      try {
+        await _repository.deleteClientWorkoutPlan(clientId, plan.id);
+        _currentPlan = null;
+        _isNew = true;
+        _resetDayState();
+        return true;
+      } catch (_) {
+        _planError = ConsoleError.deletePlan;
+        return false;
+      } finally {
+        _isDeletingPlan = false;
+        notifyListeners();
+      }
+    });
   }
 
   String? _trimmedOrNull(String? value) {

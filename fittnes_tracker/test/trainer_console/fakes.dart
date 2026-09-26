@@ -20,14 +20,15 @@ class FakeTrainerConsoleRepository implements TrainerConsoleRepository {
   final List<ClientWorkout> clientWorkouts;
   final List<ClientExerciseOption> exerciseLibrary;
 
-  /// Set to make the matching call throw, for error-state tests. The
-  /// nutrition and roster ones can be flipped after the first load, to fail a
-  /// refresh of something already on screen.
-  final bool throwOnSessions;
-  final bool throwOnDashboard;
+  /// Set to make the matching call throw, for error-state tests. All but the
+  /// exercise library's can be flipped after the first load, to fail a
+  /// refresh of something already on screen — or to let one succeed after a
+  /// load that failed.
+  bool throwOnSessions;
+  bool throwOnDashboard;
   bool throwOnNutrition;
   bool throwOnRoster;
-  final bool throwOnClientWorkouts;
+  bool throwOnClientWorkouts;
   final bool throwOnExerciseLibrary;
 
   /// Set to make the next `createClientWorkout`/`updateClientWorkout` call

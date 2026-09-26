@@ -3,6 +3,7 @@ import 'package:logger/logger.dart';
 import 'package:ForgeForm/feature/trainer_console/data/trainer_console_repository.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_console_models.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/console_error.dart';
+import 'package:ForgeForm/feature/trainer_console/presentation/providers/pane_reads.dart';
 
 class NutritionProvider extends ChangeNotifier {
   final TrainerConsoleRepository _repository;
@@ -13,15 +14,19 @@ class NutritionProvider extends ChangeNotifier {
 
   ClientNutritionSummary? _summary;
   DateTime _selectedDate = DateTime.now();
-  bool _isLoading = false;
   ConsoleError? _error;
   String? _loadedClientId;
+  final _reads = PaneReads();
 
   ClientNutritionSummary? get summary => _summary;
   DateTime get selectedDate => _selectedDate;
-  bool get isLoading => _isLoading;
+  bool get isLoading => _reads.isLoading;
   ConsoleError? get error => _error;
   String? get loadedClientId => _loadedClientId;
+
+  /// Whether the last refresh failed, so the day shown is older than it
+  /// could be.
+  bool get refreshFailed => _reads.refreshFailed && _error == null;
 
   /// Nothing after today can have been eaten yet, so the day-switcher stops
   /// there rather than paging into empty future days.
@@ -35,9 +40,6 @@ class NutritionProvider extends ChangeNotifier {
     return selected.isBefore(DateTime(today.year, today.month, today.day));
   }
 
-  /// Which read of the summary is the latest; only its answer is applied.
-  int _request = 0;
-
   /// Bumped when a pin write starts and when it ends, with [_pinWrites]
   /// counting those in flight. A read that overlapped a write can't tell
   /// whether its pins are from before the write or after, so it keeps the
@@ -50,17 +52,19 @@ class NutritionProvider extends ChangeNotifier {
   ///
   /// [keepShown] is a refresh of the client and day already on screen — the
   /// console heard that their data changed. The summary stays up while it
-  /// reads, and a failed read keeps it rather than replacing it with an error
-  /// (`docs/sync-architecture.md`, part four). For another client, or before
-  /// the first load has settled, it is an ordinary load.
+  /// reads, and a failed read keeps it rather than replacing it with an error,
+  /// and sets [refreshFailed] (`docs/sync-architecture.md`, part four). For
+  /// another client, or before the first load has settled, it is an ordinary
+  /// load ([PaneReads]).
   Future<void> load(String clientId, {bool keepShown = false}) async {
-    final request = ++_request;
-    final keep = keepShown && _loadedClientId == clientId && !_isLoading;
+    final read = _reads.start(
+      keepShown: keepShown,
+      shown: _loadedClientId == clientId,
+    );
     final requestedDate = _selectedDate;
     final pinEpoch = _pinEpoch;
     final pinWritesAtStart = _pinWrites;
-    if (!keep) {
-      _isLoading = true;
+    if (read.isLoad) {
       _error = null;
       // Drop the old client's numbers immediately — showing one client's
       // intake under another's name is worse than a skeleton.
@@ -76,7 +80,7 @@ class NutritionProvider extends ChangeNotifier {
       );
       // Ignore a slow response the trainer has already navigated away from,
       // or one a later read has overtaken.
-      if (!_isCurrentRequest(request, clientId, requestedDate)) return;
+      if (!read.settle()) return;
       final shown = _summary;
       final pinsOverlapped = pinEpoch != _pinEpoch || pinWritesAtStart > 0;
       _summary = shown != null && pinsOverlapped
@@ -91,18 +95,11 @@ class NutritionProvider extends ChangeNotifier {
         error: e,
         stackTrace: stackTrace,
       );
-      if (!_isCurrentRequest(request, clientId, requestedDate) || keep) return;
-      _error = ConsoleError.loadNutrition;
-    } finally {
-      if (_isCurrentRequest(request, clientId, requestedDate)) {
-        _isLoading = false;
-        notifyListeners();
-      }
+      if (!read.settle(failed: true)) return;
+      if (read.isLoad) _error = ConsoleError.loadNutrition;
     }
+    notifyListeners();
   }
-
-  bool _isCurrentRequest(int request, String clientId, DateTime date) =>
-      request == _request && _isShowing(clientId, date);
 
   bool _isShowing(String clientId, DateTime date) =>
       _loadedClientId == clientId && _selectedDate == date;

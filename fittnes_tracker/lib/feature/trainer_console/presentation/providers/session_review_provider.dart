@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:ForgeForm/feature/trainer_console/data/trainer_console_repository.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_console_models.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/console_error.dart';
+import 'package:ForgeForm/feature/trainer_console/presentation/providers/pane_reads.dart';
 
 /// Drives Session Review: a history list for the active client (shared
 /// ActiveClientProvider selection, same as Builder/Nutrition — see
@@ -17,13 +18,17 @@ class SessionReviewProvider extends ChangeNotifier {
 
   List<ClientSessionSummary> _sessions = [];
   String? _selectedSessionId;
-  bool _isLoading = false;
   ConsoleError? _error;
+  final _reads = PaneReads();
 
   List<ClientSessionSummary> get sessions => _sessions;
-  bool get isLoading => _isLoading;
+  bool get isLoading => _reads.isLoading;
   ConsoleError? get error => _error;
   String? get selectedSessionId => _selectedSessionId;
+
+  /// Whether the last refresh failed, so the sessions shown are older than
+  /// they could be.
+  bool get refreshFailed => _reads.refreshFailed && _error == null;
 
   /// The selected session, or the newest one when nothing's been picked yet.
   /// Null only when [sessions] is empty.
@@ -39,23 +44,22 @@ class SessionReviewProvider extends ChangeNotifier {
   String? _loadedClientId;
   String? get loadedClientId => _loadedClientId;
 
-  /// Which [load] call is the latest; only its answer is applied.
-  int _request = 0;
-
   /// Loads the client's sessions (newest first). One request covers both the
   /// list and every entry's detail, so there's no per-selection fetch.
   ///
   /// [keepShown] is a refresh of the client already on screen — the console
   /// heard that their data changed. It leaves the list, the selection and the
   /// state on screen as they are while it reads, and if the read fails it
-  /// keeps them rather than swapping a populated review for an error. For
-  /// another client, or before the first load has settled, it is an ordinary
-  /// load: there is nothing of theirs on screen to keep.
+  /// keeps them rather than swapping a populated review for an error, and
+  /// sets [refreshFailed]. For another client, or before the first load has
+  /// settled, it is an ordinary load: there is nothing of theirs on screen to
+  /// keep ([PaneReads]).
   Future<void> load(String clientId, {bool keepShown = false}) async {
-    final request = ++_request;
-    final keep = keepShown && _loadedClientId == clientId && !_isLoading;
-    if (!keep) {
-      _isLoading = true;
+    final read = _reads.start(
+      keepShown: keepShown,
+      shown: _loadedClientId == clientId,
+    );
+    if (read.isLoad) {
       _error = null;
       // Drop the previous client's sessions immediately — showing one client's
       // history under another's name while the request is in flight would be
@@ -71,18 +75,14 @@ class SessionReviewProvider extends ChangeNotifier {
       // A slow response for a client the trainer has already switched away
       // from — or one overtaken by a later read — must not overwrite the newer
       // one's data.
-      if (request != _request) return;
+      if (!read.settle()) return;
       _sessions = sessions;
       _error = null;
     } catch (_) {
-      if (request != _request || keep) return;
-      _error = ConsoleError.loadSessions;
-    } finally {
-      if (request == _request) {
-        _isLoading = false;
-        notifyListeners();
-      }
+      if (!read.settle(failed: true)) return;
+      if (read.isLoad) _error = ConsoleError.loadSessions;
     }
+    notifyListeners();
   }
 
   /// Selects a session. Pure local state — the detail is already loaded.
