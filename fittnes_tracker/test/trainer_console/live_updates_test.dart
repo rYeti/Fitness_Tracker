@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ForgeForm/core/widgets/app_widgets.dart';
 import 'package:ForgeForm/feature/chat/data/chat_repository.dart';
-import 'package:ForgeForm/feature/chat/data/chat_signalr_client.dart';
+import 'package:ForgeForm/feature/chat/data/signalr_hub_chat_client.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/client_data_change.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_console_models.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/console_live_updates.dart';
@@ -29,20 +29,20 @@ import 'licence_fakes.dart';
 /// Each test was run with the one rule it pins taken out, and failed there.
 
 /// Stands in for the hub: a test says "client X's nutrition changed" or "the
-/// socket came back" with one line.
+/// socket is back in the trainer's group" with one line.
 class _Hub {
   final _changes = StreamController<ClientDataChange>.broadcast();
-  final _reconnects = StreamController<void>.broadcast();
+  final _rejoins = StreamController<void>.broadcast();
 
   late final ConsoleLiveUpdates live = ConsoleLiveUpdates(
     changes: _changes.stream,
-    reconnected: _reconnects.stream,
+    rejoined: _rejoins.stream,
   );
 
   void changed(String clientId, Set<ClientDataArea> areas) =>
       _changes.add(ClientDataChange(clientId: clientId, areas: areas));
 
-  void reconnected() => _reconnects.add(null);
+  void rejoined() => _rejoins.add(null);
 
   /// Unmounts the console and stops every timer, so none is left pending
   /// when the test ends. The console doesn't dispose an injected one.
@@ -50,7 +50,7 @@ class _Hub {
     await tester.pumpWidget(const SizedBox());
     live.dispose();
     unawaited(_changes.close());
-    unawaited(_reconnects.close());
+    unawaited(_rejoins.close());
   }
 }
 
@@ -504,13 +504,13 @@ void main() {
       await hub.close(tester);
     });
 
-    testWidgets('shares one cooldown between focus and reconnect', (
+    testWidgets('shares one cooldown between focus and a rejoin', (
       tester,
     ) async {
       final repository = _repository();
       final hub = await _pump(tester, repository);
 
-      hub.reconnected();
+      hub.rejoined();
       await tester.pump(const Duration(seconds: 2));
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
@@ -523,15 +523,15 @@ void main() {
       await hub.close(tester);
     });
 
-    testWidgets('refetches when the socket comes back, at most once a cooldown', (
+    testWidgets('refetches when the socket is back in its group, at most once a cooldown', (
       tester,
     ) async {
       final repository = _repository();
       final hub = await _pump(tester, repository);
 
-      // A socket that keeps dropping: five reconnects, two seconds apart.
+      // A socket that keeps dropping: five rejoins, two seconds apart.
       for (var i = 0; i < 5; i++) {
-        hub.reconnected();
+        hub.rejoined();
         await tester.pump(const Duration(seconds: 2));
       }
       expect(repository.calls['nutrition'], 2);
@@ -546,32 +546,69 @@ void main() {
     });
   });
 
-  group('reconnects', () {
-    test('are a connection coming back, not the first connect', () async {
-      final status = StreamController<ChatConnectionStatus>();
-      final seen = <void>[];
-      final subscription =
-          ConsoleLiveUpdates.reconnectsOf(status.stream).listen(seen.add);
+  group('the rejoin', () {
+    // The real transport over a fake socket, so what is pinned is the order
+    // the console sees: the join, then the refetch.
+    late FakeHubServer server;
+    late SignalRHubChatClient signalR;
+    late ConsoleLiveUpdates live;
+    late List<ConsoleRefresh> refreshes;
 
-      status.add(ChatConnectionStatus.connected);
-      await Future<void>.delayed(Duration.zero);
-      expect(seen, isEmpty, reason: 'the first connect');
+    setUp(() {
+      server = FakeHubServer();
+      signalR = SignalRHubChatClient(
+        baseUrl: 'https://api.test',
+        joinTrainerGroup: true,
+        buildConnection: server.build,
+        restartDelay: (_) => const Duration(milliseconds: 30),
+      );
+      live = ConsoleLiveUpdates(
+        rejoined: signalR.trainerGroupRejoined,
+        paneDelay: Duration.zero,
+        rosterDelay: Duration.zero,
+      );
+      refreshes = [];
+      live.refreshes.listen(refreshes.add);
+      addTearDown(() async {
+        live.dispose();
+        await signalR.dispose();
+      });
+    });
 
-      status
-        ..add(ChatConnectionStatus.reconnecting)
-        ..add(ChatConnectionStatus.connected);
-      await Future<void>.delayed(Duration.zero);
-      expect(seen, hasLength(1), reason: 'an automatic reconnect');
+    Future<void> settle() => Future<void>.delayed(const Duration(milliseconds: 5));
 
-      // Given up, then started afresh by the next chat call.
-      status
-        ..add(ChatConnectionStatus.disconnected)
-        ..add(ChatConnectionStatus.connected);
-      await Future<void>.delayed(Duration.zero);
-      expect(seen, hasLength(2), reason: 'a fresh start after a close');
+    test('refetches only once the socket is back in the trainer group', () async {
+      await signalR.connect();
+      await settle();
+      expect(refreshes, isEmpty, reason: 'the first connect');
 
-      await subscription.cancel();
-      await status.close();
+      final join = Completer<void>();
+      server.hold['JoinTrainerGroup'] = join;
+      server.hubs.single.reconnect();
+      await settle();
+      // Connected, but not in the group yet: a read now could miss a change
+      // committed before the join, and no event would bring it.
+      expect(refreshes, isEmpty);
+
+      join.complete();
+      await settle();
+      expect(refreshes.whereType<ClientRefresh>().single.clientId, isNull);
+      expect(refreshes.whereType<RosterRefresh>(), hasLength(1));
+    });
+
+    test('refetches after a join that failed once is tried again and succeeds', () async {
+      await signalR.connect();
+      await settle();
+
+      server.failNext['JoinTrainerGroup'] = 1;
+      server.hubs.single.reconnect();
+      await settle();
+      expect(server.hubs.single.invoked, hasLength(2));
+      expect(refreshes, isEmpty, reason: 'the join failed');
+
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+      expect(server.hubs.single.invoked, hasLength(3), reason: 'tried again');
+      expect(refreshes.whereType<ClientRefresh>(), hasLength(1));
     });
   });
 

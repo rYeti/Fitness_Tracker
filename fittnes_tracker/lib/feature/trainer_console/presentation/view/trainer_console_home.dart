@@ -120,7 +120,8 @@ class _TrainerConsoleHomeState extends State<TrainerConsoleHome> {
   late TrainerConsoleRoute _route;
 
   /// When what the console shows should be read again: a client's data
-  /// changed, the socket came back, or the tab came back into focus.
+  /// changed, the socket is back in the trainer's group, or the tab came back
+  /// into focus.
   /// `docs/sync-architecture.md`, part four.
   late final ConsoleLiveUpdates _live;
   late final bool _ownsLive;
@@ -193,8 +194,9 @@ class _TrainerConsoleHomeState extends State<TrainerConsoleHome> {
                     .map(ClientDataChange.tryParse)
                     .where((change) => change != null)
                     .cast<ClientDataChange>(),
-                reconnected:
-                    ConsoleLiveUpdates.reconnectsOf(signalR.connectionStatus),
+                // The join, not the status: a refetch on `connected` read
+                // while the connection might still be outside the group.
+                rejoined: signalR.trainerGroupRejoined,
               ));
     // The roster is the shell's, and every pane shows it in its switcher, so
     // it is refreshed here rather than by whichever pane is on screen.
