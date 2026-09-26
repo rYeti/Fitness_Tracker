@@ -14,6 +14,7 @@ import 'package:ForgeForm/core/widgets/app_widgets.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/macro_summary.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/stat_tile.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/console_error.dart';
+import 'package:ForgeForm/feature/trainer_console/presentation/widgets/refresh_failed_notice.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 
 /// Deep dive on one client: adherence, weight trend, attendance, strength
@@ -155,6 +156,11 @@ class _Body extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          RefreshFailedNotice(
+            failed: provider.refreshFailed,
+            onRetry: () => provider.load(keepShown: true),
+            padding: const EdgeInsets.only(bottom: 16),
+          ),
           for (final card in cards) ...[
             card,
             if (card != cards.last) const SizedBox(height: 14),

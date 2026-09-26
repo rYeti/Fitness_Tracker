@@ -9,6 +9,7 @@ import 'package:ForgeForm/feature/trainer_console/presentation/providers/workout
 import 'package:ForgeForm/feature/trainer_console/domain/models/client_data_change.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/providers/console_live_updates.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/client_switcher.dart';
+import 'package:ForgeForm/feature/trainer_console/presentation/widgets/refresh_failed_notice.dart';
 import 'package:ForgeForm/core/forge_motion.dart';
 import 'package:ForgeForm/core/widgets/app_widgets.dart';
 import 'package:ForgeForm/feature/trainer_console/domain/models/console_error.dart';
@@ -95,6 +96,7 @@ class _WorkoutBuilderScreenState extends State<WorkoutBuilderScreen>
                       isDesktop: isDesktop,
                       builder: builder,
                       hasClient: client != null,
+                      onRetry: refreshLive,
                     ),
                     const SizedBox(height: 24),
                     Expanded(
@@ -118,11 +120,13 @@ class _Header extends StatelessWidget {
   final bool isDesktop;
   final WorkoutBuilderProvider builder;
   final bool hasClient;
+  final VoidCallback onRetry;
 
   const _Header({
     required this.isDesktop,
     required this.builder,
     required this.hasClient,
+    required this.onRetry,
   });
 
   @override
@@ -155,6 +159,7 @@ class _Header extends StatelessWidget {
             color: colors.onSurface.withValues(alpha: 0.65),
           ),
         ),
+        RefreshFailedNotice(failed: builder.refreshFailed, onRetry: onRetry),
       ],
     );
 

@@ -2772,6 +2772,13 @@ class AppLocalizationsDe extends AppLocalizations {
   String get kpisLoading => 'Übersicht wird geladen';
 
   @override
+  String get consoleRefreshFailed => 'Aktualisierung fehlgeschlagen';
+
+  @override
+  String get consoleRefreshFailedDetail =>
+      'Aktualisierung fehlgeschlagen. Die Anzeige ist möglicherweise nicht aktuell.';
+
+  @override
   String get clientsHeading => 'Kunden';
 
   @override

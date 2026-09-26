@@ -12,6 +12,7 @@ import 'package:ForgeForm/feature/trainer_console/presentation/providers/trainer
 import 'package:ForgeForm/feature/trainer_console/presentation/view/invite_client_sheet.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/view/licence_screen.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/licence_banner.dart';
+import 'package:ForgeForm/feature/trainer_console/presentation/widgets/refresh_failed_notice.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/seat_meter.dart';
 import 'package:ForgeForm/core/widgets/client_avatar.dart';
 import 'package:ForgeForm/core/widgets/app_widgets.dart';
@@ -167,6 +168,18 @@ class _Body extends StatelessWidget {
                 ),
               ),
           ],
+        ),
+        // The roster and the KPIs refresh separately; either one failing
+        // leaves figures on this page older than they could be, and Retry
+        // reads again whichever did.
+        RefreshFailedNotice(
+          failed: activeClient.refreshFailed || provider.refreshFailed,
+          onRetry: () {
+            if (activeClient.refreshFailed) {
+              activeClient.loadClients(keepShown: true);
+            }
+            if (provider.refreshFailed) provider.load(keepShown: true);
+          },
         ),
         if (plan != null && LicenceBanner.isWarranted(plan)) ...[
           const SizedBox(height: 16),

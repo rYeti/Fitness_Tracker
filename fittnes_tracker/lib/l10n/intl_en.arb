@@ -1646,6 +1646,14 @@
   "@rosterLoading": {},
   "kpisLoading": "Loading summary",
   "@kpisLoading": {},
+  "consoleRefreshFailed": "Couldn't refresh",
+  "@consoleRefreshFailed": {
+    "description": "Trainer Console: shown beside data that is still on screen when reading it again in the background failed. Paired with a Retry button."
+  },
+  "consoleRefreshFailedDetail": "Couldn't refresh. What's shown may be out of date.",
+  "@consoleRefreshFailedDetail": {
+    "description": "Trainer Console: screen-reader label for the 'Couldn't refresh' notice."
+  },
   "clientsHeading": "Clients",
   "@clientsHeading": {},
   "kpiActiveClients": "Active clients",
