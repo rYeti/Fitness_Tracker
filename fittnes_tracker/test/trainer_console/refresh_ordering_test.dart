@@ -277,6 +277,93 @@ void main() {
     });
   });
 
+  group('a refresh that overtakes a days read', () {
+    test('keeps a day with unsaved edits, and shows no skeleton', () async {
+      final repository = _HeldRepository(
+        workoutSummary: _summaryWith('plan-1'),
+        clientWorkouts: [_day('Push Day')],
+      );
+      final builder = WorkoutBuilderProvider(repository: repository);
+      await builder.load('client-1');
+      builder.updateDayName('Push Day (heavy)');
+
+      // New plan, with the edited day still open. The new plan's days are
+      // still loading when the refresh its own event brings arrives.
+      builder.startNewPlan();
+      repository.holdWorkouts = true;
+      expect(
+        await builder.createPlan(clientId: 'client-1', name: 'Upper / Lower'),
+        isTrue,
+      );
+      await _settle();
+      expect(builder.isLoadingDays, isTrue);
+      repository.workoutSummary = _summaryWith('plan-new');
+      final refreshing = builder.refresh('client-1');
+      await _settle();
+
+      expect(builder.draft?.name, 'Push Day (heavy)');
+      expect(builder.isDraftDirty, isTrue);
+      expect(builder.isLoading, isFalse, reason: 'no whole-builder skeleton');
+      expect(builder.currentPlan?.id, 'plan-new');
+
+      repository
+        ..release(0)
+        ..release(1);
+      await refreshing;
+      await _settle();
+
+      expect(builder.draft?.name, 'Push Day (heavy)');
+      expect(builder.isDraftDirty, isTrue);
+      expect(builder.isLoadingDays, isFalse);
+      expect(builder.currentPlan?.id, 'plan-new');
+    });
+
+    test('lands on the first day, as the days read would have', () async {
+      final repository = _HeldRepository(
+        workoutSummary: _summaryWith(null),
+        clientWorkouts: [_day('Upper', planId: 'plan-new')],
+      );
+      final builder = WorkoutBuilderProvider(repository: repository);
+      await builder.load('client-1');
+
+      repository.holdWorkouts = true;
+      await builder.createPlan(clientId: 'client-1', name: 'Upper / Lower');
+      await _settle();
+      repository
+        ..workoutSummary = _summaryWith('plan-new')
+        ..holdWorkouts = false;
+      await builder.refresh('client-1');
+      repository.release(0);
+      await _settle();
+
+      expect(builder.isLoadingDays, isFalse);
+      expect(builder.draft?.name, 'Upper');
+    });
+
+    test('fails the way the days read would have', () async {
+      final repository = _HeldRepository(
+        workoutSummary: _summaryWith(null),
+        clientWorkouts: [_day('Upper', planId: 'plan-new')],
+      );
+      final builder = WorkoutBuilderProvider(repository: repository);
+      await builder.load('client-1');
+
+      repository.holdWorkouts = true;
+      await builder.createPlan(clientId: 'client-1', name: 'Upper / Lower');
+      await _settle();
+      repository
+        ..holdWorkouts = false
+        ..throwOnClientWorkouts = true;
+      await builder.refresh('client-1');
+      repository.release(0);
+      await _settle();
+
+      // Not a skeleton that never ends.
+      expect(builder.isLoadingDays, isFalse);
+      expect(builder.daysError, isNotNull);
+    });
+  });
+
   group('the Workout Builder follows a plan that changed elsewhere', () {
     test('a plan that appears ends the create flow, as a load would', () async {
       final repository = FakeTrainerConsoleRepository(

@@ -188,12 +188,23 @@ class WorkoutBuilderProvider extends ChangeNotifier {
   /// [loadDays] is still reading becomes a load itself and supersedes it
   /// ([PaneReads.start]): the read in flight may have been answered before the
   /// change was committed.
+  ///
+  /// Superseding a read is not the same as starting over, though. A refresh
+  /// that overtakes a [loadDays] of the client on screen still reads in place
+  /// ([_refreshInPlace]) and finishes that read's job, rather than running
+  /// this method's body: that body clears the plan and the open day and
+  /// shows the whole builder's skeleton, and [loadDays] had done neither. It
+  /// used to run it, and so discarded a day with unsaved edits without
+  /// asking — a trainer who created a plan with an edited day open, and whose
+  /// refresh landed while the new plan's days were loading, lost the edits.
+  /// Overtaking a load of the same client runs the body again, which clears
+  /// nothing that load hadn't cleared already.
   Future<void> load(String clientId, {bool keepShown = false}) async {
-    final read = _reads.start(
-      keepShown: keepShown,
-      shown: _loadedClientId == clientId,
-    );
-    if (read.keep) return _refreshInPlace(clientId, read);
+    final sameClient = _loadedClientId == clientId;
+    final read = _reads.start(keepShown: keepShown, shown: sameClient);
+    if (read.keep || (keepShown && sameClient && !_isLoading)) {
+      return _refreshInPlace(clientId, read);
+    }
 
     _isLoading = true;
     _isLoadingDays = false;
@@ -286,6 +297,9 @@ class WorkoutBuilderProvider extends ChangeNotifier {
   /// an unsent change.
   Future<void> refresh(String clientId) => load(clientId, keepShown: true);
 
+  /// [read] is a refresh, or a load that took over a [loadDays] still in
+  /// flight, whose job — the days, and the loading state it raised — it then
+  /// finishes.
   Future<void> _refreshInPlace(String clientId, PaneRead read) async {
     // A first load that failed never got the templates, and the create flow
     // a refresh may land in needs them. No change of the client's moves them
@@ -300,7 +314,13 @@ class WorkoutBuilderProvider extends ChangeNotifier {
         if (withTemplates) _repository.getWorkoutPlanTemplates(),
       ]);
     } catch (_) {
-      if (read.settle(failed: true)) notifyListeners();
+      if (!read.settle(failed: true)) return;
+      // A read that took over loadDays fails the way loadDays would have.
+      if (read.isLoad) {
+        _isLoadingDays = false;
+        _daysError = ConsoleError.loadClientWorkouts;
+      }
+      notifyListeners();
       return;
     }
     if (!read.settle()) return;
@@ -324,6 +344,10 @@ class WorkoutBuilderProvider extends ChangeNotifier {
   }) {
     final dirty = isDraftDirty;
     final previous = _currentPlan;
+    // Days that never loaded — their read failed, or this one took it over
+    // while it was still in flight — land where loadDays would have put them.
+    final daysUnread = _daysError != null || _isLoadingDays;
+    _isLoadingDays = false;
     // The plan was deleted elsewhere. Unsaved edits hold the pane where it is
     // until the trainer saves or discards them, rather than taking the plan
     // they belong to out from under them.
@@ -347,13 +371,11 @@ class WorkoutBuilderProvider extends ChangeNotifier {
     // like a draft, and stays open.
     final trainerStartedCreate = _isNew && previous != null;
     if (!trainerStartedCreate) _isNew = false;
-    // Days that never loaded land where loadDays would have put them too.
-    final daysFailed = _daysError != null;
     _allWorkouts = workouts;
     _exerciseLibrary = library;
     _daysError = null;
     if (dirty) return;
-    _openServerDay(landOnFirstDay: plan.id != previous?.id || daysFailed);
+    _openServerDay(landOnFirstDay: plan.id != previous?.id || daysUnread);
   }
 
   /// Gives a clean open day the server's copy, or — when it isn't in the
