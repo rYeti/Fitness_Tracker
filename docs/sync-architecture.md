@@ -2793,7 +2793,10 @@ Both halves were written at once, against this:
   console invokes `JoinTrainerGroup()`, a hub method with no arguments. It puts
   the calling connection in the group `trainer:{trainerId}`
   (`ChatHub.TrainerGroup`) if its user holds a trainer licence, and otherwise
-  does nothing. Nothing is joined when a connection opens (§46).
+  does nothing. Nothing is joined when a connection opens (§46). It returns
+  normally when there is nothing more to do: the connection joined, its user
+  holds no licence, or its id can't be read. It throws a `HubException` when
+  the join failed, and the console calls it again, with backoff (§46).
 - **What.** One hub event, `ClientDataChanged`, with one argument. On the wire
   (SignalR's JSON protocol, which camel-cases):
 
@@ -2930,10 +2933,42 @@ that joins the group ship in the same change. And a reconnect was never
 something the console could ignore, since it refetches every pane shown when
 its socket comes back (§55).
 
-A failure inside `JoinTrainerGroup` is logged and the call returns normally, as
-the connect-time join did. Chat rides the same socket and must never come to
-depend on live updates. The console's refetch on focus and on reconnect covers a
-group it failed to join.
+### A join that fails says so
+
+A failure inside `JoinTrainerGroup` was at first logged, and the call returned
+normally, as the connect-time join had done. In `OnConnectedAsync` that was
+right: an exception there refuses the connection, chat included. In a method the
+console calls it was wrong, because a normal return is how the console learns
+that it joined. Review traced what followed. The licence query throws on a
+transient database error just as the console connects. The hub logs a warning
+and returns. The console takes that for a join and never asks again, so it sits
+outside `trainer:{id}` for as long as that connection lives, which for a console
+left open is hours, and hears no `ClientDataChanged` in that time. The refetch on
+focus (§55) still bounds how stale a pane can get once the trainer clicks back
+in, but a console the trainer is only watching never regains focus.
+
+Now the way the call ends is the console's instruction:
+
+| `JoinTrainerGroup()`… | when | and the console |
+|---|---|---|
+| returns normally | the connection joined; its user holds no licence; its id can't be read | stops. Asking again would get the same answer |
+| throws `HubException` | the licence read threw, or the group add did | asks again, with backoff |
+
+The exception's message says only that the join failed. What went wrong is
+logged on the server. `HubException` is the exception SignalR hands to the
+caller with its message intact; any other reaches the client as a generic error,
+and its detail would be a database's error text in a browser console. The
+exception ends one invocation, not the connection, so chat on the same socket
+is untouched whichever way the join ends.
+
+Nothing caught the swallowed failure, because every test of the join asked what
+happens when it works. A test of failure has to make the join fail, and none
+did. `A_join_whose_licence_read_fails_asks_to_be_retried` now gives the hub a
+licence table that throws, and `A_join_whose_group_add_fails_asks_to_be_retried`
+a group store that does. Both fail against the version that logged and
+returned. The general form: a method a client calls in order to be told
+something has to report its failure. Logging and returning is right only where
+nobody is waiting for the answer, and a hub method always has someone waiting.
 
 ### Only an Active relationship, checked when the event is sent
 
@@ -3347,7 +3382,7 @@ nine full-list downloads on every sync with one delta.
 
 ### What the tests pin
 
-In `FitTracker.Api.Tests/LiveUpdateTests.cs` (30), `ChatHubTests.cs` (4 more),
+In `FitTracker.Api.Tests/LiveUpdateTests.cs` (30), `ChatHubTests.cs` (7 more),
 `DeviceTokenTests.cs` (4 more) and `ClaimsPrincipalExtensionsTests.cs` (1). Each
 test in the first version was written first and run against a
 skeleton: the types and signatures in place, nothing recorded, nothing sent,
@@ -3381,6 +3416,8 @@ failure back:
 | *TheEventReachesTheConsoleAsCamelCaseJson* | §45: the wire format the console reads | the payload gains a field |
 | *A_trainer_who_asks_joins_their_trainer_group*, *A_non_trainer_who_asks_joins_no_group*, *A_trainer_without_a_licence_who_asks_joins_no_group* | §46: a licence makes a trainer | nothing is joined; the licence isn't checked |
 | *Connecting_joins_no_group_and_reads_nothing* | §46: only the console joins | a connection is joined, or anything is read, when it opens |
+| *A_join_whose_licence_read_fails_asks_to_be_retried*, *A_join_whose_group_add_fails_asks_to_be_retried* | §46: a failed join throws `HubException`, whose message carries no detail | the failure is logged and the call returns normally; the exception's detail is sent to the caller |
+| *A_caller_whose_id_cant_be_read_is_not_asked_to_retry* | §46: a normal return for what asking again can't change | the hub throws for a token it can't read |
 | *The_id_is_read_from_NameIdentifier_then_sub_and_must_be_a_guid* | §46: one reading of the caller | `sub` is read first; a bad `NameIdentifier` falls back to `sub` |
 | *A_sync_request_is_data_only_collapsed_and_not_urgent*, *Fcm_is_given_the_collapse_key_for_both_platforms*, *A_chat_push_to_fcm_is_unchanged* | §46: the push, and chat's untouched | it is sent at high priority, or not collapsed; Android isn't given the key; chat gains an APNs block, or loses high priority |
 
@@ -3449,7 +3486,10 @@ and the comment at that line says why.
   group joined on a role, a licence, and CLAUDE.md records it as the exception.
 - **Only the console joins.** Nothing is joined, and nothing is read, when a
   connection opens. The console calls `JoinTrainerGroup()` after each connect
-  and reconnect.
+  and reconnect. A normal return means there is nothing more to do. A join
+  that failed throws a `HubException` carrying no detail, and the console asks
+  again. A hub method never logs a failure and returns as though it worked,
+  because the caller reads the return as the answer.
 - **The common case costs one query.** The notifier asks for the owners' Active
   trainers first, and returns when there are none and the caller changed only
   their own data. Nothing may be added in front of that return.

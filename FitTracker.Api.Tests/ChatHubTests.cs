@@ -3,6 +3,7 @@ using FitTracker.Api.DTOs;
 using FitTracker.Api.Hubs;
 using FitTracker.Api.Models;
 using FitTracker.Api.Repositories;
+using FitTracker.Api.Repositories.Interfaces;
 using FitTracker.Api.Services;
 using FitTracker.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Http.Features;
@@ -36,14 +37,15 @@ namespace FitTracker.Api.Tests;
 /// </remarks>
 public class ChatHubTests
 {
-    private static ChatHub NewHub(ChatScenario ctx, Guid callerId, out RecordingClients clients) =>
+    private static ChatHub NewHub(ChatScenario ctx, Guid? callerId, out RecordingClients clients) =>
         NewHub(ctx, callerId, out clients, out _);
 
     private static ChatHub NewHub(
         ChatScenario ctx,
-        Guid callerId,
+        Guid? callerId,
         out RecordingClients clients,
-        out RecordingPushDispatcher pushes)
+        out RecordingPushDispatcher pushes,
+        ITrainerLicenceRepository? licences = null)
     {
         var trainerClientRepo = new TrainerClientRepository(ctx.Db);
         var trainerClientService = new TrainerClientService(
@@ -57,7 +59,7 @@ public class ChatHubTests
             new ChatService(trainerClientRepo, new ChatRepository(ctx.Db)),
             pushes,
             NewAttachmentService(ctx, trainerClientService),
-            new TrainerLicenceRepository(ctx.Db),
+            licences ?? new TrainerLicenceRepository(ctx.Db),
             NullLogger<ChatHub>.Instance)
         {
             Context = new FakeHubCallerContext(callerId),
@@ -384,6 +386,7 @@ public class ChatHubTests
         var hub = NewHub(ctx, ctx.TrainerId, out _);
         hub.Groups = groups;
 
+        // Returns normally, which the console reads as done.
         await hub.JoinTrainerGroup();
 
         Assert.Equal([("test-connection", $"trainer:{ctx.TrainerId}")], groups.Added);
@@ -420,6 +423,8 @@ public class ChatHubTests
         var hub = NewHub(ctx, ctx.ClientId, out _);
         hub.Groups = groups;
 
+        // Returns normally: asking again would find no licence again, so there is nothing
+        // for the console to retry.
         await hub.JoinTrainerGroup();
 
         Assert.Empty(groups.Added);
@@ -432,6 +437,51 @@ public class ChatHubTests
         using var ctx = new ChatScenario();
         var groups = new RecordingGroups();
         var hub = NewHub(ctx, ctx.TrainerId, out _);
+        hub.Groups = groups;
+
+        await hub.JoinTrainerGroup();
+
+        Assert.Empty(groups.Added);
+    }
+
+    [Fact]
+    public async Task A_join_whose_licence_read_fails_asks_to_be_retried()
+    {
+        // A transient database error as the console connects. The hub used to log it and
+        // return normally, which the console took for a join, so it sat outside its group,
+        // hearing no ClientDataChanged, for as long as that connection lived. A HubException is
+        // what tells the console to ask again.
+        using var ctx = new ChatScenario();
+        var groups = new RecordingGroups();
+        var hub = NewHub(ctx, ctx.TrainerId, out _, out _, licences: new FailingLicences());
+        hub.Groups = groups;
+
+        var refused = await Assert.ThrowsAsync<HubException>(hub.JoinTrainerGroup);
+
+        Assert.Empty(groups.Added);
+        // What went wrong is logged; the caller is told only that the join failed.
+        Assert.DoesNotContain(FailingLicences.Detail, refused.Message);
+    }
+
+    [Fact]
+    public async Task A_join_whose_group_add_fails_asks_to_be_retried()
+    {
+        using var ctx = new ChatScenario();
+        ctx.Db.TrainerLicences.Add(new TrainerLicence { TrainerId = ctx.TrainerId });
+        ctx.Db.SaveChanges();
+        var hub = NewHub(ctx, ctx.TrainerId, out _);
+        hub.Groups = new RecordingGroups { Fails = true };
+
+        await Assert.ThrowsAsync<HubException>(hub.JoinTrainerGroup);
+    }
+
+    [Fact]
+    public async Task A_caller_whose_id_cant_be_read_is_not_asked_to_retry()
+    {
+        // Asking again would read the same token. A normal return is the console's "done".
+        using var ctx = new ChatScenario();
+        var groups = new RecordingGroups();
+        var hub = NewHub(ctx, callerId: null, out _);
         hub.Groups = groups;
 
         await hub.JoinTrainerGroup();
@@ -457,6 +507,21 @@ public class ChatHubTests
             Queued.Add((recipientId, senderId, messageId, body));
     }
 
+    /// <summary>A licence table that can't be read: the database connection dropped.</summary>
+    private sealed class FailingLicences : ITrainerLicenceRepository
+    {
+        /// <summary>What went wrong, which must stay in the log and never reach the caller.</summary>
+        public const string Detail = "connection to 10.20.0.3:5432 was reset by peer";
+
+        private static Task<T> Fail<T>() => Task.FromException<T>(new InvalidOperationException(Detail));
+
+        public Task<TrainerLicence?> GetByTrainerAsync(Guid trainerId) => Fail<TrainerLicence?>();
+        public Task<TrainerLicence> CreateFreeAsync(Guid trainerId) => Fail<TrainerLicence>();
+        public Task<TrainerLicence?> GetBySubscriptionAsync(string stripeSubscriptionId) => Fail<TrainerLicence?>();
+        public Task<TrainerLicence?> GetByCustomerAsync(string stripeCustomerId) => Fail<TrainerLicence?>();
+        public Task SaveAsync(TrainerLicence licence) => Fail<object?>();
+    }
+
     private sealed class FakeHubCallerContext(Guid? userId, string? claimType = null) : HubCallerContext
     {
         private readonly ClaimsPrincipal _user = userId is null
@@ -479,8 +544,12 @@ public class ChatHubTests
         public List<(string connectionId, string groupName)> Added { get; } = [];
         public List<(string connectionId, string groupName)> Removed { get; } = [];
 
+        /// <summary>Makes every add throw, as a group store that can't be reached would.</summary>
+        public bool Fails { get; init; }
+
         public Task AddToGroupAsync(string connectionId, string groupName, CancellationToken cancellationToken = default)
         {
+            if (Fails) throw new InvalidOperationException("group store unavailable");
             Added.Add((connectionId, groupName));
             return Task.CompletedTask;
         }

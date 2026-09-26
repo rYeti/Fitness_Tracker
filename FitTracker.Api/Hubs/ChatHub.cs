@@ -58,24 +58,31 @@ public class ChatHub(
     /// to Active relationships.
     /// </para>
     /// <para>
-    /// A failure here is logged and the connection goes on without the group. The console
-    /// fetches again when it regains focus or reconnects, so a missing group costs freshness,
-    /// not data. Chat on the same socket never depends on it.
+    /// How it ends tells the console what to do next. A normal return means there is nothing
+    /// more to do: the connection joined, or its user holds no licence and has nothing to
+    /// join, or its id can't be read, which asking again won't change. A
+    /// <see cref="HubException"/> means the join failed because the licence read or the group
+    /// add threw, and the console asks again, with backoff. This used to log the failure and
+    /// return normally, which the console read as a join, so a transient database error as it
+    /// connected left it outside the group for the life of the connection: hours, for a
+    /// console left open. The exception says only that the join failed. What went wrong is
+    /// logged here and never sent to the caller. Chat on the same socket doesn't depend on
+    /// this call, whichever way it ends.
     /// </para>
     /// </remarks>
+    /// <exception cref="HubException">The join failed and should be asked for again.</exception>
     public async Task JoinTrainerGroup()
     {
         if (!Context.User.TryGetUserId(out var userId)) return;
         try
         {
-            if (await Licences.GetByTrainerAsync(userId) != null)
-            {
-                await Groups.AddToGroupAsync(Context.ConnectionId, TrainerGroup(userId));
-            }
+            if (await Licences.GetByTrainerAsync(userId) == null) return;
+            await Groups.AddToGroupAsync(Context.ConnectionId, TrainerGroup(userId));
         }
         catch (Exception ex)
         {
             Logger.LogWarning(ex, "Could not add trainer {UserId}'s connection to their group.", userId);
+            throw new HubException("Could not join live updates. Try again.");
         }
     }
 
