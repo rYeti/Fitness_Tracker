@@ -124,6 +124,10 @@ class WorkoutBuilderProvider extends ChangeNotifier {
   bool _isDeletingPlan = false;
   ConsoleError? _planError;
 
+  /// Whether the plan and the templates have come back for the loaded
+  /// client — by a load, or by a refresh after a load that failed.
+  bool _planLoaded = false;
+
   bool get isNew => _isNew;
   List<WorkoutPlanTemplateSummary> get templates => _templates;
   WorkoutPlanSummary? get currentPlan => _currentPlan;
@@ -195,6 +199,7 @@ class WorkoutBuilderProvider extends ChangeNotifier {
     _isLoadingDays = false;
     _error = null;
     _currentPlan = null;
+    _planLoaded = false;
     _loadedClientId = clientId;
     _resetDayState();
     notifyListeners();
@@ -207,6 +212,7 @@ class WorkoutBuilderProvider extends ChangeNotifier {
       if (!read.settle()) return;
       _templates = results[0] as List<WorkoutPlanTemplateSummary>;
       _currentPlan = (results[1] as ClientWorkoutSummary).currentPlan;
+      _planLoaded = true;
       // A client with no plan lands straight in the create flow — there's
       // nothing to show them otherwise.
       _isNew = _currentPlan == null;
@@ -271,19 +277,27 @@ class WorkoutBuilderProvider extends ChangeNotifier {
   /// overlapped is read again once that write settles, since its answer may
   /// be from before it.
   ///
-  /// The open day is the trainer's. A draft with unsaved edits is left exactly
-  /// as it is while the rest of the pane — the plan, the list of days —
-  /// updates around it; only a clean draft takes the server's copy. It is the
-  /// same rule the device's pull keeps for a row with an unsent change.
+  /// Where the plan itself changed, it lands where [load] would — the plan
+  /// that now exists and its first day, or the create flow if there is none —
+  /// with one exception, which is the rule for the whole refresh: the open day
+  /// is the trainer's. A draft with unsaved edits is left exactly as it is
+  /// while the rest of the pane updates around it; only a clean one takes the
+  /// server's copy. It is the same rule the device's pull keeps for a row with
+  /// an unsent change.
   Future<void> refresh(String clientId) => load(clientId, keepShown: true);
 
   Future<void> _refreshInPlace(String clientId, PaneRead read) async {
+    // A first load that failed never got the templates, and the create flow
+    // a refresh may land in needs them. No change of the client's moves them
+    // otherwise, so a builder that has them doesn't ask again.
+    final withTemplates = !_planLoaded;
     final List<Object> results;
     try {
       results = await Future.wait<Object>([
         _repository.getClientWorkoutSummary(clientId),
         _repository.getClientWorkouts(clientId),
         _repository.getClientExerciseLibrary(clientId),
+        if (withTemplates) _repository.getWorkoutPlanTemplates(),
       ]);
     } catch (_) {
       if (read.settle(failed: true)) notifyListeners();
@@ -291,49 +305,91 @@ class WorkoutBuilderProvider extends ChangeNotifier {
     }
     if (!read.settle()) return;
 
-    final plan = (results[0] as ClientWorkoutSummary).currentPlan;
-    final dirty = isDraftDirty;
-    if (plan == null && _currentPlan != null) {
-      // The plan was deleted elsewhere. Unsaved edits hold the pane where it
-      // is until the trainer saves or discards them; otherwise it lands where
-      // deleting it here would have.
-      if (dirty) return;
-      _currentPlan = null;
-      _isNew = true;
-      _resetDayState();
-      notifyListeners();
-      return;
-    }
-
-    _currentPlan = plan;
-    _allWorkouts = results[1] as List<ClientWorkout>;
-    _exerciseLibrary = results[2] as List<ClientExerciseOption>;
-    _daysError = null;
-    if (!dirty) _takeServerCopyOfOpenDay();
+    _takeRefresh(
+      plan: (results[0] as ClientWorkoutSummary).currentPlan,
+      workouts: results[1] as List<ClientWorkout>,
+      library: results[2] as List<ClientExerciseOption>,
+      templates: withTemplates
+          ? results[3] as List<WorkoutPlanTemplateSummary>
+          : null,
+    );
     notifyListeners();
   }
 
-  /// Replaces a clean open day with the server's copy, or closes it if the
-  /// day is gone. Only when the copy differs: a refresh that follows the
-  /// trainer's own save finds what they saved, and rebuilding the editor then
-  /// would only take their cursor away.
-  void _takeServerCopyOfOpenDay() {
-    final selectedId = _selectedWorkoutId;
-    final snapshot = _savedSnapshot;
-    if (selectedId == null || snapshot == null) return;
+  void _takeRefresh({
+    required WorkoutPlanSummary? plan,
+    required List<ClientWorkout> workouts,
+    required List<ClientExerciseOption> library,
+    required List<WorkoutPlanTemplateSummary>? templates,
+  }) {
+    final dirty = isDraftDirty;
+    final previous = _currentPlan;
+    // The plan was deleted elsewhere. Unsaved edits hold the pane where it is
+    // until the trainer saves or discards them, rather than taking the plan
+    // they belong to out from under them.
+    if (plan == null && previous != null && dirty) return;
 
-    final fresh = _allWorkouts.where((w) => w.id == selectedId).firstOrNull;
-    if (fresh == null) {
+    if (templates != null) _templates = templates;
+    // A refresh is also how a builder whose first load failed recovers.
+    if (!_planLoaded) _error = null;
+    _planLoaded = true;
+    _currentPlan = plan;
+
+    if (plan == null) {
+      // No plan, or none any more: where load() lands a client with none.
+      _isNew = true;
+      _resetDayState();
+      return;
+    }
+
+    // A plan that has appeared ends the create flow load() put a client with
+    // no plan in. One the trainer opened themselves, over a plan, is theirs,
+    // like a draft, and stays open.
+    final trainerStartedCreate = _isNew && previous != null;
+    if (!trainerStartedCreate) _isNew = false;
+    // Days that never loaded land where loadDays would have put them too.
+    final daysFailed = _daysError != null;
+    _allWorkouts = workouts;
+    _exerciseLibrary = library;
+    _daysError = null;
+    if (dirty) return;
+    _openServerDay(landOnFirstDay: plan.id != previous?.id || daysFailed);
+  }
+
+  /// Gives a clean open day the server's copy, or — when it isn't in the
+  /// plan any more — lands on the plan's first day where [load] would have
+  /// ([landOnFirstDay]: the plan appeared or changed, or its days had never
+  /// loaded), or closes the editor.
+  ///
+  /// Only when the copy differs: a refresh that follows the trainer's own
+  /// save finds what they saved, and rebuilding the editor then would only
+  /// take their cursor away.
+  ///
+  /// Measured against the plan's days, not every workout the client has. A
+  /// new plan assigned elsewhere may not contain the day that was open, and
+  /// keeping it open left the editor showing a day the list beside it didn't.
+  void _openServerDay({required bool landOnFirstDay}) {
+    final days = planWorkouts;
+    final selectedId = _selectedWorkoutId;
+    final fresh = selectedId == null
+        ? null
+        : days.where((w) => w.id == selectedId).firstOrNull;
+    if (fresh != null) {
+      final copy = WorkoutDraft.fromExisting(fresh);
+      final snapshot = _savedSnapshot;
+      if (snapshot != null && _draftsEqual(copy, snapshot)) return;
+      _draft = copy;
+      _savedSnapshot = WorkoutDraft.fromExisting(fresh);
+      _draftRevision++;
+      return;
+    }
+    if (landOnFirstDay && days.isNotEmpty) {
+      _open(days.first);
+    } else if (selectedId != null) {
       _selectedWorkoutId = null;
       _draft = null;
       _savedSnapshot = null;
-      return;
     }
-    final copy = WorkoutDraft.fromExisting(fresh);
-    if (_draftsEqual(copy, snapshot)) return;
-    _draft = copy;
-    _savedSnapshot = WorkoutDraft.fromExisting(fresh);
-    _draftRevision++;
   }
 
   void _resetDayState() {

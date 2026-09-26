@@ -8,12 +8,13 @@ import 'package:ForgeForm/feature/trainer_console/presentation/providers/workout
 
 import 'fakes.dart';
 
-/// A refresh against a pane that also loads and writes: which answer wins.
+/// A refresh against a pane that also loads and writes: which answer wins,
+/// and what a changed plan does to the Workout Builder.
 /// `docs/sync-architecture.md` §52–§53.
 ///
 /// Every test here uses only what the providers exposed before the fixes,
 /// and each was run against the code before them and failed there — except
-/// the one that says it held before too.
+/// the three that say they held before too.
 
 /// Answers a held read with what the server held when the request arrived,
 /// once released: a read whose answer is still on its way back when a later
@@ -255,6 +256,126 @@ void main() {
         containsAll(['Push Day (heavy)', 'Pull Day B']),
       );
       expect(builder.isDraftDirty, isFalse);
+    });
+  });
+
+  group('the Workout Builder follows a plan that changed elsewhere', () {
+    test('a plan that appears ends the create flow, as a load would', () async {
+      final repository = FakeTrainerConsoleRepository(
+        workoutSummary: _summaryWith(null),
+        clientWorkouts: [_day('Push Day')],
+      );
+      final builder = WorkoutBuilderProvider(repository: repository);
+      await builder.load('client-1');
+      expect(builder.isNew, isTrue, reason: 'no plan: the create flow');
+
+      repository.workoutSummary = _summaryWith('plan-1');
+      await builder.refresh('client-1');
+
+      expect(builder.isNew, isFalse);
+      expect(builder.currentPlan?.id, 'plan-1');
+      expect(builder.draft?.name, 'Push Day', reason: 'on its first day');
+    });
+
+    test('a first load that failed recovers on a refresh', () async {
+      final repository = FakeTrainerConsoleRepository(
+        workoutSummary: _summaryWith('plan-1'),
+        clientWorkouts: [_day('Push Day')],
+        templates: const [
+          WorkoutPlanTemplateSummary(
+            id: 'ppl',
+            name: 'Push / Pull / Legs',
+            description: 'Hypertrophy',
+            icon: 'fitness_center',
+            daysPerWeek: 4,
+          ),
+        ],
+      )..throwOnWorkoutSummary = true;
+      final builder = WorkoutBuilderProvider(repository: repository);
+      await builder.load('client-1');
+      expect(builder.error, isNotNull);
+
+      repository.throwOnWorkoutSummary = false;
+      await builder.refresh('client-1');
+
+      expect(builder.error, isNull);
+      expect(builder.templates, isNotEmpty);
+      expect(builder.currentPlan?.id, 'plan-1');
+      expect(builder.draft?.name, 'Push Day');
+    });
+
+    test('days that failed to load recover on a refresh, on the first day', () async {
+      final repository = FakeTrainerConsoleRepository(
+        workoutSummary: _summaryWith('plan-1'),
+        clientWorkouts: [_day('Push Day')],
+      )..throwOnClientWorkouts = true;
+      final builder = WorkoutBuilderProvider(repository: repository);
+      await builder.load('client-1');
+      expect(builder.daysError, isNotNull);
+
+      repository.throwOnClientWorkouts = false;
+      await builder.refresh('client-1');
+
+      expect(builder.daysError, isNull);
+      expect(builder.draft?.name, 'Push Day', reason: 'where loadDays lands');
+    });
+
+    test('a new plan opens a day that is in it', () async {
+      final repository = FakeTrainerConsoleRepository(
+        workoutSummary: _summaryWith('plan-1'),
+        clientWorkouts: [
+          _day('Push Day'),
+          _day('Upper', id: 'workout-2', planId: 'plan-2'),
+        ],
+      );
+      final builder = WorkoutBuilderProvider(repository: repository);
+      await builder.load('client-1');
+      expect(builder.selectedWorkoutId, 'workout-1');
+
+      repository.workoutSummary = _summaryWith('plan-2');
+      await builder.refresh('client-1');
+
+      expect(builder.currentPlan?.id, 'plan-2');
+      expect(builder.selectedWorkoutId, 'workout-2');
+      expect(builder.draft?.name, 'Upper');
+    });
+
+    // The exception, not a regression: it held before the fixes too.
+    test('a new plan leaves a day with unsaved edits open', () async {
+      final repository = FakeTrainerConsoleRepository(
+        workoutSummary: _summaryWith('plan-1'),
+        clientWorkouts: [
+          _day('Push Day'),
+          _day('Upper', id: 'workout-2', planId: 'plan-2'),
+        ],
+      );
+      final builder = WorkoutBuilderProvider(repository: repository);
+      await builder.load('client-1');
+      builder.updateDayName('Push Day (heavy)');
+
+      repository.workoutSummary = _summaryWith('plan-2');
+      await builder.refresh('client-1');
+
+      expect(builder.currentPlan?.id, 'plan-2');
+      expect(builder.planWorkouts.single.name, 'Upper');
+      expect(builder.draft?.name, 'Push Day (heavy)');
+      expect(builder.isDraftDirty, isTrue);
+    });
+
+    // Also an exception: the create flow the trainer opened over a plan is
+    // theirs, like a draft.
+    test('a create flow the trainer opened stays open', () async {
+      final repository = FakeTrainerConsoleRepository(
+        workoutSummary: _summaryWith('plan-1'),
+        clientWorkouts: [_day('Push Day')],
+      );
+      final builder = WorkoutBuilderProvider(repository: repository);
+      await builder.load('client-1');
+      builder.startNewPlan();
+
+      await builder.refresh('client-1');
+
+      expect(builder.isNew, isTrue);
     });
   });
 }

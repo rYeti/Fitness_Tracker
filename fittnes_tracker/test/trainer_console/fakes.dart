@@ -12,9 +12,10 @@ class FakeTrainerConsoleRepository implements TrainerConsoleRepository {
   final List<ClientSessionSummary> sessions;
   final TrainerDashboardKpis? kpis;
   /// Not final, so a test can change what the server holds between two
-  /// reads — a client logging a meal while the console is open.
+  /// reads — a client logging a meal while the console is open, or being
+  /// given a plan.
   ClientNutritionSummary? nutrition;
-  final ClientWorkoutSummary? workoutSummary;
+  ClientWorkoutSummary? workoutSummary;
   final List<ClientWeightEntry> weightHistory;
   final List<WorkoutPlanTemplateSummary> templates;
   final List<ClientWorkout> clientWorkouts;
@@ -29,6 +30,7 @@ class FakeTrainerConsoleRepository implements TrainerConsoleRepository {
   bool throwOnNutrition;
   bool throwOnRoster;
   bool throwOnClientWorkouts;
+  bool throwOnWorkoutSummary = false;
   final bool throwOnExerciseLibrary;
 
   /// Set to make the next `createClientWorkout`/`updateClientWorkout` call
@@ -156,6 +158,7 @@ class FakeTrainerConsoleRepository implements TrainerConsoleRepository {
   Future<ClientWorkoutSummary> getClientWorkoutSummary(String clientId) async {
     _record('workoutSummary');
     if (gate != null) await gate!.future;
+    if (throwOnWorkoutSummary) throw Exception('boom');
     return workoutSummary ??
         const ClientWorkoutSummary(attendance: [], strengthProgression: []);
   }
