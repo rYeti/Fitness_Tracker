@@ -526,109 +526,96 @@ class WorkoutBuilderProvider extends ChangeNotifier {
       return false;
     }
 
-    return _reads.write(() => _save(clientId, draft, planId));
-  }
+    final exercises = draft.exercises
+        .map(
+          (e) => ClientWorkoutExerciseDraft(
+            id: e.id,
+            exerciseId: e.exerciseId,
+            notes: e.notes?.trim().isEmpty == true ? null : e.notes?.trim(),
+            targetReps: [
+              for (final s in e.sets)
+                if (s.targetReps.trim().isNotEmpty) s.targetReps.trim(),
+            ],
+          ),
+        )
+        .toList();
 
-  Future<bool> _save(String clientId, WorkoutDraft draft, String? planId) async {
-    _isSavingDay = true;
     _dayError = null;
-    notifyListeners();
-
-    try {
-      final exercises = draft.exercises
-          .map(
-            (e) => ClientWorkoutExerciseDraft(
-              id: e.id,
-              exerciseId: e.exerciseId,
-              notes: e.notes?.trim().isEmpty == true ? null : e.notes?.trim(),
-              targetReps: [
-                for (final s in e.sets)
-                  if (s.targetReps.trim().isNotEmpty) s.targetReps.trim(),
-              ],
+    return _write(
+      clientId,
+      busy: (busy) => _isSavingDay = busy,
+      send: () => draft.isNew
+          ? _repository.createClientWorkout(
+              clientId,
+              name: draft.name.trim(),
+              description: _trimmedOrNull(draft.description),
+              difficulty: draft.difficulty,
+              estimatedDurationMinutes: draft.estimatedDurationMinutes,
+              planId: planId,
+              exercises: exercises,
+            )
+          : _repository.updateClientWorkout(
+              clientId,
+              draft.workoutId!,
+              name: draft.name.trim(),
+              description: _trimmedOrNull(draft.description),
+              difficulty: draft.difficulty,
+              estimatedDurationMinutes: draft.estimatedDurationMinutes,
+              exercises: exercises,
             ),
-          )
-          .toList();
-
-      final ClientWorkout saved;
-      if (draft.isNew) {
-        saved = await _repository.createClientWorkout(
-          clientId,
-          name: draft.name.trim(),
-          description: _trimmedOrNull(draft.description),
-          difficulty: draft.difficulty,
-          estimatedDurationMinutes: draft.estimatedDurationMinutes,
-          planId: planId,
-          exercises: exercises,
-        );
-      } else {
-        saved = await _repository.updateClientWorkout(
-          clientId,
-          draft.workoutId!,
-          name: draft.name.trim(),
-          description: _trimmedOrNull(draft.description),
-          difficulty: draft.difficulty,
-          estimatedDurationMinutes: draft.estimatedDurationMinutes,
-          exercises: exercises,
-        );
-      }
-
-      _allWorkouts = [
-        for (final w in _allWorkouts)
-          if (w.id != saved.id) w,
-        saved,
-      ];
-      _selectedWorkoutId = saved.id;
-      _draft = WorkoutDraft.fromExisting(saved);
-      _savedSnapshot = WorkoutDraft.fromExisting(saved);
-      return true;
-    } on WorkoutSaveException catch (e) {
-      _dayError = switch (e.failure) {
-        WorkoutSaveFailure.hasLoggedHistory => ConsoleError.workoutHasHistory,
-        WorkoutSaveFailure.unknownExercise => ConsoleError.unknownExercise,
-        WorkoutSaveFailure.other => ConsoleError.saveWorkout,
-      };
-      return false;
-    } catch (_) {
-      _dayError = ConsoleError.saveWorkout;
-      return false;
-    } finally {
-      _isSavingDay = false;
-      notifyListeners();
-    }
+      applied: (saved) {
+        _allWorkouts = [
+          for (final w in _allWorkouts)
+            if (w.id != saved.id) w,
+          saved,
+        ];
+        _selectedWorkoutId = saved.id;
+        _draft = WorkoutDraft.fromExisting(saved);
+        _savedSnapshot = WorkoutDraft.fromExisting(saved);
+        return true;
+      },
+      failed: (error) {
+        _dayError = error is WorkoutSaveException
+            ? switch (error.failure) {
+                WorkoutSaveFailure.hasLoggedHistory =>
+                  ConsoleError.workoutHasHistory,
+                WorkoutSaveFailure.unknownExercise =>
+                  ConsoleError.unknownExercise,
+                WorkoutSaveFailure.other => ConsoleError.saveWorkout,
+              }
+            : ConsoleError.saveWorkout;
+        return false;
+      },
+      dropped: false,
+    );
   }
 
   Future<bool> deleteCurrentDay(String clientId) async {
     final workoutId = _selectedWorkoutId;
     if (workoutId == null) return false;
 
-    return _reads.write(() => _deleteDay(clientId, workoutId));
-  }
-
-  Future<bool> _deleteDay(String clientId, String workoutId) async {
-    _isDeletingDay = true;
     _dayError = null;
-    notifyListeners();
-
-    try {
-      await _repository.deleteClientWorkout(clientId, workoutId);
-      _allWorkouts = [
-        for (final w in _allWorkouts)
-          if (w.id != workoutId) w,
-      ];
-      closeDayEditor();
-      return true;
-    } on WorkoutSaveException catch (e) {
-      _dayError = e.failure == WorkoutSaveFailure.hasLoggedHistory
-          ? ConsoleError.workoutHasHistory
-          : ConsoleError.deleteWorkout;
-      return false;
-    } catch (_) {
-      _dayError = ConsoleError.deleteWorkout;
-      return false;
-    } finally {
-      _isDeletingDay = false;
-      notifyListeners();
-    }
+    return _write(
+      clientId,
+      busy: (busy) => _isDeletingDay = busy,
+      send: () => _repository.deleteClientWorkout(clientId, workoutId),
+      applied: (_) {
+        _allWorkouts = [
+          for (final w in _allWorkouts)
+            if (w.id != workoutId) w,
+        ];
+        closeDayEditor();
+        return true;
+      },
+      failed: (error) {
+        _dayError = error is WorkoutSaveException &&
+                error.failure == WorkoutSaveFailure.hasLoggedHistory
+            ? ConsoleError.workoutHasHistory
+            : ConsoleError.deleteWorkout;
+        return false;
+      },
+      dropped: false,
+    );
   }
 
   // ── Creating a new exercise for the trainer's own library ───────────────
@@ -647,27 +634,25 @@ class WorkoutBuilderProvider extends ChangeNotifier {
       return null;
     }
 
-    return _reads.write(() async {
-      _isCreatingExercise = true;
-      _dayError = null;
-      notifyListeners();
-
-      try {
-        final created = await _repository.createTrainerExercise(
-          clientId,
-          name: name.trim(),
-          description: _trimmedOrNull(description),
-        );
+    _dayError = null;
+    return _write<ClientExerciseOption, ClientExerciseOption?>(
+      clientId,
+      busy: (busy) => _isCreatingExercise = busy,
+      send: () => _repository.createTrainerExercise(
+        clientId,
+        name: name.trim(),
+        description: _trimmedOrNull(description),
+      ),
+      applied: (created) {
         _exerciseLibrary = [created, ..._exerciseLibrary];
         return created;
-      } catch (_) {
+      },
+      failed: (_) {
         _dayError = ConsoleError.createExercise;
         return null;
-      } finally {
-        _isCreatingExercise = false;
-        notifyListeners();
-      }
-    });
+      },
+      dropped: null,
+    );
   }
 
   // ── Plan create/assign flow (unchanged) ──────────────────────────────────
@@ -698,28 +683,26 @@ class WorkoutBuilderProvider extends ChangeNotifier {
       return false;
     }
 
-    final created = await _reads.write(() async {
-      _isSaving = true;
-      _error = null;
-      notifyListeners();
-
-      try {
-        final plan = await _repository.createClientWorkoutPlan(
-          clientId: clientId,
-          name: name.trim(),
-          description: description?.trim(),
-        );
+    _error = null;
+    final created = await _write(
+      clientId,
+      busy: (busy) => _isSaving = busy,
+      send: () => _repository.createClientWorkoutPlan(
+        clientId: clientId,
+        name: name.trim(),
+        description: description?.trim(),
+      ),
+      applied: (plan) {
         _currentPlan = plan;
         _isNew = false;
         return true;
-      } catch (_) {
+      },
+      failed: (_) {
         _error = ConsoleError.createPlan;
         return false;
-      } finally {
-        _isSaving = false;
-        notifyListeners();
-      }
-    });
+      },
+      dropped: false,
+    );
     // After the write has settled, not inside it: a refresh it owes runs as
     // it settles, and the days read, started after, is the one that wins.
     if (created) unawaited(loadDays(clientId));
@@ -733,26 +716,66 @@ class WorkoutBuilderProvider extends ChangeNotifier {
     final plan = _currentPlan;
     if (plan == null) return false;
 
-    return _reads.write(() async {
-      _isDeletingPlan = true;
-      _planError = null;
-      notifyListeners();
-
-      try {
-        await _repository.deleteClientWorkoutPlan(clientId, plan.id);
+    _planError = null;
+    return _write(
+      clientId,
+      busy: (busy) => _isDeletingPlan = busy,
+      send: () => _repository.deleteClientWorkoutPlan(clientId, plan.id),
+      applied: (_) {
         _currentPlan = null;
         _isNew = true;
         _resetDayState();
         return true;
-      } catch (_) {
+      },
+      failed: (_) {
         _planError = ConsoleError.deletePlan;
         return false;
-      } finally {
-        _isDeletingPlan = false;
-        notifyListeners();
-      }
-    });
+      },
+      dropped: false,
+    );
   }
+
+  /// Runs one of the trainer's writes to [clientId]'s plan, days or library,
+  /// and puts its outcome on screen only if the builder still shows
+  /// [clientId] when the answer arrives.
+  ///
+  /// [send] makes the request. [applied] takes its answer and [failed] its
+  /// error, and each is called only if the trainer hasn't switched client
+  /// since the write began; otherwise the write returns [dropped] and
+  /// changes nothing. [busy] marks it in flight, whatever the outcome.
+  ///
+  /// Every write went through [PaneReads.write] already, so a refresh it
+  /// overlapped is read again once it settles. What none of them checked was
+  /// *whose* builder they were writing into. A delete of client A's plan that
+  /// answered after the trainer had switched to client B cleared B's plan and
+  /// opened the create flow over it, and a plan created there was B's second;
+  /// A's saved day landed in B's list and opened in B's editor; A's new
+  /// exercise joined B's library; A's new plan read A's days as a load over B.
+  /// A failure was no better: an error about A shown on B. The check lives
+  /// here so a write added later can't forget it.
+  Future<T> _write<R, T>(
+    String clientId, {
+    required void Function(bool busy) busy,
+    required Future<R> Function() send,
+    required T Function(R answer) applied,
+    required T Function(Object error) failed,
+    required T dropped,
+  }) => _reads.write(() async {
+    busy(true);
+    notifyListeners();
+    try {
+      final R answer;
+      try {
+        answer = await send();
+      } catch (error) {
+        return _loadedClientId == clientId ? failed(error) : dropped;
+      }
+      return _loadedClientId == clientId ? applied(answer) : dropped;
+    } finally {
+      busy(false);
+      notifyListeners();
+    }
+  });
 
   String? _trimmedOrNull(String? value) {
     final trimmed = value?.trim();

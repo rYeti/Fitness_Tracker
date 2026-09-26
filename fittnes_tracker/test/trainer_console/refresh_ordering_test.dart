@@ -397,6 +397,105 @@ void main() {
     });
   });
 
+  group('a Workout Builder write that answers after a client switch', () {
+    // The trainer acts on client A, then switches to client B while the
+    // request is still in flight. Whatever A's answer says belongs to A.
+    late _HeldRepository repository;
+    late WorkoutBuilderProvider builder;
+    late Completer<void> write;
+
+    setUp(() async {
+      repository = _HeldRepository(
+        workoutSummary: _summaryWith('plan-1'),
+        clientWorkouts: [_day('Push Day')],
+      );
+      builder = WorkoutBuilderProvider(repository: repository);
+      await builder.load('client-a');
+      write = Completer<void>();
+      repository.writeGate = write;
+    });
+
+    Future<void> switchToClientB() async {
+      await _settle();
+      await builder.load('client-b');
+      expect(builder.loadedClientId, 'client-b');
+    }
+
+    test('a plan delete leaves the new client\'s plan alone', () async {
+      final deleting = builder.deletePlan('client-a');
+      await switchToClientB();
+
+      write.complete();
+      expect(await deleting, isFalse, reason: 'nothing changed on screen');
+
+      // Before, B's builder dropped its plan and opened the create flow, and
+      // a plan created there would have been B's second.
+      expect(repository.deletedPlanIds, ['plan-1'], reason: 'A\'s was sent');
+      expect(builder.currentPlan?.id, 'plan-1');
+      expect(builder.isNew, isFalse);
+      expect(builder.draft?.name, 'Push Day');
+    });
+
+    test('a plan delete that fails says nothing on the new client', () async {
+      final deleting = builder.deletePlan('client-a');
+      await switchToClientB();
+
+      write.completeError(Exception('boom'));
+      expect(await deleting, isFalse);
+
+      expect(builder.planError, isNull);
+      expect(builder.isDeletingPlan, isFalse);
+    });
+
+    test('a saved day stays out of the new client\'s editor', () async {
+      builder.updateDayName('Push Day (heavy)');
+      final saving = builder.saveDraft('client-a');
+      await switchToClientB();
+
+      write.complete();
+      expect(await saving, isFalse);
+
+      expect(builder.draft?.name, 'Push Day');
+      expect(builder.isDraftDirty, isFalse);
+      expect(builder.planWorkouts.map((w) => w.name), ['Push Day']);
+      expect(builder.isSavingDay, isFalse);
+    });
+
+    test('a created plan reads no days over the new client', () async {
+      builder.startNewPlan();
+      final creating = builder.createPlan(
+        clientId: 'client-a',
+        name: 'Upper / Lower',
+      );
+      await switchToClientB();
+      final daysReads = repository.calls['clientWorkouts'];
+
+      write.complete();
+      expect(await creating, isFalse);
+      await _settle();
+
+      expect(builder.currentPlan?.id, 'plan-1');
+      expect(
+        repository.calls['clientWorkouts'],
+        daysReads,
+        reason: 'A\'s days, read as a load over B',
+      );
+    });
+
+    test('a created exercise stays out of the new client\'s library', () async {
+      final creating = builder.createExercise('client-a', name: 'Landmine Press');
+      await switchToClientB();
+
+      write.complete();
+      expect(await creating, isNull);
+
+      expect(
+        builder.exerciseLibrary.map((e) => e.name),
+        isNot(contains('Landmine Press')),
+      );
+    });
+  });
+
   group('a nutrient pin being saved', () {
     NutritionProvider nutritionOf(FakeTrainerConsoleRepository repository) =>
         NutritionProvider(repository: repository);

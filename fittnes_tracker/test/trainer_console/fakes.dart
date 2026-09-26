@@ -67,6 +67,14 @@ class FakeTrainerConsoleRepository implements TrainerConsoleRepository {
 
   final List<String> deletedWorkoutIds = [];
 
+  /// Records every deleteClientWorkoutPlan call's plan id.
+  final List<String> deletedPlanIds = [];
+
+  /// Holds every Workout Builder write — a plan or day created, saved or
+  /// deleted, an exercise created — until it completes. Completing it with an
+  /// error fails the writes it held.
+  Completer<void>? writeGate;
+
   /// Records what createTrainerExercise was called with.
   final List<({String clientId, String name})> createdExercises = [];
 
@@ -187,6 +195,7 @@ class FakeTrainerConsoleRepository implements TrainerConsoleRepository {
     String? description,
     DateTime? startDate,
   }) async {
+    if (writeGate != null) await writeGate!.future;
     createdPlans.add((clientId: clientId, name: name));
     return WorkoutPlanSummary(
       id: 'plan-new',
@@ -219,6 +228,7 @@ class FakeTrainerConsoleRepository implements TrainerConsoleRepository {
     required String name,
     String? description,
   }) async {
+    if (writeGate != null) await writeGate!.future;
     createdExercises.add((clientId: clientId, name: name));
     return ClientExerciseOption(
       id: 'exercise-${createdExercises.length}',
@@ -238,6 +248,7 @@ class FakeTrainerConsoleRepository implements TrainerConsoleRepository {
     String? planId,
     required List<ClientWorkoutExerciseDraft> exercises,
   }) async {
+    if (writeGate != null) await writeGate!.future;
     if (saveWorkoutFailure != null) throw saveWorkoutFailure!;
     savedWorkouts.add((
       clientId: clientId,
@@ -268,6 +279,7 @@ class FakeTrainerConsoleRepository implements TrainerConsoleRepository {
     required int estimatedDurationMinutes,
     required List<ClientWorkoutExerciseDraft> exercises,
   }) async {
+    if (writeGate != null) await writeGate!.future;
     if (saveWorkoutFailure != null) throw saveWorkoutFailure!;
     savedWorkouts.add((
       clientId: clientId,
@@ -293,9 +305,16 @@ class FakeTrainerConsoleRepository implements TrainerConsoleRepository {
 
   @override
   Future<void> deleteClientWorkout(String clientId, String workoutId) async {
+    if (writeGate != null) await writeGate!.future;
     if (saveWorkoutFailure != null) throw saveWorkoutFailure!;
     deletedWorkoutIds.add(workoutId);
     clientWorkouts.removeWhere((w) => w.id == workoutId);
+  }
+
+  @override
+  Future<void> deleteClientWorkoutPlan(String clientId, String planId) async {
+    if (writeGate != null) await writeGate!.future;
+    deletedPlanIds.add(planId);
   }
 
   @override
