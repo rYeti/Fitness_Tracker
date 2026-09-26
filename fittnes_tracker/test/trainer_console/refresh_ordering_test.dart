@@ -127,6 +127,25 @@ class _PinWrites extends FakeTrainerConsoleRepository {
   }
 }
 
+/// Keeps the pins a write saves, as the server does, so a read made after it
+/// carries them.
+class _SavesPins extends FakeTrainerConsoleRepository {
+  _SavesPins() : super(nutrition: fakeNutrition(micronutrientsLocked: false));
+
+  @override
+  Future<void> setClientNutrientPins(
+    String clientId,
+    List<String> nutrientKeys,
+  ) async {
+    await super.setClientNutrientPins(clientId, nutrientKeys);
+    nutrition = fakeNutrition(
+      totalCalories: nutrition!.totalCalories,
+      micronutrientsLocked: false,
+      pinnedNutrients: nutrientKeys,
+    );
+  }
+}
+
 void main() {
   group('the Workout Builder orders its reads', () {
     test('two refreshes in flight: the later answer stands', () async {
@@ -635,25 +654,109 @@ void main() {
       expect(nutrition.summary?.pinnedNutrients, ['vitaminD']);
     });
 
-    test('a failed write does not undo a later one on screen', () async {
-      final repository = _PinWrites();
+    test('a refresh it overlapped is read again once it settles', () async {
+      final repository = _SavesPins();
       final nutrition = nutritionOf(repository);
       await nutrition.load('client-1');
 
-      final first = nutrition.togglePin('client-1', 'vitaminD');
-      final second = nutrition.togglePin('client-1', 'iron');
-      expect(nutrition.summary?.pinnedNutrients, ['vitaminD', 'iron']);
+      // The client logs a meal; the refresh that brings it is still reading
+      // when the trainer pins a nutrient.
+      repository.nutrition = fakeNutrition(
+        totalCalories: 2100,
+        micronutrientsLocked: false,
+      );
+      final read = Completer<void>();
+      repository.gate = read;
+      final refreshing = nutrition.load('client-1', keepShown: true);
+      await _settle();
+      final write = Completer<void>();
+      repository.pinGate = write;
+      final pinning = nutrition.togglePin('client-1', 'vitaminD');
 
-      // Each write sends the whole set, so the second one's outcome is the
-      // one that settles the pins — not the first one's "before".
-      repository.writes[0].completeError(Exception('boom'));
-      await first;
-      expect(nutrition.summary?.pinnedNutrients, ['vitaminD', 'iron']);
-      expect(nutrition.pinError, isNotNull);
+      repository.gate = null;
+      read.complete();
+      await refreshing;
+      write.complete();
+      await pinning;
+      await _settle();
 
-      repository.writes[1].complete();
-      await second;
-      expect(nutrition.summary?.pinnedNutrients, ['vitaminD', 'iron']);
+      expect(nutrition.summary?.totalCalories, 2100);
+      expect(nutrition.summary?.pinnedNutrients, ['vitaminD']);
+    });
+
+    group('two toggles in flight, from no pins: vitamin D, then iron,', () {
+      // Each write sends the whole set: the first [vitaminD], the second
+      // [vitaminD, iron]. The server holds whichever succeeded last, or the
+      // empty set it started with if neither did.
+      late _PinWrites repository;
+      late NutritionProvider nutrition;
+      late Future<void> first;
+      late Future<void> second;
+
+      setUp(() async {
+        repository = _PinWrites();
+        nutrition = nutritionOf(repository);
+        await nutrition.load('client-1');
+        first = nutrition.togglePin('client-1', 'vitaminD');
+        second = nutrition.togglePin('client-1', 'iron');
+        expect(nutrition.summary?.pinnedNutrients, ['vitaminD', 'iron']);
+      });
+
+      void fail(int write) => repository.writes[write].completeError(Exception('boom'));
+
+      test('both fail, the later first: nothing stays pinned', () async {
+        fail(1);
+        await second;
+        // The first is still in flight, and its outcome may yet stand.
+        expect(nutrition.summary?.pinnedNutrients, ['vitaminD', 'iron']);
+        expect(nutrition.pinError, isNull);
+
+        fail(0);
+        await first;
+        expect(nutrition.summary?.pinnedNutrients, isEmpty);
+        expect(nutrition.pinError, isNotNull);
+      });
+
+      test('both fail, the earlier first: nothing stays pinned', () async {
+        fail(0);
+        await first;
+        expect(nutrition.summary?.pinnedNutrients, ['vitaminD', 'iron']);
+
+        fail(1);
+        await second;
+        expect(nutrition.summary?.pinnedNutrients, isEmpty);
+        expect(nutrition.pinError, isNotNull);
+      });
+
+      test('the earlier fails and the later succeeds: both stay pinned', () async {
+        fail(0);
+        await first;
+        repository.writes[1].complete();
+        await second;
+
+        expect(nutrition.summary?.pinnedNutrients, ['vitaminD', 'iron']);
+        expect(nutrition.pinError, isNull, reason: 'what was asked for saved');
+      });
+
+      test('the earlier succeeds and the later fails: vitamin D stays pinned', () async {
+        repository.writes[0].complete();
+        await first;
+        fail(1);
+        await second;
+
+        expect(nutrition.summary?.pinnedNutrients, ['vitaminD']);
+        expect(nutrition.pinError, isNotNull);
+      });
+
+      test('the later fails, then the earlier succeeds: vitamin D stays pinned', () async {
+        fail(1);
+        await second;
+        repository.writes[0].complete();
+        await first;
+
+        expect(nutrition.summary?.pinnedNutrients, ['vitaminD']);
+        expect(nutrition.pinError, isNotNull);
+      });
     });
   });
 }

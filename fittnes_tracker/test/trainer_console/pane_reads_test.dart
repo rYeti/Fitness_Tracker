@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ForgeForm/feature/trainer_console/domain/models/trainer_console_models.dart';
@@ -106,6 +108,46 @@ void main() {
       expect(refresh.settle(), isFalse, reason: 'it read during the write');
 
       expect(owed, 1);
+    });
+
+    test('says whether a write is still in flight', () async {
+      final reads = PaneReads();
+      final first = Completer<void>();
+      final second = Completer<void>();
+
+      final writing = reads.write(() => first.future);
+      final alsoWriting = reads.write(() => second.future);
+      expect(reads.isWriting, isTrue);
+
+      first.complete();
+      await writing;
+      expect(reads.isWriting, isTrue, reason: 'the second is in flight');
+
+      second.complete();
+      await alsoWriting;
+      expect(reads.isWriting, isFalse);
+    });
+
+    test('tells a load a write overlapped it, and one that did not', () async {
+      final reads = PaneReads();
+
+      final before = reads.start();
+      expect(before.settle(), isTrue);
+      expect(before.overlappedWrite, isFalse);
+
+      final across = reads.start();
+      await reads.write(() async {});
+      expect(across.settle(), isTrue, reason: 'a load is still applied');
+      expect(across.overlappedWrite, isTrue);
+
+      late PaneRead during;
+      await reads.write(() async => during = reads.start());
+      expect(during.settle(), isTrue);
+      expect(during.overlappedWrite, isTrue);
+
+      final after = reads.start();
+      expect(after.settle(), isTrue);
+      expect(after.overlappedWrite, isFalse);
     });
 
     test('lets a load run across a write', () async {

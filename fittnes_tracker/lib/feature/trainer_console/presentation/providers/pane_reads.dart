@@ -56,6 +56,11 @@ class PaneReads {
   /// succeeds, and by any load.
   bool get refreshFailed => _refreshFailed;
 
+  /// Whether a [write] is in flight. Read after a write's own `await`, it
+  /// says whether that was the last one: with several in flight, the one
+  /// that settles last is the one left to decide what the pane shows.
+  bool get isWriting => _writes > 0;
+
   /// Starts a read, and makes every read started before it out of date.
   ///
   /// It is a refresh only when [keepShown] asks for one, [shown] says what
@@ -129,8 +134,18 @@ class PaneRead {
   /// Whether this is a load, which took what was shown off screen.
   bool get isLoad => !keep;
 
-  bool get _overlappedWrite =>
-      keep && (_startedDuringWrite || _writeEpoch != _reads._writeEpoch);
+  /// Whether a [PaneReads.write] overlapped this read: it started while one
+  /// was in flight, or one started before its answer arrived. Its answer may
+  /// then be from before that write or after it.
+  ///
+  /// A refresh that overlapped a write is dropped and read again by
+  /// [settle]. A load is applied — it is the trainer's own navigation — so a
+  /// pane whose load reads what its writes change asks this, and keeps what
+  /// the writes set in place of that part of the answer.
+  bool get overlappedWrite =>
+      _startedDuringWrite || _writeEpoch != _reads._writeEpoch;
+
+  bool get _overlappedWrite => keep && overlappedWrite;
 
   /// Whether this read's answer is still the one to show: no read has been
   /// started since, and — for a refresh — no write overlapped it. For a
