@@ -8,7 +8,6 @@ import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/design_tokens.dart';
 import 'package:ForgeForm/core/providers/theme_provider.dart';
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/status_badge.dart';
-import 'package:ForgeForm/feature/trainer_console/presentation/widgets/refresh_failed_notice.dart';
 
 /// Contrast is a property of a **pair**, and nothing in this codebase used to
 /// hold both halves at once: the theme declares a background, a widget
@@ -198,39 +197,25 @@ void main() {
   });
 
   group('StatusBadge foregrounds', () {
-    // Mirrors the widget's own computation (status_badge.dart). Kept in step
-    // with it deliberately: if the lerp there changes, this fails.
-    Color foregroundFor(StatusTone tone, Color base, {required bool isDark}) =>
-        isDark
-            ? Color.lerp(base, Colors.white, 0.45)!
-            : Color.lerp(
-                base,
-                Colors.black,
-                tone == StatusTone.warn ? 0.40 : 0.30,
-              )!;
-
-    const tones = {
-      StatusTone.ok: ForgeColors.statusOk,
-      StatusTone.warn: ForgeColors.statusWarn,
-      StatusTone.bad: ForgeColors.statusBad,
-    };
-
+    // Measures the colours the badge paints, through the helpers it paints
+    // them with — the same ones RefreshFailedNotice takes its tone from.
     for (final isDark in [false, true]) {
       final label = isDark ? 'dark' : 'light';
+      final brightness = isDark ? Brightness.dark : Brightness.light;
       test('every tone reads on its own tint ($label)', () {
-        tones.forEach((tone, base) {
+        for (final tone in StatusTone.values) {
           final background = Color.alphaBlend(
-            base.withValues(alpha: isDark ? 0.22 : 0.14),
+            StatusBadge.tintOf(tone, brightness),
             isDark ? ForgeColors.cardDark : ForgeColors.surfaceLight,
           );
           expectContrast(
-            foregroundFor(tone, base, isDark: isDark),
+            StatusBadge.foregroundOf(tone, brightness),
             background,
             // The badge label is 11px, so it is body text, not large text.
             atLeast: 4.5,
             because: '$tone at $label',
           );
-        });
+        }
       });
     }
   });
@@ -251,7 +236,10 @@ void main() {
             ? themeProvider.darkTheme.colorScheme
             : themeProvider.lightTheme.colorScheme;
         for (final page in behind) {
-          final fill = Color.alphaBlend(refreshFailedTint(brightness), page);
+          final fill = Color.alphaBlend(
+            StatusBadge.tintOf(StatusTone.warn, brightness),
+            page,
+          );
           expectContrast(
             scheme.onSurface,
             fill,
@@ -259,7 +247,7 @@ void main() {
             because: '"Couldn\'t refresh" and Retry are 12px text',
           );
           expectContrast(
-            ForgeColors.statusWarnFor(brightness),
+            StatusBadge.foregroundOf(StatusTone.warn, brightness),
             fill,
             atLeast: 3.0,
             because: 'the warning icon',

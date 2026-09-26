@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ForgeForm/feature/trainer_console/presentation/widgets/refresh_failed_notice.dart';
+import 'package:ForgeForm/feature/trainer_console/presentation/widgets/status_badge.dart';
 import 'package:ForgeForm/l10n/app_localizations.dart';
 
 /// The notice itself: what it says, to whom, and how big a target it is.
 /// Each pane showing it, and Retry reading again, is pinned in
-/// live_updates_test.dart; its colours in contrast_test.dart.
+/// live_updates_test.dart; its colours' contrast in contrast_test.dart.
 ///
 /// Each test was run with the rule it pins taken out, and failed there.
 void main() {
@@ -35,6 +36,50 @@ void main() {
   }
 
   final retry = find.widgetWithText(TextButton, 'Retry');
+
+  for (final brightness in Brightness.values) {
+    testWidgets('wears a warn badge\'s wash and icon colour (${brightness.name})', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(brightness: brightness),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: Column(
+              children: [
+                const StatusBadge(tone: StatusTone.warn, label: 'No data'),
+                RefreshFailedNotice(failed: true, onRetry: () {}),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      Color fillIn(Type widget) => (tester
+                  .widgetList<Container>(
+                    find.descendant(
+                      of: find.byType(widget),
+                      matching: find.byType(Container),
+                    ),
+                  )
+                  .firstWhere((c) => c.decoration is BoxDecoration)
+                  .decoration! as BoxDecoration)
+          .color!;
+      Color iconIn(Type widget) => tester
+          .widget<Icon>(
+            find.descendant(of: find.byType(widget), matching: find.byType(Icon)).first,
+          )
+          .color!;
+
+      // Read off what each paints, so a notice that works out a tint of its
+      // own drifts from the badge here, whatever the numbers.
+      expect(fillIn(RefreshFailedNotice), fillIn(StatusBadge));
+      expect(iconIn(RefreshFailedNotice), iconIn(StatusBadge));
+    });
+  }
 
   testWidgets('says nothing while the last refresh succeeded', (tester) async {
     await pump(tester, failed: false);
