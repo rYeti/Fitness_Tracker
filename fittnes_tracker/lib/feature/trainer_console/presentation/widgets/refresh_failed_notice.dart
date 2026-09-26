@@ -13,7 +13,7 @@ import 'package:ForgeForm/l10n/app_localizations.dart';
 /// (`docs/sync-architecture.md` §52). But keeping the data and saying
 /// nothing left a console whose API was unreachable showing figures that
 /// got older by the minute, with nothing to tell the trainer they were.
-/// This is the one place a pane says so (§58); a pane passes its provider's
+/// This is the one place a pane says so (§52); a pane passes its provider's
 /// `refreshFailed` and its own refresh as [onRetry].
 ///
 /// It is a small warn-toned pill rather than a banner: what is shown is
