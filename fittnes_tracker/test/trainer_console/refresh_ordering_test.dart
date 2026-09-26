@@ -127,6 +127,25 @@ class _PinWrites extends FakeTrainerConsoleRepository {
   }
 }
 
+/// Keeps the pins a write saves, as the server does, so a read made after it
+/// carries them.
+class _SavesPins extends FakeTrainerConsoleRepository {
+  _SavesPins() : super(nutrition: fakeNutrition(micronutrientsLocked: false));
+
+  @override
+  Future<void> setClientNutrientPins(
+    String clientId,
+    List<String> nutrientKeys,
+  ) async {
+    await super.setClientNutrientPins(clientId, nutrientKeys);
+    nutrition = fakeNutrition(
+      totalCalories: nutrition!.totalCalories,
+      micronutrientsLocked: false,
+      pinnedNutrients: nutrientKeys,
+    );
+  }
+}
+
 void main() {
   group('the Workout Builder orders its reads', () {
     test('two refreshes in flight: the later answer stands', () async {
@@ -277,6 +296,93 @@ void main() {
     });
   });
 
+  group('a refresh that overtakes a days read', () {
+    test('keeps a day with unsaved edits, and shows no skeleton', () async {
+      final repository = _HeldRepository(
+        workoutSummary: _summaryWith('plan-1'),
+        clientWorkouts: [_day('Push Day')],
+      );
+      final builder = WorkoutBuilderProvider(repository: repository);
+      await builder.load('client-1');
+      builder.updateDayName('Push Day (heavy)');
+
+      // New plan, with the edited day still open. The new plan's days are
+      // still loading when the refresh its own event brings arrives.
+      builder.startNewPlan();
+      repository.holdWorkouts = true;
+      expect(
+        await builder.createPlan(clientId: 'client-1', name: 'Upper / Lower'),
+        isTrue,
+      );
+      await _settle();
+      expect(builder.isLoadingDays, isTrue);
+      repository.workoutSummary = _summaryWith('plan-new');
+      final refreshing = builder.refresh('client-1');
+      await _settle();
+
+      expect(builder.draft?.name, 'Push Day (heavy)');
+      expect(builder.isDraftDirty, isTrue);
+      expect(builder.isLoading, isFalse, reason: 'no whole-builder skeleton');
+      expect(builder.currentPlan?.id, 'plan-new');
+
+      repository
+        ..release(0)
+        ..release(1);
+      await refreshing;
+      await _settle();
+
+      expect(builder.draft?.name, 'Push Day (heavy)');
+      expect(builder.isDraftDirty, isTrue);
+      expect(builder.isLoadingDays, isFalse);
+      expect(builder.currentPlan?.id, 'plan-new');
+    });
+
+    test('lands on the first day, as the days read would have', () async {
+      final repository = _HeldRepository(
+        workoutSummary: _summaryWith(null),
+        clientWorkouts: [_day('Upper', planId: 'plan-new')],
+      );
+      final builder = WorkoutBuilderProvider(repository: repository);
+      await builder.load('client-1');
+
+      repository.holdWorkouts = true;
+      await builder.createPlan(clientId: 'client-1', name: 'Upper / Lower');
+      await _settle();
+      repository
+        ..workoutSummary = _summaryWith('plan-new')
+        ..holdWorkouts = false;
+      await builder.refresh('client-1');
+      repository.release(0);
+      await _settle();
+
+      expect(builder.isLoadingDays, isFalse);
+      expect(builder.draft?.name, 'Upper');
+    });
+
+    test('fails the way the days read would have', () async {
+      final repository = _HeldRepository(
+        workoutSummary: _summaryWith(null),
+        clientWorkouts: [_day('Upper', planId: 'plan-new')],
+      );
+      final builder = WorkoutBuilderProvider(repository: repository);
+      await builder.load('client-1');
+
+      repository.holdWorkouts = true;
+      await builder.createPlan(clientId: 'client-1', name: 'Upper / Lower');
+      await _settle();
+      repository
+        ..holdWorkouts = false
+        ..throwOnClientWorkouts = true;
+      await builder.refresh('client-1');
+      repository.release(0);
+      await _settle();
+
+      // Not a skeleton that never ends.
+      expect(builder.isLoadingDays, isFalse);
+      expect(builder.daysError, isNotNull);
+    });
+  });
+
   group('the Workout Builder follows a plan that changed elsewhere', () {
     test('a plan that appears ends the create flow, as a load would', () async {
       final repository = FakeTrainerConsoleRepository(
@@ -397,6 +503,105 @@ void main() {
     });
   });
 
+  group('a Workout Builder write that answers after a client switch', () {
+    // The trainer acts on client A, then switches to client B while the
+    // request is still in flight. Whatever A's answer says belongs to A.
+    late _HeldRepository repository;
+    late WorkoutBuilderProvider builder;
+    late Completer<void> write;
+
+    setUp(() async {
+      repository = _HeldRepository(
+        workoutSummary: _summaryWith('plan-1'),
+        clientWorkouts: [_day('Push Day')],
+      );
+      builder = WorkoutBuilderProvider(repository: repository);
+      await builder.load('client-a');
+      write = Completer<void>();
+      repository.writeGate = write;
+    });
+
+    Future<void> switchToClientB() async {
+      await _settle();
+      await builder.load('client-b');
+      expect(builder.loadedClientId, 'client-b');
+    }
+
+    test('a plan delete leaves the new client\'s plan alone', () async {
+      final deleting = builder.deletePlan('client-a');
+      await switchToClientB();
+
+      write.complete();
+      expect(await deleting, isFalse, reason: 'nothing changed on screen');
+
+      // Before, B's builder dropped its plan and opened the create flow, and
+      // a plan created there would have been B's second.
+      expect(repository.deletedPlanIds, ['plan-1'], reason: 'A\'s was sent');
+      expect(builder.currentPlan?.id, 'plan-1');
+      expect(builder.isNew, isFalse);
+      expect(builder.draft?.name, 'Push Day');
+    });
+
+    test('a plan delete that fails says nothing on the new client', () async {
+      final deleting = builder.deletePlan('client-a');
+      await switchToClientB();
+
+      write.completeError(Exception('boom'));
+      expect(await deleting, isFalse);
+
+      expect(builder.planError, isNull);
+      expect(builder.isDeletingPlan, isFalse);
+    });
+
+    test('a saved day stays out of the new client\'s editor', () async {
+      builder.updateDayName('Push Day (heavy)');
+      final saving = builder.saveDraft('client-a');
+      await switchToClientB();
+
+      write.complete();
+      expect(await saving, isFalse);
+
+      expect(builder.draft?.name, 'Push Day');
+      expect(builder.isDraftDirty, isFalse);
+      expect(builder.planWorkouts.map((w) => w.name), ['Push Day']);
+      expect(builder.isSavingDay, isFalse);
+    });
+
+    test('a created plan reads no days over the new client', () async {
+      builder.startNewPlan();
+      final creating = builder.createPlan(
+        clientId: 'client-a',
+        name: 'Upper / Lower',
+      );
+      await switchToClientB();
+      final daysReads = repository.calls['clientWorkouts'];
+
+      write.complete();
+      expect(await creating, isFalse);
+      await _settle();
+
+      expect(builder.currentPlan?.id, 'plan-1');
+      expect(
+        repository.calls['clientWorkouts'],
+        daysReads,
+        reason: 'A\'s days, read as a load over B',
+      );
+    });
+
+    test('a created exercise stays out of the new client\'s library', () async {
+      final creating = builder.createExercise('client-a', name: 'Landmine Press');
+      await switchToClientB();
+
+      write.complete();
+      expect(await creating, isNull);
+
+      expect(
+        builder.exerciseLibrary.map((e) => e.name),
+        isNot(contains('Landmine Press')),
+      );
+    });
+  });
+
   group('a nutrient pin being saved', () {
     NutritionProvider nutritionOf(FakeTrainerConsoleRepository repository) =>
         NutritionProvider(repository: repository);
@@ -449,25 +654,109 @@ void main() {
       expect(nutrition.summary?.pinnedNutrients, ['vitaminD']);
     });
 
-    test('a failed write does not undo a later one on screen', () async {
-      final repository = _PinWrites();
+    test('a refresh it overlapped is read again once it settles', () async {
+      final repository = _SavesPins();
       final nutrition = nutritionOf(repository);
       await nutrition.load('client-1');
 
-      final first = nutrition.togglePin('client-1', 'vitaminD');
-      final second = nutrition.togglePin('client-1', 'iron');
-      expect(nutrition.summary?.pinnedNutrients, ['vitaminD', 'iron']);
+      // The client logs a meal; the refresh that brings it is still reading
+      // when the trainer pins a nutrient.
+      repository.nutrition = fakeNutrition(
+        totalCalories: 2100,
+        micronutrientsLocked: false,
+      );
+      final read = Completer<void>();
+      repository.gate = read;
+      final refreshing = nutrition.load('client-1', keepShown: true);
+      await _settle();
+      final write = Completer<void>();
+      repository.pinGate = write;
+      final pinning = nutrition.togglePin('client-1', 'vitaminD');
 
-      // Each write sends the whole set, so the second one's outcome is the
-      // one that settles the pins — not the first one's "before".
-      repository.writes[0].completeError(Exception('boom'));
-      await first;
-      expect(nutrition.summary?.pinnedNutrients, ['vitaminD', 'iron']);
-      expect(nutrition.pinError, isNotNull);
+      repository.gate = null;
+      read.complete();
+      await refreshing;
+      write.complete();
+      await pinning;
+      await _settle();
 
-      repository.writes[1].complete();
-      await second;
-      expect(nutrition.summary?.pinnedNutrients, ['vitaminD', 'iron']);
+      expect(nutrition.summary?.totalCalories, 2100);
+      expect(nutrition.summary?.pinnedNutrients, ['vitaminD']);
+    });
+
+    group('two toggles in flight, from no pins: vitamin D, then iron,', () {
+      // Each write sends the whole set: the first [vitaminD], the second
+      // [vitaminD, iron]. The server holds whichever succeeded last, or the
+      // empty set it started with if neither did.
+      late _PinWrites repository;
+      late NutritionProvider nutrition;
+      late Future<void> first;
+      late Future<void> second;
+
+      setUp(() async {
+        repository = _PinWrites();
+        nutrition = nutritionOf(repository);
+        await nutrition.load('client-1');
+        first = nutrition.togglePin('client-1', 'vitaminD');
+        second = nutrition.togglePin('client-1', 'iron');
+        expect(nutrition.summary?.pinnedNutrients, ['vitaminD', 'iron']);
+      });
+
+      void fail(int write) => repository.writes[write].completeError(Exception('boom'));
+
+      test('both fail, the later first: nothing stays pinned', () async {
+        fail(1);
+        await second;
+        // The first is still in flight, and its outcome may yet stand.
+        expect(nutrition.summary?.pinnedNutrients, ['vitaminD', 'iron']);
+        expect(nutrition.pinError, isNull);
+
+        fail(0);
+        await first;
+        expect(nutrition.summary?.pinnedNutrients, isEmpty);
+        expect(nutrition.pinError, isNotNull);
+      });
+
+      test('both fail, the earlier first: nothing stays pinned', () async {
+        fail(0);
+        await first;
+        expect(nutrition.summary?.pinnedNutrients, ['vitaminD', 'iron']);
+
+        fail(1);
+        await second;
+        expect(nutrition.summary?.pinnedNutrients, isEmpty);
+        expect(nutrition.pinError, isNotNull);
+      });
+
+      test('the earlier fails and the later succeeds: both stay pinned', () async {
+        fail(0);
+        await first;
+        repository.writes[1].complete();
+        await second;
+
+        expect(nutrition.summary?.pinnedNutrients, ['vitaminD', 'iron']);
+        expect(nutrition.pinError, isNull, reason: 'what was asked for saved');
+      });
+
+      test('the earlier succeeds and the later fails: vitamin D stays pinned', () async {
+        repository.writes[0].complete();
+        await first;
+        fail(1);
+        await second;
+
+        expect(nutrition.summary?.pinnedNutrients, ['vitaminD']);
+        expect(nutrition.pinError, isNotNull);
+      });
+
+      test('the later fails, then the earlier succeeds: vitamin D stays pinned', () async {
+        fail(1);
+        await second;
+        repository.writes[0].complete();
+        await first;
+
+        expect(nutrition.summary?.pinnedNutrients, ['vitaminD']);
+        expect(nutrition.pinError, isNotNull);
+      });
     });
   });
 }

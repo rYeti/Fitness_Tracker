@@ -3,8 +3,6 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:provider/provider.dart';
 
-import 'package:ForgeForm/feature/chat/data/chat_signalr_client.dart'
-    show ChatConnectionStatus;
 import 'package:ForgeForm/feature/trainer_console/domain/models/client_data_change.dart';
 
 /// Something the console should read again.
@@ -23,7 +21,8 @@ class ClientRefresh extends ConsoleRefresh {
   const ClientRefresh(this.clientId, this.areas);
 
   /// Every pane, whatever client it shows: the tab came back into focus, or
-  /// the socket came back, and either may have missed an event.
+  /// the socket is back in the trainer's group, and either may have missed an
+  /// event.
   ClientRefresh.everything() : this(null, ClientDataArea.values.toSet());
 
   /// Null for every client.
@@ -59,19 +58,26 @@ class ClientRefresh extends ConsoleRefresh {
 /// - the roster and the Dashboard's figures read again [rosterDelay] after the
 ///   last event for *any* client, and at most [rosterMaxWait] after the first;
 /// - when the tab or window comes back into focus ([focusRegained]) or the
-///   socket comes back after a drop, everything shown reads again. Events are
-///   sent only to connections on the instance that made the change, so one can
-///   be missed; this is what makes a missed one cost freshness and not
-///   correctness. Either refetches at most once per [fallbackCooldown], and
-///   once more when it ends if either was asked for meanwhile.
+///   socket is back in the trainer's group after a gap ([rejoined]),
+///   everything shown reads again. Events are sent only to connections on the
+///   instance that made the change, so one can be missed; this is what makes a
+///   missed one cost freshness and not correctness. Either refetches at most
+///   once per [fallbackCooldown], and once more when it ends if either was
+///   asked for meanwhile.
 ///
 /// It only says *when*. What a refetch keeps on screen meanwhile is each
 /// provider's business, and a pane nobody can see waits until it is shown
 /// ([LiveRefreshPane]).
 class ConsoleLiveUpdates {
+  /// [rejoined] fires each time the console's socket is back in the
+  /// trainer's group after a gap in which events may have gone to nobody —
+  /// `SignalRHubChatClient.trainerGroupRejoined`. It is the join, not the
+  /// connection coming back, that the refetch waits for: a read made before
+  /// the join could miss a change committed between the read and the join,
+  /// which no event would then bring.
   ConsoleLiveUpdates({
     Stream<ClientDataChange> changes = const Stream.empty(),
-    Stream<void> reconnected = const Stream.empty(),
+    Stream<void> rejoined = const Stream.empty(),
     this.paneDelay = const Duration(seconds: 1),
     this.paneMaxWait = const Duration(seconds: 5),
     this.rosterDelay = const Duration(seconds: 3),
@@ -86,7 +92,7 @@ class ConsoleLiveUpdates {
     );
     _subscriptions = [
       changes.listen(_onChange),
-      reconnected.listen((_) => _refetchEverything()),
+      rejoined.listen((_) => _refetchEverything()),
     ];
   }
 
@@ -110,29 +116,10 @@ class ConsoleLiveUpdates {
   Timer? _cooldown;
   bool _askedInCooldown = false;
 
-  /// Turns a connection's status into the moments it came back.
-  ///
-  /// Counts a fresh start after a close as well as SignalR's own automatic
-  /// reconnect — both follow a gap in which events were sent to nobody — but
-  /// not the first connect, which lands while the panes are making their first
-  /// reads anyway.
-  static Stream<void> reconnectsOf(Stream<ChatConnectionStatus> status) {
-    ChatConnectionStatus? last;
-    return status
-        .where((s) {
-          final cameBack = s == ChatConnectionStatus.connected &&
-              last != null &&
-              last != ChatConnectionStatus.connected;
-          last = s;
-          return cameBack;
-        })
-        .map((_) {});
-  }
-
   /// The tab or window came back into focus.
   ///
   /// On web and desktop that is every alt-tab and every click back into the
-  /// window, so it shares the reconnect path's cooldown: a trainer switching
+  /// window, so it shares the rejoin path's cooldown: a trainer switching
   /// apps many times an hour would otherwise pay for the roster and KPI
   /// aggregates every time.
   void focusRegained() => _refetchEverything();

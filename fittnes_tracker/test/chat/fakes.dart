@@ -3,6 +3,14 @@ import 'dart:typed_data';
 
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
+import 'package:signalr_hub/signalr_client.dart'
+    show
+        AccessTokenFactory,
+        ClosedCallback,
+        HubConnection,
+        MethodInvocationFunc,
+        ReconnectedCallback,
+        ReconnectingCallback;
 
 import 'package:ForgeForm/core/app_database.dart';
 import 'package:ForgeForm/core/providers/enums.dart';
@@ -701,5 +709,116 @@ class FakeAttachmentStore implements AttachmentStore {
   @override
   Future<void> clearAll() async {
     _bytes.clear();
+  }
+}
+
+/// Stands in for one `HubConnection` under `SignalRHubChatClient`: a test can
+/// say "SignalR reconnected" or "SignalR gave up" in one line, and hold or
+/// fail a hub call.
+///
+/// Below [FakeChatSignalRClient], which replaces the whole transport: this
+/// one keeps the real transport and replaces only the socket, for tests of
+/// what the transport itself does on a connect — which groups it joins, and
+/// when it says so.
+class FakeHubConnection implements HubConnection {
+  FakeHubConnection(this._server, {this.startError});
+
+  final FakeHubServer _server;
+  final Object? startError;
+
+  /// Every hub call, in order, with its arguments: `JoinTrainerGroup`,
+  /// `JoinClientGroup(client-1)`.
+  final invoked = <String>[];
+  bool stopped = false;
+
+  final _closed = <ClosedCallback>[];
+  final _reconnecting = <ReconnectingCallback>[];
+  final _reconnected = <ReconnectedCallback>[];
+
+  @override
+  Future<void> start() async {
+    if (startError != null) throw startError!;
+  }
+
+  @override
+  Future<void> stop() async {
+    stopped = true;
+    for (final callback in _closed) {
+      callback();
+    }
+  }
+
+  @override
+  Future<Object?> invoke(String methodName, {List<Object?>? args}) async {
+    invoked.add(
+      args == null || args.isEmpty ? methodName : '$methodName(${args.join(', ')})',
+    );
+    await _server.hold[methodName]?.future;
+    final failures = _server.failNext[methodName] ?? 0;
+    if (failures > 0) {
+      _server.failNext[methodName] = failures - 1;
+      throw Exception('$methodName failed on the server');
+    }
+    return null;
+  }
+
+  @override
+  void on(String methodName, MethodInvocationFunc newMethod) {}
+
+  @override
+  void onclose(ClosedCallback callback) => _closed.add(callback);
+
+  @override
+  void onreconnecting(ReconnectingCallback callback) =>
+      _reconnecting.add(callback);
+
+  @override
+  void onreconnected(ReconnectedCallback callback) =>
+      _reconnected.add(callback);
+
+  /// SignalR's own reconnect, which gives the connection a new id.
+  void reconnect() {
+    for (final callback in _reconnecting) {
+      callback();
+    }
+    for (final callback in _reconnected) {
+      callback(connectionId: 'a-new-id');
+    }
+  }
+
+  /// SignalR's automatic reconnect ran out of attempts and closed.
+  void giveUp() {
+    for (final callback in _closed) {
+      callback(error: Exception('reconnect gave up'));
+    }
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+/// Builds the [FakeHubConnection]s a `SignalRHubChatClient` asks for, and
+/// fails or holds what a test tells it to.
+class FakeHubServer {
+  final hubs = <FakeHubConnection>[];
+
+  /// Fails the next this many starts.
+  int failNextStarts = 0;
+
+  /// Fails the next this many calls of a hub method, on any connection.
+  final failNext = <String, int>{};
+
+  /// Holds every call of a hub method until its completer completes.
+  final hold = <String, Completer<void>>{};
+
+  HubConnection build(String url, AccessTokenFactory accessToken) {
+    final fail = failNextStarts > 0;
+    if (fail) failNextStarts--;
+    final hub = FakeHubConnection(
+      this,
+      startError: fail ? Exception('no route') : null,
+    );
+    hubs.add(hub);
+    return hub;
   }
 }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:logger/logger.dart';
 import 'package:ForgeForm/feature/trainer_console/data/trainer_console_repository.dart';
@@ -16,7 +18,15 @@ class NutritionProvider extends ChangeNotifier {
   DateTime _selectedDate = DateTime.now();
   ConsoleError? _error;
   String? _loadedClientId;
-  final _reads = PaneReads();
+
+  /// Every read of the summary, and every pin write. A refresh a pin write
+  /// overlapped is read again once no write is in flight.
+  late final _reads = PaneReads(
+    onRefreshOwed: () {
+      final clientId = _loadedClientId;
+      if (clientId != null) unawaited(load(clientId, keepShown: true));
+    },
+  );
 
   ClientNutritionSummary? get summary => _summary;
   DateTime get selectedDate => _selectedDate;
@@ -40,26 +50,31 @@ class NutritionProvider extends ChangeNotifier {
     return selected.isBefore(DateTime(today.year, today.month, today.day));
   }
 
-  /// The pin set the latest pin write sent, and whose it is: optimistic
-  /// while the write is in flight, what the server holds once it succeeds,
-  /// and put back to the set before it if it fails.
-  ///
-  /// Pins are the trainer's per client, not per day, so every day's summary
-  /// carries them — and a read that overlapped a write can't tell whether its
-  /// pins are from before the write or after. This is laid over what such a
-  /// read returns, so the write's own outcome is what settles the pins.
+  /// The pin set the latest toggle sent, and whose it is. Pins are the
+  /// trainer's per client, not per day, and each write sends the whole set,
+  /// so while writes are in flight this is what the server will hold if the
+  /// latest succeeds — and what a load they overlapped shows.
   ///
   /// It used to be read off the summary on screen instead. A day switch
   /// clears the summary before it reads, so the one read that most needed
   /// the guard — pin, then page to another day at once — found nothing to
   /// keep, took the old pins from a GET served before the PUT committed, and
   /// showed the pin as lost although it had saved.
-  ({String clientId, List<String> keys})? _pinsWritten;
+  ({String clientId, List<String> keys})? _pinsSent;
 
-  /// Bumped when a pin write starts and when it ends, with [_pinWrites]
-  /// counting those in flight: a read overlapped a write if either moved.
-  int _pinEpoch = 0;
-  int _pinWrites = 0;
+  /// Whether the write [_pinsSent] made has failed. Its outcome is the one
+  /// that settles the pins, but only once no write is in flight any more.
+  bool _latestPinWriteFailed = false;
+
+  /// The last pin set the server confirmed, per client: the last write that
+  /// succeeded, or what a read that no write overlapped returned. What the
+  /// pins go back to when the latest write fails.
+  ///
+  /// Not the set on screen when that write was sent. With two toggles in
+  /// flight, the second one's "before" is the first one's optimistic set,
+  /// which the server holds only if the first succeeded. Restoring it after
+  /// both failed showed a pin the server never saved, in either order.
+  final Map<String, List<String>> _pinsConfirmed = {};
 
   /// Loads [clientId]'s summary for the selected day.
   ///
@@ -75,8 +90,6 @@ class NutritionProvider extends ChangeNotifier {
       shown: _loadedClientId == clientId,
     );
     final requestedDate = _selectedDate;
-    final pinEpoch = _pinEpoch;
-    final pinWritesAtStart = _pinWrites;
     if (read.isLoad) {
       _error = null;
       // Drop the old client's numbers immediately — showing one client's
@@ -94,11 +107,7 @@ class NutritionProvider extends ChangeNotifier {
       // Ignore a slow response the trainer has already navigated away from,
       // or one a later read has overtaken.
       if (!read.settle()) return;
-      final pins = _pinsWritten;
-      final pinsOverlapped = pinEpoch != _pinEpoch || pinWritesAtStart > 0;
-      _summary = pinsOverlapped && pins != null && pins.clientId == clientId
-          ? _withPins(summary, pins.keys)
-          : summary;
+      _summary = _withPinsKept(clientId, summary, read);
       _error = null;
     } catch (e, stackTrace) {
       // The trainer only ever sees "could not load"; without this the cause
@@ -131,56 +140,87 @@ class NutritionProvider extends ChangeNotifier {
   ConsoleError? _pinError;
   ConsoleError? get pinError => _pinError;
 
+  /// [summary] as read for [clientId], with the pins a pin write it
+  /// overlapped has settled — or is settling — in place of its own.
+  ///
+  /// A read a pin write overlapped can't tell whether its pins are from
+  /// before the write or after. A refresh like that is dropped and read again
+  /// ([PaneReads.write]); this is for a load, such as a day switch, which is
+  /// applied. While a write is in flight it shows what the latest toggle
+  /// sent, and once none is, what the server confirmed.
+  ClientNutritionSummary _withPinsKept(
+    String clientId,
+    ClientNutritionSummary summary,
+    PaneRead read,
+  ) {
+    final sent = _pinsSent;
+    if (read.overlappedWrite && sent != null && sent.clientId == clientId) {
+      final pins = _reads.isWriting ? sent.keys : _pinsConfirmed[clientId];
+      if (pins != null) return _withPins(summary, pins);
+    }
+    _pinsConfirmed[clientId] = summary.pinnedNutrients;
+    return summary;
+  }
+
   /// Adds or removes [key] from the pinned set, optimistically — the bar
-  /// list updates immediately rather than waiting on a round trip. Reverts
-  /// and surfaces [pinError] if the write fails; never leaves the UI
-  /// claiming a selection the server never saved.
+  /// list updates immediately rather than waiting on a round trip. If the
+  /// latest toggle's write fails, puts back the last set the server confirmed
+  /// and surfaces [pinError]; never leaves the UI claiming a selection the
+  /// server never saved.
+  ///
+  /// Each write sends the whole set, so with several in flight it is the
+  /// latest toggle's outcome that settles the pins, once the last of them
+  /// has settled. An earlier write that fails meanwhile changes nothing: the
+  /// later one sent its pins again.
   Future<void> togglePin(String clientId, String key) async {
     final current = _summary;
     if (current == null) return;
 
-    final before = current.pinnedNutrients;
-    final after = before.contains(key)
-        ? before.where((k) => k != key).toList()
-        : [...before, key];
+    final shown = current.pinnedNutrients;
+    final after = shown.contains(key)
+        ? shown.where((k) => k != key).toList()
+        : [...shown, key];
 
     _pinError = null;
     _summary = _withPins(current, after);
-    final written = (clientId: clientId, keys: after);
-    _pinsWritten = written;
-    _pinEpoch++;
-    _pinWrites++;
+    final sent = (clientId: clientId, keys: after);
+    _pinsSent = sent;
+    _latestPinWriteFailed = false;
     notifyListeners();
 
-    try {
-      await _repository.setClientNutrientPins(clientId, after);
-    } catch (e, stackTrace) {
-      _logger.e(
-        'Failed to save nutrient pins for client $clientId',
-        error: e,
-        stackTrace: stackTrace,
-      );
-      // A later toggle has sent the whole set again since, and its own
-      // outcome settles the pins; putting this one's "before" back would
-      // undo it on screen.
-      if (identical(_pinsWritten, written)) {
-        _pinsWritten = (clientId: clientId, keys: before);
+    final saved = await _reads.write(() async {
+      try {
+        await _repository.setClientNutrientPins(clientId, after);
+        return true;
+      } catch (e, stackTrace) {
+        _logger.e(
+          'Failed to save nutrient pins for client $clientId',
+          error: e,
+          stackTrace: stackTrace,
+        );
+        return false;
       }
-      // Only on screen if this is still the client being shown — a slow
-      // failure for a client the trainer has since left must not rewrite
-      // what they're looking at now. Any day of theirs: pins aren't per day.
-      if (_loadedClientId != clientId) return;
-      final shown = _summary;
-      final pins = _pinsWritten;
-      if (shown != null && pins != null && pins.clientId == clientId) {
-        _summary = _withPins(shown, pins.keys);
-      }
-      _pinError = ConsoleError.saveNutrientPins;
-      notifyListeners();
-    } finally {
-      _pinEpoch++;
-      _pinWrites--;
+    });
+    if (saved) {
+      _pinsConfirmed[clientId] = after;
+    } else if (identical(_pinsSent, sent)) {
+      _latestPinWriteFailed = true;
     }
+
+    // The last write in flight decides, whichever it is.
+    if (_reads.isWriting || !_latestPinWriteFailed) return;
+    _latestPinWriteFailed = false;
+    final latest = _pinsSent!;
+    // Only on screen if this is still the client being shown — a slow
+    // failure for a client the trainer has since left must not rewrite what
+    // they're looking at now. Any day of theirs: pins aren't per day.
+    if (_loadedClientId != latest.clientId) return;
+    final shownNow = _summary;
+    if (shownNow != null) {
+      _summary = _withPins(shownNow, _pinsConfirmed[latest.clientId] ?? const []);
+    }
+    _pinError = ConsoleError.saveNutrientPins;
+    notifyListeners();
   }
 
   static ClientNutritionSummary _withPins(
